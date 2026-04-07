@@ -1,0 +1,889 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlatformRole {
+  SUPER_ADMIN
+  SUPPORT
+  USER
+}
+
+enum TenantRole {
+  OWNER
+  MANAGER
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum TenantStatus {
+  ACTIVE
+  TRIAL
+  SUSPENDED
+}
+
+enum BusinessPlan {
+  START
+  PREMIUM
+}
+
+enum BillingStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum OnboardingProduct {
+  BUSINESS
+  LABS
+  BOTH
+}
+
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum StorefrontPageStatus {
+  DRAFT
+  ACTIVE
+  TEMPORARY
+  EXPIRED
+  PENDING_REMOVAL
+  ARCHIVED
+}
+
+enum StorefrontTemplateKey {
+  STARTER
+  SHOWCASE
+  CATALOG
+}
+
+enum StorefrontPageVersionKind {
+  AUTOSAVE
+  MANUAL
+  PUBLISHED
+}
+
+enum DomainConnectionStatus {
+  NOT_CONFIGURED
+  PENDING_PAYMENT
+  PENDING_VERIFICATION
+  CONNECTED
+  FAILED
+}
+
+enum CustomPageRequestStatus {
+  SUBMITTED
+  REVIEWING
+  QUOTED
+  IN_PROGRESS
+  DELIVERED
+}
+
+enum CustomPageRequestType {
+  TEMPLATE_CUSTOMIZATION
+  FULL_CUSTOMIZATION
+}
+
+enum CustomQuoteStatus {
+  DRAFT
+  PENDING_CLIENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum CustomQuoteLineType {
+  BASE_TEMPLATE
+  FEATURE
+  DESIGN
+  INTEGRATION
+  SERVICE
+}
+
+enum CustomQuoteRevisionType {
+  CREATED
+  UPDATED
+  SENT_TO_CLIENT
+  ACCEPTED_BY_CLIENT
+  REJECTED_BY_CLIENT
+  MARKED_EXPIRED
+}
+
+enum IntegrationCredentialStatus {
+  ACTIVE
+  ROTATED
+  REVOKED
+}
+
+enum IntegrationWebhookStatus {
+  ACTIVE
+  PAUSED
+  FAILED
+}
+
+enum AiWorkspacePlan {
+  START
+  PREMIUM
+}
+
+enum AiTrainingJobStatus {
+  DRAFT
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum AiKnowledgeItemType {
+  FILE
+  FAQ
+  URL
+}
+
+enum AiKnowledgeItemStatus {
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+  ARCHIVED
+}
+
+enum AiAssistantTone {
+  WARM
+  PROFESSIONAL
+  CONCISE
+  PREMIUM
+  FRIENDLY
+}
+
+enum AiChannelType {
+  WHATSAPP
+  INSTAGRAM
+  WEBCHAT
+}
+
+enum AiChannelStatus {
+  DISCONNECTED
+  PENDING
+  CONNECTED
+  ERROR
+}
+
+enum AiConversationStatus {
+  OPEN
+  ESCALATED
+  CLOSED
+}
+
+enum AiEscalationDestination {
+  EMAIL
+  WHATSAPP
+  HUMAN_QUEUE
+  CRM
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SupportTicketStatus {
+  QUEUED
+  ASSIGNED
+  WAITING_CUSTOMER
+  WAITING_INTERNAL
+  RESOLVED
+  RETURNED_TO_AI
+  CLOSED
+}
+
+enum SupportTicketSource {
+  AI_ESCALATION
+  MANUAL
+}
+
+enum SupportAssignmentMode {
+  MANUAL
+  AUTOMATIC
+}
+
+enum SupportTicketEventType {
+  CREATED
+  ESCALATED_FROM_AI
+  ASSIGNED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  NOTE_ADDED
+  AGENT_REPLIED
+  CUSTOMER_UPDATED
+  RETURNED_TO_AI
+  RESOLVED
+  CLOSED
+}
+
+enum SupportNotificationType {
+  NEW_TICKET
+  TICKET_ASSIGNED
+  WAITING_TOO_LONG
+  CUSTOMER_REPLY
+  STATUS_UPDATED
+}
+
+model User {
+  id            String       @id @default(cuid())
+  name          String
+  email         String       @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  platformRole  PlatformRole @default(USER)
+  locale        String       @default("es")
+  passwordChangedAt DateTime?
+  lastLoginAt      DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  memberships   Membership[]
+  auditLogs     AuditLog[]   @relation("AuditActor")
+  authTokens    AuthToken[]
+  createdSupportTickets SupportTicket[] @relation("SupportTicketCreatedBy")
+  assignedSupportTickets SupportTicket[] @relation("SupportTicketAssignedTo")
+  supportNotes  SupportTicketNote[] @relation("SupportNoteAuthor")
+  supportTemplates SupportReplyTemplate[] @relation("SupportTemplateAuthor")
+  supportNotifications SupportNotification[] @relation("SupportNotificationRecipient")
+  supportTicketEvents SupportTicketEvent[] @relation("SupportTicketActor")
+  createdCustomQuotes CustomQuote[] @relation("CustomQuoteCreatedBy")
+  updatedCustomQuotes CustomQuote[] @relation("CustomQuoteUpdatedBy")
+  customQuoteRevisions CustomQuoteRevision[] @relation("CustomQuoteRevisionActor")
+}
+
+model Tenant {
+  id                String            @id @default(cuid())
+  name              String
+  slug              String            @unique
+  accountName       String
+  billingEmail      String?
+  industry          String
+  onboardingProduct OnboardingProduct @default(BUSINESS)
+  status            TenantStatus      @default(TRIAL)
+  locale            String            @default("es")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  memberships       Membership[]
+  projects          Project[]
+  featureFlags      FeatureFlag[]
+  auditLogs         AuditLog[]
+  subscription      TenantSubscription?
+  storefrontPages   StorefrontPage[]
+  customPageRequests CustomPageRequest[]
+  domainConnections DomainConnection[]
+  integrationApiCredentials IntegrationApiCredential[]
+  integrationUsageLogs IntegrationUsageLog[]
+  integrationWebhooks IntegrationWebhookEndpoint[]
+  aiWorkspace       TenantAiWorkspace?
+  aiKnowledgeItems  AiKnowledgeItem[]
+  aiTrainingJobs    AiTrainingJob[]
+  aiChannels        AiChannelConnection[]
+  aiConversations   AiConversation[]
+  supportTickets    SupportTicket[]
+  supportTemplates  SupportReplyTemplate[]
+  supportNotifications SupportNotification[]
+  customQuotes      CustomQuote[]
+}
+
+model Membership {
+  id         String           @id @default(cuid())
+  userId     String
+  tenantId   String
+  role       TenantRole
+  status     MembershipStatus @default(ACTIVE)
+  lastSeenAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, role])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  slug        String
+  description String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, createdAt])
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  key         String
+  description String?
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  actorUser   User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model RateLimitBucket {
+  id          String   @id @default(cuid())
+  key         String
+  scope       String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@unique([key, scope, windowStart])
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([sessionToken])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model AuthToken {
+  id         String        @id @default(cuid())
+  userId     String
+  type       AuthTokenType
+  tokenHash  String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime      @default(now())
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([type, tokenHash])
+  @@index([userId, type, expiresAt])
+}
+
+model TenantSubscription {
+  id                   String        @id @default(cuid())
+  tenantId             String        @unique
+  plan                 BusinessPlan  @default(START)
+  billingStatus        BillingStatus @default(TRIAL)
+  premiumEnabled       Boolean       @default(false)
+  customDomainEnabled  Boolean       @default(false)
+  temporaryPagesEnabled Boolean      @default(true)
+  currentPeriodEndsAt  DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model StorefrontPage {
+  id               String               @id @default(cuid())
+  tenantId         String
+  createdByUserId  String?
+  name             String
+  slug             String
+  description      String?
+  templateKey      StorefrontTemplateKey @default(STARTER)
+  status           StorefrontPageStatus @default(DRAFT)
+  isTemporary      Boolean              @default(false)
+  editorSchemaVersion Int               @default(1)
+  builderDocument  Json?
+  builderLastSavedAt DateTime?
+  expiresAt        DateTime?
+  graceEndsAt      DateTime?
+  publishedAt      DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  domainConnections DomainConnection[]
+  versions         StorefrontPageVersion[]
+  customPageRequests CustomPageRequest[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, status])
+}
+
+model StorefrontPageVersion {
+  id               String                   @id @default(cuid())
+  storefrontPageId String
+  createdByUserId  String?
+  versionNumber    Int
+  kind             StorefrontPageVersionKind @default(AUTOSAVE)
+  changeSummary    String?
+  snapshot         Json
+  createdAt        DateTime                 @default(now())
+  storefrontPage   StorefrontPage           @relation(fields: [storefrontPageId], references: [id], onDelete: Cascade)
+
+  @@unique([storefrontPageId, versionNumber])
+  @@index([storefrontPageId, createdAt])
+}
+
+model DomainConnection {
+  id             String                 @id @default(cuid())
+  tenantId       String
+  storefrontPageId String?
+  hostname       String
+  status         DomainConnectionStatus @default(NOT_CONFIGURED)
+  requiresPaidPlan Boolean              @default(true)
+  verifiedAt     DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storefrontPage StorefrontPage?        @relation(fields: [storefrontPageId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, hostname])
+}
+
+model CustomPageRequest {
+  id                  String                  @id @default(cuid())
+  tenantId            String
+  storefrontPageId    String?
+  requesterUserId     String?
+  requestType         CustomPageRequestType   @default(TEMPLATE_CUSTOMIZATION)
+  businessObjective   String
+  pageScope           String
+  businessDescription String?
+  desiredColors       String?
+  brandStyle          String?
+  desiredFeatures     String?
+  visualReferences    String?
+  observations        String?
+  designReferences    String?
+  requiredIntegrations String?
+  notes               String?
+  premiumRequested    Boolean                 @default(true)
+  status              CustomPageRequestStatus @default(SUBMITTED)
+  quotedPriceLabel    String?
+  reviewNotes         String?
+  reviewedAt          DateTime?
+  reviewedByUserId    String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storefrontPage      StorefrontPage?         @relation(fields: [storefrontPageId], references: [id], onDelete: SetNull)
+  quote               CustomQuote?
+
+  @@index([tenantId, status])
+}
+
+model CustomQuote {
+  id                   String                  @id @default(cuid())
+  tenantId             String
+  customPageRequestId  String                  @unique
+  createdByUserId      String?
+  updatedByUserId      String?
+  quoteNumber          String                  @unique
+  templateKey          String
+  status               CustomQuoteStatus       @default(DRAFT)
+  currency             String                  @default("USD")
+  baseAmountCents      Int
+  extrasAmountCents    Int                     @default(0)
+  totalAmountCents     Int
+  estimatedDeliveryDays Int
+  validUntil           DateTime?
+  clientSummary        String
+  internalSummary      String?
+  observations         String?
+  clientResponseMessage String?
+  sentAt               DateTime?
+  clientRespondedAt    DateTime?
+  acceptedAt           DateTime?
+  rejectedAt           DateTime?
+  expiredAt            DateTime?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customPageRequest    CustomPageRequest       @relation(fields: [customPageRequestId], references: [id], onDelete: Cascade)
+  createdByUser        User?                   @relation("CustomQuoteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser        User?                   @relation("CustomQuoteUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  lineItems            CustomQuoteLineItem[]
+  revisions            CustomQuoteRevision[]
+
+  @@index([tenantId, status, updatedAt])
+}
+
+model CustomQuoteLineItem {
+  id               String              @id @default(cuid())
+  quoteId          String
+  lineType         CustomQuoteLineType
+  label            String
+  description      String?
+  quantity         Int                 @default(1)
+  unitAmountCents  Int
+  totalAmountCents Int
+  sortOrder        Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  quote            CustomQuote         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId, sortOrder])
+}
+
+model CustomQuoteRevision {
+  id            String                   @id @default(cuid())
+  quoteId       String
+  changedByUserId String?
+  revisionType  CustomQuoteRevisionType
+  summary       String
+  snapshot      Json
+  createdAt     DateTime                 @default(now())
+  quote         CustomQuote              @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  changedByUser User?                    @relation("CustomQuoteRevisionActor", fields: [changedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId, createdAt])
+}
+
+model IntegrationApiCredential {
+  id                String                      @id @default(cuid())
+  tenantId          String
+  createdByUserId   String?
+  name              String
+  keyId             String                      @unique
+  keyPrefix         String
+  tokenHash         String
+  scopes            Json
+  requestsPerMinute Int                         @default(120)
+  lastUsedAt        DateTime?
+  rotatedAt         DateTime?
+  revokedAt         DateTime?
+  expiresAt         DateTime?
+  status            IntegrationCredentialStatus @default(ACTIVE)
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  tenant            Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usageLogs         IntegrationUsageLog[]
+
+  @@index([tenantId, status])
+}
+
+model IntegrationUsageLog {
+  id                String   @id @default(cuid())
+  tenantId          String
+  credentialId      String?
+  requestId         String
+  route             String
+  method            String
+  scope             String
+  statusCode        Int
+  latencyMs         Int
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime @default(now())
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  credential        IntegrationApiCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([credentialId, createdAt])
+}
+
+model IntegrationWebhookEndpoint {
+  id                String                   @id @default(cuid())
+  tenantId          String
+  createdByUserId   String?
+  name              String
+  url               String
+  secretHash        String
+  eventTypes        Json
+  status            IntegrationWebhookStatus @default(ACTIVE)
+  lastTriggeredAt   DateTime?
+  lastStatusCode    Int?
+  lastFailureAt     DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  tenant            Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+}
+
+model TenantAiWorkspace {
+  id                      String                 @id @default(cuid())
+  tenantId                String                 @unique
+  plan                    AiWorkspacePlan        @default(START)
+  assistantDisplayName    String                 @default("Asistente Vase")
+  tone                    AiAssistantTone        @default(PROFESSIONAL)
+  trainingStatus          AiTrainingJobStatus    @default(DRAFT)
+  timezone                String                 @default("America/Argentina/Buenos_Aires")
+  businessHours           Json?
+  humanEscalationEnabled  Boolean                @default(false)
+  escalationDestination   AiEscalationDestination @default(EMAIL)
+  escalationContact       String?
+  scrapingEnabled         Boolean                @default(true)
+  monthlyConversationLimit Int                   @default(300)
+  monthlyKnowledgeItemLimit Int                  @default(25)
+  maxChannels             Int                    @default(1)
+  maxFiles                Int                    @default(8)
+  maxUrls                 Int                    @default(5)
+  setupCompletedAt        DateTime?
+  lastTrainedAt           DateTime?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  knowledgeItems          AiKnowledgeItem[]
+  trainingJobs            AiTrainingJob[]
+  channels                AiChannelConnection[]
+  conversations           AiConversation[]
+  supportTickets          SupportTicket[]
+}
+
+model AiKnowledgeItem {
+  id               String                @id @default(cuid())
+  tenantId         String
+  workspaceId      String
+  createdByUserId  String?
+  type             AiKnowledgeItemType
+  status           AiKnowledgeItemStatus @default(QUEUED)
+  title            String
+  fileName         String?
+  mimeType         String?
+  fileSizeBytes    Int?
+  storageKey       String?
+  sourceUrl        String?
+  faqQuestion      String?
+  faqAnswer        String?
+  allowedPaths     Json?
+  contentSnippet   String?
+  processingNotes  String?
+  failureReason    String?
+  lastProcessedAt  DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace        TenantAiWorkspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, type, status])
+}
+
+model AiTrainingJob {
+  id               String              @id @default(cuid())
+  tenantId         String
+  workspaceId      String
+  startedByUserId  String?
+  status           AiTrainingJobStatus @default(QUEUED)
+  sourceCount      Int                 @default(0)
+  summary          String?
+  failureReason    String?
+  queuedAt         DateTime            @default(now())
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace        TenantAiWorkspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+}
+
+model AiChannelConnection {
+  id               String          @id @default(cuid())
+  tenantId         String
+  workspaceId      String
+  configuredByUserId String?
+  channelType      AiChannelType
+  status           AiChannelStatus @default(PENDING)
+  accountLabel     String
+  externalHandle   String?
+  webhookUrl       String?
+  notes            String?
+  connectedAt      DateTime?
+  lastSyncedAt     DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace        TenantAiWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, channelType, accountLabel])
+  @@index([tenantId, status])
+}
+
+model AiConversation {
+  id                    String               @id @default(cuid())
+  tenantId              String
+  workspaceId           String
+  channelType           AiChannelType
+  status                AiConversationStatus @default(OPEN)
+  customerName          String?
+  customerContact       String?
+  summary               String?
+  messageCount          Int                  @default(0)
+  escalatedToHuman      Boolean              @default(false)
+  escalationRequestedAt DateTime?
+  startedAt             DateTime             @default(now())
+  lastMessageAt         DateTime             @default(now())
+  closedAt              DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  tenant                Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace             TenantAiWorkspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  supportTicket         SupportTicket?
+
+  @@index([tenantId, status, lastMessageAt])
+}
+
+model SupportTicket {
+  id                    String                 @id @default(cuid())
+  tenantId              String
+  workspaceId           String?
+  conversationId        String?                @unique
+  createdByUserId       String?
+  assignedToUserId      String?
+  assignmentMode        SupportAssignmentMode  @default(MANUAL)
+  source                SupportTicketSource    @default(MANUAL)
+  priority              SupportTicketPriority  @default(NORMAL)
+  status                SupportTicketStatus    @default(QUEUED)
+  subject               String
+  customerName          String?
+  customerContact       String?
+  aiSummary             String?
+  resolutionSummary     String?
+  queueEnteredAt        DateTime               @default(now())
+  waitingSince          DateTime               @default(now())
+  estimatedWaitMinutes  Int                    @default(20)
+  firstAssignedAt       DateTime?
+  firstResponseAt       DateTime?
+  resolvedAt            DateTime?
+  returnedToAiAt        DateTime?
+  closedAt              DateTime?
+  lastCustomerMessageAt DateTime?
+  lastAgentMessageAt    DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workspace             TenantAiWorkspace?     @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  conversation          AiConversation?        @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  createdByUser         User?                  @relation("SupportTicketCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  assignedToUser        User?                  @relation("SupportTicketAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  events                SupportTicketEvent[]
+  notes                 SupportTicketNote[]
+  notifications         SupportNotification[]
+
+  @@index([tenantId, status, priority, queueEnteredAt])
+  @@index([assignedToUserId, status, updatedAt])
+}
+
+model SupportTicketEvent {
+  id            String                  @id @default(cuid())
+  ticketId      String
+  actorUserId   String?
+  eventType     SupportTicketEventType
+  message       String
+  metadata      Json?
+  createdAt     DateTime                @default(now())
+  ticket        SupportTicket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorUser     User?                   @relation("SupportTicketActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+}
+
+model SupportTicketNote {
+  id            String         @id @default(cuid())
+  ticketId      String
+  authorUserId  String
+  body          String
+  createdAt     DateTime       @default(now())
+  ticket        SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorUser    User           @relation("SupportNoteAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}
+
+model SupportReplyTemplate {
+  id            String    @id @default(cuid())
+  tenantId      String?
+  createdByUserId String?
+  name          String
+  category      String?
+  body          String
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  tenant        Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByUser User?     @relation("SupportTemplateAuthor", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, isActive, name])
+}
+
+model SupportNotification {
+  id              String                   @id @default(cuid())
+  ticketId        String
+  tenantId        String
+  recipientUserId String?
+  type            SupportNotificationType
+  title           String
+  message         String
+  readAt          DateTime?
+  createdAt       DateTime                 @default(now())
+  ticket          SupportTicket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipientUser   User?                    @relation("SupportNotificationRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([recipientUserId, readAt, createdAt])
+}

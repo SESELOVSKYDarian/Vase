@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.github
+npm-debug.log
+Dockerfile
+docker-compose*.yml
+docker-compose.yml
+.env
+.env.local
+.env.production
+coverage
+playwright-report
+test-results
+tsconfig.tsbuildinfo

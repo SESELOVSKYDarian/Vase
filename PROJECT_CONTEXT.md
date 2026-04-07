@@ -1,0 +1,689 @@
+# PROJECT_CONTEXT
+
+## 1. Descripcion del producto
+Vase es una plataforma SaaS multi-tenant orientada a organizaciones modernas que necesitan operar con seguridad, claridad y escalabilidad desde el inicio. El producto combina una experiencia premium y simple para usuarios no tecnicos con una base enterprise de alta mantenibilidad.
+
+## 2. Productos principales
+### Vase Business
+Producto orientado a operacion comercial, ecommerce, administracion de equipos, workspaces por tenant, automatizacion interna y visibilidad operativa.
+
+### VaseLabs
+Linea enfocada en experimentacion, nuevas capacidades, chatbot, IA aplicada a atencion y automatizacion, con releases controlados por tenant.
+
+## 3. Publico objetivo
+- Empresas y equipos con multiples usuarios y roles.
+- Organizaciones que requieren aislamiento por tenant.
+- Negocios que necesitan una UX clara para personal no tecnico.
+- Equipos que valoran seguridad, trazabilidad y crecimiento ordenado.
+
+## 4. Propuesta de valor
+- Base enterprise desde la primera iteracion.
+- Seguridad validada en backend y alineada a OWASP ASVS.
+- Multi-tenancy nativo.
+- Paneles separados por rol.
+- UX premium, minimalista, accesible y pensada para negocio.
+- Preparacion real para pagos, feature flags e i18n.
+- API para conectar sistemas de gestion y procesos existentes.
+
+## 5. Funcionalidades principales
+- Autenticacion centralizada con Auth.js.
+- Registro con onboarding multi-tenant.
+- Creacion automatica de tenant y cuenta de negocio durante el alta.
+- Multi-tenant con memberships y roles por tenant.
+- Paneles separados para `Platform Admin`, `Tenant Owner`, `Manager` y `Member`.
+- API versionada y documentada.
+- Validacion estricta con Zod en servidor.
+- Auditoria para acciones sensibles.
+- Rate limiting persistido en base de datos.
+- Sanitizacion de inputs.
+- Negociacion de locale para base i18n.
+- Preparacion para manejo seguro de archivos.
+- Sitio publico de producto/plataforma con rutas dedicadas.
+- Recuperacion de contrasena y verificacion de email.
+- Panel cliente de Vase Business para administrar ecommerce conectados.
+- Builder visual simplificado para editar paginas ecommerce por bloques.
+- Modulo de documentacion y gestion de API para integraciones con sistemas de gestion.
+- Panel cliente de VaseLabs para configurar y administrar IA/chatbot por tenant.
+- Modulo de soporte humano con tickets y cola operativa derivada desde IA.
+- Panel administrativo interno de Vase para gobierno completo de la plataforma.
+- Modulo interno de presupuestos para convertir pedidos de personalizacion en cotizaciones auditables.
+- Capa de hardening transversal con controles de ciberseguridad reforzados y threat model accionable.
+- Base operativa de producción con testing por capas, observabilidad, seeds, health checks y CI.
+- Design system transversal para marketing, cliente y admin con tokens semanticos y primitives reutilizables.
+- Identidad visual Vase redefinida en torno a carbon, jade, glassmorphism sobrio y jerarquia premium para negocio.
+- La home publica de Vase se redisenio con una direccion light editorial, inspirada en showcases SaaS premium, para transmitir claridad y accesibilidad desde el primer scroll.
+- La home principal evoluciono hacia una composicion tipo showcase con hero largo, mockups superpuestos, trust strip, bento features y bloques editoriales mas cercanos a la referencia visual provista.
+- La capa publica ahora adapta su chrome principal y la home segun locale `es` o `en`, resolviendo una primera experiencia bilingue orientada por idioma del navegador.
+- La estetica publica se suavizo hacia una superficie unica y mas continua, con muy pocos bordes, fondo compartido y una paleta clara basada en `#EFF3F4`, `#000202`, `#3B633D`, `#2F3030` y `#739374`.
+- La home publica ahora evita gradientes en CTAs y reduce aun mas las “cajas madre”, integrando hero, trust strip, pricing, integraciones y footer en un mismo lienzo visual.
+- El chrome publico se ajusto para que navbar, hero y footer queden visualmente transparentes sobre el fondo global, con una shell mas centrada y sticky real.
+- El navbar publico mobile volvio al patron anterior con `StaggeredMenu`, preservando la shell sticky del marketing y el comportamiento visual que ya estaba validado.
+- El navbar publico ahora usa `StaggeredMenu` tambien en desktop, unificando el patron de navegacion entre PC y mobile dentro del mismo chrome de marketing.
+- El navbar de marketing ahora mantiene el isotipo centrado sin el texto `Vase`, y al iniciar scroll se transforma en una capsula sticky con fondo glassmorphism y border radius para reforzar jerarquia sin cambiar de patron visual.
+- El navbar de marketing ahora se renderiza fijo (`position: fixed`) sobre el viewport para mantenerse visible durante todo el scroll y conservar el mismo eje visual del isotipo en toda la experiencia publica.
+- La geometria del navbar ya no cambia al scrollear: mantiene ancho y posiciones de items, y solo altera apariencia visual. El panel del `StaggeredMenu` se abre a ancho completo de viewport incluso con el header en estado glass.
+- El panel del `StaggeredMenu` de marketing ahora se renderiza en `document.body` mediante portal para evitar desplazamientos horizontales provocados por el contenedor glass del header y garantizar apertura real a ancho completo del viewport.
+- El `StaggeredMenu` de marketing ahora monta sus capas solo durante la apertura/cierre y oculta temporalmente el logo/acciones del header exterior mientras el panel esta abierto, evitando que el navbar se vea duplicado o parcialmente visible debajo del menu.
+- La fila superior del `StaggeredMenu` ahora comparte el mismo `max-width` y padding horizontal que el header cerrado, para mantener logo, trigger y acciones en la misma posicion visual entre ambos estados.
+- El panel del `StaggeredMenu` ahora replica tambien el offset vertical superior del header fijo, para que la barra interna del menu abierto quede alineada con la misma altura visual del navbar cerrado.
+- La visibilidad del navbar exterior ahora se sincroniza con la presencia real del overlay del `StaggeredMenu`, ocultando el trigger externo mientras el panel esta montado para eliminar la doble `X` y evitar que el header parezca desaparecer al cerrar.
+- La barra superior interna del `StaggeredMenu` ahora es sticky dentro del panel y el overlay usa scroll interno contenido, evitando que el navbar del menu desaparezca al desplazarse dentro del hamburguesa.
+- El bloque de redes del `StaggeredMenu` fue compactado y elevado levemente dentro del panel para reducir el largo visual del footer del menu hamburguesa.
+- La estructura del `StaggeredMenu` ahora separa la barra superior fija del area scrolleable del contenido, evitando que desaparezcan el icono de cierre, el logo o las acciones al desplazarse dentro del menu.
+- La navegacion publica ahora deja el navbar fijo real como referencia permanente y abre el `StaggeredMenu` debajo de ese header, evitando duplicar la barra superior dentro del overlay y manteniendo visible el chrome principal mientras el panel esta abierto.
+- Las redes del `StaggeredMenu` ahora viven mas cerca del final de la lista principal y ya no quedan tan pegadas al borde inferior del panel.
+- La animacion del `StaggeredMenu` ahora espera a que el overlay este montado antes de construir el timeline de GSAP, corrigiendo la entrada/salida del panel.
+- La altura del `StaggeredMenu` fue recortada para reducir el espacio blanco final y dejar una distancia mas corta entre el bloque de redes y el cierre visual del panel.
+- El `StaggeredMenu` ahora aumenta la separacion entre items principales, reduce el padding inferior del bloque de redes y conserva scroll interno dentro de un panel fijo para mejorar legibilidad y control visual.
+- La experiencia global ahora usa `smooth scrolling` desde CSS a nivel de documento, con respeto por `prefers-reduced-motion` para no degradar accesibilidad.
+- El panel abierto del `StaggeredMenu` conserva una fila superior tipo navbar con cerrar a la izquierda, isotipo centrado y acciones de autenticacion a la derecha, y suma redes sociales en la esquina inferior derecha.
+- El isotipo del header y el isotipo del `StaggeredMenu` abierto ahora comparten la misma alineacion horizontal central para evitar saltos visuales entre estado cerrado y abierto.
+- El footer publico fue reconstruido como un bloque editorial glass sobre el mismo fondo general, con CTA principal, columnas de producto/recursos/compania/legal y mejor jerarquia para navegacion global.
+- El footer publico ahora extiende su fondo glass a todo el ancho del viewport y elimino el contenedor con border radius externo, manteniendo solo el contenido interno centrado.
+- El footer publico fue compactado para reducir altura visual y ahora reemplaza los CTAs comerciales redundantes por un unico flujo de `Contactar`, abierto en modal centrado con blur, validacion HTML + server-side y envio backend hacia una direccion configurada por `.env`.
+- La pagina `Nosotros` (`/que-es-vase`) fue rediseñada como una experiencia editorial completa con hero manifesto, bloque de origen, filosofia en bento, equipo y CTA final, alineada al lenguaje visual premium del marketing.
+- La home publica reemplazo las cards estaticas de funcionalidades por cards con hover reveal: icono grande y etiqueta en reposo, detalle explicativo al interactuar, con una lectura mas limpia en el estado inicial.
+- La seccion de `Nosotros` fue removida de la home para dejar un recorrido mas enfocado en producto, y se redujo el aire entre funcionalidades y el bloque de `Vase Business / VaseLabs`.
+- La narrativa de la home ahora presenta `Integraciones` antes de `Confianza en cada click`, reforzando primero la propuesta operativa y luego la prueba social.
+- La CSP global ahora diferencia desarrollo y produccion: en `development` permite `unsafe-eval` y conexiones locales para no romper React/Next, mientras que produccion conserva la politica endurecida.
+- El contrato de copy de la home fue realineado con `UnifiedFeatures`, restaurando `businessCards`, `labsTitle` y `labsCards` para evitar roturas runtime al reutilizar bloques compartidos.
+- La home publica redujo aun mas la distancia entre `Funcionalidades`, el bloque unificado `Vase Business / VaseLabs` e `Integraciones`, para lograr un recorrido mas compacto y continuo en la narrativa principal.
+- El bloque unificado de `Vase Business / VaseLabs` fue redisenado con un layout editorial de dos paneles: columna de seleccion mas limpia, visual principal mas protagonista y transiciones entre tabs mas suaves para mejorar la lectura y el ritmo del scroll.
+- El bloque de `Vase Business / VaseLabs` ahora vive sobre una sola atmosfera degradada y continua, con paneles internos mucho mas cercanos entre si en color y contraste para evitar cortes bruscos respecto del fondo general de la home.
+- La columna textual del bloque `Vase Business / VaseLabs` elimino su fondo translúcido propio para apoyarse directamente sobre el degradado general de la seccion y reducir aun mas la sensacion de caja separada.
+- La seccion de `Vase Business / VaseLabs` ahora funciona como una franja verde a ancho completo del viewport, con el contenido encapsulado dentro de una capa translúcida centrada para ganar presencia y separacion narrativa frente al resto de la home.
+- La franja verde de `Vase Business / VaseLabs` ahora se fuerza como bloque `full-bleed` real (`w-screen` centrado desde el viewport), para garantizar que el color llegue siempre de borde a borde aunque cambie el layout padre.
+- La franja verde de `Vase Business / VaseLabs` ahora entra con overlap sobre la seccion anterior y retrasa la aparicion del contenido interno mediante reveal por scroll, para crear una entrada mas narrativa donde primero se percibe la banda de color y luego el detalle del producto.
+- El hero de la home elimino la badge superior y paso a usar `Moderniza tu negocio sin complejidad` como titular principal, simplificando la entrada visual y haciendo mas directa la propuesta de valor.
+- El mockup principal del hero se simplifico removiendo la microtarjeta de `Storefront Live` y la metrica `Ingresos del mes / 50K`, para dejar una composicion mas limpia y menos cargada justo debajo del titular.
+- El hero de la home elimino tambien la tarjeta flotante `Vase Assistant`, dejando una transicion mas directa desde el mockup principal hacia la banda de confianza `Elegido por mas de 104 negocios`.
+- La home publica elimino por completo el bloque visual grande que vivia debajo del hero, dejando una transicion directa desde el titular principal hacia la banda `Elegido por mas de 104 negocios`.
+- La banda `Elegido por mas de 104 negocios` ahora tiene mas altura visual, logos mas grandes y un fade lateral calibrado con `#EFF3F4`, ademas de iconos en verde oscuro para integrarse mejor con la paleta general de Vase.
+- Las cards de `Funcionalidades para la era moderna` ahora ocultan por completo el estado base en hover para que solo quede visible el texto explicativo y no se superpongan titulos como `Ecommerce Nativo`.
+- Las cards de `Funcionalidades para la era moderna` fueron refinadas con un hover mas premium: estado base editorial alineado a la izquierda y panel explicativo contenido que emerge desde abajo con mejor jerarquia visual y menos ruido.
+- Las cards de `Funcionalidades para la era moderna` adoptaron un patron mas estable: categoria, titulo e icono siempre visibles, con una banda inferior expandible que revela el texto explicativo sin ocultar la identidad principal de la card.
+- La banda inferior expandible de las cards de `Funcionalidades` aumento su padding y separacion interna para que el rótulo `Ver detalle` y el bloque explicativo respiren mejor visualmente.
+- El navbar de marketing gano mas aire superior para separarse mejor del borde del viewport, y el hero se recentro con una caja mas acotada para que la entrada visual quede mejor balanceada respecto del header fijo.
+- El hero de la home ahora ocupa el alto del viewport y centra su contenido principal tanto en vertical como en horizontal, reforzando una primera impresion mas limpia y cinematografica.
+- El navbar de marketing aumento levemente la separacion entre `Iniciar sesion` y `Registrarse` para mejorar legibilidad y aire visual en las acciones principales.
+- Los CTAs principales de la home ahora unifican el mensaje hacia `Registrate gratis`, simplificando la accion principal del recorrido publico.
+- El CTA secundario del hero fue reorientado a `Iniciar sesion`, dejando `Registrate gratis` como accion primaria y diferenciando mejor acceso vs alta.
+- El bloque de `Vase Business` aclara explicitamente el modelo gratis con opciones limitadas, la ventana de 30 dias para conectar un dominio real como opcion paga y la eliminacion de la pagina temporal si ese plazo vence sin activacion.
+- La pagina `Nosotros` (`/que-es-vase`) fue reescrita para acercarse mucho mas a una composicion editorial de referencia provista por el usuario, con manifesto hero, bloque `The Genesis`, filosofia en bento, retratos de equipo y CTA final.
+- La nueva version de `Nosotros` reutiliza el layout global de marketing de Vase, pero adopta una composicion visual mucho mas literal respecto a la referencia para reforzar storytelling institucional y presencia de marca.
+- Problema detectado: la pagina `Nosotros` depende por ahora de imagenes remotas externas incluidas en la referencia visual; a futuro conviene reemplazarlas por assets propios para mayor control de rendimiento, permanencia y marca.
+
+## 6. Arquitectura general
+### Enfoque
+Arquitectura modular con separacion clara entre UI, configuracion, seguridad, acceso a datos, logica server-side y documentacion.
+
+### Capas
+- `src/app`: rutas App Router, paginas, route handlers y experiencias por dominio.
+- `src/components`: componentes de UI, auth, layout y marketing reutilizables.
+- `src/config`: configuracion central de app, navegacion, contenido publico y OpenAPI.
+- `src/config/design-system.ts`: principios de marca, tipografia, spacing y reglas visuales compartidas.
+- `src/lib`: helpers de autenticacion, seguridad, tenancy, validacion e i18n.
+- `src/server`: queries y servicios server-side, incluyendo auditoria y onboarding.
+- `src/server`: queries y servicios server-side, incluyendo auditoria, onboarding, health y operaciones.
+- `prisma`: esquema PostgreSQL y modelos principales del dominio.
+
+### Modelo multi-tenant
+- `Tenant` como unidad de aislamiento.
+- `Membership` como vinculo usuario-tenant con rol y estado.
+- Roles de tenant: `OWNER`, `MANAGER`, `MEMBER`.
+- Roles de plataforma: `SUPER_ADMIN`, `SUPPORT`, `USER`.
+- Tenant enriquecido con `accountName`, `industry` y `onboardingProduct`.
+
+### Dominio Vase Business
+- `TenantSubscription` para plan, billing y restricciones.
+- `StorefrontPage` para paginas ecommerce del negocio.
+- `StorefrontPageVersion` para snapshots y versionado simple del builder.
+- `DomainConnection` para dominio propio y su estado.
+- `CustomPageRequest` para solicitudes de plantilla muy personalizada.
+- `CustomQuote` para presupuestos asociados a pedidos premium con estado comercial, vigencia y tiempos estimados.
+- `CustomQuoteLineItem` para desglosar base de plantilla y extras por funcionalidad, diseno, integracion e implementacion.
+- `CustomQuoteRevision` para historial de cambios, decisiones del cliente y trazabilidad comercial.
+- Documento JSON validado para contenido, theme y bloques del builder.
+- `IntegrationApiCredential` para API keys por tenant con scopes, rotacion y limites.
+- `IntegrationUsageLog` para trazabilidad de consumo, latencia y requestId.
+- `IntegrationWebhookEndpoint` para suscripciones salientes y secretos firmados.
+- Reglas de ciclo de vida para paginas temporales de 30 dias con 7 dias de gracia.
+
+### Dominio VaseLabs
+- `TenantAiWorkspace` para plan, tono, horarios, escalamiento, scraping y estado general del asistente.
+- `AiKnowledgeItem` para archivos, FAQs y URLs como fuentes del conocimiento.
+- `AiTrainingJob` para cola y estado del entrenamiento del asistente.
+- `AiChannelConnection` para canales externos conectados por tenant.
+- `AiConversation` para historial, estado y escalamiento de conversaciones.
+- Limites por plan para archivos, URLs, canales, conversaciones y tono premium.
+- Onboarding guiado y panel operativo separados para setup inicial y administracion continua.
+
+### Dominio Support
+- `SupportTicket` para representar derivaciones humanas desde IA o pedidos manuales del cliente.
+- `SupportTicketEvent` para historial completo y trazabilidad del ciclo de vida.
+- `SupportTicketNote` para notas internas del equipo de soporte.
+- `SupportReplyTemplate` para respuestas predefinidas reutilizables.
+- `SupportNotification` para alertas internas y visibilidad de cambios relevantes.
+- Reglas de asignacion manual y automatica basadas en carga activa por agente.
+- Flujo de retorno de humano a IA cuando el caso vuelve a automatizacion.
+
+### Dominio Platform Admin
+- Vista transversal de `User`, `Tenant`, `TenantSubscription`, `FeatureFlag`, `AuditLog` e integraciones.
+- Gobernanza de tenants para plan, billing, premium, temporales y suspension.
+- Provisionamiento interno de usuarios `support` y `super admin`.
+- Edicion administrativa de templates base para soporte/IA.
+- Filtros server-side para escalar la operacion a miles de cuentas.
+
+### Capa publica
+- Layout especifico para marketing en `src/app/(marketing)/layout.tsx`.
+- Navegacion persistente y rutas publicas dedicadas.
+- Contenido reutilizable centralizado en `src/config/public-site.ts`.
+- Design system documentado y compartido para garantizar coherencia entre marketing, panel cliente y admin.
+- Header y footer publicos localizados desde servidor, con deteccion inicial basada en cookie `vase-locale`.
+
+### Capa auth/onboarding
+- Server actions en `src/app/(auth)/actions.ts`.
+- Servicios de onboarding y tokens en `src/server/services/auth-onboarding.ts`.
+- Formularios cliente con `useActionState` para UX consistente.
+- Tokens propios para verificacion de email y reset de contrasena.
+
+## 7. Stack tecnologico
+- Next.js 16 con App Router
+- React 19
+- TypeScript estricto
+- Tailwind CSS 4
+- PostgreSQL
+- Prisma ORM
+- Auth.js (`next-auth` v5 beta + Prisma adapter)
+- Zod para validacion
+- Vitest para pruebas unitarias
+- ESLint para calidad de codigo
+
+## 8. Reglas de desarrollo
+- Nada sensible debe depender solo del frontend.
+- Toda autorizacion se valida en backend.
+- Modulos pequenos, explicitos y testeables.
+- Configuracion centralizada para evitar logica dispersa.
+- Codigo preparado para evolucion por dominios.
+- Documentar decisiones nuevas en este archivo al final de cada cambio relevante.
+
+## 9. Reglas de seguridad
+- Validacion de origen para requests mutativos como hardening CSRF.
+- Sanitizacion de texto para reducir riesgo XSS.
+- Rate limiting persistido con Prisma.
+- Encabezados de seguridad globales en `next.config.ts`.
+- Principio de minimo privilegio en paneles por rol.
+- Auditoria en creacion de recursos sensibles.
+- Utilidad base para validacion segura de archivos subidos.
+- Autorizacion multi-tenant siempre en servidor.
+- Tokens de auth hasheados en base de datos.
+- Recuperacion de contrasena con expiracion y consumo unico.
+- Verificacion de email para reforzar identidad y bloquear acciones sensibles.
+
+## 10. Estructura de modulos
+- `src/app/(marketing)`: web publica de producto, secciones comerciales y documentacion visible.
+- `src/app/(auth)`: signin, register, forgot-password, reset-password y verify-email.
+- `src/app/(platform)/app`: paneles protegidos por rol.
+- `src/app/api`: Auth.js, OpenAPI y endpoints versionados.
+- `src/app/api`: Auth.js, OpenAPI, endpoints versionados e integraciones REST multi-tenant.
+- `src/components/layout`: shell de paneles internos.
+- `src/components/marketing`: header, footer, CTA bands y piezas de contenido publico.
+- `src/components/auth`: formularios, feedback y acciones de autenticacion.
+- `src/components/business`: cards, badges, tablas y formularios del panel cliente.
+- `src/components/business`: cards, badges, tablas y formularios del panel cliente, incluyendo respuesta de presupuestos premium.
+- `src/components/labs`: formularios y componentes del panel VaseLabs.
+- `src/components/support`: formularios y piezas del modulo de tickets humanos.
+- `src/components/admin`: formularios de gobierno, operaciones internas y armado de presupuestos del control plane.
+- `src/components/ui`: componentes presentacionales base.
+- `src/components/ui`: componentes presentacionales base, incluyendo botones, empty states, tablas y secciones de formularios.
+- `src/lib/auth`: guards, redirecciones, passwords y tokens.
+- `src/lib/integrations`: autenticacion API key, credenciales, errores HTTP y scopes.
+- `src/lib/business`: logica de planes, limites, builder, templates, lifecycle y presupuestos premium.
+- `src/lib/labs`: limites y reglas del plan de VaseLabs.
+- `src/lib/support`: helpers de estados, prioridad y tiempos de espera visibles.
+- `src/lib/validators/admin.ts`: validaciones de acciones internas del panel administrativo.
+- `src/lib/validators/custom-quotes.ts`: validaciones server-side del flujo comercial de presupuestos.
+- `src/lib/security`: csrf, request context, sanitizacion, rate limiting y upload hardening.
+- `src/lib/security`: csrf, trusted origins, request context, sanitizacion, rate limiting, upload hardening y politicas de fetch externo seguro.
+- `src/lib/tenancy`: resolucion de memberships, slugs y tenant activo.
+- `src/server/services`: auditoria, eventos de seguridad, emails auth, onboarding, sincronizacion de lifecycle de paginas, cola de entrenamiento de Labs y workflow de soporte humano.
+- `src/server/queries`: lecturas para dashboards, builder, integraciones, Labs, soporte y pipeline de presupuestos.
+- `docs/security/SECURITY_AUDIT.md`: threat model, checklist de hardening y matriz de riesgos priorizada.
+- `docs/design-system/MASTER.md`: guia viva de identidad visual, tokens, componentes y reglas de consistencia UX.
+- `src/lib/observability`: logger estructurado y bases para métricas operativas.
+- `src/app/api/health/*`: probes de liveness y readiness para orchestrators y monitoreo.
+- `src/app/api/ops/metrics`: endpoint interno de métricas operativas protegido por token.
+- `prisma/seed.ts` y `prisma/fixtures/*`: bootstrap reproducible para dev/staging.
+- `docs/production/*`: estrategia de testing, runbook operativo y arquitectura técnica.
+- `.github/workflows/ci.yml`: pipeline base de calidad y smoke e2e.
+
+## 11. Roadmap inicial
+### Fase actual
+- Bootstrap enterprise funcional del proyecto.
+- Base visual premium y minimalista.
+- Rutas protegidas y API ejemplo con documentacion.
+- Sitio publico de producto/plataforma con multiples secciones.
+- Flujo real de autenticacion y onboarding multi-tenant.
+- Panel completo de Vase Business para tenant owner.
+- Base funcional del editor visual para ecommerce de Vase Business.
+- Base funcional del modulo de integraciones REST y developer portal.
+- Base funcional del panel cliente de VaseLabs con onboarding guiado y entrenamiento inicial.
+- Base funcional del modulo de soporte humano para escaladas desde IA.
+- Base funcional del panel administrativo interno para gestion completa de plataforma.
+- Base funcional del modulo comercial para convertir solicitudes personalizadas en presupuestos versionados.
+
+### Proxima fase
+- Seeds de desarrollo y bootstrap de usuarios/tenants demo.
+- CRUDs reales por modulo de negocio.
+- Sistema de invitaciones y onboarding por tenant para mas miembros.
+- Integracion de storage para uploads.
+- Billing y pagos por tenant.
+- Feature flags administrables desde UI.
+- Internacionalizacion completa con diccionarios.
+- Formularios reales de demo y registro conectados a un canal comercial definitivo.
+- Billing real y automatizacion de cobro para premium y dominios propios.
+- Jobs programados para limpieza y vencimientos sin depender del acceso al panel.
+- Render publico real de storefronts con dominios y publicacion versionada.
+- Sincronizacion bidireccional real con sistemas externos y pipeline de webhooks salientes.
+
+## 12. Decisiones tecnicas tomadas
+- Se eligio Prisma como ORM tipado y maduro para PostgreSQL.
+- Se eligio Auth.js con credentials provider inicial y Prisma adapter.
+- Se implemento estrategia `jwt` para sesion inicial por simplicidad operativa del bootstrap.
+- Se separaron roles de plataforma y roles de tenant para soportar gobierno transversal y permisos internos.
+- Se uso rate limiting persistido en base de datos para no dejarlo solo en memoria.
+- Se documento un endpoint real (`projects`) para fijar el patron de API.
+- Se activo `experimental.authInterrupts` de Next.js para usar `forbidden()` de forma limpia en paneles.
+- Se evito Prisma 7 en esta etapa y se fijo Prisma 6 por estabilidad del flujo clasico con `schema.prisma`.
+- Se modelo la web publica como una capa de producto con multiples rutas, no como una landing unica.
+- Se centralizo el contenido comercial y de documentacion publica en un archivo de configuracion reutilizable.
+- El onboarding crea tenant, owner y sesion en una sola transaccion logica.
+- La verificacion de email no bloquea el ingreso inicial, pero si se usa para reforzar seguridad y restringir acciones sensibles.
+- Se implementaron tokens de auth propios para email verification y password reset, separados de `VerificationToken` de Auth.js.
+- Se agrego una capa de suscripcion propia por tenant para controlar plan, premium y restricciones funcionales de Vase Business.
+- Las paginas temporales se crean con vencimiento de 30 dias y gracia de 7 dias, y el backend sincroniza su estado al consultar el dashboard.
+- El dominio propio queda restringido a premium y se modela como `DomainConnection` con estados claros para usuarios no tecnicos.
+- El builder usa un documento JSON versionado y validado en servidor para mantener el editor simple, portable y testeable.
+- Las plantillas base del builder se resuelven desde codigo (`STARTER`, `SHOWCASE`, `CATALOG`) para evitar acoplar contenido inicial al estado de base de datos.
+- El autosave actual guarda borrador en la pagina y el versionado formal se crea con snapshots manuales o al publicar.
+- Las paginas temporales tienen restricciones mas severas de estilos y bloques para privilegiar rendimiento, velocidad de armado y mantenibilidad.
+- Las integraciones externas usan API keys por tenant con scopes explicitos, hash en base de datos y rotacion sin exponer secretos persistidos.
+- Los endpoints de integracion se modelan como REST de lectura versionada bajo `/api/v1/integrations/{tenantSlug}/{resource}` para mantener semantica clara y multi-tenancy explicito.
+- La documentacion se divide entre portal publico elegante y portal privado de gestion para owner, evitando mezclar secretos con referencia abierta.
+- VaseLabs se modela con un workspace por tenant para concentrar configuracion del asistente, limites y estado operativo.
+- El entrenamiento de VaseLabs se desacopla en `AiTrainingJob` para permitir evolucion posterior hacia workers o colas externas.
+- El onboarding de tenants con Labs redirige al setup guiado para reducir friccion y asegurar configuracion minima antes de operar.
+- El soporte humano se modela como dominio separado, enlazado opcionalmente a conversaciones de IA pero no acoplado a un canal o proveedor especifico.
+- La asignacion automatica de tickets usa menor carga activa por agente como heuristica inicial para mantener simpleza y auditabilidad.
+- El historial del ticket se persiste como eventos + notas internas para distinguir trazabilidad operativa de colaboracion interna.
+- El panel administrativo usa filtros server-side y lecturas agregadas para evitar mover logica de gobierno al frontend.
+- En esta fase, el corte operativo fuerte se resuelve por suspension de tenant y gobierno de roles; el bloqueo fino de usuario queda como evolucion posterior del dominio.
+- Se separo formalmente el dominio de `pedido premium` del dominio de `presupuesto`, manteniendo una relacion 1:1 para esta etapa y evitando mezclar intake comercial con decision economica.
+- El presupuesto se genera desde plantillas comerciales simples (`STANDARD`, `PREMIUM_BRAND`, `INTEGRATION_HEAVY`) para mantener UX clara y estructura mantenible antes de incorporar un configurador mas libre.
+- El desglose economico del presupuesto se limita a categorias fijas de extras para facilitar comparabilidad, validacion server-side y trazabilidad historica.
+- La aceptacion o rechazo del presupuesto ocurre siempre en backend por tenant y deja una revision persistida para auditoria.
+- Los origins confiables de la plataforma se centralizan en configuracion para endurecer CSRF, cookies y controles de fetch sin depender del host recibido.
+- Los paneles privilegiados (`SUPER_ADMIN`, `SUPPORT`) requieren identidad verificada antes de operar para reducir riesgo de abuso por cuentas no confirmadas.
+- El aislamiento de tenant se refuerza cortando acceso desde guards cuando el tenant esta suspendido, en lugar de depender solo de cada pantalla.
+- Toda URL externa configurable por usuarios debe pasar por una politica SSRF-safe que rechaza localhost, redes privadas, credenciales embebidas y protocolos inseguros.
+- Los uploads se tratan como insumos hostiles: extension, MIME, firma binaria y escaneo configurable antes de considerarlos aptos.
+- Los webhooks se estandarizan con firma HMAC SHA-256 y timestamp para facilitar validacion segura y futura proteccion contra replay.
+- La preparación para producción se apoya en una pirámide de testing explícita: unit, integration y e2e con responsabilidades separadas.
+- Se adopta observabilidad mínima embebida con logs estructurados JSON, health probes y endpoint de métricas internas antes de integrar APM externo.
+- Los seeds pasan a ser parte del contrato operativo del proyecto para bootstrap consistente de dev, staging y smoke tests.
+- El despliegue serio se modela con CI, migraciones seguras, backups y rollback documentado antes de incorporar CD automático a infraestructura específica.
+- El lenguaje visual de Vase se centraliza en tokens semanticos y primitives reutilizables para evitar estilos hardcodeados y sostener coherencia entre sitio publico, producto autenticado y control plane.
+- Se adopta dark mode por tokens y superficies semanticas, evitando bifurcar componentes y reduciendo costo de mantenimiento visual.
+- Las primitivas visuales deben priorizar claridad operativa, densidad controlada y copy comprensible para usuarios no tecnicos.
+- La identidad principal de Vase pasa a ser dark-first con acento jade; el light mode queda como variante complementaria y no como lenguaje dominante.
+- La capa de marketing puede definir variables visuales propias por layout cuando la narrativa comercial requiera una atmosfera mas clara, aireada y editorial que el producto autenticado.
+- Marketing incorpora tipografia editorial de soporte para titulares y frases enfaticas, manteniendo Manrope como base funcional del sistema.
+- El glassmorphism de Vase debe usarse con disciplina: blur, brillo y profundidad para jerarquia, nunca como efecto ornamental o futurista exagerado.
+
+## 13. Nuevas funcionalidades implementadas
+- Home publica orientada a producto/plataforma.
+- Pagina `Que es Vase`.
+- Pagina `Vase Business`.
+- Pagina `VaseLabs`.
+- Pagina `Integraciones`.
+- Pagina `Precios`.
+- Pagina `Preguntas frecuentes`.
+- Pagina `Demo`.
+- Ruta publica `Register`.
+- Documentacion API publica con estructura profesional y tabla de endpoints de ejemplo.
+- CTAs claros a registro, demo e inicio de sesion.
+- Sign-in inicial.
+- Registro con seleccion de producto: `Vase Business`, `VaseLabs` o ambos.
+- Alta de tenant y membership owner al registrarse.
+- Recuperacion de contrasena.
+- Reset de contrasena con token temporal.
+- Verificacion de email por enlace.
+- Reenvio de verificacion para usuarios autenticados.
+- Aviso de verificacion pendiente en el panel owner.
+- Endurecimiento de acciones sensibles para usuarios no verificados.
+- Dashboard completo de Vase Business en el panel owner.
+- Secciones: `Resumen`, `Mis paginas`, `Crear nueva pagina`, `Solicitar pagina personalizada`, `Dominio`, `Facturacion`, `Estado del plan`, `Configuracion`, `Integraciones API`.
+- Creacion de paginas desde el panel.
+- Opcion de pagina temporal con lifecycle de 30 dias + 7 dias de gracia.
+- Restricciones por plan para cantidad de paginas y dominio propio.
+- Opcion premium con solicitud de upgrade.
+- Formulario detallado para pedir plantilla muy personalizada.
+- Tablas y estados de paginas, dominios y solicitudes premium.
+- Feature flags visibles dentro del panel.
+- Editor visual por pagina con sistema de bloques.
+- Edicion visual de textos, imagenes via URL, secciones activas/inactivas y configuracion base.
+- Guardado automatico del builder.
+- Versionado simple por snapshots manuales y version publicada.
+- Preview responsive desktop/mobile dentro del panel.
+- Plantillas base reutilizables para ecommerce.
+- Restricciones por plan y por tipo de pagina dentro del builder.
+- Flujo "Solicitar personalizacion completa" desde el editor.
+- Cola administrativa para revisar y cotizar personalizaciones premium.
+- Pipeline administrativo para convertir pedidos premium en presupuestos con valor base, extras, vigencia y tiempos estimados.
+- Rutas internas `/app/admin/customizations` y `/app/owner/customizations` para seguimiento detallado del workflow comercial.
+- Formulario avanzado de solicitud premium con descripcion del negocio, colores, estilo de marca, funcionalidades, referencias visuales y observaciones.
+- Presupuesto asociado al cliente con estado `borrador`, `pendiente de cliente`, `aceptado`, `rechazado` o `vencido`.
+- Desglose del presupuesto por base de plantilla, extras funcionales, extras de diseno, extras de integracion y extras de implementacion.
+- Historial de revisiones del presupuesto con snapshots para cambios administrativos y decisiones del cliente.
+- Flujo de aceptacion o rechazo del presupuesto desde el panel owner.
+- Trazabilidad de auditoria para guardado, envio y respuesta de presupuestos.
+- Headers de seguridad ampliados: HSTS, COOP, CORP y politicas mas duras de navegador.
+- Guards reforzados para admin y soporte con email verificado obligatorio.
+- Eventos de seguridad persistidos para rechazos de CSRF, abuso de integraciones, destinos inseguros y uploads maliciosos.
+- Validacion SSRF-safe para scraping de VaseLabs y URLs de webhooks.
+- Endurecimiento de uploads con firma de archivo, extension segura, `storageKey` controlado y escaneo configurable.
+- Revalidacion del rol de plataforma y estado de verificacion en sesiones JWT para reducir riesgo de privilegios stale.
+- Tests automatizados de seguridad para CSRF, SSRF, firma de webhooks y upload hardening.
+- Health endpoints `/api/health/live` y `/api/health/ready`.
+- Endpoint interno `/api/ops/metrics` protegido por token de monitoreo.
+- Logger estructurado base para eventos operativos y de auditoría.
+- Seeds reproducibles de usuarios internos, tenant demo, suscripción y workspace Labs.
+- Fixtures compartidas para tests.
+- Tests de integración para probes de salud y métricas protegidas.
+- Smoke e2e base con Playwright para rutas públicas y health checks.
+- Scripts `test:unit`, `test:integration`, `test:e2e`, `test:coverage`, `prisma:seed` y `db:reset:dev`.
+- `robots.txt` y `sitemap.xml` generados desde App Router para SEO técnico de la capa pública.
+- Documentación operativa para testing, runbook, entornos, migraciones, backups y rollback.
+- Workflow de CI con PostgreSQL, seed, lint, test, typecheck, build y e2e.
+- Portal publico de documentacion API estilo developer portal.
+- Portal privado de gestion API para tenant owner.
+- Generacion de API keys seguras por cuenta con scopes y limite por minuto.
+- Rotacion y revocacion de credenciales.
+- Logs de uso con requestId, ruta, status y latencia.
+- Registro de webhooks por tenant con secreto firmado.
+- Endpoints ejemplo para `productos`, `stock`, `precios`, `categorias`, `pedidos` y `clientes`.
+- Errores estandarizados para integraciones.
+- Auditoria de integraciones y acciones administrativas sobre credenciales/webhooks.
+- Dashboard completo de VaseLabs en el panel owner.
+- Setup guiado de VaseLabs para tenants que eligieron Labs en onboarding.
+- Secciones: `Resumen`, `Base de conocimiento`, `Archivos`, `URLs`, `Canales`, `Configuracion del asistente`, `Historial de conversaciones`, `Metricas`, `Plan y limites`, `Escalamiento a humano`.
+- Carga de FAQs para entrenamiento del asistente.
+- Registro seguro de archivos validados para conocimiento empresarial.
+- Registro de URLs con scraping controlado y rutas permitidas.
+- Configuracion de tono, horarios, timezone y escalamiento a humano.
+- Registro de canales como `WhatsApp`, `Instagram` y `Webchat` con estados visibles.
+- Cola simple de entrenamiento con jobs y estados por tenant.
+- Restricciones por plan para tono premium, cantidad de archivos, URLs, canales y conversaciones.
+- Redireccion contextual a setup de Labs al terminar onboarding de `VaseLabs` o `ambos`.
+- Panel de soporte humano para rol `support` y acceso supervisor para `admin`.
+- Cola de tickets con prioridad, tiempos de espera visibles, asignacion manual o automatica y estados operativos.
+- Derivacion de conversaciones de IA a tickets humanos.
+- Creacion manual de tickets desde el panel cliente de VaseLabs.
+- Historial completo de ticket mediante eventos auditables.
+- Notas internas para agentes de soporte.
+- Respuestas predefinidas reutilizables.
+- Notificaciones internas por nuevo ticket, asignacion y cambios de estado.
+- Flujo para devolver un caso desde humano a IA.
+- Panel `Platform Admin` ampliado con metricas globales, filtros y control por dominios.
+- Vista de usuarios con rol de plataforma, memberships y gobierno interno.
+- Vista de tenants con producto, billing, premium, estado y formularios de gobernanza.
+- Provisionamiento de usuarios internos de soporte o super admin.
+- Gestion de planes, billing, premium, dominio propio y paginas temporales por tenant.
+- Vista global de paginas temporales y su lifecycle.
+- Edicion administrativa de respuestas base para soporte e IA.
+- Activacion y desactivacion de feature flags premium.
+- Vista global de credenciales API y webhooks por tenant.
+- Tabla de auditoria reciente para acciones sensibles.
+- Paneles por rol.
+- Endpoint `GET/POST /api/v1/tenants/{tenantSlug}/projects`.
+- Middleware para locale negotiation.
+- Pagina `forbidden` para accesos denegados.
+- Design system documentado con principios de marca, tipografia, spacing, superficies, estados y reglas de componentes.
+- Tokens visuales semanticos para color, radios, sombras, spacing y foco compartidos por toda la plataforma.
+- Primitives reutilizables para botones, empty states, tablas y secciones de formularios.
+- Shell visual unificado para capas publicas e internas con mejor base para dark/light mode.
+- Fundacion visual renovada con paleta carbon `#0D1117`, blanco suave `#F8FAFC`, jade `#18C37E`, jade profundo `#0E9F6E`, gris frio `#94A3B8` y superficie `#1F2937`.
+- El marketing ahora usa un override local de tokens para un look blanco, suave y de showcase, manteniendo consistencia estructural con los mismos componentes base.
+
+## 14. Cambios de arquitectura realizados
+- Se definio estructura por capas y dominios desde el inicio.
+- Se incorporo `server/services` para logica con efectos secundarios.
+- Se incorporo `server/queries` para lecturas desacopladas de UI.
+- Se centralizo la seguridad en utilidades compartidas.
+- Se dejo el sistema preparado para feature flags y pagos por tenant.
+- Se agrego un layout especifico para la capa publica.
+- Se incorporo una configuracion dedicada de contenido publico reutilizable.
+- Se modularizo la web publica con componentes compartidos: header, footer, CTA band y section heading.
+- Se agrego una capa de componentes `auth` reusable para formularios y estados de UX.
+- Se extendio el esquema de datos con `AuthToken`, `onboardingProduct`, `industry`, `accountName`, `passwordChangedAt` y `lastLoginAt`.
+- Se reforzo middleware para redirigir usuarios autenticados fuera de rutas de acceso publico de auth.
+- Se amplifico el esquema con modelos propios de negocio para ecommerce, suscripciones, dominios y solicitudes premium.
+- Se separo la logica de negocio de Vase Business en `lib/business`, `server/queries/dashboard` y `app/(platform)/app/owner/actions.ts`.
+- Se extendio `StorefrontPage` para incluir `templateKey`, `builderDocument`, `builderLastSavedAt` y metadatos de editor.
+- Se agrego `StorefrontPageVersion` para snapshots desacoplados del registro principal de la pagina.
+- Se amplifico `CustomPageRequest` para soportar personalizacion completa, cotizacion visible y revision administrativa.
+- Se agrego una ruta dedicada `/app/owner/pages/[pageId]` para el builder del owner.
+- Se agrego una cola administrativa de personalizaciones en `/app/admin`.
+- Se agrego un dominio de presupuestos premium con modelos propios para cotizacion, line items y revisiones.
+- Se agregaron rutas dedicadas `/app/admin/customizations` y `/app/owner/customizations` para desacoplar el workflow comercial del dashboard general.
+- Se extendieron las queries de admin y owner para incluir presupuesto asociado, desglose economico e historial reciente.
+- Se reforzo el intake premium del owner con un formulario mas completo y estructurado para discovery comercial.
+- Se extendio el esquema de datos con entidades propias para credenciales, consumo y webhooks de integracion.
+- Se incorporo una capa `lib/integrations` para centralizar API key auth, parsing, hashing y respuestas HTTP consistentes.
+- Se agrego una ruta privada `/app/owner/integrations/api` para gestion del developer portal por tenant.
+- Se amplio `openapi.ts` para describir la API REST de integraciones y su esquema de autenticacion por header.
+- Se amplifico el esquema de datos con entidades propias de VaseLabs para conocimiento, entrenamiento, canales y conversaciones.
+- Se agrego una capa `lib/labs` para centralizar limites y reglas por plan del asistente.
+- Se incorporaron queries y server actions especificas para el panel owner de VaseLabs.
+- Se agregaron rutas dedicadas `/app/owner/labs` y `/app/owner/labs/setup` para separar operacion continua de onboarding guiado.
+- Se ajusto la resolucion de `/app` y del post-registro para derivar tenants con Labs al panel correcto.
+- Se amplifico el esquema con entidades propias de soporte humano conectadas a tenant, usuario y conversacion de IA.
+- Se incorporo una ruta privada `/app/support` para la cola operativa del equipo de soporte.
+- Se reutilizo el panel admin como capa de supervision y acceso rapido al workspace de soporte.
+- Se agregaron server actions especificas para triage, notas, respuestas y templates de soporte.
+- Se agrego una capa de queries administrativas dedicadas para unir usuarios, tenants, billing, soporte, integraciones y auditoria en una sola lectura server-side.
+- Se amplifico `/app/admin` para funcionar como control plane enterprise con formularios de gobierno inline y filtros GET.
+- Se agrego una capa `lib/security/origin.ts` para centralizar origins confiables y una capa `lib/security/external-requests.ts` para fetch externo seguro y politicas anti-SSRF.
+- Se agrego `server/services/security-events.ts` para persistir eventos de seguridad sobre la auditoria existente sin duplicar infraestructura.
+- Se reforzaron los guards de autenticacion para cortar tenants suspendidos y exigir verificacion de email en roles internos privilegiados.
+- Se amplio la validacion de uploads para incluir firma binaria, metadatos de storage y escaneo configurable.
+- Se agrego una capa `lib/integrations/webhooks.ts` para firma/verificacion HMAC reusable en futuras entregas de webhooks.
+- Se agrego una capa `lib/observability/logger.ts` para logs JSON estructurados y reutilizables.
+- Se agregaron servicios y queries operativas para readiness y métricas internas.
+- Se incorporaron rutas técnicas de operación (`health`, `metrics`, `robots`, `sitemap`) desacopladas del dominio de negocio.
+- Se agregaron seeds y fixtures como parte de la infraestructura local y de staging.
+- Se incorporó Playwright como base de e2e y GitHub Actions como pipeline estándar de calidad.
+- Se tokenizo `src/app/globals.css` como capa foundation del design system con variables semanticas para light/dark mode, superficies, feedback y foco.
+- Se desacoplo el lenguaje visual de componentes de negocio hacia primitives de `src/components/ui` para mejorar coherencia, accesibilidad y reparabilidad.
+- Se alineo la capa publica de marketing con el mismo sistema de shells, acciones y superficies usado por el producto autenticado.
+- Se reoriento la fundacion del design system desde una estetica calida hacia una identidad dark SaaS global, con grilla sutil, profundidad de vidrio y foco en legibilidad empresarial.
+- Se rediseño la home publica con hero editorial, mockups compositivos, trusted strip y secciones long-form para acercarla a un lenguaje visual tipo showcase premium.
+- Se reemplazo el hero anterior por una estructura mas cercana al layout objetivo: CTA centrales, phone mockup protagonista, tarjetas flotantes y ausencia de imagen fotografica de fondo en el hero.
+- Se adopto una estrategia inicial de internacionalizacion publica basada en `middleware` + cookie de locale + lectura server-side para no depender de logica solo en cliente.
+- El navbar publico usa el isotipo real `public/vasecolorlogo.png` junto al nombre Vase, con una navegacion centrada mas corta y orientada a producto.
+- La capa de marketing ahora usa tokens visuales propios mas suaves en el layout para poder retocar la identidad publica sin afectar paneles internos.
+- Los CTAs primarios del sitio publico pasan a color plano para sostener una identidad mas limpia y sobria.
+- La home comercial se organiza ahora con un bloque equivalente para `Vase Business` y otro para `VaseLabs`, cada uno con su propia lectura de capacidades y planes base.
+- El header de marketing ahora se centra con un contenedor mas ancho y transparente, evitando la sensacion de card flotante separada.
+
+## 15. Mejoras realizadas
+- Accesibilidad inicial: foco visible, skip link y respeto de `prefers-reduced-motion`.
+- Diseno visual consistente con identidad Vase.
+- Tests unitarios para roles, sanitizacion y redirects de onboarding.
+- Build, lint, test y typecheck funcionando.
+- Documentacion viva del proyecto.
+- Mejor jerarquia de contenido para audiencias no tecnicas y decisores de negocio.
+- Navegacion publica coherente entre rutas comerciales, integraciones y documentacion.
+- Mayor reutilizacion de componentes para mantener consistencia visual y escalabilidad editorial.
+- Manejo de errores mas claro y profesional en login, registro y recuperacion.
+- Flujo de onboarding con redireccion contextual al panel owner segun producto elegido.
+- UX del panel simplificada con lenguaje apto para usuarios no tecnicos.
+- Estados visuales claros para plan, facturacion, lifecycle temporal y dominio.
+- Pruebas unitarias para reglas de negocio de planes y vencimiento.
+- UX del builder sin drag-and-drop complejo para reducir friccion y deuda tecnica.
+- Preview responsive integrado para validar jerarquia visual sin salir del panel.
+- Mejor separacion entre borrador autosave, snapshots manuales y publicacion.
+- Reutilizacion de templates y bloques para acelerar armado de ecommerce.
+- Pruebas unitarias para reglas del builder temporal vs pago.
+- Trazabilidad de integraciones con requestId y logs por tenant.
+- Documentacion publica y privada mas clara para equipos tecnicos y responsables de negocio.
+- Credenciales aisladas por sistema externo para aplicar minimo privilegio.
+- Pruebas unitarias para generacion y parseo de API keys.
+- Mejor continuidad del onboarding gracias a la redireccion directa al setup guiado de Labs.
+- UX del panel Labs pensada para usuarios no tecnicos con lenguaje claro, formularios compactos y estados visibles.
+- Reutilizacion del hardening de uploads y auditoria tambien dentro del flujo de VaseLabs.
+- Modelo de entrenamiento simple pero escalable, listo para evolucionar hacia procesamiento asincronico real.
+- Continuidad operativa entre IA y humano con visibilidad clara para cliente, soporte y admin.
+- Regla de asignacion automatica simple y mantenible, sin introducir colas externas ni scheduling complejo en esta etapa.
+- Trazabilidad mas rica gracias al historial de eventos, notas internas y notificaciones persistidas.
+- Control plane mas util para operaciones internas gracias a filtros server-side, formularios inline y vistas consolidadas por dominio.
+- Gobierno administrativo auditado sobre tenants, support users, feature flags y templates base.
+- Mejor separacion entre intake comercial, presupuesto interno y decision del cliente.
+- UX mas clara para negocios no tecnicos gracias a un presupuesto desglosado por categorias faciles de entender.
+- Mayor trazabilidad comercial con historial de revisiones, tiempos estimados y vigencia visible del presupuesto.
+- Validaciones mas estrictas sobre montos, vigencia, resumen comercial y respuesta del cliente.
+- Cobertura de pruebas unitarias para reglas base del presupuesto y formateo comercial.
+- Base de seguridad mas accionable gracias a un threat model documentado y una checklist de hardening alineada a OWASP ASVS.
+- Menor superficie de SSRF al validar destinos externos antes de persistirlos o usarlos en flujos de scraping/webhooks.
+- Menor riesgo de sesiones stale en paneles internos al refrescar privilegios desde base de datos.
+- Mayor visibilidad operativa sobre eventos de seguridad relevantes mediante auditoria reutilizable.
+- Mejor postura para uploads empresariales con controles previos al storage real.
+- Mejor reparabilidad del sistema gracias a runbook, seeds y health checks explícitos.
+- Base más sólida para monitoreo y alertas con logs estructurados y métricas internas.
+- Mayor mantenibilidad al separar tipos de pruebas y dejar scripts claros por capa.
+- Mejor SEO técnico de la parte pública con `robots.txt`, `sitemap.xml` y metadata base ajustable por entorno.
+- Mejor preparación para escalar globalmente gracias a documentación operativa y pipeline reproducible.
+- Mayor coherencia visual entre sitio publico, panel cliente y control plane mediante tokens semanticos compartidos.
+- Mejor mantenibilidad del frontend al reducir clases visuales hardcodeadas en shells, acciones y componentes base.
+- Mejor accesibilidad perceptiva con contrastes, superficies y foco visible definidos desde el sistema y no caso por caso.
+- Mejor base para onboarding guiado, formularios robustos, tablas operativas y estados vacios consistentes.
+- Identidad visual mas global, tecnologica y confiable para que marketing, owner, labs y admin se perciban como un solo producto.
+- Mejor presencia premium del producto gracias a superficies glass, CTA jade y jerarquia visual mas limpia en dark mode.
+- Mejor primera impresion comercial al pasar la home a una experiencia mas blanca, suave y aspiracional, sin perder claridad de producto.
+- Mejor presencia del tramo de prueba social gracias a logos mas legibles, mayor escala en el slider y una integracion mas natural con el fondo claro de la home.
+- Mejor jerarquia visual en marketing gracias al uso de titulares editoriales, bloques largos y una narrativa mas clara por secciones.
+- Mejor claridad de navegacion publica con header mas enfocado: logo a la izquierda, producto en el centro y auth/registro a la derecha.
+- Mejor estabilidad visual del navbar al dejarlo siempre visible cuando el `StaggeredMenu` esta abierto, evitando barras vacias o duplicadas durante la navegacion.
+- Mejor experiencia internacional inicial al servir home, header y footer en espanol o ingles segun el locale detectado.
+- Mejor coherencia visual en marketing al compartir un mismo fondo suave entre secciones y bajar la dependencia de bordes visibles.
+- Mejor sensacion premium y mas limpia gracias a sombras leves, superficies translúcidas suaves y acentos verdes mas sobrios.
+- Mejor equilibrio comercial al presentar `VaseLabs` con el mismo peso visual y narrativo que `Vase Business`.
+- Mejor limpieza visual al eliminar gradientes de botones y reducir diferencias de fondo entre navbar, hero, integraciones y footer.
+- Mejor continuidad del lienzo publico al quitar fondos propios del hero, navbar y footer y apoyarse mas en spacing y composicion.
+- Mejor cierre de pagina con un footer mas util y premium, mejor organizado para conversion, descubrimiento de producto y navegacion internacional.
+- Mejor cierre de pagina al simplificar el footer, quitar ruido editorial innecesario y sumar un contacto directo mas serio y accionable sin sacar al usuario de la experiencia.
+- Mejor profundidad narrativa en marketing al convertir `Nosotros` en una pagina de marca mas aspiracional, institucional y global, en lugar de una explicacion corta de plataforma.
+- Mejor foco comercial en la home al simplificar el bloque de funcionalidades y eliminar contenido institucional intermedio que alejaba la atencion del producto.
+- Mejor presencia del bloque `Vase Business / VaseLabs` gracias a una composicion mas premium, con mas jerarquia visual, mejor balance entre texto y mockup y una navegacion por tabs mas clara.
+- Mejor integracion visual del bloque `Vase Business / VaseLabs` al bajar el contraste entre subpaneles y usar un fondo degradado suave que acompana el scroll en vez de sentirse como una caja separada.
+- Mejor limpieza visual en la columna izquierda del bloque `Vase Business / VaseLabs`, que ahora respira sobre el fondo comun de la seccion sin una placa adicional.
+- Mejor jerarquia de la home al convertir `Vase Business / VaseLabs` en una banda de color completa, con mas peso visual y una transicion mas clara entre el tramo de funcionalidades y el resto del recorrido.
+- Mejor sensacion de scroll narrativo en la home gracias a la entrada escalonada de la banda `Vase Business / VaseLabs`, que ahora primero marca presencia visual y luego revela el contenido.
+
+## 16. Problemas detectados
+- Prisma 7 introdujo cambios incompatibles con el flujo clasico basado en `datasource.url`; se resolvio fijando Prisma 6.
+- El entorno local usa Node `v22.12.0`, mientras algunas dependencias de lint esperan `v22.13.0` o superior; hoy solo genera warning, no bloqueo.
+- `npm install` reporto vulnerabilidades altas al usar Prisma 6.x en combinacion con el arbol actual; revisar `npm audit` antes de produccion.
+- Falta seed inicial para poder entrar con usuarios demo sin preparar manualmente la base de datos.
+- Todavia no existe integracion real de storage seguro para uploads ni pagos.
+- El flujo de `typedRoutes` de Next.js puede requerir regenerar tipos al sumar rutas nuevas antes de correr `tsc`.
+- La verificacion y el reset ya funcionan a nivel logico, pero el envio de email todavia depende de un placeholder por consola y no de un proveedor transaccional real.
+- La eliminacion de paginas temporales hoy se sincroniza al consultar el dashboard; falta moverla a un job programado para no depender del trafico del usuario.
+- Facturacion y upgrade premium existen a nivel de modelo y UX, pero no hay procesamiento de pago real todavia.
+- La conversion de una pagina temporal en pagina paga/estable aun no tiene flujo dedicado.
+- El builder hoy edita imagenes por URL; aun falta integrar upload seguro y media library administrada.
+- El editor no tiene todavia colaboracion multiusuario, historial diff o restauracion de versiones anteriores.
+- La cola admin de personalizaciones registra revision y cotizacion, pero no existe workflow comercial ni notificaciones transaccionales reales.
+- El modulo de presupuestos ya modela el flujo comercial principal, pero aun no genera PDF, firma digital ni envio transaccional por email/CRM.
+- La estructura actual usa una relacion 1:1 entre solicitud y presupuesto; si mas adelante hay contracotizaciones paralelas o escenarios de aprobacion compleja, habra que evolucionar a multiples presupuestos por pedido.
+- Los endpoints de integracion hoy exponen payloads de ejemplo y estructura estable, pero aun no estan conectados a entidades reales de catalogo/pedidos del negocio.
+- Los webhooks se gestionan y documentan, pero todavia no existe un dispatcher real de entregas ni firma HMAC en runtime.
+- Para acceder a los nuevos delegates de Prisma fue necesario apuntar el cliente runtime al generado de `.prisma/client`; revisar este detalle al actualizar Prisma o cambiar de estrategia de build.
+- Los archivos de VaseLabs hoy se validan y registran como metadata, pero todavia no se almacenan en un proveedor seguro ni se procesan realmente para embeddings.
+- El scraping controlado registra URLs y rutas permitidas, pero aun no existe crawler/worker real ni politicas avanzadas de robots, profundidad o frecuencia.
+- El historial de conversaciones y metricas de VaseLabs ya tiene base de datos y UX, pero todavia no recibe trafico real desde canales externos.
+- La conexion de canales como WhatsApp e Instagram esta modelada con estados y permisos, pero aun no integra proveedores reales ni webhooks entrantes.
+- El modulo de soporte humano registra respuestas y cambios de estado, pero aun no envia notificaciones reales por email, WhatsApp o canales externos.
+- La asignacion automatica usa una heuristica simple por carga activa y todavia no contempla skills, horarios, presencia o SLA avanzados.
+- El cliente puede ver el estado del ticket desde VaseLabs, pero todavia no existe un inbox bidireccional completo para respuestas del usuario final.
+- El panel admin ya gobierna usuarios internos y suspensiones de tenant, pero el bloqueo fino por usuario aun no se modela como estado persistente propio del dominio.
+- La CSP sigue usando `unsafe-inline` por compatibilidad con la etapa actual; a futuro conviene evolucionar a nonce/hash para endurecer aun mas contra XSS.
+- El escaneo de malware ya esta modelado y conectado a configuracion, pero aun depende de integrar un servicio real o ClamAV para enforcement productivo.
+- Los webhooks ya tienen utilidades de firma/verificacion, pero todavia no existe dispatcher saliente ni proteccion persistente contra replay.
+- La validacion SSRF bloquea destinos privados por hostname/IP directo, pero una version productiva completa deberia sumar resolucion DNS controlada y allowlists por tenant cuando existan integraciones avanzadas.
+- El endpoint de métricas hoy expone JSON interno protegido por token; si más adelante se requiere Prometheus/OpenTelemetry completo, habrá que integrar exporters y collector dedicados.
+- La estrategia de CI ya ejecuta seeds y e2e base, pero el CD a infraestructura real todavía no está acoplado a un proveedor específico ni a aprobación manual por entorno.
+- Los seeds demo cubren bootstrap operativo, pero aún no modelan catálogos, pedidos, billing real ni escenarios de carga más ricos.
+- Aun quedan pantallas de dominio con colores y clases legacy que conviene migrar gradualmente al design system para cerrar la coherencia visual total.
+- El retheming automatico resolvio gran parte de los hardcodes repetidos, pero algunas pantallas todavia pueden necesitar un pass manual mas fino para alcanzar coherencia visual perfecta.
+- La home ya tiene una direccion visual mas cercana a la referencia deseada, pero si luego se busca parallax o storytelling con scroll mas cinematografico convendra sumar animacion dedicada sobre esta nueva base.
+- El `typecheck` puede volver a fallar si se ejecuta antes de regenerar `.next/types`; hoy el workflow estable sigue siendo `next typegen` o `next build` antes de `tsc`.
+- El skill `ui-ux-pro-max` estaba disponible, pero su script auxiliar referenciado no existe en este entorno; se aplico la metodologia manualmente sin bloquear el trabajo.
+- La internacionalizacion actual cubre la home y el chrome principal del marketing; el resto de rutas publicas todavia necesita diccionarios completos para una experiencia bilingue total.
+- Al reducir bordes en marketing, la separacion entre algunos bloques depende mas de spacing y sombra; conviene revisar visualmente las rutas publicas secundarias para mantener jerarquia consistente.
+- La home publica ya presenta planes base para `VaseLabs`, pero todavia son valores orientativos estaticos y no estan conectados a un esquema comercial centralizado.
+- Al volver transparente el chrome publico, la percepcion final depende mas del balance espacial y del contenido; conviene seguir afinando padding y ritmo vertical si se extiende la narrativa de la home.
+- La navegacion publica sigue repartida entre `site-header-client` y `header-client`; conviene consolidarla cuando se retome una iteracion mayor del navbar para reducir friccion de mantenimiento.
+- Al llevar `StaggeredMenu` a desktop, conviene revisar usabilidad y discoverability en pantallas grandes para confirmar que el patron hamburguesa sigue siendo suficientemente claro para usuarios nuevos.
+- El `StaggeredMenu` ya evita scroll interno para el caso actual de contenido, pero si a futuro crecen los items, CTAs o redes habra que reequilibrar spacing o introducir variantes por breakpoint sin romper la limpieza visual.
+- El `StaggeredMenu` ahora depende mas del header fijo exterior; si mas adelante cambia la altura del navbar habra que sincronizar tambien el offset superior del overlay para no romper alineacion.
+- El footer nuevo todavia usa enlaces placeholder para `Terminos` y `Privacidad`; cuando existan rutas legales reales conviene conectarlas para evitar ambiguedad en produccion.
+- El nuevo modal de contacto depende de configurar `RESEND_API_KEY`, `CONTACT_TO_EMAIL` y opcionalmente `CONTACT_FROM_EMAIL`; sin esas variables, el flujo queda visible pero no puede entregar emails reales.
+- La nueva pagina `Nosotros` usa composicion abstracta y retratos editoriales sinteticos; si luego se desea una traduccion mas literal de la referencia visual, hara falta definir assets fotograficos propios de marca.
+- La CSP de desarrollo sigue siendo deliberadamente mas permisiva que la de produccion; cualquier endurecimiento adicional debe validarse sin romper el DX de React/Next en local.
+- Las nuevas cards de funcionalidades dependen de hover para revelar el detalle completo; conviene revisar en mobile si mas adelante se quiere una variante explicita por tap o por expansion fija.
+- El slider de logos ahora tiene mas impacto visual, pero conviene revisar en pantallas pequenas si el nuevo `logoHeight` y el gap siguen manteniendo buena densidad sin robar demasiado alto vertical.
+- El nuevo bloque de tabs de `Vase Business / VaseLabs` mejora mucho la estetica general, pero todavia conviene hacer un pass visual en mobile para validar alturas, ritmo vertical y densidad del panel visual en pantallas pequenas.
+- El nuevo degradado del bloque `Vase Business / VaseLabs` suaviza mejor la transicion con la pagina, pero conviene revisar en distintos monitores si el contraste sigue siendo suficiente cuando hay mucha luz ambiente o brillo alto.
+- La nueva franja verde de `Vase Business / VaseLabs` aumenta presencia visual; conviene seguir revisando contraste de textos y componentes internos en monitores con brillo bajo o configuraciones de color mas frias.
+- El overlap y el reveal por scroll de `Vase Business / VaseLabs` mejoran la narrativa, pero conviene revisar que el solapado no genere cortes raros si mas adelante cambia el espaciado de la seccion anterior.
+
+## 17. Pendientes
+- Crear migraciones iniciales y seed de desarrollo.
+- Implementar onboarding de tenant para mas usuarios y flujo de invitaciones.
+- Agregar observabilidad mas profunda y trazas por request.
+- Incorporar CSRF token dedicado para formularios sensibles si se agregan flujos mas complejos.
+- Anadir pruebas de integracion para endpoints protegidos y server actions.
+- Definir estrategia de secretos, entornos y despliegue.
+- Completar internacionalizacion con catalogos y copy multilenguaje.
+- Implementar formulario real de demo/contacto.
+- Conectar registro publico con provisionamiento comercial definitivo.
+- Integrar proveedor real para email transaccional.
+- Implementar billing real y pasarela de pago para premium y dominios.
+- Agregar conversion asistida de pagina temporal a pagina estable antes del vencimiento.
+- Generar presupuesto exportable en PDF o documento comercial compartible.
+- Conectar el envio del presupuesto a email transaccional, CRM o canal comercial real.
+- Evaluar soporte para multiples revisiones comerciales mayores con numeracion formal por version.
+- Crear jobs scheduler para cleanup y tareas de lifecycle desacopladas del dashboard.
+- Renderizar storefronts publicos a partir de la version publicada del builder.
+- Agregar restauracion de versiones, comparacion basica y duplicado de pagina desde snapshots.
+- Integrar uploads seguros, media optimization y libreria de assets del builder.
+- Conectar los endpoints REST a modelos reales de catalogo, stock, pedidos y clientes.
+- Integrar un servicio real de malware scanning y storage privado cifrado para archivos.
+- Evolucionar CSP hacia nonces/hashes y reducir dependencias de `unsafe-inline`.
+- Implementar dispatcher real de webhooks con firma, replay guard, reintentos y observabilidad.
+- Agregar pruebas de integracion de seguridad para server actions, roles privilegiados y tenants suspendidos.
+- Implementar dispatcher de webhooks, firma HMAC, reintentos y trazabilidad de entregas.
+- Agregar filtros, paginacion y cursores a la API de integraciones.
+- Integrar storage seguro y pipeline de extraccion para archivos de conocimiento de VaseLabs.
+- Implementar crawler controlado, scraping real y normalizacion de contenido permitido.
+- Conectar canales reales de mensajeria y recepción de conversaciones para el workspace Labs.
+- Agregar workers asincronicos para entrenamiento, indexacion y estados de procesamiento mas detallados.
+- Implementar notificaciones transaccionales reales para tickets y asignaciones.
+- Conectar inbox bidireccional entre usuario final, IA y agente humano.
+- Agregar reglas de enrutamiento mas avanzadas para soporte: skills, horarios, SLA y overflow.
+- Incorporar bloqueo fino por usuario con estado persistente, razon y enforcement transversal en sesiones existentes.
+- Integrar APM/tracing real (por ejemplo OpenTelemetry + collector) y alertas conectadas a proveedor externo.
+- Definir CD por entorno con promotions controladas entre dev, staging y prod.
+- Automatizar backups verificados y restauraciones periódicas como parte de la operación.
+- Ampliar la suite e2e hacia onboarding, owner, admin, integraciones y soporte.

@@ -1,0 +1,31 @@
+{
+	email {$LETSENCRYPT_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy frontend:3000
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	@api path /api/*
+	handle @api {
+		reverse_proxy backend:3000
+	}
+
+	handle {
+		respond "Not Found" 404
+	}
+}
+
+{$BOT_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy chatbot:3001
+}
+
+{$N8N_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy n8n:5678
+}
