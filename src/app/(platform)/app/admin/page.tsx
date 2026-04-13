@@ -2,6 +2,7 @@ import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminCustomizationQuoteForm } from "@/components/admin/admin-customization-quote-form";
+import { AdminPlatformUpdateForm } from "@/components/admin/admin-platform-update-form";
 import { AdminCustomizationReviewForm } from "@/components/business/admin-customization-review-form";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AdminFeatureFlagToggleForm } from "@/components/admin/admin-feature-flag-toggle-form";
@@ -13,6 +14,7 @@ import { PanelCard } from "@/components/ui/panel-card";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
 import { getQuoteStatusLabel, getQuoteStatusTone } from "@/lib/business/custom-quotes";
 import { getBillingLabel, getPlanLabel } from "@/lib/business/plans";
+import { deletePlatformUpdateFormAction } from "@/app/(platform)/app/admin/actions";
 import {
   getSupportPriorityLabel,
   getSupportPriorityTone,
@@ -88,7 +90,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       (getStringParam(params.supportStatus) as AdminConsoleFilters["supportStatus"]) ?? "ALL",
   };
 
-  const dashboard = await getPlatformAdminConsole(filters);
+  const dashboard = (await getPlatformAdminConsole(filters)) as any;
   type AdminUser = (typeof dashboard.users)[number];
   type AdminTenant = (typeof dashboard.tenants)[number];
   type AdminPage = (typeof dashboard.temporaryPages)[number];
@@ -186,7 +188,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                 No hay anuncios publicados.
               </div>
             ) : (
-              dashboard.platformUpdates.map((update: AdminPlatformUpdate) => (
+              dashboard.platformUpdates.map((update: any) => (
                 <div key={update.id} className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] p-4">
                   <div className="max-w-md">
                     <p className="font-semibold text-[var(--foreground)]">{update.title}</p>
@@ -196,7 +198,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                        <StatusBadge tone="neutral" label={update.category} />
                     </div>
                   </div>
-                  <form action={deletePlatformUpdateAction}>
+                  <form action={deletePlatformUpdateFormAction}>
                     <input type="hidden" name="updateId" value={update.id} />
                     <button className="text-xs font-semibold text-[var(--danger)] hover:underline">
                       Eliminar
@@ -306,6 +308,18 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             ) : (
               dashboard.users.map((user: AdminUser) => (
                 <div key={user.id} className="grid gap-4 rounded-[28px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)]/75 p-5">
+                  {(() => {
+                    const memberships = (
+                      user as AdminUser & {
+                        memberships?: Array<{
+                          id: string;
+                          role: string;
+                          tenant: { accountName: string };
+                        }>;
+                      }
+                    ).memberships ?? [];
+                    return (
+                      <>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-semibold text-[var(--foreground)]">{user.name}</h3>
@@ -325,17 +339,17 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                       Ultimo acceso: {formatDate(user.lastLoginAt)}
                     </div>
                     <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                      Tenants: {user.memberships.length}
+                      Tenants: {memberships.length}
                     </div>
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-3">
-                    {user.memberships.length === 0 ? (
+                    {memberships.length === 0 ? (
                       <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)] md:col-span-3">
                         Este usuario no tiene memberships activas.
                       </div>
                     ) : (
-                      user.memberships.map((membership) => (
+                      memberships.map((membership: any) => (
                         <div key={membership.id} className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
                           <p className="font-semibold text-[var(--foreground)]">{membership.tenant.accountName}</p>
                           <p>{membership.role}</p>
@@ -348,6 +362,9 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                     userId={user.id}
                     platformRole={user.platformRole}
                   />
+                      </>
+                    );
+                  })()}
                 </div>
               ))
             )}

@@ -51,11 +51,11 @@ export async function ensureModuleCatalogSynced() {
   );
 }
 
-export function normalizePricingType(value: string) {
+export function normalizePricingType(value: string): ModulePricingType {
   return value === "one_time" ? ModulePricingType.ONE_TIME : ModulePricingType.MONTHLY;
 }
 
-export function serializePricingType(value: ModulePricingType) {
+export function serializePricingType(value: ModulePricingType): "monthly" | "one_time" {
   return value === ModulePricingType.ONE_TIME ? "one_time" : "monthly";
 }
 

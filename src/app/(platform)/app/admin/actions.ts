@@ -909,3 +909,7 @@ export async function deletePlatformUpdateAction(
     return { error: "No pudimos eliminar el anuncio." };
   }
 }
+
+export async function deletePlatformUpdateFormAction(formData: FormData): Promise<void> {
+  await deletePlatformUpdateAction({}, formData);
+}
