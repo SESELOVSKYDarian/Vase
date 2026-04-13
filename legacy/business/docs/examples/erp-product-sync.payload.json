@@ -1,0 +1,35 @@
+{
+  "source_system": "sistema-gestion-av",
+  "items": [
+    {
+      "external_id": "PROD-1001",
+      "sku": "PROD-1001",
+      "name": "Producto de ejemplo 1",
+      "price_retail": 24990,
+      "price_wholesale": 21990,
+      "stock": 15,
+      "is_active": true,
+      "brand": "Marca Test",
+      "description": "Producto sincronizado desde sistema de gestion",
+      "category": "Sanitarios",
+      "images": [
+        "https://sistema.local/media/prod-1001.jpg"
+      ]
+    },
+    {
+      "external_id": "PROD-1002",
+      "sku": "PROD-1002",
+      "name": "Producto de ejemplo 2",
+      "price_retail": 45990,
+      "price_wholesale": 39990,
+      "stock": 8,
+      "is_active": true,
+      "brand": "Marca Test",
+      "description": "Segundo producto sincronizado desde sistema de gestion",
+      "category": "Griferia",
+      "images": [
+        "https://sistema.local/media/prod-1002.jpg"
+      ]
+    }
+  ]
+}

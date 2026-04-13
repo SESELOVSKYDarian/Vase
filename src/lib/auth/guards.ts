@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { hasActiveSession } from "@/lib/auth/session";
 import {
   hasPlatformRole,
   hasTenantRole,
@@ -10,7 +11,7 @@ import { getTenantMembership } from "@/lib/tenancy/resolve-tenant";
 export async function requireUser() {
   const session = await auth();
 
-  if (!session?.user?.id) {
+  if (!hasActiveSession(session) || !session?.user?.id) {
     throw new Error("UNAUTHENTICATED");
   }
 

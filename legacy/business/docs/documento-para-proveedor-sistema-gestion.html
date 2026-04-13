@@ -1,0 +1,544 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Documento para proveedor del sistema de gestion</title>
+  <style>
+    :root {
+      --bg: #f4f1eb;
+      --paper: #ffffff;
+      --ink: #1e1914;
+      --muted: #65584d;
+      --line: #dfd4c6;
+      --accent: #c46a1c;
+      --code-bg: #f7f3ee;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+      font-size: 11.5pt;
+    }
+    .page {
+      width: 210mm;
+      margin: 0 auto;
+      background: var(--paper);
+      padding: 16mm 15mm 18mm;
+    }
+    h1, h2, h3 { margin: 0 0 8px; line-height: 1.2; }
+    h1 { font-size: 24pt; margin-bottom: 10px; }
+    h2 { margin-top: 24px; font-size: 15pt; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+    h3 { margin-top: 16px; font-size: 12pt; }
+    p { margin: 0 0 10px; }
+    ul, ol { margin: 8px 0 12px 20px; padding: 0; }
+    li { margin: 4px 0; }
+    pre {
+      margin: 10px 0 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--code-bg);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 10pt;
+      line-height: 1.45;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+    }
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+    @media print {
+      body { background: white; }
+      .page { width: auto; margin: 0; padding: 0; }
+      h2, h3, pre, ul, ol { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Documento para proveedor del sistema de gestion</h1>
+    <h2>Objetivo</h2>
+    <p>Integrar el sistema de gestion con el ecommerce para sincronizar productos, stock y precios por API.</p>
+    <p>La integracion no escribe directo en la base del ecommerce.</p>
+    <p>La integracion trabaja asi:</p>
+    <ol>
+    <li>el sistema de gestion lee sus propios productos</li>
+    <li>arma un JSON</li>
+    <li>hace un `POST` a la API del ecommerce</li>
+    <li>el ecommerce crea o actualiza productos segun `external_id`</li>
+    </ol>
+    <h2>Punto importante sobre el contrato</h2>
+    <p>Esta integracion no trabaja con:</p>
+    <ul>
+    <li>`GET` lista de productos</li>
+    <li>`PUT` por producto</li>
+    <li>`DELETE` por producto</li>
+    </ul>
+    <p>Esta integracion trabaja con:</p>
+    <ul>
+    <li>`GET /ping` para probar conexion</li>
+    <li>`POST /products/sync` para crear o actualizar</li>
+    </ul>
+    <p>El `POST` funciona como `upsert`:</p>
+    <ul>
+    <li>si el `external_id` no existe, crea</li>
+    <li>si el `external_id` ya existe, actualiza</li>
+    </ul>
+    <p>Tambien se puede forzar la operacion por item con:</p>
+    <ul>
+    <li>`operation: &quot;create&quot;`</li>
+    <li>`operation: &quot;update&quot;`</li>
+    <li>`operation: &quot;upsert&quot;`</li>
+    </ul>
+    <h2>Datos productivos</h2>
+    <ul>
+    <li>`base_url`: `https://proyecto-teflon.onrender.com`</li>
+    <li>`tenant_id`: `636736e2-e135-44cd-ac5c-5d4ccb839a73`</li>
+    <li>`token`: completar con el token actual desde `Admin &gt; Integraciones`</li>
+    </ul>
+    <h2>Endpoints</h2>
+    <h3>Conexion</h3>
+    <ul>
+    <li>`GET /api/v1/integrations/ping`</li>
+    </ul>
+    <p>Ejemplo:</p>
+    <pre><code>GET https://proyecto-teflon.onrender.com/api/v1/integrations/ping</code></pre>
+    <h3>Sync principal</h3>
+    <ul>
+    <li>`POST /api/v1/integrations/products/sync`</li>
+    </ul>
+    <p>Ejemplo:</p>
+    <pre><code>POST https://proyecto-teflon.onrender.com/api/v1/integrations/products/sync</code></pre>
+    <h3>Compatibilidad para sistemas que solo aceptan Consumer Key / Secret</h3>
+    <ul>
+    <li>`GET /api/v1/integrations/gestion/ping`</li>
+    <li>`POST /api/v1/integrations/gestion/producto`</li>
+    <li>`POST /api/v1/integrations/gestion/productos`</li>
+    </ul>
+    <p>Alias tecnico equivalente:</p>
+    <ul>
+    <li>`GET /api/v1/integrations/compat/ping`</li>
+    <li>`POST /api/v1/integrations/compat/products/sync`</li>
+    </ul>
+    <h3>Schema tecnico</h3>
+    <ul>
+    <li>`GET /api/v1/integrations/schema/product`</li>
+    </ul>
+    <p>Sirve para inspeccionar el schema publicado por el backend.</p>
+    <h2>Autenticacion</h2>
+    <h3>Modo recomendado</h3>
+    <p>Headers:</p>
+    <pre><code>x-api-key: TU_TOKEN
+x-tenant-id: 636736e2-e135-44cd-ac5c-5d4ccb839a73
+Content-Type: application/json</code></pre>
+    <p>Tambien se acepta:</p>
+    <pre><code>Authorization: Bearer TU_TOKEN</code></pre>
+    <p>Notas:</p>
+    <ul>
+    <li>si el token pertenece a ese tenant, `x-tenant-id` puede omitirse</li>
+    <li>si se envia `x-tenant-id`, debe coincidir con el tenant del token</li>
+    <li>el token debe tener scope `products:sync`</li>
+    </ul>
+    <h3>Modo compatibilidad</h3>
+    <p>Si el sistema no soporta headers custom, puede autenticarse con:</p>
+    <ul>
+    <li>`consumer_key`</li>
+    <li>`consumer_secret`</li>
+    </ul>
+    <p>Formas aceptadas:</p>
+    <ul>
+    <li>query string</li>
+    <li>body JSON</li>
+    <li>`application/x-www-form-urlencoded`</li>
+    <li>`Basic Auth`</li>
+    </ul>
+    <h2>Formato del request</h2>
+    <pre><code>{
+  &quot;source_system&quot;: &quot;sistema-gestion-av&quot;,
+  &quot;items&quot;: [
+    {
+      &quot;operation&quot;: &quot;upsert&quot;,
+      &quot;external_id&quot;: &quot;PROD-1001&quot;,
+      &quot;sku&quot;: &quot;PROD-1001&quot;,
+      &quot;name&quot;: &quot;Producto&quot;,
+      &quot;price_retail&quot;: 1000,
+      &quot;price_wholesale&quot;: 900,
+      &quot;stock&quot;: 20,
+      &quot;is_active&quot;: true,
+      &quot;brand&quot;: &quot;Marca&quot;,
+      &quot;description&quot;: &quot;Descripcion&quot;,
+      &quot;category_id&quot;: &quot;UUID_O_NOMBRE_DE_CATEGORIA&quot;,
+      &quot;images&quot;: [
+        &quot;https://dominio-del-sistema.com/imagenes/prod-1001.jpg&quot;
+      ]
+    }
+  ]
+}</code></pre>
+    <h2>Formatos alternativos aceptados</h2>
+    <p>El backend acepta aliases comunes de sistemas de gestion.</p>
+    <p>Ejemplos:</p>
+    <ul>
+    <li>`codigo`, `codigo_propio`, `codigo_producto` como alias de identificador/SKU</li>
+    <li>`titulo`, `detalle_ampliado` como alias de nombre</li>
+    <li>`descripcion`, `texto_asociado`, `desc_ampliada` como alias de descripcion</li>
+    <li>`familia`, `category`, `categoria`, `category_id`, `category_ids`</li>
+    <li>`precio`, `precio_venta`, `precio_iva`</li>
+    <li>`mayorista`, `precio_mayorista`</li>
+    <li>`disponibilidad`, `stock_actual`</li>
+    <li>`activo`</li>
+    <li>`imagenes`, `imagen1..8`</li>
+    </ul>
+    <p>Tambien acepta payloads tipo:</p>
+    <pre><code>{
+  &quot;source_system&quot;: &quot;gestion-escritorio&quot;,
+  &quot;producto&quot;: {
+    &quot;codigo_propio&quot;: &quot;666&quot;,
+    &quot;detalle_ampliado&quot;: &quot;ABLANDADOR AGUA AF1500 FLUVIAL&quot;,
+    &quot;texto_asociado&quot;: &quot;Descripcion ampliada enviada por el sistema de gestion.&quot;,
+    &quot;familia&quot;: &quot;Bombas&quot;,
+    &quot;precio&quot;: 1465583,
+    &quot;mayorista&quot;: 0,
+    &quot;disponibilidad&quot;: 12,
+    &quot;activo&quot;: true,
+    &quot;imagenes&quot;: [
+      &quot;https://dominio-del-sistema.com/imagenes/666_1.jpg&quot;
+    ]
+  }
+}</code></pre>
+    <h2>Regla de categorias</h2>
+    <p>En `category`, `categoria`, `familia`, `category_id` o `category_ids` se puede enviar:</p>
+    <ul>
+    <li>UUID real de categoria</li>
+    <li>slug de categoria</li>
+    <li>`erp_id` de categoria</li>
+    <li>nombre de categoria</li>
+    </ul>
+    <p>Si la categoria no existe y llega como texto, el ecommerce la crea automaticamente en forma plana.</p>
+    <h2>Campos obligatorios y regla de create/update</h2>
+    <h3>Create</h3>
+    <p>Para crear, el unico campo estrictamente obligatorio es:</p>
+    <ul>
+    <li>`external_id`</li>
+    </ul>
+    <p>El resto puede venir o no, aunque lo correcto es enviar el producto completo.</p>
+    <p>Si el proveedor quiere forzar alta y evitar que un `external_id` existente se actualice, puede enviar:</p>
+    <pre><code>{
+  &quot;operation&quot;: &quot;create&quot;
+}</code></pre>
+    <p>Si ese `external_id` ya existe, el item vuelve con:</p>
+    <pre><code>{
+  &quot;ok&quot;: false,
+  &quot;status&quot;: &quot;error&quot;,
+  &quot;action&quot;: &quot;create&quot;,
+  &quot;error&quot;: &quot;external_id_already_exists&quot;
+}</code></pre>
+    <h3>Update</h3>
+    <p>Si el `external_id` ya existe, el backend exige update completo.</p>
+    <p>Campos obligatorios para update:</p>
+    <ul>
+    <li>`external_id`</li>
+    <li>`sku`</li>
+    <li>`name`</li>
+    <li>`price_retail`</li>
+    <li>`stock`</li>
+    <li>`is_active`</li>
+    <li>`brand`</li>
+    <li>`description`</li>
+    <li>`category` o `category_id` / `category_ids` / `familia`</li>
+    </ul>
+    <p>Si falta cualquiera de esos campos, ese item no se actualiza.</p>
+    <p>Si el proveedor quiere forzar update y evitar que un `external_id` inexistente se cree por error, puede enviar:</p>
+    <pre><code>{
+  &quot;operation&quot;: &quot;update&quot;
+}</code></pre>
+    <p>Si ese `external_id` no existe, el item vuelve con:</p>
+    <pre><code>{
+  &quot;ok&quot;: false,
+  &quot;status&quot;: &quot;error&quot;,
+  &quot;action&quot;: &quot;update&quot;,
+  &quot;error&quot;: &quot;product_not_found&quot;
+}</code></pre>
+    <p>Si no se envia `operation`, el comportamiento por defecto es:</p>
+    <pre><code>{
+  &quot;operation&quot;: &quot;upsert&quot;
+}</code></pre>
+    <h2>Ejemplo exacto del caso pedido por el proveedor</h2>
+    <p>Request:</p>
+    <pre><code>{
+  &quot;source_system&quot;: &quot;sistema-gestion-av&quot;,
+  &quot;items&quot;: [
+    {
+      &quot;operation&quot;: &quot;create&quot;,
+      &quot;external_id&quot;: &quot;PROD-NUEVO-001&quot;,
+      &quot;sku&quot;: &quot;PROD-NUEVO-001&quot;,
+      &quot;name&quot;: &quot;Producto nuevo&quot;,
+      &quot;price_retail&quot;: 15000,
+      &quot;stock&quot;: 10,
+      &quot;is_active&quot;: true,
+      &quot;brand&quot;: &quot;Marca Demo&quot;,
+      &quot;description&quot;: &quot;Descripcion completa&quot;,
+      &quot;category&quot;: &quot;Sanitarios&quot;
+    },
+    {
+      &quot;operation&quot;: &quot;update&quot;,
+      &quot;external_id&quot;: &quot;PROD-EXISTENTE-001&quot;,
+      &quot;sku&quot;: &quot;PROD-EXISTENTE-001&quot;,
+      &quot;name&quot;: &quot;Producto existente actualizado&quot;,
+      &quot;price_retail&quot;: 17000,
+      &quot;stock&quot;: 8,
+      &quot;is_active&quot;: true,
+      &quot;brand&quot;: &quot;Marca Demo&quot;,
+      &quot;description&quot;: &quot;Descripcion actualizada&quot;,
+      &quot;category&quot;: &quot;Sanitarios&quot;
+    },
+    {
+      &quot;operation&quot;: &quot;update&quot;,
+      &quot;external_id&quot;: &quot;PROD-INVALIDO-001&quot;,
+      &quot;sku&quot;: &quot;PROD-INVALIDO-001&quot;,
+      &quot;name&quot;: &quot;Producto con error&quot;,
+      &quot;price_retail&quot;: 19000,
+      &quot;stock&quot;: 5,
+      &quot;is_active&quot;: true
+    }
+  ]
+}</code></pre>
+    <p>Respuesta esperada:</p>
+    <pre><code>{
+  &quot;ok&quot;: false,
+  &quot;partial&quot;: true,
+  &quot;total&quot;: 3,
+  &quot;created&quot;: 1,
+  &quot;updated&quot;: 1,
+  &quot;failed&quot;: 1,
+  &quot;item_results&quot;: [
+    {
+      &quot;index&quot;: 0,
+      &quot;requested_operation&quot;: &quot;create&quot;,
+      &quot;external_id&quot;: &quot;PROD-NUEVO-001&quot;,
+      &quot;ok&quot;: true,
+      &quot;status&quot;: &quot;created&quot;,
+      &quot;action&quot;: &quot;create&quot;,
+      &quot;product_id&quot;: &quot;UUID_INTERNO_DEL_ECOMMERCE&quot;
+    },
+    {
+      &quot;index&quot;: 1,
+      &quot;requested_operation&quot;: &quot;update&quot;,
+      &quot;external_id&quot;: &quot;PROD-EXISTENTE-001&quot;,
+      &quot;ok&quot;: true,
+      &quot;status&quot;: &quot;updated&quot;,
+      &quot;action&quot;: &quot;update&quot;,
+      &quot;product_id&quot;: &quot;UUID_INTERNO_DEL_ECOMMERCE&quot;
+    },
+    {
+      &quot;index&quot;: 2,
+      &quot;requested_operation&quot;: &quot;update&quot;,
+      &quot;external_id&quot;: &quot;PROD-INVALIDO-001&quot;,
+      &quot;ok&quot;: false,
+      &quot;status&quot;: &quot;error&quot;,
+      &quot;action&quot;: &quot;update&quot;,
+      &quot;error&quot;: &quot;update_payload_incomplete&quot;,
+      &quot;missing_fields&quot;: [
+        &quot;brand&quot;,
+        &quot;description&quot;,
+        &quot;category&quot;
+      ]
+    }
+  ]
+}</code></pre>
+    <h2>Respuesta del sync</h2>
+    <p>La API devuelve resultado por lote y por item.</p>
+    <p>Ejemplo:</p>
+    <pre><code>{
+  &quot;ok&quot;: false,
+  &quot;partial&quot;: true,
+  &quot;tenant_id&quot;: &quot;636736e2-e135-44cd-ac5c-5d4ccb839a73&quot;,
+  &quot;source_system&quot;: &quot;sistema-gestion-av&quot;,
+  &quot;total&quot;: 3,
+  &quot;created&quot;: 1,
+  &quot;updated&quot;: 1,
+  &quot;failed&quot;: 1,
+  &quot;categories_created&quot;: 0,
+  &quot;item_results&quot;: [
+    {
+      &quot;index&quot;: 0,
+      &quot;requested_operation&quot;: &quot;create&quot;,
+      &quot;external_id&quot;: &quot;PROD-1001&quot;,
+      &quot;sku&quot;: &quot;PROD-1001&quot;,
+      &quot;name&quot;: &quot;Producto nuevo&quot;,
+      &quot;source_system&quot;: &quot;sistema-gestion-av&quot;,
+      &quot;ok&quot;: true,
+      &quot;status&quot;: &quot;created&quot;,
+      &quot;action&quot;: &quot;create&quot;,
+      &quot;product_id&quot;: &quot;UUID_PRODUCTO_CREADO&quot;,
+      &quot;categories_created&quot;: 0
+    },
+    {
+      &quot;index&quot;: 1,
+      &quot;requested_operation&quot;: &quot;update&quot;,
+      &quot;external_id&quot;: &quot;PROD-0008&quot;,
+      &quot;sku&quot;: &quot;PROD-0008&quot;,
+      &quot;name&quot;: &quot;Producto existente&quot;,
+      &quot;source_system&quot;: &quot;sistema-gestion-av&quot;,
+      &quot;ok&quot;: true,
+      &quot;status&quot;: &quot;updated&quot;,
+      &quot;action&quot;: &quot;update&quot;,
+      &quot;product_id&quot;: &quot;UUID_PRODUCTO_EXISTENTE&quot;,
+      &quot;categories_created&quot;: 0
+    },
+    {
+      &quot;index&quot;: 2,
+      &quot;requested_operation&quot;: &quot;update&quot;,
+      &quot;external_id&quot;: &quot;PROD-0099&quot;,
+      &quot;sku&quot;: &quot;PROD-0099&quot;,
+      &quot;name&quot;: &quot;Producto incompleto&quot;,
+      &quot;source_system&quot;: &quot;sistema-gestion-av&quot;,
+      &quot;ok&quot;: false,
+      &quot;status&quot;: &quot;error&quot;,
+      &quot;action&quot;: &quot;update&quot;,
+      &quot;error&quot;: &quot;update_payload_incomplete&quot;,
+      &quot;missing_fields&quot;: [
+        &quot;description&quot;,
+        &quot;category&quot;
+      ]
+    }
+  ]
+}</code></pre>
+    <h2>Como interpretar la respuesta</h2>
+    <ul>
+    <li>`created`: cantidad de productos creados</li>
+    <li>`updated`: cantidad de productos actualizados</li>
+    <li>`failed`: cantidad de items fallidos</li>
+    <li>`item_results[index]`: resultado del item enviado en esa posicion</li>
+    <li>`requested_operation`: operacion pedida por el proveedor para ese item</li>
+    </ul>
+    <p>Estados esperables por item:</p>
+    <ul>
+    <li>`created`</li>
+    <li>`updated`</li>
+    <li>`error`</li>
+    </ul>
+    <p>Acciones esperables por item:</p>
+    <ul>
+    <li>`create`</li>
+    <li>`update`</li>
+    <li>`ignored`</li>
+    </ul>
+    <h2>Errores globales HTTP</h2>
+    <p>Estos errores frenan toda la request:</p>
+    <ul>
+    <li>`401 api_key_required`</li>
+    <li>`403 invalid_api_key`</li>
+    <li>`403 api_scope_required`</li>
+    <li>`403 insufficient_api_scope`</li>
+    <li>`400 tenant_required`</li>
+    <li>`400 invalid_tenant_id`</li>
+    <li>`403 tenant_mismatch`</li>
+    <li>`400 products_array_required`</li>
+    </ul>
+    <h2>Errores por item dentro de item_results</h2>
+    <p>Estos errores no frenan todo el lote. Solo fallan esos items:</p>
+    <ul>
+    <li>`invalid_product_item`</li>
+    <li>`external_id_required`</li>
+    <li>`update_payload_incomplete`</li>
+    <li>`invalid_category_ids`</li>
+    <li>`product_not_found`</li>
+    <li>`external_id_already_exists`</li>
+    <li>`sync_item_failed`</li>
+    </ul>
+    <h3>Significado de los mas importantes</h3>
+    <p>`external_id_required`</p>
+    <ul>
+    <li>falta el identificador estable del producto</li>
+    </ul>
+    <p>`update_payload_incomplete`</p>
+    <ul>
+    <li>el producto ya existia y el update vino incompleto</li>
+    <li>el backend devuelve tambien `missing_fields`</li>
+    </ul>
+    <p>`product_not_found`</p>
+    <ul>
+    <li>se envio `operation: &quot;update&quot;` para un `external_id` que no existe</li>
+    </ul>
+    <p>`external_id_already_exists`</p>
+    <ul>
+    <li>se envio `operation: &quot;create&quot;` para un `external_id` que ya existe</li>
+    </ul>
+    <p>`invalid_category_ids`</p>
+    <ul>
+    <li>llegaron UUIDs de categoria que no existen para el tenant</li>
+    </ul>
+    <h2>Recomendacion minima para el sistema de gestion</h2>
+    <p>El proveedor deberia guardar por cada item:</p>
+    <ul>
+    <li>`index`</li>
+    <li>`external_id`</li>
+    <li>`status`</li>
+    <li>`action`</li>
+    <li>`ok`</li>
+    <li>`product_id`</li>
+    <li>`error`</li>
+    <li>`missing_fields`</li>
+    </ul>
+    <p>Con eso puede registrar correctamente:</p>
+    <ul>
+    <li>que producto se creo</li>
+    <li>que producto se actualizo</li>
+    <li>que producto fallo</li>
+    <li>por que fallo</li>
+    </ul>
+    <h2>Recomendacion operativa</h2>
+    <p>El sistema de gestion deberia tener una pantalla o modulo con:</p>
+    <ul>
+    <li>URL API ecommerce</li>
+    <li>token</li>
+    <li>tenant UUID</li>
+    <li>source system</li>
+    <li>boton `Probar conexion`</li>
+    <li>boton `Sincronizar ahora`</li>
+    <li>log de request y response</li>
+    </ul>
+    <h2>Ejemplo JavaScript</h2>
+    <pre><code>async function syncProducts(products) {
+  const response = await fetch(&quot;https://proyecto-teflon.onrender.com/api/v1/integrations/products/sync&quot;, {
+    method: &quot;POST&quot;,
+    headers: {
+      &quot;x-api-key&quot;: &quot;TU_TOKEN&quot;,
+      &quot;x-tenant-id&quot;: &quot;636736e2-e135-44cd-ac5c-5d4ccb839a73&quot;,
+      &quot;Content-Type&quot;: &quot;application/json&quot;
+    },
+    body: JSON.stringify({
+      source_system: &quot;sistema-gestion-av&quot;,
+      items: products
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || &quot;sync_failed&quot;);
+  }
+
+  for (const itemResult of data.item_results || []) {
+    if (itemResult.ok) {
+      console.log(&quot;SYNC OK&quot;, itemResult.external_id, itemResult.status, itemResult.product_id);
+      continue;
+    }
+
+    console.error(&quot;SYNC ERROR&quot;, itemResult.external_id, itemResult.error, itemResult.missing_fields || []);
+  }
+
+  return data;
+}</code></pre>
+    <h2>Resumen corto para el proveedor</h2>
+    <p>La integracion del ecommerce funciona por API HTTP. Deben consumir `GET /api/v1/integrations/ping` para probar conexion y `POST /api/v1/integrations/products/sync` para sincronizar productos. La logica por defecto es `upsert` por `external_id`: si no existe, crea; si existe, actualiza. Si necesitan control estricto, pueden enviar `operation: &quot;create&quot;` o `operation: &quot;update&quot;` por item. En create, el unico campo estrictamente obligatorio es `external_id`. En update, el item debe venir completo con `sku`, `name`, `price_retail`, `stock`, `is_active`, `brand`, `description` y `category`; si falta alguno, la API responde `update_payload_incomplete` con `missing_fields`. Si se fuerza `update` y el producto no existe, responde `product_not_found`. Si se fuerza `create` y el producto ya existe, responde `external_id_already_exists`. La respuesta del sync devuelve resultado por lote y por item en `item_results`, por lo que el sistema debe registrar por separado que productos se crearon, cuales se actualizaron y cuales devolvieron error.</p>
+  </div>
+</body>
+</html>

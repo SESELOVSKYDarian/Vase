@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Route } from "next";
 import { ArrowUpRight } from "lucide-react";
 import { getMarketingChromeCopy } from "@/config/public-site";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
@@ -193,13 +194,13 @@ export async function SiteFooter() {
                 {labels.legal}
               </p>
               <div className="flex flex-col gap-2 text-sm text-[#2F3030]">
-                <Link href="/" className="transition hover:text-[#3B633D]">
+                <Link href={"/terminos-y-condiciones" as Route} className="transition hover:text-[#3B633D]">
                   {labels.terms}
                 </Link>
-                <Link href="/" className="transition hover:text-[#3B633D]">
+                <Link href={"/politica-de-privacidad" as Route} className="transition hover:text-[#3B633D]">
                   {labels.privacy}
                 </Link>
-                <Link href="/developers/api" className="transition hover:text-[#3B633D]">
+                <Link href={"/seguridad" as Route} className="transition hover:text-[#3B633D]">
                   {labels.security}
                 </Link>
               </div>

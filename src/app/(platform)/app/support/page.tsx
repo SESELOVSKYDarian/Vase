@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -220,6 +221,11 @@ export default async function SupportPage() {
             eyebrow="Respuestas predefinidas"
             title="Biblioteca de respuestas"
             description="Sirve para acelerar el primer contacto, pedidos de información y cierres recurrentes."
+            actions={
+              <Link href="/app/support/knowledge" className="text-sm font-semibold text-[var(--accent)]">
+                Abrir base de conocimiento
+              </Link>
+            }
           >
             <SupportReplyTemplateForm />
             <div className="mt-4 grid gap-3">

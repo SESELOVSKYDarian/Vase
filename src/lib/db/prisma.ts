@@ -1,5 +1,7 @@
 import { PrismaClient } from "../../../node_modules/.prisma/client";
 
+export const isDatabaseConfigured = Boolean(process.env.DATABASE_URL);
+
 const globalForPrisma = globalThis as typeof globalThis & {
   prisma?: PrismaClient;
 };

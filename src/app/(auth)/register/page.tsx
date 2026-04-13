@@ -2,12 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { RegisterForm } from "@/components/auth/register-form";
+import { hasActiveSession } from "@/lib/auth/session";
 
 export default async function RegisterPage() {
   const session = await auth();
 
-  if (session?.user) {
-    redirect("/app");
+  if (hasActiveSession(session) && session?.user) {
+    redirect(session.user.isEmailVerified ? "/app" : "/verify-email");
   }
 
   return (
@@ -56,7 +57,7 @@ export default async function RegisterPage() {
         </section>
 
         <section className="flex flex-col justify-center p-8 md:p-16">
-          <div className="mx-auto w-full max-w-md">
+          <div className="mx-auto w-full max-w-2xl">
             <div className="mb-10 text-center md:text-left">
               <h2 className="mb-2 font-[family-name:var(--font-newsreader)] text-3xl font-semibold tracking-[-0.04em] text-[#191c1b]">
                 Crear cuenta

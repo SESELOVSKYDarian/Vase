@@ -44,3 +44,38 @@ export const createSupportReplyTemplateSchema = z.object({
   category: z.string().trim().max(60).optional(),
   body: z.string().trim().min(5).max(1000),
 });
+
+export const supportKnowledgeTagSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(30);
+
+export const createSupportKnowledgeSchema = z.object({
+  tenantId: z.string().trim().cuid().optional(),
+  question: z.string().trim().min(5).max(200),
+  answer: z.string().trim().min(5).max(4000),
+  category: z.string().trim().max(60).optional(),
+  tags: z.array(supportKnowledgeTagSchema).max(12).optional().default([]),
+  isActive: z.boolean().default(true),
+});
+
+export const updateSupportKnowledgeSchema = z.object({
+  knowledgeId: z.string().trim().cuid(),
+  tenantId: z.string().trim().cuid().optional(),
+  question: z.string().trim().min(5).max(200),
+  answer: z.string().trim().min(5).max(4000),
+  category: z.string().trim().max(60).optional(),
+  tags: z.array(supportKnowledgeTagSchema).max(12).optional().default([]),
+  isActive: z.boolean().default(true),
+});
+
+export const deleteSupportKnowledgeSchema = z.object({
+  knowledgeId: z.string().trim().cuid(),
+});
+
+export const supportAiFeedbackSchema = z.object({
+  responseLogId: z.string().trim().cuid(),
+  helpful: z.boolean(),
+  feedbackNote: z.string().trim().max(800).optional(),
+});

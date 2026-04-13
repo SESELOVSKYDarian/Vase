@@ -207,3 +207,39 @@ export async function getTenantSupportOverview(tenantId: string) {
     },
   };
 }
+
+export async function getTenantSupportWidgetContext(tenantId: string) {
+  const [overview, conversations] = await Promise.all([
+    getTenantSupportOverview(tenantId),
+    prisma.aiConversation.findMany({
+      where: { tenantId },
+      orderBy: { lastMessageAt: "desc" },
+      take: 6,
+      select: {
+        id: true,
+        customerName: true,
+        customerContact: true,
+        channelType: true,
+        lastMessageAt: true,
+      },
+    }),
+  ]);
+
+  return {
+    summary: overview.summary,
+    conversationOptions: conversations.map((conversation) => {
+      const reference =
+        conversation.customerName ||
+        conversation.customerContact ||
+        `Conversación ${conversation.channelType.toLowerCase()}`;
+
+      return {
+        id: conversation.id,
+        label: `${reference} · ${new Intl.DateTimeFormat("es-AR", {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(conversation.lastMessageAt)}`,
+      };
+    }),
+  };
+}

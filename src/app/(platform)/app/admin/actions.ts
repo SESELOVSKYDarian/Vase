@@ -15,10 +15,15 @@ import { getRequestContext } from "@/lib/security/request";
 import { sanitizeNullableText, sanitizeText } from "@/lib/security/sanitize";
 import {
   createSupportUserSchema,
+  createAdminModuleSchema,
   toggleFeatureFlagSchema,
+  updateAdminModulePricingSchema,
+  updateAdminModuleSchema,
   updateSupportTemplateAdminSchema,
   updateTenantGovernanceSchema,
   updateUserGovernanceSchema,
+  createPlatformUpdateSchema,
+  deletePlatformUpdateSchema,
 } from "@/lib/validators/admin";
 import { reviewCustomizationRequestSchema } from "@/lib/validators/builder";
 import {
@@ -26,6 +31,7 @@ import {
   upsertCustomizationQuoteSchema,
 } from "@/lib/validators/custom-quotes";
 import { createAuditLog } from "@/server/services/audit-log";
+import { ensureModuleCatalogSynced, normalizePricingType } from "@/server/services/modules";
 
 export type AdminReviewActionState = {
   success?: string;
@@ -339,6 +345,180 @@ export async function updateSupportReplyTemplateAdminAction(
   }
 }
 
+export async function createAdminModuleAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = createAdminModuleSchema.safeParse({
+      id: sanitizeText(String(formData.get("id") ?? "")),
+      name: sanitizeText(String(formData.get("name") ?? "")),
+      description: sanitizeText(String(formData.get("description") ?? "")),
+      product: formData.get("product"),
+      route: sanitizeText(String(formData.get("route") ?? "")),
+      isActive: formData.get("isActive") === "on",
+    });
+
+    if (!parsed.success) {
+      return { error: "Revisa id, nombre, descripcion, producto y ruta del modulo." };
+    }
+
+    await ensureModuleCatalogSynced();
+
+    const createdModule = await prisma.module.create({
+      data: {
+        id: parsed.data.id,
+        name: parsed.data.name,
+        description: parsed.data.description,
+        product: parsed.data.product,
+        route: parsed.data.route,
+        isActive: parsed.data.isActive,
+      },
+    });
+
+    await createAuditLog({
+      action: "platform.module_created",
+      targetType: "module",
+      targetId: createdModule.id,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        product: createdModule.product,
+        route: createdModule.route,
+      },
+    });
+
+    revalidatePath("/app/admin/modules");
+    revalidatePath("/app/admin");
+    return { success: "Modulo creado correctamente." };
+  } catch {
+    return { error: "No pudimos crear el modulo." };
+  }
+}
+
+export async function updateAdminModuleAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = updateAdminModuleSchema.safeParse({
+      moduleId: formData.get("moduleId"),
+      name: sanitizeText(String(formData.get("name") ?? "")),
+      description: sanitizeText(String(formData.get("description") ?? "")),
+      route: sanitizeText(String(formData.get("route") ?? "")),
+      isActive: formData.get("isActive") === "on",
+    });
+
+    if (!parsed.success) {
+      return { error: "Revisa nombre, descripcion, ruta y estado del modulo." };
+    }
+
+    const updatedModule = await prisma.module.update({
+      where: { id: parsed.data.moduleId },
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        route: parsed.data.route,
+        isActive: parsed.data.isActive,
+      },
+    });
+
+    await createAuditLog({
+      action: "platform.module_updated",
+      targetType: "module",
+      targetId: updatedModule.id,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        isActive: updatedModule.isActive,
+        route: updatedModule.route,
+      },
+    });
+
+    revalidatePath("/app/admin/modules");
+    revalidatePath("/app/admin");
+    return { success: "Modulo actualizado." };
+  } catch {
+    return { error: "No pudimos actualizar el modulo." };
+  }
+}
+
+export async function updateAdminModulePricingAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = updateAdminModulePricingSchema.safeParse({
+      moduleId: formData.get("moduleId"),
+      price: formData.get("price"),
+      currency: sanitizeText(String(formData.get("currency") ?? "")),
+      type: formData.get("type"),
+      isActive: formData.get("isActive") === "on",
+    });
+
+    if (!parsed.success) {
+      return { error: "Revisa precio, moneda, tipo y estado del pricing." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.modulePricing.updateMany({
+        where: {
+          moduleId: parsed.data.moduleId,
+          isActive: true,
+        },
+        data: {
+          isActive: false,
+        },
+      });
+
+      await tx.modulePricing.create({
+        data: {
+          moduleId: parsed.data.moduleId,
+          price: parsed.data.price,
+          currency: parsed.data.currency,
+          type: normalizePricingType(parsed.data.type),
+          isActive: parsed.data.isActive,
+        },
+      });
+    });
+
+    await createAuditLog({
+      action: "platform.module_pricing_updated",
+      targetType: "module_pricing",
+      targetId: parsed.data.moduleId,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        price: parsed.data.price,
+        currency: parsed.data.currency,
+        type: parsed.data.type,
+        isActive: parsed.data.isActive,
+      },
+    });
+
+    revalidatePath("/app/admin/modules");
+    revalidatePath("/app");
+    return { success: "Pricing actualizado." };
+  } catch {
+    return { error: "No pudimos actualizar el pricing del modulo." };
+  }
+}
+
 export async function updateUserGovernanceAction(
   _: AdminGovernanceActionState,
   formData: FormData,
@@ -634,5 +814,98 @@ export async function sendCustomizationQuoteAction(
     return { success: "Presupuesto enviado al cliente." };
   } catch {
     return { error: "No pudimos enviar el presupuesto." };
+  }
+}
+
+export async function createPlatformUpdateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = createPlatformUpdateSchema.safeParse({
+      title: sanitizeText(String(formData.get("title") ?? "")),
+      description: sanitizeText(String(formData.get("description") ?? "")),
+      href: sanitizeNullableText(String(formData.get("href") ?? "")) ?? undefined,
+      tone: formData.get("tone"),
+      category: formData.get("category"),
+      isActive: formData.get("isActive") === "on",
+    });
+
+    if (!parsed.success) {
+      return { error: "Revisa título, descripción, categoría y tono del anuncio." };
+    }
+
+    const update = await prisma.platformUpdate.create({
+      data: {
+        title: parsed.data.title,
+        description: parsed.data.description,
+        href: parsed.data.href,
+        tone: parsed.data.tone,
+        category: parsed.data.category,
+        isActive: parsed.data.isActive,
+        publishedAt: new Date(),
+      },
+    });
+
+    await createAuditLog({
+      action: "platform.update_created",
+      targetType: "platform_update",
+      targetId: update.id,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        title: update.title,
+        category: update.category,
+      },
+    });
+
+    revalidatePath("/app/admin");
+    revalidatePath("/app");
+    return { success: "Anuncio de plataforma creado." };
+  } catch {
+    return { error: "No pudimos crear el anuncio." };
+  }
+}
+
+export async function deletePlatformUpdateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = deletePlatformUpdateSchema.safeParse({
+      updateId: formData.get("updateId"),
+    });
+
+    if (!parsed.success) {
+      return { error: "ID de anuncio inválido." };
+    }
+
+    await prisma.platformUpdate.delete({
+      where: { id: parsed.data.updateId },
+    });
+
+    await createAuditLog({
+      action: "platform.update_deleted",
+      targetType: "platform_update",
+      targetId: parsed.data.updateId,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+    });
+
+    revalidatePath("/app/admin");
+    revalidatePath("/app");
+    return { success: "Anuncio de plataforma eliminado." };
+  } catch {
+    return { error: "No pudimos eliminar el anuncio." };
   }
 }

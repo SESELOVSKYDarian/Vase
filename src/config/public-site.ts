@@ -93,41 +93,136 @@ export const integrationItems = [
 
 export const pricingPlans = [
   {
-    name: "Business Start",
-    price: "USD 390/mes",
+    name: "Vase Business Base",
+    price: "ARS 1.070.000",
+    badge: "Pago único",
     description:
-      "Base recomendada para negocios que quieren salir rápido con ecommerce plantilla editable y operación ordenada.",
+      "Plantilla ecommerce lista para usar con configuración inicial, panel administrativo y hosting incluido por 12 meses.",
     points: [
-      "Ecommerce editable con identidad Vase",
-      "Panel administrativo base",
-      "Conectividad API inicial",
-      "Soporte de onboarding",
+      "Plantilla ecommerce lista para usar",
+      "Panel de administración",
+      "Configuración inicial",
+      "Hosting incluido por 12 meses (valor ARS 280.000)",
+      "Sistema listo para vender",
     ],
   },
   {
-    name: "Business Growth",
-    price: "USD 890/mes",
+    name: "Vase Business Personalizado",
+    price: "ARS 1.800.000",
+    badge: "Proyecto",
     description:
-      "Para empresas que necesitan más integraciones, procesos y estructura de crecimiento sostenido.",
+      "Proyecto a medida para marcas que necesitan una experiencia personalizada según su identidad y operación.",
     points: [
-      "Integraciones ampliadas",
-      "Más automatizaciones operativas",
-      "Mejoras UX y performance",
-      "Acompañamiento funcional",
+      "50% al inicio: ARS 900.000",
+      "50% contra entrega: ARS 900.000",
+      "Diseño personalizado según marca",
+      "Reunión inicial y propuesta visual",
+      "Hasta 2 instancias de reunión/revisión",
+      "Optimización UX/UI",
+      "Desarrollo e implementación final en la página",
+      "Hosting anual no incluido: ARS 280.000",
+    ],
+  },
+] as const;
+
+export const labsBasePlan = {
+  name: "Vase Labs Base",
+  price: "ARS 90.000 / mes",
+  description:
+    "Infraestructura base para mantener el chatbot activo, conectado a IA y con mantenimiento incluido.",
+  points: [
+    "Infraestructura + chatbot activo",
+    "Mantenimiento incluido",
+    "Conexión con IA",
+  ],
+} as const;
+
+export const labsAddons = [
+  {
+    name: "Chatbot WhatsApp",
+    price: "ARS 18.000 / mes",
+  },
+  {
+    name: "Chatbot Instagram",
+    price: "ARS 25.000 / mes",
+  },
+  {
+    name: "Chatbot Facebook",
+    price: "ARS 25.000 / mes",
+  },
+  {
+    name: "Panel de conversaciones",
+    price: "ARS 50.000 / mes",
+    description:
+      "Visualización de chats, intervención humana y alertas de cierre de nuevo cliente o consumidor.",
+  },
+] as const;
+
+export const labsPlans = [
+  {
+    name: "Vase Labs Base",
+    price: "ARS 90.000 / mes",
+    badge: "Plan inicial",
+    description:
+      "Infraestructura base para mantener el asistente activo, conectado a IA y con mantenimiento incluido.",
+    points: [
+      "Infraestructura del sistema",
+      "Chatbot activo",
+      "Mantenimiento incluido",
+      "Conexion con IA",
     ],
   },
   {
-    name: "Custom Platform",
-    price: "Desde USD 4.500 setup + abono",
+    name: "Vase Labs Base",
+    price: "ARS 108.000 / mes",
+    badge: "Enfoque WhatsApp",
     description:
-      "Implementación personalizada para ecommerce avanzado, branding a medida, flujos complejos y arquitectura específica.",
+      "Plan pensado para negocios que operan principalmente por WhatsApp y necesitan una atencion conversacional estable.",
     points: [
-      "Discovery y definición funcional",
-      "Desarrollo de UX personalizada",
-      "Integraciones complejas",
-      "Roadmap y soporte enterprise",
+      "Incluye todo Vase Labs Base",
+      "Canal WhatsApp priorizado",
+      "Operacion comercial conversacional",
     ],
   },
+  {
+    name: "Vase Labs Base",
+    price: "ARS 158.000 / mes",
+    badge: "Escala operativa",
+    description:
+      "Plan mas completo para equipos que quieren panel de conversaciones, mayor supervision humana y automatizacion mas profunda.",
+    points: [
+      "Incluye todo Vase Labs Base",
+      "Panel de conversaciones",
+      "Escalamiento operativo",
+      "Preparado para crecer en canales y volumen",
+    ],
+  },
+] as const;
+
+export const labsTokenPlans = [
+  {
+    name: "Básico",
+    price: "ARS 10.000",
+    tokens: "500.000",
+    estimatedMessages: "~1.000",
+  },
+  {
+    name: "Medio",
+    price: "ARS 20.000",
+    tokens: "1.200.000",
+    estimatedMessages: "~2.000 – 2.500",
+  },
+  {
+    name: "Pro",
+    price: "ARS 40.000",
+    tokens: "3.000.000",
+    estimatedMessages: "~5.000 – 6.000",
+  },
+] as const;
+
+export const labsPricingExamples = [
+  "Plan mínimo: ARS 108.000 / mes (chatbot activo en WhatsApp)",
+  "Plan pro: ARS 158.000 / mes + tokens (chatbot activo en WhatsApp con panel de conversaciones)",
 ] as const;
 
 export const faqItems = [

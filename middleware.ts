@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { hasActiveSession } from "@/lib/auth/session";
 import { resolveLocale } from "@/lib/i18n/locale";
 import { getCanonicalOrigin } from "@/lib/security/origin";
 
@@ -18,7 +19,7 @@ export default auth((request: NextRequest) => {
     "/forgot-password",
     "/reset-password",
   ].includes(pathname);
-  const isSignedIn = Boolean(authRequest.auth?.user);
+  const isSignedIn = hasActiveSession(authRequest.auth);
 
   if (isSignedIn && isAuthPage) {
     return NextResponse.redirect(new URL("/app", request.url));

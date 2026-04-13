@@ -5,6 +5,7 @@ import { generateUniqueTenantSlug } from "@/lib/tenancy/slug";
 import { buildAbsoluteUrl } from "@/lib/security/request";
 import { createAuditLog } from "@/server/services/audit-log";
 import { sendAuthEmail } from "@/server/services/auth-email";
+import { ensureModuleCatalogSynced } from "@/server/services/modules";
 
 type RequestContext = {
   ipAddress: string;
@@ -55,6 +56,7 @@ export async function registerTenantOwner(
   payload: RegisterPayload,
   requestContext: RequestContext,
 ) {
+  await ensureModuleCatalogSynced();
   const existingUser = await findUserByEmail(payload.email);
 
   if (existingUser) {
@@ -185,13 +187,13 @@ export async function registerTenantOwner(
           tenantId: tenant.id,
           key: "automation_n8n",
           description: "Automatizaciones activadas con n8n.",
-          enabled: payload.selectedModules.includes("n8n_automation"),
+          enabled: payload.productSelection === "LABS" || payload.productSelection === "BOTH",
         },
         {
           tenantId: tenant.id,
           key: "meta_prompting",
           description: "Playbooks de IA y prompting para canales Meta.",
-          enabled: payload.selectedModules.includes("meta_prompting"),
+          enabled: payload.productSelection === "LABS" || payload.productSelection === "BOTH",
         },
         {
           tenantId: tenant.id,
@@ -225,6 +227,27 @@ export async function registerTenantOwner(
         tenant: true,
       },
     });
+
+    const moduleIds = [
+      ...(payload.productSelection === "BUSINESS" || payload.productSelection === "BOTH"
+        ? ["vase_business"]
+        : []),
+      ...(payload.productSelection === "LABS" || payload.productSelection === "BOTH"
+        ? ["vase_labs"]
+        : []),
+    ];
+
+    if (moduleIds.length > 0) {
+      await tx.tenantModule.createMany({
+        data: moduleIds.map((moduleId) => ({
+          tenantId: tenant.id,
+          moduleId,
+          isActive: true,
+          activatedAt: new Date(),
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     return { user, tenant, membership };
   });

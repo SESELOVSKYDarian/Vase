@@ -1,0 +1,15 @@
+2026/02/03-15:16:17.983 9e28 Reusing MANIFEST F:\darian\3 Documentos\VISUAL STUDIO\PROJECTS\TRABAJO\Atlas\coachbot\_IGNORE_ATLAS_COACHBOT\Default\Local Storage\leveldb/MANIFEST-000001
+2026/02/03-15:16:17.988 9e28 Recovering log #26
+2026/02/03-15:16:17.990 9e28 Reusing old log F:\darian\3 Documentos\VISUAL STUDIO\PROJECTS\TRABAJO\Atlas\coachbot\_IGNORE_ATLAS_COACHBOT\Default\Local Storage\leveldb/000026.log 
+2026/02/03-16:12:31.138 7d18 Level-0 table #30: started
+2026/02/03-16:12:31.306 7d18 Level-0 table #30: 23328 bytes OK
+2026/02/03-16:12:31.388 7d18 Delete type=0 #26
+2026/02/03-16:12:31.389 7d18 Compacting 4@0 + 1@1 files
+2026/02/03-16:12:31.456 7d18 Generated table #31@0: 408 keys, 26452 bytes
+2026/02/03-16:12:31.456 7d18 Compacted 4@0 + 1@1 files => 26452 bytes
+2026/02/03-16:12:31.485 7d18 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/02/03-16:12:31.486 7d18 Delete type=2 #18
+2026/02/03-16:12:31.486 7d18 Delete type=2 #21
+2026/02/03-16:12:31.486 7d18 Delete type=2 #24
+2026/02/03-16:12:31.486 7d18 Delete type=2 #27
+2026/02/03-16:12:31.487 7d18 Delete type=2 #30

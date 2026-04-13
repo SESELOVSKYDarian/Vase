@@ -150,6 +150,66 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       </section>
 
       <PanelCard
+        eyebrow="Monetizacion modular"
+        title="Gestion de modulos y pricing"
+        description="Administra el catalogo SaaS de Vase, el pricing actual de cada modulo y la base para activacion dinamica por tenant."
+        actions={
+          <Link href="/app/admin/modules" className="text-sm font-semibold text-[var(--accent)]">
+            Abrir pricing de modulos
+          </Link>
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 text-sm leading-7 text-[var(--muted)]">
+            Mantiene pricing real en base de datos, sin hardcodearlo en frontend.
+          </div>
+          <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 text-sm leading-7 text-[var(--muted)]">
+            Prepara historico de precios y activacion modular futura por tenant.
+          </div>
+          <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 text-sm leading-7 text-[var(--muted)]">
+            Sirve como base para monetizacion escalable de Business, Labs y nuevos modulos.
+          </div>
+        </div>
+      </PanelCard>
+      <PanelCard
+        eyebrow="Comunicación"
+        title="Anuncios de plataforma"
+        description="Publica actualizaciones, avisos de mantenimiento o nuevas funciones para todos los usuarios."
+      >
+        <section className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
+          <AdminPlatformUpdateForm />
+          
+          <div className="grid gap-4">
+            <h4 className="font-semibold text-[var(--foreground)]">Anuncios activos ({dashboard.platformUpdates.length})</h4>
+            {dashboard.platformUpdates.length === 0 ? (
+              <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-6 text-sm text-[var(--muted)]">
+                No hay anuncios publicados.
+              </div>
+            ) : (
+              dashboard.platformUpdates.map((update: AdminPlatformUpdate) => (
+                <div key={update.id} className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] p-4">
+                  <div className="max-w-md">
+                    <p className="font-semibold text-[var(--foreground)]">{update.title}</p>
+                    <p className="text-sm text-[var(--muted)] line-clamp-1">{update.description}</p>
+                    <div className="mt-2 flex gap-2">
+                       <StatusBadge tone={update.tone as any} label={update.tone} />
+                       <StatusBadge tone="neutral" label={update.category} />
+                    </div>
+                  </div>
+                  <form action={deletePlatformUpdateAction}>
+                    <input type="hidden" name="updateId" value={update.id} />
+                    <button className="text-xs font-semibold text-[var(--danger)] hover:underline">
+                      Eliminar
+                    </button>
+                  </form>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </PanelCard>
+
+      <PanelCard
         eyebrow="Filtros"
         title="Consulta transversal"
         description="Filtra por texto, producto, estado del tenant, billing y estado de soporte para revisar la plataforma sin perder contexto."
@@ -493,12 +553,17 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           </div>
         </PanelCard>
 
-        <PanelCard
-          eyebrow="Respuestas base"
-          title="Base de IA y soporte"
-          description="Edita templates internos que aceleran el primer contacto y los handoffs recurrentes."
-        >
-          <div className="grid gap-4">
+      <PanelCard
+        eyebrow="Respuestas base"
+        title="Base de IA y soporte"
+        description="Edita templates internos que aceleran el primer contacto y los handoffs recurrentes."
+        actions={
+          <Link href="/app/admin/support" className="text-sm font-semibold text-[var(--accent)]">
+            Gestionar FAQs
+          </Link>
+        }
+      >
+        <div className="grid gap-4">
             {dashboard.supportTemplates.map((template: AdminSupportTemplate) => (
               <AdminSupportTemplateForm
                 key={template.id}

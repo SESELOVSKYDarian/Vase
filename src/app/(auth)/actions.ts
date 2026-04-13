@@ -2,8 +2,8 @@
 
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
-import { auth, signIn } from "@/auth";
-import { getPostRegistrationRedirect } from "@/lib/auth/redirects";
+import { auth, signIn, signOut } from "@/auth";
+import { isDatabaseConfigured } from "@/lib/db/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { getRequestContext } from "@/lib/security/request";
 import { sanitizeText } from "@/lib/security/sanitize";
@@ -14,6 +14,7 @@ import {
   signInSchema,
 } from "@/lib/validators/auth";
 import {
+  findUserByEmail,
   registerTenantOwner,
   requestPasswordReset,
   resendVerificationEmail,
@@ -47,6 +48,13 @@ function validationErrorState(error: Record<string, string[]>) {
   } satisfies AuthActionState;
 }
 
+function databaseUnavailableState(): AuthActionState {
+  return {
+    error:
+      "La base de datos no está configurada todavía en este entorno. Define DATABASE_URL para registrar o iniciar sesión.",
+  };
+}
+
 export async function registerAction(
   _: AuthActionState,
   formData: FormData,
@@ -66,12 +74,17 @@ export async function registerAction(
     recommendationSummary: sanitizeText(String(formData.get("recommendationSummary") ?? "")),
     monthlyEstimate: Number(formData.get("monthlyEstimate") ?? 0),
     setupEstimate: Number(formData.get("setupEstimate") ?? 0),
+    acceptTerms: formData.get("acceptTerms") === "on",
   };
 
   const parsed = registerSchema.safeParse(rawData);
 
   if (!parsed.success) {
     return validationErrorState(parsed.error.flatten().fieldErrors);
+  }
+
+  if (!isDatabaseConfigured) {
+    return databaseUnavailableState();
   }
 
   await enforceRateLimit({
@@ -83,14 +96,10 @@ export async function registerAction(
 
   try {
     await registerTenantOwner(parsed.data, requestContext);
-    await signIn("credentials", {
-      email: parsed.data.email,
-      password: parsed.data.password,
-      redirectTo: getPostRegistrationRedirect(parsed.data.productSelection),
-    });
-
-    return {};
+    redirect(`/verify-email?email=${encodeURIComponent(parsed.data.email)}&sent=1`);
   } catch (error) {
+    console.error("[registerAction] registration failed", error);
+
     if (error instanceof Error && error.message === "EMAIL_ALREADY_IN_USE") {
       return {
         error: "Ya existe una cuenta con ese email.",
@@ -100,9 +109,21 @@ export async function registerAction(
       };
     }
 
+    if (error instanceof Error && error.message === "RATE_LIMIT_EXCEEDED") {
+      return {
+        error: "Hiciste demasiados intentos seguidos. Espera unos minutos y vuelve a intentar.",
+      };
+    }
+
     if (error instanceof AuthError) {
       return {
         error: "No pudimos iniciar tu sesion automaticamente. Intenta ingresar manualmente.",
+      };
+    }
+
+    if (error instanceof Error && error.message) {
+      return {
+        error: `No pudimos crear tu cuenta: ${error.message}`,
       };
     }
 
@@ -120,11 +141,16 @@ export async function signInAction(
   const rawData = {
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
+    sessionPreference: formData.get("rememberSession") === "on" ? "remember" : "day",
   };
   const parsed = signInSchema.safeParse(rawData);
 
   if (!parsed.success) {
     return validationErrorState(parsed.error.flatten().fieldErrors);
+  }
+
+  if (!isDatabaseConfigured) {
+    return databaseUnavailableState();
   }
 
   await enforceRateLimit({
@@ -142,14 +168,31 @@ export async function signInAction(
     };
   }
 
+  if (!result.user.emailVerified) {
+    await resendVerificationEmail(result.user.id, requestContext);
+    return {
+      error:
+        "Tu cuenta todavia no verifico el email. Te reenviamos un nuevo enlace de verificacion.",
+    };
+  }
+
   try {
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
+      sessionPreference: parsed.data.sessionPreference,
       redirectTo: "/app",
     });
     return {};
   } catch (error) {
+    console.error("[signInAction] sign-in failed", error);
+
+    if (error instanceof Error && error.message === "RATE_LIMIT_EXCEEDED") {
+      return {
+        error: "Hiciste demasiados intentos seguidos. Espera unos minutos y vuelve a intentar.",
+      };
+    }
+
     if (error instanceof AuthError) {
       return {
         error: "No pudimos iniciar sesion. Intenta nuevamente.",
@@ -158,6 +201,12 @@ export async function signInAction(
 
     throw error;
   }
+}
+
+export async function signOutAction() {
+  await signOut({
+    redirectTo: "/signin",
+  });
 }
 
 export async function forgotPasswordAction(
@@ -172,6 +221,10 @@ export async function forgotPasswordAction(
 
   if (!parsed.success) {
     return validationErrorState(parsed.error.flatten().fieldErrors);
+  }
+
+  if (!isDatabaseConfigured) {
+    return databaseUnavailableState();
   }
 
   await enforceRateLimit({
@@ -205,6 +258,10 @@ export async function resetPasswordAction(
     return validationErrorState(parsed.error.flatten().fieldErrors);
   }
 
+  if (!isDatabaseConfigured) {
+    return databaseUnavailableState();
+  }
+
   await enforceRateLimit({
     scope: "auth:reset-password",
     key: `${requestContext.ipAddress}:${parsed.data.token.slice(0, 12)}`,
@@ -236,6 +293,10 @@ export async function resendVerificationAction(): Promise<AuthActionState> {
     };
   }
 
+  if (!isDatabaseConfigured) {
+    return databaseUnavailableState();
+  }
+
   const requestContext = await getRequestContext();
 
   await enforceRateLimit({
@@ -255,5 +316,54 @@ export async function resendVerificationAction(): Promise<AuthActionState> {
 
   return {
     success: "Te enviamos un nuevo email de verificacion.",
+  };
+}
+
+export async function resendVerificationByEmailAction(
+  _: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+
+  if (!email) {
+    return {
+      error: "Necesitamos tu email para reenviar la verificacion.",
+      fieldErrors: {
+        email: ["Ingresa el email con el que creaste la cuenta."],
+      },
+    };
+  }
+
+  if (!isDatabaseConfigured) {
+    return databaseUnavailableState();
+  }
+
+  const requestContext = await getRequestContext();
+
+  await enforceRateLimit({
+    scope: "auth:resend-verification-email",
+    key: `${requestContext.ipAddress}:${email}`,
+    limit: 5,
+    windowSeconds: 60 * 30,
+  });
+
+  const user = await findUserByEmail(email);
+
+  if (!user) {
+    return {
+      success: "Si existe una cuenta con ese email, reenviamos el enlace de verificacion.",
+    };
+  }
+
+  const result = await resendVerificationEmail(user.id, requestContext);
+
+  if (result.alreadyVerified) {
+    return {
+      success: "Ese email ya estaba verificado. Ya puedes iniciar sesion.",
+    };
+  }
+
+  return {
+    success: "Reenviamos el email de verificacion a tu casilla.",
   };
 }

@@ -253,7 +253,7 @@ function SlideTransition({
       animate="center"
       exit="exit"
       transition={stepSlideTransition}
-      style={{ position: "absolute", inset: 0 }}
+      style={{ position: "absolute", left: 0, right: 0, top: 0 }}
     >
       {children}
     </motion.div>

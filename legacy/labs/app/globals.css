@@ -1,0 +1,229 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Outfit", sans-serif;
+  --font-body: "Plus Jakarta Sans", sans-serif;
+
+  --color-primary: #9333ea;
+  --color-primary-light: #a855f7;
+  --color-secondary: #06b6d4;
+  --color-accent: #f43f5e;
+
+  --color-background-dark: #05060d;
+  --color-surface-dark: #0d111d;
+  --color-background-light: #f8fafc;
+  --color-surface-light: #ffffff;
+
+  --shadow-premium: 0 20px 50px -15px rgba(0, 0, 0, 0.6);
+  --shadow-glow-purple: 0 0 10px #9333ea;
+  --shadow-glow-button: 0 0 30px -5px #9333ea;
+  --shadow-glow-button-hover: 0 0 40px -5px #9333ea;
+}
+
+@layer base {
+  body {
+    background-color: #05060d;
+    color: #f1f5f9;
+    -webkit-font-smoothing: antialiased;
+    font-family: "Plus Jakarta Sans", sans-serif;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(147, 51, 234, 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.08) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background-color: rgba(147, 51, 234, 0.3);
+    color: white;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Outfit", sans-serif;
+    letter-spacing: -0.025em;
+    color: white;
+  }
+}
+
+/* --- Tailwind v4 Utilities --- */
+
+@utility glass-blur {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+@utility glass-card {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px -15px rgba(0, 0, 0, 0.6);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+}
+
+@utility text-gradient {
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(to right, white, white, rgba(255, 255, 255, 0.5));
+}
+
+@utility premium-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  color: #94a3b8;
+  text-decoration: none;
+
+  \u0026:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  \u0026.active {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  \u0026.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 25%;
+    bottom: 25%;
+    width: 0.25rem;
+    background-color: #9333ea;
+    border-radius: 9999px;
+    box-shadow: 0 0 10px #9333ea;
+  }
+}
+
+@utility glow-button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #9333ea;
+  color: white;
+  box-shadow: 0 0 30px -5px #9333ea;
+  border: none;
+  cursor: pointer;
+
+  \u0026:hover {
+    background-color: #a855f7;
+    box-shadow: 0 0 40px -5px #9333ea;
+    transform: translateY(-0.125rem);
+  }
+}
+
+/* Modales */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 1rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.modal-content {
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  border-radius: 1.25rem;
+  padding: 2rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  max-width: 32rem;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(13, 17, 29, 0.98) 0%, rgba(5, 6, 13, 1) 100%);
+  animation: zoomIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-content::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(147, 51, 234, 0.15);
+  filter: blur(120px);
+  pointer-events: none;
+}
+
+@layer utilities {
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.02;
+  }
+}
+
+/* Custom Scrollbar for Chat Widget */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.3) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.3);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.5);
+}

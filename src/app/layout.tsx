@@ -1,5 +1,6 @@
 import { appConfig } from "@/config/app";
 import type { Metadata } from "next";
+import Script from "next/script";
 import { IBM_Plex_Mono, Manrope, Newsreader } from "next/font/google";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
 import "./globals.css";
@@ -53,9 +54,21 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      className={`${manrope.variable} ${ibmPlexMono.variable} ${newsreader.variable} h-full scroll-smooth antialiased`}
+      data-theme="light"
+      className={`${manrope.variable} ${ibmPlexMono.variable} ${newsreader.variable} light h-full scroll-smooth antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-foreground">
+        <Script id="vase-theme-init" strategy="beforeInteractive">
+          {`try {
+            var storedTheme = localStorage.getItem("vase-panel-theme");
+            var theme = storedTheme === "dark" ? "dark" : "light";
+            document.documentElement.dataset.theme = theme;
+            document.documentElement.classList.toggle("dark", theme === "dark");
+            document.documentElement.style.colorScheme = theme;
+          } catch (error) {}
+          `}
+        </Script>
         <a
           href="#main-content"
           className="sr-only rounded-full bg-[var(--accent)] px-4 py-2 text-[var(--accent-contrast)] focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50"

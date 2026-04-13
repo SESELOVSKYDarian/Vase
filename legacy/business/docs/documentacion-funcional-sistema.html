@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Documentacion Funcional del Sistema - Proyecto Teflon</title>
+  <style>
+    :root {
+      --bg: #f4f1eb;
+      --paper: #ffffff;
+      --ink: #1e1914;
+      --muted: #65584d;
+      --line: #dfd4c6;
+      --accent: #c46a1c;
+      --accent-soft: #f6e4d1;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+      font-size: 12pt;
+    }
+
+    .page {
+      width: 210mm;
+      margin: 0 auto;
+      background: var(--paper);
+      padding: 18mm 16mm 18mm;
+    }
+
+    h1, h2, h3 {
+      margin: 0 0 8px;
+      line-height: 1.2;
+    }
+
+    h1 {
+      font-size: 26pt;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      margin-top: 24px;
+      font-size: 16pt;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--line);
+    }
+
+    h3 {
+      margin-top: 16px;
+      font-size: 12.5pt;
+      color: var(--ink);
+    }
+
+    p {
+      margin: 0 0 10px;
+    }
+
+    ul, ol {
+      margin: 8px 0 12px 20px;
+      padding: 0;
+    }
+
+    li {
+      margin: 4px 0;
+    }
+
+    .hero {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, var(--accent-soft), #fffaf4);
+      border-radius: 14px;
+    }
+
+    .meta {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 10.5pt;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 12px 0;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fffdf9;
+    }
+
+    .card h3 {
+      margin-top: 0;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #7a430f;
+      font-size: 10pt;
+      font-weight: 700;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px;
+      font-size: 10.8pt;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8efe5;
+    }
+
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      background: #f7f2eb;
+      border: 1px solid var(--line);
+      padding: 1px 5px;
+      border-radius: 6px;
+      font-size: 10pt;
+    }
+
+    .note {
+      border-left: 4px solid var(--accent);
+      background: #fff7ef;
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin: 12px 0;
+    }
+
+    @media print {
+      body { background: white; }
+      .page { width: auto; margin: 0; padding: 12mm; }
+      .grid { break-inside: avoid; }
+      .card, table, .note { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <h1>Documentacion Funcional del Sistema</h1>
+      <p>
+        Proyecto Teflon es una plataforma ecommerce multi-tenant con storefront publico, panel administrativo,
+        gestion de catalogo, control comercial y capa de integracion con ERP o sistema de gestion.
+      </p>
+      <div class="meta">Fecha de emision: 2026-03-20</div>
+    </section>
+
+    <h2>1. Resumen ejecutivo</h2>
+    <p>
+      El sistema permite operar una tienda online con productos, categorias, marcas, precios segmentados,
+      pedidos, contenido editable y sincronizacion externa de stock y precios. Fue pensado para cubrir la operacion
+      comercial diaria sin depender de cambios manuales en codigo para tareas comunes del negocio.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Componentes principales</h3>
+        <ul>
+          <li>Frontend React + Vite</li>
+          <li>Backend Node.js + Express</li>
+          <li>Base PostgreSQL / Supabase</li>
+          <li>Admin integrado</li>
+          <li>API de integraciones</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Objetivo operativo</h3>
+        <ul>
+          <li>Publicar la tienda</li>
+          <li>Administrar catalogo</li>
+          <li>Controlar precios y visibilidad</li>
+          <li>Gestionar pedidos</li>
+          <li>Sincronizar con sistema externo</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>2. Arquitectura general</h2>
+
+    <h3>2.1 Frontend</h3>
+    <p>Incluye storefront y panel admin sobre una misma aplicacion.</p>
+    <p><span class="pill">Rutas publicas</span> <code>/</code> <code>/catalog</code> <code>/product/:id</code> <code>/cart</code> <code>/checkout</code> <code>/about</code></p>
+    <p><span class="pill">Cuenta</span> <code>/login</code> <code>/signup</code> <code>/profile</code> <code>/order-success</code> <code>/order-details</code></p>
+    <p><span class="pill">Admin</span> <code>/admin</code> <code>/admin/evolution</code> <code>/admin/legacy</code> <code>/admin/preview</code></p>
+
+    <h3>2.2 Backend</h3>
+    <p>La API organiza funcionalidades publicas, autenticadas, administrativas e integraciones.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Base</th>
+          <th>Uso</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>/health</code></td>
+          <td>Estado del servicio</td>
+        </tr>
+        <tr>
+          <td><code>/auth</code></td>
+          <td>Login, registro, verificacion y sesion</td>
+        </tr>
+        <tr>
+          <td><code>/public</code></td>
+          <td>Datos del storefront: tenant, catalogo, paginas, marcas y categorias</td>
+        </tr>
+        <tr>
+          <td><code>/checkout</code></td>
+          <td>Validacion y creacion de pedido</td>
+        </tr>
+        <tr>
+          <td><code>/tenant</code></td>
+          <td>Administracion de tienda, catalogo, precios y usuarios</td>
+        </tr>
+        <tr>
+          <td><code>/api/v1/integrations</code></td>
+          <td>Sincronizacion con ERP / sistema de gestion</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>2.3 Base de datos</h3>
+    <p>
+      La base almacena tenants, usuarios, configuracion comercial, categorias, marcas, productos, pedidos,
+      paginas, secciones y datos de integracion.
+    </p>
+
+    <h3>2.4 Topologia de despliegue</h3>
+    <ul>
+      <li>Frontend en Vercel</li>
+      <li>Backend en Render</li>
+      <li>Base de datos en Supabase</li>
+    </ul>
+
+    <h2>3. Modelo multi-tenant</h2>
+    <p>
+      Cada tenant representa una tienda con identidad propia. El sistema separa branding, configuracion,
+      catalogo, paginas, usuarios e integraciones por tenant.
+    </p>
+    <ul>
+      <li>Resolucion por dominio o por <code>X-Tenant-Id</code> en entorno local</li>
+      <li>Configuracion visual independiente</li>
+      <li>Catalogo y reglas comerciales por tenant</li>
+      <li>Usuarios asociados al tenant</li>
+    </ul>
+
+    <h2>4. Funcionalidad del storefront</h2>
+
+    <h3>4.1 Home y contenido</h3>
+    <ul>
+      <li>Hero o slider principal</li>
+      <li>Bloques de productos destacados</li>
+      <li>Bloques de servicios</li>
+      <li>Paginas editables como <code>home</code> y <code>about</code></li>
+    </ul>
+
+    <h3>4.2 Catalogo</h3>
+    <ul>
+      <li>Buscador</li>
+      <li>Listado paginado</li>
+      <li>Filtro por categoria</li>
+      <li>Filtro por marca</li>
+      <li>Filtro por precio minimo y maximo</li>
+      <li>Filtro solo con stock</li>
+      <li>Orden por nombre, precio y stock</li>
+      <li>Version responsive para mobile</li>
+      <li>Menu y panel de filtros adaptados a pantallas chicas</li>
+    </ul>
+
+    <div class="note">
+      Las categorias raiz pueden plegar y desplegar sus hijas. El catalogo tambien soporta productos agrupados por
+      variaciones para mostrar un producto raiz y expandir sus variantes.
+    </div>
+
+    <h3>4.3 Productos destacados</h3>
+    <p>
+      La home puede mostrar productos destacados definidos desde admin. Estas tarjetas usan el detalle corto
+      del producto para una comunicacion mas comercial y rapida.
+    </p>
+
+    <h3>4.4 Ficha de producto</h3>
+    <ul>
+      <li>Imagenes</li>
+      <li>Nombre y marca</li>
+      <li>Precio segun reglas de visibilidad</li>
+      <li>Detalle corto</li>
+      <li>Descripcion larga</li>
+      <li>Stock</li>
+      <li>Productos relacionados</li>
+      <li>Especificaciones tecnicas</li>
+    </ul>
+
+    <h3>4.5 Cuenta y pedidos</h3>
+    <ul>
+      <li>Login y registro</li>
+      <li>Perfil</li>
+      <li>Historial de pedidos</li>
+      <li>Detalle de pedido</li>
+    </ul>
+
+    <h2>5. Carrito y checkout</h2>
+    <ol>
+      <li>El usuario agrega productos al carrito.</li>
+      <li>Revisa cantidades y resumen.</li>
+      <li>Completa los datos del pedido.</li>
+      <li>El backend valida disponibilidad y datos comerciales.</li>
+      <li>Se genera el pedido y se deriva al flujo correspondiente.</li>
+    </ol>
+    <p>Modos contemplados actualmente:</p>
+    <ul>
+      <li>Transferencia bancaria</li>
+      <li>Retiro / efectivo</li>
+      <li>Estructura preparada para medios online futuros</li>
+    </ul>
+
+    <h2>6. Funcionalidad del panel admin</h2>
+
+    <h3>6.1 Apariencia</h3>
+    <ul>
+      <li>Nombre comercial</li>
+      <li>Logo</li>
+      <li>Footer, links y contacto</li>
+      <li>Colores del storefront</li>
+      <li>Colores del catalogo</li>
+      <li>Tema del admin panel</li>
+    </ul>
+
+    <h3>6.2 Catalogo y productos</h3>
+    <ul>
+      <li>Alta, edicion y baja de productos</li>
+      <li>Asignacion de categorias y marcas</li>
+      <li>Control de stock</li>
+      <li>Productos destacados</li>
+      <li>Variaciones por grupo</li>
+      <li>Producto raiz dentro de un grupo</li>
+      <li>Etiquetas de variacion</li>
+    </ul>
+
+    <h3>6.3 Descripciones por nivel</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Campo</th>
+          <th>Uso</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Detalle corto</td>
+          <td>Catalogo y productos destacados</td>
+        </tr>
+        <tr>
+          <td>Descripcion larga</td>
+          <td>Ficha de producto</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>6.4 Especificaciones tecnicas</h3>
+    <p>
+      Cada producto puede tener una grilla editable de especificaciones con formato de celdas <strong>Campo / Valor</strong>.
+    </p>
+    <ul>
+      <li>Agregar filas</li>
+      <li>Editar filas</li>
+      <li>Eliminar filas</li>
+      <li>Habilitar o deshabilitar su visibilidad publica</li>
+    </ul>
+
+    <h3>6.5 Precios</h3>
+    <p>El sistema soporta precio minorista, mayorista, listas de precios y visibilidad configurable.</p>
+    <ul>
+      <li>Publicos</li>
+      <li>Solo con inicio de sesion</li>
+      <li>Ocultos</li>
+    </ul>
+
+    <h3>6.6 Usuarios</h3>
+    <ul>
+      <li>Gestion de usuarios por tenant</li>
+      <li>Cambio de rol y estado</li>
+      <li>Aprobacion de cuentas</li>
+      <li>Asignacion de listas de precios</li>
+    </ul>
+
+    <h3>6.7 Pedidos</h3>
+    <p>El admin puede consultar pedidos para seguimiento operativo y comercial.</p>
+
+    <h2>7. Integracion con ERP o sistema de gestion</h2>
+    <p>
+      El backend expone endpoints de integracion para sincronizar productos, stock y precios. La integracion acepta
+      token tradicional y tambien esquemas compatibles con consumer key / consumer secret.
+    </p>
+    <ul>
+      <li>Ping de conectividad</li>
+      <li>Sincronizacion por <code>external_id</code></li>
+      <li>Actualizacion de stock y precios</li>
+      <li>Alta o actualizacion de productos</li>
+      <li>Compatibilidad con payloads de sistemas de gestion</li>
+    </ul>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Controla el sistema externo</th>
+          <th>Controla el ecommerce</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Stock, precio base, estado base, codigo externo</td>
+          <td>Visibilidad web, contenido editorial y bloqueo manual</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>8. Flujos principales</h2>
+
+    <h3>8.1 Compra</h3>
+    <ol>
+      <li>El visitante entra a la tienda.</li>
+      <li>Navega por categorias, marcas o catalogo completo.</li>
+      <li>Filtra, expande variaciones o entra a una ficha.</li>
+      <li>Agrega al carrito.</li>
+      <li>Completa checkout.</li>
+      <li>Se genera el pedido.</li>
+    </ol>
+
+    <h3>8.2 Administracion</h3>
+    <ol>
+      <li>El admin inicia sesion.</li>
+      <li>Ingresa al panel.</li>
+      <li>Actualiza contenido, catalogo, precios o apariencia.</li>
+      <li>Guarda y publica cambios.</li>
+    </ol>
+
+    <h3>8.3 Integracion</h3>
+    <ol>
+      <li>El sistema externo arma un payload JSON.</li>
+      <li>Consume el endpoint de sincronizacion.</li>
+      <li>El backend crea o actualiza productos.</li>
+      <li>La tienda refleja stock y precios sincronizados.</li>
+    </ol>
+
+    <h2>9. Diferenciales</h2>
+    <ul>
+      <li>Multi-tenant real</li>
+      <li>Storefront y admin en la misma plataforma</li>
+      <li>Control de visibilidad de precios</li>
+      <li>Variaciones con producto raiz</li>
+      <li>Especificaciones tecnicas administrables</li>
+      <li>Integracion ERP lista para uso</li>
+      <li>Contenido editable sin tocar codigo</li>
+    </ul>
+
+    <h2>10. Consideraciones operativas</h2>
+    <ul>
+      <li>La configuracion CORS debe coincidir con la URL publica del frontend.</li>
+      <li>Las integraciones deben enviar <code>external_id</code> estable.</li>
+      <li>El manejo de archivos locales conviene migrarlo a storage externo para una operacion mas robusta.</li>
+      <li>La calidad del catalogo depende de la consistencia entre productos, marcas y categorias.</li>
+    </ul>
+
+    <h2>11. Conclusion</h2>
+    <p>
+      Proyecto Teflon cubre el nucleo operativo de un ecommerce administrable: tienda publica, contenido, catalogo,
+      precios, pedidos, usuarios e integracion externa. No es solo una vidriera, sino una plataforma preparada para
+      operar comercialmente y crecer sobre una arquitectura separada entre frontend, backend y base de datos.
+    </p>
+  </main>
+</body>
+</html>

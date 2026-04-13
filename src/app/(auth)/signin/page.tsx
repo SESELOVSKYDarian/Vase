@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { SignInForm } from "@/components/auth/sign-in-form";
+import { hasActiveSession } from "@/lib/auth/session";
 
 type SignInPageProps = {
   searchParams: Promise<{ reset?: string }>;
@@ -10,7 +11,7 @@ type SignInPageProps = {
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const session = await auth();
 
-  if (session?.user) {
+  if (hasActiveSession(session)) {
     redirect("/app");
   }
 

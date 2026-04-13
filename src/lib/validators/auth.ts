@@ -8,6 +8,7 @@ import {
 export const signInSchema = z.object({
   email: z.email().trim().toLowerCase(),
   password: z.string().min(8).max(72),
+  sessionPreference: z.enum(["day", "remember"]).default("day"),
 });
 
 export const productSelectionSchema = z.enum(productSelections);
@@ -35,11 +36,14 @@ export const registerSchema = z.object({
     .regex(/[^A-Za-z0-9]/, "Incluye al menos un simbolo."),
   industry: z.string().trim().min(2).max(80),
   businessGoal: z.string().trim().min(12).max(400),
-  selectedModules: z.array(onboardingModuleSchema).min(1, "Elige al menos un modulo."),
+  selectedModules: z.array(onboardingModuleSchema).default([]),
   selectedChannels: z.array(onboardingChannelSchema).max(4).default([]),
   recommendationSummary: z.string().trim().min(8).max(500),
-  monthlyEstimate: z.number().min(0).max(10000),
-  setupEstimate: z.number().min(0).max(20000),
+  monthlyEstimate: z.number().min(0).max(10000000),
+  setupEstimate: z.number().min(0).max(10000000),
+  acceptTerms: z.boolean().refine((val) => val === true, {
+    message: "Debes aceptar los términos y condiciones para continuar.",
+  }),
 });
 
 export const forgotPasswordSchema = z.object({

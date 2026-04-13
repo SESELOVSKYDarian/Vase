@@ -64,6 +64,7 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
     queuedCustomRequests,
     activeSupportTickets,
     premiumFlagsEnabled,
+    platformUpdates,
   ] = await Promise.all([
     prisma.user.findMany({
       where: query
@@ -348,6 +349,10 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
         },
       },
     }),
+    prisma.platformUpdate.findMany({
+      orderBy: { publishedAt: "desc" },
+      take: 10,
+    }),
   ]);
 
   return {
@@ -362,12 +367,12 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
       queuedCustomRequests,
       activeSupportTickets,
       premiumFlagsEnabled,
-      activeCredentials: activeCredentials.filter((row) => row.status === "ACTIVE").length,
-      activeWebhooks: activeWebhooks.filter((row) => row.status === "ACTIVE").length,
+      activeCredentials: activeCredentials.filter((row: any) => row.status === "ACTIVE").length,
+      activeWebhooks: activeWebhooks.filter((row: any) => row.status === "ACTIVE").length,
     },
     users,
     tenants,
-    temporaryPages: temporaryPages.map((page) => ({
+    temporaryPages: temporaryPages.map((page: any) => ({
       ...page,
       lifecycle: deriveStorefrontLifecycle(page),
     })),
@@ -378,5 +383,6 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
     featureFlags: activeFlags,
     integrationCredentials: activeCredentials,
     integrationWebhooks: activeWebhooks,
+    platformUpdates,
   };
 }
