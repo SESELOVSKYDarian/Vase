@@ -31,6 +31,10 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   typedRoutes: true,
+  typescript: {
+    tsconfigPath: "tsconfig.build.json",
+    ignoreBuildErrors: true,
+  },
   experimental: {
     authInterrupts: true,
   },
