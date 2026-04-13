@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+legacy/labs/_IGNORE_ATLAS_COACHBOT/
 
 # debug
 npm-debug.log*
