@@ -144,7 +144,7 @@ El sistema incluye un onboarding guiado con asistencia de IA.
 - Backend: Node.js + Express + API REST
 - Frontend: React / Vite
 - Infraestructura: Docker + Docker Compose + VPS + Caddy
-- Servicios: backend principal, chatbot, n8n y MySQL
+- Servicios: backend principal, chatbot, n8n y PostgreSQL
 
 ## 11. Modelo de Datos Simplificado
 

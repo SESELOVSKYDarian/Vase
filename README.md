@@ -1,6 +1,6 @@
 # Vase
 
-Base enterprise de Vase sobre Next.js App Router, Prisma, Auth.js y MySQL lista para despliegue en VPS con Docker Compose y Caddy.
+Base enterprise de Vase sobre Next.js App Router, Prisma, Auth.js y PostgreSQL lista para despliegue en VPS con Docker Compose y Caddy.
 
 ## Scripts principales
 
@@ -31,7 +31,7 @@ docker compose up -d
 
 - `frontend`: Next.js para `https://vase.ar`
 - `backend`: instancia separada para `https://api.vase.ar`
-- `db`: MySQL accesible internamente como `db`
+- `db`: PostgreSQL accesible internamente como `db`
 - `caddy`: reverse proxy con HTTPS automatico
 - `chatbot`: opcional con perfil `chatbot`
 - `n8n`: opcional con perfil `automation`
