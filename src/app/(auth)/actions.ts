@@ -94,9 +94,10 @@ export async function registerAction(
     windowSeconds: 60 * 15,
   });
 
+  let successEmail = "";
   try {
     await registerTenantOwner(parsed.data, requestContext);
-    redirect(`/verify-email?email=${encodeURIComponent(parsed.data.email)}&sent=1`);
+    successEmail = parsed.data.email;
   } catch (error) {
     console.error("[registerAction] registration failed", error);
 
@@ -131,6 +132,8 @@ export async function registerAction(
       error: "No pudimos crear tu cuenta en este momento. Intenta nuevamente.",
     };
   }
+
+  redirect(`/verify-email?email=${encodeURIComponent(successEmail)}&sent=1`);
 }
 
 export async function signInAction(
