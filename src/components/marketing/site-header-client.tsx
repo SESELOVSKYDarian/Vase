@@ -67,7 +67,7 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
         />
       ) : null}
 
-      <div className="mx-auto flex w-full max-w-[96rem] items-center justify-center px-6 pt-7 transition-all duration-300 lg:px-10 lg:pt-8">
+      <div className="mx-auto flex w-full max-w-[96rem] items-center justify-center px-4 pt-5 transition-all duration-300 sm:px-6 sm:pt-7 lg:px-10 lg:pt-8">
         <div
           className={[
             "relative flex min-h-16 w-full items-center justify-between gap-4 transition-all duration-300",
@@ -136,7 +136,7 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
               alt="Vase"
               width={46}
               height={46}
-              className="h-[46px] w-[46px] object-contain"
+              className="h-[38px] w-[38px] object-contain sm:h-[46px] sm:w-[46px]"
               priority
               unoptimized
             />
