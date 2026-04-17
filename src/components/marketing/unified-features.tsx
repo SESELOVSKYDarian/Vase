@@ -143,7 +143,7 @@ export function UnifiedFeatures({ locale, t }: UnifiedFeaturesProps) {
   return (
     <section
       ref={sectionRef}
-      className="relative left-1/2 right-1/2 z-20 min-h-[180svh] w-screen -translate-x-1/2 sm:min-h-[190svh] lg:min-h-[210svh]"
+      className="relative left-1/2 right-1/2 z-20 min-h-[150svh] w-screen -translate-x-1/2 sm:min-h-[190svh] lg:min-h-[210svh]"
     >
       <div
         ref={backgroundRef}
@@ -159,7 +159,7 @@ export function UnifiedFeatures({ locale, t }: UnifiedFeaturesProps) {
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/62">
             {locale === "es" ? "Características" : "Capabilities"}
           </p>
-          <h2 className="mx-auto mt-5 max-w-4xl text-balance text-4xl font-semibold tracking-[-0.05em] text-white sm:text-6xl lg:text-[4.5rem] lg:leading-[0.98]">
+          <h2 className="mx-auto mt-5 max-w-4xl text-balance text-3xl font-semibold tracking-[-0.05em] text-white sm:text-6xl lg:text-[4.5rem] lg:leading-[0.98]">
             {activeTab === "business"
               ? locale === "es"
                 ? "Comercio flexible, claro y listo para crecer."
@@ -168,7 +168,7 @@ export function UnifiedFeatures({ locale, t }: UnifiedFeaturesProps) {
                 ? "Asistencia inteligente, automatizada y humana cuando hace falta."
                 : "Intelligent support, automated and human when needed."}
           </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-balance text-base leading-7 text-white/72 sm:text-lg sm:leading-8">
+          <p className="mx-auto mt-6 max-w-2xl text-balance text-sm leading-relaxed text-white/72 sm:text-lg sm:leading-8">
             {activeTab === "business"
               ? locale === "es"
                 ? "Vase Business ordena la operación digital para lanzar rápido, vender mejor y conectar sistemas sin complejidad innecesaria."
@@ -206,7 +206,7 @@ export function UnifiedFeatures({ locale, t }: UnifiedFeaturesProps) {
           </div>
         </div>
 
-        <div className="relative mt-12 overflow-hidden rounded-[2.75rem] bg-[rgba(248,250,248,0.97)] px-4 py-5 shadow-[0_28px_80px_rgba(17,31,18,0.16)] ring-1 ring-[rgba(255,255,255,0.32)] sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        <div className="relative mt-8 overflow-hidden rounded-[2rem] bg-[rgba(248,250,248,0.97)] px-4 py-5 shadow-[0_28px_80px_rgba(17,31,18,0.16)] ring-1 ring-[rgba(255,255,255,0.32)] sm:mt-12 sm:rounded-[2.75rem] sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.52),transparent_72%)]" />
           <div className="pointer-events-none absolute right-0 top-10 h-40 w-40 rounded-full bg-[rgba(115,147,116,0.1)] blur-3xl" />
 

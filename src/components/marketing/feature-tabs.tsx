@@ -26,7 +26,7 @@ export function FeatureTabs({ features, title, badge, body, plansLabel }: Featur
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr] lg:gap-8">
-      <section className="rounded-[2rem] bg-transparent p-5 shadow-none ring-0 lg:p-6">
+      <section className="rounded-[2rem] bg-transparent p-2 shadow-none ring-0 sm:p-5 lg:p-6">
         {(badge || title) && (
           <div className="border-b border-[rgba(59,99,61,0.12)] pb-6">
             <div className="flex items-center justify-between gap-4">
@@ -40,7 +40,7 @@ export function FeatureTabs({ features, title, badge, body, plansLabel }: Featur
                 </Link>
               ) : null}
             </div>
-            {title ? <h2 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-[#152116] sm:text-[2.25rem] sm:leading-tight">{title}</h2> : null}
+            {title ? <h2 className="mt-4 text-2xl font-semibold tracking-[-0.045em] text-[#152116] sm:text-[2.25rem] sm:leading-tight">{title}</h2> : null}
             {body ? <p className="mt-4 max-w-xl text-[0.98rem] leading-7 text-[#43534d]">{body}</p> : null}
           </div>
         )}
@@ -93,7 +93,7 @@ export function FeatureTabs({ features, title, badge, body, plansLabel }: Featur
         </div>
       </section>
 
-      <section className="relative min-h-[30rem] overflow-hidden rounded-[2.35rem] bg-white shadow-[0_24px_60px_rgba(59,99,61,0.08)] ring-1 ring-[rgba(59,99,61,0.06)] lg:min-h-[32rem]">
+      <section className="relative min-h-[22rem] overflow-hidden rounded-[2rem] bg-white shadow-[0_24px_60px_rgba(59,99,61,0.08)] ring-1 ring-[rgba(59,99,61,0.06)] sm:rounded-[2.35rem] lg:min-h-[32rem]">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeFeature.id}
@@ -108,7 +108,7 @@ export function FeatureTabs({ features, title, badge, body, plansLabel }: Featur
                 initial={false}
                 animate={{ rotate: activeIndex % 2 === 0 ? -3 : 3, scale: 1 }}
                 transition={{ duration: 0.55, ease: "easeOut" }}
-                className="relative z-10 flex min-h-[13rem] min-w-[13rem] items-center justify-center rounded-[2.2rem] bg-white p-8 shadow-[0_26px_56px_rgba(59,99,61,0.08)] ring-1 ring-[rgba(59,99,61,0.06)] sm:min-h-[14.5rem] sm:min-w-[14.5rem]"
+                className="relative z-10 flex min-h-[10rem] min-w-[10rem] items-center justify-center rounded-[1.8rem] bg-white p-6 shadow-[0_26px_56px_rgba(59,99,61,0.08)] ring-1 ring-[rgba(59,99,61,0.06)] sm:min-h-[14.5rem] sm:min-w-[14.5rem] sm:rounded-[2.2rem] sm:p-8"
               >
                 {activeFeature.imageOrNode}
               </motion.div>

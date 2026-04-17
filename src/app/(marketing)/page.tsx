@@ -129,12 +129,12 @@ export default async function HomePage() {
     <div className="space-y-12 pb-16 lg:space-y-14">
       <section className="relative flex min-h-screen items-center py-24">
         <ScrollReveal className={`relative flex flex-col items-center justify-center text-center ${sectionShell}`}>
-          <h1 className="mx-auto max-w-5xl text-balance text-5xl font-semibold tracking-[-0.04em] text-black sm:text-7xl lg:text-[6rem] lg:leading-[1.05]">
+          <h1 className="mx-auto max-w-5xl text-balance text-4xl font-semibold tracking-[-0.04em] text-black sm:text-7xl lg:text-[6rem] lg:leading-[1.05]">
             {t.heroTitle} <HeroEmphasisFontCycle text={t.heroEmphasis} />
             {t.heroEnding ? ` ${t.heroEnding}` : null}
           </h1>
 
-          <p className="mt-8 max-w-2xl text-balance text-xl leading-relaxed text-[#555]">{t.heroBody}</p>
+          <p className="mt-8 max-w-2xl text-balance text-lg leading-relaxed text-[#555] sm:text-xl">{t.heroBody}</p>
 
           <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
@@ -189,7 +189,7 @@ export default async function HomePage() {
               {t.capabilities}
             </span>
           </div>
-          <h2 className="text-5xl font-semibold tracking-[-0.03em] text-black sm:text-6xl">
+          <h2 className="text-4xl font-semibold tracking-[-0.03em] text-black sm:text-6xl">
             {t.capabilitiesTitle} <Serif italic>{t.capabilitiesEmphasis}</Serif>
           </h2>
           <p className="mt-6 text-xl leading-relaxed text-[#555]">{t.capabilitiesBody}</p>
@@ -201,7 +201,7 @@ export default async function HomePage() {
 
             return (
               <ScrollReveal key={item[1]} delay={index * 0.1}>
-                <article className="group relative h-[21rem] overflow-hidden rounded-[2.5rem] bg-white/84 p-8 shadow-[0_12px_30px_rgba(59,99,61,0.06)] ring-1 ring-[rgba(59,99,61,0.06)] transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_24px_52px_rgba(59,99,61,0.12)]">
+                <article className="group relative min-h-[18rem] overflow-hidden rounded-[2rem] bg-white/84 p-8 shadow-[0_12px_30px_rgba(59,99,61,0.06)] ring-1 ring-[rgba(59,99,61,0.06)] transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_24px_52px_rgba(59,99,61,0.12)] lg:h-[21rem] lg:rounded-[2.5rem]">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(115,147,116,0.14),transparent_45%)] opacity-80 transition-opacity duration-500 group-hover:opacity-100" />
                   <div className="absolute right-[-2rem] top-[-2rem] size-32 rounded-full bg-[rgba(59,99,61,0.06)] blur-2xl transition-transform duration-500 group-hover:scale-125" />
 
