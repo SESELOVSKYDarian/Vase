@@ -138,6 +138,7 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
               height={46}
               className="h-[46px] w-[46px] object-contain"
               priority
+              unoptimized
             />
           </Link>
 
