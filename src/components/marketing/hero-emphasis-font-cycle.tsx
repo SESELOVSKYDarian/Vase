@@ -25,15 +25,9 @@ type HeroEmphasisFontCycleProps = {
 };
 
 export function HeroEmphasisFontCycle({ text }: HeroEmphasisFontCycleProps) {
-  const prefersReducedMotion = useReducedMotion();
   const [fontIndex, setFontIndex] = useState(0);
 
   useEffect(() => {
-    if (prefersReducedMotion) {
-      setFontIndex(0);
-      return;
-    }
-
     setFontIndex(0);
 
     const intervalId = window.setInterval(() => {
@@ -43,11 +37,11 @@ export function HeroEmphasisFontCycle({ text }: HeroEmphasisFontCycleProps) {
     }, STEP_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [prefersReducedMotion]);
+  }, []);
 
   const activeFontFamily = useMemo(() => {
-    return prefersReducedMotion ? FINAL_FONT : FONT_ROTATION[fontIndex] ?? FINAL_FONT;
-  }, [fontIndex, prefersReducedMotion]);
+    return FONT_ROTATION[fontIndex] ?? FINAL_FONT;
+  }, [fontIndex]);
 
   return (
     <span className="inline-grid min-w-[14ch] place-items-center align-baseline whitespace-nowrap text-center leading-[0.95]">
