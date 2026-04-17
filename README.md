@@ -48,6 +48,16 @@ docker compose --profile chatbot --profile automation up -d
 - `GET /api/health/ready`
 - `GET /api/ops/metrics` con `MONITORING_TOKEN`
 
+## Deploy en EasyPanel
+
+Estrategia: **1 App Service** (Dockerfile raíz) + **1 MySQL Service**.  
+EasyPanel gestiona el reverse proxy y SSL — **no se usa docker-compose ni Caddy** en este modo.
+
+- Guía completa paso a paso: [`docs/deployment/easypanel.md`](docs/deployment/easypanel.md)
+- Variables de entorno: [`.env.easypanel.example`](.env.easypanel.example)
+- Build Argument requerido: `NEXT_PUBLIC_APP_URL=https://tu-dominio.com`
+- Puerto: `3000`
+
 ## Documentación operativa
 
 - `docs/production/TESTING_STRATEGY.md`

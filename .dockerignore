@@ -1,15 +1,62 @@
+# Development & build artifacts (but NOT source code)
 node_modules
 .next
-.git
-.github
-npm-debug.log
-Dockerfile
-docker-compose*.yml
-docker-compose.yml
-.env
-.env.local
-.env.production
 coverage
 playwright-report
 test-results
 tsconfig.tsbuildinfo
+
+# Git & CI/CD
+.git
+.github
+.gitignore
+.gitlab-ci.yml
+.circleci
+
+# Environment files (but NOT examples)
+.env
+.env.local
+.env.production
+.env.*.local
+.env.build
+
+# Docker & deployment configs (when building)
+Dockerfile
+docker-compose*.yml
+docker-compose.yml
+Dockerfile.dev
+.dockerignore
+
+# Package manager logs
+npm-debug.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDE & Editor
+.vscode
+.idea
+.DS_Store
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# Directories not needed for the build
+legacy
+e2e
+docs
+
+# Env examples (contain no secrets but unneeded in image)
+.env.easypanel.example
+.env.example
+
+# Notes: DO NOT IGNORE these needed files
+# - prisma/ (schema, migrations, seed)
+# - src/ (source code)
+# - public/ (static assets)
+# - package.json / package-lock.json (build metadata)
+# - next.config.ts (needed by next build)
