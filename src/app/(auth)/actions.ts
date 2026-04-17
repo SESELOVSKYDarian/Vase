@@ -186,8 +186,11 @@ export async function signInAction(
       sessionPreference: parsed.data.sessionPreference,
       redirectTo: "/app",
     });
-    return {};
   } catch (error) {
+    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
+      throw error;
+    }
+    
     console.error("[signInAction] sign-in failed", error);
 
     if (error instanceof Error && error.message === "RATE_LIMIT_EXCEEDED") {
@@ -202,8 +205,17 @@ export async function signInAction(
       };
     }
 
-    throw error;
+    // Rethrow redirect errors. Next.js uses a special 'digest' property for these.
+    if (error && typeof error === "object" && "digest" in error && typeof error.digest === "string" && error.digest.startsWith("NEXT_REDIRECT")) {
+      throw error;
+    }
+
+    return {
+      error: "No pudimos iniciar sesion. Revisa tus datos e intenta nuevamente.",
+    };
   }
+
+  return {};
 }
 
 export async function signOutAction() {
