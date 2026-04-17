@@ -42,7 +42,9 @@ const nextConfig: NextConfig = {
     tsconfigPath: "tsconfig.build.json",
     ignoreBuildErrors: true,
   },
-  experimental: {},
+  experimental: {
+    authInterrupts: true,
+  },
   async headers() {
     return [
       {

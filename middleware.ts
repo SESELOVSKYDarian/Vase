@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
 import { hasActiveSession } from "@/lib/auth/session";
 import { resolveLocale } from "@/lib/i18n/locale";
 import { getCanonicalOrigin } from "@/lib/security/origin";
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((request: NextRequest) => {
   const authRequest = request as NextRequest & {

@@ -2,53 +2,21 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { z } from "zod";
-import { appConfig } from "@/config/app";
-import { getSessionDurationMs, type SessionPreference } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { verifyPassword } from "@/lib/auth/password";
-import type { PlatformRole } from "@/lib/auth/roles";
+import { authConfig } from "./auth.config";
 
 const credentialsSchema = z.object({
-  email: z.email().trim().toLowerCase(),
+  email: z.string().email().trim().toLowerCase(),
   password: z.string().min(8).max(72),
   sessionPreference: z.enum(["day", "remember"]).default("day"),
 });
 
-function coercePlatformRole(value: unknown): PlatformRole {
-  return value === "SUPER_ADMIN" || value === "SUPPORT" || value === "USER"
-    ? value
-    : "USER";
-}
-
-function coerceSessionPreference(value: unknown): SessionPreference {
-  return value === "remember" ? "remember" : "day";
-}
-
-function resolveSessionExpiresAt(token: {
-  iat?: number;
-  sessionPreference?: string;
-}) {
-  const sessionPreference = coerceSessionPreference(token.sessionPreference);
-  const baseTimestampMs = typeof token.iat === "number" ? token.iat * 1000 : Date.now();
-
-  return (
-    baseTimestampMs +
-    getSessionDurationMs(sessionPreference, {
-      shortMs: appConfig.security.shortSessionMaxAgeSeconds * 1000,
-      rememberMs: appConfig.security.rememberSessionMaxAgeSeconds * 1000,
-    })
-  );
-}
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: "jwt",
-    maxAge: appConfig.security.authSessionMaxAgeSeconds,
-    updateAge: 60 * 30,
-  },
-  useSecureCookies: process.env.NODE_ENV === "production",
   providers: [
+    ...authConfig.providers.filter((p) => p.id !== "credentials"),
     Credentials({
       name: "Email y password",
       credentials: {
@@ -92,75 +60,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id;
-        token.platformRole = coercePlatformRole(user.platformRole);
-        token.locale = typeof user.locale === "string" ? user.locale : "es";
-        token.emailVerified =
-          "emailVerified" in user ? Boolean(user.emailVerified) : Boolean(token.emailVerified);
-        token.sessionPreference = coerceSessionPreference(
-          "sessionPreference" in user ? user.sessionPreference : token.sessionPreference,
-        );
-        token.sessionExpiresAt =
-          Date.now() +
-          getSessionDurationMs(coerceSessionPreference(token.sessionPreference), {
-            shortMs: appConfig.security.shortSessionMaxAgeSeconds * 1000,
-            rememberMs: appConfig.security.rememberSessionMaxAgeSeconds * 1000,
+    ...authConfig.callbacks,
+    async jwt({ token, user, trigger }) {
+      // Run the original base logic first
+      const baseToken = await authConfig.callbacks.jwt({ token, user, trigger, account: null, profile: null });
+      
+      // If we are in the server (non-edge), we can refresh from DB
+      if (baseToken?.sub) {
+        try {
+          const databaseUser = await prisma.user.findUnique({
+            where: { id: baseToken.sub as string },
+            select: {
+              emailVerified: true,
+              platformRole: true,
+              locale: true,
+            },
           });
-      } else if (!token.sessionExpiresAt) {
-        token.sessionPreference = coerceSessionPreference(token.sessionPreference);
-        token.sessionExpiresAt = resolveSessionExpiresAt(token);
+
+          if (databaseUser) {
+            baseToken.emailVerified = Boolean(databaseUser.emailVerified);
+            baseToken.platformRole = databaseUser.platformRole;
+            baseToken.locale = typeof databaseUser.locale === "string" ? databaseUser.locale : "es";
+          }
+        } catch (error) {
+          console.error("[auth] Error refreshing user from DB in JWT callback", error);
+        }
       }
 
-      if (token.sub) {
-        const databaseUser = await prisma.user.findUnique({
-          where: { id: token.sub },
-          select: {
-            emailVerified: true,
-            platformRole: true,
-            locale: true,
-          },
-        });
-
-        token.emailVerified = Boolean(databaseUser?.emailVerified);
-        token.platformRole = coercePlatformRole(databaseUser?.platformRole);
-        token.locale = typeof databaseUser?.locale === "string" ? databaseUser.locale : "es";
-      }
-
-      return token;
-    },
-    session({ session, token }) {
-      const platformRole = coercePlatformRole(token.platformRole);
-      const locale = typeof token.locale === "string" ? token.locale : "es";
-      const sessionPreference = coerceSessionPreference(token.sessionPreference);
-
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
-        session.user.platformRole = platformRole;
-        session.user.locale = locale;
-        session.user.isEmailVerified = Boolean(token.emailVerified);
-        session.user.sessionPreference = sessionPreference;
-      }
-
-      session.sessionPreference = sessionPreference;
-      session.sessionExpiresAt =
-        typeof token.sessionExpiresAt === "number" ? token.sessionExpiresAt : undefined;
-
-      return session;
-    },
-    authorized({ auth: currentAuth, request }) {
-      const isSignedIn = !!currentAuth?.user;
-      const isSessionActive =
-        typeof currentAuth?.sessionExpiresAt === "number"
-          ? currentAuth.sessionExpiresAt > Date.now()
-          : isSignedIn;
-
-      if (request.nextUrl.pathname.startsWith("/app")) {
-        return isSignedIn && isSessionActive && Boolean(currentAuth?.user?.isEmailVerified);
-      }
-
-      return true;
+      return baseToken;
     },
   },
   events: {
@@ -171,8 +98,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       });
     },
   },
-  pages: {
-    signIn: "/signin",
-  },
-  trustHost: true,
 });
