@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 
-const scriptSrc = ["'self'", "'unsafe-inline'"];
+const scriptSrc = ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com"];
 const connectSrc = ["'self'", "https:"];
 
 if (isDevelopment) {
@@ -30,6 +30,14 @@ const contentSecurityPolicy = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   typedRoutes: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+  },
   typescript: {
     tsconfigPath: "tsconfig.build.json",
     ignoreBuildErrors: true,
