@@ -116,6 +116,7 @@ export async function SiteFooter() {
                   width={34}
                   height={34}
                   className="h-[34px] w-[34px] object-contain"
+                  unoptimized
                 />
                 <span className="text-lg font-semibold tracking-[-0.04em]">Vase</span>
               </Link>
