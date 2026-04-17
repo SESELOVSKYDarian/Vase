@@ -21,7 +21,6 @@ tsconfig.tsbuildinfo
 .env.build
 
 # Docker & deployment configs (when building)
-Dockerfile
 docker-compose*.yml
 docker-compose.yml
 Dockerfile.dev
