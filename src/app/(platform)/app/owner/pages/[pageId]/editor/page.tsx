@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { forbidden, notFound } from "next/navigation";
-import { AppShell } from "@/components/layout/app-shell";
+import { SiteAppShell } from "@/components/layout/site-app-shell";
 import { PanelCard } from "@/components/ui/panel-card";
 import { BuilderEditor } from "@/components/business/builder-editor";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
@@ -27,20 +27,18 @@ export default async function StorefrontBuilderPage({
   }
 
   return (
-    <AppShell
+    <SiteAppShell
       title={`Editor de ${builder.page.name}`}
-      subtitle="Edita textos, imagenes, secciones y configuracion visual desde un builder simple, rapido y mantenible."
+      subtitle="Diseña la experiencia visual de tu marca con el constructor de Vase."
       tenantLabel={membership.tenant.name}
+      pageId={pageId}
+      siteName={builder.page.name}
+      siteSlug={builder.page.slug}
     >
       <PanelCard
         eyebrow="Builder"
         title="Editor visual de ecommerce"
         description="La experiencia esta pensada para que el owner pueda editar sin depender de una interfaz tecnica. El backend mantiene permisos, autosave y versionado."
-        actions={
-          <Link href={`/app/owner/pages/${pageId}`} className="text-sm font-semibold text-[var(--accent)]">
-            Volver a la administración
-          </Link>
-        }
       >
         <BuilderEditor
           pageId={builder.page.id}
