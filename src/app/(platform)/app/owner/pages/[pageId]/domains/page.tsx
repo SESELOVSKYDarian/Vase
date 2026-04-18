@@ -1,4 +1,12 @@
-import { SiteAppShell } from "@/components/layout/site-app-shell";
+import Link from "next/link";
+import { forbidden, notFound } from "next/navigation";
+import { ArrowLeft, Globe, ShieldCheck, Clock } from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
+import { PanelCard } from "@/components/ui/panel-card";
+import { StatusBadge } from "@/components/business/status-badge";
+import { DomainConnectionForm } from "@/components/business/domain-connection-form";
+import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
+import { getStorefrontBuilderData } from "@/server/queries/builder";
 
 export default async function SiteDomainsPage({
   params,
@@ -23,14 +31,20 @@ export default async function SiteDomainsPage({
   const canUseCustomDomain = builder.plan.canUseCustomDomain;
 
   return (
-    <SiteAppShell
+    <AppShell
       title={`Dominios de ${builder.page.name}`}
       subtitle="Conecta tu marca con una URL propia y profesional."
       tenantLabel={membership.tenant.name}
-      pageId={pageId}
-      siteName={builder.page.name}
-      siteSlug={builder.page.slug}
     >
+      <div className="mb-6">
+        <Link 
+          href={`/app/owner/pages/${pageId}`}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+        >
+          <ArrowLeft className="size-4" />
+          Volver a la administración
+        </Link>
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_0.8fr]">
         {/* Formulario e Instrucciones */}
