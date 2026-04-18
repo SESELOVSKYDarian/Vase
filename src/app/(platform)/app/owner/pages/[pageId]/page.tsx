@@ -108,7 +108,7 @@ export default async function SiteDashboardPage({
             title="Dominios"
             description="Asocia tu propio dominio .com o .ar para una marca profesional."
             actions={
-              <Link href="/app/owner" className="text-[var(--accent)]">
+              <Link href={`/app/owner/pages/${pageId}/domains`} className="text-[var(--accent)]">
                 <ChevronRight className="size-6" />
               </Link>
             }
