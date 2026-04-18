@@ -15,7 +15,36 @@ export default auth((request: NextRequest) => {
       };
     } | null;
   };
-  const pathname = request.nextUrl.pathname;
+  
+  const url = request.nextUrl;
+  const hostname = request.headers.get("host") || "";
+  const pathname = url.pathname;
+
+  // 1. Identificar el dominio base
+  const baseDomain = process.env.NODE_ENV === "production" ? "vase.ar" : "localhost:3000";
+  const isBaseDomain = hostname === baseDomain || hostname === `www.${baseDomain}`;
+
+  // 2. Definir rutas reservadas que NO deben ser reescritas al storefront
+  const isReservedPath = 
+    pathname.startsWith("/app") || 
+    pathname.startsWith("/api") ||
+    pathname.includes(".") || // Archivos estáticos
+    [
+      "/signin",
+      "/register",
+      "/forgot-password",
+      "/reset-password",
+      "/verify-email"
+    ].includes(pathname);
+
+  // 3. Lógica de Ruteo Multi-tenant (Wix-style)
+  if (!isBaseDomain && !isReservedPath) {
+    // Si no es el dominio base y no es una ruta reservada, reescribimos al storefront
+    // El host completo se pasa como parámetro para que la página decida qué sitio cargar
+    return NextResponse.rewrite(new URL(`/sites/${hostname}${pathname}`, request.url));
+  }
+
+  // 4. Lógica de Autenticación y Sesión (App estándar)
   const isAuthPage = [
     "/signin",
     "/register",
@@ -37,7 +66,7 @@ export default auth((request: NextRequest) => {
     pathname.startsWith("/api/");
 
   response.headers.set("x-vase-locale", locale);
-  response.headers.set("x-vase-pathname", request.nextUrl.pathname);
+  response.headers.set("x-vase-pathname", pathname);
   response.headers.set(
     "x-vase-email-verified",
     authRequest.auth?.user?.isEmailVerified ? "true" : "false",

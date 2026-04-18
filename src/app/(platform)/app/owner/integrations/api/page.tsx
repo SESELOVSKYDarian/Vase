@@ -115,7 +115,7 @@ export default async function OwnerIntegrationsApiPage({
                 href={`/app/owner/pages/${selectedSite.id}`}
                 className="mt-2 inline-flex text-sm font-semibold text-[var(--accent)]"
               >
-                Volver al editor
+                Volver a la administración
               </Link>
             </div>
           </div>
