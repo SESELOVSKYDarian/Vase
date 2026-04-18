@@ -326,19 +326,13 @@ export default async function OwnerPage() {
                               href={`/app/owner/integrations/api?site=${page.id}` as Route}
                               className="inline-flex min-h-10 items-center rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)]"
                             >
-                              Gestion
+                              Conexión
                             </Link>
                             <Link
                               href={`/app/owner/pages/${page.id}` as Route}
-                              className="inline-flex min-h-10 items-center rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)]"
+                              className="inline-flex min-h-10 items-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
                             >
-                              Editar
-                            </Link>
-                            <Link
-                              href={`/app/owner/pages/${page.id}` as Route}
-                              className="inline-flex min-h-10 items-center rounded-full bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)]"
-                            >
-                              Abrir editor
+                              Administrar
                             </Link>
                           </div>
                         </td>
