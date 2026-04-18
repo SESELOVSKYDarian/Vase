@@ -35,12 +35,11 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useRouter } from "next/navigation";
 import { PricingModal } from "@/components/platform/pricing-modal";
 
-export interface Shortcut {
+export interface NavItem {
   id: string;
+  href: Route;
   label: string;
-  combo: string;
-  action: "link" | "command";
-  target: string;
+  icon: LucideIcon;
 }
 
 type AppShellProps = PropsWithChildren<{
@@ -50,6 +49,8 @@ type AppShellProps = PropsWithChildren<{
   supportWidget?: ReactNode;
   modules?: PlatformModuleAccess[];
   shortcuts?: Shortcut[];
+  customNavItems?: NavItem[];
+  sidebarHeader?: ReactNode;
   notifications?: Array<{
     id: string;
     title: string;
@@ -109,6 +110,8 @@ export function AppShell({
   notifications = [],
   modules = [],
   shortcuts = [],
+  customNavItems,
+  sidebarHeader,
   children,
 }: AppShellProps) {
   const router = useRouter();
@@ -234,23 +237,25 @@ export function AppShell({
     <div className="min-h-screen bg-[var(--surface)] text-[var(--foreground)]">
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-[var(--border-subtle)] bg-[var(--background)] lg:flex">
         <div className="p-6">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
-              <Home className="size-5" />
+          {sidebarHeader ?? (
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+                <Home className="size-5" />
+              </div>
+              <div className="flex flex-col">
+                <h1 className="font-[family-name:var(--font-newsreader)] text-2xl font-semibold italic tracking-tight text-[var(--foreground)]">
+                  Vase
+                </h1>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--muted-soft)]">
+                  Premium Atelier
+                </p>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <h1 className="font-[family-name:var(--font-newsreader)] text-2xl font-semibold italic tracking-tight text-[var(--foreground)]">
-                Vase
-              </h1>
-              <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--muted-soft)]">
-                Premium Atelier
-              </p>
-            </div>
-          </div>
+          )}
         </div>
 
         <nav className="flex-1 space-y-1 px-4">
-          {navItems.map((item) => {
+          {(customNavItems || navItems).map((item) => {
             const Icon = item.icon;
             const active = item.id === activeSection;
 

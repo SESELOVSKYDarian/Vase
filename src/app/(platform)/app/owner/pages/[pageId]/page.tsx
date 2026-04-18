@@ -9,7 +9,7 @@ import {
   ExternalLink,
   ChevronRight
 } from "lucide-react";
-import { AppShell } from "@/components/layout/app-shell";
+import { SiteAppShell } from "@/components/layout/site-app-shell";
 import { PanelCard } from "@/components/ui/panel-card";
 import { StatusBadge } from "@/components/business/status-badge";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
@@ -38,10 +38,13 @@ export default async function SiteDashboardPage({
   const primaryDomain = builder.page.domainConnections[0]?.hostname ?? `${builder.page.slug}.vase.ar`;
 
   return (
-    <AppShell
-      title={`Administración de ${builder.page.name}`}
-      subtitle="Gestiona el contenido, dominios y configuración específica de esta unidad de negocio."
+    <SiteAppShell
+      title={builder.page.name}
+      subtitle="Panel de control y rendimiento del sitio."
       tenantLabel={membership.tenant.name}
+      pageId={pageId}
+      siteName={builder.page.name}
+      siteSlug={builder.page.slug}
     >
       <div className="grid gap-6">
         {/* Header de Estado */}
