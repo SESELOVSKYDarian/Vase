@@ -55,6 +55,7 @@ EasyPanel gestiona el reverse proxy y SSL — **no se usa docker-compose ni Cadd
 
 - Guía completa paso a paso: [`docs/deployment/easypanel.md`](docs/deployment/easypanel.md)
 - Variables de entorno: [`.env.easypanel.example`](.env.easypanel.example)
+- Bridge de acceso a Business Editor: [`docs/deployment/business-editor-bridge.md`](docs/deployment/business-editor-bridge.md)
 - Build Argument requerido: `NEXT_PUBLIC_APP_URL=https://tu-dominio.com`
 - Puerto: `3000`
 

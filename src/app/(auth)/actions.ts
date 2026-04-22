@@ -55,6 +55,30 @@ function databaseUnavailableState(): AuthActionState {
   };
 }
 
+function normalizeRedirectTarget(value: FormDataEntryValue | null) {
+  if (typeof value !== "string") {
+    return "/app";
+  }
+
+  const rawValue = value.trim();
+
+  if (!rawValue) {
+    return "/app";
+  }
+
+  if (rawValue.startsWith("/") && !rawValue.startsWith("//")) {
+    return rawValue;
+  }
+
+  try {
+    const url = new URL(rawValue);
+    const nextPath = `${url.pathname}${url.search}${url.hash}`;
+    return nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/app";
+  } catch {
+    return "/app";
+  }
+}
+
 export async function registerAction(
   _: AuthActionState,
   formData: FormData,
@@ -141,6 +165,7 @@ export async function signInAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   const requestContext = await getRequestContext();
+  const redirectTo = normalizeRedirectTarget(formData.get("redirectTo"));
   const rawData = {
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
@@ -184,7 +209,7 @@ export async function signInAction(
       email: parsed.data.email,
       password: parsed.data.password,
       sessionPreference: parsed.data.sessionPreference,
-      redirectTo: "/app",
+      redirectTo,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {

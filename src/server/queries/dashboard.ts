@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { deriveStorefrontLifecycle } from "@/lib/business/lifecycle";
+import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import { getEffectivePlan, getPlanLimits } from "@/lib/business/plans";
 import { platformUpdates } from "@/config/platform-updates";
 import { getTenantModulesAccess } from "@/server/queries/modules";
@@ -575,7 +576,7 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
         title: "Publica tu primera pagina",
         description: "Todavia no hay paginas activas dentro de Vase Business. Crear la primera web te destraba dominios, pedidos y visibilidad real.",
         ctaLabel: "Crear pagina",
-        ctaHref: "/app/business#crear-pagina",
+        ctaHref: BUSINESS_LAUNCH_PATH,
       };
     }
 
@@ -584,7 +585,7 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
         title: "Conecta tu dominio",
         description: "Tus paginas ya existen, pero todavia no hay un dominio propio conectado. Eso mejora presencia y conversion.",
         ctaLabel: "Ver dominios",
-        ctaHref: "/app/business#resumen",
+        ctaHref: BUSINESS_LAUNCH_PATH,
       };
     }
 

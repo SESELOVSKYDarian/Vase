@@ -6,6 +6,7 @@ import { DashboardSupportWidget } from "@/components/support/dashboard-support-w
 import { PanelCard } from "@/components/ui/panel-card";
 import { StatusBadge } from "@/components/business/status-badge";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
+import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import { getTenantSupportWidgetContext } from "@/server/queries/support";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 
@@ -77,7 +78,7 @@ export default async function SettingsPage() {
         >
           <div className="grid gap-3">
             <Link
-              href={"/app/business" as Route}
+              href={BUSINESS_LAUNCH_PATH as Route}
               className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]"
             >
               Abrir configuración de Vase Business

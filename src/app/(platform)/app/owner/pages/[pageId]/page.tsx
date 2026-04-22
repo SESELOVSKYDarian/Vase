@@ -13,6 +13,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PanelCard } from "@/components/ui/panel-card";
 import { StatusBadge } from "@/components/business/status-badge";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
+import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import { getStorefrontBuilderData } from "@/server/queries/builder";
 
 export default async function SiteDashboardPage({
@@ -75,7 +76,7 @@ export default async function SiteDashboardPage({
                 <ExternalLink className="size-4" />
               </a>
               <Link
-                href={`/app/owner/pages/${pageId}/editor`}
+                href={BUSINESS_LAUNCH_PATH}
                 className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[var(--accent-strong)] px-8 text-sm font-semibold text-[var(--accent-contrast)] shadow-lg shadow-[var(--accent-soft)] hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
                 Abrir editor visual
@@ -92,7 +93,7 @@ export default async function SiteDashboardPage({
             title="Editor Visual"
             description="Personaliza textos, imágenes y secciones de tu sitio web sin código."
             actions={
-              <Link href={`/app/owner/pages/${pageId}/editor`} className="text-[var(--accent)]">
+              <Link href={BUSINESS_LAUNCH_PATH} className="text-[var(--accent)]">
                 <ChevronRight className="size-6" />
               </Link>
             }
@@ -124,7 +125,7 @@ export default async function SiteDashboardPage({
             title="SEO y Social"
             description="Configura como se ve tu sitio en Google y redes sociales."
             actions={
-              <Link href={`/app/owner/pages/${pageId}/editor`} className="text-[var(--accent)]">
+              <Link href={BUSINESS_LAUNCH_PATH} className="text-[var(--accent)]">
                 <ChevronRight className="size-6" />
               </Link>
             }
