@@ -3,6 +3,7 @@ import {
   FlaskConical,
   type LucideIcon,
 } from "lucide-react";
+import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 
 export type PlatformModuleId = "vase_business" | "vase_labs";
 export type PlatformModuleKey = "business" | "labs";
@@ -73,7 +74,7 @@ export const platformModules: readonly PlatformModuleDefinition[] = [
     description:
       "Ecommerce, paginas, dominios, integraciones operativas y crecimiento comercial desde un mismo workspace.",
     summary: "Storefront, catalogo, dominios y capas de negocio conectadas al tenant.",
-    route: "/app/business",
+    route: BUSINESS_LAUNCH_PATH,
     activationRoute: "/precios",
     icon: Building2,
     product: "BUSINESS",

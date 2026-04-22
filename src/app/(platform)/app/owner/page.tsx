@@ -11,6 +11,7 @@ import { CustomPageRequestForm } from "@/components/business/custom-page-form";
 import { DomainRequestForm } from "@/components/business/domain-request-form";
 import { PremiumRequestForm } from "@/components/business/premium-request-form";
 import { getProductPanelCopy } from "@/lib/auth/redirects";
+import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import { formatMoneyFromCents, getQuoteStatusLabel, getQuoteStatusTone } from "@/lib/business/custom-quotes";
 import { getBillingLabel, getPlanLabel } from "@/lib/business/plans";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
@@ -329,7 +330,7 @@ export default async function OwnerPage() {
                               Conexión
                             </Link>
                             <Link
-                              href={`/app/owner/pages/${page.id}` as Route}
+                              href={BUSINESS_LAUNCH_PATH as Route}
                               className="inline-flex min-h-10 items-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
                             >
                               Administrar

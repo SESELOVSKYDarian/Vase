@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -5,17 +6,37 @@ import { SignInForm } from "@/components/auth/sign-in-form";
 import { hasActiveSession } from "@/lib/auth/session";
 
 type SignInPageProps = {
-  searchParams: Promise<{ reset?: string }>;
+  searchParams: Promise<{ reset?: string; redirectTo?: string; callbackUrl?: string }>;
 };
 
+function normalizeRedirectTarget(value?: string) {
+  const rawValue = String(value ?? "").trim();
+
+  if (!rawValue) {
+    return "/app";
+  }
+
+  if (rawValue.startsWith("/") && !rawValue.startsWith("//")) {
+    return rawValue;
+  }
+
+  try {
+    const url = new URL(rawValue);
+    const nextPath = `${url.pathname}${url.search}${url.hash}`;
+    return nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/app";
+  } catch {
+    return "/app";
+  }
+}
+
 export default async function SignInPage({ searchParams }: SignInPageProps) {
+  const params = await searchParams;
+  const redirectTo = normalizeRedirectTarget(params.redirectTo ?? params.callbackUrl);
   const session = await auth();
 
   if (hasActiveSession(session)) {
-    redirect("/app");
+    redirect(redirectTo as Route);
   }
-
-  const params = await searchParams;
 
   return (
     <section className="relative flex min-h-[calc(100svh-12rem)] items-center justify-center overflow-hidden py-8 text-[#191c1b]">
@@ -49,7 +70,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             </p>
           </header>
 
-          <SignInForm resetSuccess={params.reset === "success"} />
+          <SignInForm resetSuccess={params.reset === "success"} redirectTo={redirectTo} />
         </div>
 
         <p className="mt-10 text-sm text-[#3c4a40]">

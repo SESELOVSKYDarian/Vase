@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { DashboardSupportWidget } from "@/components/support/dashboard-support-widget";
@@ -6,6 +7,7 @@ import { PanelCard } from "@/components/ui/panel-card";
 import { MetricCard } from "@/components/business/metric-card";
 import { StatusBadge } from "@/components/business/status-badge";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
+import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import { getBillingLabel, getPlanLabel } from "@/lib/business/plans";
 import { getBusinessOwnerDashboard, getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 import { getTenantSupportWidgetContext } from "@/server/queries/support";
@@ -80,10 +82,10 @@ export default async function BusinessPage() {
           description="Si quieres editar páginas, dominios, presupuestos o integraciones, entra al espacio operativo completo."
         >
           <Link
-            href="/app/owner"
+            href={BUSINESS_LAUNCH_PATH as Route}
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
           >
-            Abrir gestión avanzada de Business
+            Abrir editor de Business
           </Link>
         </PanelCard>
       </section>

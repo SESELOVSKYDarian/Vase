@@ -11,7 +11,13 @@ import { SubmitButton } from "@/components/auth/submit-button";
 
 const initialState: AuthActionState = {};
 
-export function SignInForm({ resetSuccess = false }: { resetSuccess?: boolean }) {
+export function SignInForm({
+  resetSuccess = false,
+  redirectTo = "/app",
+}: {
+  resetSuccess?: boolean;
+  redirectTo?: string;
+}) {
   const [state, formAction] = useActionState(signInAction, initialState);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -24,6 +30,8 @@ export function SignInForm({ resetSuccess = false }: { resetSuccess?: boolean })
       <AuthNotice kind="error" message={state.error} />
 
       <form action={formAction} className="space-y-6">
+        <input type="hidden" name="redirectTo" value={redirectTo} />
+
         <div className="space-y-1.5">
           <label className="ml-1 text-xs uppercase tracking-[0.18em] text-[#6c7b70]" htmlFor="email">
             Email

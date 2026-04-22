@@ -3,6 +3,8 @@
 Estrategia: **1 App Service** (Next.js, desde el `Dockerfile` raíz) + **1 MySQL Service**.  
 EasyPanel gestiona el reverse proxy, SSL y dominio — **no se usa Caddy ni docker-compose** en este modo.
 
+Si además vas a usar `vase-app` para lanzar el editor externo de Business en `editor.vase.ar`, revisa también [`business-editor-bridge.md`](business-editor-bridge.md).
+
 ---
 
 ## Paso 1 — Crear el MySQL Service
