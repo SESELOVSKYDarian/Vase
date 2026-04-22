@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Command, Save, RotateCcw, Keyboard } from "lucide-react";
 import { saveUserShortcutsAction } from "./actions";
-import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
+import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 
 export interface Shortcut {
   id: string;
@@ -15,7 +15,7 @@ export interface Shortcut {
 
 export const DEFAULT_SHORTCUTS: Shortcut[] = [
   { id: "goto_home", label: "Ir al Inicio", combo: "g h", action: "link", target: "/app" },
-  { id: "goto_business", label: "Ir a Business", combo: "g b", action: "link", target: BUSINESS_LAUNCH_PATH },
+  { id: "goto_business", label: "Ir a Business", combo: "g b", action: "link", target: BUSINESS_WORKSPACE_PATH },
   { id: "goto_labs", label: "Ir a Labs", combo: "g l", action: "link", target: "/app/labs" },
   { id: "new_project", label: "Nuevo Proyecto", combo: "n p", action: "command", target: "open-new-project" },
   { id: "toggle_theme", label: "Alternar Tema", combo: "t t", action: "command", target: "toggle-theme" },
