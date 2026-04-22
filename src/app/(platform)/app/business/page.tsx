@@ -7,7 +7,7 @@ import { PanelCard } from "@/components/ui/panel-card";
 import { MetricCard } from "@/components/business/metric-card";
 import { StatusBadge } from "@/components/business/status-badge";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
-import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
+import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 import { getBillingLabel, getPlanLabel } from "@/lib/business/plans";
 import { getBusinessOwnerDashboard, getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 import { getTenantSupportWidgetContext } from "@/server/queries/support";
@@ -82,10 +82,10 @@ export default async function BusinessPage() {
           description="Si quieres editar páginas, dominios, presupuestos o integraciones, entra al espacio operativo completo."
         >
           <Link
-            href={BUSINESS_LAUNCH_PATH as Route}
+            href={BUSINESS_WORKSPACE_PATH as Route}
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
           >
-            Abrir editor de Business
+            Gestionar sitios y dominios
           </Link>
         </PanelCard>
       </section>

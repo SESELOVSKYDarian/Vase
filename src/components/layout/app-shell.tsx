@@ -34,7 +34,7 @@ import type { PlatformModuleAccess } from "@/config/modules";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useRouter } from "next/navigation";
 import { PricingModal } from "@/components/platform/pricing-modal";
-import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
+import { BUSINESS_LAUNCH_PATH, BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 
 export interface Shortcut {
   id: string;
@@ -168,7 +168,10 @@ export function AppShell({
       const matched = shortcuts.find((s) => s.combo === buffer);
       if (matched) {
         if (matched.action === "link") {
-          const target = matched.target === "/app/business" ? BUSINESS_LAUNCH_PATH : matched.target;
+          const target =
+            matched.target === "/app/business" || matched.target === BUSINESS_LAUNCH_PATH
+              ? BUSINESS_WORKSPACE_PATH
+              : matched.target;
           try {
             routerRef.current.push(target as any);
           } catch {
@@ -202,7 +205,7 @@ export function AppShell({
 
   const navItems = [
     { id: "home", href: "/app", label: "Inicio", icon: Home },
-    { id: "business", href: BUSINESS_LAUNCH_PATH, label: "Vase Business", icon: Building2 },
+    { id: "business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business", icon: Building2 },
     { id: "labs", href: "/app/labs", label: "Vase Labs", icon: FlaskConical },
     { id: "connections", href: "/app/owner/integrations/api", label: "Conexiones", icon: Network },
     { id: "billing", href: "/app/billing", label: "Planes y facturación", icon: CreditCard },
@@ -213,9 +216,9 @@ export function AppShell({
 
   const searchableItems = useMemo(() => [
     { id: "home", href: "/app", label: "Inicio", description: "Panel central de módulos", icon: Home },
-    { id: "business", href: BUSINESS_LAUNCH_PATH, label: "Vase Business", description: "Ecommerce, páginas y presencia online", icon: Building2 },
+    { id: "business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business", description: "Ecommerce, páginas y presencia online", icon: Building2 },
     { id: "labs", href: "/app/labs", label: "Vase Labs", description: "IA, chatbot y automatización", icon: FlaskConical },
-    { id: "analytics-sales", href: BUSINESS_LAUNCH_PATH, label: "Analíticas de Ventas", description: "KPIs comerciales y rendimiento", icon: TrendingUp },
+    { id: "analytics-sales", href: BUSINESS_WORKSPACE_PATH, label: "Analíticas de Ventas", description: "KPIs comerciales y rendimiento", icon: TrendingUp },
     { id: "analytics-ia", href: "/app/labs", label: "Analíticas de IA", description: "Leads y conversaciones inteligentes", icon: Sparkles },
     { id: "connections", href: "/app/owner/integrations/api", label: "Conexiones", description: "APIs, webhooks e integraciones", icon: Network },
     { id: "billing", href: "/app/billing", label: "Planes y facturación", description: "Gestión de suscripción y recibos", icon: CreditCard },
@@ -596,7 +599,7 @@ export function AppShell({
                   title: "Tienda Online",
                   description: "Vende productos, gestiona catálogos y dominios.",
                   icon: Building2,
-                  creationRoute: BUSINESS_LAUNCH_PATH,
+                  creationRoute: `${BUSINESS_WORKSPACE_PATH}#crear-pagina`,
                 },
                 {
                   key: "labs",

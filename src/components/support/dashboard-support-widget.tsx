@@ -5,7 +5,7 @@ import type { Route } from "next";
 import { useState } from "react";
 import { Bot, CircleHelp, LifeBuoy, MessageSquareWarning, Sparkles, X } from "lucide-react";
 import { ClientSupportTicketForm } from "@/components/support/client-support-ticket-form";
-import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
+import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 
 type DashboardSupportWidgetProps = {
   tenantName: string;
@@ -117,7 +117,7 @@ export function DashboardSupportWidget({
                   {[
                     { href: "/app/help", label: "Abrir centro de ayuda", icon: CircleHelp },
                     { href: "/app/billing", label: "Ver planes y facturación", icon: Sparkles },
-                    { href: BUSINESS_LAUNCH_PATH, label: "Ir a Vase Business", icon: LifeBuoy },
+                    { href: BUSINESS_WORKSPACE_PATH, label: "Ir a Vase Business", icon: LifeBuoy },
                     { href: "/app/labs", label: "Ir a Vase Labs", icon: Bot },
                   ].map((item) => {
                     const Icon = item.icon;
