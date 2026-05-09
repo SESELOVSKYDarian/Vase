@@ -13,6 +13,7 @@ import { getRequestContext } from "@/lib/security/request";
 import { sanitizeNullableText, sanitizeText } from "@/lib/security/sanitize";
 import {
   createStorefrontPageSchema,
+  deleteStorefrontPagesSchema,
   requestCustomDomainSchema,
   requestCustomPageSchema,
 } from "@/lib/validators/business";
@@ -139,6 +140,79 @@ export async function createStorefrontPageAction(
     success: isTemporary
       ? "Pagina temporal creada. Tendras 30 dias de actividad y 7 dias de gracia."
       : "Pagina creada correctamente.",
+  };
+}
+
+export async function deleteStorefrontPagesAction(
+  _: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const requestContext = await getRequestContext();
+  const verifiedSession = await requireVerifiedUser();
+  const { membership } = await requireTenantRole(tenantRoles.OWNER);
+
+  await enforceRateLimit({
+    scope: "business:page-delete",
+    key: `${requestContext.ipAddress}:${membership.tenantId}:${verifiedSession.user.id}`,
+    limit: 20,
+    windowSeconds: 60 * 30,
+  });
+
+  const parsed = deleteStorefrontPagesSchema.safeParse({
+    pageIds: formData.getAll("pageIds"),
+  });
+
+  if (!parsed.success) {
+    return {
+      error: "Selecciona al menos una pagina valida para eliminar.",
+    };
+  }
+
+  const uniquePageIds = [...new Set(parsed.data.pageIds)];
+  const pages = await prisma.storefrontPage.findMany({
+    where: {
+      tenantId: membership.tenantId,
+      id: { in: uniquePageIds },
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+
+  if (pages.length === 0) {
+    return {
+      error: "No encontramos las paginas seleccionadas dentro de este tenant.",
+    };
+  }
+
+  await prisma.storefrontPage.deleteMany({
+    where: {
+      tenantId: membership.tenantId,
+      id: { in: pages.map((page) => page.id) },
+    },
+  });
+
+  await createAuditLog({
+    action: "business.pages_deleted",
+    targetType: "storefront_page",
+    tenantId: membership.tenantId,
+    actorUserId: verifiedSession.user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+    metadata: {
+      deletedCount: pages.length,
+      pageIds: pages.map((page) => page.id),
+      pageNames: pages.map((page) => page.name),
+    },
+  });
+
+  revalidatePath("/app/owner");
+  return {
+    success:
+      pages.length === 1
+        ? "Pagina eliminada correctamente."
+        : `${pages.length} paginas eliminadas correctamente.`,
   };
 }
 

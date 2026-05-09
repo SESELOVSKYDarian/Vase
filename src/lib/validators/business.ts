@@ -33,3 +33,7 @@ export const requestCustomDomainSchema = z.object({
     ),
   storefrontPageId: z.string().trim().optional(),
 });
+
+export const deleteStorefrontPagesSchema = z.object({
+  pageIds: z.array(z.string().trim().cuid()).min(1).max(50),
+});
