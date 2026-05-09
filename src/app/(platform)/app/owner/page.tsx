@@ -6,12 +6,12 @@ import { PanelCard } from "@/components/ui/panel-card";
 import { MetricCard } from "@/components/business/metric-card";
 import { ClientCustomQuoteResponseForm } from "@/components/business/client-custom-quote-response-form";
 import { StatusBadge } from "@/components/business/status-badge";
+import { StorefrontPagesTable } from "@/components/business/storefront-pages-table";
 import { CreatePageForm } from "@/components/business/create-page-form";
 import { CustomPageRequestForm } from "@/components/business/custom-page-form";
 import { DomainRequestForm } from "@/components/business/domain-request-form";
 import { PremiumRequestForm } from "@/components/business/premium-request-form";
 import { getProductPanelCopy } from "@/lib/auth/redirects";
-import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import { formatMoneyFromCents, getQuoteStatusLabel, getQuoteStatusTone } from "@/lib/business/custom-quotes";
 import { getBillingLabel, getPlanLabel } from "@/lib/business/plans";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
@@ -262,107 +262,18 @@ export default async function OwnerPage() {
               </div>
             </div>
 
-            {dashboard.storefrontPages.length === 0 ? (
-              <div className="rounded-[28px] border border-dashed border-[var(--border-subtle)] bg-white p-8 text-sm leading-7 text-[var(--muted)]">
-                Aun no tienes paginas creadas. Usa la seccion siguiente para generar la primera.
-              </div>
-            ) : (
-              <div className="overflow-hidden rounded-[30px] border border-[var(--border-subtle)] bg-white shadow-sm">
-                <table className="min-w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="bg-[color-mix(in_srgb,var(--surface-strong)_60%,white)] text-[var(--muted-soft)]">
-                      <th className="px-8 py-5 text-xs font-semibold uppercase tracking-[0.2em]">Nombre de pagina</th>
-                      <th className="px-6 py-5 text-center text-xs font-semibold uppercase tracking-[0.2em]">Estado</th>
-                      <th className="px-6 py-5 text-center text-xs font-semibold uppercase tracking-[0.2em]">Dominio</th>
-                      <th className="px-6 py-5 text-xs font-semibold uppercase tracking-[0.2em]">Operacion</th>
-                      <th className="px-8 py-5 text-right text-xs font-semibold uppercase tracking-[0.2em]">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border-subtle)]">
-                    {dashboard.storefrontPages.map((page) => (
-                      <tr key={page.id} className="group transition hover:bg-[color-mix(in_srgb,var(--surface)_96%,white)]">
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--surface-strong)_84%,white)] text-sm font-semibold text-[var(--foreground)]">
-                              {page.name.slice(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-serif text-xl text-[var(--foreground)]">{page.name}</p>
-                              <p className="text-xs text-[var(--muted)]">/{page.slug}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-6 text-center">
-                          <div className="inline-flex justify-center">
-                            <StatusBadge tone={pageStatusTone(page.status)} label={page.status} />
-                          </div>
-                        </td>
-                        <td className="px-6 py-6 text-center">
-                          {page.domainConnections.length > 0 ? (
-                            <div className="space-y-1">
-                              <div className="text-sm font-medium text-[var(--foreground)]">
-                                {page.domainConnections[0]?.hostname}
-                              </div>
-                              <div className="text-xs text-[var(--muted)]">
-                                {page.domainConnections.length > 1
-                                  ? `+${page.domainConnections.length - 1} dominio(s)`
-                                  : "Dominio principal"}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="inline-flex min-h-8 items-center rounded-full bg-[color-mix(in_srgb,var(--surface-strong)_68%,white)] px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                              Sin dominio
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-6">
-                          <div className="text-sm font-medium text-[var(--foreground)]">
-                            {page.isTemporary ? "Sitio temporal" : "Sitio estable"}
-                          </div>
-                          <div className="text-xs text-[var(--muted)]">{page.lifecycle.label}</div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <div className="flex justify-end gap-2 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
-                            <Link
-                              href={`/app/owner/integrations/api?site=${page.id}` as Route}
-                              className="inline-flex min-h-10 items-center rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)]"
-                            >
-                              Conexión
-                            </Link>
-                            <Link
-                              href={BUSINESS_LAUNCH_PATH as Route}
-                              className="inline-flex min-h-10 items-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
-                            >
-                              Administrar
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                <div className="flex flex-col gap-4 border-t border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_38%,white)] px-8 py-5 md:flex-row md:items-center md:justify-between">
-                  <span className="text-xs font-medium text-[var(--muted)]">
-                    Mostrando {dashboard.storefrontPages.length} pagina{dashboard.storefrontPages.length === 1 ? "" : "s"} activas en este tenant
-                  </span>
-                  <div className="flex gap-2">
-                    <button className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)]">
-                      {"<"}
-                    </button>
-                    <button className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-strong)] text-xs font-bold text-[var(--accent-contrast)]">
-                      1
-                    </button>
-                    <button className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-xs font-medium text-[var(--muted)]">
-                      2
-                    </button>
-                    <button className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)]">
-                      {">"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <StorefrontPagesTable
+              pages={dashboard.storefrontPages.map((page) => ({
+                id: page.id,
+                name: page.name,
+                slug: page.slug,
+                status: page.status,
+                statusTone: pageStatusTone(page.status),
+                isTemporary: page.isTemporary,
+                lifecycleLabel: page.lifecycle.label,
+                domains: page.domainConnections.map((domain) => domain.hostname),
+              }))}
+            />
           </section>
 
           <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
