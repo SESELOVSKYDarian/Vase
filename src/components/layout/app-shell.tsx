@@ -9,6 +9,7 @@ import {
   Building2,
   CircleHelp,
   CreditCard,
+  FileImage,
   FolderPlus,
   FlaskConical,
   Home,
@@ -73,6 +74,10 @@ function inferActiveSection(pathname: string) {
 
   if (pathname.startsWith("/app/billing")) {
     return "billing";
+  }
+
+  if (pathname.startsWith("/app/archivos")) {
+    return "files";
   }
 
   if (pathname.startsWith("/app/owner/integrations") || pathname.startsWith("/app/connections")) {
@@ -207,6 +212,7 @@ export function AppShell({
     { id: "home", href: "/app", label: "Inicio", icon: Home },
     { id: "business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business", icon: Building2 },
     { id: "labs", href: "/app/labs", label: "Vase Labs", icon: FlaskConical },
+    { id: "files", href: "/app/archivos", label: "Mis archivos", icon: FileImage },
     { id: "connections", href: "/app/owner/integrations/api", label: "Conexiones", icon: Network },
     { id: "billing", href: "/app/billing", label: "Planes y facturación", icon: CreditCard },
     { id: "shortcuts", href: "/app/shortcuts", label: "Comandos", icon: Terminal },
@@ -218,6 +224,7 @@ export function AppShell({
     { id: "home", href: "/app", label: "Inicio", description: "Panel central de módulos", icon: Home },
     { id: "business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business", description: "Ecommerce, páginas y presencia online", icon: Building2 },
     { id: "labs", href: "/app/labs", label: "Vase Labs", description: "IA, chatbot y automatización", icon: FlaskConical },
+    { id: "files", href: "/app/archivos", label: "Mis archivos", description: "Subida privada de imagenes y documentos", icon: FileImage },
     { id: "analytics-sales", href: BUSINESS_WORKSPACE_PATH, label: "Analíticas de Ventas", description: "KPIs comerciales y rendimiento", icon: TrendingUp },
     { id: "analytics-ia", href: "/app/labs", label: "Analíticas de IA", description: "Leads y conversaciones inteligentes", icon: Sparkles },
     { id: "connections", href: "/app/owner/integrations/api", label: "Conexiones", description: "APIs, webhooks e integraciones", icon: Network },
