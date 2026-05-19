@@ -84,12 +84,26 @@ function getPrivateUrl(baseUrl: string, username: string, filename: string) {
 }
 
 async function readError(response: Response) {
+  if (response.status === 429) {
+    return "uploads.vase.ar esta limitando solicitudes. Espera un minuto o redeploya uploads-service con RATE_LIMIT_MAX mas alto.";
+  }
+
   try {
-    const body = (await response.json()) as { error?: string; message?: string };
-    if (body.error && body.error !== "request_error") return body.error;
+    const body = (await response.clone().json()) as { error?: string; message?: string };
+    if (body.error && body.error !== "request_error") {
+      if (body.error === "too_many_requests") {
+        return "uploads.vase.ar esta limitando solicitudes. Sube RATE_LIMIT_MAX en uploads-service.";
+      }
+      return body.error;
+    }
     if (body.message) return body.message;
   } catch {
-    // Fall through to the generic message below.
+    try {
+      const text = await response.text();
+      if (text.trim()) return text.trim();
+    } catch {
+      // Fall through to the generic message below.
+    }
   }
 
   return GENERIC_ERROR_MESSAGE;
