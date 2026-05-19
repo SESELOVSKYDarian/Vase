@@ -41,6 +41,10 @@ function getUploadUsername(sessionUser: { id: string; email?: string | null; nam
   return normalizeUsername(emailName || sessionUser.name || sessionUser.id);
 }
 
+function getUploadsBaseUrl() {
+  return (process.env.UPLOADS_BASE_URL || DEFAULT_UPLOADS_BASE_URL).replace(/\/+$/g, "");
+}
+
 export async function GET() {
   try {
     const session = await requireUser();
@@ -52,7 +56,7 @@ export async function GET() {
 
     const now = Math.floor(Date.now() / 1000);
     const username = getUploadUsername(session.user);
-    const uploadsBaseUrl = process.env.UPLOADS_BASE_URL || DEFAULT_UPLOADS_BASE_URL;
+    const uploadsBaseUrl = getUploadsBaseUrl();
     const token = signJwt(
       {
         sub: session.user.id,

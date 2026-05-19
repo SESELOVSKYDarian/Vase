@@ -49,6 +49,7 @@ type AppShellProps = PropsWithChildren<{
   title: string;
   subtitle: string;
   tenantLabel?: string;
+  showRolePanels?: boolean;
   supportWidget?: ReactNode;
   modules?: PlatformModuleAccess[];
   shortcuts?: Shortcut[];
@@ -111,6 +112,7 @@ export function AppShell({
   title,
   subtitle,
   tenantLabel,
+  showRolePanels = true,
   supportWidget,
   notifications = [],
   modules = [],
@@ -499,29 +501,31 @@ export function AppShell({
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          {rolePanels.map((item) => {
-            const Icon = item.icon;
+        {showRolePanels ? (
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            {rolePanels.map((item) => {
+              const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="rounded-2xl bg-[var(--accent-soft)] p-3 text-[var(--accent-strong)]">
-                    <Icon className="size-5" />
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl bg-[var(--accent-soft)] p-3 text-[var(--accent-strong)]">
+                      <Icon className="size-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-semibold text-[var(--foreground)]">{item.label}</p>
+                      <p className="text-sm leading-6 text-[var(--muted)]">{item.description}</p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="font-semibold text-[var(--foreground)]">{item.label}</p>
-                    <p className="text-sm leading-6 text-[var(--muted)]">{item.description}</p>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </section>
+                </Link>
+              );
+            })}
+          </section>
+        ) : null}
 
         <section id="main-content" className="space-y-6">
           {children}
