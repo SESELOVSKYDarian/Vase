@@ -39,6 +39,7 @@ export default async function ArchivosPage() {
       title="Mis archivos"
       subtitle="Subi imagenes, videos y PDFs privados desde tu cuenta de Vase. Cada usuario trabaja sobre su propia carpeta en uploads.vase.ar."
       tenantLabel={membership.tenant.name}
+      showRolePanels={false}
       modules={dashboard.modules}
       notifications={dashboard.notifications}
       supportWidget={

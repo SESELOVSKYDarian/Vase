@@ -15,6 +15,7 @@ import {
   Trash2,
   UploadCloud,
   Video,
+  X,
 } from "lucide-react";
 
 type UploadsSession = {
@@ -40,6 +41,13 @@ type Notice = {
   message: string;
 };
 
+type PreviewState = {
+  url?: string;
+  loading?: boolean;
+};
+
+const GENERIC_ERROR_MESSAGE = "No se pudo conectar con uploads.vase.ar. Revisa que el servicio este activo y que las variables de Vase coincidan.";
+
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
@@ -47,17 +55,23 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-function fileKind(file: UploadFile) {
-  if (file.mime_type.startsWith("image/")) return "image";
-  if (file.mime_type.startsWith("video/")) return "video";
-  if (file.mime_type === "application/pdf") return "pdf";
-  return "file";
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Fecha no disponible";
+
+  return new Intl.DateTimeFormat("es-AR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function isImage(file: UploadFile) {
+  return file.mime_type.startsWith("image/");
 }
 
 function fileIcon(file: UploadFile) {
-  const kind = fileKind(file);
-  if (kind === "image") return FileImage;
-  if (kind === "video") return Video;
+  if (file.mime_type.startsWith("image/")) return FileImage;
+  if (file.mime_type.startsWith("video/")) return Video;
   return FileText;
 }
 
@@ -65,124 +79,152 @@ function getDisplayName(filename: string) {
   return filename.replace(/^\d+-[a-f0-9-]+-/i, "");
 }
 
+function getPrivateUrl(baseUrl: string, username: string, filename: string) {
+  return `${baseUrl}/files/${encodeURIComponent(username)}/${encodeURIComponent(filename)}`;
+}
+
 async function readError(response: Response) {
   try {
-    const body = (await response.json()) as { error?: string };
-    return body.error || "request_error";
+    const body = (await response.json()) as { error?: string; message?: string };
+    if (body.error && body.error !== "request_error") return body.error;
+    if (body.message) return body.message;
   } catch {
-    return "request_error";
+    // Fall through to the generic message below.
   }
+
+  return GENERIC_ERROR_MESSAGE;
+}
+
+async function fetchJson<T>(url: string, init?: RequestInit) {
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+
+  return (await response.json()) as T;
 }
 
 export function UploadsClient() {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const previewUrlsRef = useRef<string[]>([]);
   const [session, setSession] = useState<UploadsSession | null>(null);
   const [files, setFiles] = useState<UploadFile[]>([]);
-  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [previews, setPreviews] = useState<Record<string, PreviewState>>({});
   const [notice, setNotice] = useState<Notice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [busyFile, setBusyFile] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UploadFile | null>(null);
 
-  const imageCount = useMemo(
-    () => files.filter((file) => file.mime_type.startsWith("image/")).length,
-    [files],
-  );
+  const imageCount = useMemo(() => files.filter(isImage).length, [files]);
   const totalSize = useMemo(() => files.reduce((sum, file) => sum + file.size, 0), [files]);
 
   const showNotice = useCallback((tone: Notice["tone"], message: string) => {
     setNotice({ tone, message });
-    window.setTimeout(() => setNotice(null), 4500);
+    window.setTimeout(() => setNotice(null), 5200);
   }, []);
 
-  const loadSession = useCallback(async () => {
-    const response = await fetch("/api/uploads/token", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(await readError(response));
-    }
-    return (await response.json()) as UploadsSession;
-  }, []);
-
-  const listFiles = useCallback(
-    async (currentSession?: UploadsSession) => {
-      const activeSession = currentSession || session || (await loadSession());
-      if (!session && activeSession) {
-        setSession(activeSession);
-      }
-
-      const response = await fetch(`${activeSession.uploads_base_url}/files`, {
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const nextSession = await fetchJson<UploadsSession>("/api/uploads/token", { cache: "no-store" });
+      const list = await fetchJson<{ files: UploadFile[] }>(`${nextSession.uploads_base_url}/files`, {
+        cache: "no-store",
         headers: {
-          Authorization: `Bearer ${activeSession.token}`,
+          Authorization: `Bearer ${nextSession.token}`,
         },
       });
 
-      if (!response.ok) {
-        throw new Error(await readError(response));
-      }
-
-      const body = (await response.json()) as { files: UploadFile[] };
-      setFiles(body.files || []);
-      return { activeSession, files: body.files || [] };
-    },
-    [loadSession, session],
-  );
-
-  const reload = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const activeSession = await loadSession();
-      setSession(activeSession);
-      await listFiles(activeSession);
+      setSession(nextSession);
+      setFiles(list.files || []);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "No se pudieron cargar los archivos.";
+      const message = error instanceof Error ? error.message : GENERIC_ERROR_MESSAGE;
+      setFiles([]);
       showNotice("error", message);
     } finally {
       setIsLoading(false);
     }
-  }, [listFiles, loadSession, showNotice]);
+  }, [showNotice]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    void loadData();
+
+    return () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      previewUrlsRef.current = [];
+    };
+  }, [loadData]);
 
   useEffect(() => {
     let cancelled = false;
-    const urls: string[] = [];
+
+    previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    previewUrlsRef.current = [];
+
+    if (!session || files.length === 0) {
+      setPreviews({});
+      return;
+    }
+
+    const imageFiles = files.filter(isImage);
+
+    if (imageFiles.length === 0) {
+      setPreviews({});
+      return;
+    }
+
+    setPreviews(
+      Object.fromEntries(imageFiles.map((file) => [file.filename, { loading: true }])),
+    );
 
     async function loadPreviews() {
       if (!session) return;
 
-      const imageFiles = files.filter((file) => file.mime_type.startsWith("image/")).slice(0, 24);
-      const entries = await Promise.all(
+      await Promise.all(
         imageFiles.map(async (file) => {
           try {
-            const response = await fetch(file.private_url, {
+            const response = await fetch(getPrivateUrl(session.uploads_base_url, session.user.username, file.filename), {
+              cache: "no-store",
               headers: { Authorization: `Bearer ${session.token}` },
             });
 
-            if (!response.ok) return null;
+            if (!response.ok) {
+              if (!cancelled) {
+                setPreviews((current) => ({
+                  ...current,
+                  [file.filename]: { loading: false },
+                }));
+              }
+              return;
+            }
 
             const blob = await response.blob();
             const url = URL.createObjectURL(blob);
-            urls.push(url);
-            return [file.filename, url] as const;
+            previewUrlsRef.current.push(url);
+
+            if (!cancelled) {
+              setPreviews((current) => ({
+                ...current,
+                [file.filename]: { url, loading: false },
+              }));
+            }
           } catch {
-            return null;
+            if (!cancelled) {
+              setPreviews((current) => ({
+                ...current,
+                [file.filename]: { loading: false },
+              }));
+            }
           }
         }),
       );
-
-      if (!cancelled) {
-        setPreviews(Object.fromEntries(entries.filter(Boolean) as Array<[string, string]>));
-      }
     }
 
     void loadPreviews();
 
     return () => {
       cancelled = true;
-      urls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [files, session]);
 
@@ -193,10 +235,7 @@ export function UploadsClient() {
 
       setIsUploading(true);
       try {
-        const activeSession = session || (await loadSession());
-        if (!session) {
-          setSession(activeSession);
-        }
+        const activeSession = session || (await fetchJson<UploadsSession>("/api/uploads/token", { cache: "no-store" }));
 
         for (const file of queue) {
           const formData = new FormData();
@@ -215,7 +254,8 @@ export function UploadsClient() {
           }
         }
 
-        await listFiles(activeSession);
+        setSession(activeSession);
+        await loadData();
         showNotice("success", queue.length === 1 ? "Archivo subido correctamente." : "Archivos subidos correctamente.");
       } catch (error) {
         const message = error instanceof Error ? error.message : "No se pudo subir el archivo.";
@@ -225,15 +265,17 @@ export function UploadsClient() {
         if (inputRef.current) inputRef.current.value = "";
       }
     },
-    [listFiles, loadSession, session, showNotice],
+    [loadData, session, showNotice],
   );
 
   const downloadFile = useCallback(
     async (file: UploadFile) => {
       if (!session) return;
+
       setBusyFile(file.filename);
       try {
-        const response = await fetch(file.private_url, {
+        const response = await fetch(getPrivateUrl(session.uploads_base_url, session.user.username, file.filename), {
+          cache: "no-store",
           headers: { Authorization: `Bearer ${session.token}` },
         });
 
@@ -263,9 +305,10 @@ export function UploadsClient() {
   const copyPublicLink = useCallback(
     async (file: UploadFile) => {
       if (!session) return;
+
       setBusyFile(file.filename);
       try {
-        const response = await fetch(
+        const body = await fetchJson<{ public_url: string }>(
           `${session.uploads_base_url}/files/${encodeURIComponent(file.filename)}/public-url`,
           {
             method: "POST",
@@ -273,15 +316,10 @@ export function UploadsClient() {
           },
         );
 
-        if (!response.ok) {
-          throw new Error(await readError(response));
-        }
-
-        const body = (await response.json()) as { public_url: string };
         await navigator.clipboard.writeText(body.public_url);
         showNotice("success", "Link publico copiado.");
       } catch (error) {
-        const message = error instanceof Error ? error.message : "No se pudo crear el link.";
+        const message = error instanceof Error ? error.message : "No se pudo crear el link publico.";
         showNotice("error", message);
       } finally {
         setBusyFile(null);
@@ -290,70 +328,79 @@ export function UploadsClient() {
     [session, showNotice],
   );
 
-  const deleteFile = useCallback(
+  const copyPrivateUrl = useCallback(
     async (file: UploadFile) => {
       if (!session) return;
-      const confirmed = window.confirm(`Eliminar ${getDisplayName(file.filename)}? Esta accion no se puede deshacer.`);
-      if (!confirmed) return;
 
-      setBusyFile(file.filename);
-      try {
-        const response = await fetch(
-          `${session.uploads_base_url}/files/${encodeURIComponent(session.user.username)}/${encodeURIComponent(file.filename)}`,
-          {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${session.token}` },
-          },
-        );
-
-        if (!response.ok) {
-          throw new Error(await readError(response));
-        }
-
-        await listFiles(session);
-        showNotice("success", "Archivo eliminado.");
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "No se pudo eliminar.";
-        showNotice("error", message);
-      } finally {
-        setBusyFile(null);
-      }
+      const url = getPrivateUrl(session.uploads_base_url, session.user.username, file.filename);
+      await navigator.clipboard.writeText(url);
+      showNotice("success", "URL privada copiada.");
     },
-    [listFiles, session, showNotice],
+    [session, showNotice],
   );
+
+  const confirmDelete = useCallback(async () => {
+    if (!session || !deleteTarget) return;
+
+    setBusyFile(deleteTarget.filename);
+    try {
+      const response = await fetch(getPrivateUrl(session.uploads_base_url, session.user.username, deleteTarget.filename), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+
+      setDeleteTarget(null);
+      await loadData();
+      showNotice("success", "Archivo eliminado.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo eliminar el archivo.";
+      showNotice("error", message);
+    } finally {
+      setBusyFile(null);
+    }
+  }, [deleteTarget, loadData, session, showNotice]);
 
   return (
     <div className="space-y-6">
       {notice ? (
         <div
           className={[
-            "flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold",
+            "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold",
             notice.tone === "success"
               ? "border-[color:color-mix(in_srgb,var(--success)_28%,transparent)] bg-[var(--success-soft)] text-[var(--success)]"
               : "border-[color:color-mix(in_srgb,var(--danger)_28%,transparent)] bg-[var(--danger-soft)] text-[var(--danger)]",
           ].join(" ")}
         >
-          {notice.tone === "success" ? <Check className="size-4" /> : <AlertCircle className="size-4" />}
-          <span>{notice.message}</span>
+          <span className="flex items-center gap-3">
+            {notice.tone === "success" ? <Check className="size-4" /> : <AlertCircle className="size-4" />}
+            <span>{notice.message}</span>
+          </span>
+          <button type="button" onClick={() => setNotice(null)} aria-label="Cerrar alerta">
+            <X className="size-4" />
+          </button>
         </div>
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted-soft)]">Carpeta privada</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{session?.user.username ?? "-"}</p>
+          <p className="mt-2 truncate text-2xl font-semibold text-[var(--foreground)]">{session?.user.username ?? "-"}</p>
         </div>
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted-soft)]">Archivos</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{files.length}</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{isLoading ? "-" : files.length}</p>
         </div>
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted-soft)]">Imagenes</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{imageCount}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted-soft)]">Uso total</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{formatBytes(totalSize)}</p>
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <section className="grid gap-6 xl:grid-cols-[24rem_1fr]">
         <div
           onDragEnter={(event) => {
             event.preventDefault();
@@ -370,7 +417,7 @@ export function UploadsClient() {
             void uploadFiles(event.dataTransfer.files);
           }}
           className={[
-            "flex min-h-[22rem] flex-col justify-between rounded-3xl border border-dashed p-6 shadow-sm",
+            "flex min-h-[21rem] flex-col justify-between rounded-3xl border border-dashed p-6 shadow-sm",
             dragActive
               ? "border-[var(--accent-strong)] bg-[var(--accent-soft)]"
               : "border-[var(--border-strong)] bg-[var(--surface-strong)]",
@@ -381,9 +428,9 @@ export function UploadsClient() {
               {isUploading ? <Loader2 className="size-6 animate-spin" /> : <UploadCloud className="size-6" />}
             </div>
             <div>
-              <h3 className="text-2xl font-semibold text-[var(--foreground)]">Subir archivos privados</h3>
+              <h3 className="text-2xl font-semibold text-[var(--foreground)]">Subir archivos</h3>
               <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                Los archivos quedan guardados en tu carpeta y se abren solo con tu sesion de Vase.
+                Cada archivo queda asociado a tu usuario de Vase y se guarda en tu carpeta privada.
               </p>
             </div>
             <div className="grid gap-2 text-sm text-[var(--muted)]">
@@ -393,12 +440,12 @@ export function UploadsClient() {
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck className="size-4 text-[var(--accent-strong)]" />
-                <span>Limite aplicado por uploads.vase.ar</span>
+                <span>Acceso privado con sesion</span>
               </div>
             </div>
           </div>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8 grid gap-3">
             <input
               ref={inputRef}
               type="file"
@@ -422,7 +469,7 @@ export function UploadsClient() {
             </button>
             <button
               type="button"
-              onClick={() => void reload()}
+              onClick={() => void loadData()}
               disabled={isLoading}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -438,7 +485,9 @@ export function UploadsClient() {
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted-soft)]">Biblioteca privada</p>
               <h3 className="mt-1 text-2xl font-semibold text-[var(--foreground)]">Tus archivos</h3>
             </div>
-            <p className="text-sm text-[var(--muted)]">{formatBytes(totalSize)} usados</p>
+            <p className="text-sm text-[var(--muted)]">
+              {files.length} archivo{files.length === 1 ? "" : "s"} · {imageCount} imagen{imageCount === 1 ? "" : "es"}
+            </p>
           </div>
 
           {isLoading ? (
@@ -454,7 +503,7 @@ export function UploadsClient() {
               </div>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
               {files.map((file) => {
                 const Icon = fileIcon(file);
                 const isBusy = busyFile === file.filename;
@@ -466,9 +515,11 @@ export function UploadsClient() {
                     className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]"
                   >
                     <div className="grid aspect-[4/3] place-items-center bg-[color:color-mix(in_srgb,var(--surface-strong)_72%,transparent)]">
-                      {preview ? (
+                      {preview?.url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={preview} alt="" className="h-full w-full object-cover" />
+                        <img src={preview.url} alt="" className="h-full w-full object-cover" />
+                      ) : preview?.loading ? (
+                        <Loader2 className="size-6 animate-spin text-[var(--muted-soft)]" />
                       ) : (
                         <Icon className="size-10 text-[var(--muted-soft)]" />
                       )}
@@ -479,7 +530,7 @@ export function UploadsClient() {
                           {getDisplayName(file.filename)}
                         </p>
                         <p className="mt-1 text-xs text-[var(--muted)]">
-                          {formatBytes(file.size)} · {file.mime_type}
+                          {formatBytes(file.size)} · {formatDate(file.updated_at)}
                         </p>
                       </div>
                       <div className="grid grid-cols-4 gap-2">
@@ -503,7 +554,7 @@ export function UploadsClient() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => navigator.clipboard.writeText(file.private_url).then(() => showNotice("success", "URL privada copiada."))}
+                          onClick={() => void copyPrivateUrl(file)}
                           className="inline-flex h-10 items-center justify-center rounded-xl border border-[var(--border-subtle)] text-[var(--muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]"
                           aria-label="Copiar URL privada"
                         >
@@ -511,7 +562,7 @@ export function UploadsClient() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => void deleteFile(file)}
+                          onClick={() => setDeleteTarget(file)}
                           disabled={isBusy}
                           className="inline-flex h-10 items-center justify-center rounded-xl border border-[var(--border-subtle)] text-[var(--muted)] hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] disabled:opacity-50"
                           aria-label="Eliminar"
@@ -527,6 +578,48 @@ export function UploadsClient() {
           )}
         </div>
       </section>
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(16,20,26,0.38)] px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-[var(--border-subtle)] bg-[var(--background)] p-6 shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted-soft)]">Eliminar archivo</p>
+                <h3 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{getDisplayName(deleteTarget.filename)}</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                  Esta accion elimina el archivo de tu carpeta privada y no se puede deshacer.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)] hover:bg-[var(--surface-strong)]"
+                aria-label="Cerrar"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--surface-strong)]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDelete()}
+                disabled={busyFile === deleteTarget.filename}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[var(--danger)] px-5 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {busyFile === deleteTarget.filename ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
