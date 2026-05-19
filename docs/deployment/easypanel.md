@@ -108,6 +108,15 @@ Referencia completa en `.env.easypanel.example`.
 | `MALWARE_SCAN_TOKEN` | Token del servicio de escaneo de malware |
 | `STORAGE_BUCKET` | Nombre del bucket de storage (default: `vase-private`) |
 
+### Variables para uploads privados
+
+Estas variables conectan `vase.ar` con el servicio `uploads.vase.ar`. `UPLOADS_JWT_SECRET` debe ser exactamente el mismo valor configurado en el servicio `uploads-service`.
+
+| Variable | Valor de produccion |
+|---|---|
+| `UPLOADS_BASE_URL` | `https://uploads.vase.ar` |
+| `UPLOADS_JWT_SECRET` | `zDpmaD5A5DU0e2iuan+luSH0XwJn2e/ytayVztQScNCCdsKdGScrhB6RxpzAXhQ7` |
+
 > 💡 Usá **EasyPanel Secrets** para `DATABASE_URL`, `AUTH_SECRET`, `SMTP_PASS` y cualquier token/key sensible.
 
 ---
