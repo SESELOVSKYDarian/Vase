@@ -4,7 +4,6 @@ import { DashboardSupportWidget } from "@/components/support/dashboard-support-w
 import { requireUser } from "@/lib/auth/guards";
 import { getTenantMembership } from "@/lib/tenancy/resolve-tenant";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
-import { getTenantSupportWidgetContext } from "@/server/queries/support";
 import { UploadsClient } from "./uploads-client";
 
 async function getPageContext() {
@@ -16,39 +15,29 @@ async function getPageContext() {
       forbidden();
     }
 
-    const [dashboard, supportWidget] = await Promise.all([
-      getUnifiedTenantDashboard(membership.tenantId, session.user.id),
-      getTenantSupportWidgetContext(membership.tenantId),
-    ]);
+    const dashboard = await getUnifiedTenantDashboard(membership.tenantId, session.user.id);
 
     if (!dashboard) {
       forbidden();
     }
 
-    return { membership, dashboard, supportWidget };
+    return { membership, dashboard };
   } catch {
     forbidden();
   }
 }
 
 export default async function ArchivosPage() {
-  const { membership, dashboard, supportWidget } = await getPageContext();
+  const { membership, dashboard } = await getPageContext();
 
   return (
     <AppShell
       title="Mis archivos"
       subtitle="Subi imagenes, videos y PDFs privados desde tu cuenta de Vase. Cada usuario trabaja sobre su propia carpeta en uploads.vase.ar."
       tenantLabel={membership.tenant.name}
-      showRolePanels={false}
       modules={dashboard.modules}
       notifications={dashboard.notifications}
-      supportWidget={
-        <DashboardSupportWidget
-          tenantName={membership.tenant.name}
-          conversationOptions={supportWidget.conversationOptions}
-          supportSummary={supportWidget.summary}
-        />
-      }
+      supportWidget={<DashboardSupportWidget />}
     >
       <UploadsClient />
     </AppShell>
