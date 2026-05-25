@@ -1,210 +1,701 @@
+import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
+import { AdminCustomizationQuoteForm } from "@/components/admin/admin-customization-quote-form";
+import { AdminPlatformUpdateForm } from "@/components/admin/admin-platform-update-form";
+import { AdminCustomizationReviewForm } from "@/components/business/admin-customization-review-form";
+import { StatusBadge } from "@/components/business/status-badge";
+import { AdminFeatureFlagToggleForm } from "@/components/admin/admin-feature-flag-toggle-form";
+import { AdminSupportTemplateForm } from "@/components/admin/admin-support-template-form";
+import { AdminSupportUserForm } from "@/components/admin/admin-support-user-form";
+import { AdminTenantGovernanceForm } from "@/components/admin/admin-tenant-governance-form";
+import { AdminUserGovernanceForm } from "@/components/admin/admin-user-governance-form";
 import { PanelCard } from "@/components/ui/panel-card";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
-import { getAdminFinanceDashboard } from "@/server/queries/admin-finance";
-import { prisma } from "@/lib/db/prisma";
+import { getQuoteStatusLabel, getQuoteStatusTone } from "@/lib/business/custom-quotes";
+import { getBillingLabel, getPlanLabel } from "@/lib/business/plans";
+import { deletePlatformUpdateFormAction } from "@/app/(platform)/app/admin/actions";
+import {
+  getSupportPriorityLabel,
+  getSupportPriorityTone,
+  getSupportStatusLabel,
+  getSupportTicketTone,
+} from "@/lib/support/tickets";
+import { getPlatformAdminConsole, type AdminConsoleFilters } from "@/server/queries/admin";
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 0,
+type AdminPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function getStringParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function tenantStatusTone(status: string) {
+  switch (status) {
+    case "ACTIVE":
+      return "success";
+    case "SUSPENDED":
+      return "danger";
+    default:
+      return "warning";
+  }
+}
+
+function integrationTone(status: string) {
+  switch (status) {
+    case "ACTIVE":
+    case "CONNECTED":
+      return "success";
+    case "FAILED":
+    case "REVOKED":
+    case "ERROR":
+      return "danger";
+    case "PAUSED":
+    case "ROTATED":
+    case "PENDING":
+      return "warning";
+    default:
+      return "neutral";
+  }
+}
+
+function formatDate(value: Date | null | undefined) {
+  if (!value) {
+    return "Sin fecha";
+  }
+
+  return new Intl.DateTimeFormat("es-AR", {
+    dateStyle: "medium",
+    timeStyle: "short",
   }).format(value);
 }
 
-function monthRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
-  return { start, end };
-}
-
-function lastMonthRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-  const end = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-  return { start, end };
-}
-
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: AdminPageProps) {
   try {
     await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
   } catch {
     forbidden();
   }
 
-  const thisMonth = monthRange();
-  const previousMonth = lastMonthRange();
+  const params = await searchParams;
+  const filters: AdminConsoleFilters = {
+    q: getStringParam(params.q),
+    product: (getStringParam(params.product) as AdminConsoleFilters["product"]) ?? "ALL",
+    tenantStatus:
+      (getStringParam(params.tenantStatus) as AdminConsoleFilters["tenantStatus"]) ?? "ALL",
+    billingStatus:
+      (getStringParam(params.billingStatus) as AdminConsoleFilters["billingStatus"]) ?? "ALL",
+    supportStatus:
+      (getStringParam(params.supportStatus) as AdminConsoleFilters["supportStatus"]) ?? "ALL",
+  };
 
-  const [finance, monthlyPayments, userCount, usersLastMonth, topClientsRaw] = await Promise.all([
-    getAdminFinanceDashboard(),
-    prisma.clientPayment.findMany({
-      where: {
-        paidAt: {
-          gte: thisMonth.start,
-          lt: thisMonth.end,
-        },
-      },
-      include: {
-        allocations: {
-          include: {
-            partnerUser: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        },
-      },
-      take: 5000,
-    }),
-    prisma.user.count(),
-    prisma.user.findMany({
-      where: {
-        createdAt: {
-          gte: previousMonth.start,
-          lt: previousMonth.end,
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        createdAt: true,
-      },
-    }),
-    prisma.clientPayment.groupBy({
-      by: ["clientAccountId"],
-      _sum: { paidAmount: true },
-      orderBy: {
-        _sum: {
-          paidAmount: "desc",
-        },
-      },
-      take: 5,
-      where: {
-        paidAmount: { gt: 0 },
-      },
-    }),
-  ]);
-
-  const monthlyPartnerMap = new Map<string, { name: string; amount: number }>();
-  for (const payment of monthlyPayments) {
-    for (const allocation of payment.allocations) {
-      if (allocation.direction !== "PARTNER_DISTRIBUTION") continue;
-      const key = allocation.partnerUserId ?? "no_partner";
-      const current = monthlyPartnerMap.get(key);
-      const name = allocation.partnerUser?.name ?? "Socio sin asignar";
-      const amount = Number(allocation.amount ?? 0);
-      if (!current) {
-        monthlyPartnerMap.set(key, { name, amount });
-      } else {
-        monthlyPartnerMap.set(key, { ...current, amount: current.amount + amount });
-      }
-    }
-  }
-  const monthlyPartnerEarnings = Array.from(monthlyPartnerMap.values()).sort((a, b) => b.amount - a.amount);
-
-  const topClientIds = topClientsRaw.map((row) => row.clientAccountId);
-  const topClientAccounts = await prisma.clientAccount.findMany({
-    where: {
-      id: { in: topClientIds },
-    },
-    select: {
-      id: true,
-      name: true,
-      companyName: true,
-    },
-  });
-  const topClientNameById = new Map(topClientAccounts.map((client) => [client.id, client.companyName || client.name]));
-  const topClients = topClientsRaw.map((row) => ({
-    id: row.clientAccountId,
-    name: topClientNameById.get(row.clientAccountId) ?? "Cliente",
-    paid: Number(row._sum.paidAmount ?? 0),
-  }));
+  const dashboard = (await getPlatformAdminConsole(filters)) as any;
+  type AdminUser = (typeof dashboard.users)[number];
+  type AdminTenant = (typeof dashboard.tenants)[number];
+  type AdminPage = (typeof dashboard.temporaryPages)[number];
+  type AdminRequest = (typeof dashboard.customRequests)[number];
+  type AdminAuditLog = (typeof dashboard.auditLogs)[number];
+  type AdminSupportTemplate = (typeof dashboard.supportTemplates)[number];
+  type AdminSupportTicket = (typeof dashboard.supportTickets)[number];
+  type AdminFlag = (typeof dashboard.featureFlags)[number];
+  type AdminCredential = (typeof dashboard.integrationCredentials)[number];
+  type AdminWebhook = (typeof dashboard.integrationWebhooks)[number];
 
   return (
     <AppShell
-      title="Inicio Super Admin"
-      subtitle="Vista simplificada con métricas clave para decisión rápida."
-      tenantLabel="Admin Master"
+      title="Platform Admin"
+      subtitle="Control plane enterprise para gobierno de usuarios, tenants, soporte, integraciones, billing, seguridad y operaciones internas de Vase."
+      tenantLabel="Vision global de plataforma"
     >
-      <section className="grid gap-4 md:grid-cols-3">
-        <PanelCard title="Fondo real de empresa" description="Fondo bruto menos gastos registrados.">
-          <p className={`text-3xl font-semibold ${finance.kpis.realCompanyFund >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
-            {formatMoney(finance.kpis.realCompanyFund)}
+      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-5">
+        <PanelCard title="Usuarios" description="Base total de identidades.">
+          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
+            {dashboard.metrics.totalUsers}
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Roles de soporte: {dashboard.metrics.supportUsers}
           </p>
         </PanelCard>
-        <PanelCard title="Usuarios registrados" description="Total de usuarios en plataforma.">
-          <p className="text-3xl font-semibold text-[var(--foreground)]">{userCount}</p>
+        <PanelCard title="Tenants" description="Cuentas activas y en trial.">
+          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
+            {dashboard.metrics.totalTenants}
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Pagos activos: {dashboard.metrics.paidTenants}
+          </p>
         </PanelCard>
-        <PanelCard title="Nuevos (último mes)" description="Usuarios creados en el mes anterior.">
-          <p className="text-3xl font-semibold text-[var(--foreground)]">{usersLastMonth.length}</p>
+        <PanelCard title="Soporte" description="Carga activa del equipo interno.">
+          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
+            {dashboard.metrics.activeSupportTickets}
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Agentes soporte: {dashboard.metrics.supportUsers}
+          </p>
         </PanelCard>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-2">
-        <PanelCard
-          eyebrow="Socios"
-          title="Ganancias del mes por socio"
-          description="Distribución registrada del mes actual según pagos y allocations."
-        >
-          {monthlyPartnerEarnings.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No hay ganancias de socios registradas este mes.</p>
-          ) : (
-            <div className="space-y-3">
-              {monthlyPartnerEarnings.map((partner) => (
-                <div key={partner.name} className="flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 py-3">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">{partner.name}</p>
-                  <p className="text-sm font-semibold text-[var(--accent-strong)]">{formatMoney(partner.amount)}</p>
-                </div>
-              ))}
-            </div>
-          )}
+        <PanelCard title="Temporales" description="Páginas ecommerce con lifecycle acotado.">
+          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
+            {dashboard.metrics.temporaryPageCount}
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            En riesgo: {dashboard.metrics.tempPagesAtRisk}
+          </p>
         </PanelCard>
-
-        <PanelCard
-          eyebrow="Clientes"
-          title="Top 5 clientes que más pagan"
-          description="Ranking por monto total abonado."
-        >
-          {topClients.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No hay pagos suficientes para armar el ranking.</p>
-          ) : (
-            <div className="space-y-3">
-              {topClients.map((client, index) => (
-                <div key={client.id} className="flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 py-3">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">
-                    {index + 1}. {client.name}
-                  </p>
-                  <p className="text-sm font-semibold text-[var(--accent-strong)]">{formatMoney(client.paid)}</p>
-                </div>
-              ))}
-            </div>
-          )}
+        <PanelCard title="Premium" description="Flags y upgrades activos.">
+          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
+            {dashboard.metrics.premiumFlagsEnabled}
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Credenciales API activas: {dashboard.metrics.activeCredentials}
+          </p>
         </PanelCard>
       </section>
 
       <PanelCard
-        eyebrow="Altas recientes"
-        title="Quiénes se registraron el último mes"
-        description="Últimos usuarios creados en el mes anterior."
+        eyebrow="Monetizacion modular"
+        title="Gestion de modulos y pricing"
+        description="Administra el catalogo SaaS de Vase, el pricing actual de cada modulo y la base para activacion dinamica por tenant."
+        actions={
+          <Link href="/app/admin/modules" className="text-sm font-semibold text-[var(--accent)]">
+            Abrir pricing de modulos
+          </Link>
+        }
       >
-        {usersLastMonth.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">No hubo registros el último mes.</p>
-        ) : (
-          <div className="space-y-2">
-            {usersLastMonth.map((user) => (
-              <div key={user.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 py-3">
-                <p className="text-sm font-semibold text-[var(--foreground)]">{user.name}</p>
-                <p className="text-xs text-[var(--muted)]">{user.email}</p>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 text-sm leading-7 text-[var(--muted)]">
+            Mantiene pricing real en base de datos, sin hardcodearlo en frontend.
+          </div>
+          <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 text-sm leading-7 text-[var(--muted)]">
+            Prepara historico de precios y activacion modular futura por tenant.
+          </div>
+          <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 text-sm leading-7 text-[var(--muted)]">
+            Sirve como base para monetizacion escalable de Business, Labs y nuevos modulos.
+          </div>
+        </div>
+      </PanelCard>
+      <PanelCard
+        eyebrow="Comunicación"
+        title="Anuncios de plataforma"
+        description="Publica actualizaciones, avisos de mantenimiento o nuevas funciones para todos los usuarios."
+      >
+        <section className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
+          <AdminPlatformUpdateForm />
+          
+          <div className="grid gap-4">
+            <h4 className="font-semibold text-[var(--foreground)]">Anuncios activos ({dashboard.platformUpdates.length})</h4>
+            {dashboard.platformUpdates.length === 0 ? (
+              <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-6 text-sm text-[var(--muted)]">
+                No hay anuncios publicados.
+              </div>
+            ) : (
+              dashboard.platformUpdates.map((update: any) => (
+                <div key={update.id} className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] p-4">
+                  <div className="max-w-md">
+                    <p className="font-semibold text-[var(--foreground)]">{update.title}</p>
+                    <p className="text-sm text-[var(--muted)] line-clamp-1">{update.description}</p>
+                    <div className="mt-2 flex gap-2">
+                       <StatusBadge tone={update.tone as any} label={update.tone} />
+                       <StatusBadge tone="neutral" label={update.category} />
+                    </div>
+                  </div>
+                  <form action={deletePlatformUpdateFormAction}>
+                    <input type="hidden" name="updateId" value={update.id} />
+                    <button className="text-xs font-semibold text-[var(--danger)] hover:underline">
+                      Eliminar
+                    </button>
+                  </form>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </PanelCard>
+
+      <PanelCard
+        eyebrow="Filtros"
+        title="Consulta transversal"
+        description="Filtra por texto, producto, estado del tenant, billing y estado de soporte para revisar la plataforma sin perder contexto."
+      >
+        <form action="/app/admin" className="grid gap-4 lg:grid-cols-[2fr_repeat(4,1fr)_auto]">
+          <label className="grid gap-2 text-sm">
+            <span className="font-medium text-[var(--foreground)]">Buscar</span>
+            <input
+              name="q"
+              defaultValue={dashboard.filters.q ?? ""}
+              className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+              placeholder="Tenant, usuario, ticket, log o integración"
+            />
+          </label>
+          <label className="grid gap-2 text-sm">
+            <span className="font-medium text-[var(--foreground)]">Producto</span>
+            <select
+              name="product"
+              defaultValue={dashboard.filters.product ?? "ALL"}
+              className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+            >
+              <option value="ALL">Todos</option>
+              <option value="BUSINESS">Business</option>
+              <option value="LABS">Labs</option>
+              <option value="BOTH">Ambos</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm">
+            <span className="font-medium text-[var(--foreground)]">Tenant</span>
+            <select
+              name="tenantStatus"
+              defaultValue={dashboard.filters.tenantStatus ?? "ALL"}
+              className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+            >
+              <option value="ALL">Todos</option>
+              <option value="ACTIVE">Activo</option>
+              <option value="TRIAL">Trial</option>
+              <option value="SUSPENDED">Suspendido</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm">
+            <span className="font-medium text-[var(--foreground)]">Cobro</span>
+            <select
+              name="billingStatus"
+              defaultValue={dashboard.filters.billingStatus ?? "ALL"}
+              className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+            >
+              <option value="ALL">Todos</option>
+              <option value="TRIAL">Trial</option>
+              <option value="ACTIVE">Activo</option>
+              <option value="PAST_DUE">Pendiente</option>
+              <option value="CANCELED">Cancelado</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm">
+            <span className="font-medium text-[var(--foreground)]">Soporte</span>
+            <select
+              name="supportStatus"
+              defaultValue={dashboard.filters.supportStatus ?? "ALL"}
+              className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+            >
+              <option value="ALL">Todos</option>
+              <option value="QUEUED">En cola</option>
+              <option value="ASSIGNED">Asignado</option>
+              <option value="WAITING_CUSTOMER">Esperando cliente</option>
+              <option value="WAITING_INTERNAL">Esperando interno</option>
+              <option value="RESOLVED">Resuelto</option>
+              <option value="RETURNED_TO_AI">Devuelto a IA</option>
+              <option value="CLOSED">Cerrado</option>
+            </select>
+          </label>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="min-h-11 w-full rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
+            >
+              Aplicar
+            </button>
+          </div>
+        </form>
+      </PanelCard>
+
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <PanelCard
+          eyebrow="Usuarios"
+          title="Identidades internas y clientes"
+          description="Gestiona rol de plataforma, bloqueo administrativo y membresías visibles por usuario."
+        >
+          <div className="grid gap-4">
+            {dashboard.users.length === 0 ? (
+              <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-6 text-sm leading-7 text-[var(--muted)]">
+                No hay usuarios para los filtros actuales.
+              </div>
+            ) : (
+              dashboard.users.map((user: AdminUser) => (
+                <div key={user.id} className="grid gap-4 rounded-[28px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)]/75 p-5">
+                  {(() => {
+                    const memberships = (
+                      user as AdminUser & {
+                        memberships?: Array<{
+                          id: string;
+                          role: string;
+                          tenant: { accountName: string };
+                        }>;
+                      }
+                    ).memberships ?? [];
+                    return (
+                      <>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[var(--foreground)]">{user.name}</h3>
+                      <p className="text-sm leading-6 text-[var(--muted)]">{user.email}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge tone="info" label={user.platformRole} />
+                      <StatusBadge tone="success" label="Habilitado" />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
+                      Verificado: {user.emailVerified ? "si" : "no"}
+                    </div>
+                    <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
+                      Ultimo acceso: {formatDate(user.lastLoginAt)}
+                    </div>
+                    <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
+                      Tenants: {memberships.length}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {memberships.length === 0 ? (
+                      <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)] md:col-span-3">
+                        Este usuario no tiene memberships activas.
+                      </div>
+                    ) : (
+                      memberships.map((membership: any) => (
+                        <div key={membership.id} className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
+                          <p className="font-semibold text-[var(--foreground)]">{membership.tenant.accountName}</p>
+                          <p>{membership.role}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <AdminUserGovernanceForm
+                    userId={user.id}
+                    platformRole={user.platformRole}
+                  />
+                      </>
+                    );
+                  })()}
+                </div>
+              ))
+            )}
+          </div>
+        </PanelCard>
+
+        <PanelCard
+          eyebrow="Usuarios internos"
+          title="Crear soporte o super admin"
+          description="Provisiona acceso interno con password temporal y rol explícito de plataforma."
+        >
+          <AdminSupportUserForm />
+        </PanelCard>
+      </section>
+
+      <PanelCard
+        eyebrow="Tenants"
+        title="Gobierno comercial y operativo de cuentas"
+        description="Revisa qué producto tiene cada cuenta, si pagó, el estado del tenant y controla premium, dominios y temporales."
+      >
+        <div className="grid gap-5">
+          {dashboard.tenants.length === 0 ? (
+            <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-6 text-sm leading-7 text-[var(--muted)]">
+              No hay tenants para los filtros aplicados.
+            </div>
+          ) : (
+            dashboard.tenants.map((tenant: AdminTenant) => (
+              <div key={tenant.id} className="grid gap-4 rounded-[28px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)]/75 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-soft)]">
+                      {tenant.accountName}
+                    </p>
+                    <h3 className="text-lg font-semibold text-[var(--foreground)]">{tenant.name}</h3>
+                    <p className="text-sm leading-6 text-[var(--muted)]">
+                      Producto: {tenant.onboardingProduct}. Rubro: {tenant.industry}.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <StatusBadge tone={tenantStatusTone(tenant.status)} label={tenant.status} />
+                    <StatusBadge
+                      tone="info"
+                      label={getBillingLabel(tenant.subscription?.billingStatus ?? "TRIAL")}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-4">
+                  <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
+                    Plan: {getPlanLabel(tenant.subscription?.plan ?? "START")}
+                  </div>
+                  <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
+                    Páginas: {tenant._count.storefrontPages}
+                  </div>
+                  <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
+                    Personalizaciones: {tenant._count.customPageRequests}
+                  </div>
+                  <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
+                    Tickets: {tenant._count.supportTickets}
+                  </div>
+                </div>
+
+                <AdminTenantGovernanceForm
+                  tenantId={tenant.id}
+                  status={tenant.status}
+                  plan={tenant.subscription?.plan ?? "START"}
+                  billingStatus={tenant.subscription?.billingStatus ?? "TRIAL"}
+                  premiumEnabled={tenant.subscription?.premiumEnabled ?? false}
+                  customDomainEnabled={tenant.subscription?.customDomainEnabled ?? false}
+                  temporaryPagesEnabled={tenant.subscription?.temporaryPagesEnabled ?? true}
+                />
+              </div>
+            ))
+          )}
+        </div>
+      </PanelCard>
+
+      <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+        <PanelCard
+          eyebrow="Temporales"
+          title="Estado de páginas temporales"
+          description="Control rápido sobre vencimientos, gracia y páginas en riesgo de removal."
+        >
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-separate border-spacing-y-3 text-left text-sm">
+              <thead>
+                <tr className="text-[var(--muted-soft)]">
+                  <th className="px-4">Tenant</th>
+                  <th className="px-4">Página</th>
+                  <th className="px-4">Estado</th>
+                  <th className="px-4">Ciclo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashboard.temporaryPages.map((page: AdminPage) => (
+                  <tr key={page.id} className="bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] text-[var(--foreground)]">
+                    <td className="rounded-l-3xl px-4 py-4">{page.tenant.accountName}</td>
+                    <td className="px-4 py-4">
+                      <p className="font-semibold">{page.name}</p>
+                      <p className="text-xs text-[var(--muted)]">/{page.slug}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <StatusBadge tone="warning" label={page.status} />
+                    </td>
+                    <td className="rounded-r-3xl px-4 py-4 text-[var(--muted)]">
+                      {page.lifecycle.label}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </PanelCard>
+
+        <PanelCard
+          eyebrow="Pedidos personalizados"
+          title="Cotización y seguimiento"
+          description="Admin puede revisar el pedido, generar presupuesto con extras, enviarlo al cliente y mantener trazabilidad completa."
+          actions={
+            <Link href="/app/admin/customizations" className="text-sm font-semibold text-[var(--accent)]">
+              Abrir pipeline completo
+            </Link>
+          }
+        >
+          <div className="grid gap-4">
+            {dashboard.customRequests.length === 0 ? (
+              <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-6 text-sm leading-7 text-[var(--muted)]">
+                No hay pedidos para los filtros aplicados.
+              </div>
+            ) : (
+              dashboard.customRequests.map((request: AdminRequest) => (
+                <div key={request.id} className="grid gap-4 rounded-[28px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)]/75 p-5">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-soft)]">
+                      {request.tenant.accountName}
+                    </p>
+                    <h3 className="text-lg font-semibold text-[var(--foreground)]">{request.pageScope}</h3>
+                    <p className="text-sm leading-7 text-[var(--muted)]">
+                      {request.businessDescription ?? request.businessObjective}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {request.quote ? (
+                      <>
+                        <StatusBadge
+                          tone={getQuoteStatusTone(request.quote.status)}
+                          label={getQuoteStatusLabel(request.quote.status)}
+                        />
+                        <span className="text-sm text-[var(--muted)]">{request.quote.quoteNumber}</span>
+                      </>
+                    ) : (
+                      <StatusBadge tone="warning" label="Sin presupuesto" />
+                    )}
+                  </div>
+                  <AdminCustomizationReviewForm
+                    requestId={request.id}
+                    currentStatus={request.status}
+                    quotedPriceLabel={request.quotedPriceLabel}
+                    reviewNotes={request.reviewNotes}
+                  />
+                  <AdminCustomizationQuoteForm requestId={request.id} quote={request.quote} />
+                </div>
+              ))
+            )}
+          </div>
+        </PanelCard>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+        <PanelCard
+          eyebrow="Tickets"
+          title="Gestión global de soporte"
+          description="Vista resumida de tickets abiertos, asignación y prioridad para escalar a miles de cuentas."
+        >
+          <div className="grid gap-3">
+            {dashboard.supportTickets.length === 0 ? (
+              <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-6 text-sm leading-7 text-[var(--muted)]">
+                No hay tickets visibles para este filtro.
+              </div>
+            ) : (
+              dashboard.supportTickets.map((ticket: AdminSupportTicket) => (
+                <div key={ticket.id} className="flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-[var(--foreground)]">{ticket.subject}</p>
+                    <p className="text-sm leading-6 text-[var(--muted)]">
+                      {ticket.tenant.accountName} · {ticket.customerContact ?? "sin contacto"} ·{" "}
+                      {ticket.assignedToUser?.name ?? "cola general"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <StatusBadge
+                      tone={getSupportPriorityTone(ticket.priority)}
+                      label={getSupportPriorityLabel(ticket.priority)}
+                    />
+                    <StatusBadge
+                      tone={getSupportTicketTone(ticket.status)}
+                      label={getSupportStatusLabel(ticket.status)}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </PanelCard>
+
+      <PanelCard
+        eyebrow="Respuestas base"
+        title="Base de IA y soporte"
+        description="Edita templates internos que aceleran el primer contacto y los handoffs recurrentes."
+        actions={
+          <Link href="/app/admin/support" className="text-sm font-semibold text-[var(--accent)]">
+            Gestionar FAQs
+          </Link>
+        }
+      >
+        <div className="grid gap-4">
+            {dashboard.supportTemplates.map((template: AdminSupportTemplate) => (
+              <AdminSupportTemplateForm
+                key={template.id}
+                templateId={template.id}
+                name={template.name}
+                category={template.category}
+                body={template.body}
+                isActive={template.isActive}
+              />
+            ))}
+          </div>
+        </PanelCard>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+        <PanelCard
+          eyebrow="Premium"
+          title="Funciones premium y flags"
+          description="Activa o desactiva capacidades premium con visibilidad por tenant."
+        >
+          <div className="grid gap-3">
+            {dashboard.featureFlags.length === 0 ? (
+              <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-6 text-sm leading-7 text-[var(--muted)]">
+                No hay flags premium visibles en este momento.
+              </div>
+            ) : (
+              dashboard.featureFlags.map((flag: AdminFlag) => (
+                <div key={flag.id} className="flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4">
+                  <div>
+                    <p className="font-semibold text-[var(--foreground)]">{flag.key}</p>
+                    <p className="text-sm leading-6 text-[var(--muted)]">
+                      {flag.tenant?.accountName ?? "Global"} · {flag.description ?? "Sin descripción"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <StatusBadge tone={flag.enabled ? "success" : "neutral"} label={flag.enabled ? "Activo" : "Inactivo"} />
+                    <AdminFeatureFlagToggleForm flagId={flag.id} enabled={flag.enabled} />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </PanelCard>
+
+        <PanelCard
+          eyebrow="Integraciones"
+          title="Estado global de APIs y webhooks"
+          description="Controla credenciales, rotaciones, revocaciones, expiraciones y webhooks por tenant."
+        >
+          <div className="grid gap-3">
+            {dashboard.integrationCredentials.map((credential: AdminCredential) => (
+              <div key={credential.id} className="flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4">
+                <div>
+                  <p className="font-semibold text-[var(--foreground)]">{credential.name}</p>
+                  <p className="text-sm leading-6 text-[var(--muted)]">
+                    {credential.tenant.accountName} · {credential.keyPrefix} · Último uso:{" "}
+                    {formatDate(credential.lastUsedAt)}
+                  </p>
+                </div>
+                <StatusBadge tone={integrationTone(credential.status)} label={credential.status} />
+              </div>
+            ))}
+            {dashboard.integrationWebhooks.map((webhook: AdminWebhook) => (
+              <div key={webhook.id} className="flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] p-4">
+                <div>
+                  <p className="font-semibold text-[var(--foreground)]">{webhook.name}</p>
+                  <p className="text-sm leading-6 text-[var(--muted)]">
+                    {webhook.tenant.accountName} · Último trigger: {formatDate(webhook.lastTriggeredAt)}
+                  </p>
+                </div>
+                <StatusBadge tone={integrationTone(webhook.status)} label={webhook.status} />
               </div>
             ))}
           </div>
-        )}
+        </PanelCard>
+      </section>
+
+      <PanelCard
+        eyebrow="Auditoría"
+        title="Logs recientes"
+        description="Toda acción sensible queda visible con actor, tenant, target y timestamp."
+      >
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-separate border-spacing-y-3 text-left text-sm">
+            <thead>
+              <tr className="text-[var(--muted-soft)]">
+                <th className="px-4">Fecha</th>
+                <th className="px-4">Acción</th>
+                <th className="px-4">Actor</th>
+                <th className="px-4">Tenant</th>
+                <th className="px-4">Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dashboard.auditLogs.map((log: AdminAuditLog) => (
+                <tr key={log.id} className="bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] text-[var(--foreground)]">
+                  <td className="rounded-l-3xl px-4 py-4">{formatDate(log.createdAt)}</td>
+                  <td className="px-4 py-4">
+                    <p className="font-semibold">{log.action}</p>
+                  </td>
+                  <td className="px-4 py-4 text-[var(--muted)]">
+                    {log.actorUser?.email ?? "Sistema"}
+                  </td>
+                  <td className="px-4 py-4 text-[var(--muted)]">
+                    {log.tenant?.accountName ?? "Global"}
+                  </td>
+                  <td className="rounded-r-3xl px-4 py-4 text-[var(--muted)]">
+                    {log.targetType}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </PanelCard>
     </AppShell>
   );
 }
-

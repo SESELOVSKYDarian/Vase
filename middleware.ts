@@ -22,9 +22,7 @@ export default auth((request: NextRequest) => {
 
   // 1. Identificar el dominio base
   const baseDomain = process.env.NODE_ENV === "production" ? "vase.ar" : "localhost:3000";
-  const editorHost = process.env.NODE_ENV === "production" ? `editor.${baseDomain}` : "localhost:5173";
   const isBaseDomain = hostname === baseDomain || hostname === `www.${baseDomain}`;
-  const isEditorDomain = hostname === editorHost;
 
   // 2. Definir rutas reservadas que NO deben ser reescritas al storefront
   const isReservedPath = 
@@ -40,7 +38,7 @@ export default auth((request: NextRequest) => {
     ].includes(pathname);
 
   // 3. Lógica de Ruteo Multi-tenant (Wix-style)
-  if (!isBaseDomain && !isEditorDomain && !isReservedPath) {
+  if (!isBaseDomain && !isReservedPath) {
     // Si no es el dominio base y no es una ruta reservada, reescribimos al storefront
     // El host completo se pasa como parámetro para que la página decida qué sitio cargar
     return NextResponse.rewrite(new URL(`/sites/${hostname}${pathname}`, request.url));
@@ -54,9 +52,8 @@ export default auth((request: NextRequest) => {
     "/reset-password",
   ].includes(pathname);
   const isSignedIn = hasActiveSession(authRequest.auth);
-  const canAccessApp = isSignedIn && Boolean(authRequest.auth?.user?.isEmailVerified);
 
-  if (canAccessApp && isAuthPage) {
+  if (isSignedIn && isAuthPage) {
     return NextResponse.redirect(new URL("/app", request.url));
   }
 

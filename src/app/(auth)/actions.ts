@@ -98,7 +98,6 @@ export async function registerAction(
     recommendationSummary: sanitizeText(String(formData.get("recommendationSummary") ?? "")),
     monthlyEstimate: Number(formData.get("monthlyEstimate") ?? 0),
     setupEstimate: Number(formData.get("setupEstimate") ?? 0),
-    createPremiumTrialUser: formData.get("createPremiumTrialUser") === "on",
     acceptTerms: formData.get("acceptTerms") === "on",
   };
 
@@ -192,11 +191,6 @@ export async function signInAction(
   const result = await validateSignInCredentials(parsed.data.email, parsed.data.password);
 
   if (!result.ok) {
-    if (result.reason === "USER_DISABLED") {
-      return {
-        error: "Tu usuario fue desactivado por administracion. Contacta soporte.",
-      };
-    }
     return {
       error: "Email o contrasena invalidos.",
     };
@@ -210,23 +204,12 @@ export async function signInAction(
     };
   }
 
-  if (result.forcePasswordChange) {
-    await requestPasswordReset(result.user.email, requestContext);
-    return {
-      error:
-        "Debes actualizar tu contrasena temporal antes de continuar. Te enviamos un enlace de restablecimiento.",
-    };
-  }
-
-  const effectiveRedirectTo =
-    result.user.platformRole === "SUPER_ADMIN" ? "/app/admin" : redirectTo;
-
   try {
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
       sessionPreference: parsed.data.sessionPreference,
-      redirectTo: effectiveRedirectTo,
+      redirectTo,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {

@@ -12,7 +12,7 @@ const credentialsSchema = z.object({
 });
 
 function coercePlatformRole(value: unknown): PlatformRole {
-  return value === "SUPER_ADMIN" || value === "SUPPORT" || value === "DEVELOPER" || value === "USER"
+  return value === "SUPER_ADMIN" || value === "SUPPORT" || value === "USER"
     ? value
     : "USER";
 }

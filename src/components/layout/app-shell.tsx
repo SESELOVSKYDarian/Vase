@@ -1,49 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type PropsWithChildren, type ReactNode } from "react";
 import {
   Bell,
-  Blocks,
   Building2,
-  ClipboardCheck,
+  CircleHelp,
   CreditCard,
-  FileBarChart2,
   FileImage,
   FolderPlus,
   FlaskConical,
   Home,
-  LifeBuoy,
   LogOut,
-  MessageSquareWarning,
-  Receipt,
-  ScrollText,
-  Shield,
+  Moon,
+  Network,
+  Sun,
   Search,
   Settings2,
-  SlidersHorizontal,
   TriangleAlert,
-  UserCog,
-  Wallet,
-  Wrench,
   X,
   Info,
+  Sparkles,
   TrendingUp,
   LockKeyhole,
   Check,
+  Terminal,
 } from "lucide-react";
 import { signOutAction } from "@/app/(auth)/actions";
-import { markAdminNotificationAsReadAction, markAllNotificationsAsReadAction } from "@/app/(platform)/app/notifications-actions";
 import { markPlatformUpdateAsReadAction } from "@/app/(platform)/app/platform-updates-actions";
+import { rolePanels } from "@/config/navigation";
 import type { PlatformModuleAccess } from "@/config/modules";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useRouter } from "next/navigation";
 import { PricingModal } from "@/components/platform/pricing-modal";
-import { DashboardSupportWidget } from "@/components/support/dashboard-support-widget";
-import { SupportChatProvider } from "@/components/support/support-chat-context";
 import { BUSINESS_LAUNCH_PATH, BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 
 export interface Shortcut {
@@ -58,6 +49,7 @@ type AppShellProps = PropsWithChildren<{
   title: string;
   subtitle: string;
   tenantLabel?: string;
+  showRolePanels?: boolean;
   supportWidget?: ReactNode;
   modules?: PlatformModuleAccess[];
   shortcuts?: Shortcut[];
@@ -65,39 +57,14 @@ type AppShellProps = PropsWithChildren<{
     id: string;
     title: string;
     description: string;
-    href: string | null;
+    href: string;
     tone: "info" | "warning" | "danger";
     category: "platform" | "business" | "labs" | "billing";
     isPlatformUpdate?: boolean;
-    isRead?: boolean;
-    notificationType?: "platform_update" | "admin_notification" | "system_hint";
   }>;
-  currentUserName?: string;
-  projectCreation?: {
-    business: { canCreate: boolean; remaining: number };
-    labs: { canCreate: boolean; remaining: number };
-  };
 }>;
 
-type NavItem = {
-  id: string;
-  href: string;
-  label: string;
-  icon: typeof Home;
-  description?: string;
-};
-
-type NavGroup = {
-  id: string;
-  label: string;
-  items: NavItem[];
-};
-
 function inferActiveSection(pathname: string) {
-  if (pathname.startsWith("/app/analytics")) {
-    return "analytics";
-  }
-
   if (pathname.startsWith("/app/help")) {
     return "help";
   }
@@ -106,8 +73,16 @@ function inferActiveSection(pathname: string) {
     return "settings";
   }
 
+  if (pathname.startsWith("/app/billing")) {
+    return "billing";
+  }
+
   if (pathname.startsWith("/app/archivos")) {
     return "files";
+  }
+
+  if (pathname.startsWith("/app/owner/integrations") || pathname.startsWith("/app/connections")) {
+    return "connections";
   }
 
   if (pathname.startsWith("/app/labs")) {
@@ -137,12 +112,11 @@ export function AppShell({
   title,
   subtitle,
   tenantLabel,
+  showRolePanels = true,
   supportWidget,
   notifications = [],
   modules = [],
   shortcuts = [],
-  currentUserName,
-  projectCreation,
   children,
 }: AppShellProps) {
   const router = useRouter();
@@ -161,7 +135,10 @@ export function AppShell({
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const activeSection = inferActiveSection(pathname);
-  const isAdminShell = pathname.startsWith("/app/admin");
+  const internalPortal =
+    (tenantLabel ?? "").includes("Vision global") ||
+    (tenantLabel ?? "").includes("Operacion interna") ||
+    (tenantLabel ?? "").includes("Cobertura");
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -203,7 +180,7 @@ export function AppShell({
               ? BUSINESS_WORKSPACE_PATH
               : matched.target;
           try {
-            routerRef.current.push(target as Route);
+            routerRef.current.push(target as any);
           } catch {
             // Router may not be ready yet; silently ignore
           }
@@ -224,7 +201,7 @@ export function AppShell({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [shortcuts]);
-  const unreadNotifications = notifications.filter((item) => !item.isRead).length;
+  const unreadNotifications = notifications.length;
   const notificationsLabel = useMemo(() => {
     if (unreadNotifications === 0) {
       return "No hay novedades";
@@ -233,72 +210,30 @@ export function AppShell({
     return `${unreadNotifications} novedad${unreadNotifications === 1 ? "" : "es"}`;
   }, [unreadNotifications]);
 
-  const clientNavItems: NavItem[] = [
-    { id: "home", href: "/app", label: "Inicio", icon: Home, description: "Panel principal simple" },
-    { id: "business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business", icon: Building2, description: "Crear y gestionar pagina" },
-    { id: "labs", href: "/app/labs", label: "Vase Labs", icon: FlaskConical, description: "Crear y gestionar chatbot" },
-    { id: "files", href: "/app/archivos", label: "Mis archivos", icon: FileImage, description: "Subida privada de imagenes y documentos" },
-    { id: "analytics", href: "/app/analytics", label: "Analiticas", icon: TrendingUp, description: "KPIs y datos del negocio" },
-    { id: "settings", href: "/app/settings", label: "Configuracion", icon: Settings2, description: "Ajustes y facturacion" },
-  ];
+  const navItems = [
+    { id: "home", href: "/app", label: "Inicio", icon: Home },
+    { id: "business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business", icon: Building2 },
+    { id: "labs", href: "/app/labs", label: "Vase Labs", icon: FlaskConical },
+    { id: "files", href: "/app/archivos", label: "Mis archivos", icon: FileImage },
+    { id: "connections", href: "/app/owner/integrations/api", label: "Conexiones", icon: Network },
+    { id: "billing", href: "/app/billing", label: "Planes y facturación", icon: CreditCard },
+    { id: "shortcuts", href: "/app/shortcuts", label: "Comandos", icon: Terminal },
+    { id: "settings", href: "/app/settings", label: "Configuración", icon: Settings2 },
+    { id: "help", href: "/app/help", label: "Ayuda", icon: CircleHelp },
+  ] as const;
 
-  const adminNavGroups: NavGroup[] = [
-    {
-      id: "overview",
-      label: "Overview",
-      items: [{ id: "admin-home", href: "/app/admin", label: "Inicio Admin", icon: Shield, description: "Vista ejecutiva de plataforma" }],
-    },
-    {
-      id: "platform",
-      label: "Plataforma",
-      items: [
-        { id: "admin-modules", href: "/app/admin/modules", label: "Modulos", icon: Blocks, description: "Catalogo y precios" },
-        { id: "admin-settings", href: "/app/admin/settings", label: "Ajustes", icon: SlidersHorizontal, description: "Reglas financieras" },
-        { id: "admin-audit", href: "/app/admin/audit", label: "Auditoria", icon: ScrollText, description: "Eventos y trazabilidad" },
-      ],
-    },
-    {
-      id: "commercial",
-      label: "Comercial y Finanzas",
-      items: [
-        { id: "admin-finance", href: "/app/admin/finance", label: "Finanzas", icon: Wallet, description: "Resumen financiero" },
-        { id: "admin-clients", href: "/app/admin/clients", label: "Clientes y Pagos", icon: CreditCard, description: "Cobros y contratos" },
-        { id: "admin-expenses", href: "/app/admin/expenses", label: "Gastos", icon: Receipt, description: "Egresos y vencimientos" },
-      ],
-    },
-    {
-      id: "support",
-      label: "Soporte y Conocimiento",
-      items: [
-        { id: "admin-tickets", href: "/app/admin/tickets", label: "Tickets", icon: MessageSquareWarning, description: "Gestor de incidencias" },
-        { id: "admin-support", href: "/app/admin/support", label: "Soporte", icon: LifeBuoy, description: "Templates y equipo" },
-        { id: "admin-faqs", href: "/app/admin/faqs", label: "FAQs", icon: ClipboardCheck, description: "Base de respuestas" },
-        { id: "admin-wiki", href: "/app/admin/wiki", label: "Wiki", icon: FileBarChart2, description: "Documentacion publica" },
-      ],
-    },
-    {
-      id: "ops",
-      label: "Operaciones internas",
-      items: [
-        { id: "admin-development", href: "/app/admin/development", label: "Development", icon: Wrench, description: "Tareas y equipo dev" },
-        { id: "admin-customizations", href: "/app/admin/customizations", label: "Customizaciones", icon: UserCog, description: "Proyectos a medida" },
-      ],
-    },
-  ];
-
-  const navItems = isAdminShell ? adminNavGroups.flatMap((group) => group.items) : clientNavItems;
-
-  const searchableItems = useMemo(
-    () =>
-      navItems.map((item) => ({
-        id: item.id,
-        href: item.href,
-        label: item.label,
-        description: item.description ?? "",
-        icon: item.icon,
-      })),
-    [navItems],
-  );
+  const searchableItems = useMemo(() => [
+    { id: "home", href: "/app", label: "Inicio", description: "Panel central de módulos", icon: Home },
+    { id: "business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business", description: "Ecommerce, páginas y presencia online", icon: Building2 },
+    { id: "labs", href: "/app/labs", label: "Vase Labs", description: "IA, chatbot y automatización", icon: FlaskConical },
+    { id: "files", href: "/app/archivos", label: "Mis archivos", description: "Subida privada de imagenes y documentos", icon: FileImage },
+    { id: "analytics-sales", href: BUSINESS_WORKSPACE_PATH, label: "Analíticas de Ventas", description: "KPIs comerciales y rendimiento", icon: TrendingUp },
+    { id: "analytics-ia", href: "/app/labs", label: "Analíticas de IA", description: "Leads y conversaciones inteligentes", icon: Sparkles },
+    { id: "connections", href: "/app/owner/integrations/api", label: "Conexiones", description: "APIs, webhooks e integraciones", icon: Network },
+    { id: "billing", href: "/app/billing", label: "Planes y facturación", description: "Gestión de suscripción y recibos", icon: CreditCard },
+    { id: "settings", href: "/app/settings", label: "Configuración", description: "Ajustes del tenant y la cuenta", icon: Settings2 },
+    { id: "help", href: "/app/help", label: "Ayuda y Soporte", description: "Documentación y tickets humanos", icon: CircleHelp },
+  ], []);
 
   const filteredResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -310,102 +245,82 @@ export function AppShell({
   }, [searchQuery, searchableItems]);
 
   return (
-    <SupportChatProvider>
     <div className="min-h-screen bg-[var(--surface)] text-[var(--foreground)]">
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-[var(--border-subtle)] bg-[var(--background)] lg:flex">
         <div className="p-6">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center overflow-hidden">
-              <Image src="/vasecolorlogo.png" alt="Vase" width={40} height={40} className="h-10 w-10 object-contain" />
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+              <Home className="size-5" />
             </div>
-            <div>
-              <h1 className="font-[family-name:var(--font-newsreader)] text-[1.9rem] font-semibold italic leading-none tracking-tight text-[var(--foreground)]">
+            <div className="flex flex-col">
+              <h1 className="font-[family-name:var(--font-newsreader)] text-2xl font-semibold italic tracking-tight text-[var(--foreground)]">
                 Vase
               </h1>
+              <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--muted-soft)]">
+                Premium Atelier
+              </p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-4">
-          {isAdminShell ? (
-            <div className="space-y-5 pb-4">
-              {adminNavGroups.map((group) => (
-                <div key={group.id} className="space-y-1.5">
-                  <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-soft)]">
-                    {group.label}
-                  </p>
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                    return (
-                      <Link
-                        key={item.id}
-                        href={item.href as Route}
-                        className={[
-                          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-colors duration-200",
-                          active
-                            ? "bg-[var(--surface-strong)] font-semibold text-[var(--accent-strong)]"
-                            : "text-[var(--muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]",
-                        ].join(" ")}
-                      >
-                        <Icon className="size-4" />
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {clientNavItems.map((item) => {
-                const Icon = item.icon;
-                const active = item.id === activeSection;
-                return (
-                  <Link
-                    key={item.id}
-                    href={item.href as Route}
-                    className={[
-                      "flex items-center gap-3 rounded-xl px-4 py-3 text-[13px] transition-colors duration-200",
-                      active
-                        ? "bg-[var(--surface-strong)] font-semibold text-[var(--accent-strong)]"
-                        : "text-[var(--muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]",
-                    ].join(" ")}
-                  >
-                    <Icon className="size-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+        <nav className="flex-1 space-y-1 px-4">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.id === activeSection;
+
+            return (
+              <Link
+                key={item.id}
+                href={item.href as Route}
+                className={[
+                  "flex items-center gap-3 rounded-xl px-4 py-3 text-[13px] transition-colors duration-200",
+                  active
+                    ? "bg-[var(--surface-strong)] font-semibold text-[var(--accent-strong)]"
+                    : "text-[var(--muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]",
+                ].join(" ")}
+              >
+                <Icon className="size-4" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="mt-auto space-y-4 border-t border-[var(--border-subtle)] p-6">
-          {!isAdminShell ? (
-            <button
-              type="button"
-              onClick={() => setIsNewProjectModalOpen(true)}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-soft)]"
+          <button
+            type="button"
+            onClick={() => setIsNewProjectModalOpen(true)}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-soft)]"
+          >
+            <FolderPlus className="size-4" />
+            Nuevo proyecto
+          </button>
+          <div className="rounded-2xl bg-[color:color-mix(in_srgb,var(--background)_82%,white)] p-4">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--accent-strong)]">
+              {internalPortal ? "Portal interno" : "Plan activo"}
+            </p>
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              {internalPortal ? "Acceso a herramientas operativas y de gobierno." : "Accede a módulos premium y más capacidad."}
+            </p>
+            <Link
+              href={(internalPortal ? "/app" : "/precios") as Route}
+              className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-full bg-[#18c37e] px-4 text-xs font-bold text-[#004a2c] transition-opacity hover:opacity-90"
             >
-              <FolderPlus className="size-4" />
-              Nuevo proyecto
-            </button>
-          ) : null}
+              {internalPortal ? "Ir al resumen" : "Ver planes"}
+            </Link>
+          </div>
           <div className="flex items-center justify-between px-2">
-            <button
-              type="button"
-              onClick={() => setIsPricingModalOpen(true)}
-              className="flex items-center gap-3 rounded-xl p-1 text-left transition hover:bg-[var(--surface-strong)]"
-            >
+            <div className="flex items-center gap-3">
               <div className="grid h-10 w-10 place-items-center rounded-full bg-[var(--surface-strong)] text-xs font-bold text-[var(--foreground)]">
                 {tenantLabel?.slice(0, 2).toUpperCase() ?? "VA"}
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-[var(--foreground)]">{currentUserName ?? "Cuenta"}</span>
-                <span className="text-[10px] text-[var(--muted-soft)]">Gestion de cuenta</span>
+                <span className="text-xs font-bold text-[var(--foreground)]">Vase Admin</span>
+                <span className="text-[10px] text-[var(--muted-soft)]">
+                  {internalPortal ? "Acceso interno" : "Espacio del tenant"}
+                </span>
               </div>
-            </button>
+            </div>
             <button
               type="button"
               onClick={() => setIsSignOutDialogOpen(true)}
@@ -424,7 +339,7 @@ export function AppShell({
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted-soft)]" />
             <input
               className="min-h-11 w-full rounded-full border-none bg-[color:color-mix(in_srgb,var(--background)_82%,white)] py-2 pl-10 pr-4 text-sm text-[var(--foreground)] focus:ring-2 focus:ring-emerald-500/20"
-              placeholder={isAdminShell ? "Buscar secciones de administracion..." : "Buscar modulos, analiticas..."}
+              placeholder="Buscar módulos, analíticas..."
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -459,11 +374,18 @@ export function AppShell({
             )}
             {isSearchFocused && searchQuery.trim() && filteredResults.length === 0 && (
               <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-[1.5rem] border border-[var(--border-subtle)] bg-[var(--background)] p-4 text-center text-sm text-[var(--muted)] shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
-                No se encontraron resultados para &quot;{searchQuery}&quot;
+                No se encontraron resultados para "{searchQuery}"
               </div>
             )}
           </div>
-          <div />
+          <div className="hidden items-center gap-4 border-l border-[var(--border-subtle)] pl-6 md:flex">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-soft)] px-4 py-1.5">
+              <span className="h-2 w-2 rounded-full bg-[var(--accent-strong)]" />
+              <span className="text-[13px] font-bold text-[var(--accent-strong)]">
+                {internalPortal ? "Portal interno" : "Estado: En línea"}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-5">
@@ -471,6 +393,14 @@ export function AppShell({
             checked={theme === "dark"}
             onChange={() => toggleTheme()}
           />
+          {!internalPortal ? (
+            <button
+              onClick={() => setIsPricingModalOpen(true)}
+              className="hidden min-h-10 items-center rounded-full bg-[var(--accent-strong)] px-6 text-sm font-semibold text-[var(--accent-contrast)] transition-opacity hover:opacity-90 md:inline-flex"
+            >
+              Ver planes
+            </button>
+          ) : null}
           <div className="relative">
             <button
               type="button"
@@ -494,31 +424,14 @@ export function AppShell({
                     <p className="text-sm font-semibold text-[var(--foreground)]">Notificaciones</p>
                     <p className="text-xs text-[var(--muted)]">{notificationsLabel}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const platformUpdateIds = notifications
-                          .filter((n) => n.notificationType === "platform_update" && !n.isRead)
-                          .map((n) => n.id);
-                        const adminNotificationIds = notifications
-                          .filter((n) => n.notificationType === "admin_notification" && !n.isRead)
-                          .map((n) => n.id);
-                        await markAllNotificationsAsReadAction({ platformUpdateIds, adminNotificationIds });
-                      }}
-                      className="inline-flex min-h-8 items-center justify-center rounded-full border border-[var(--border-subtle)] px-3 text-[11px] font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]"
-                    >
-                      Marcar todo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsNotificationsOpen(false)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
-                      aria-label="Cerrar notificaciones"
-                    >
-                      <X className="size-4" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsNotificationsOpen(false)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)] transition hover:bg-[var(--surface-strong)]"
+                    aria-label="Cerrar notificaciones"
+                  >
+                    <X className="size-4" />
+                  </button>
                 </div>
 
                 {notifications.length === 0 ? (
@@ -533,7 +446,7 @@ export function AppShell({
                         className="group relative flex items-start gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 transition-all duration-200 hover:bg-[var(--accent-soft)]"
                       >
                         <Link
-                          href={(notification.href ?? "#") as Route}
+                          href={notification.href as Route}
                           className="flex flex-1 items-start gap-3"
                           onClick={() => setIsNotificationsOpen(false)}
                         >
@@ -547,22 +460,17 @@ export function AppShell({
                             </p>
                           </div>
                         </Link>
-                        {(notification.notificationType === "platform_update" || notification.notificationType === "admin_notification") && !notification.isRead && (
+                        {notification.isPlatformUpdate && (
                           <button
                             onClick={async (e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              if (notification.notificationType === "platform_update") {
-                                await markPlatformUpdateAsReadAction(notification.id);
-                              } else if (notification.notificationType === "admin_notification") {
-                                await markAdminNotificationAsReadAction(notification.id);
-                              }
+                              await markPlatformUpdateAsReadAction(notification.id);
                             }}
-                            className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-2 text-[11px] font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-strong)] hover:text-white"
-                            title="Marcar como leida"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--surface)] text-[var(--muted-soft)] opacity-0 transition-opacity hover:bg-[var(--accent-strong)] hover:text-white group-hover:opacity-100"
+                            title="Marcar como visto"
                           >
-                            <Check className="size-3.5" />
-                            Leida
+                            <Check className="size-4" />
                           </button>
                         )}
                       </div>
@@ -576,14 +484,48 @@ export function AppShell({
       </header>
 
       <main className="ml-0 space-y-10 p-6 lg:ml-64 lg:p-10">
-        <section className="flex flex-col gap-6">
+        <section className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <h2 className="text-5xl leading-tight text-[var(--foreground)]">
               {title}
             </h2>
             <p className="mt-2 max-w-3xl text-lg text-[var(--muted)]">{subtitle}</p>
           </div>
+          <div className="rounded-xl border-l-4 border-[var(--accent-strong)] bg-[var(--surface-strong)] px-6 py-4 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted-soft)]">
+              Estado general
+            </p>
+            <p className="font-[family-name:var(--font-newsreader)] text-lg text-[var(--accent-strong)]">
+              {tenantLabel ?? "Operativo"}
+            </p>
+          </div>
         </section>
+
+        {showRolePanels ? (
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            {rolePanels.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl bg-[var(--accent-soft)] p-3 text-[var(--accent-strong)]">
+                      <Icon className="size-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-semibold text-[var(--foreground)]">{item.label}</p>
+                      <p className="text-sm leading-6 text-[var(--muted)]">{item.description}</p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </section>
+        ) : null}
 
         <section id="main-content" className="space-y-6">
           {children}
@@ -636,7 +578,7 @@ export function AppShell({
         </div>
       ) : null}
 
-      {!isAdminShell && isNewProjectModalOpen ? (
+      {isNewProjectModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(16,20,26,0.38)] px-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-[1.75rem] border border-[var(--border-subtle)] bg-[var(--background)] p-8 shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
             <div className="mb-8 flex items-start justify-between gap-4">
@@ -678,13 +620,8 @@ export function AppShell({
                   creationRoute: "/app/labs#knowledge",
                 },
               ].map((option) => {
-                const moduleAccess = modules.find((m) => m.key === option.key);
-                const byModule = !moduleAccess?.isActive;
-                const byCapacity =
-                  option.key === "business"
-                    ? !(projectCreation?.business.canCreate ?? true)
-                    : !(projectCreation?.labs.canCreate ?? true);
-                const isLocked = byModule || byCapacity;
+                const module = modules.find((m) => m.key === option.key);
+                const isLocked = !module?.isActive;
                 const Icon = option.icon;
 
                 return (
@@ -750,20 +687,19 @@ export function AppShell({
             <div className="mt-8 rounded-[1.5rem] bg-[color:color-mix(in_srgb,var(--surface-strong)_50%,transparent)] p-4 text-center">
               <p className="text-xs text-[var(--muted)]">
                 ¿Necesitas algo a medida? {" "}
-                <Link href={"/app/settings" as Route} className="font-semibold text-[var(--accent-strong)] hover:underline">
-                  Ve a configuracion
+                <Link href={"/app/help" as Route} className="font-semibold text-[var(--accent-strong)] hover:underline">
+                  Contacta a soporte
                 </Link>
               </p>
             </div>
           </div>
         </div>
       ) : null}
-      {supportWidget ?? <DashboardSupportWidget />}
+      {supportWidget}
       <PricingModal
         isOpen={isPricingModalOpen}
         onClose={() => setIsPricingModalOpen(false)}
       />
     </div>
-    </SupportChatProvider>
   );
 }

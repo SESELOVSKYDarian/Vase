@@ -1,109 +1,94 @@
+import Link from "next/link";
+import type { Route } from "next";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { BusinessSitesWorkspace } from "@/components/business/business-sites-workspace";
+import { DashboardSupportWidget } from "@/components/support/dashboard-support-widget";
 import { PanelCard } from "@/components/ui/panel-card";
-import { getEffectivePlan } from "@/lib/business/plans";
-import { prisma } from "@/lib/db/prisma";
-import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
+import { MetricCard } from "@/components/business/metric-card";
+import { StatusBadge } from "@/components/business/status-badge";
+import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
+import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
+import { getBillingLabel, getPlanLabel } from "@/lib/business/plans";
 import { getBusinessOwnerDashboard, getUnifiedTenantDashboard } from "@/server/queries/dashboard";
-
-function pageStatusTone(status: string): "success" | "warning" | "danger" | "neutral" {
-  if (status === "ACTIVE") return "success";
-  if (status === "TEMPORARY") return "warning";
-  if (status === "EXPIRED" || status === "PENDING_REMOVAL") return "danger";
-  return "neutral";
-}
-
-function buildGoogleCalendarUrl(input: { title: string; details: string; location: string; start: Date; end: Date }) {
-  const fmt = (date: Date) => date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-  const query = new URLSearchParams({
-    action: "TEMPLATE",
-    text: input.title,
-    details: input.details,
-    location: input.location,
-    dates: `${fmt(input.start)}/${fmt(input.end)}`,
-    ctz: "America/Argentina/Buenos_Aires",
-  });
-  return `https://calendar.google.com/calendar/render?${query.toString()}`;
-}
+import { getTenantSupportWidgetContext } from "@/server/queries/support";
 
 export default async function BusinessPage() {
   let membership;
-  let session;
+
   try {
-    ({ membership, session } = await requireTenantRole(tenantRoles.OWNER));
+    ({ membership } = await requireTenantRole(tenantRoles.OWNER));
   } catch {
     forbidden();
   }
 
-  const [dashboard, shellDashboard, subscription, slots, upcomingBooking] = await Promise.all([
+  const [businessDashboard, rootDashboard, supportWidget] = await Promise.all([
     getBusinessOwnerDashboard(membership.tenantId),
-    getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
-    prisma.tenantSubscription.findUnique({ where: { tenantId: membership.tenantId } }).catch(() => null),
-    prisma.meetingAvailabilitySlot.findMany({
-      where: { tenantId: membership.tenantId, isActive: true, startsAt: { gte: new Date() } },
-      orderBy: { startsAt: "asc" },
-      take: 20,
-    }),
-    prisma.customProjectMeetingBooking.findFirst({
-      where: { tenantId: membership.tenantId, status: "SCHEDULED", scheduledStart: { gte: new Date() } },
-      orderBy: { scheduledStart: "asc" },
-      include: { customMeeting: { select: { meetingUrl: true } } },
-    }),
+    getUnifiedTenantDashboard(membership.tenantId),
+    getTenantSupportWidgetContext(membership.tenantId),
   ]);
-  if (!dashboard || !shellDashboard) forbidden();
 
-  const effectivePlan = getEffectivePlan(subscription);
-  const canCreatePage = dashboard.plan.plan === "PREMIUM" || dashboard.summary.activePages < (effectivePlan.businessProjectLimit ?? 1);
-  const gcalUrl =
-    upcomingBooking
-      ? buildGoogleCalendarUrl({
-          title: "Vase - Reunion de definicion",
-          details: "Reunion de proyecto personalizado en Vase.",
-          location: upcomingBooking.meetingUrl ?? upcomingBooking.customMeeting?.meetingUrl ?? "Vase",
-          start: upcomingBooking.scheduledStart,
-          end: upcomingBooking.scheduledEnd,
-        })
-      : null;
+  if (!rootDashboard) {
+    forbidden();
+  }
 
   return (
     <AppShell
-      title="Workspace Business"
-      subtitle="Gestiona tus sitios y dominios, y solicita paginas personalizadas con agenda integrada."
+      title="Vase Business"
+      subtitle="Portada operativa de tu ecommerce y presencia online dentro del panel general de Vase."
       tenantLabel={membership.tenant.name}
-      currentUserName={session.user.name ?? membership.tenant.name}
-      notifications={shellDashboard.notifications}
-      modules={shellDashboard.modules}
-      projectCreation={shellDashboard.projectCreation}
+      modules={rootDashboard.modules}
+      notifications={rootDashboard.notifications}
+      supportWidget={
+        <DashboardSupportWidget
+          tenantName={membership.tenant.name}
+          conversationOptions={supportWidget.conversationOptions}
+          supportSummary={supportWidget.summary}
+        />
+      }
     >
-      {upcomingBooking ? (
-        <PanelCard
-          eyebrow="Recordatorio de reunion"
-          title="Tienes una reunion agendada"
-          description={`Fecha: ${new Intl.DateTimeFormat("es-AR", { dateStyle: "full", timeStyle: "short" }).format(upcomingBooking.scheduledStart)}`}
-        >
-          {gcalUrl ? (
-            <a href={gcalUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]">
-              Agregar a Google Calendar
-            </a>
-          ) : null}
-        </PanelCard>
-      ) : null}
+      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Páginas" value={businessDashboard.summary.totalPages} note="Sitios creados dentro del tenant." />
+        <MetricCard label="Activas" value={businessDashboard.summary.activePages} note="Páginas visibles o en operación." />
+        <MetricCard label="Dominios conectados" value={businessDashboard.summary.connectedDomains} note="Dominios listos para producción." />
+        <MetricCard label="Integraciones" value={businessDashboard.featureFlags.filter((flag) => flag.enabled).length} note="Flags o integraciones habilitadas." />
+      </section>
 
-      <BusinessSitesWorkspace
-        canCreatePage={canCreatePage}
-        slots={slots}
-        pages={dashboard.storefrontPages.map((page) => ({
-          id: page.id,
-          name: page.name,
-          slug: page.slug,
-          status: page.status,
-          statusTone: pageStatusTone(page.status),
-          isTemporary: page.isTemporary,
-          lifecycleLabel: page.lifecycle.label,
-          domains: page.domainConnections.map((domain) => domain.hostname),
-        }))}
-      />
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <PanelCard
+          eyebrow="Estado comercial"
+          title="Plan de Vase Business"
+          description="Resumen rápido del plan, la facturación y los límites principales del módulo."
+          actions={<StatusBadge tone="info" label={getPlanLabel(businessDashboard.plan.plan)} />}
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl bg-[var(--surface-strong)] p-5">
+              <p className="text-sm text-[var(--muted)]">Facturación</p>
+              <div className="mt-2">
+                <StatusBadge tone="info" label={getBillingLabel(businessDashboard.plan.billingStatus)} />
+              </div>
+            </div>
+            <div className="rounded-3xl bg-[var(--surface-strong)] p-5">
+              <p className="text-sm text-[var(--muted)]">Límite de páginas</p>
+              <p className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+                {businessDashboard.plan.limits.maxPages}
+              </p>
+            </div>
+          </div>
+        </PanelCard>
+
+        <PanelCard
+          eyebrow="Siguiente paso"
+          title="Gestión avanzada"
+          description="Si quieres editar páginas, dominios, presupuestos o integraciones, entra al espacio operativo completo."
+        >
+          <Link
+            href={BUSINESS_WORKSPACE_PATH as Route}
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
+          >
+            Gestionar sitios y dominios
+          </Link>
+        </PanelCard>
+      </section>
     </AppShell>
   );
 }
