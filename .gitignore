@@ -31,6 +31,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# local sessions / sensitive runtime artifacts
+_IGNORE_session/
+open-wa-session*.json
+*.sw_col.json
+
 # env files (can opt-in for committing if needed)
 .env*
 
