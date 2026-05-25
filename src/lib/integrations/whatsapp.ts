@@ -27,3 +27,29 @@ export async function sendWhatsAppMessage(input: {
 
   return response.json();
 }
+
+export async function sendOpenWaMessage(input: {
+  baseUrl: string;
+  apiKey?: string;
+  message: OutboundChannelMessage;
+}) {
+  const endpoint = `${input.baseUrl.replace(/\/$/, "")}/sendText`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(input.apiKey ? { Authorization: `Bearer ${input.apiKey}` } : {}),
+    },
+    body: JSON.stringify({
+      chatId: `${input.message.to}@c.us`,
+      text: input.message.text,
+    }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`OpenWA send failed: ${details}`);
+  }
+
+  return response.json();
+}

@@ -6,9 +6,9 @@ import {
 } from "@/server/queries/chatbot";
 
 type ConversationMetadata = {
-  state?: string;
-  context?: Record<string, unknown>;
-  transcript?: Array<{ role: "user" | "assistant"; content: string }>;
+  state: string;
+  context: Record<string, unknown>;
+  transcript: Array<{ role: "user" | "assistant"; content: string }>;
 };
 
 export async function getOrCreateConversation(input: {
@@ -59,6 +59,11 @@ export function readConversationMetadata(metadata: unknown): ConversationMetadat
   };
 }
 
+export function isAiPaused(metadata: unknown) {
+  const current = readConversationMetadata(metadata);
+  return Boolean(current.context?.aiPaused);
+}
+
 export async function persistInboundMessage(input: {
   conversationId: string;
   metadata: unknown;
@@ -101,5 +106,43 @@ export async function persistOutboundMessage(input: {
     },
     incrementMessageCount: true,
     outbound: true,
+  });
+}
+
+export async function persistHumanMessage(input: {
+  conversationId: string;
+  metadata: unknown;
+  humanMessage: string;
+}) {
+  const current = readConversationMetadata(input.metadata);
+  const transcript = [...current.transcript, { role: "assistant" as const, content: `[HUMANO] ${input.humanMessage}` }].slice(-20);
+
+  return updateConversationState({
+    conversationId: input.conversationId,
+    metadata: {
+      ...current,
+      transcript,
+    },
+    incrementMessageCount: true,
+    outbound: true,
+  });
+}
+
+export async function setConversationAiPaused(input: {
+  conversationId: string;
+  metadata: unknown;
+  paused: boolean;
+}) {
+  const current = readConversationMetadata(input.metadata);
+
+  return updateConversationState({
+    conversationId: input.conversationId,
+    metadata: {
+      ...current,
+      context: {
+        ...current.context,
+        aiPaused: input.paused,
+      },
+    },
   });
 }

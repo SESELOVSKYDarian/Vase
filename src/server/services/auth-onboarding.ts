@@ -28,6 +28,7 @@ type RegisterPayload = {
   recommendationSummary: string;
   monthlyEstimate: number;
   setupEstimate: number;
+  createPremiumTrialUser: boolean;
 };
 
 export async function findUserByEmail(email: string) {
@@ -43,13 +44,17 @@ export async function validateSignInCredentials(email: string, password: string)
     return { ok: false as const, reason: "INVALID_CREDENTIALS" };
   }
 
+  if (user.isDisabled) {
+    return { ok: false as const, reason: "USER_DISABLED" };
+  }
+
   const passwordMatches = await verifyPassword(password, user.passwordHash);
 
   if (!passwordMatches) {
     return { ok: false as const, reason: "INVALID_CREDENTIALS" };
   }
 
-  return { ok: true as const, user };
+  return { ok: true as const, user, forcePasswordChange: Boolean(user.forcePasswordChange) };
 }
 
 export async function registerTenantOwner(
@@ -100,6 +105,11 @@ export async function registerTenantOwner(
           payload.selectedModules.includes("n8n_automation"),
         customDomainEnabled: payload.selectedModules.includes("custom_domain"),
         temporaryPagesEnabled: true,
+        businessProjectLimit: payload.createPremiumTrialUser ? 3 : 1,
+        labsAssistantLimit: payload.createPremiumTrialUser ? 2 : 1,
+        trialStartedAt: new Date(),
+        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        graceEndsAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
         currentPeriodEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });

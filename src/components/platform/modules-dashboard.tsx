@@ -55,7 +55,7 @@ type UnifiedDashboardData = {
     id: string;
     title: string;
     description: string;
-    href: string;
+    href: string | null;
     tone: "info" | "warning" | "danger";
     category: "platform" | "business" | "labs" | "billing";
     createdAt: Date;

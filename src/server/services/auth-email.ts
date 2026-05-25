@@ -6,6 +6,12 @@ type AuthEmailPayload = {
   actionUrl: string;
 };
 
+type NoticeEmailPayload = {
+  email: string;
+  subject: string;
+  message: string;
+};
+
 let cachedTransporter: nodemailer.Transporter | null = null;
 
 function getSmtpConfig() {
@@ -91,4 +97,22 @@ export async function sendAuthEmail(payload: AuthEmailPayload) {
   console.info(
     `[auth-email:sent] to=${payload.email} subject="${payload.subject}" via=${config.host}:${config.port}`,
   );
+}
+
+export async function sendNoticeEmail(payload: NoticeEmailPayload) {
+  const transporter = getTransporter();
+  const config = getSmtpConfig();
+
+  if (!transporter) {
+    console.info(`[notice-email:fallback] to=${payload.email} subject="${payload.subject}"`);
+    return;
+  }
+
+  await transporter.sendMail({
+    from: config.fromEmail,
+    to: payload.email,
+    subject: payload.subject,
+    text: payload.message,
+    html: `<div style="font-family:Arial,sans-serif;padding:24px;line-height:1.6;"><h2>${payload.subject}</h2><p>${payload.message}</p></div>`,
+  });
 }

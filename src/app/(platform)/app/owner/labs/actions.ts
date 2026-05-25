@@ -1,9 +1,12 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { requireTenantRole, requireVerifiedUser, tenantRoles } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
+import { persistHumanMessage, setConversationAiPaused } from "@/server/services/chatbot/conversation-state";
+import { dispatchChannelReply } from "@/server/services/chatbot/channel-dispatch";
 import { getLabsPlanLimits } from "@/lib/labs/plans";
 import { assertSafeExternalUrl, sanitizeAllowedPathList } from "@/lib/security/external-requests";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -16,15 +19,33 @@ import {
   createFaqKnowledgeSchema,
   createTrainingJobSchema,
   createUrlKnowledgeSchema,
+  openWaQrActionSchema,
+  sendHumanReplySchema,
+  setConversationAiModeSchema,
 } from "@/lib/validators/labs";
 import { createAuditLog } from "@/server/services/audit-log";
 import { queueAiTrainingJob } from "@/server/services/labs-training";
 import { createSecurityEvent } from "@/server/services/security-events";
+import { ensureBaileysRuntime, getBaileysState, refreshBaileysQr } from "@/server/services/baileys-gateway";
 
 export type LabsActionState = {
   success?: string;
   error?: string;
+  info?: string;
 };
+
+type OpenWaConfig = {
+  provider: "OPENWA_UNOFFICIAL" | "BAILEYS_UNOFFICIAL";
+  qrImageDataUrl?: string;
+  qrLastFetchedAt?: string;
+  connectionState?: string;
+  failureReason?: string;
+};
+
+function isOpenWaConfigLike(config: Record<string, unknown>) {
+  const provider = String(config.provider || "").toUpperCase();
+  return provider === "OPENWA_UNOFFICIAL" || provider === "BAILEYS_UNOFFICIAL";
+}
 
 async function requireLabsWorkspace(tenantId: string) {
   const workspace = await prisma.tenantAiWorkspace.findUnique({
@@ -459,9 +480,16 @@ export async function connectLabsChannelAction(
     const limits = getLabsPlanLimits(workspace.plan);
     const parsed = connectChannelSchema.safeParse({
       channelType: formData.get("channelType"),
+      provider: formData.get("provider"),
       accountLabel: sanitizeText(String(formData.get("accountLabel") ?? "")),
       externalHandle: sanitizeNullableText(String(formData.get("externalHandle") ?? "")) ?? undefined,
       notes: sanitizeNullableText(String(formData.get("notes") ?? "")) ?? undefined,
+      accessToken: sanitizeNullableText(String(formData.get("accessToken") ?? "")) ?? undefined,
+      phoneNumberId: sanitizeNullableText(String(formData.get("phoneNumberId") ?? "")) ?? undefined,
+      appSecret: sanitizeNullableText(String(formData.get("appSecret") ?? "")) ?? undefined,
+      verifyToken: sanitizeNullableText(String(formData.get("verifyToken") ?? "")) ?? undefined,
+      openwaBaseUrl: sanitizeNullableText(String(formData.get("openwaBaseUrl") ?? "")) ?? undefined,
+      openwaApiKey: sanitizeNullableText(String(formData.get("openwaApiKey") ?? "")) ?? undefined,
     });
 
     if (!parsed.success) {
@@ -476,6 +504,20 @@ export async function connectLabsChannelAction(
       };
     }
 
+    const isOpenWaFlow =
+      parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "OPENWA_UNOFFICIAL";
+    const existingOpenWaChannel = isOpenWaFlow
+      ? (
+          await prisma.aiChannelConnection.findMany({
+            where: {
+              tenantId: membership.tenantId,
+              channelType: "WHATSAPP",
+            },
+            orderBy: { createdAt: "asc" },
+          })
+        ).find((item) => item.config && typeof item.config === "object" && isOpenWaConfigLike(item.config as Record<string, unknown>)) ?? null
+      : null;
+
     const channelCount = await prisma.aiChannelConnection.count({
       where: {
         tenantId: membership.tenantId,
@@ -485,46 +527,371 @@ export async function connectLabsChannelAction(
       },
     });
 
-    if (channelCount >= workspace.maxChannels) {
+    const subscription = await prisma.tenantSubscription.findUnique({
+      where: { tenantId: membership.tenantId },
+      select: { labsAssistantLimit: true },
+    });
+
+    const assistantLimit = Math.max(1, subscription?.labsAssistantLimit ?? 1);
+    const effectiveLimit = Math.min(workspace.maxChannels, assistantLimit);
+    if (!existingOpenWaChannel && channelCount >= effectiveLimit) {
       return {
-        error: `Tu plan permite hasta ${workspace.maxChannels} canales conectados.`,
+        error: `Tu plan permite hasta ${effectiveLimit} asistente(s) o canal(es) activo(s) en Labs.`,
       };
     }
 
-    await prisma.aiChannelConnection.create({
-      data: {
-        tenantId: membership.tenantId,
-        workspaceId: workspace.id,
-        configuredByUserId: session.user.id,
-        channelType: parsed.data.channelType,
-        status: "PENDING",
-        accountLabel: parsed.data.accountLabel,
-        externalHandle: parsed.data.externalHandle,
-        notes: parsed.data.notes,
-      },
-    });
+    const verifyToken = parsed.data.verifyToken || `vase_${randomBytes(8).toString("hex")}`;
+    let channelConfig: Prisma.InputJsonValue | undefined;
+    let openWaQrAutoInfo: string | undefined;
+
+    if (parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "OPENWA_UNOFFICIAL") {
+      channelConfig = {
+        provider: "BAILEYS_UNOFFICIAL",
+        connectionState: "INITIALIZING",
+      } as Prisma.InputJsonValue;
+      openWaQrAutoInfo = "Canal Baileys creado. Usa Generar / Refrescar QR para vincular WhatsApp.";
+    } else if (parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "META_OFFICIAL") {
+
+      channelConfig = {
+        provider: "META_OFFICIAL",
+        accessToken: parsed.data.accessToken,
+        phoneNumberId: parsed.data.phoneNumberId,
+        appSecret: parsed.data.appSecret,
+        verifyToken,
+      } as Prisma.InputJsonValue;
+    }
+
+    const status =
+      parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "META_OFFICIAL"
+        ? Boolean(parsed.data.accessToken && parsed.data.phoneNumberId && parsed.data.appSecret)
+          ? "CONNECTED"
+          : "PENDING"
+        : parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "OPENWA_UNOFFICIAL"
+          ? (channelConfig as Record<string, unknown> | undefined)?.connectionState === "QR_READY"
+            ? "PENDING"
+            : "ERROR"
+          : "PENDING";
+
+    const accountLabel =
+      parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "OPENWA_UNOFFICIAL"
+        ? `OpenWA-${randomBytes(3).toString("hex")}`
+        : parsed.data.accountLabel;
+
+    const channel =
+      existingOpenWaChannel && existingOpenWaChannel.config && typeof existingOpenWaChannel.config === "object"
+        ? await prisma.aiChannelConnection.update({
+            where: { id: existingOpenWaChannel.id },
+            data: {
+              configuredByUserId: session.user.id,
+              status,
+              accountLabel,
+              externalHandle: parsed.data.externalHandle,
+              notes: parsed.data.notes,
+              config: channelConfig,
+            },
+          })
+        : await prisma.aiChannelConnection.create({
+            data: {
+              tenantId: membership.tenantId,
+              workspaceId: workspace.id,
+              configuredByUserId: session.user.id,
+              channelType: parsed.data.channelType,
+              status,
+              accountLabel,
+              externalHandle: parsed.data.externalHandle,
+              notes: parsed.data.notes,
+              config: channelConfig,
+            },
+          });
+
+    if (parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "OPENWA_UNOFFICIAL") {
+      await ensureBaileysRuntime(channel.id);
+    }
 
     await createAuditLog({
       action: "labs.channel_connected",
       targetType: "ai_channel_connection",
+      targetId: channel.id,
       tenantId: membership.tenantId,
       actorUserId: session.user.id,
       ipAddress: requestContext.ipAddress,
       userAgent: requestContext.userAgent,
       metadata: {
         channelType: parsed.data.channelType,
+        provider: parsed.data.provider,
       },
     });
 
     revalidatePath("/app/owner/labs");
     revalidatePath("/app/owner/labs/setup");
+
+    const webhookInfo =
+      parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "META_OFFICIAL"
+        ? `Webhook: /api/v1/channels/whatsapp/${membership.tenant.slug}/webhook · verify token: ${verifyToken}`
+        : parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "OPENWA_UNOFFICIAL"
+          ? `Proveedor no oficial: Baileys QR embebido. No requiere webhook externo de OpenWA.`
+          : undefined;
+
     return {
-      success: "Canal registrado. Queda pendiente de validacion tecnica.",
+      success: status === "CONNECTED" ? "Canal conectado y operativo." : "Canal registrado en estado pendiente.",
+      info: [webhookInfo, openWaQrAutoInfo].filter(Boolean).join(" · "),
     };
   } catch {
     return {
       error: "No pudimos registrar el canal.",
     };
+  }
+}
+
+export async function refreshOpenWaQrAction(
+  _: LabsActionState,
+  formData: FormData,
+): Promise<LabsActionState> {
+  try {
+    const session = await requireVerifiedUser();
+    const { membership } = await requireTenantRole(tenantRoles.OWNER);
+    const parsed = openWaQrActionSchema.safeParse({
+      channelId: formData.get("channelId"),
+    });
+    if (!parsed.success) {
+      return { error: "No pudimos identificar el canal QR." };
+    }
+
+    const channel = await prisma.aiChannelConnection.findFirst({
+      where: {
+        id: parsed.data.channelId,
+        tenantId: membership.tenantId,
+        channelType: "WHATSAPP",
+      },
+    });
+    if (!channel || !channel.config || typeof channel.config !== "object") {
+      return { error: "Canal QR no configurado." };
+    }
+
+    const config = channel.config as Record<string, unknown>;
+    if (!isOpenWaConfigLike(config)) {
+      return { error: "Este canal no usa proveedor QR no oficial." };
+    }
+
+    const qrImageDataUrl = await refreshBaileysQr(channel.id);
+    if (!qrImageDataUrl) {
+      return { info: "Sesion iniciada. Si no aparece QR, espera unos segundos y vuelve a refrescar." };
+    }
+
+    const nextConfig: OpenWaConfig = {
+      provider: "BAILEYS_UNOFFICIAL",
+      qrImageDataUrl,
+      qrLastFetchedAt: new Date().toISOString(),
+      connectionState: "QR_READY",
+    };
+
+    await prisma.aiChannelConnection.update({
+      where: { id: channel.id },
+      data: {
+        config: nextConfig as unknown as Prisma.InputJsonValue,
+        status: "PENDING",
+      },
+    });
+
+    await createAuditLog({
+      action: "labs.openwa_qr_refreshed",
+      targetType: "ai_channel_connection",
+      targetId: channel.id,
+      tenantId: membership.tenantId,
+      actorUserId: session.user.id,
+    });
+
+    revalidatePath("/app/owner/labs/integrations");
+    return { success: "QR actualizado. Escanealo desde WhatsApp." };
+  } catch {
+    return { error: "No pudimos refrescar el QR de Baileys." };
+  }
+}
+
+export async function checkOpenWaConnectionAction(
+  _: LabsActionState,
+  formData: FormData,
+): Promise<LabsActionState> {
+  try {
+    const session = await requireVerifiedUser();
+    const { membership } = await requireTenantRole(tenantRoles.OWNER);
+    const parsed = openWaQrActionSchema.safeParse({
+      channelId: formData.get("channelId"),
+    });
+    if (!parsed.success) {
+      return { error: "No pudimos identificar el canal QR." };
+    }
+
+    const channel = await prisma.aiChannelConnection.findFirst({
+      where: {
+        id: parsed.data.channelId,
+        tenantId: membership.tenantId,
+        channelType: "WHATSAPP",
+      },
+    });
+    if (!channel || !channel.config || typeof channel.config !== "object") {
+      return { error: "Canal QR no configurado." };
+    }
+
+    const config = channel.config as Record<string, unknown>;
+    if (!isOpenWaConfigLike(config)) {
+      return { error: "Este canal no usa proveedor QR no oficial." };
+    }
+
+    const statePayload = await getBaileysState(channel.id);
+    const state = statePayload.connectionState.toUpperCase();
+    const connected = ["CONNECTED", "OPEN"].some((value) => state.includes(value));
+
+    const nextConfig: OpenWaConfig = {
+      provider: "BAILEYS_UNOFFICIAL",
+      qrImageDataUrl: statePayload.qrImageDataUrl,
+      qrLastFetchedAt: typeof config.qrLastFetchedAt === "string" ? config.qrLastFetchedAt : undefined,
+      connectionState: state,
+      failureReason: statePayload.failureReason,
+    };
+
+    await prisma.aiChannelConnection.update({
+      where: { id: channel.id },
+      data: {
+        status: connected ? "CONNECTED" : "PENDING",
+        config: nextConfig as unknown as Prisma.InputJsonValue,
+        connectedAt: connected ? new Date() : undefined,
+      },
+    });
+
+    await createAuditLog({
+      action: "labs.openwa_connection_checked",
+      targetType: "ai_channel_connection",
+      targetId: channel.id,
+      tenantId: membership.tenantId,
+      actorUserId: session.user.id,
+      metadata: { state, connected },
+    });
+
+    revalidatePath("/app/owner/labs/integrations");
+    return connected
+      ? { success: "Baileys conectado. Canal listo para usar." }
+      : { info: `Sesion aun no conectada (estado: ${state}).` };
+  } catch {
+    return { error: "No pudimos verificar la conexion Baileys." };
+  }
+}
+
+export async function sendHumanReplyAction(
+  _: LabsActionState,
+  formData: FormData,
+): Promise<LabsActionState> {
+  try {
+    const session = await requireVerifiedUser();
+    const { membership } = await requireTenantRole(tenantRoles.OWNER);
+    const parsed = sendHumanReplySchema.safeParse({
+      conversationId: formData.get("conversationId"),
+      message: sanitizeText(String(formData.get("message") ?? "")),
+    });
+
+    if (!parsed.success) {
+      return { error: "No pudimos validar el mensaje humano." };
+    }
+
+    const conversation = await prisma.aiConversation.findFirst({
+      where: {
+        id: parsed.data.conversationId,
+        tenantId: membership.tenantId,
+      },
+      include: {
+        workspace: true,
+      },
+    });
+
+    if (!conversation || !conversation.customerContact) {
+      return { error: "Conversacion no disponible para respuesta humana." };
+    }
+
+    const channel = await prisma.aiChannelConnection.findFirst({
+      where: {
+        tenantId: membership.tenantId,
+        channelType: conversation.channelType,
+        status: "CONNECTED",
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (!channel || !channel.config || typeof channel.config !== "object") {
+      return { error: "Canal no configurado para enviar mensajes." };
+    }
+
+    await dispatchChannelReply({
+      channelType: conversation.channelType,
+      channelId: channel.id,
+      channelConfig: channel.config as Record<string, unknown>,
+      customerContact: conversation.customerContact,
+      text: parsed.data.message,
+    });
+
+    await persistHumanMessage({
+      conversationId: conversation.id,
+      metadata: conversation.metadata,
+      humanMessage: parsed.data.message,
+    });
+
+    await setConversationAiPaused({
+      conversationId: conversation.id,
+      metadata: conversation.metadata,
+      paused: true,
+    });
+
+    await createAuditLog({
+      action: "labs.human_reply_sent",
+      targetType: "ai_conversation",
+      targetId: conversation.id,
+      tenantId: membership.tenantId,
+      actorUserId: session.user.id,
+    });
+
+    revalidatePath("/app/owner/labs/(advanced)/automation");
+    revalidatePath("/app/owner/labs/(advanced)/activity");
+    revalidatePath("/app/owner/labs/(advanced)/inbox");
+    return { success: "Mensaje humano enviado. IA pausada para esta conversacion." };
+  } catch {
+    return { error: "No pudimos enviar el mensaje humano." };
+  }
+}
+
+export async function setConversationAiModeAction(
+  _: LabsActionState,
+  formData: FormData,
+): Promise<LabsActionState> {
+  try {
+    const { membership } = await requireTenantRole(tenantRoles.OWNER);
+    const parsed = setConversationAiModeSchema.safeParse({
+      conversationId: formData.get("conversationId"),
+      paused: String(formData.get("paused") ?? "") === "true",
+    });
+
+    if (!parsed.success) {
+      return { error: "No pudimos actualizar el estado de IA." };
+    }
+
+    const conversation = await prisma.aiConversation.findFirst({
+      where: { id: parsed.data.conversationId, tenantId: membership.tenantId },
+    });
+
+    if (!conversation) {
+      return { error: "Conversacion no encontrada." };
+    }
+
+    await setConversationAiPaused({
+      conversationId: conversation.id,
+      metadata: conversation.metadata,
+      paused: parsed.data.paused,
+    });
+
+    revalidatePath("/app/owner/labs/(advanced)/automation");
+    revalidatePath("/app/owner/labs/(advanced)/activity");
+    revalidatePath("/app/owner/labs/(advanced)/inbox");
+    return { success: parsed.data.paused ? "IA pausada en la conversacion." : "IA reanudada en la conversacion." };
+  } catch {
+    return { error: "No pudimos cambiar el modo de IA." };
   }
 }
 

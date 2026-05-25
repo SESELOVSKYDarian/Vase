@@ -7,6 +7,7 @@ import {
   Bot,
   BrainCircuit,
   Cable,
+  MessageSquare,
   LayoutDashboard,
   Settings2,
   Sparkles,
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/app/owner/labs", label: "Panel", icon: LayoutDashboard },
   { href: "/app/owner/labs/automation", label: "Automatizacion", icon: Workflow },
   { href: "/app/owner/labs/chatbots", label: "Chatbots", icon: Bot },
+  { href: "/app/owner/labs/inbox", label: "Inbox", icon: MessageSquare },
   { href: "/app/owner/labs/integrations", label: "Integraciones", icon: Cable },
   { href: "/app/owner/labs/ai-tools", label: "Herramientas IA", icon: BrainCircuit },
   { href: "/app/owner/labs/settings", label: "Configuracion", icon: Settings2 },
@@ -43,7 +45,7 @@ export function LabsOwnerNav() {
         return (
           <Link
             key={item.href}
-            href={item.href}
+            href={item.href as never}
             className={[
               "mx-2 flex items-center gap-3 rounded-full px-4 py-3 text-[#191c1b] transition-all duration-300",
               active
@@ -72,7 +74,7 @@ export function LabsOwnerMobileNav() {
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={item.href as never}
               className={[
                 "mr-2 inline-flex rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] transition",
                 active ? "bg-[#006d43] text-white" : "bg-[#f2f4f2] text-[#34423a] hover:bg-[#e8ece9]",

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { FileText, X } from "lucide-react";
 import {
   sendCustomizationQuoteAction,
   type AdminGovernanceActionState,
@@ -63,6 +64,7 @@ export function AdminCustomizationQuoteForm({
 }: AdminCustomizationQuoteFormProps) {
   const [state, formAction] = useActionState(upsertCustomizationQuoteAction, initialState);
   const [sendState, sendAction] = useActionState(sendCustomizationQuoteAction, initialState);
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="grid gap-4 rounded-[24px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">
@@ -75,20 +77,57 @@ export function AdminCustomizationQuoteForm({
             Usa una plantilla comercial, estima tiempos y desglosa extras por tipo.
           </p>
         </div>
-        {quote ? (
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {quote ? (
             <StatusBadge
               tone={getQuoteStatusTone(quote.status)}
               label={getQuoteStatusLabel(quote.status)}
             />
-            <span className="text-sm font-medium text-[var(--muted)]">
-              {formatMoneyFromCents(quote.totalAmountCents, quote.currency)}
-            </span>
-          </div>
-        ) : null}
+          ) : null}
+          {quote ? <span className="text-sm font-medium text-[var(--muted)]">{formatMoneyFromCents(quote.totalAmountCents, quote.currency)}</span> : null}
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]"
+          >
+            <FileText className="size-4" />
+            {quote ? "Editar presupuesto" : "Nuevo presupuesto"}
+          </button>
+        </div>
       </div>
 
-      <form action={formAction} className="grid gap-4">
+      {state.error ? <p className="text-sm leading-6 text-[var(--danger)]">{state.error}</p> : null}
+      {state.success ? <p className="text-sm leading-6 text-[var(--success)]">{state.success}</p> : null}
+      {sendState.error ? <p className="text-sm leading-6 text-[var(--danger)]">{sendState.error}</p> : null}
+      {sendState.success ? (
+        <p className="text-sm leading-6 text-[var(--success)]">{sendState.success}</p>
+      ) : null}
+
+      {quote ? (
+        <form action={sendAction} className="flex flex-wrap gap-3">
+          <input type="hidden" name="quoteId" value={quote.id} />
+          <SubmitButton
+            pendingLabel="Enviando..."
+            className="min-h-11 rounded-full border border-[var(--accent)] px-5 text-sm font-semibold text-[var(--foreground)] disabled:opacity-60"
+          >
+            Enviar al cliente
+          </SubmitButton>
+        </form>
+      ) : null}
+
+      {open ? (
+        <div className="fixed inset-0 z-[110] grid place-items-center bg-black/50 p-4">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[28px] border border-[var(--border-subtle)] bg-[var(--background)] p-6 shadow-[0_35px_90px_rgba(2,8,23,0.35)]">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Workflow</p>
+                <h3 className="text-xl font-semibold text-[var(--foreground)]">{quote ? `Editar ${quote.quoteNumber}` : "Nuevo presupuesto"}</h3>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)]">
+                <X className="size-4" />
+              </button>
+            </div>
+            <form action={formAction} className="grid gap-4">
         <input type="hidden" name="requestId" value={requestId} />
         <div className="grid gap-4 md:grid-cols-3">
           <label className="grid gap-2 text-sm">
@@ -234,25 +273,9 @@ export function AdminCustomizationQuoteForm({
             Guardar presupuesto
           </SubmitButton>
         </div>
-
-        {state.error ? <p className="text-sm leading-6 text-[var(--danger)]">{state.error}</p> : null}
-        {state.success ? <p className="text-sm leading-6 text-[var(--success)]">{state.success}</p> : null}
-        {sendState.error ? <p className="text-sm leading-6 text-[var(--danger)]">{sendState.error}</p> : null}
-        {sendState.success ? (
-          <p className="text-sm leading-6 text-[var(--success)]">{sendState.success}</p>
-        ) : null}
-      </form>
-
-      {quote ? (
-        <form action={sendAction} className="flex flex-wrap gap-3">
-          <input type="hidden" name="quoteId" value={quote.id} />
-          <SubmitButton
-            pendingLabel="Enviando..."
-            className="min-h-11 rounded-full border border-[var(--accent)] px-5 text-sm font-semibold text-[var(--foreground)] disabled:opacity-60"
-          >
-            Enviar al cliente
-          </SubmitButton>
-        </form>
+            </form>
+          </div>
+        </div>
       ) : null}
     </div>
   );

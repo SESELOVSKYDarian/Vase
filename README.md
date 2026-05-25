@@ -65,3 +65,15 @@ EasyPanel gestiona el reverse proxy y SSL — **no se usa docker-compose ni Cadd
 - `docs/production/OPERATIONS_RUNBOOK.md`
 - `docs/production/TECHNICAL_ARCHITECTURE.md`
 - `docs/security/SECURITY_AUDIT.md`
+
+## Checklist de regresion (Admin Master R2)
+
+- `Admin > Development`: crear tarea, editar estado/prioridad/asignacion, subir adjunto y verificar comentarios recientes.
+- `Admin > Development`: probar filtros por texto, estado, prioridad, developer y vencimiento (`with_due`, `overdue`, `soon`).
+- `Admin > Tickets`: crear/triage ticket, tomar ticket sin asignar, responder con template y agregar nota interna.
+- `Admin > Tickets`: subir adjunto y validar visualizacion de adjuntos en ticket.
+- `Admin > Tickets`: probar filtros por estado, prioridad, origen, agente asignado y demora (`Demorados +24h`).
+- `Support workspace`: validar vistas `Todos`, `Mis tickets`, `Sin asignar`, `Urgentes`.
+- `Support workspace`: tomar ticket desde cola y confirmar cambio de asignacion/estado.
+- `Disponibilidad interna`: cambiar estado (`ONLINE`, `OFFLINE`, `BUSY`) y validar impacto en auto-asignacion.
+- `Cola automatica`: crear solicitud por endpoint interno y confirmar asignacion al soporte online con menor carga.

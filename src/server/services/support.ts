@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { createAutoAdminNotification } from "@/server/services/admin-notifications-auto";
 
 type SupportAssignmentMode = "MANUAL" | "AUTOMATIC";
 type SupportTicketPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
@@ -198,6 +199,16 @@ export async function createSupportTicketFromEscalation(payload: {
       `Se te asigno el ticket ${ticket.subject}.`,
       [assignee.id],
     );
+    if (ticket.priority === "URGENT") {
+      await createAutoAdminNotification({
+        title: "Ticket urgente asignado",
+        message: `El ticket "${ticket.subject}" se asignó automáticamente con prioridad urgente.`,
+        category: "support",
+        tone: "danger",
+        targetRole: "SUPPORT",
+        tenantId: ticket.tenantId,
+      });
+    }
   } else {
     const agents = await prisma.user.findMany({
       where: {
@@ -216,6 +227,14 @@ export async function createSupportTicketFromEscalation(payload: {
       `Hay un nuevo ticket pendiente: ${ticket.subject}.`,
       agents.map((agent) => agent.id),
     );
+    await createAutoAdminNotification({
+      title: "Ticket sin asignar en cola",
+      message: `El ticket "${ticket.subject}" quedó en cola sin agente disponible.`,
+      category: "support",
+      tone: "warning",
+      targetRole: "SUPPORT",
+      tenantId: ticket.tenantId,
+    });
   }
 
   return ticket;
@@ -283,6 +302,16 @@ export async function assignSupportTicket(payload: {
       `Se te asigno ${ticket.subject}.`,
       [assignee.id],
     );
+    if (assignee.id !== payload.actorUserId) {
+      await createAutoAdminNotification({
+        title: "Ticket reasignado",
+        message: `Se reasignó el ticket "${ticket.subject}" a ${assignee.name}.`,
+        category: "support",
+        tone: "info",
+        targetRole: "SUPPORT",
+        tenantId: ticket.tenantId,
+      });
+    }
   }
 }
 
@@ -430,5 +459,16 @@ export async function updateSupportTicketLifecycle(payload: {
       `El ticket ${existing.subject} cambio a ${payload.status}.`,
       [existing.createdByUserId],
     );
+  }
+
+  if (payload.status === "WAITING_INTERNAL") {
+    await createAutoAdminNotification({
+      title: "Ticket esperando equipo interno",
+      message: `El ticket "${existing.subject}" quedó en estado WAITING_INTERNAL.`,
+      category: "support",
+      tone: "warning",
+      targetRole: "SUPPORT",
+      tenantId: existing.tenantId,
+    });
   }
 }

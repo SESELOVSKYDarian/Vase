@@ -1,6 +1,7 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { ClientCustomQuoteResponseForm } from "@/components/business/client-custom-quote-response-form";
+import { CustomProjectMeetingRequestForm } from "@/components/business/custom-project-meeting-request-form";
 import { StatusBadge } from "@/components/business/status-badge";
 import { PanelCard } from "@/components/ui/panel-card";
 import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
@@ -116,6 +117,24 @@ export default async function OwnerCustomizationsPage() {
                   <p className="font-semibold text-[var(--foreground)]">Funciones deseadas</p>
                   <p>{request.desiredFeatures ?? "Sin detalle"}</p>
                 </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm">
+                  <p className="mb-2 font-semibold text-[var(--foreground)]">Etapas del proyecto</p>
+                  <div className="space-y-2">
+                    {(request.milestones ?? []).map((milestone) => (
+                      <div key={milestone.id} className="rounded-xl border border-[var(--border-subtle)] p-2">
+                        <p className="text-xs font-semibold text-[var(--foreground)]">{milestone.stage}</p>
+                        <p className="text-xs text-[var(--muted)]">Avance: {milestone.progressPercent}%</p>
+                      </div>
+                    ))}
+                    {(request.milestones ?? []).length === 0 ? (
+                      <p className="text-xs text-[var(--muted)]">Sin etapas publicadas aun.</p>
+                    ) : null}
+                  </div>
+                </div>
+                <CustomProjectMeetingRequestForm requestId={request.id} meetings={request.meetings ?? []} />
               </div>
 
               {request.quote ? (

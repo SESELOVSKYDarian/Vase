@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
+import { CloudUpload, FileImage, Sparkles } from "lucide-react";
 import type { AuthActionState } from "@/app/(auth)/actions";
 import { requestCustomPageAction } from "@/app/(platform)/app/owner/actions";
 import { AuthNotice } from "@/components/auth/auth-notice";
@@ -9,157 +10,206 @@ import { SubmitButton } from "@/components/auth/submit-button";
 
 const initialState: AuthActionState = {};
 
-export function CustomPageRequestForm() {
+type SlotOption = {
+  id: string;
+  startsAt: Date | string;
+  endsAt: Date | string;
+  capacity: number;
+  reservedCount: number;
+  notes: string | null;
+};
+
+function formatSlotLabel(slot: SlotOption) {
+  const startsAt = new Date(slot.startsAt);
+  const endsAt = new Date(slot.endsAt);
+  const start = new Intl.DateTimeFormat("es-AR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(startsAt);
+  const end = new Intl.DateTimeFormat("es-AR", {
+    timeStyle: "short",
+  }).format(endsAt);
+  const remaining = Math.max(0, slot.capacity - slot.reservedCount);
+  return `${start} - ${end} · ${remaining} cupo(s)`;
+}
+
+export function CustomPageRequestForm({ slots }: { slots: SlotOption[] }) {
   const [state, formAction] = useActionState(requestCustomPageAction, initialState);
+  const [step, setStep] = useState(1);
+  const [dragActive, setDragActive] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+
+  const totalSteps = 4;
+  const requiredLabel = <span className="ml-1 text-[var(--danger)]">*</span>;
+  const selectedFilesLabel = useMemo(
+    () => (files.length === 0 ? "Sin archivos seleccionados" : `${files.length} archivo(s) listos`),
+    [files.length],
+  );
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const incoming = Array.from(event.target.files ?? []);
+    setFiles(incoming);
+  }
 
   return (
     <form action={formAction} className="grid gap-4">
       <AuthNotice kind="success" message={state.success} />
       <AuthNotice kind="error" message={state.error} />
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="businessObjective">
-          Objetivo del negocio
-        </label>
-        <textarea
-          id="businessObjective"
-          name="businessObjective"
-          rows={3}
-          className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-        />
-        <FieldError message={state.fieldErrors?.businessObjective?.[0]} />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="businessDescription">
-          Descripcion del negocio
-        </label>
-        <textarea
-          id="businessDescription"
-          name="businessDescription"
-          rows={4}
-          className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-        />
-        <FieldError message={state.fieldErrors?.businessDescription?.[0]} />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="pageScope">
-          Que pagina o experiencia necesitas
-        </label>
-        <textarea
-          id="pageScope"
-          name="pageScope"
-          rows={3}
-          className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-        />
-        <FieldError message={state.fieldErrors?.pageScope?.[0]} />
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="desiredColors">
-            Colores deseados
-          </label>
-          <textarea
-            id="desiredColors"
-            name="desiredColors"
-            rows={3}
-            className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-          />
-          <FieldError message={state.fieldErrors?.desiredColors?.[0]} />
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-4">
+        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted-soft)]">
+          <span>Paso {step} de {totalSteps}</span>
+          <span>Los campos con * son obligatorios</span>
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="brandStyle">
-            Estilo de marca
-          </label>
-          <textarea
-            id="brandStyle"
-            name="brandStyle"
-            rows={3}
-            className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--surface-strong)]">
+          <div
+            className="h-full rounded-full bg-[var(--accent-strong)] transition-all duration-300"
+            style={{ width: `${(step / totalSteps) * 100}%` }}
           />
-          <FieldError message={state.fieldErrors?.brandStyle?.[0]} />
         </div>
       </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="desiredFeatures">
-          Funcionalidades deseadas
-        </label>
-        <textarea
-          id="desiredFeatures"
-          name="desiredFeatures"
-          rows={4}
-          className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-        />
-        <FieldError message={state.fieldErrors?.desiredFeatures?.[0]} />
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
+
+      <div className={step === 1 ? "grid gap-4" : "hidden"}>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="visualReferences">
-            Referencias visuales
-          </label>
-          <textarea
-            id="visualReferences"
-            name="visualReferences"
-            rows={3}
-            className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-          />
-          <FieldError message={state.fieldErrors?.visualReferences?.[0]} />
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="businessObjective">Objetivo del negocio{requiredLabel}</label>
+          <textarea id="businessObjective" name="businessObjective" rows={3} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+          <FieldError message={state.fieldErrors?.businessObjective?.[0]} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="designReferences">
-            Referencias de diseno
-          </label>
-          <textarea
-            id="designReferences"
-            name="designReferences"
-            rows={3}
-            className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-          />
-          <FieldError message={state.fieldErrors?.designReferences?.[0]} />
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="requiredIntegrations">
-            Integraciones necesarias
-          </label>
-          <textarea
-            id="requiredIntegrations"
-            name="requiredIntegrations"
-            rows={3}
-            className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-          />
-          <FieldError message={state.fieldErrors?.requiredIntegrations?.[0]} />
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="businessDescription">Descripción del negocio{requiredLabel}</label>
+          <textarea id="businessDescription" name="businessDescription" rows={4} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+          <FieldError message={state.fieldErrors?.businessDescription?.[0]} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="observations">
-            Observaciones
-          </label>
-          <textarea
-            id="observations"
-            name="observations"
-            rows={3}
-            className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-          />
-          <FieldError message={state.fieldErrors?.observations?.[0]} />
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="pageScope">Qué página o experiencia necesitas{requiredLabel}</label>
+          <textarea id="pageScope" name="pageScope" rows={3} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+          <FieldError message={state.fieldErrors?.pageScope?.[0]} />
         </div>
       </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="notes">
-          Detalles adicionales
-        </label>
-        <textarea
-          id="notes"
-          name="notes"
-          rows={3}
-          className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-        />
-        <FieldError message={state.fieldErrors?.notes?.[0]} />
+
+      <div className={step === 2 ? "grid gap-4" : "hidden"}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="desiredColors">Colores deseados{requiredLabel}</label>
+            <textarea id="desiredColors" name="desiredColors" rows={3} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+            <FieldError message={state.fieldErrors?.desiredColors?.[0]} />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="brandStyle">Estilo de marca{requiredLabel}</label>
+            <textarea id="brandStyle" name="brandStyle" rows={3} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+            <FieldError message={state.fieldErrors?.brandStyle?.[0]} />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="desiredFeatures">Funcionalidades deseadas{requiredLabel}</label>
+          <textarea id="desiredFeatures" name="desiredFeatures" rows={4} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+          <FieldError message={state.fieldErrors?.desiredFeatures?.[0]} />
+        </div>
       </div>
-      <SubmitButton
-        pendingLabel="Enviando solicitud..."
-        className="min-h-12 rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-60"
-      >
-        Solicitar pagina personalizada
-      </SubmitButton>
+
+      <div className={step === 3 ? "grid gap-4" : "hidden"}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="visualReferences">Referencias visuales (links)</label>
+            <textarea id="visualReferences" name="visualReferences" rows={3} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+            <FieldError message={state.fieldErrors?.visualReferences?.[0]} />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="designReferences">Referencias de diseño</label>
+            <textarea id="designReferences" name="designReferences" rows={3} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+            <FieldError message={state.fieldErrors?.designReferences?.[0]} />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="referenceFiles">Referencias visuales por archivo</label>
+          <label
+            htmlFor="referenceFiles"
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={() => setDragActive(false)}
+            className={[
+              "block cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition-colors",
+              dragActive
+                ? "border-[var(--accent-strong)] bg-[color-mix(in_srgb,var(--accent-soft)_35%,transparent)]"
+                : "border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)]",
+            ].join(" ")}
+          >
+            <input id="referenceFiles" name="referenceFiles" type="file" multiple onChange={handleFileChange} className="hidden" />
+            <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-full bg-[var(--surface)] text-[var(--accent-strong)]">
+              <CloudUpload className="size-7" />
+            </div>
+            <p className="text-sm font-semibold text-[var(--foreground)]">Sube o arrastra tus archivos aquí</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">Imágenes, PDFs o capturas de referencia</p>
+            <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-3 py-1 text-xs text-[var(--muted)]">
+              <FileImage className="size-3.5" />
+              {selectedFilesLabel}
+            </p>
+          </label>
+        </div>
+      </div>
+
+      <div className={step === 4 ? "grid gap-4" : "hidden"}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="requiredIntegrations">Integraciones necesarias</label>
+            <textarea id="requiredIntegrations" name="requiredIntegrations" rows={3} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+            <FieldError message={state.fieldErrors?.requiredIntegrations?.[0]} />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="observations">Observaciones</label>
+            <textarea id="observations" name="observations" rows={3} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+            <FieldError message={state.fieldErrors?.observations?.[0]} />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="notes">Detalles adicionales</label>
+          <textarea id="notes" name="notes" rows={3} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+          <FieldError message={state.fieldErrors?.notes?.[0]} />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="slotId">Agenda la reunión de definición{requiredLabel}</label>
+          <select id="slotId" name="slotId" required defaultValue="" className="min-h-12 w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]">
+            <option value="" disabled>Selecciona fecha y hora</option>
+            {slots.map((slot) => (
+              <option key={slot.id} value={slot.id}>{formatSlotLabel(slot)}</option>
+            ))}
+          </select>
+          <FieldError message={state.fieldErrors?.slotId?.[0]} />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-4 text-sm text-[var(--muted)]">
+        <p className="inline-flex items-center gap-2 font-semibold text-[var(--foreground)]"><Sparkles className="size-4 text-[var(--accent-strong)]" />Cómo funciona el modelo de 4 reuniones</p>
+        <p className="mt-2">1) Definicion de objetivos y alcance.</p>
+        <p>2) Revision de propuesta de diseno.</p>
+        <p>3) Checkpoint de mitad de desarrollo.</p>
+        <p>4) Entrega final y cierre del proyecto.</p>
+      </div>
+      <div className="flex flex-wrap justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setStep((current) => Math.max(1, current - 1))}
+          disabled={step === 1}
+          className="min-h-11 rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)] disabled:opacity-50"
+        >
+          Volver
+        </button>
+        {step < totalSteps ? (
+          <button
+            type="button"
+            onClick={() => setStep((current) => Math.min(totalSteps, current + 1))}
+            className="min-h-11 rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
+          >
+            Continuar
+          </button>
+        ) : (
+          <SubmitButton pendingLabel="Enviando solicitud..." className="min-h-11 rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-60">
+            Solicitar página personalizada
+          </SubmitButton>
+        )}
+      </div>
     </form>
   );
 }

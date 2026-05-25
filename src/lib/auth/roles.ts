@@ -1,4 +1,4 @@
-export type PlatformRole = "SUPER_ADMIN" | "SUPPORT" | "USER";
+export type PlatformRole = "SUPER_ADMIN" | "SUPPORT" | "DEVELOPER" | "USER";
 export type TenantRole = "OWNER" | "MANAGER" | "MEMBER";
 
 const tenantRoleWeight: Record<TenantRole, number> = {
@@ -10,6 +10,7 @@ const tenantRoleWeight: Record<TenantRole, number> = {
 const platformRoleWeight: Record<PlatformRole, number> = {
   SUPER_ADMIN: 300,
   SUPPORT: 200,
+  DEVELOPER: 150,
   USER: 100,
 };
 

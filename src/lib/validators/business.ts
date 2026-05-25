@@ -18,6 +18,7 @@ export const requestCustomPageSchema = z.object({
   requiredIntegrations: z.string().trim().max(300).optional(),
   observations: z.string().trim().max(500).optional(),
   notes: z.string().trim().max(500).optional(),
+  slotId: z.string().trim().cuid(),
 });
 
 export const requestCustomDomainSchema = z.object({

@@ -16,9 +16,37 @@ export async function getAdminModulesCatalog() {
         orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
       },
       tenantLinks: {
-        where: { isActive: true },
-        select: { id: true },
+        select: { id: true, tenantId: true, isActive: true, activeArtifactId: true },
       },
+      submodules: {
+        include: {
+          pricing: {
+            orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+          },
+          tenantLinks: {
+            select: { id: true, tenantId: true, isActive: true, activeArtifactId: true },
+          },
+          artifacts: {
+            orderBy: [{ isPublished: "desc" }, { createdAt: "desc" }],
+            take: 10,
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      artifacts: {
+        orderBy: [{ isPublished: "desc" }, { createdAt: "desc" }],
+        take: 10,
+      },
+    },
+  });
+
+  const tenants = await prisma.tenant.findMany({
+    orderBy: { accountName: "asc" },
+    take: 300,
+    select: {
+      id: true,
+      accountName: true,
+      name: true,
     },
   });
 
@@ -37,6 +65,16 @@ export async function getAdminModulesCatalog() {
       route: module.route,
       isActive: module.isActive,
       activeTenants: module.tenantLinks.length,
+      tenants,
+      artifacts: module.artifacts.map((artifact) => ({
+        id: artifact.id,
+        version: artifact.version,
+        fileName: artifact.fileName,
+        sizeBytes: artifact.sizeBytes,
+        isPublished: artifact.isPublished,
+        publishedAt: artifact.publishedAt,
+        createdAt: artifact.createdAt,
+      })),
       currentPricing: currentPricing
         ? {
             id: currentPricing.id,
@@ -64,6 +102,37 @@ export async function getAdminModulesCatalog() {
         isActive: pricing.isActive,
         createdAt: pricing.createdAt,
       })),
+      submodules: module.submodules.map((submodule) => {
+        const currentSubPricing = submodule.pricing.find((pricing) => pricing.isActive) ?? submodule.pricing[0] ?? null;
+        return {
+          id: submodule.id,
+          key: submodule.key,
+          name: submodule.name,
+          description: submodule.description,
+          route: submodule.route,
+          isActive: submodule.isActive,
+          activeTenants: submodule.tenantLinks.filter((link) => link.isActive).length,
+          currentPricing: currentSubPricing
+            ? {
+                id: currentSubPricing.id,
+                price: Number(currentSubPricing.price),
+                currency: currentSubPricing.currency,
+                type: serializePricingType(currentSubPricing.type),
+                isActive: currentSubPricing.isActive,
+                updatedAt: currentSubPricing.updatedAt,
+              }
+            : null,
+          artifacts: submodule.artifacts.map((artifact) => ({
+            id: artifact.id,
+            version: artifact.version,
+            fileName: artifact.fileName,
+            sizeBytes: artifact.sizeBytes,
+            isPublished: artifact.isPublished,
+            publishedAt: artifact.publishedAt,
+            createdAt: artifact.createdAt,
+          })),
+        };
+      }),
     };
   });
 }

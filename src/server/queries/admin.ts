@@ -30,10 +30,10 @@ function buildTenantSearch(filters: AdminConsoleFilters) {
     ...(query
       ? {
           OR: [
-            { name: { contains: query, mode: "insensitive" as const } },
-            { slug: { contains: query, mode: "insensitive" as const } },
-            { accountName: { contains: query, mode: "insensitive" as const } },
-            { billingEmail: { contains: query, mode: "insensitive" as const } },
+            { name: { contains: query } },
+            { slug: { contains: query } },
+            { accountName: { contains: query } },
+            { billingEmail: { contains: query } },
           ],
         }
       : {}),
@@ -65,19 +65,22 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
     activeSupportTickets,
     premiumFlagsEnabled,
     platformUpdates,
+    adminNotifications,
+    wikiDocuments,
   ] = await Promise.all([
     prisma.user.findMany({
       where: query
         ? {
             OR: [
-              { name: { contains: query, mode: "insensitive" } },
-              { email: { contains: query, mode: "insensitive" } },
+              { name: { contains: query } },
+              { email: { contains: query } },
             ],
           }
         : undefined,
       orderBy: { createdAt: "desc" },
       take: 20,
       include: {
+        adminAccessPolicy: true,
         memberships: {
           include: {
             tenant: {
@@ -185,10 +188,10 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
       where: query
         ? {
             OR: [
-              { action: { contains: query, mode: "insensitive" } },
-              { targetType: { contains: query, mode: "insensitive" } },
-              { tenant: { name: { contains: query, mode: "insensitive" } } },
-              { actorUser: { email: { contains: query, mode: "insensitive" } } },
+              { action: { contains: query } },
+              { targetType: { contains: query } },
+              { tenant: { name: { contains: query } } },
+              { actorUser: { email: { contains: query } } },
             ],
           }
         : undefined,
@@ -213,9 +216,9 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
       where: query
         ? {
             OR: [
-              { name: { contains: query, mode: "insensitive" } },
-              { category: { contains: query, mode: "insensitive" } },
-              { body: { contains: query, mode: "insensitive" } },
+              { name: { contains: query } },
+              { category: { contains: query } },
+              { body: { contains: query } },
             ],
           }
         : undefined,
@@ -243,10 +246,10 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
         ...(query
           ? {
               OR: [
-                { subject: { contains: query, mode: "insensitive" } },
-                { customerName: { contains: query, mode: "insensitive" } },
-                { customerContact: { contains: query, mode: "insensitive" } },
-                { tenant: { accountName: { contains: query, mode: "insensitive" } } },
+                { subject: { contains: query } },
+                { customerName: { contains: query } },
+                { customerContact: { contains: query } },
+                { tenant: { accountName: { contains: query } } },
               ],
             }
           : {}),
@@ -271,7 +274,7 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
     prisma.featureFlag.findMany({
       where: {
         enabled: true,
-        OR: [{ key: { contains: "premium", mode: "insensitive" } }, { key: { contains: "labs_", mode: "insensitive" } }],
+        OR: [{ key: { contains: "premium" } }, { key: { contains: "labs_" } }],
       },
       take: 20,
       orderBy: { updatedAt: "desc" },
@@ -345,13 +348,26 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
         enabled: true,
         key: {
           contains: "premium",
-          mode: "insensitive",
         },
       },
     }),
     prisma.platformUpdate.findMany({
       orderBy: { publishedAt: "desc" },
       take: 10,
+    }),
+    prisma.adminNotification.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    prisma.wikiDocument.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 20,
+      include: {
+        sections: {
+          orderBy: { sortOrder: "asc" },
+          take: 3,
+        },
+      },
     }),
   ]);
 
@@ -367,12 +383,12 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
       queuedCustomRequests,
       activeSupportTickets,
       premiumFlagsEnabled,
-      activeCredentials: activeCredentials.filter((row: any) => row.status === "ACTIVE").length,
-      activeWebhooks: activeWebhooks.filter((row: any) => row.status === "ACTIVE").length,
+      activeCredentials: activeCredentials.filter((row) => row.status === "ACTIVE").length,
+      activeWebhooks: activeWebhooks.filter((row) => row.status === "ACTIVE").length,
     },
     users,
     tenants,
-    temporaryPages: temporaryPages.map((page: any) => ({
+    temporaryPages: temporaryPages.map((page) => ({
       ...page,
       lifecycle: deriveStorefrontLifecycle(page),
     })),
@@ -384,5 +400,7 @@ export async function getPlatformAdminConsole(filters: AdminConsoleFilters) {
     integrationCredentials: activeCredentials,
     integrationWebhooks: activeWebhooks,
     platformUpdates,
+    adminNotifications,
+    wikiDocuments,
   };
 }

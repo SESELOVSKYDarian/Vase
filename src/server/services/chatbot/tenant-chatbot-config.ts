@@ -3,6 +3,7 @@ import { getConnectedChannelByTenant } from "@/server/queries/chatbot";
 import { getTenantAiRuntimeConfig } from "@/server/services/ai";
 
 export type TenantChatbotConfig = {
+  channelId: string;
   tenantId: string;
   workspaceId: string;
   displayName: string;
@@ -31,6 +32,7 @@ export async function getTenantChatbotConfig(
   }
 
   return {
+    channelId: channel.id,
     tenantId,
     workspaceId: runtimeConfig.workspaceId,
     displayName: runtimeConfig.displayName,

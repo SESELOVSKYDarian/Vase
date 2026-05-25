@@ -10,6 +10,11 @@ function tagsToJson(tags: string[]) {
   return tags as Prisma.InputJsonValue;
 }
 
+function trimForTextColumn(value: string, max = 65000) {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 32)}\n\n[contenido truncado]`;
+}
+
 export async function createSupportKnowledgeItem(input: {
   tenantId?: string;
   question: string;
@@ -135,8 +140,8 @@ export async function createSupportAiResponseLog(input: {
     data: {
       tenantId: input.tenantId,
       requestedByUserId: input.requestedByUserId,
-      message: input.message,
-      reply: input.reply,
+      message: trimForTextColumn(input.message),
+      reply: trimForTextColumn(input.reply),
       knowledgeCount: input.matches.length,
       knowledgeItems: {
         create: input.matches.map((match, index) => ({

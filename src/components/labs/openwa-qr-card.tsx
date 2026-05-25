@@ -1,0 +1,60 @@
+"use client";
+
+import { useActionState } from "react";
+import type { LabsActionState } from "@/app/(platform)/app/owner/labs/actions";
+import { checkOpenWaConnectionAction, refreshOpenWaQrAction } from "@/app/(platform)/app/owner/labs/actions";
+
+const initialState: LabsActionState = {};
+
+type OpenWaQrCardProps = {
+  channelId: string;
+  accountLabel: string;
+  qrImageDataUrl?: string;
+  connectionState?: string;
+  failureReason?: string;
+};
+
+export function OpenWaQrCard({ channelId, accountLabel, qrImageDataUrl, connectionState, failureReason }: OpenWaQrCardProps) {
+  const [qrState, qrAction] = useActionState(refreshOpenWaQrAction, initialState);
+  const [statusState, statusAction] = useActionState(checkOpenWaConnectionAction, initialState);
+
+  return (
+    <div className="rounded-3xl border border-[var(--danger)]/25 bg-[color-mix(in_srgb,var(--danger)_6%,white)] p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-[var(--foreground)]">Baileys QR - {accountLabel}</p>
+        <p className="text-xs text-[var(--muted)]">Estado: {connectionState ?? "SIN_VERIFICAR"}</p>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        <form action={qrAction}>
+          <input type="hidden" name="channelId" value={channelId} />
+          <button className="min-h-11 cursor-pointer rounded-full bg-[#8a2c2c] px-4 text-xs font-semibold text-white">
+            Generar / Refrescar QR
+          </button>
+        </form>
+        <form action={statusAction}>
+          <input type="hidden" name="channelId" value={channelId} />
+          <button className="min-h-11 cursor-pointer rounded-full border border-[var(--border-subtle)] bg-white px-4 text-xs font-semibold text-[var(--foreground)]">
+            Verificar conexion
+          </button>
+        </form>
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-white p-4">
+        {qrImageDataUrl ? (
+          <img src={qrImageDataUrl} alt="QR de conexion Baileys" className="mx-auto h-56 w-56 rounded-xl border border-[var(--border-subtle)]" />
+        ) : (
+          <p className="text-sm text-[var(--muted)]">Aun no hay QR generado. Usa el boton para crear uno y escanearlo.</p>
+        )}
+      </div>
+
+      {qrState.success ? <p className="mt-3 text-sm text-[var(--success)]">{qrState.success}</p> : null}
+      {qrState.info ? <p className="mt-3 text-sm text-[var(--muted)]">{qrState.info}</p> : null}
+      {qrState.error ? <p className="mt-3 text-sm text-[var(--danger)]">{qrState.error}</p> : null}
+      {statusState.success ? <p className="mt-2 text-sm text-[var(--success)]">{statusState.success}</p> : null}
+      {statusState.info ? <p className="mt-2 text-sm text-[var(--muted)]">{statusState.info}</p> : null}
+      {statusState.error ? <p className="mt-2 text-sm text-[var(--danger)]">{statusState.error}</p> : null}
+      {failureReason ? <p className="mt-2 text-xs text-[var(--danger)]">Detalle tecnico: {failureReason}</p> : null}
+    </div>
+  );
+}

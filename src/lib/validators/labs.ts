@@ -24,11 +24,32 @@ export const createUrlKnowledgeSchema = z.object({
 
 export const connectChannelSchema = z.object({
   channelType: z.enum(["WHATSAPP", "INSTAGRAM", "WEBCHAT"]),
+  provider: z.enum(["META_OFFICIAL", "OPENWA_UNOFFICIAL", "BAILEYS_UNOFFICIAL"]).default("META_OFFICIAL"),
   accountLabel: z.string().trim().min(3).max(80),
   externalHandle: z.string().trim().max(120).optional(),
   notes: z.string().trim().max(240).optional(),
+  accessToken: z.string().trim().max(240).optional(),
+  phoneNumberId: z.string().trim().max(120).optional(),
+  appSecret: z.string().trim().max(240).optional(),
+  verifyToken: z.string().trim().max(120).optional(),
+  openwaBaseUrl: z.string().trim().max(240).optional(),
+  openwaApiKey: z.string().trim().max(240).optional(),
 });
 
 export const createTrainingJobSchema = z.object({
   summary: z.string().trim().max(200).optional(),
+});
+
+export const sendHumanReplySchema = z.object({
+  conversationId: z.string().trim().cuid(),
+  message: z.string().trim().min(1).max(2000),
+});
+
+export const setConversationAiModeSchema = z.object({
+  conversationId: z.string().trim().cuid(),
+  paused: z.boolean(),
+});
+
+export const openWaQrActionSchema = z.object({
+  channelId: z.string().trim().cuid(),
 });

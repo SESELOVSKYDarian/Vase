@@ -14,6 +14,8 @@ import {
   supportAiFeedbackSchema,
   updateSupportKnowledgeSchema,
   updateSupportTicketSchema,
+  takeSupportTicketSchema,
+  addSupportTicketAttachmentSchema,
 } from "@/lib/validators/support";
 import { createAuditLog } from "@/server/services/audit-log";
 import {
@@ -28,6 +30,9 @@ import {
   recordSupportAiFeedback,
   updateSupportKnowledgeItem,
 } from "@/server/services/support-knowledge";
+import { validateUpload } from "@/lib/security/upload";
+import { saveLocalUpload } from "@/lib/storage/local-upload";
+import { randomUUID } from "node:crypto";
 
 export type SupportActionState = {
   success?: string;
@@ -108,6 +113,45 @@ export async function updateSupportTicketAction(
     return { success: "Ticket actualizado correctamente." };
   } catch {
     return { error: "No pudimos actualizar el ticket." };
+  }
+}
+
+export async function takeSupportTicketAction(
+  _: SupportActionState,
+  formData: FormData,
+): Promise<SupportActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const session = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPPORT);
+
+    const parsed = takeSupportTicketSchema.safeParse({
+      ticketId: formData.get("ticketId"),
+    });
+    if (!parsed.success) return { error: "Ticket invalido." };
+
+    await assignSupportTicket({
+      ticketId: parsed.data.ticketId,
+      actorUserId: session.user.id,
+      assignedToUserId: session.user.id,
+      assignmentMode: "MANUAL",
+    });
+
+    await createAuditLog({
+      action: "support.ticket_taken",
+      targetType: "support_ticket",
+      targetId: parsed.data.ticketId,
+      actorUserId: session.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { assignedToUserId: session.user.id },
+    });
+
+    revalidatePath("/app/support");
+    revalidatePath("/app/admin/tickets");
+    return { success: "Ticket tomado y asignado a tu usuario." };
+  } catch {
+    return { error: "No pudimos tomar este ticket." };
   }
 }
 
@@ -358,7 +402,8 @@ export async function deleteSupportKnowledgeAction(
 
     const item = await deleteSupportKnowledgeItem({
       knowledgeId: parsed.data.knowledgeId,
-      actorPlatformRole: session.user.platformRole,
+      actorPlatformRole:
+        session.user.platformRole === "SUPER_ADMIN" ? "SUPER_ADMIN" : "SUPPORT",
     });
 
     await createAuditLog({
@@ -443,5 +488,72 @@ export async function recordSupportAiFeedbackAction(
     };
   } catch {
     return { error: "No pudimos guardar el feedback." };
+  }
+}
+
+export async function addSupportTicketAttachmentAction(
+  _: SupportActionState,
+  formData: FormData,
+): Promise<SupportActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const session = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPPORT);
+
+    const parsed = addSupportTicketAttachmentSchema.safeParse({
+      ticketId: formData.get("ticketId"),
+    });
+    if (!parsed.success) return { error: "Ticket invalido." };
+
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      return { error: "Selecciona un archivo valido." };
+    }
+
+    const metadata = await validateUpload(file);
+    const buffer = new Uint8Array(await file.arrayBuffer());
+    const relativePath = `internal/support-tickets/${parsed.data.ticketId}/${Date.now()}-${randomUUID()}-${metadata.originalName}`;
+    const stored = await saveLocalUpload({
+      relativePath,
+      bytes: buffer,
+    });
+
+    const attachment = await prisma.supportTicketAttachment.create({
+      data: {
+        ticketId: parsed.data.ticketId,
+        fileName: metadata.originalName,
+        mimeType: metadata.type,
+        sizeBytes: metadata.size,
+        storagePath: stored.relativePath,
+        uploadedById: session.user.id,
+      },
+    });
+
+    await createAuditLog({
+      action: "support.ticket_attachment_added",
+      targetType: "support_ticket_attachment",
+      targetId: attachment.id,
+      actorUserId: session.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        ticketId: parsed.data.ticketId,
+        fileName: attachment.fileName,
+        sizeBytes: attachment.sizeBytes,
+      },
+    });
+
+    revalidatePath("/app/support");
+    revalidatePath("/app/admin/tickets");
+    return { success: "Adjunto subido al ticket." };
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "FILE_TOO_LARGE") return { error: "Archivo demasiado grande." };
+      if (error.message === "FILE_EXTENSION_NOT_ALLOWED") return { error: "Extension no permitida." };
+      if (error.message === "FILE_TYPE_NOT_ALLOWED") return { error: "Tipo de archivo no permitido." };
+      if (error.message === "FILE_SIGNATURE_INVALID") return { error: "Firma de archivo invalida." };
+      if (error.message === "FILE_MALWARE_DETECTED") return { error: "Se detecto posible malware en el archivo." };
+    }
+    return { error: "No pudimos subir el adjunto." };
   }
 }

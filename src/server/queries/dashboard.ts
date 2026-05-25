@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
+import { Prisma } from "@prisma/client";
 import { deriveStorefrontLifecycle } from "@/lib/business/lifecycle";
 import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 import { getEffectivePlan, getPlanLimits } from "@/lib/business/plans";
-import { platformUpdates } from "@/config/platform-updates";
 import { getTenantModulesAccess } from "@/server/queries/modules";
 import { syncStorefrontPageLifecycle } from "@/server/services/business-lifecycle";
 
@@ -169,7 +169,18 @@ function getDaysUntil(target: Date, now = new Date()) {
   return Math.ceil((target.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
 }
 
-export async function getUnifiedTenantDashboard(tenantId: string, userId?: string) {
+function isSchemaMismatchError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === "P2021" || error.code === "P2022")
+  );
+}
+
+export async function getUnifiedTenantDashboard(
+  tenantId: string,
+  userId?: string,
+  platformRole: "SUPER_ADMIN" | "SUPPORT" | "DEVELOPER" | "USER" = "USER",
+) {
   const [{ start: todayStart, end: todayEnd }, { start: yesterdayStart, end: yesterdayEnd }, modulesPayload] =
     await Promise.all([
       Promise.resolve(getDayRange(0)),
@@ -204,6 +215,7 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
     enabledFeatureFlags,
     activeApiCredentials,
     activeWebhooks,
+    inboundSyncRecords,
     recentOrders,
     recentDomains,
     recentChannels,
@@ -212,6 +224,10 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
     tenantRecord,
     subscription,
     activePlatformUpdates,
+    adminTargetedNotifications,
+    platformReadRows,
+    adminReadRows,
+    labsWorkspace,
   ] = await Promise.all([
     prisma.order.aggregate({
       where: {
@@ -342,6 +358,12 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
         status: "ACTIVE",
       },
     }),
+    prisma.syncJob.count({
+      where: {
+        tenantId,
+        status: "COMPLETED",
+      },
+    }),
     prisma.order.findMany({
       where: { tenantId },
       orderBy: { createdAt: "desc" },
@@ -403,29 +425,87 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
         createdAt: true,
       },
     }),
-    prisma.tenantSubscription.findUnique({
-      where: { tenantId },
-      select: {
-        billingStatus: true,
-        currentPeriodEndsAt: true,
-      },
-    }),
+    prisma.tenantSubscription
+      .findUnique({
+        where: { tenantId },
+        select: {
+          billingStatus: true,
+          currentPeriodEndsAt: true,
+          trialEndsAt: true,
+          graceEndsAt: true,
+          businessBlockedAt: true,
+          businessProjectLimit: true,
+        },
+      })
+      .catch((error) => {
+        if (isSchemaMismatchError(error)) {
+          return null;
+        }
+        throw error;
+      }),
     prisma.platformUpdate.findMany({
       where: {
         isActive: true,
         publishedAt: { gte: addDays(new Date(), -7) },
-        ...(userId
-          ? {
-              readBy: {
-                none: { userId },
-              },
-            }
-          : {}),
       },
       orderBy: { publishedAt: "desc" },
       take: 8,
     }),
+    prisma.adminNotification
+      .findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { startsAt: null },
+            { startsAt: { lte: new Date() } },
+          ],
+          AND: [
+            {
+              OR: [
+                { endsAt: null },
+                { endsAt: { gte: new Date() } },
+              ],
+            },
+            {
+              OR: [
+                { target: "ALL" },
+                { target: "TENANT", tenantId },
+                { target: "PLATFORM_ROLE", targetRole: platformRole },
+                { target: "USERS" },
+              ],
+            },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      })
+      .catch((error) => {
+        if (isSchemaMismatchError(error)) {
+          return [];
+        }
+        throw error;
+      }),
+    userId
+      ? prisma.platformUpdateRead.findMany({
+          where: { userId },
+          select: { updateId: true },
+        })
+      : Promise.resolve([]),
+    userId
+      ? prisma.adminNotificationRead
+          .findMany({
+            where: { userId },
+            select: { notificationId: true },
+          })
+          .catch(() => [])
+      : Promise.resolve([]),
+    prisma.tenantAiWorkspace.findUnique({
+      where: { tenantId },
+      select: { id: true },
+    }).catch(() => null),
   ]);
+  const platformReadSet = new Set(platformReadRows.map((row) => row.updateId));
+  const adminReadSet = new Set(adminReadRows.map((row) => row.notificationId));
 
   const salesTodayAmount = Number(todaySales._sum.totalAmount ?? 0);
   const salesYesterdayAmount = Number(yesterdaySales._sum.totalAmount ?? 0);
@@ -450,17 +530,44 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
   const labsDaysLeft = subscription?.currentPeriodEndsAt
     ? getDaysUntil(subscription.currentPeriodEndsAt)
     : null;
+  const businessTrialDaysLeft = subscription?.trialEndsAt ? getDaysUntil(subscription.trialEndsAt) : null;
+  const businessProjectLimit = subscription?.businessProjectLimit ?? 1;
+  const labsProjectLimit = 1;
+  const businessRemaining = Math.max(0, businessProjectLimit - activePages);
+  const labsUsed = labsWorkspace ? 1 : 0;
+  const labsRemaining = Math.max(0, labsProjectLimit - labsUsed);
 
   const notifications = [
-    ...activePlatformUpdates.map((item: any) => ({
+    ...activePlatformUpdates.map((item) => ({
       id: item.id,
       title: item.title,
       description: item.description,
       href: item.href,
-      tone: item.tone as any,
-      category: item.category as any,
+      tone: item.tone as "info" | "warning" | "danger",
+      category: item.category as "platform" | "business" | "labs" | "billing",
       createdAt: item.publishedAt,
       isPlatformUpdate: true,
+      isRead: platformReadSet.has(item.id),
+      notificationType: "platform_update" as const,
+    })),
+    ...adminTargetedNotifications
+      .filter((item) => {
+        if (item.target !== "USERS") return true;
+        if (!userId) return false;
+        const ids = Array.isArray(item.targetUserIds) ? item.targetUserIds : [];
+        return ids.includes(userId);
+      })
+      .map((item) => ({
+      id: item.id,
+      title: item.title,
+      description: item.message,
+      href: "/app",
+      tone: (item.tone as "info" | "warning" | "danger") ?? "info",
+      category: (item.category === "support" ? "platform" : item.category) as "platform" | "business" | "labs" | "billing",
+      createdAt: item.createdAt,
+      isPlatformUpdate: false,
+      isRead: adminReadSet.has(item.id),
+      notificationType: "admin_notification" as const,
     })),
     ...(businessModule?.isActive && hostingDaysLeft <= 45
       ? [
@@ -475,6 +582,8 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
             tone: hostingDaysLeft <= 7 ? ("danger" as const) : ("warning" as const),
             category: "billing" as const,
             createdAt: new Date(),
+            isRead: false,
+            notificationType: "system_hint" as const,
           },
         ]
       : []),
@@ -491,6 +600,8 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
             tone: labsDaysLeft <= 3 ? ("danger" as const) : ("warning" as const),
             category: "billing" as const,
             createdAt: new Date(),
+            isRead: false,
+            notificationType: "system_hint" as const,
           },
         ]
       : []),
@@ -505,6 +616,26 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
             tone: "danger" as const,
             category: "billing" as const,
             createdAt: new Date(),
+            isRead: false,
+            notificationType: "system_hint" as const,
+          },
+        ]
+      : []),
+    ...(businessTrialDaysLeft != null && businessTrialDaysLeft <= 7
+      ? [
+          {
+            id: "business-trial-expiry",
+            title: "Tu trial de Business esta por vencer",
+            description:
+              businessTrialDaysLeft > 0
+                ? `Quedan ${businessTrialDaysLeft} dia(s) para activar tu plan.`
+                : "El trial de Business ya vencio. Revisa tu configuracion para reactivar.",
+            href: "/app/settings",
+            tone: businessTrialDaysLeft <= 1 ? ("danger" as const) : ("warning" as const),
+            category: "billing" as const,
+            createdAt: new Date(),
+            isRead: false,
+            notificationType: "system_hint" as const,
           },
         ]
       : []),
@@ -519,14 +650,14 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
     occurredAt: Date;
     tone: "success" | "warning" | "danger";
   }> = [
-    ...recentOrders.map((order: any) => ({
+    ...recentOrders.map((order) => ({
       id: `order-${order.id}`,
       title: `Pedido ${order.orderNumber}`,
       description: `Estado actual: ${formatStatusLabel(order.status)}`,
       occurredAt: order.createdAt,
       tone: asEventTone(order.status === "CANCELED" ? "danger" : "success"),
     })),
-    ...recentDomains.map((domain: any) => ({
+    ...recentDomains.map((domain) => ({
       id: `domain-${domain.id}`,
       title: `Dominio ${domain.hostname}`,
       description: `Estado de dominio: ${formatStatusLabel(domain.status)}`,
@@ -539,7 +670,7 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
             : "warning"
       ),
     })),
-    ...recentChannels.map((channel: any) => ({
+    ...recentChannels.map((channel) => ({
       id: `channel-${channel.id}`,
       title: `${formatStatusLabel(channel.channelType)} conectado`,
       description: `${channel.accountLabel} · ${formatStatusLabel(channel.status)}`,
@@ -552,14 +683,14 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
             : "warning"
       ),
     })),
-    ...recentSupportTickets.map((ticket: any) => ({
+    ...recentSupportTickets.map((ticket) => ({
       id: `support-${ticket.id}`,
       title: `Ticket: ${ticket.subject}`,
       description: `Soporte en ${formatStatusLabel(ticket.status)}`,
       occurredAt: ticket.updatedAt,
       tone: asEventTone(ticket.status === "RESOLVED" || ticket.status === "CLOSED" ? "success" : "warning"),
     })),
-    ...recentTrainingJobs.map((job: any) => ({
+    ...recentTrainingJobs.map((job) => ({
       id: `training-${job.id}`,
       title: "Entrenamiento de IA",
       description: `Job ${formatStatusLabel(job.status)}`,
@@ -659,6 +790,24 @@ export async function getUnifiedTenantDashboard(tenantId: string, userId?: strin
       enabledFeatureFlags,
       activeApiCredentials,
       activeWebhooks,
+    },
+    erp: {
+      connected: inboundSyncRecords > 0,
+      inboundSyncRecords,
+    },
+    projectCreation: {
+      business: {
+        limit: businessProjectLimit,
+        used: activePages,
+        remaining: businessRemaining,
+        canCreate: businessRemaining > 0,
+      },
+      labs: {
+        limit: labsProjectLimit,
+        used: labsUsed,
+        remaining: labsRemaining,
+        canCreate: labsRemaining > 0,
+      },
     },
     notifications,
     recommendation,

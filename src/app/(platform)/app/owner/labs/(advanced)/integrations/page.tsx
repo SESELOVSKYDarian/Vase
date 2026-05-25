@@ -1,5 +1,6 @@
 import { ChannelConnectionForm } from "@/components/labs/channel-connection-form";
 import { KnowledgeUrlForm } from "@/components/labs/knowledge-url-form";
+import { OpenWaQrCard } from "@/components/labs/openwa-qr-card";
 import { StatusBadge } from "@/components/business/status-badge";
 import { PanelCard } from "@/components/ui/panel-card";
 import { channelTone, getLabsOwnerPageData, trainingTone } from "../_lib/labs-owner";
@@ -51,11 +52,60 @@ export default async function LabsIntegrationsPage() {
             </PanelCard>
 
             <PanelCard
-              eyebrow="Canales"
-              title="WhatsApp, Instagram y webchat"
-              description="Conecta canales con estados visibles y limites por plan."
+              eyebrow="WhatsApp Oficial"
+              title="Meta Cloud API (recomendado)"
+              description="Mayor estabilidad y cumplimiento. Carga credenciales oficiales y activa el webhook."
             >
-              <ChannelConnectionForm canUseInstagram={dashboard.limits.canUseInstagram} />
+              <div className="mb-4 rounded-2xl border border-[#18c37e]/25 bg-[#eaf9f1] p-4 text-sm leading-6 text-[#0f5132]">
+                Flujo: 1) crea app en Meta, 2) pega credenciales, 3) usa URL/token webhook que te devuelve Vase.
+              </div>
+              <ChannelConnectionForm canUseInstagram={dashboard.limits.canUseInstagram} mode="META_ONLY" />
+            </PanelCard>
+          </section>
+
+          <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+            <PanelCard
+              eyebrow="WhatsApp No Oficial"
+              title="Baileys + Conexion por QR"
+              description="Conexion simple por QR desde el backend de Vase."
+            >
+              <div className="mb-4 rounded-2xl border border-[var(--danger)]/30 bg-[color-mix(in_srgb,var(--danger)_8%,white)] p-4 text-sm leading-6 text-[#7b1f1f]">
+                Este metodo no oficial se usa bajo tu propio riesgo operativo, de compliance y de bloqueos de cuenta.
+              </div>
+              <div className="mb-4 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-4 text-sm leading-6 text-[var(--muted)]">
+                Flujo QR: 1) guarda canal Baileys, 2) clic en Generar QR, 3) escanea, 4) clic en Verificar conexion.
+              </div>
+              <ChannelConnectionForm canUseInstagram={dashboard.limits.canUseInstagram} mode="BAILEYS_ONLY" />
+              <div className="mt-6 grid gap-4">
+                {dashboard.channels
+                  .filter(
+                    (channel) =>
+                      channel.channelType === "WHATSAPP" &&
+                      channel.config &&
+                      typeof channel.config === "object" &&
+                      (channel.config as Record<string, unknown>).provider === "BAILEYS_UNOFFICIAL",
+                  )
+                  .map((channel) => {
+                    const config = channel.config as Record<string, unknown>;
+                    return (
+                      <OpenWaQrCard
+                        key={`openwa-${channel.id}`}
+                        channelId={channel.id}
+                        accountLabel={channel.accountLabel}
+                        qrImageDataUrl={typeof config.qrImageDataUrl === "string" ? config.qrImageDataUrl : undefined}
+                        connectionState={typeof config.connectionState === "string" ? config.connectionState : undefined}
+                        failureReason={typeof config.failureReason === "string" ? config.failureReason : undefined}
+                      />
+                    );
+                  })}
+              </div>
+            </PanelCard>
+
+            <PanelCard
+              eyebrow="Canales Registrados"
+              title="Estado por cuenta"
+              description="Monitorea estado, proveedor y cuenta conectada."
+            >
               <div className="mt-6 grid gap-3">
                 {dashboard.channels.length === 0 ? (
                   <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 text-sm leading-7 text-[var(--muted)]">
@@ -75,6 +125,14 @@ export default async function LabsIntegrationsPage() {
                       </div>
                       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
                         {channel.externalHandle ?? "Sin handle registrado"}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--muted-soft)]">
+                        Proveedor:{" "}
+                        {channel.config &&
+                        typeof channel.config === "object" &&
+                        "provider" in (channel.config as Record<string, unknown>)
+                          ? String((channel.config as Record<string, unknown>).provider)
+                          : "N/A"}
                       </p>
                     </div>
                   ))

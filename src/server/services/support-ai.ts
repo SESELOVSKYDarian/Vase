@@ -3,6 +3,7 @@ import {
   createSupportAiResponseLog,
 } from "@/server/services/support-knowledge";
 import { getTenantAiRuntimeConfig } from "@/server/services/ai/tenant-ai-config";
+import { prisma } from "@/lib/db/prisma";
 import type { TenantAiRuntimeConfig } from "@/server/services/ai/models";
 
 type SupportChatMessage = {
@@ -12,17 +13,24 @@ type SupportChatMessage = {
 
 function getFallbackSupportConfig(): TenantAiRuntimeConfig {
   return {
-    assistantDisplayName: "Vase Support AI",
+    tenantId: "support-fallback",
+    workspaceId: "support-fallback",
+    displayName: "Vase Support AI",
     tone: "PROFESSIONAL",
+    model: "local-knowledge-engine",
     temperature: 0.2,
+    timezone: "America/Argentina/Buenos_Aires",
+    bookingEnabled: false,
     businessContext: {
       area: "support",
       objective: "Responder con base en FAQs verificadas y derivar a humano cuando falte contexto.",
     },
-    models: {},
-    humanEscalationEnabled: true,
-    escalationDestination: "EMAIL",
-    escalationContact: null,
+    systemPrompt: null,
+    escalation: {
+      enabled: true,
+      destination: "EMAIL",
+      contact: null,
+    },
   };
 }
 
@@ -50,6 +58,60 @@ export async function generateSupportAiReply(input: {
     message: input.message,
     limit: 5,
   });
+  const incidents = await prisma.adminNotification
+    .findMany({
+      where: {
+        isActive: true,
+        tone: { in: ["warning", "danger"] },
+        OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }],
+        AND: [
+          {
+            OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }],
+          },
+          {
+            OR: [
+              { target: "ALL" },
+              ...(input.tenantId ? [{ target: "TENANT" as const, tenantId: input.tenantId }] : []),
+              { target: "USERS" },
+            ],
+          },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      select: {
+        id: true,
+        title: true,
+        message: true,
+        tone: true,
+      },
+    })
+    .catch(() => []);
+  const wikiMatches = input.message
+    ? await prisma.wikiSection.findMany({
+        where: {
+          document: {
+            status: "PUBLISHED",
+            isPublic: true,
+          },
+          OR: [
+            { title: { contains: input.message } },
+            { body: { contains: input.message } },
+          ],
+        },
+        take: 3,
+        select: {
+          title: true,
+          body: true,
+          document: {
+            select: {
+              title: true,
+              slug: true,
+            },
+          },
+        },
+      })
+    : [];
 
   const knowledgeBlocks = knowledge.matches.slice(0, 5).map((match) => {
     const category = match.item.category?.trim() || "general";
@@ -60,20 +122,32 @@ export async function generateSupportAiReply(input: {
     .find((message) => message.role === "assistant")
     ?.content?.trim();
 
+  const wikiBlocks = wikiMatches.map((wiki) => {
+    const shortBody = wiki.body.slice(0, 260);
+    return `- [Wiki: ${wiki.document.title}] ${wiki.title}: ${shortBody}${wiki.body.length > 260 ? "..." : ""}`;
+  });
+
   const reply =
-    knowledgeBlocks.length > 0
+    incidents.length > 0 || knowledgeBlocks.length > 0 || wikiBlocks.length > 0
       ? [
-          `Vase Support AI`,
+          "Vase Support AI (modo gratuito con RAG interno)",
           `Consulta: ${input.message.trim()}`,
-          `Informacion util encontrada para este caso:`,
+          incidents.length > 0 ? `Incidentes activos detectados:` : null,
+          ...incidents.map((item) => `- ${item.title}: ${item.message}`),
+          knowledgeBlocks.length > 0 ? "FAQs relevantes:" : null,
           ...knowledgeBlocks,
-          "Si esto no resuelve el caso completo, conviene continuar con soporte humano.",
-        ].join("\n")
+          wikiBlocks.length > 0 ? "Wikis relevantes:" : null,
+          ...wikiBlocks,
+          "Respuesta acotada al conocimiento de Vase. Si necesitas mas detalle, escala a soporte humano.",
+        ]
+          .filter(Boolean)
+          .join("\n")
       : [
-          `Vase Support AI`,
+          "Vase Support AI (modo gratuito con RAG interno)",
           `Consulta: ${input.message.trim()}`,
           lastAssistantMessage ? `Ultimo contexto: ${lastAssistantMessage}` : null,
-          "No encontre FAQs suficientes para responder con precision. Te conviene escalar este caso a una persona de soporte.",
+          "No encontre evidencia suficiente en FAQs/Wiki/incidentes para responder con precision.",
+          "Te recomiendo abrir ticket humano para continuar.",
         ]
           .filter(Boolean)
           .join("\n");
@@ -91,5 +165,6 @@ export async function generateSupportAiReply(input: {
     knowledgeItems: knowledge.items,
     knowledgeMatches: knowledge.matches,
     responseLogId: responseLog.id,
+    incidentNotices: incidents,
   };
 }

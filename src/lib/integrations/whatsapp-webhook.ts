@@ -62,3 +62,37 @@ export function parseWhatsAppWebhookMessage(input: {
     rawPayload: rawMessage,
   };
 }
+
+export function parseOpenWaWebhookMessage(input: {
+  tenantId: string;
+  payload: unknown;
+  channelType?: AiChannelType;
+}): InboundChannelMessage | null {
+  const payload = input.payload as
+    | {
+        from?: string;
+        sender?: { pushname?: string; formattedName?: string };
+        body?: string;
+        type?: string;
+        chatId?: string;
+      }
+    | undefined;
+
+  const from = String(payload?.from || payload?.chatId || "");
+  const text = typeof payload?.body === "string" ? payload.body : null;
+
+  if (!from || !text) {
+    return null;
+  }
+
+  return {
+    tenantId: input.tenantId,
+    channelType: input.channelType || "WHATSAPP",
+    externalThreadKey: from,
+    customerName: payload?.sender?.pushname || payload?.sender?.formattedName || null,
+    customerContact: from.replace(/@c\.us$/i, ""),
+    text,
+    messageType: "text",
+    rawPayload: payload,
+  };
+}

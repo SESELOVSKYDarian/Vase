@@ -13,9 +13,20 @@ const ACTIVE_TICKET_STATUSES: ActiveSupportTicketStatus[] = [
   "WAITING_INTERNAL",
 ];
 
-export async function getSupportQueueDashboard() {
+export async function getSupportQueueDashboard(input?: {
+  platformRole?: "SUPER_ADMIN" | "SUPPORT" | "DEVELOPER" | "USER";
+  userId?: string;
+}) {
+  const supportScopeWhere =
+    input?.platformRole === "SUPPORT" && input.userId
+      ? {
+          OR: [{ assignedToUserId: input.userId }, { assignedToUserId: null }],
+        }
+      : undefined;
+
   const [tickets, templates, notifications, rawAgents] = await Promise.all([
     prisma.supportTicket.findMany({
+      where: supportScopeWhere,
       orderBy: [
         { priority: "desc" },
         { queueEnteredAt: "asc" },
@@ -65,6 +76,10 @@ export async function getSupportQueueDashboard() {
             },
           },
         },
+        attachments: {
+          orderBy: { createdAt: "desc" },
+          take: 5,
+        },
       },
     }),
     prisma.supportReplyTemplate.findMany({
@@ -73,6 +88,12 @@ export async function getSupportQueueDashboard() {
       take: 20,
     }),
     prisma.supportNotification.findMany({
+      where:
+        input?.platformRole === "SUPPORT" && input.userId
+          ? {
+              OR: [{ recipientUserId: input.userId }, { recipientUserId: null }],
+            }
+          : undefined,
       orderBy: { createdAt: "desc" },
       take: 15,
       include: {

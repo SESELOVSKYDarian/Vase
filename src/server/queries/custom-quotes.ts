@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 
 export async function getAdminCustomizationQuoteWorkspace() {
-  const [requests, recentRevisions] = await Promise.all([
+  const [requests, recentRevisions, tenants, upcomingSlots] = await Promise.all([
     prisma.customPageRequest.findMany({
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       include: {
@@ -49,6 +49,12 @@ export async function getAdminCustomizationQuoteWorkspace() {
             },
           },
         },
+        milestones: {
+          orderBy: { stage: "asc" },
+        },
+        meetings: {
+          orderBy: { type: "asc" },
+        },
       },
       take: 50,
     }),
@@ -77,11 +83,37 @@ export async function getAdminCustomizationQuoteWorkspace() {
         },
       },
     }),
+    prisma.tenant.findMany({
+      select: {
+        id: true,
+        name: true,
+        accountName: true,
+      },
+      orderBy: { accountName: "asc" },
+    }),
+    prisma.meetingAvailabilitySlot.findMany({
+      where: {
+        isActive: true,
+        startsAt: { gte: new Date() },
+      },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            accountName: true,
+          },
+        },
+      },
+      orderBy: { startsAt: "asc" },
+      take: 20,
+    }),
   ]);
 
   return {
     requests,
     recentRevisions,
+    tenants,
+    upcomingSlots,
     metrics: {
       totalRequests: requests.length,
       withDraft: requests.filter((request) => request.quote?.status === "DRAFT").length,
@@ -122,6 +154,12 @@ export async function getTenantCustomizationQuoteWorkspace(tenantId: string) {
             },
           },
         },
+      },
+      milestones: {
+        orderBy: { stage: "asc" },
+      },
+      meetings: {
+        orderBy: { type: "asc" },
       },
     },
   });

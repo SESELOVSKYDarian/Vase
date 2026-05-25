@@ -6,7 +6,7 @@ declare module "next-auth" {
     sessionPreference?: "day" | "remember";
     user: DefaultSession["user"] & {
       id: string;
-      platformRole: "SUPER_ADMIN" | "SUPPORT" | "USER";
+      platformRole: "SUPER_ADMIN" | "SUPPORT" | "DEVELOPER" | "USER";
       locale: string;
       isEmailVerified: boolean;
       sessionPreference?: "day" | "remember";
@@ -14,7 +14,7 @@ declare module "next-auth" {
   }
 
   interface User {
-    platformRole?: "SUPER_ADMIN" | "SUPPORT" | "USER";
+    platformRole?: "SUPER_ADMIN" | "SUPPORT" | "DEVELOPER" | "USER";
     locale?: string;
     emailVerified?: Date | null;
     sessionPreference?: "day" | "remember";
@@ -24,7 +24,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     sub?: string;
-    platformRole?: "SUPER_ADMIN" | "SUPPORT" | "USER";
+    platformRole?: "SUPER_ADMIN" | "SUPPORT" | "DEVELOPER" | "USER";
     locale?: string;
     emailVerified?: boolean;
     sessionExpiresAt?: number;

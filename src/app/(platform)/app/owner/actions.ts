@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import type { AuthActionState } from "@/app/(auth)/actions";
 import { requireTenantRole, requireVerifiedUser, tenantRoles } from "@/lib/auth/guards";
 import { createInitialBuilderDocument } from "@/lib/business/builder";
@@ -11,6 +12,8 @@ import { prisma } from "@/lib/db/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { getRequestContext } from "@/lib/security/request";
 import { sanitizeNullableText, sanitizeText } from "@/lib/security/sanitize";
+import { validateUpload } from "@/lib/security/upload";
+import { saveLocalUpload } from "@/lib/storage/local-upload";
 import {
   createStorefrontPageSchema,
   deleteStorefrontPagesSchema,
@@ -19,6 +22,21 @@ import {
 } from "@/lib/validators/business";
 import { respondCustomizationQuoteSchema } from "@/lib/validators/custom-quotes";
 import { createAuditLog } from "@/server/services/audit-log";
+
+type CustomProjectMeetingTypeInput =
+  | "DEFINITION"
+  | "DESIGN"
+  | "MID_DEVELOPMENT"
+  | "FINAL_DELIVERY"
+  | "FOLLOW_UP";
+
+const customProjectMeetingTypes = new Set<CustomProjectMeetingTypeInput>([
+  "DEFINITION",
+  "DESIGN",
+  "MID_DEVELOPMENT",
+  "FINAL_DELIVERY",
+  "FOLLOW_UP",
+]);
 
 function validationErrorState(error: Record<string, string[]>) {
   return {
@@ -53,10 +71,12 @@ export async function createStorefrontPageAction(
   });
   const effectivePlan = getEffectivePlan(subscription);
   const limits = getPlanLimits(effectivePlan);
+  const activePagesCount = currentPages.filter((page) => page.status !== "ARCHIVED").length;
+  const effectiveProjectLimit = Math.max(1, Math.min(limits.maxPages, effectivePlan.businessProjectLimit || 1));
 
-  if (!canCreateStorefrontPage(currentPages, effectivePlan)) {
+  if (!canCreateStorefrontPage(currentPages, effectivePlan) || activePagesCount >= effectiveProjectLimit) {
     return {
-      error: `Tu plan actual permite hasta ${limits.maxPages} paginas activas.`,
+      error: `Tu plan actual permite hasta ${effectiveProjectLimit} proyecto(s) Business activo(s).`,
     };
   }
 
@@ -237,35 +257,147 @@ export async function requestCustomPageAction(
     ),
     observations: sanitizeNullableText(String(formData.get("observations") ?? "")),
     notes: sanitizeNullableText(String(formData.get("notes") ?? "")),
+    slotId: String(formData.get("slotId") ?? ""),
   });
 
   if (!parsed.success) {
     return validationErrorState(parsed.error.flatten().fieldErrors);
   }
 
-  await prisma.customPageRequest.create({
-    data: {
+  const files = formData
+    .getAll("referenceFiles")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+
+  const storedFiles: Array<{
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    storagePath: string;
+  }> = [];
+
+  for (const file of files) {
+    const metadata = await validateUpload(file);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const relativePath = `business/custom-page-requests/${membership.tenantId}/${Date.now()}-${randomUUID()}-${metadata.originalName}`;
+    const stored = await saveLocalUpload({ relativePath, bytes });
+    storedFiles.push({
+      fileName: metadata.originalName,
+      mimeType: metadata.type,
+      sizeBytes: metadata.size,
+      storagePath: stored.relativePath,
+    });
+  }
+
+  const selectedSlot = await prisma.meetingAvailabilitySlot.findFirst({
+    where: {
+      id: parsed.data.slotId,
       tenantId: membership.tenantId,
-      requesterUserId: verifiedSession.user.id,
-      requestType: "TEMPLATE_CUSTOMIZATION",
-      ...parsed.data,
-      premiumRequested: true,
-      status: "SUBMITTED",
+      isActive: true,
+      startsAt: { gte: new Date() },
     },
+  });
+
+  if (!selectedSlot || selectedSlot.reservedCount >= selectedSlot.capacity) {
+    return { error: "El horario seleccionado ya no esta disponible. Elige otro slot." };
+  }
+
+  const request = await prisma.$transaction(async (tx) => {
+    const createdRequest = await tx.customPageRequest.create({
+      data: {
+        tenantId: membership.tenantId,
+        requesterUserId: verifiedSession.user.id,
+        requestType: "TEMPLATE_CUSTOMIZATION",
+        businessObjective: parsed.data.businessObjective,
+        pageScope: parsed.data.pageScope,
+        businessDescription: parsed.data.businessDescription,
+        desiredColors: parsed.data.desiredColors,
+        brandStyle: parsed.data.brandStyle,
+        desiredFeatures: parsed.data.desiredFeatures,
+        visualReferences: parsed.data.visualReferences ?? null,
+        designReferences: parsed.data.designReferences ?? null,
+        requiredIntegrations: parsed.data.requiredIntegrations ?? null,
+        observations: parsed.data.observations ?? null,
+        notes: parsed.data.notes ?? null,
+        referenceFiles: storedFiles.length > 0 ? storedFiles : undefined,
+        premiumRequested: true,
+        status: "SUBMITTED",
+      },
+    });
+
+    const meeting = await tx.customProjectMeeting.upsert({
+      where: {
+        customPageRequestId_type: {
+          customPageRequestId: createdRequest.id,
+          type: "DEFINITION",
+        },
+      },
+      update: {
+        isEnabledByAdmin: true,
+        status: "CONFIRMED",
+        requestedAt: new Date(),
+        requestedByUserId: verifiedSession.user.id,
+        requestedDate: selectedSlot.startsAt,
+        confirmedDate: selectedSlot.startsAt,
+        scheduledStart: selectedSlot.startsAt,
+        scheduledEnd: selectedSlot.endsAt,
+      },
+      create: {
+        tenantId: membership.tenantId,
+        customPageRequestId: createdRequest.id,
+        type: "DEFINITION",
+        isEnabledByAdmin: true,
+        status: "CONFIRMED",
+        requestedAt: new Date(),
+        requestedByUserId: verifiedSession.user.id,
+        requestedDate: selectedSlot.startsAt,
+        confirmedDate: selectedSlot.startsAt,
+        scheduledStart: selectedSlot.startsAt,
+        scheduledEnd: selectedSlot.endsAt,
+      },
+    });
+
+    const booking = await tx.customProjectMeetingBooking.create({
+      data: {
+        tenantId: membership.tenantId,
+        customPageRequestId: createdRequest.id,
+        customMeetingId: meeting.id,
+        slotId: selectedSlot.id,
+        bookedByUserId: verifiedSession.user.id,
+        scheduledStart: selectedSlot.startsAt,
+        scheduledEnd: selectedSlot.endsAt,
+        meetingUrl: meeting.meetingUrl ?? undefined,
+      },
+    });
+
+    await tx.meetingAvailabilitySlot.update({
+      where: { id: selectedSlot.id },
+      data: { reservedCount: { increment: 1 } },
+    });
+
+    return { createdRequest, booking };
   });
 
   await createAuditLog({
     action: "business.custom_page_requested",
     targetType: "custom_page_request",
+    targetId: request.createdRequest.id,
     tenantId: membership.tenantId,
     actorUserId: verifiedSession.user.id,
     ipAddress: requestContext.ipAddress,
     userAgent: requestContext.userAgent,
+    metadata: {
+      slotId: parsed.data.slotId,
+      bookingId: request.booking.id,
+      attachments: storedFiles.length,
+    },
   });
 
-  revalidatePath("/app/owner");
+  revalidatePath("/app/business");
+  revalidatePath("/app");
+  revalidatePath("/app/owner/customizations");
   return {
-    success: "Recibimos tu solicitud de pagina personalizada. El equipo la revisara contigo.",
+    success:
+      "Recibimos tu solicitud y reservamos la reunion de definicion. Veras recordatorios dentro del panel.",
   };
 }
 
@@ -513,4 +645,44 @@ export async function requestPremiumPlanAction(): Promise<AuthActionState> {
   return {
     success: "Registramos tu interes por Premium. El siguiente paso es contacto comercial o billing.",
   };
+}
+
+export async function requestCustomProjectMeetingAction(
+  _: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const verifiedSession = await requireVerifiedUser();
+  const { membership } = await requireTenantRole(tenantRoles.OWNER);
+  const requestId = String(formData.get("requestId") ?? "");
+  const meetingType = String(formData.get("meetingType") ?? "");
+  const requestedDateRaw = String(formData.get("requestedDate") ?? "");
+  if (!customProjectMeetingTypes.has(meetingType as CustomProjectMeetingTypeInput)) {
+    return { error: "Tipo de reunion invalido." };
+  }
+  if (!requestId || !meetingType || !requestedDateRaw) {
+    return { error: "Completa tipo de reunion y fecha solicitada." };
+  }
+
+  const meeting = await prisma.customProjectMeeting.findUnique({
+    where: { customPageRequestId_type: { customPageRequestId: requestId, type: meetingType as CustomProjectMeetingTypeInput } },
+    select: { id: true, isEnabledByAdmin: true, tenantId: true },
+  });
+
+  if (!meeting || !meeting.isEnabledByAdmin || meeting.tenantId !== membership.tenantId) {
+    return { error: "Esta reunion aun no fue habilitada por administracion." };
+  }
+
+  await prisma.customProjectMeeting.update({
+    where: { id: meeting.id },
+    data: {
+      status: "REQUESTED",
+      requestedByUserId: verifiedSession.user.id,
+      requestedAt: new Date(),
+      requestedDate: new Date(requestedDateRaw),
+    },
+  });
+
+  revalidatePath("/app/business");
+  revalidatePath("/app/owner/customizations");
+  return { success: "Solicitud de reunion enviada. Te confirmaremos fecha final." };
 }

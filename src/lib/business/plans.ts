@@ -12,6 +12,8 @@ export type PlanSnapshot = Pick<
   | "premiumEnabled"
   | "customDomainEnabled"
   | "temporaryPagesEnabled"
+  | "businessProjectLimit"
+  | "labsAssistantLimit"
   | "currentPeriodEndsAt"
 >;
 
@@ -21,6 +23,8 @@ export const DEFAULT_BUSINESS_PLAN: PlanSnapshot = {
   premiumEnabled: false,
   customDomainEnabled: false,
   temporaryPagesEnabled: true,
+  businessProjectLimit: 1,
+  labsAssistantLimit: 1,
   currentPeriodEndsAt: null,
 };
 
@@ -35,6 +39,7 @@ export function getPlanLimits(plan: PlanSnapshot) {
   if (plan.plan === "PREMIUM" || plan.premiumEnabled) {
     return {
       maxPages: 12,
+      businessProjectLimit: plan.businessProjectLimit || 1,
       canUseCustomDomain: true,
       canRequestCustomTemplate: true,
       canKeepTemporaryPages: true,
@@ -43,6 +48,7 @@ export function getPlanLimits(plan: PlanSnapshot) {
 
   return {
     maxPages: 3,
+    businessProjectLimit: plan.businessProjectLimit || 1,
     canUseCustomDomain: false,
     canRequestCustomTemplate: true,
     canKeepTemporaryPages: true,

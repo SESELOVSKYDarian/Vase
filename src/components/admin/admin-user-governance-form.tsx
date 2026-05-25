@@ -28,6 +28,7 @@ export function AdminUserGovernanceForm(props: AdminUserGovernanceFormProps) {
             className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
           >
             <option value="USER">User</option>
+            <option value="DEVELOPER">Developer</option>
             <option value="SUPPORT">Support</option>
             <option value="SUPER_ADMIN">Super Admin</option>
           </select>

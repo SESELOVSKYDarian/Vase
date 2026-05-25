@@ -49,7 +49,7 @@ export const rolePanels: ReadonlyArray<{
     icon: ShieldCheck,
   },
   {
-    href: "/app/owner",
+    href: "/app/business",
     label: "Tenant Owner",
     description: "Configuración del negocio, billing y control de acceso.",
     icon: Building2,

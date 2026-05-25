@@ -41,6 +41,7 @@ export const registerSchema = z.object({
   recommendationSummary: z.string().trim().min(8).max(500),
   monthlyEstimate: z.number().min(0).max(10000000),
   setupEstimate: z.number().min(0).max(10000000),
+  createPremiumTrialUser: z.boolean().default(false),
   acceptTerms: z.boolean().refine((val) => val === true, {
     message: "Debes aceptar los términos y condiciones para continuar.",
   }),

@@ -29,6 +29,6 @@ export function getPostRegistrationRedirect(selection: ProductSelection) {
     case "BOTH":
       return "/app/owner/labs/setup";
     default:
-      return "/app/owner?product=business";
+      return "/app/business?product=business";
   }
 }

@@ -131,7 +131,8 @@ export async function DELETE(request: Request) {
 
     const item = await deleteSupportKnowledgeItem({
       knowledgeId: parsed.data.knowledgeId,
-      actorPlatformRole: session.user.platformRole,
+      actorPlatformRole:
+        session.user.platformRole === "SUPER_ADMIN" ? "SUPER_ADMIN" : "SUPPORT",
     });
 
     return NextResponse.json({ item });

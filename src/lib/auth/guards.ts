@@ -66,6 +66,7 @@ export async function requireTenantRole(requiredRole: TenantRole, tenantSlug?: s
 export const platformRoles = {
   SUPER_ADMIN: "SUPER_ADMIN",
   SUPPORT: "SUPPORT",
+  DEVELOPER: "DEVELOPER",
   USER: "USER",
 } as const;
 

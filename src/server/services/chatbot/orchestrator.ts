@@ -1,9 +1,11 @@
 import type { AiChannelType } from "@prisma/client";
 import { downloadWhatsAppMedia } from "@/lib/integrations";
+import { readWhatsAppProviderConfig } from "@/lib/integrations/whatsapp-provider";
 import type { InboundChannelMessage } from "@/lib/integrations/channel-types";
 import { dispatchChannelReply } from "@/server/services/chatbot/channel-dispatch";
 import {
   getOrCreateConversation,
+  isAiPaused,
   persistInboundMessage,
   persistOutboundMessage,
 } from "@/server/services/chatbot/conversation-state";
@@ -35,7 +37,8 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
 
   if (message.messageType === "audio" && message.mediaId) {
     if (message.channelType === "WHATSAPP") {
-      const accessToken = String(tenantConfig.channelConfig.accessToken || "");
+      const providerConfig = readWhatsAppProviderConfig(tenantConfig.channelConfig);
+      const accessToken = String(providerConfig.accessToken || "");
       if (!accessToken) {
         throw new Error("WhatsApp access token missing for audio transcription");
       }
@@ -54,6 +57,10 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
     userMessage: text,
   });
 
+  if (isAiPaused(conversation.metadata)) {
+    return { conversationId: conversation.id, paused: true };
+  }
+
   const decision = await routeInboundMessage({
     tenantConfig,
     aiConfig,
@@ -69,6 +76,7 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
   if (message.customerContact) {
     await dispatchChannelReply({
       channelType: message.channelType,
+      channelId: tenantConfig.channelId,
       channelConfig: tenantConfig.channelConfig,
       customerContact: message.customerContact,
       text: decision.reply,

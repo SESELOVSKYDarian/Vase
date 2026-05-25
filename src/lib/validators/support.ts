@@ -79,3 +79,11 @@ export const supportAiFeedbackSchema = z.object({
   helpful: z.boolean(),
   feedbackNote: z.string().trim().max(800).optional(),
 });
+
+export const takeSupportTicketSchema = z.object({
+  ticketId: z.string().trim().cuid(),
+});
+
+export const addSupportTicketAttachmentSchema = z.object({
+  ticketId: z.string().trim().cuid(),
+});

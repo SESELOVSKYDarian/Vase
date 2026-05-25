@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
+import { AvailabilityToggle } from "@/components/internal/availability-toggle";
 import { StatusBadge } from "@/components/business/status-badge";
 import { SupportReplyTemplateForm } from "@/components/support/support-reply-template-form";
 import { SupportTicketNoteForm } from "@/components/support/support-ticket-note-form";
+import { SupportTicketAttachmentForm } from "@/components/support/support-ticket-attachment-form";
 import { SupportTicketResponseForm } from "@/components/support/support-ticket-response-form";
+import { SupportTicketTakeForm } from "@/components/support/support-ticket-take-form";
 import { SupportTicketTriageForm } from "@/components/support/support-ticket-triage-form";
 import { PanelCard } from "@/components/ui/panel-card";
+import { prisma } from "@/lib/db/prisma";
 import {
   formatWaitingTime,
   getSupportPriorityLabel,
@@ -14,21 +18,50 @@ import {
   getSupportStatusLabel,
   getSupportTicketTone,
 } from "@/lib/support/tickets";
-import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
+import { requireVerifiedUser } from "@/lib/auth/guards";
 import { getSupportQueueDashboard } from "@/server/queries/support";
 
-export default async function SupportPage() {
+type SupportPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function getStringParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function SupportPage({ searchParams }: SupportPageProps) {
+  const session = await requireVerifiedUser();
   try {
-    await requireVerifiedPlatformRole(platformRoles.SUPPORT);
+    if (session.user.platformRole !== "SUPPORT" && session.user.platformRole !== "SUPER_ADMIN") {
+      throw new Error("FORBIDDEN");
+    }
   } catch {
     forbidden();
   }
 
-  const dashboard = await getSupportQueueDashboard();
+  const params = await searchParams;
+  const view = getStringParam(params.view) ?? "all";
+
+  const [dashboard, profile] = await Promise.all([
+    getSupportQueueDashboard({
+      platformRole: session.user.platformRole,
+      userId: session.user.id,
+    }),
+    prisma.internalUserProfile.findUnique({
+      where: { userId: session.user.id },
+      select: { availability: true },
+    }),
+  ]);
   type SupportTicketItem = (typeof dashboard.tickets)[number];
   type SupportAgentItem = (typeof dashboard.agents)[number];
   type SupportTemplateItem = (typeof dashboard.templates)[number];
   type SupportNotificationItem = (typeof dashboard.notifications)[number];
+  const filteredTickets = dashboard.tickets.filter((ticket) => {
+    if (view === "mine") return ticket.assignedToUserId === session.user.id;
+    if (view === "unassigned") return !ticket.assignedToUserId;
+    if (view === "urgent") return ticket.priority === "URGENT";
+    return true;
+  });
 
   return (
     <AppShell
@@ -62,6 +95,10 @@ export default async function SupportPage() {
             {dashboard.summary.unreadNotifications}
           </p>
         </PanelCard>
+        <PanelCard title="Mi estado" description="Controla tu disponibilidad para asignación automática.">
+          <p className="mb-3 text-sm text-[var(--muted)]">{profile?.availability ?? "OFFLINE"}</p>
+          <AvailabilityToggle current={(profile?.availability as "ONLINE" | "OFFLINE" | "BUSY" | null) ?? "OFFLINE"} />
+        </PanelCard>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -70,13 +107,19 @@ export default async function SupportPage() {
           title="Toma, asignación y seguimiento"
           description="Cada ticket conserva su historial, contexto de IA, tiempos de espera y acciones del equipo."
         >
+          <div className="mb-4 flex flex-wrap gap-2">
+            <Link href="/app/support?view=all" className={`rounded-full px-3 py-1 text-xs font-semibold ${view === "all" ? "bg-[var(--accent-strong)] text-[var(--accent-contrast)]" : "border border-[var(--border-subtle)] text-[var(--foreground)]"}`}>Todos</Link>
+            <Link href="/app/support?view=mine" className={`rounded-full px-3 py-1 text-xs font-semibold ${view === "mine" ? "bg-[var(--accent-strong)] text-[var(--accent-contrast)]" : "border border-[var(--border-subtle)] text-[var(--foreground)]"}`}>Mis tickets</Link>
+            <Link href="/app/support?view=unassigned" className={`rounded-full px-3 py-1 text-xs font-semibold ${view === "unassigned" ? "bg-[var(--accent-strong)] text-[var(--accent-contrast)]" : "border border-[var(--border-subtle)] text-[var(--foreground)]"}`}>Sin asignar</Link>
+            <Link href="/app/support?view=urgent" className={`rounded-full px-3 py-1 text-xs font-semibold ${view === "urgent" ? "bg-[var(--accent-strong)] text-[var(--accent-contrast)]" : "border border-[var(--border-subtle)] text-[var(--foreground)]"}`}>Urgentes</Link>
+          </div>
           <div className="grid gap-5">
-            {dashboard.tickets.length === 0 ? (
+            {filteredTickets.length === 0 ? (
               <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-6 text-sm leading-7 text-[var(--muted)]">
                 No hay tickets en este momento.
               </div>
             ) : (
-              dashboard.tickets.map((ticket: SupportTicketItem) => (
+              filteredTickets.map((ticket: SupportTicketItem) => (
                 <div key={ticket.id} className="grid gap-4 rounded-[28px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)]/75 p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-2">
@@ -126,7 +169,7 @@ export default async function SupportPage() {
                     </div>
                   ) : null}
 
-                  <div className="grid gap-4 xl:grid-cols-3">
+                  <div className="grid gap-4 xl:grid-cols-4">
                     <SupportTicketTriageForm
                       ticketId={ticket.id}
                       currentPriority={ticket.priority}
@@ -148,7 +191,11 @@ export default async function SupportPage() {
                       }))}
                     />
                     <SupportTicketNoteForm ticketId={ticket.id} />
+                    <SupportTicketAttachmentForm ticketId={ticket.id} />
                   </div>
+                  {!ticket.assignedToUserId ? (
+                    <SupportTicketTakeForm ticketId={ticket.id} />
+                  ) : null}
 
                   <div className="grid gap-4 xl:grid-cols-2">
                     <div className="rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">
@@ -183,6 +230,21 @@ export default async function SupportPage() {
                             <div key={note.id} className="rounded-2xl bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] p-3 text-sm leading-6 text-[var(--muted)]">
                               <p className="font-medium text-[var(--foreground)]">{note.authorUser.name}</p>
                               <p>{note.body}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                    <div className="rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">
+                      <p className="font-semibold text-[var(--foreground)]">Adjuntos</p>
+                      <div className="mt-3 grid gap-3">
+                        {ticket.attachments.length === 0 ? (
+                          <p className="text-sm leading-6 text-[var(--muted)]">Sin archivos adjuntos todavía.</p>
+                        ) : (
+                          ticket.attachments.map((attachment) => (
+                            <div key={attachment.id} className="rounded-2xl bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] p-3 text-sm leading-6 text-[var(--muted)]">
+                              <p className="font-medium text-[var(--foreground)]">{attachment.fileName}</p>
+                              <p>{attachment.mimeType} · {attachment.sizeBytes} bytes</p>
                             </div>
                           ))
                         )}

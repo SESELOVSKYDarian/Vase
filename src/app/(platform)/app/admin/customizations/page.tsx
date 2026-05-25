@@ -1,7 +1,9 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
+import { AdminMeetingSlotManager } from "@/components/admin/admin-meeting-slot-manager";
 import { AdminCustomizationQuoteForm } from "@/components/admin/admin-customization-quote-form";
 import { AdminCustomizationReviewForm } from "@/components/business/admin-customization-review-form";
+import { CustomProjectControlsForm } from "@/components/admin/custom-project-controls-form";
 import { StatusBadge } from "@/components/business/status-badge";
 import { PanelCard } from "@/components/ui/panel-card";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
@@ -61,6 +63,11 @@ export default async function AdminCustomizationsPage() {
           </p>
         </PanelCard>
       </section>
+
+      <AdminMeetingSlotManager
+        tenants={workspace.tenants}
+        upcomingSlots={workspace.upcomingSlots}
+      />
 
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <PanelCard
@@ -123,6 +130,7 @@ export default async function AdminCustomizationsPage() {
                   />
                   <AdminCustomizationQuoteForm requestId={request.id} quote={request.quote} />
                 </div>
+                <CustomProjectControlsForm requestId={request.id} tenantId={request.tenant.id} />
 
                 {request.quote ? (
                   <div className="grid gap-4 rounded-[24px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">
