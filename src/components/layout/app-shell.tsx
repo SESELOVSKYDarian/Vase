@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
   CreditCard,
   FileBarChart2,
+  FileImage,
   FolderPlus,
   FlaskConical,
   Home,
@@ -103,6 +104,10 @@ function inferActiveSection(pathname: string) {
 
   if (pathname.startsWith("/app/settings")) {
     return "settings";
+  }
+
+  if (pathname.startsWith("/app/archivos")) {
+    return "files";
   }
 
   if (pathname.startsWith("/app/labs")) {
@@ -232,6 +237,7 @@ export function AppShell({
     { id: "home", href: "/app", label: "Inicio", icon: Home, description: "Panel principal simple" },
     { id: "business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business", icon: Building2, description: "Crear y gestionar pagina" },
     { id: "labs", href: "/app/labs", label: "Vase Labs", icon: FlaskConical, description: "Crear y gestionar chatbot" },
+    { id: "files", href: "/app/archivos", label: "Mis archivos", icon: FileImage, description: "Subida privada de imagenes y documentos" },
     { id: "analytics", href: "/app/analytics", label: "Analiticas", icon: TrendingUp, description: "KPIs y datos del negocio" },
     { id: "settings", href: "/app/settings", label: "Configuracion", icon: Settings2, description: "Ajustes y facturacion" },
   ];
