@@ -94,7 +94,6 @@ export async function getAdminCustomizationQuoteWorkspace() {
     prisma.meetingAvailabilitySlot.findMany({
       where: {
         isActive: true,
-        startsAt: { gte: new Date() },
       },
       include: {
         tenant: {
@@ -104,8 +103,8 @@ export async function getAdminCustomizationQuoteWorkspace() {
           },
         },
       },
-      orderBy: { startsAt: "asc" },
-      take: 20,
+      orderBy: { createdAt: "desc" },
+      take: 50,
     }),
   ]);
 

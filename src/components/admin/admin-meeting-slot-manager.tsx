@@ -43,13 +43,20 @@ export function AdminMeetingSlotManager({
   const [state, action, pending] = useActionState(createMeetingAvailabilitySlotAction, {});
   const [isOpen, setIsOpen] = useState(false);
   const defaultTenantId = tenants[0]?.id ?? "";
+  const visibleSlots = useMemo(() => {
+    if (!state.createdSlot) {
+      return upcomingSlots;
+    }
+
+    return [state.createdSlot, ...upcomingSlots.filter((slot) => slot.id !== state.createdSlot?.id)];
+  }, [state.createdSlot, upcomingSlots]);
   const totalAvailable = useMemo(
     () =>
-      upcomingSlots.reduce(
+      visibleSlots.reduce(
         (acc, slot) => acc + Math.max(0, Number(slot.capacity) - Number(slot.reservedCount)),
         0,
       ),
-    [upcomingSlots],
+    [visibleSlots],
   );
 
   useEffect(() => {
@@ -82,9 +89,9 @@ export function AdminMeetingSlotManager({
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-4">
           <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted-soft)]">
             <CalendarDays className="size-4" />
-            Slots próximos
+            Slots cargados
           </p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--foreground)]">{upcomingSlots.length}</p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--foreground)]">{visibleSlots.length}</p>
         </div>
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-4">
           <p className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted-soft)]">
@@ -105,14 +112,14 @@ export function AdminMeetingSlotManager({
       </div>
 
       <div className="grid gap-2">
-        <p className="text-sm font-semibold text-[var(--foreground)]">Próximos horarios</p>
-        {upcomingSlots.length === 0 ? (
+        <p className="text-sm font-semibold text-[var(--foreground)]">Horarios cargados</p>
+        {visibleSlots.length === 0 ? (
           <p className="rounded-xl border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--muted)]">
             Todavía no hay horarios cargados.
           </p>
         ) : (
           <div className="grid gap-2 md:grid-cols-2">
-            {upcomingSlots.map((slot) => (
+            {visibleSlots.map((slot) => (
               <div
                 key={slot.id}
                 className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-3 text-sm"

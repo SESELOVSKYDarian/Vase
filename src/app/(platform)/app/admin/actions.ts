@@ -107,6 +107,17 @@ export type AdminReviewActionState = {
 export type AdminGovernanceActionState = {
   success?: string;
   error?: string;
+  createdSlot?: {
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    capacity: number;
+    reservedCount: number;
+    tenant: {
+      id: string;
+      accountName: string;
+    };
+  };
 };
 
 function toNullableDate(value: string) {
@@ -2736,7 +2747,7 @@ export async function createMeetingAvailabilitySlotAction(
       return { error: "El horario de fin debe ser mayor al de inicio." };
     }
 
-    await prisma.meetingAvailabilitySlot.create({
+    const createdSlot = await prisma.meetingAvailabilitySlot.create({
       data: {
         tenantId: parsed.data.tenantId,
         startsAt,
@@ -2747,10 +2758,28 @@ export async function createMeetingAvailabilitySlotAction(
         createdByUserId: adminSession.user.id,
         updatedByUserId: adminSession.user.id,
       },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            accountName: true,
+          },
+        },
+      },
     });
 
     revalidatePath("/app/admin/customizations");
-    return { success: "Slot de agenda creado." };
+    return {
+      success: "Slot de agenda creado.",
+      createdSlot: {
+        id: createdSlot.id,
+        startsAt: createdSlot.startsAt.toISOString(),
+        endsAt: createdSlot.endsAt.toISOString(),
+        capacity: createdSlot.capacity,
+        reservedCount: createdSlot.reservedCount,
+        tenant: createdSlot.tenant,
+      },
+    };
   } catch {
     return { error: "No pudimos crear el slot." };
   }
