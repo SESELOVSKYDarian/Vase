@@ -41,7 +41,7 @@ export default async function BusinessPage() {
     getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
     prisma.tenantSubscription.findUnique({ where: { tenantId: membership.tenantId } }).catch(() => null),
     prisma.meetingAvailabilitySlot.findMany({
-      where: { tenantId: membership.tenantId, isActive: true, startsAt: { gte: new Date() } },
+      where: { tenantId: membership.tenantId, isActive: true, endsAt: { gte: new Date() } },
       orderBy: { startsAt: "asc" },
       take: 20,
     }),

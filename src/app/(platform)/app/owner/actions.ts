@@ -293,7 +293,7 @@ export async function requestCustomPageAction(
       id: parsed.data.slotId,
       tenantId: membership.tenantId,
       isActive: true,
-      startsAt: { gte: new Date() },
+      endsAt: { gte: new Date() },
     },
   });
 

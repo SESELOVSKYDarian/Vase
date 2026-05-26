@@ -42,7 +42,7 @@ export function AdminMeetingSlotManager({
   const router = useRouter();
   const [state, action, pending] = useActionState(createMeetingAvailabilitySlotAction, {});
   const [isOpen, setIsOpen] = useState(false);
-  const defaultTenantId = tenants[0]?.id ?? "";
+  const defaultTenantId = "";
   const visibleSlots = useMemo(() => {
     if (!state.createdSlot) {
       return upcomingSlots;
@@ -161,9 +161,13 @@ export function AdminMeetingSlotManager({
               <label className="text-xs text-[var(--muted)]">Cliente/tenant</label>
               <select
                 name="tenantId"
+                required
                 defaultValue={defaultTenantId}
                 className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm"
               >
+                <option value="" disabled>
+                  Selecciona cliente/tenant
+                </option>
                 {tenants.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>
                     {tenant.accountName} · {tenant.name}
