@@ -79,6 +79,8 @@ Referencia completa en `.env.easypanel.example`.
 | `NODE_ENV` | `production` | fijo |
 | `PORT` | `3000` | fijo |
 | `HOSTNAME` | `0.0.0.0` | fijo |
+| `MASTER_ADMIN_PASSWORD` | `vase0091218**` | crea/actualiza el Master Admin al arrancar |
+| `MASTER_ADMIN_EMAIL` | `vasescompany912@gmail.com` | opcional; si no se define usa este email |
 
 ### Variables de email (requeridas para auth funcional)
 
@@ -131,7 +133,9 @@ Estas variables conectan `vase.ar` con el servicio `uploads.vase.ar`. `UPLOADS_J
 
 ### Crear o actualizar el Master Admin
 
-Después de que la app y MySQL estén conectados, abrí la terminal del App Service en EasyPanel y ejecutá:
+Si `MASTER_ADMIN_PASSWORD` está cargada en Environment, el contenedor crea o actualiza el Master Admin automáticamente en cada arranque, después de sincronizar Prisma.
+
+También podés ejecutarlo manualmente desde la terminal del App Service:
 
 ```bash
 MASTER_ADMIN_EMAIL='vasescompany912@gmail.com' MASTER_ADMIN_PASSWORD='vase0091218**' npm run bootstrap:master-admin
