@@ -129,6 +129,16 @@ Estas variables conectan `vase.ar` con el servicio `uploads.vase.ar`. `UPLOADS_J
 4. Al arrancar el contenedor, se ejecutan automáticamente las migraciones de Prisma (`prisma migrate deploy`)
 5. Cuando el status sea **Running**, la app está disponible
 
+### Crear o actualizar el Master Admin
+
+Después de que la app y MySQL estén conectados, abrí la terminal del App Service en EasyPanel y ejecutá:
+
+```bash
+MASTER_ADMIN_EMAIL='vasescompany912@gmail.con' MASTER_ADMIN_PASSWORD='vase0091218**' npm run bootstrap:master-admin
+```
+
+El comando es idempotente: si el usuario ya existe, actualiza nombre, contraseña, rol `SUPER_ADMIN` y marca el email como verificado. Si no existe, lo crea.
+
 ---
 
 ## Paso 6 — Verificar salud
