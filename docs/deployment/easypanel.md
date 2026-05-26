@@ -81,6 +81,8 @@ Referencia completa en `.env.easypanel.example`.
 | `HOSTNAME` | `0.0.0.0` | fijo |
 | `MASTER_ADMIN_PASSWORD` | `vase0091218**` | crea/actualiza el Master Admin al arrancar |
 | `MASTER_ADMIN_EMAIL` | `vasescompany912@gmail.com` | opcional; si no se define usa este email |
+| `TEST_ACCOUNT_PASSWORD` | contraseña de prueba | opcional; crea/actualiza una cuenta cliente de prueba al arrancar |
+| `TEST_ACCOUNT_EMAIL` | `cliente.prueba@vase.local` | opcional; email de la cuenta cliente de prueba |
 
 ### Variables de email (requeridas para auth funcional)
 
@@ -142,6 +144,24 @@ MASTER_ADMIN_EMAIL='vasescompany912@gmail.com' MASTER_ADMIN_PASSWORD='vase009121
 ```
 
 El comando es idempotente: si el usuario ya existe, actualiza nombre, contraseña, rol `SUPER_ADMIN` y marca el email como verificado. Si no existe, lo crea.
+
+### Crear o actualizar una cuenta cliente de prueba
+
+Si `TEST_ACCOUNT_PASSWORD` está cargada en Environment, el contenedor crea o actualiza una cuenta cliente de prueba automáticamente. Por defecto usa:
+
+```env
+TEST_ACCOUNT_EMAIL=cliente.prueba@vase.local
+TEST_TENANT_SLUG=cliente-prueba
+TEST_TENANT_NAME=Cliente de Prueba Vase
+```
+
+También podés ejecutarlo manualmente desde la terminal del App Service:
+
+```bash
+TEST_ACCOUNT_EMAIL='cliente.prueba@vase.local' TEST_ACCOUNT_PASSWORD='Cliente#2026!' npm run bootstrap:test-account
+```
+
+La cuenta queda como `USER`, con email verificado, membresía `OWNER` activa y un tenant de prueba activo.
 
 ---
 

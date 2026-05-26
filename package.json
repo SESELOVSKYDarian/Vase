@@ -22,6 +22,7 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "db:reset:dev": "prisma db push --force-reset && npm run prisma:seed",
     "bootstrap:master-admin": "tsx scripts/bootstrap-master-admin.ts",
+    "bootstrap:test-account": "tsx scripts/bootstrap-test-account.ts",
     "accounts:reset-default": "tsx scripts/reset-accounts-to-default.ts"
   },
   "dependencies": {

@@ -34,4 +34,4 @@ COPY --from=builder /app/node_modules ./node_modules
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && if [ -n \"$MASTER_ADMIN_PASSWORD\" ]; then npm run bootstrap:master-admin; fi && npx next start -H 0.0.0.0 -p 3000"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && if [ -n \"$MASTER_ADMIN_PASSWORD\" ]; then npm run bootstrap:master-admin; fi && if [ -n \"$TEST_ACCOUNT_PASSWORD\" ]; then npm run bootstrap:test-account; fi && npx next start -H 0.0.0.0 -p 3000"]
