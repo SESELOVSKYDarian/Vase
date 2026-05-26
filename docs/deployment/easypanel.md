@@ -52,9 +52,13 @@ DATABASE_URL=mysql://vase_user:S3cur3Pass\!@mysql:3306/vase
 4. En **Build Arguments** — agregá:
    ```
    NEXT_PUBLIC_APP_URL=https://tu-dominio.com
+   NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=TU_CLAVE_BASE64_32_BYTES
+   NEXT_DEPLOYMENT_ID=IDENTIFICADOR_UNICO_DEL_DEPLOY
    ```
    > ⚠️ `NEXT_PUBLIC_APP_URL` se "hornea" en el bundle del cliente en build time.  
    > Debe ir como Build Argument **y también** como variable de entorno en runtime.
+   > `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` también debe estar disponible durante `next build`; usá el mismo valor en Build Arguments y Environment.
+   > `NEXT_DEPLOYMENT_ID` debe cambiar en cada deploy real y ser igual para todas las réplicas de ese deploy.
 5. En **Ports**:
    - **Port**: `3000`
    - **Protocol**: `HTTP`
@@ -73,6 +77,8 @@ Referencia completa en `.env.easypanel.example`.
 |---|---|---|
 | `DATABASE_URL` | `mysql://vase_user:PASS@mysql:3306/vase` | Ver Paso 2 |
 | `AUTH_SECRET` | cadena aleatoria de 32+ chars | `openssl rand -base64 32` |
+| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | base64 de 32 bytes | usar el mismo valor en Build Arguments y Environment |
+| `NEXT_DEPLOYMENT_ID` | identificador del deploy | mismo valor que Build Arguments para ese deploy |
 | `NEXT_PUBLIC_APP_URL` | `https://tu-dominio.com` | Tu dominio público |
 | `TRUSTED_ORIGINS` | `https://tu-dominio.com` | Tu dominio público |
 | `MONITORING_TOKEN` | cadena aleatoria de 32+ chars | `openssl rand -base64 32` |

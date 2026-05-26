@@ -30,6 +30,12 @@ const contentSecurityPolicy = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   typedRoutes: true,
+  ...(process.env.NEXT_DEPLOYMENT_ID
+    ? {
+        deploymentId: process.env.NEXT_DEPLOYMENT_ID,
+        generateBuildId: async () => process.env.NEXT_DEPLOYMENT_ID as string,
+      }
+    : {}),
   images: {
     remotePatterns: [
       {

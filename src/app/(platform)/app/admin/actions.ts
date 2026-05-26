@@ -113,6 +113,28 @@ function toNullableDate(value: string) {
   return value ? new Date(value) : null;
 }
 
+function parseBuenosAiresDateTimeLocal(value: string) {
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/,
+  );
+
+  if (!match) {
+    return new Date(value);
+  }
+
+  const [, year, month, day, hour, minute, second = "0"] = match;
+  return new Date(
+    Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour) + 3,
+      Number(minute),
+      Number(second),
+    ),
+  );
+}
+
 function generateTemporaryPassword() {
   return `Vase-${randomUUID().slice(0, 8)}#${Math.floor(100 + Math.random() * 900)}`;
 }
@@ -2707,15 +2729,18 @@ export async function createMeetingAvailabilitySlotAction(
     });
     if (!parsed.success) return { error: "Datos de agenda invalidos." };
 
-    if (new Date(parsed.data.endsAt) <= new Date(parsed.data.startsAt)) {
+    const startsAt = parseBuenosAiresDateTimeLocal(parsed.data.startsAt);
+    const endsAt = parseBuenosAiresDateTimeLocal(parsed.data.endsAt);
+
+    if (endsAt <= startsAt) {
       return { error: "El horario de fin debe ser mayor al de inicio." };
     }
 
     await prisma.meetingAvailabilitySlot.create({
       data: {
         tenantId: parsed.data.tenantId,
-        startsAt: new Date(parsed.data.startsAt),
-        endsAt: new Date(parsed.data.endsAt),
+        startsAt,
+        endsAt,
         durationMinutes: parsed.data.durationMinutes,
         capacity: parsed.data.capacity,
         notes: parsed.data.notes ?? null,
@@ -2756,8 +2781,8 @@ export async function updateMeetingAvailabilitySlotAction(
       where: { id: parsed.data.slotId },
       data: {
         isActive: parsed.data.isActive,
-        startsAt: parsed.data.startsAt ? new Date(parsed.data.startsAt) : undefined,
-        endsAt: parsed.data.endsAt ? new Date(parsed.data.endsAt) : undefined,
+        startsAt: parsed.data.startsAt ? parseBuenosAiresDateTimeLocal(parsed.data.startsAt) : undefined,
+        endsAt: parsed.data.endsAt ? parseBuenosAiresDateTimeLocal(parsed.data.endsAt) : undefined,
         durationMinutes: parsed.data.durationMinutes,
         capacity: parsed.data.capacity,
         notes: parsed.data.notes ?? undefined,
