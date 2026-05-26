@@ -9,6 +9,22 @@ import { FieldError } from "@/components/auth/field-error";
 import { SubmitButton } from "@/components/auth/submit-button";
 
 const initialState: AuthActionState = {};
+const fieldMeta = {
+  businessObjective: { label: "Objetivo del negocio", step: 1 },
+  businessDescription: { label: "Descripcion del negocio", step: 1 },
+  pageScope: { label: "Pagina o experiencia", step: 1 },
+  desiredColors: { label: "Colores deseados", step: 2 },
+  brandStyle: { label: "Estilo de marca", step: 2 },
+  desiredFeatures: { label: "Funcionalidades deseadas", step: 2 },
+  visualReferences: { label: "Referencias visuales", step: 3 },
+  designReferences: { label: "Referencias de diseno", step: 3 },
+  requiredIntegrations: { label: "Integraciones necesarias", step: 4 },
+  observations: { label: "Observaciones", step: 4 },
+  notes: { label: "Detalles adicionales", step: 4 },
+  slotId: { label: "Horario de reunion", step: 4 },
+} as const;
+
+type FieldName = keyof typeof fieldMeta;
 
 type SlotOption = {
   id: string;
@@ -41,6 +57,19 @@ export function CustomPageRequestForm({ slots }: { slots: SlotOption[] }) {
 
   const totalSteps = 4;
   const requiredLabel = <span className="ml-1 text-[var(--danger)]">*</span>;
+  const errorItems = useMemo(
+    () =>
+      Object.entries(state.fieldErrors ?? {}).flatMap(([field, messages]) => {
+        const meta = fieldMeta[field as FieldName];
+        return messages.map((message) => ({
+          field,
+          label: meta?.label ?? field,
+          message,
+          step: meta?.step ?? 1,
+        }));
+      }),
+    [state.fieldErrors],
+  );
   const selectedFilesLabel = useMemo(
     () => (files.length === 0 ? "Sin archivos seleccionados" : `${files.length} archivo(s) listos`),
     [files.length],
@@ -55,6 +84,28 @@ export function CustomPageRequestForm({ slots }: { slots: SlotOption[] }) {
     <form action={formAction} className="grid gap-4">
       <AuthNotice kind="success" message={state.success} />
       <AuthNotice kind="error" message={state.error} />
+      {errorItems.length > 0 ? (
+        <div className="rounded-2xl border border-[var(--danger)]/30 bg-[color-mix(in_srgb,var(--danger)_8%,transparent)] p-4 text-sm">
+          <p className="font-semibold text-[var(--foreground)]">Campos a corregir</p>
+          <ul className="mt-2 grid gap-1 text-[var(--muted)]">
+            {errorItems.map((item) => (
+              <li key={`${item.field}-${item.message}`} className="flex flex-wrap items-center gap-2">
+                <span>
+                  <span className="font-semibold text-[var(--foreground)]">{item.label}:</span>{" "}
+                  {item.message}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setStep(item.step)}
+                  className="rounded-full border border-[var(--border-subtle)] px-2 py-1 text-xs font-semibold text-[var(--foreground)]"
+                >
+                  Ir al paso {item.step}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-4">
         <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted-soft)]">
           <span>Paso {step} de {totalSteps}</span>
@@ -71,17 +122,17 @@ export function CustomPageRequestForm({ slots }: { slots: SlotOption[] }) {
       <div className={step === 1 ? "grid gap-4" : "hidden"}>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="businessObjective">Objetivo del negocio{requiredLabel}</label>
-          <textarea id="businessObjective" name="businessObjective" rows={3} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+          <textarea id="businessObjective" name="businessObjective" rows={3} required minLength={10} maxLength={300} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
           <FieldError message={state.fieldErrors?.businessObjective?.[0]} />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="businessDescription">Descripción del negocio{requiredLabel}</label>
-          <textarea id="businessDescription" name="businessDescription" rows={4} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+          <textarea id="businessDescription" name="businessDescription" rows={4} required minLength={20} maxLength={500} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
           <FieldError message={state.fieldErrors?.businessDescription?.[0]} />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="pageScope">Qué página o experiencia necesitas{requiredLabel}</label>
-          <textarea id="pageScope" name="pageScope" rows={3} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+          <textarea id="pageScope" name="pageScope" rows={3} required minLength={10} maxLength={200} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
           <FieldError message={state.fieldErrors?.pageScope?.[0]} />
         </div>
       </div>
@@ -90,18 +141,18 @@ export function CustomPageRequestForm({ slots }: { slots: SlotOption[] }) {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="desiredColors">Colores deseados{requiredLabel}</label>
-            <textarea id="desiredColors" name="desiredColors" rows={3} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+            <textarea id="desiredColors" name="desiredColors" rows={3} required minLength={3} maxLength={200} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
             <FieldError message={state.fieldErrors?.desiredColors?.[0]} />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="brandStyle">Estilo de marca{requiredLabel}</label>
-            <textarea id="brandStyle" name="brandStyle" rows={3} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+            <textarea id="brandStyle" name="brandStyle" rows={3} required minLength={5} maxLength={200} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
             <FieldError message={state.fieldErrors?.brandStyle?.[0]} />
           </div>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="desiredFeatures">Funcionalidades deseadas{requiredLabel}</label>
-          <textarea id="desiredFeatures" name="desiredFeatures" rows={4} required className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
+          <textarea id="desiredFeatures" name="desiredFeatures" rows={4} required minLength={10} maxLength={400} className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]" />
           <FieldError message={state.fieldErrors?.desiredFeatures?.[0]} />
         </div>
       </div>
