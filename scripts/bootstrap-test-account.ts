@@ -4,10 +4,10 @@ import { hashPassword } from "../src/lib/auth/password";
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = process.env.TEST_ACCOUNT_EMAIL ?? "cliente.prueba@vase.local";
+  const email = process.env.TEST_ACCOUNT_EMAIL ?? "prueba.piquim@vase.local";
   const password = process.env.TEST_ACCOUNT_PASSWORD;
-  const tenantSlug = process.env.TEST_TENANT_SLUG ?? "cliente-prueba";
-  const tenantName = process.env.TEST_TENANT_NAME ?? "Cliente de Prueba Vase";
+  const tenantSlug = process.env.TEST_TENANT_SLUG ?? "piquim-prueba";
+  const tenantName = process.env.TEST_TENANT_NAME ?? "PIQUIM Prueba";
 
   if (!password) {
     throw new Error("TEST_ACCOUNT_PASSWORD no esta configurada.");
@@ -18,13 +18,13 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { email },
     update: {
-      name: "Cliente Prueba",
+      name: "Prueba PIQUIM",
       platformRole: "USER",
       passwordHash,
       emailVerified: new Date(),
     },
     create: {
-      name: "Cliente Prueba",
+      name: "Prueba PIQUIM",
       email,
       platformRole: "USER",
       passwordHash,
