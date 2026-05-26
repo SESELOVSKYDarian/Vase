@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Clock3, Plus, Users, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import { createMeetingAvailabilitySlotAction } from "@/app/(platform)/app/admin/actions";
 
@@ -38,6 +39,7 @@ export function AdminMeetingSlotManager({
   tenants: TenantOption[];
   upcomingSlots: UpcomingSlot[];
 }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(createMeetingAvailabilitySlotAction, {});
   const [isOpen, setIsOpen] = useState(false);
   const defaultTenantId = tenants[0]?.id ?? "";
@@ -49,6 +51,11 @@ export function AdminMeetingSlotManager({
       ),
     [upcomingSlots],
   );
+
+  useEffect(() => {
+    if (!state.success) return;
+    router.refresh();
+  }, [router, state.success]);
 
   return (
     <section className="grid gap-4 rounded-[32px] border border-[var(--border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface)_92%,white),color-mix(in_srgb,var(--surface-strong)_84%,transparent))] p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">

@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { CalendarCheck2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   createMeetingAvailabilitySlotAction,
   enableCustomProjectMeetingAction,
@@ -19,12 +20,18 @@ const meetingTypes = ["DEFINITION", "DESIGN", "MID_DEVELOPMENT", "FINAL_DELIVERY
 const stages = ["DEFINITION", "DESIGN", "DELIVERY", "FOLLOW_UP"] as const;
 
 export function CustomProjectControlsForm({ requestId, tenantId }: Props) {
+  const router = useRouter();
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [meetingState, meetingAction, meetingPending] = useActionState(enableCustomProjectMeetingAction, {});
   const [stageState, stageAction, stagePending] = useActionState(updateCustomProjectMilestoneAction, {});
   const [linkState, linkAction, linkPending] = useActionState(setCustomProjectMeetingLinkAction, {});
   const [slotState, slotAction, slotPending] = useActionState(createMeetingAvailabilitySlotAction, {});
   const [provisionState, provisionAction, provisionPending] = useActionState(provisionCustomProjectAction, {});
+
+  useEffect(() => {
+    if (!slotState.success) return;
+    router.refresh();
+  }, [router, slotState.success]);
 
   return (
     <div className="grid gap-3 rounded-3xl border border-[var(--border-subtle)] p-4">
