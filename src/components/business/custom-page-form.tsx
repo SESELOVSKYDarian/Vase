@@ -81,7 +81,7 @@ export function CustomPageRequestForm({ slots }: { slots: SlotOption[] }) {
   }
 
   return (
-    <form action={formAction} className="grid gap-4">
+    <form action={formAction} noValidate className="grid gap-4">
       <AuthNotice kind="success" message={state.success} />
       <AuthNotice kind="error" message={state.error} />
       {errorItems.length > 0 ? (
