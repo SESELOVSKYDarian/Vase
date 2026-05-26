@@ -4,7 +4,7 @@ import { hashPassword } from "../src/lib/auth/password";
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = process.env.MASTER_ADMIN_EMAIL ?? "vasescompany912@gmail.con";
+  const email = process.env.MASTER_ADMIN_EMAIL ?? "vasescompany912@gmail.com";
   const password = process.env.MASTER_ADMIN_PASSWORD;
 
   if (!password) {

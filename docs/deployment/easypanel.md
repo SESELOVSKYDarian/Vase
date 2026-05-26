@@ -134,7 +134,7 @@ Estas variables conectan `vase.ar` con el servicio `uploads.vase.ar`. `UPLOADS_J
 Después de que la app y MySQL estén conectados, abrí la terminal del App Service en EasyPanel y ejecutá:
 
 ```bash
-MASTER_ADMIN_EMAIL='vasescompany912@gmail.con' MASTER_ADMIN_PASSWORD='vase0091218**' npm run bootstrap:master-admin
+MASTER_ADMIN_EMAIL='vasescompany912@gmail.com' MASTER_ADMIN_PASSWORD='vase0091218**' npm run bootstrap:master-admin
 ```
 
 El comando es idempotente: si el usuario ya existe, actualiza nombre, contraseña, rol `SUPER_ADMIN` y marca el email como verificado. Si no existe, lo crea.
