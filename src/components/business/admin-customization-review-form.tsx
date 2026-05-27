@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { ClipboardCheck, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { reviewCustomizationRequestAction, type AdminReviewActionState } from "@/app/(platform)/app/admin/actions";
 
 const initialState: AdminReviewActionState = {};
@@ -19,8 +20,14 @@ export function AdminCustomizationReviewForm({
   quotedPriceLabel,
   reviewNotes,
 }: AdminCustomizationReviewFormProps) {
+  const router = useRouter();
   const [state, formAction] = useActionState(reviewCustomizationRequestAction, initialState);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!state.success) return;
+    router.refresh();
+  }, [router, state.success]);
 
   return (
     <div className="grid gap-3 rounded-[22px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">

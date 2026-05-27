@@ -12,7 +12,6 @@ import {
 } from "@/lib/business/custom-quotes";
 import { createInitialBuilderDocument } from "@/lib/business/builder";
 import {
-  canAutoProvisionCustomProject,
   normalizeCustomProjectSlug,
   resolveCustomProjectSlug,
 } from "@/lib/business/custom-project";
@@ -2964,18 +2963,6 @@ export async function provisionCustomProjectAction(
     });
 
     if (!request) return { error: "No encontramos la solicitud personalizada." };
-    if (
-      !canAutoProvisionCustomProject(
-        {
-          plan: request.tenant.subscription?.plan ?? "START",
-          premiumEnabled: request.tenant.subscription?.premiumEnabled ?? false,
-        },
-        request.premiumRequested,
-      )
-    ) {
-      return { error: "El tenant debe tener plan Premium para provisionar el proyecto personalizado." };
-    }
-
     const baseAccountSlug = normalizeCustomProjectSlug(request.tenant.accountName);
     const usedSlugs = request.tenant.storefrontPages
       .filter((page) => page.id !== request.storefrontPageId)

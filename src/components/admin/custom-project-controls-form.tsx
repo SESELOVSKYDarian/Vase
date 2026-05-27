@@ -29,9 +29,24 @@ export function CustomProjectControlsForm({ requestId, tenantId }: Props) {
   const [provisionState, provisionAction, provisionPending] = useActionState(provisionCustomProjectAction, {});
 
   useEffect(() => {
-    if (!slotState.success) return;
+    if (
+      !meetingState.success &&
+      !stageState.success &&
+      !linkState.success &&
+      !slotState.success &&
+      !provisionState.success
+    ) {
+      return;
+    }
     router.refresh();
-  }, [router, slotState.success]);
+  }, [
+    router,
+    linkState.success,
+    meetingState.success,
+    provisionState.success,
+    slotState.success,
+    stageState.success,
+  ]);
 
   return (
     <div className="grid gap-3 rounded-3xl border border-[var(--border-subtle)] p-4">
@@ -118,6 +133,7 @@ export function CustomProjectControlsForm({ requestId, tenantId }: Props) {
         </div>
         <input name="notes" placeholder="Notas opcionales" className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm" />
         {slotState.error ? <p className="text-xs text-[var(--danger)]">{slotState.error}</p> : null}
+        {slotState.success ? <p className="text-xs text-[var(--success)]">{slotState.success}</p> : null}
       </form>
 
       <form action={stageAction} className="grid gap-2">
@@ -137,6 +153,7 @@ export function CustomProjectControlsForm({ requestId, tenantId }: Props) {
         </div>
         <input name="notes" placeholder="Notas internas visibles para cliente" className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm" />
         {stageState.error ? <p className="text-xs text-[var(--danger)]">{stageState.error}</p> : null}
+        {stageState.success ? <p className="text-xs text-[var(--success)]">{stageState.success}</p> : null}
       </form>
 
       <form action={provisionAction} className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] p-3">

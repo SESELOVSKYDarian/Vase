@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { FileText, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   sendCustomizationQuoteAction,
   type AdminGovernanceActionState,
@@ -58,13 +59,25 @@ function toDateInputValue(value: Date | null | undefined) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
+function getDefaultValidUntil() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return date.toISOString().slice(0, 10);
+}
+
 export function AdminCustomizationQuoteForm({
   requestId,
   quote,
 }: AdminCustomizationQuoteFormProps) {
+  const router = useRouter();
   const [state, formAction] = useActionState(upsertCustomizationQuoteAction, initialState);
   const [sendState, sendAction] = useActionState(sendCustomizationQuoteAction, initialState);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!state.success && !sendState.success) return;
+    router.refresh();
+  }, [router, sendState.success, state.success]);
 
   return (
     <div className="grid gap-4 rounded-[24px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">
@@ -127,7 +140,7 @@ export function AdminCustomizationQuoteForm({
                 <X className="size-4" />
               </button>
             </div>
-            <form action={formAction} className="grid gap-4">
+            <form action={formAction} noValidate className="grid gap-4">
         <input type="hidden" name="requestId" value={requestId} />
         <div className="grid gap-4 md:grid-cols-3">
           <label className="grid gap-2 text-sm">
@@ -161,6 +174,8 @@ export function AdminCustomizationQuoteForm({
               name="estimatedDeliveryDays"
               type="number"
               min={3}
+              max={365}
+              required
               defaultValue={quote?.estimatedDeliveryDays ?? 21}
               className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
             />
@@ -174,6 +189,7 @@ export function AdminCustomizationQuoteForm({
               name="baseTemplateAmountUnits"
               type="number"
               min={1}
+              required
               defaultValue={getLineAmountUnits(quote, "BASE_TEMPLATE") || 1500}
               className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
             />
@@ -184,6 +200,7 @@ export function AdminCustomizationQuoteForm({
               name="featureExtraAmountUnits"
               type="number"
               min={0}
+              required
               defaultValue={getLineAmountUnits(quote, "FEATURE")}
               className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
             />
@@ -194,6 +211,7 @@ export function AdminCustomizationQuoteForm({
               name="designExtraAmountUnits"
               type="number"
               min={0}
+              required
               defaultValue={getLineAmountUnits(quote, "DESIGN")}
               className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
             />
@@ -204,6 +222,7 @@ export function AdminCustomizationQuoteForm({
               name="integrationExtraAmountUnits"
               type="number"
               min={0}
+              required
               defaultValue={getLineAmountUnits(quote, "INTEGRATION")}
               className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
             />
@@ -214,6 +233,7 @@ export function AdminCustomizationQuoteForm({
               name="serviceExtraAmountUnits"
               type="number"
               min={0}
+              required
               defaultValue={getLineAmountUnits(quote, "SERVICE")}
               className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
             />
@@ -226,7 +246,13 @@ export function AdminCustomizationQuoteForm({
             <textarea
               name="clientSummary"
               rows={4}
-              defaultValue={quote?.clientSummary ?? ""}
+              required
+              minLength={20}
+              maxLength={600}
+              defaultValue={
+                quote?.clientSummary ??
+                "Presupuesto personalizado para implementar el sitio solicitado con alcance, diseno y acompanamiento de Vase."
+              }
               className="min-h-28 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
               placeholder="Incluye alcance, valor entregado, tiempos y supuestos de negocio."
             />
@@ -237,7 +263,8 @@ export function AdminCustomizationQuoteForm({
               <input
                 name="validUntil"
                 type="date"
-                defaultValue={toDateInputValue(quote?.validUntil)}
+                required
+                defaultValue={toDateInputValue(quote?.validUntil) || getDefaultValidUntil()}
                 className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
               />
             </label>
