@@ -6,7 +6,13 @@ export function getApiBase() {
 
 export function getTenantHeaders() {
     const tenantId = import.meta.env.VITE_TENANT_ID;
-    return tenantId ? { 'X-Tenant-Id': tenantId } : {};
+    const headers = tenantId ? { 'X-Tenant-Id': tenantId } : {};
+
+    if (typeof window !== 'undefined' && window.location?.hostname) {
+        headers['X-Storefront-Host'] = window.location.hostname;
+    }
+
+    return headers;
 }
 
 export function getAuthHeaders() {

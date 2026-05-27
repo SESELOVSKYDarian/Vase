@@ -1,11 +1,85 @@
 import dotenv from 'dotenv';
 dotenv.config();
+import { access, readFile } from 'fs/promises';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { pool } from './db.js';
 import app from './app.js';
 import { ensurePricingSchema } from './services/userPricing.js';
 import { ensureProductSyncSchema } from './services/integration.service.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REQUIRED_BASE_TABLES = [
+  'tenants',
+  'tenant_domains',
+  'tenant_settings',
+  'users',
+  'user_tenants',
+  'product_cache',
+  'categories',
+];
+
+async function resolveBaseSchemaPath() {
+  const candidates = [
+    path.resolve(__dirname, '..', 'sql', 'base-schema.sql'),
+    path.resolve(__dirname, '..', '..', 'db', 'schema.sql'),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      // Try the next deployment layout.
+    }
+  }
+
+  throw new Error('Base schema SQL not found. Include server/sql/base-schema.sql in the deployment image.');
+}
+
+async function ensureBaseSchema() {
+  const client = await pool.connect();
+  try {
+    const existingBaseTables = await client.query(
+      [
+        'select table_name',
+        'from information_schema.tables',
+        "where table_schema = 'public'",
+        "and table_type = 'BASE TABLE'",
+        'and table_name = any($1::text[])',
+      ].join(' '),
+      [REQUIRED_BASE_TABLES]
+    );
+
+    const existing = new Set(existingBaseTables.rows.map((row) => row.table_name));
+    const missing = REQUIRED_BASE_TABLES.filter((tableName) => !existing.has(tableName));
+    if (missing.length === 0) return;
+
+    const tableCount = await client.query(
+      [
+        'select count(*)::int as total',
+        'from information_schema.tables',
+        "where table_schema = 'public'",
+        "and table_type = 'BASE TABLE'",
+      ].join(' ')
+    );
+    const totalTables = Number(tableCount.rows[0]?.total || 0);
+
+    if (totalTables > 0) {
+      throw new Error(`Base schema incomplete. Missing tables: ${missing.join(', ')}.`);
+    }
+
+    const schemaPath = await resolveBaseSchemaPath();
+    const schemaSql = await readFile(schemaPath, 'utf8');
+    await client.query(schemaSql);
+    console.log(`Base schema applied from ${path.relative(process.cwd(), schemaPath) || schemaPath}`);
+  } finally {
+    client.release();
+  }
+}
 
 async function runStartupMigrations() {
   await pool.query(
@@ -76,6 +150,7 @@ console.log(`Checking DB connection to: ${dbHost}`);
 async function bootstrapDb() {
   try {
     await pool.query('SELECT 1');
+    await ensureBaseSchema();
     await runStartupMigrations();
     console.log('DB Connection OK');
     await ensurePricingSchema();

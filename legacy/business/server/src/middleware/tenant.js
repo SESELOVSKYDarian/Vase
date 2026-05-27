@@ -1,5 +1,15 @@
 import { pool } from '../db.js';
 
+function normalizeRequestHost(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '')
+    .replace(/:\d+$/, '')
+    .replace(/\.$/, '');
+}
+
 export async function resolveTenant(req, res, next) {
   try {
     const headerTenant = req.get('x-tenant-id');
@@ -18,18 +28,22 @@ export async function resolveTenant(req, res, next) {
     }
 
     if (!tenant) {
-      const host = (req.hostname || '').toLowerCase();
-      if (host) {
+      const forwardedStorefrontHost = normalizeRequestHost(req.get('x-storefront-host'));
+      const requestHost = normalizeRequestHost(req.hostname || req.get('host'));
+      const candidateHosts = [...new Set([forwardedStorefrontHost, requestHost].filter(Boolean))];
+
+      for (const host of candidateHosts) {
         const result = await pool.query(
           'select t.id, t.name from tenant_domains d join tenants t on t.id = d.tenant_id where d.domain = $1 and t.status = $2',
           [host, 'active']
         );
         tenant = result.rows[0];
+        if (tenant) break;
       }
     }
 
     if (!tenant) {
-      console.warn(`Tenant not found for header: ${headerTenant} and host: ${req.hostname}`);
+      console.warn(`Tenant not found for header: ${headerTenant}, storefront host: ${req.get('x-storefront-host')}, and host: ${req.hostname}`);
       return res.status(404).json({ error: 'tenant_not_found' });
     }
 
