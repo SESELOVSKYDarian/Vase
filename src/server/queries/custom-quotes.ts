@@ -118,7 +118,7 @@ export async function getAdminCustomizationQuoteWorkspace() {
       withDraft: requests.filter((request) => request.quote?.status === "DRAFT").length,
       pendingClient: requests.filter((request) => request.quote?.status === "PENDING_CLIENT").length,
       accepted: requests.filter((request) => request.quote?.status === "ACCEPTED").length,
-      withoutQuote: requests.filter((request) => !request.quote).length,
+      withoutQuote: requests.filter((request) => !request.quote || request.quote.status === "DRAFT").length,
     },
   };
 }

@@ -2,6 +2,7 @@ import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminMeetingSlotManager } from "@/components/admin/admin-meeting-slot-manager";
 import { AdminCustomizationQuoteForm } from "@/components/admin/admin-customization-quote-form";
+import { CustomizationPipelineControls } from "@/components/admin/customization-pipeline-controls";
 import { AdminCustomizationReviewForm } from "@/components/business/admin-customization-review-form";
 import { CustomProjectControlsForm } from "@/components/admin/custom-project-controls-form";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -63,6 +64,8 @@ export default async function AdminCustomizationsPage() {
           </p>
         </PanelCard>
       </section>
+
+      <CustomizationPipelineControls requests={workspace.requests} />
 
       <AdminMeetingSlotManager
         tenants={workspace.tenants}

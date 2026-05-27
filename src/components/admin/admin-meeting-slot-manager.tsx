@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Clock3, Plus, Users, X } from "lucide-react";
+import { CalendarDays, Clock3, Plus, Trash2, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState } from "react";
-import { createMeetingAvailabilitySlotAction } from "@/app/(platform)/app/admin/actions";
+import {
+  createMeetingAvailabilitySlotAction,
+  deleteMeetingAvailabilitySlotAction,
+} from "@/app/(platform)/app/admin/actions";
 
 const displayTimeZone = "America/Argentina/Buenos_Aires";
 
@@ -44,15 +47,15 @@ export function AdminMeetingSlotManager({
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(createMeetingAvailabilitySlotAction, {});
+  const [deleteState, deleteAction, deletePending] = useActionState(deleteMeetingAvailabilitySlotAction, {});
   const [isOpen, setIsOpen] = useState(false);
   const defaultTenantId = "";
   const visibleSlots = useMemo(() => {
-    if (!state.createdSlot) {
-      return upcomingSlots;
-    }
+    const slots = upcomingSlots.filter((slot) => slot.id !== deleteState.deletedSlotId);
+    if (!state.createdSlot) return slots;
 
-    return [state.createdSlot, ...upcomingSlots.filter((slot) => slot.id !== state.createdSlot?.id)];
-  }, [state.createdSlot, upcomingSlots]);
+    return [state.createdSlot, ...slots.filter((slot) => slot.id !== state.createdSlot?.id)];
+  }, [deleteState.deletedSlotId, state.createdSlot, upcomingSlots]);
   const totalAvailable = useMemo(
     () =>
       visibleSlots.reduce(
@@ -63,9 +66,9 @@ export function AdminMeetingSlotManager({
   );
 
   useEffect(() => {
-    if (!state.success) return;
+    if (!state.success && !deleteState.success) return;
     router.refresh();
-  }, [router, state.success]);
+  }, [deleteState.success, router, state.success]);
 
   return (
     <section className="grid gap-4 rounded-[32px] border border-[var(--border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface)_92%,white),color-mix(in_srgb,var(--surface-strong)_84%,transparent))] p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
@@ -116,6 +119,8 @@ export function AdminMeetingSlotManager({
 
       <div className="grid gap-2">
         <p className="text-sm font-semibold text-[var(--foreground)]">Horarios cargados</p>
+        {deleteState.error ? <p className="text-xs text-[var(--danger)]">{deleteState.error}</p> : null}
+        {deleteState.success ? <p className="text-xs text-[var(--success)]">{deleteState.success}</p> : null}
         {visibleSlots.length === 0 ? (
           <p className="rounded-xl border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--muted)]">
             Todavía no hay horarios cargados.
@@ -125,7 +130,7 @@ export function AdminMeetingSlotManager({
             {visibleSlots.map((slot) => (
               <div
                 key={slot.id}
-                className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-3 text-sm"
+                className="grid gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-3 text-sm"
               >
                 <p className="font-semibold text-[var(--foreground)]">{slot.tenant.accountName}</p>
                 <p className="text-[var(--muted)]">
@@ -134,6 +139,17 @@ export function AdminMeetingSlotManager({
                 <p className="text-[var(--muted)]">
                   Cupos: {slot.reservedCount}/{slot.capacity}
                 </p>
+                <form action={deleteAction} className="flex justify-end">
+                  <input type="hidden" name="slotId" value={slot.id} />
+                  <button
+                    type="submit"
+                    disabled={deletePending}
+                    className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[var(--danger)]/30 px-3 text-xs font-semibold text-[var(--danger)] transition hover:bg-[var(--danger)]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Trash2 className="size-3.5" />
+                    Eliminar
+                  </button>
+                </form>
               </div>
             ))}
           </div>

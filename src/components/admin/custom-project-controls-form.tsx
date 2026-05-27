@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { type FormEvent, useActionState, useEffect, useState } from "react";
 import { CalendarCheck2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   createMeetingAvailabilitySlotAction,
   enableCustomProjectMeetingAction,
-  provisionCustomProjectAction,
   setCustomProjectMeetingLinkAction,
+  type AdminGovernanceActionState,
   updateCustomProjectMilestoneAction,
 } from "@/app/(platform)/app/admin/actions";
 
@@ -19,6 +19,7 @@ type Props = {
 
 const meetingTypes = ["DEFINITION", "DESIGN", "MID_DEVELOPMENT", "FINAL_DELIVERY", "FOLLOW_UP"] as const;
 const stages = ["DEFINITION", "DESIGN", "DELIVERY", "FOLLOW_UP"] as const;
+const noZipLabel = "Ningun archivo seleccionado";
 
 function formatDuration(ms: number) {
   const seconds = Math.max(0, Math.floor(ms / 1000));
@@ -34,14 +35,17 @@ function formatBytes(bytes: number) {
 export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Props) {
   const router = useRouter();
   const [meetingOpen, setMeetingOpen] = useState(false);
-  const [selectedZipLabel, setSelectedZipLabel] = useState("Ningun archivo seleccionado");
+  const [selectedZipLabel, setSelectedZipLabel] = useState(noZipLabel);
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [provisionElapsedMs, setProvisionElapsedMs] = useState(0);
+  const [provisionState, setProvisionState] = useState<AdminGovernanceActionState>({});
+  const [provisionPending, setProvisionPending] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "processing">("idle");
   const [meetingState, meetingAction, meetingPending] = useActionState(enableCustomProjectMeetingAction, {});
   const [stageState, stageAction, stagePending] = useActionState(updateCustomProjectMilestoneAction, {});
   const [linkState, linkAction, linkPending] = useActionState(setCustomProjectMeetingLinkAction, {});
   const [slotState, slotAction, slotPending] = useActionState(createMeetingAvailabilitySlotAction, {});
-  const [provisionState, provisionAction, provisionPending] = useActionState(provisionCustomProjectAction, {});
 
   useEffect(() => {
     if (
@@ -78,11 +82,65 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
     return () => window.clearInterval(timer);
   }, [provisionPending]);
 
-  const provisionSourceLabel = selectedZipLabel !== "Ningun archivo seleccionado"
+  const provisionSourceLabel = selectedZipLabel !== noZipLabel
     ? `ZIP: ${selectedZipLabel}`
     : repositoryUrl.trim()
       ? "GitHub: descargando repositorio publico"
       : "Plantilla Vase sin paquete externo";
+
+  function handleProvisionSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const projectZip = formData.get("projectZip");
+    const hasZip = projectZip instanceof File && projectZip.size > 0;
+
+    setProvisionState({});
+    setProvisionPending(true);
+    setUploadPercent(hasZip ? 0 : null);
+    setUploadPhase(hasZip ? "uploading" : "processing");
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/admin/customizations/provision");
+    xhr.responseType = "json";
+
+    xhr.upload.onprogress = (progressEvent) => {
+      if (!hasZip || !progressEvent.lengthComputable) return;
+      const percent = Math.min(99, Math.round((progressEvent.loaded / progressEvent.total) * 100));
+      setUploadPercent(percent);
+    };
+
+    xhr.upload.onload = () => {
+      if (hasZip) setUploadPercent(100);
+      setUploadPhase("processing");
+    };
+
+    xhr.onload = () => {
+      const response =
+        xhr.response && typeof xhr.response === "object"
+          ? (xhr.response as AdminGovernanceActionState)
+          : ({ error: "No pudimos leer la respuesta del servidor." } satisfies AdminGovernanceActionState);
+
+      setProvisionState(response);
+      if (xhr.status >= 200 && xhr.status < 300 && response.success) {
+        router.refresh();
+      }
+    };
+
+    xhr.onerror = () => {
+      setProvisionState({
+        error: "No pudimos subir el ZIP. Revisa la conexion e intenta de nuevo.",
+      });
+    };
+
+    xhr.onloadend = () => {
+      setProvisionPending(false);
+      setUploadPhase("idle");
+    };
+
+    xhr.send(formData);
+  }
 
   return (
     <div className="grid gap-3 rounded-3xl border border-[var(--border-subtle)] p-4">
@@ -198,7 +256,7 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
         {stageState.success ? <p className="text-xs text-[var(--success)]">{stageState.success}</p> : null}
       </form>
 
-      <form action={provisionAction} encType="multipart/form-data" className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] p-3">
+      <form onSubmit={handleProvisionSubmit} encType="multipart/form-data" className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] p-3">
         <input type="hidden" name="requestId" value={requestId} />
         <input type="hidden" name="tenantId" value={tenantId} />
         <label className="text-xs text-[var(--muted)]">Provision rapida (editor + vase.ar)</label>
@@ -224,7 +282,7 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
             accept=".zip,application/zip"
             onChange={(event) => {
               const file = event.target.files?.[0];
-              setSelectedZipLabel(file ? `${file.name} (${formatBytes(file.size)})` : "Ningun archivo seleccionado");
+              setSelectedZipLabel(file ? `${file.name} (${formatBytes(file.size)})` : noZipLabel);
             }}
             className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-[var(--foreground)]"
           />
@@ -242,10 +300,32 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
         </button>
         <div className="rounded-xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] px-3 py-2 text-xs leading-5 text-[var(--muted)]">
           {provisionPending ? (
-            <>
-              <span className="font-semibold text-[var(--foreground)]">Procesando:</span>{" "}
-              {provisionSourceLabel}. Tiempo transcurrido: {formatDuration(provisionElapsedMs)}.
-            </>
+            <div className="grid gap-2">
+              <p>
+                <span className="font-semibold text-[var(--foreground)]">
+                  {uploadPhase === "uploading" ? "Subiendo:" : "Procesando:"}
+                </span>{" "}
+                {provisionSourceLabel}. Tiempo transcurrido: {formatDuration(provisionElapsedMs)}.
+              </p>
+              {uploadPercent !== null ? (
+                <div className="grid gap-1">
+                  <div className="flex items-center justify-between gap-3 text-[var(--muted)]">
+                    <span>Subida {uploadPercent}%</span>
+                    <span>
+                      {uploadPercent >= 100 ? "Procesando ZIP en servidor" : `Falta ${100 - uploadPercent}%`}
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-[var(--border-subtle)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--accent-strong)] transition-all duration-300"
+                      style={{ width: `${uploadPercent}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p>El servidor esta descargando o preparando el proyecto.</p>
+              )}
+            </div>
           ) : (
             <>
               Sube un ZIP ya compilado con <span className="font-semibold">index.html</span> o pega un repo GitHub publico. Si cargas ambos, Vase usa el ZIP.

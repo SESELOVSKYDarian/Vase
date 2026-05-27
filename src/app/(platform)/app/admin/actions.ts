@@ -116,6 +116,7 @@ export type AdminGovernanceActionState = {
   durationMs?: number;
   publicUrl?: string;
   sourceType?: CustomSitePackageSource;
+  deletedSlotId?: string;
   createdSlot?: {
     id: string;
     startsAt: string;
@@ -128,6 +129,15 @@ export type AdminGovernanceActionState = {
     };
   };
 };
+
+type CustomizationPipelineTarget = "REQUESTS" | "WITHOUT_QUOTE" | "PENDING_CLIENT" | "ACCEPTED";
+
+const customizationPipelineTargets = new Set<CustomizationPipelineTarget>([
+  "REQUESTS",
+  "WITHOUT_QUOTE",
+  "PENDING_CLIENT",
+  "ACCEPTED",
+]);
 
 function toNullableDate(value: string) {
   return value ? new Date(value) : null;
@@ -1119,6 +1129,222 @@ export async function sendCustomizationQuoteAction(
     return { success: "Presupuesto enviado al cliente." };
   } catch {
     return { error: "No pudimos enviar el presupuesto." };
+  }
+}
+
+export async function moveCustomizationPipelineStageAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const requestId = String(formData.get("requestId") ?? "");
+    const targetStage = String(formData.get("targetStage") ?? "") as CustomizationPipelineTarget;
+
+    if (!requestId || !customizationPipelineTargets.has(targetStage)) {
+      return { error: "No pudimos interpretar la etapa seleccionada." };
+    }
+
+    const request = await prisma.customPageRequest.findUnique({
+      where: { id: requestId },
+      select: {
+        id: true,
+        tenantId: true,
+        quote: {
+          select: {
+            id: true,
+            status: true,
+            totalAmountCents: true,
+            currency: true,
+          },
+        },
+      },
+    });
+
+    if (!request) {
+      return { error: "La solicitud ya no existe." };
+    }
+
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      if (targetStage === "REQUESTS") {
+        await tx.customPageRequest.update({
+          where: { id: request.id },
+          data: {
+            status: "SUBMITTED",
+            reviewedAt: now,
+            reviewedByUserId: adminSession.user.id,
+          },
+        });
+        if (request.quote) {
+          await tx.customQuote.update({
+            where: { id: request.quote.id },
+            data: {
+              status: "DRAFT",
+              sentAt: null,
+              acceptedAt: null,
+              rejectedAt: null,
+              clientRespondedAt: null,
+              clientResponseMessage: null,
+              updatedByUserId: adminSession.user.id,
+            },
+          });
+          await tx.customQuoteRevision.create({
+            data: {
+              quoteId: request.quote.id,
+              changedByUserId: adminSession.user.id,
+              revisionType: "UPDATED",
+              summary: "Solicitud movida a pedido inicial por Super Admin.",
+              snapshot: {
+                status: "DRAFT",
+                movedAt: now.toISOString(),
+                targetStage,
+              },
+            },
+          });
+        }
+        return;
+      }
+
+      if (targetStage === "WITHOUT_QUOTE") {
+        await tx.customPageRequest.update({
+          where: { id: request.id },
+          data: {
+            status: "REVIEWING",
+            reviewedAt: now,
+            reviewedByUserId: adminSession.user.id,
+          },
+        });
+
+        if (request.quote) {
+          await tx.customQuote.update({
+            where: { id: request.quote.id },
+            data: {
+              status: "DRAFT",
+              sentAt: null,
+              acceptedAt: null,
+              rejectedAt: null,
+              clientRespondedAt: null,
+              clientResponseMessage: null,
+              updatedByUserId: adminSession.user.id,
+            },
+          });
+          await tx.customQuoteRevision.create({
+            data: {
+              quoteId: request.quote.id,
+              changedByUserId: adminSession.user.id,
+              revisionType: "UPDATED",
+              summary: "Solicitud movida a sin presupuesto por Super Admin.",
+              snapshot: {
+                status: "DRAFT",
+                movedAt: now.toISOString(),
+                targetStage,
+              },
+            },
+          });
+        }
+        return;
+      }
+
+      if (!request.quote) {
+        throw new Error("CUSTOM_PIPELINE_QUOTE_REQUIRED");
+      }
+
+      if (targetStage === "PENDING_CLIENT") {
+        await tx.customQuote.update({
+          where: { id: request.quote.id },
+          data: {
+            status: "PENDING_CLIENT",
+            sentAt: now,
+            acceptedAt: null,
+            rejectedAt: null,
+            clientRespondedAt: null,
+            clientResponseMessage: null,
+            updatedByUserId: adminSession.user.id,
+          },
+        });
+        await tx.customPageRequest.update({
+          where: { id: request.id },
+          data: {
+            status: "QUOTED",
+            quotedPriceLabel: formatMoneyFromCents(request.quote.totalAmountCents, request.quote.currency),
+            reviewedAt: now,
+            reviewedByUserId: adminSession.user.id,
+          },
+        });
+        await tx.customQuoteRevision.create({
+          data: {
+            quoteId: request.quote.id,
+            changedByUserId: adminSession.user.id,
+            revisionType: "SENT_TO_CLIENT",
+            summary: "Presupuesto movido a pendiente del cliente por Super Admin.",
+            snapshot: {
+              status: "PENDING_CLIENT",
+              movedAt: now.toISOString(),
+              targetStage,
+            },
+          },
+        });
+        return;
+      }
+
+      await tx.customQuote.update({
+        where: { id: request.quote.id },
+        data: {
+          status: "ACCEPTED",
+          acceptedAt: now,
+          rejectedAt: null,
+          clientRespondedAt: now,
+          updatedByUserId: adminSession.user.id,
+        },
+      });
+      await tx.customPageRequest.update({
+        where: { id: request.id },
+        data: {
+          status: "IN_PROGRESS",
+          quotedPriceLabel: formatMoneyFromCents(request.quote.totalAmountCents, request.quote.currency),
+          reviewedAt: now,
+          reviewedByUserId: adminSession.user.id,
+        },
+      });
+      await tx.customQuoteRevision.create({
+        data: {
+          quoteId: request.quote.id,
+          changedByUserId: adminSession.user.id,
+          revisionType: "ACCEPTED_BY_CLIENT",
+          summary: "Presupuesto marcado como aceptado por Super Admin.",
+          snapshot: {
+            status: "ACCEPTED",
+            movedAt: now.toISOString(),
+            targetStage,
+          },
+        },
+      });
+    });
+
+    await createAuditLog({
+      action: "platform.custom_request_pipeline_moved",
+      targetType: "custom_page_request",
+      targetId: request.id,
+      tenantId: request.tenantId,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { targetStage },
+    });
+
+    revalidatePath("/app/admin");
+    revalidatePath("/app/admin/customizations");
+    revalidatePath("/app/owner");
+    revalidatePath("/app/owner/customizations");
+    return { success: "Solicitud movida de etapa." };
+  } catch (error) {
+    if (error instanceof Error && error.message === "CUSTOM_PIPELINE_QUOTE_REQUIRED") {
+      return { error: "Primero tenes que crear un presupuesto para moverlo a esa etapa." };
+    }
+    return { error: "No pudimos mover la solicitud." };
   }
 }
 
@@ -2887,6 +3113,52 @@ export async function updateMeetingAvailabilitySlotAction(
     return { success: "Slot actualizado." };
   } catch {
     return { error: "No pudimos actualizar el slot." };
+  }
+}
+
+export async function deleteMeetingAvailabilitySlotAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const slotId = String(formData.get("slotId") ?? "");
+    if (!slotId) return { error: "Falta el horario a eliminar." };
+
+    const slot = await prisma.meetingAvailabilitySlot.findUnique({
+      where: { id: slotId },
+      select: {
+        id: true,
+        tenantId: true,
+      },
+    });
+
+    if (!slot) {
+      return { error: "Ese horario ya no existe." };
+    }
+
+    await prisma.meetingAvailabilitySlot.update({
+      where: { id: slot.id },
+      data: {
+        isActive: false,
+        updatedByUserId: adminSession.user.id,
+      },
+    });
+
+    await createAuditLog({
+      action: "platform.custom_project_slot_deleted",
+      targetType: "meeting_availability_slot",
+      targetId: slot.id,
+      tenantId: slot.tenantId,
+      actorUserId: adminSession.user.id,
+    });
+
+    revalidatePath("/app/admin/customizations");
+    revalidatePath("/app/owner/customizations");
+    return { success: "Horario eliminado.", deletedSlotId: slot.id };
+  } catch {
+    return { error: "No pudimos eliminar el horario." };
   }
 }
 
