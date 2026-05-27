@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { PublicStorefront } from "@/components/business/public-storefront";
 import { getStorefrontByHostname } from "@/server/queries/storefront";
 
+export const dynamic = "force-dynamic";
+
 export default async function StorefrontHostnamePage({
   params,
 }: {

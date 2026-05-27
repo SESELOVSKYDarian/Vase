@@ -1,6 +1,7 @@
 ﻿"use server";
 
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
 import { requireVerifiedPlatformRole, requireVerifiedUser, platformRoles } from "@/lib/auth/guards";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
@@ -3165,6 +3166,11 @@ export async function provisionCustomProjectAction(
             publishedAt: new Date(),
           },
         });
+    const latestVersion = await prisma.storefrontPageVersion.findFirst({
+      where: { storefrontPageId: page.id },
+      orderBy: { versionNumber: "desc" },
+      select: { versionNumber: true },
+    });
 
     await prisma.$transaction(async (tx) => {
       await tx.customPageRequest.update({
@@ -3223,6 +3229,19 @@ export async function provisionCustomProjectAction(
           updatedByUserId: adminSession.user.id,
         },
       });
+
+      await tx.storefrontPageVersion.create({
+        data: {
+          storefrontPageId: page.id,
+          createdByUserId: adminSession.user.id,
+          versionNumber: (latestVersion?.versionNumber ?? 0) + 1,
+          kind: "PUBLISHED",
+          changeSummary: zipPackage
+            ? `Publicacion Super Admin desde ${packageSourceType === "github" ? "GitHub" : "ZIP"}.`
+            : "Publicacion Super Admin con plantilla Vase.",
+          snapshot: builderDocument as Prisma.InputJsonValue,
+        },
+      });
     });
 
     await createAuditLog({
@@ -3242,6 +3261,7 @@ export async function provisionCustomProjectAction(
     revalidatePath("/app/admin/customizations");
     revalidatePath("/app/owner");
     revalidatePath(`/app/owner/pages/${page.id}`);
+    revalidatePath(`/sites/${page.slug}.vase.ar`);
     const publicUrl = `https://${page.slug}.vase.ar`;
     const durationMs = Date.now() - startedAt;
     return {
