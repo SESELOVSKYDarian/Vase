@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { createHash, randomUUID } from "node:crypto";
@@ -82,6 +82,12 @@ import { createAutoAdminNotification } from "@/server/services/admin-notificatio
 import { ensureModuleCatalogSynced, normalizePricingType } from "@/server/services/modules";
 import { validateUpload } from "@/lib/security/upload";
 import { saveLocalUpload } from "@/lib/storage/local-upload";
+import {
+  createCustomStaticSiteManifest,
+  downloadGithubRepositoryZip,
+  extractCustomSitePackage,
+  type CustomSitePackageSource,
+} from "@/server/services/custom-site-packages";
 
 type CustomProjectMeetingTypeInput =
   | "DEFINITION"
@@ -106,6 +112,9 @@ export type AdminReviewActionState = {
 export type AdminGovernanceActionState = {
   success?: string;
   error?: string;
+  durationMs?: number;
+  publicUrl?: string;
+  sourceType?: CustomSitePackageSource;
   createdSlot?: {
     id: string;
     startsAt: string;
@@ -174,6 +183,62 @@ async function validateModuleZip(file: File) {
   }
   const sha256 = createHash("sha256").update(Buffer.from(buffer)).digest("hex");
   return { bytes: buffer, sha256, sizeBytes: file.size, fileName: file.name, mimeType: file.type || "application/zip" };
+}
+
+function formatDurationMs(durationMs: number) {
+  const seconds = Math.max(1, Math.round(durationMs / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${minutes}m ${rest}s`;
+}
+
+function describeCustomSitePackageError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "No pudimos importar el paquete personalizado.";
+  }
+
+  switch (error.message) {
+    case "MODULE_ZIP_EXTENSION_INVALID":
+      return "El archivo debe estar en formato .zip.";
+    case "MODULE_ZIP_SIZE_INVALID":
+      return "El .zip supera el tamano permitido o esta vacio.";
+    case "MODULE_ZIP_SIGNATURE_INVALID":
+      return "El archivo no tiene firma valida de zip.";
+    case "CUSTOM_SITE_GITHUB_URL_INVALID":
+      return "La URL de GitHub no es valida. Usa https://github.com/owner/repo o una rama /tree/rama.";
+    case "CUSTOM_SITE_GITHUB_REPOSITORY_NOT_FOUND":
+      return "No pudimos acceder a ese repositorio de GitHub. Debe ser publico o accesible.";
+    case "CUSTOM_SITE_GITHUB_DOWNLOAD_FAILED":
+      return "No pudimos descargar el ZIP del repositorio de GitHub.";
+    case "CUSTOM_SITE_INDEX_MISSING":
+      return "El paquete debe incluir un index.html publicado, por ejemplo el contenido de dist/ o build/.";
+    case "CUSTOM_SITE_PATH_INVALID":
+      return "El ZIP contiene rutas no permitidas.";
+    case "CUSTOM_SITE_FILE_LIMIT_EXCEEDED":
+      return "El paquete tiene demasiados archivos. Maximo permitido: 2000.";
+    case "CUSTOM_SITE_SIZE_LIMIT_EXCEEDED":
+      return "El paquete descomprimido supera el tamano permitido.";
+    default:
+      return "No pudimos importar el paquete personalizado.";
+  }
+}
+
+function validateDownloadedZip(bytes: Uint8Array, fileName: string) {
+  const maxBytes = 50 * 1024 * 1024;
+  if (bytes.byteLength <= 0 || bytes.byteLength > maxBytes) {
+    throw new Error("MODULE_ZIP_SIZE_INVALID");
+  }
+  if (!hasZipSignature(bytes)) {
+    throw new Error("MODULE_ZIP_SIGNATURE_INVALID");
+  }
+  return {
+    bytes,
+    sha256: createHash("sha256").update(Buffer.from(bytes)).digest("hex"),
+    sizeBytes: bytes.byteLength,
+    fileName,
+    mimeType: "application/zip",
+  };
 }
 
 async function rebuildPaymentAllocations(paymentId: string) {
@@ -1027,7 +1092,7 @@ export async function sendCustomizationQuoteAction(
           quoteId: quote.id,
           changedByUserId: adminSession.user.id,
           revisionType: "SENT_TO_CLIENT",
-          summary: "Presupuesto enviado al cliente para revisión y decisión.",
+          summary: "Presupuesto enviado al cliente para revisiÃ³n y decisiÃ³n.",
           snapshot: {
             status: "PENDING_CLIENT",
             sentAt: new Date().toISOString(),
@@ -1075,7 +1140,7 @@ export async function createPlatformUpdateAction(
     });
 
     if (!parsed.success) {
-      return { error: "Revisa título, descripción, categoría y tono del anuncio." };
+      return { error: "Revisa tÃ­tulo, descripciÃ³n, categorÃ­a y tono del anuncio." };
     }
 
     const update = await prisma.platformUpdate.create({
@@ -1125,7 +1190,7 @@ export async function deletePlatformUpdateAction(
     });
 
     if (!parsed.success) {
-      return { error: "ID de anuncio inválido." };
+      return { error: "ID de anuncio invÃ¡lido." };
     }
 
     await prisma.platformUpdate.delete({
@@ -1353,7 +1418,7 @@ export async function uploadModuleArtifactAction(
     return { success: "ZIP cargado y almacenado correctamente." };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("MODULE_ZIP_")) {
-      return { error: "El archivo ZIP no es válido (extensión, tamaño o firma)." };
+      return { error: "El archivo ZIP no es vÃ¡lido (extensiÃ³n, tamaÃ±o o firma)." };
     }
     return { error: "No pudimos cargar el artefacto ZIP." };
   }
@@ -1372,7 +1437,7 @@ export async function publishModuleArtifactAction(
       artifactId: formData.get("artifactId"),
     });
     if (!parsed.success) {
-      return { error: "Artefacto inválido." };
+      return { error: "Artefacto invÃ¡lido." };
     }
 
     const artifact = await prisma.moduleArtifact.findUnique({
@@ -1429,7 +1494,7 @@ export async function publishModuleArtifactAction(
     });
 
     revalidatePath("/app/admin/modules");
-    return { success: "Versión publicada." };
+    return { success: "VersiÃ³n publicada." };
   } catch {
     return { error: "No pudimos publicar el artefacto." };
   }
@@ -1450,7 +1515,7 @@ export async function setTenantModuleActivationAction(
       isActive: formData.get("isActive") === "true",
     });
     if (!parsed.success) {
-      return { error: "Datos de activación inválidos." };
+      return { error: "Datos de activaciÃ³n invÃ¡lidos." };
     }
 
     const publishedArtifact = await prisma.moduleArtifact.findFirst({
@@ -1492,9 +1557,9 @@ export async function setTenantModuleActivationAction(
     });
 
     revalidatePath("/app/admin/modules");
-    return { success: parsed.data.isActive ? "Módulo activado para tenant." : "Módulo desactivado para tenant." };
+    return { success: parsed.data.isActive ? "MÃ³dulo activado para tenant." : "MÃ³dulo desactivado para tenant." };
   } catch {
-    return { error: "No pudimos actualizar la activación del módulo." };
+    return { error: "No pudimos actualizar la activaciÃ³n del mÃ³dulo." };
   }
 }
 
@@ -1513,7 +1578,7 @@ export async function setTenantSubmoduleActivationAction(
       isActive: formData.get("isActive") === "true",
     });
     if (!parsed.success) {
-      return { error: "Datos de activación inválidos." };
+      return { error: "Datos de activaciÃ³n invÃ¡lidos." };
     }
 
     const submodule = await prisma.moduleSubmodule.findUnique({
@@ -1521,7 +1586,7 @@ export async function setTenantSubmoduleActivationAction(
       select: { moduleId: true },
     });
     if (!submodule) {
-      return { error: "Submódulo no encontrado." };
+      return { error: "SubmÃ³dulo no encontrado." };
     }
 
     if (parsed.data.isActive) {
@@ -1535,7 +1600,7 @@ export async function setTenantSubmoduleActivationAction(
         select: { isActive: true },
       });
       if (!parentActivation?.isActive) {
-        return { error: "Primero debes activar el módulo padre para este tenant." };
+        return { error: "Primero debes activar el mÃ³dulo padre para este tenant." };
       }
     }
 
@@ -1578,9 +1643,9 @@ export async function setTenantSubmoduleActivationAction(
     });
 
     revalidatePath("/app/admin/modules");
-    return { success: parsed.data.isActive ? "Submódulo activado para tenant." : "Submódulo desactivado para tenant." };
+    return { success: parsed.data.isActive ? "SubmÃ³dulo activado para tenant." : "SubmÃ³dulo desactivado para tenant." };
   } catch {
-    return { error: "No pudimos actualizar la activación del submódulo." };
+    return { error: "No pudimos actualizar la activaciÃ³n del submÃ³dulo." };
   }
 }
 
@@ -2389,7 +2454,7 @@ export async function createDevTaskAction(
     });
     await createAutoAdminNotification({
       title: "Nueva tarea asignada",
-      message: `Se creó la tarea "${created.title}" con prioridad ${created.priority}.`,
+      message: `Se creÃ³ la tarea "${created.title}" con prioridad ${created.priority}.`,
       category: "platform",
       tone: created.priority === "URGENT" ? "danger" : "info",
       targetRole: created.assignedToUserId ? "DEVELOPER" : "SUPER_ADMIN",
@@ -2516,7 +2581,7 @@ export async function updateDevTaskAction(
     if (updated.dueAt && updated.status !== "COMPLETED" && updated.status !== "CANCELED" && updated.dueAt < new Date()) {
       await createAutoAdminNotification({
         title: "Tarea vencida",
-        message: `La tarea "${updated.title}" está vencida y sigue activa.`,
+        message: `La tarea "${updated.title}" estÃ¡ vencida y sigue activa.`,
         category: "platform",
         tone: "danger",
         targetRole: "SUPER_ADMIN",
@@ -2923,6 +2988,7 @@ export async function provisionCustomProjectAction(
   _: AdminGovernanceActionState,
   formData: FormData,
 ): Promise<AdminGovernanceActionState> {
+  const startedAt = Date.now();
   try {
     const adminSession = await requireVerifiedUser();
     await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
@@ -2933,7 +2999,12 @@ export async function provisionCustomProjectAction(
       repositoryUrl: sanitizeNullableText(String(formData.get("repositoryUrl") ?? "")) ?? "",
       deployNotes: sanitizeNullableText(String(formData.get("deployNotes") ?? "")) ?? undefined,
     });
-    if (!parsed.success) return { error: "Revisa nombre de pagina, URL del repositorio y notas." };
+    if (!parsed.success) {
+      return {
+        error: "Revisa nombre de pagina, URL del repositorio y notas.",
+        durationMs: Date.now() - startedAt,
+      };
+    }
     const projectZip = formData.get("projectZip");
 
     const request = await prisma.customPageRequest.findFirst({
@@ -2962,7 +3033,12 @@ export async function provisionCustomProjectAction(
       },
     });
 
-    if (!request) return { error: "No encontramos la solicitud personalizada." };
+    if (!request) {
+      return {
+        error: "No encontramos la solicitud personalizada.",
+        durationMs: Date.now() - startedAt,
+      };
+    }
     const baseAccountSlug = normalizeCustomProjectSlug(request.tenant.accountName);
     const usedSlugs = request.tenant.storefrontPages
       .filter((page) => page.id !== request.storefrontPageId)
@@ -2974,44 +3050,88 @@ export async function provisionCustomProjectAction(
       };
     }
     const defaultSlug = resolveCustomProjectSlug(request.tenant.accountName, []);
-    const builderDocument = createInitialBuilderDocument("CATALOG");
+    let builderDocument = createInitialBuilderDocument("CATALOG");
     let uploadedPackageMeta: {
       fileName: string;
       mimeType: string;
       sizeBytes: number;
       storagePath: string;
+      extractedPath?: string;
+      fileCount?: number;
+      totalBytes?: number;
+      repositoryUrl?: string | null;
       uploadedAt: string;
       uploadedByUserId: string;
-      source: "custom_project_provision";
+      source: "custom_project_provision" | "custom_project_github";
+    } | null = null;
+    let packageSourceType: CustomSitePackageSource = "generic";
+    let zipPackage: {
+      bytes: Uint8Array;
+      sha256: string;
+      sizeBytes: number;
+      fileName: string;
+      mimeType: string;
     } | null = null;
 
     if (projectZip instanceof File && projectZip.size > 0) {
       try {
-        const zip = await validateModuleZip(projectZip);
-        const relativePath = `business/custom-project-packages/${request.tenantId}/${Date.now()}-${randomUUID()}-${zip.fileName}`;
-        const stored = await saveLocalUpload({ relativePath, bytes: zip.bytes });
+        zipPackage = await validateModuleZip(projectZip);
+        packageSourceType = "zip";
+      } catch (error) {
+        return { error: describeCustomSitePackageError(error), durationMs: Date.now() - startedAt };
+      }
+    } else if (parsed.data.repositoryUrl) {
+      try {
+        const githubZip = await downloadGithubRepositoryZip(parsed.data.repositoryUrl);
+        zipPackage = validateDownloadedZip(githubZip.bytes, githubZip.fileName);
+        packageSourceType = "github";
+      } catch (error) {
+        return { error: describeCustomSitePackageError(error), durationMs: Date.now() - startedAt };
+      }
+    }
+
+    if (zipPackage) {
+      try {
+        const relativePath = `business/custom-project-packages/${request.tenantId}/${Date.now()}-${randomUUID()}-${zipPackage.fileName}`;
+        const [stored, extracted] = await Promise.all([
+          saveLocalUpload({ relativePath, bytes: zipPackage.bytes }),
+          extractCustomSitePackage({
+            siteId: request.id,
+            zipBytes: zipPackage.bytes,
+          }),
+        ]);
+        const customStaticSite = createCustomStaticSiteManifest({
+          siteId: request.id,
+          sourceType: packageSourceType,
+          repositoryUrl: parsed.data.repositoryUrl || null,
+          packageFileName: zipPackage.fileName,
+          zipBytes: zipPackage.bytes,
+          fileCount: extracted.fileCount,
+          totalBytes: extracted.totalBytes,
+        });
+        builderDocument = {
+          ...builderDocument,
+          customStaticSite,
+          seo: {
+            title: parsed.data.pageName,
+            description: parsed.data.deployNotes ?? request.businessDescription ?? null,
+          },
+        };
         uploadedPackageMeta = {
-          fileName: zip.fileName,
-          mimeType: zip.mimeType,
-          sizeBytes: zip.sizeBytes,
+          fileName: zipPackage.fileName,
+          mimeType: zipPackage.mimeType,
+          sizeBytes: zipPackage.sizeBytes,
           storagePath: stored.relativePath,
+          extractedPath: extracted.storagePath,
+          fileCount: extracted.fileCount,
+          totalBytes: extracted.totalBytes,
+          repositoryUrl: parsed.data.repositoryUrl || null,
           uploadedAt: new Date().toISOString(),
           uploadedByUserId: adminSession.user.id,
-          source: "custom_project_provision",
+          source: packageSourceType === "github" ? "custom_project_github" : "custom_project_provision",
         };
       } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === "MODULE_ZIP_EXTENSION_INVALID") {
-            return { error: "El archivo debe estar en formato .zip." };
-          }
-          if (error.message === "MODULE_ZIP_SIZE_INVALID") {
-            return { error: "El .zip supera el tamaño permitido o esta vacio." };
-          }
-          if (error.message === "MODULE_ZIP_SIGNATURE_INVALID") {
-            return { error: "El archivo no tiene firma valida de zip." };
-          }
-        }
-        return { error: "No pudimos validar el archivo .zip." };
+        return { error: describeCustomSitePackageError(error), durationMs: Date.now() - startedAt };
       }
     }
 
@@ -3122,11 +3242,21 @@ export async function provisionCustomProjectAction(
     revalidatePath("/app/admin/customizations");
     revalidatePath("/app/owner");
     revalidatePath(`/app/owner/pages/${page.id}`);
+    const publicUrl = `https://${page.slug}.vase.ar`;
+    const durationMs = Date.now() - startedAt;
     return {
-      success: `Proyecto habilitado en editor.vase.ar y publicado en https://${page.slug}.vase.ar`,
+      success: zipPackage
+        ? `Paquete ${packageSourceType === "github" ? "GitHub" : "ZIP"} importado y publicado en ${formatDurationMs(durationMs)}: ${publicUrl}`
+        : `Proyecto habilitado con plantilla Vase en ${formatDurationMs(durationMs)}: ${publicUrl}`,
+      durationMs,
+      publicUrl,
+      sourceType: packageSourceType,
     };
   } catch {
-    return { error: "No pudimos provisionar el proyecto personalizado." };
+    return {
+      error: "No pudimos provisionar el proyecto personalizado.",
+      durationMs: Date.now() - startedAt,
+    };
   }
 }
 
@@ -3233,7 +3363,7 @@ export async function createClientPaymentAction(formData: FormData): Promise<voi
   if (created.status === "PAST_DUE" || Number(created.totalAmount) > Number(created.paidAmount)) {
     await createAutoAdminNotification({
       title: "Pago con deuda pendiente",
-      message: `El pago "${created.concept}" quedó pendiente o parcial.`,
+      message: `El pago "${created.concept}" quedÃ³ pendiente o parcial.`,
       category: "billing",
       tone: "warning",
       targetRole: "SUPER_ADMIN",

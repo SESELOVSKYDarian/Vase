@@ -5,6 +5,20 @@ export function sanitizeBuilderDocument(document: BuilderDocument): BuilderDocum
   return {
     schemaVersion: 1,
     templateKey: document.templateKey,
+    customStaticSite: document.customStaticSite
+      ? {
+          siteId: sanitizeText(document.customStaticSite.siteId),
+          entryPath: sanitizeText(document.customStaticSite.entryPath),
+          sourceType: document.customStaticSite.sourceType,
+          repositoryUrl: sanitizeNullableText(document.customStaticSite.repositoryUrl),
+          packageFileName: sanitizeNullableText(document.customStaticSite.packageFileName),
+          packageSha256: sanitizeNullableText(document.customStaticSite.packageSha256),
+          fileCount: document.customStaticSite.fileCount,
+          totalBytes: document.customStaticSite.totalBytes,
+          importedAt: sanitizeText(document.customStaticSite.importedAt),
+          publicBasePath: sanitizeText(document.customStaticSite.publicBasePath),
+        }
+      : null,
     theme: {
       palette: document.theme.palette,
       buttonStyle: document.theme.buttonStyle,

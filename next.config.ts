@@ -17,10 +17,10 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' https://fonts.gstatic.com",
   `connect-src ${connectSrc.join(" ")}`,
-  "frame-src 'none'",
+  "frame-src 'self'",
   "media-src 'self'",
   "object-src 'none'",
-  "frame-ancestors 'none'",
+  "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
   "upgrade-insecure-requests",
@@ -50,6 +50,10 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     authInterrupts: true,
+    serverActions: {
+      bodySizeLimit: "60mb",
+    },
+    proxyClientMaxBodySize: "60mb",
   },
   async headers() {
     return [
@@ -62,7 +66,7 @@ const nextConfig: NextConfig = {
           },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "X-Permitted-Cross-Domain-Policies", value: "none" },

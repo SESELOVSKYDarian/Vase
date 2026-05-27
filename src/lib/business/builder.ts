@@ -80,6 +80,18 @@ export type BuilderBlock =
 export type BuilderDocument = {
   schemaVersion: 1;
   templateKey: BuilderTemplateKey;
+  customStaticSite?: {
+    siteId: string;
+    entryPath: string;
+    sourceType: "zip" | "github" | "generic";
+    repositoryUrl?: string | null;
+    packageFileName?: string | null;
+    packageSha256?: string | null;
+    fileCount: number;
+    totalBytes: number;
+    importedAt: string;
+    publicBasePath: string;
+  } | null;
   theme: {
     palette: BuilderThemePalette;
     buttonStyle: BuilderButtonStyle;

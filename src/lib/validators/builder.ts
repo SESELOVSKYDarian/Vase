@@ -101,6 +101,18 @@ export const builderBlockSchema = z.discriminatedUnion("type", [
 export const builderDocumentSchema = z.object({
   schemaVersion: z.literal(1),
   templateKey: z.enum(builderTemplateKeys),
+  customStaticSite: z.object({
+    siteId: z.string().trim().min(4).max(80),
+    entryPath: z.string().trim().min(1).max(200),
+    sourceType: z.enum(["zip", "github", "generic"]),
+    repositoryUrl: z.string().trim().url().max(500).nullish(),
+    packageFileName: z.string().trim().max(160).nullish(),
+    packageSha256: z.string().trim().length(64).nullish(),
+    fileCount: z.number().int().min(1).max(2000),
+    totalBytes: z.number().int().min(1).max(150 * 1024 * 1024),
+    importedAt: z.string().trim().min(10).max(40),
+    publicBasePath: z.string().trim().min(1).max(240),
+  }).nullish(),
   theme: builderThemeSchema,
   seo: z.object({
     title: z.string().trim().min(3).max(80),

@@ -34,6 +34,19 @@ const paletteClassMap = {
 } as const;
 
 export function PublicStorefront({ document }: PublicStorefrontProps) {
+  if (document.customStaticSite?.publicBasePath) {
+    return (
+      <main className="min-h-screen bg-white">
+        <iframe
+          src={`${document.customStaticSite.publicBasePath}/${document.customStaticSite.entryPath || "index.html"}`}
+          title={document.seo.title || "Sitio personalizado"}
+          className="block h-screen min-h-screen w-full border-0"
+          sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+        />
+      </main>
+    );
+  }
+
   const palette = paletteClassMap[document.theme.palette];
   const spacingClass =
     document.theme.sectionSpacing === "compact"

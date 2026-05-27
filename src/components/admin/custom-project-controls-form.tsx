@@ -20,9 +20,23 @@ type Props = {
 const meetingTypes = ["DEFINITION", "DESIGN", "MID_DEVELOPMENT", "FINAL_DELIVERY", "FOLLOW_UP"] as const;
 const stages = ["DEFINITION", "DESIGN", "DELIVERY", "FOLLOW_UP"] as const;
 
+function formatDuration(ms: number) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Props) {
   const router = useRouter();
   const [meetingOpen, setMeetingOpen] = useState(false);
+  const [selectedZipLabel, setSelectedZipLabel] = useState("Ningun archivo seleccionado");
+  const [repositoryUrl, setRepositoryUrl] = useState("");
+  const [provisionElapsedMs, setProvisionElapsedMs] = useState(0);
   const [meetingState, meetingAction, meetingPending] = useActionState(enableCustomProjectMeetingAction, {});
   const [stageState, stageAction, stagePending] = useActionState(updateCustomProjectMilestoneAction, {});
   const [linkState, linkAction, linkPending] = useActionState(setCustomProjectMeetingLinkAction, {});
@@ -48,6 +62,27 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
     slotState.success,
     stageState.success,
   ]);
+
+  useEffect(() => {
+    if (!provisionPending) {
+      setProvisionElapsedMs(0);
+      return;
+    }
+
+    const startedAt = Date.now();
+    setProvisionElapsedMs(0);
+    const timer = window.setInterval(() => {
+      setProvisionElapsedMs(Date.now() - startedAt);
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [provisionPending]);
+
+  const provisionSourceLabel = selectedZipLabel !== "Ningun archivo seleccionado"
+    ? `ZIP: ${selectedZipLabel}`
+    : repositoryUrl.trim()
+      ? "GitHub: descargando repositorio publico"
+      : "Plantilla Vase sin paquete externo";
 
   return (
     <div className="grid gap-3 rounded-3xl border border-[var(--border-subtle)] p-4">
@@ -163,7 +198,7 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
         {stageState.success ? <p className="text-xs text-[var(--success)]">{stageState.success}</p> : null}
       </form>
 
-      <form action={provisionAction} className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] p-3">
+      <form action={provisionAction} encType="multipart/form-data" className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] p-3">
         <input type="hidden" name="requestId" value={requestId} />
         <input type="hidden" name="tenantId" value={tenantId} />
         <label className="text-xs text-[var(--muted)]">Provision rapida (editor + vase.ar)</label>
@@ -177,6 +212,8 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
         <input
           name="repositoryUrl"
           placeholder="https://github.com/usuario/proyecto (opcional)"
+          value={repositoryUrl}
+          onChange={(event) => setRepositoryUrl(event.target.value)}
           className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm"
         />
         <label className="grid gap-1 text-xs text-[var(--muted)]">
@@ -185,6 +222,10 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
             name="projectZip"
             type="file"
             accept=".zip,application/zip"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              setSelectedZipLabel(file ? `${file.name} (${formatBytes(file.size)})` : "Ningun archivo seleccionado");
+            }}
             className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-sm text-[var(--foreground)]"
           />
         </label>
@@ -197,10 +238,28 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
           disabled={provisionPending}
           className="min-h-10 rounded-xl bg-[var(--accent-strong)] px-3 text-sm font-semibold text-[var(--accent-contrast)]"
         >
-          Provisionar y publicar
+          {provisionPending ? `Publicando... ${formatDuration(provisionElapsedMs)}` : "Provisionar y publicar"}
         </button>
+        <div className="rounded-xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] px-3 py-2 text-xs leading-5 text-[var(--muted)]">
+          {provisionPending ? (
+            <>
+              <span className="font-semibold text-[var(--foreground)]">Procesando:</span>{" "}
+              {provisionSourceLabel}. Tiempo transcurrido: {formatDuration(provisionElapsedMs)}.
+            </>
+          ) : (
+            <>
+              Sube un ZIP ya compilado con <span className="font-semibold">index.html</span> o pega un repo GitHub publico. Si cargas ambos, Vase usa el ZIP.
+            </>
+          )}
+        </div>
         {provisionState.error ? <p className="text-xs text-[var(--danger)]">{provisionState.error}</p> : null}
         {provisionState.success ? <p className="text-xs text-[var(--success)]">{provisionState.success}</p> : null}
+        {provisionState.durationMs && !provisionPending ? (
+          <p className="text-xs text-[var(--muted)]">
+            Duracion registrada: {formatDuration(provisionState.durationMs)}
+            {provisionState.publicUrl ? ` · ${provisionState.publicUrl}` : ""}
+          </p>
+        ) : null}
       </form>
     </div>
   );
