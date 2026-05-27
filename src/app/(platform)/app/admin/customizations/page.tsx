@@ -130,7 +130,7 @@ export default async function AdminCustomizationsPage() {
                   />
                   <AdminCustomizationQuoteForm requestId={request.id} quote={request.quote} />
                 </div>
-                <CustomProjectControlsForm requestId={request.id} tenantId={request.tenant.id} />
+                <CustomProjectControlsForm requestId={request.id} tenantId={request.tenant.id} pageScope={request.pageScope} />
 
                 {request.quote ? (
                   <div className="grid gap-4 rounded-[24px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">

@@ -14,12 +14,13 @@ import {
 type Props = {
   requestId: string;
   tenantId: string;
+  pageScope: string;
 };
 
 const meetingTypes = ["DEFINITION", "DESIGN", "MID_DEVELOPMENT", "FINAL_DELIVERY", "FOLLOW_UP"] as const;
 const stages = ["DEFINITION", "DESIGN", "DELIVERY", "FOLLOW_UP"] as const;
 
-export function CustomProjectControlsForm({ requestId, tenantId }: Props) {
+export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Props) {
   const router = useRouter();
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [meetingState, meetingAction, meetingPending] = useActionState(enableCustomProjectMeetingAction, {});
@@ -121,8 +122,14 @@ export function CustomProjectControlsForm({ requestId, tenantId }: Props) {
         <input type="hidden" name="tenantId" value={tenantId} />
         <label className="text-xs text-[var(--muted)]">Crear slot de agenda</label>
         <div className="grid gap-2 md:grid-cols-2">
-          <input name="startsAt" type="datetime-local" className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm" />
-          <input name="endsAt" type="datetime-local" className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm" />
+          <label className="grid gap-1 text-xs text-[var(--muted)]">
+            <span>Inicio del slot</span>
+            <input name="startsAt" type="datetime-local" required className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm" />
+          </label>
+          <label className="grid gap-1 text-xs text-[var(--muted)]">
+            <span>Fin del slot</span>
+            <input name="endsAt" type="datetime-local" required className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm" />
+          </label>
         </div>
         <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
           <input name="durationMinutes" type="number" min={15} defaultValue={60} className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm" />
@@ -162,8 +169,9 @@ export function CustomProjectControlsForm({ requestId, tenantId }: Props) {
         <label className="text-xs text-[var(--muted)]">Provision rapida (editor + vase.ar)</label>
         <input
           name="pageName"
-          defaultValue="Sitio personalizado"
+          defaultValue={pageScope || "Sitio personalizado"}
           placeholder="Nombre de la pagina (ej. Tienda Oficial)"
+          required
           className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm"
         />
         <input

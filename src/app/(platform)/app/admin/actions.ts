@@ -3066,6 +3066,7 @@ export async function provisionCustomProjectAction(
               parsed.data.repositoryUrl || null,
               parsed.data.deployNotes || null,
               uploadedPackageMeta ? `zip:${uploadedPackageMeta.fileName}` : null,
+              !uploadedPackageMeta && !parsed.data.repositoryUrl ? "Provision sin paquete externo" : null,
             ]
               .filter(Boolean)
               .join(" | "),
