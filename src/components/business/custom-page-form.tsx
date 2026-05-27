@@ -9,6 +9,7 @@ import { FieldError } from "@/components/auth/field-error";
 import { SubmitButton } from "@/components/auth/submit-button";
 
 const initialState: AuthActionState = {};
+const displayTimeZone = "America/Argentina/Buenos_Aires";
 const fieldMeta = {
   businessObjective: { label: "Objetivo del negocio", step: 1 },
   businessDescription: { label: "Descripcion del negocio", step: 1 },
@@ -41,9 +42,11 @@ function formatSlotLabel(slot: SlotOption) {
   const start = new Intl.DateTimeFormat("es-AR", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: displayTimeZone,
   }).format(startsAt);
   const end = new Intl.DateTimeFormat("es-AR", {
     timeStyle: "short",
+    timeZone: displayTimeZone,
   }).format(endsAt);
   const remaining = Math.max(0, slot.capacity - slot.reservedCount);
   return `${start} - ${end} · ${remaining} cupo(s)`;

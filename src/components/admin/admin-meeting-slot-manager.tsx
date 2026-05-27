@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import { createMeetingAvailabilitySlotAction } from "@/app/(platform)/app/admin/actions";
 
+const displayTimeZone = "America/Argentina/Buenos_Aires";
+
 type TenantOption = {
   id: string;
   accountName: string;
@@ -29,6 +31,7 @@ function formatDate(value: Date | string) {
   return new Intl.DateTimeFormat("es-AR", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: displayTimeZone,
   }).format(date);
 }
 
