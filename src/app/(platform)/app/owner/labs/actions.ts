@@ -32,6 +32,8 @@ export type LabsActionState = {
   success?: string;
   error?: string;
   info?: string;
+  webhookUrl?: string;
+  webhookVerifyToken?: string;
 };
 
 type OpenWaConfig = {
@@ -632,9 +634,21 @@ export async function connectLabsChannelAction(
           ? `Proveedor no oficial: Baileys QR embebido. No requiere webhook externo de OpenWA.`
           : undefined;
 
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").trim().replace(/\/$/, "");
+    const webhookPath = `/api/v1/channels/whatsapp/${membership.tenant.slug}/webhook`;
+    const webhookUrl = appUrl ? `${appUrl}${webhookPath}` : webhookPath;
+
     return {
       success: status === "CONNECTED" ? "Canal conectado y operativo." : "Canal registrado en estado pendiente.",
       info: [webhookInfo, openWaQrAutoInfo].filter(Boolean).join(" · "),
+      webhookUrl:
+        parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "META_OFFICIAL"
+          ? webhookUrl
+          : undefined,
+      webhookVerifyToken:
+        parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "META_OFFICIAL"
+          ? verifyToken
+          : undefined,
     };
   } catch {
     return {
