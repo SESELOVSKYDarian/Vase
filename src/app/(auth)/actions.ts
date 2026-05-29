@@ -1,6 +1,7 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { auth, signIn, signOut } from "@/auth";
 import { isDatabaseConfigured } from "@/lib/db/prisma";
@@ -14,6 +15,7 @@ import {
   signInSchema,
 } from "@/lib/validators/auth";
 import {
+  createForcedPasswordResetToken,
   findUserByEmail,
   registerTenantOwner,
   requestPasswordReset,
@@ -211,11 +213,16 @@ export async function signInAction(
   }
 
   if (result.forcePasswordChange) {
-    await requestPasswordReset(result.user.email, requestContext);
-    return {
-      error:
-        "Debes actualizar tu contrasena temporal antes de continuar. Te enviamos un enlace de restablecimiento.",
-    };
+    const forcedToken = await createForcedPasswordResetToken(result.user.id, requestContext);
+    if (!forcedToken) {
+      return {
+        error: "No pudimos iniciar el cambio de contrasena obligatorio.",
+      };
+    }
+
+    redirect(
+      `/reset-password?token=${encodeURIComponent(forcedToken)}&mode=forced&redirectTo=${encodeURIComponent(redirectTo)}` as Route,
+    );
   }
 
   const effectiveRedirectTo =
@@ -309,6 +316,7 @@ export async function resetPasswordAction(
     password: String(formData.get("password") ?? ""),
     confirmPassword: String(formData.get("confirmPassword") ?? ""),
   };
+  const redirectTo = normalizeRedirectTarget(formData.get("redirectTo") ?? "/signin?reset=success");
   const parsed = resetPasswordSchema.safeParse(rawData);
 
   if (!parsed.success) {
@@ -338,7 +346,7 @@ export async function resetPasswordAction(
     };
   }
 
-  redirect("/signin?reset=success");
+  redirect((redirectTo || "/signin?reset=success") as Route);
 }
 
 export async function resendVerificationAction(): Promise<AuthActionState> {

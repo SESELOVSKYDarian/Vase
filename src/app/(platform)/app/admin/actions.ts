@@ -22,6 +22,7 @@ import { getRequestContext } from "@/lib/security/request";
 import { sanitizeNullableText, sanitizeText } from "@/lib/security/sanitize";
 import {
   createSupportUserSchema,
+  createManualUserByAdminSchema,
   createDeveloperUserSchema,
   createAdminModuleSchema,
   toggleFeatureFlagSchema,
@@ -37,6 +38,7 @@ import {
   updateTenantGovernanceSchema,
   updateUserGovernanceSchema,
   updateUserTenantAccessSchema,
+  updateUserTenantAccessSnapshotSchema,
   createPlatformUpdateSchema,
   deletePlatformUpdateSchema,
   updateUserStatusSchema,
@@ -2072,6 +2074,327 @@ export async function createDeveloperUserAction(
     return { success: `Desarrollador creado. Contrasena temporal: ${temporaryPassword}` };
   } catch {
     return { error: "No pudimos crear el desarrollador." };
+  }
+}
+
+export async function updateUserTenantAccessSnapshotAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const payloadRaw = String(formData.get("payload") ?? "");
+    const payload = JSON.parse(payloadRaw || "{}");
+    const parsed = updateUserTenantAccessSnapshotSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      return { error: "Datos invalidos. Revisa rol, estado y accesos del modulo." };
+    }
+
+    await ensureModuleCatalogSynced();
+
+    const [user, tenant, submoduleCatalog] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: parsed.data.userId },
+        select: { id: true, email: true },
+      }),
+      prisma.tenant.findUnique({
+        where: { id: parsed.data.tenantId },
+        select: { id: true, accountName: true },
+      }),
+      prisma.moduleSubmodule.findMany({
+        where: {
+          id: { in: parsed.data.modules.flatMap((module) => module.submodules.map((submodule) => submodule.submoduleId)) },
+        },
+        select: { id: true, moduleId: true },
+      }),
+    ]);
+
+    if (!user || !tenant) {
+      return { error: "No encontramos el usuario o tenant seleccionado." };
+    }
+
+    const submoduleParentMap = new Map(submoduleCatalog.map((item) => [item.id, item.moduleId]));
+    const moduleStateMap = new Map(parsed.data.modules.map((module) => [module.moduleId, module.isActive]));
+
+    for (const module of parsed.data.modules) {
+      for (const submodule of module.submodules) {
+        const parentModuleId = submoduleParentMap.get(submodule.submoduleId);
+        if (!parentModuleId) {
+          return { error: "Hay funcionalidades que ya no existen. Recarga la pagina e intenta de nuevo." };
+        }
+        if (submodule.isActive && !moduleStateMap.get(parentModuleId)) {
+          return { error: "No puedes activar funcionalidades con el modulo padre desactivado." };
+        }
+      }
+    }
+
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      await tx.membership.upsert({
+        where: {
+          userId_tenantId: {
+            userId: parsed.data.userId,
+            tenantId: parsed.data.tenantId,
+          },
+        },
+        update: {
+          role: parsed.data.tenantRole,
+          status: parsed.data.membershipStatus,
+        },
+        create: {
+          userId: parsed.data.userId,
+          tenantId: parsed.data.tenantId,
+          role: parsed.data.tenantRole,
+          status: parsed.data.membershipStatus,
+        },
+      });
+
+      for (const module of parsed.data.modules) {
+        const publishedArtifact = await tx.moduleArtifact.findFirst({
+          where: { moduleId: module.moduleId, isPublished: true },
+          orderBy: { publishedAt: "desc" },
+          select: { id: true },
+        });
+
+        await tx.tenantModule.upsert({
+          where: {
+            tenantId_moduleId: {
+              tenantId: parsed.data.tenantId,
+              moduleId: module.moduleId,
+            },
+          },
+          update: {
+            isActive: module.isActive,
+            activatedAt: module.isActive ? now : null,
+            activeArtifactId: publishedArtifact?.id ?? null,
+          },
+          create: {
+            tenantId: parsed.data.tenantId,
+            moduleId: module.moduleId,
+            isActive: module.isActive,
+            activatedAt: module.isActive ? now : null,
+            activeArtifactId: publishedArtifact?.id ?? null,
+          },
+        });
+      }
+
+      for (const module of parsed.data.modules) {
+        for (const submodule of module.submodules) {
+          const publishedArtifact = await tx.moduleArtifact.findFirst({
+            where: { submoduleId: submodule.submoduleId, isPublished: true },
+            orderBy: { publishedAt: "desc" },
+            select: { id: true },
+          });
+
+          await tx.tenantSubmodule.upsert({
+            where: {
+              tenantId_submoduleId: {
+                tenantId: parsed.data.tenantId,
+                submoduleId: submodule.submoduleId,
+              },
+            },
+            update: {
+              isActive: submodule.isActive && module.isActive,
+              activatedAt: submodule.isActive && module.isActive ? now : null,
+              activeArtifactId: publishedArtifact?.id ?? null,
+            },
+            create: {
+              tenantId: parsed.data.tenantId,
+              submoduleId: submodule.submoduleId,
+              isActive: submodule.isActive && module.isActive,
+              activatedAt: submodule.isActive && module.isActive ? now : null,
+              activeArtifactId: publishedArtifact?.id ?? null,
+            },
+          });
+        }
+      }
+    });
+
+    await createAuditLog({
+      action: "platform.user_tenant_access_snapshot_updated",
+      targetType: "membership",
+      targetId: `${parsed.data.userId}:${parsed.data.tenantId}`,
+      tenantId: parsed.data.tenantId,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        userEmail: user.email,
+        tenant: tenant.accountName,
+        tenantRole: parsed.data.tenantRole,
+        membershipStatus: parsed.data.membershipStatus,
+        modules: parsed.data.modules.map((module) => ({
+          moduleId: module.moduleId,
+          isActive: module.isActive,
+          activeSubmodules: module.submodules.filter((submodule) => submodule.isActive).map((submodule) => submodule.submoduleId),
+        })),
+      },
+    });
+
+    revalidatePath("/app/admin/users");
+    revalidatePath("/app/admin/modules");
+    revalidatePath("/app");
+    return { success: "Accesos guardados correctamente." };
+  } catch {
+    return { error: "No pudimos guardar los accesos del usuario." };
+  }
+}
+
+export async function createManualUserByAdminAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = createManualUserByAdminSchema.safeParse({
+      name: sanitizeText(String(formData.get("name") ?? "")),
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+      tenantId: String(formData.get("tenantId") ?? ""),
+      tenantRole: formData.get("tenantRole"),
+      membershipStatus: formData.get("membershipStatus"),
+      businessAccess: formData.get("businessAccess") === "on",
+      labsAccess: formData.get("labsAccess") === "on",
+      forcePasswordChange: formData.get("forcePasswordChange") === "on",
+    });
+
+    if (!parsed.success) {
+      return { error: "Revisa nombre, email, contrasena y acceso al tenant." };
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { email: parsed.data.email },
+      select: { id: true },
+    });
+    if (existing) {
+      return { error: "Ya existe un usuario con ese email." };
+    }
+
+    const tenantId = parsed.data.tenantId ? parsed.data.tenantId : null;
+    if (tenantId) {
+      await ensureModuleCatalogSynced();
+      const tenantExists = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { id: true },
+      });
+      if (!tenantExists) {
+        return { error: "El tenant seleccionado no existe." };
+      }
+    }
+
+    const passwordHash = await hashPassword(parsed.data.password);
+    const now = new Date();
+
+    const createdUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: parsed.data.name,
+          email: parsed.data.email,
+          passwordHash,
+          platformRole: "USER",
+          locale: "es",
+          emailVerified: now,
+          forcePasswordChange: parsed.data.forcePasswordChange,
+          tempPasswordIssuedAt: parsed.data.forcePasswordChange ? now : null,
+          passwordChangedAt: now,
+        },
+      });
+
+      if (tenantId) {
+        await tx.membership.upsert({
+          where: {
+            userId_tenantId: {
+              userId: user.id,
+              tenantId,
+            },
+          },
+          update: {
+            role: parsed.data.tenantRole,
+            status: parsed.data.membershipStatus,
+          },
+          create: {
+            userId: user.id,
+            tenantId,
+            role: parsed.data.tenantRole,
+            status: parsed.data.membershipStatus,
+          },
+        });
+
+        await tx.tenantModule.upsert({
+          where: {
+            tenantId_moduleId: {
+              tenantId,
+              moduleId: userAccessModuleIds.business,
+            },
+          },
+          update: {
+            isActive: parsed.data.businessAccess,
+            activatedAt: parsed.data.businessAccess ? now : null,
+          },
+          create: {
+            tenantId,
+            moduleId: userAccessModuleIds.business,
+            isActive: parsed.data.businessAccess,
+            activatedAt: parsed.data.businessAccess ? now : null,
+          },
+        });
+
+        await tx.tenantModule.upsert({
+          where: {
+            tenantId_moduleId: {
+              tenantId,
+              moduleId: userAccessModuleIds.labs,
+            },
+          },
+          update: {
+            isActive: parsed.data.labsAccess,
+            activatedAt: parsed.data.labsAccess ? now : null,
+          },
+          create: {
+            tenantId,
+            moduleId: userAccessModuleIds.labs,
+            isActive: parsed.data.labsAccess,
+            activatedAt: parsed.data.labsAccess ? now : null,
+          },
+        });
+      }
+
+      return user;
+    });
+
+    await createAuditLog({
+      action: "platform.manual_user_created",
+      targetType: "user",
+      targetId: createdUser.id,
+      tenantId: tenantId ?? undefined,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        email: createdUser.email,
+        tenantId,
+        tenantRole: tenantId ? parsed.data.tenantRole : null,
+        membershipStatus: tenantId ? parsed.data.membershipStatus : null,
+        businessAccess: tenantId ? parsed.data.businessAccess : null,
+        labsAccess: tenantId ? parsed.data.labsAccess : null,
+        emailVerifiedByAdmin: true,
+        forcePasswordChange: parsed.data.forcePasswordChange,
+      },
+    });
+
+    revalidatePath("/app/admin/users");
+    revalidatePath("/app/admin");
+    revalidatePath("/app");
+    return { success: "Cuenta creada sin verificacion por email." };
+  } catch {
+    return { error: "No pudimos crear la cuenta manual." };
   }
 }
 

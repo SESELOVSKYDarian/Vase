@@ -15,6 +15,18 @@ export const createSupportUserSchema = z.object({
   platformRole: z.enum(["SUPPORT", "SUPER_ADMIN"]).default("SUPPORT"),
 });
 
+export const createManualUserByAdminSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  email: z.email().trim().toLowerCase(),
+  password: z.string().min(8).max(72),
+  tenantId: z.string().trim().cuid().optional().or(z.literal("")),
+  tenantRole: z.enum(["OWNER", "MANAGER", "MEMBER"]).default("MEMBER"),
+  membershipStatus: z.enum(["ACTIVE", "INVITED", "SUSPENDED"]).default("ACTIVE"),
+  businessAccess: z.boolean().default(false),
+  labsAccess: z.boolean().default(false),
+  forcePasswordChange: z.boolean().default(true),
+});
+
 export const createDeveloperUserSchema = z.object({
   name: z.string().trim().min(2).max(80),
   email: z.email().trim().toLowerCase(),
@@ -71,6 +83,25 @@ export const updateUserTenantAccessSchema = z.object({
   membershipStatus: z.enum(["ACTIVE", "INVITED", "SUSPENDED"]).default("ACTIVE"),
   businessAccess: z.boolean().default(false),
   labsAccess: z.boolean().default(false),
+});
+
+export const updateUserTenantAccessSnapshotSchema = z.object({
+  userId: z.string().trim().cuid(),
+  tenantId: z.string().trim().cuid(),
+  tenantRole: z.enum(["OWNER", "MANAGER", "MEMBER"]),
+  membershipStatus: z.enum(["ACTIVE", "INVITED", "SUSPENDED"]).default("ACTIVE"),
+  modules: z.array(
+    z.object({
+      moduleId: z.string().trim().min(3).max(80),
+      isActive: z.boolean(),
+      submodules: z.array(
+        z.object({
+          submoduleId: z.string().trim().cuid(),
+          isActive: z.boolean(),
+        }),
+      ).default([]),
+    }),
+  ).default([]),
 });
 
 export const updateUserStatusSchema = z.object({

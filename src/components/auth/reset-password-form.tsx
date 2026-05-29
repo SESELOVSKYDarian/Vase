@@ -9,12 +9,13 @@ import { SubmitButton } from "@/components/auth/submit-button";
 
 const initialState: AuthActionState = {};
 
-export function ResetPasswordForm({ token }: { token: string }) {
+export function ResetPasswordForm({ token, redirectTo = "/signin?reset=success" }: { token: string; redirectTo?: string }) {
   const [state, formAction] = useActionState(resetPasswordAction, initialState);
 
   return (
     <form action={formAction} className="space-y-5">
       <input type="hidden" name="token" value={token} />
+      <input type="hidden" name="redirectTo" value={redirectTo} />
       <AuthNotice kind="error" message={state.error} />
       <div className="space-y-2">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="password">

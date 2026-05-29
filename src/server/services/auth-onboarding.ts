@@ -372,6 +372,34 @@ export async function requestPasswordReset(email: string, requestContext: Reques
   });
 }
 
+export async function createForcedPasswordResetToken(
+  userId: string,
+  requestContext: RequestContext,
+) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  await revokeAuthTokens(user.id, "PASSWORD_RESET");
+  const token = await issueAuthToken(user.id, "PASSWORD_RESET");
+
+  await createAuditLog({
+    action: "auth.password_reset_forced_login",
+    targetType: "user",
+    targetId: user.id,
+    actorUserId: user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+  });
+
+  return token.token;
+}
+
 export async function resetPasswordWithToken(
   rawToken: string,
   password: string,
@@ -390,6 +418,8 @@ export async function resetPasswordWithToken(
     data: {
       passwordHash,
       passwordChangedAt: new Date(),
+      forcePasswordChange: false,
+      tempPasswordIssuedAt: null,
     },
   });
 

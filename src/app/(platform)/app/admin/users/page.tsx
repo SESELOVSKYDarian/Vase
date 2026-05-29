@@ -1,7 +1,11 @@
 import { forbidden } from "next/navigation";
+import { ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminAccessPolicyForm } from "@/components/admin/admin-access-policy-form";
+import { AdminManualUserCreateForm } from "@/components/admin/admin-manual-user-create-form";
+import { AdminUserAccessManagerModal } from "@/components/admin/admin-user-access-manager-modal";
 import { AdminUserGovernanceForm } from "@/components/admin/admin-user-governance-form";
+import { AdminUserPasswordResetForm } from "@/components/admin/admin-user-password-reset-form";
 import { AdminUserTenantAccessForm } from "@/components/admin/admin-user-tenant-access-form";
 import { PanelCard } from "@/components/ui/panel-card";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
@@ -37,7 +41,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
   const q = getStringParam(params.q)?.trim();
   const role = getStringParam(params.role);
 
-  const [users, tenants] = await Promise.all([
+  const [users, tenants, modulesCatalog] = await Promise.all([
     prisma.user.findMany({
       where: {
         ...(q
@@ -67,6 +71,12 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                     isActive: true,
                   },
                 },
+                tenantSubmodules: {
+                  select: {
+                    submoduleId: true,
+                    isActive: true,
+                  },
+                },
               },
             },
           },
@@ -83,6 +93,28 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
       },
       orderBy: { accountName: "asc" },
       take: 300,
+    }),
+    prisma.module.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        product: true,
+        isActive: true,
+        submodules: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            key: true,
+            name: true,
+            description: true,
+            isActive: true,
+          },
+          orderBy: { name: "asc" },
+        },
+      },
+      orderBy: [{ product: "asc" }, { name: "asc" }],
     }),
   ]);
 
@@ -144,6 +176,17 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
       </PanelCard>
 
       <PanelCard
+        title="Crear cuenta manual"
+        description="Alta directa por Super Admin con password definida y verificacion de email automatica."
+      >
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-3 py-1 text-xs text-[var(--muted)]">
+          <Sparkles className="h-3.5 w-3.5" />
+          Onboarding asistido para cuentas existentes
+        </div>
+        <AdminManualUserCreateForm tenants={tenants} />
+      </PanelCard>
+
+      <PanelCard
         title="Asignacion rapida"
         description="Selecciona un usuario, tenant, rol y modulos. Labs se activa por tenant."
       >
@@ -183,12 +226,22 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                   </p>
                 </div>
                 <div className="rounded-2xl bg-[var(--surface)] px-4 py-3 text-sm text-[var(--muted)]">
-                  Tenants: {user.memberships.length}
+                  <p className="inline-flex items-center gap-1.5">
+                    <UsersRound className="h-4 w-4" />
+                    Tenants: {user.memberships.length}
+                  </p>
                 </div>
               </div>
 
               <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
                 <div className="grid gap-3">
+                  <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
+                    <p className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted-soft)]">
+                      <ShieldCheck className="h-4 w-4" />
+                      Seguridad de acceso
+                    </p>
+                    <AdminUserPasswordResetForm userId={user.id} />
+                  </div>
                   <AdminUserGovernanceForm userId={user.id} platformRole={user.platformRole} />
                   <AdminAccessPolicyForm userId={user.id} policy={user.adminAccessPolicy} />
                 </div>
@@ -198,6 +251,25 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                     userId={user.id}
                     tenants={tenants}
                     title="Agregar acceso a tenant"
+                  />
+                  <AdminUserAccessManagerModal
+                    user={{
+                      id: user.id,
+                      name: user.name,
+                      email: user.email,
+                      isDisabled: user.isDisabled,
+                    }}
+                    memberships={user.memberships.map((membership) => ({
+                      membershipId: membership.id,
+                      tenantId: membership.tenantId,
+                      tenantName: membership.tenant.name,
+                      tenantAccountName: membership.tenant.accountName,
+                      role: membership.role,
+                      status: membership.status,
+                      moduleActivations: membership.tenant.tenantModules,
+                      submoduleActivations: membership.tenant.tenantSubmodules,
+                    }))}
+                    modulesCatalog={modulesCatalog}
                   />
 
                   {user.memberships.length === 0 ? (
@@ -230,7 +302,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                             defaultStatus={membership.status}
                             businessAccess={hasActiveModule(modules, userAccessModuleIds.business)}
                             labsAccess={hasActiveModule(modules, userAccessModuleIds.labs)}
-                            title="Editar acceso existente"
+                            title="Edicion rapida (legacy)"
                           />
                         </div>
                       );

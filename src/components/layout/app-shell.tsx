@@ -157,6 +157,9 @@ export function AppShell({
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const activeSection = inferActiveSection(pathname);
   const isAdminShell = pathname.startsWith("/app/admin");
+  const accountDisplayName =
+    currentUserName?.trim() ||
+    (isAdminShell ? "Admin Vase" : tenantLabel?.trim() || "Cuenta");
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -397,7 +400,7 @@ export function AppShell({
                 {tenantLabel?.slice(0, 2).toUpperCase() ?? "VA"}
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-[var(--foreground)]">{currentUserName ?? "Cuenta"}</span>
+                <span className="text-xs font-bold text-[var(--foreground)]">{accountDisplayName}</span>
                 <span className="text-[10px] text-[var(--muted-soft)]">Gestion de cuenta</span>
               </div>
             </button>
