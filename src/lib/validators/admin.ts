@@ -64,6 +64,15 @@ export const updateUserGovernanceSchema = z.object({
   platformRole: z.enum(["SUPER_ADMIN", "SUPPORT", "DEVELOPER", "USER"]),
 });
 
+export const updateUserTenantAccessSchema = z.object({
+  userId: z.string().trim().cuid(),
+  tenantId: z.string().trim().cuid(),
+  tenantRole: z.enum(["OWNER", "MANAGER", "MEMBER"]),
+  membershipStatus: z.enum(["ACTIVE", "INVITED", "SUSPENDED"]).default("ACTIVE"),
+  businessAccess: z.boolean().default(false),
+  labsAccess: z.boolean().default(false),
+});
+
 export const updateUserStatusSchema = z.object({
   userId: z.string().trim().cuid(),
   isDisabled: z.boolean(),

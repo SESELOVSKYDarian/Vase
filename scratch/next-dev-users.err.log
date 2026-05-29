@@ -1,0 +1,8 @@
+⚠ Slow filesystem detected. The benchmark took 779ms. If C:\Users\10\Documents\Vase\.next/dev is a network drive, consider moving it to a local folder.
+See more: https://nextjs.org/docs/app/guides/local-development
+[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
+    at assertConfig (C:\Users\10\Documents\Vase\.next\dev\server\chunks\ssr\node_modules_@auth_core_0~jrzue._.js:513:16)
+    at Auth (C:\Users\10\Documents\Vase\.next\dev\server\chunks\ssr\node_modules_@auth_core_0~jrzue._.js:5330:202)
+    at runNextTicks (node:internal/process/task_queues:64:5)
+    at listOnTimeout (node:internal/timers:567:9)
+    at process.processTimers (node:internal/timers:541:7)

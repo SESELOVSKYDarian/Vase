@@ -246,6 +246,7 @@ export function AppShell({
       id: "platform",
       label: "Plataforma",
       items: [
+        { id: "admin-users", href: "/app/admin/users", label: "Usuarios", icon: UserCog, description: "Roles y acceso por tenant" },
         { id: "admin-modules", href: "/app/admin/modules", label: "Modulos", icon: Blocks, description: "Catalogo y precios" },
         { id: "admin-settings", href: "/app/admin/settings", label: "Ajustes", icon: SlidersHorizontal, description: "Reglas financieras" },
         { id: "admin-audit", href: "/app/admin/audit", label: "Auditoria", icon: ScrollText, description: "Eventos y trazabilidad" },

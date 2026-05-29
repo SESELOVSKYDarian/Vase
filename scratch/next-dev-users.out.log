@@ -1,0 +1,15 @@
+
+> vase@0.1.0 dev
+> next dev --hostname 0.0.0.0 --port 3000
+
+▲ Next.js 16.2.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://0.0.0.0:3000
+✓ Ready in 1133ms
+Creating turbopack project { dir: 'C:\\Users\\10\\Documents\\Vase', testMode: true }
+- Experiments (use with caution):
+  ✓ authInterrupts
+  · proxyClientMaxBodySize: "60mb"
+  · serverActions
+
+ GET /app/admin/users 403 in 3.9s (next.js: 3.0s, application-code: 952ms)
