@@ -13,11 +13,11 @@ export const requestCustomPageSchema = z.object({
   desiredColors: z.string().trim().min(3).max(200),
   brandStyle: z.string().trim().min(5).max(200),
   desiredFeatures: z.string().trim().min(10).max(400),
-  visualReferences: z.string().trim().max(400).optional(),
-  designReferences: z.string().trim().max(300).optional(),
-  requiredIntegrations: z.string().trim().max(300).optional(),
-  observations: z.string().trim().max(500).optional(),
-  notes: z.string().trim().max(500).optional(),
+  visualReferences: z.string().trim().max(400).nullish(),
+  designReferences: z.string().trim().max(300).nullish(),
+  requiredIntegrations: z.string().trim().max(300).nullish(),
+  observations: z.string().trim().max(500).nullish(),
+  notes: z.string().trim().max(500).nullish(),
   slotId: z.string().trim().cuid(),
 });
 

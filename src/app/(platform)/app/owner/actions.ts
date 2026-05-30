@@ -23,6 +23,7 @@ import {
 import { respondCustomizationQuoteSchema } from "@/lib/validators/custom-quotes";
 import { createProjectUpdateSchema } from "@/lib/validators/project";
 import { createAuditLog } from "@/server/services/audit-log";
+import { createAutoAdminNotification } from "@/server/services/admin-notifications-auto";
 
 type CustomProjectMeetingTypeInput =
   | "DEFINITION"
@@ -492,6 +493,15 @@ export async function requestCustomPageAction(
         bookingId: request.booking.id,
         attachments: storedFiles.length,
       },
+    });
+
+    await createAutoAdminNotification({
+      title: "Nuevo pedido de personalización",
+      message: `El tenant ${membership.tenant.name} solicitó una página personalizada para "${parsed.data.pageScope}".`,
+      category: "business",
+      tone: "info",
+      targetRole: "SUPER_ADMIN",
+      tenantId: membership.tenantId,
     });
 
     revalidatePath("/app/business");
