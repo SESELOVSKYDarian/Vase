@@ -3,6 +3,7 @@ import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
 import { hasActiveSession } from "@/lib/auth/session";
 import { resolveLocale } from "@/lib/i18n/locale";
+import { shouldDisablePlatformCache } from "@/lib/security/platform-cache";
 import { getCanonicalOrigin } from "@/lib/security/origin";
 
 const { auth } = NextAuth(authConfig);
@@ -62,12 +63,6 @@ export default auth((request: NextRequest) => {
 
   const response = NextResponse.next();
   const locale = resolveLocale(request.headers);
-  const isSensitivePlatformPath =
-    pathname.startsWith("/app/admin") ||
-    pathname.startsWith("/app/support") ||
-    pathname.startsWith("/app/owner") ||
-    pathname.startsWith("/api/");
-
   response.headers.set("x-vase-locale", locale);
   response.headers.set("x-vase-pathname", pathname);
   response.headers.set(
@@ -76,7 +71,7 @@ export default auth((request: NextRequest) => {
   );
   response.headers.set("x-vase-canonical-origin", getCanonicalOrigin());
 
-  if (isSensitivePlatformPath) {
+  if (shouldDisablePlatformCache(pathname)) {
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
   }
 
