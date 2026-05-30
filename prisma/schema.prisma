@@ -1114,17 +1114,17 @@ model CustomPageRequest {
   storefrontPageId    String?
   requesterUserId     String?
   requestType         CustomPageRequestType   @default(TEMPLATE_CUSTOMIZATION)
-  businessObjective   String
-  pageScope           String
-  businessDescription String?
-  desiredColors       String?
-  brandStyle          String?
-  desiredFeatures     String?
-  visualReferences    String?
-  observations        String?
-  designReferences    String?
-  requiredIntegrations String?
-  notes               String?
+  businessObjective   String                  @db.Text
+  pageScope           String                  @db.Text
+  businessDescription String?                 @db.Text
+  desiredColors       String?                 @db.Text
+  brandStyle          String?                 @db.Text
+  desiredFeatures     String?                 @db.Text
+  visualReferences    String?                 @db.Text
+  observations        String?                 @db.Text
+  designReferences    String?                 @db.Text
+  requiredIntegrations String?                @db.Text
+  notes               String?                 @db.Text
   referenceFiles      Json?
   premiumRequested    Boolean                 @default(true)
   status              CustomPageRequestStatus @default(SUBMITTED)
