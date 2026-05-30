@@ -144,7 +144,7 @@ function serializeClientAccessConfig(config: ClientAccessConfig): string {
   return JSON.stringify(config);
 }
 
-function toLimitState(value?: { pages?: number | null; chatbots?: number | null } | null): ModuleLimitState {
+function toLimitState(value?: { pages?: number | string | null; chatbots?: number | string | null } | null): ModuleLimitState {
   return {
     pages: value?.pages == null ? "" : String(value.pages),
     chatbots: value?.chatbots == null ? "" : String(value.chatbots),
@@ -722,6 +722,8 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                         setClientAccessConfig((current) => ({
                           ...(current ?? createEmptyClientAccessConfig()),
                           tenantPlan: event.target.value as TenantPlan,
+                          proSubmoduleId: current?.proSubmoduleId ?? null,
+                          moduleLimits: current?.moduleLimits ?? {},
                         }))
                       }
                       className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
@@ -748,7 +750,9 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                       onChange={(event) =>
                         setClientAccessConfig((current) => ({
                           ...(current ?? createEmptyClientAccessConfig()),
+                          tenantPlan: current?.tenantPlan ?? "TRIAL",
                           proSubmoduleId: event.target.value || null,
+                          moduleLimits: current?.moduleLimits ?? {},
                         }))
                       }
                       className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"

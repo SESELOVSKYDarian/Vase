@@ -30,6 +30,29 @@ export function buildTenantModuleAccessSummary(modules: TenantModuleAccess[]) {
   return activeLabels.length > 0 ? activeLabels.join(", ") : "Sin modulos";
 }
 
+type ClientTenantProvisioningInput = {
+  moduleIds: string[];
+  tenantPlan: "TRIAL" | "PRO";
+  proSubmoduleId?: string | null;
+};
+
+export function buildClientTenantAccessProvisioning(input: ClientTenantProvisioningInput) {
+  const activeModuleIds = Array.from(new Set(input.moduleIds));
+  const hasBusiness = activeModuleIds.includes(userAccessModuleIds.business);
+  const hasLabs = activeModuleIds.includes(userAccessModuleIds.labs);
+  const onboardingProduct = hasBusiness && hasLabs ? "BOTH" : hasLabs ? "LABS" : "BUSINESS";
+  const isPro = input.tenantPlan === "PRO";
+
+  return {
+    onboardingProduct,
+    tenantStatus: isPro ? "ACTIVE" : "TRIAL",
+    subscriptionPlan: isPro ? "PREMIUM" : "START",
+    billingStatus: isPro ? "ACTIVE" : "TRIAL",
+    activeModuleIds,
+    activeSubmoduleIds: isPro && input.proSubmoduleId ? [input.proSubmoduleId] : [],
+  } as const;
+}
+
 export function buildAdminCreatedUserVerification(now = new Date()) {
   return {
     emailVerified: now,

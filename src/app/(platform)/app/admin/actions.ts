@@ -18,6 +18,7 @@ import {
 } from "@/lib/business/custom-project";
 import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/db/prisma";
+import { generateUniqueTenantSlug } from "@/lib/tenancy/slug";
 import { getRequestContext } from "@/lib/security/request";
 import { sanitizeNullableText, sanitizeText } from "@/lib/security/sanitize";
 import {
@@ -95,6 +96,7 @@ import { createAuditLog } from "@/server/services/audit-log";
 import { createAutoAdminNotification } from "@/server/services/admin-notifications-auto";
 import { ensureModuleCatalogSynced, normalizePricingType } from "@/server/services/modules";
 import {
+  buildClientTenantAccessProvisioning,
   buildAdminCreatedUserVerification,
   getRoleMappingFromUiRole,
   shouldForceAdminCreatedUserPasswordReset,
@@ -2456,8 +2458,8 @@ export async function updateUserTenantAccessSnapshotAction(
     const submoduleParentMap = new Map(submoduleCatalog.map((item) => [item.id, item.moduleId]));
     const moduleStateMap = new Map(parsed.data.modules.map((module) => [module.moduleId, module.isActive]));
 
-    for (const module of parsed.data.modules) {
-      for (const submodule of module.submodules) {
+    for (const moduleAccess of parsed.data.modules) {
+      for (const submodule of moduleAccess.submodules) {
         const parentModuleId = submoduleParentMap.get(submodule.submoduleId);
         if (!parentModuleId) {
           return { error: "Hay funcionalidades que ya no existen. Recarga la pagina e intenta de nuevo." };
@@ -2489,9 +2491,9 @@ export async function updateUserTenantAccessSnapshotAction(
         },
       });
 
-      for (const module of parsed.data.modules) {
+      for (const moduleAccess of parsed.data.modules) {
         const publishedArtifact = await tx.moduleArtifact.findFirst({
-          where: { moduleId: module.moduleId, isPublished: true },
+          where: { moduleId: moduleAccess.moduleId, isPublished: true },
           orderBy: { publishedAt: "desc" },
           select: { id: true },
         });
@@ -2500,26 +2502,26 @@ export async function updateUserTenantAccessSnapshotAction(
           where: {
             tenantId_moduleId: {
               tenantId: parsed.data.tenantId,
-              moduleId: module.moduleId,
+              moduleId: moduleAccess.moduleId,
             },
           },
           update: {
-            isActive: module.isActive,
-            activatedAt: module.isActive ? now : null,
+            isActive: moduleAccess.isActive,
+            activatedAt: moduleAccess.isActive ? now : null,
             activeArtifactId: publishedArtifact?.id ?? null,
           },
           create: {
             tenantId: parsed.data.tenantId,
-            moduleId: module.moduleId,
-            isActive: module.isActive,
-            activatedAt: module.isActive ? now : null,
+            moduleId: moduleAccess.moduleId,
+            isActive: moduleAccess.isActive,
+            activatedAt: moduleAccess.isActive ? now : null,
             activeArtifactId: publishedArtifact?.id ?? null,
           },
         });
       }
 
-      for (const module of parsed.data.modules) {
-        for (const submodule of module.submodules) {
+      for (const moduleAccess of parsed.data.modules) {
+        for (const submodule of moduleAccess.submodules) {
           const publishedArtifact = await tx.moduleArtifact.findFirst({
             where: { submoduleId: submodule.submoduleId, isPublished: true },
             orderBy: { publishedAt: "desc" },
@@ -2534,15 +2536,15 @@ export async function updateUserTenantAccessSnapshotAction(
               },
             },
             update: {
-              isActive: submodule.isActive && module.isActive,
-              activatedAt: submodule.isActive && module.isActive ? now : null,
+              isActive: submodule.isActive && moduleAccess.isActive,
+              activatedAt: submodule.isActive && moduleAccess.isActive ? now : null,
               activeArtifactId: publishedArtifact?.id ?? null,
             },
             create: {
               tenantId: parsed.data.tenantId,
               submoduleId: submodule.submoduleId,
-              isActive: submodule.isActive && module.isActive,
-              activatedAt: submodule.isActive && module.isActive ? now : null,
+              isActive: submodule.isActive && moduleAccess.isActive,
+              activatedAt: submodule.isActive && moduleAccess.isActive ? now : null,
               activeArtifactId: publishedArtifact?.id ?? null,
             },
           });
@@ -4552,6 +4554,174 @@ function parseClientAccessConfig(rawValue: FormDataEntryValue | null): ClientAcc
   }
 }
 
+async function provisionClientWorkspaceFromMasterUser(params: {
+  tx: Prisma.TransactionClient;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  moduleIds: string[];
+  clientAccessConfig: ClientAccessConfigInput;
+  tenantSlugSeed: string;
+}) {
+  const provisioning = buildClientTenantAccessProvisioning({
+    moduleIds: params.moduleIds,
+    tenantPlan: params.clientAccessConfig.tenantPlan,
+    proSubmoduleId: params.clientAccessConfig.proSubmoduleId,
+  });
+
+  const existingMembership = await params.tx.membership.findFirst({
+    where: { userId: params.userId },
+    orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+    select: { tenantId: true },
+  });
+
+  let tenantId = existingMembership?.tenantId ?? null;
+
+  if (!tenantId) {
+    const tenant = await params.tx.tenant.create({
+      data: {
+        name: params.userName,
+        accountName: params.userName,
+        slug: params.tenantSlugSeed,
+        billingEmail: params.userEmail,
+        industry: "General",
+        onboardingProduct: provisioning.onboardingProduct,
+        status: provisioning.tenantStatus,
+      },
+      select: { id: true },
+    });
+    tenantId = tenant.id;
+  } else {
+    await params.tx.tenant.update({
+      where: { id: tenantId },
+      data: {
+        name: params.userName,
+        accountName: params.userName,
+        billingEmail: params.userEmail,
+        onboardingProduct: provisioning.onboardingProduct,
+        status: provisioning.tenantStatus,
+      },
+    });
+  }
+
+  await params.tx.membership.upsert({
+    where: {
+      userId_tenantId: {
+        userId: params.userId,
+        tenantId,
+      },
+    },
+    update: {
+      role: "OWNER",
+      status: "ACTIVE",
+    },
+    create: {
+      userId: params.userId,
+      tenantId,
+      role: "OWNER",
+      status: "ACTIVE",
+    },
+  });
+
+  await params.tx.tenantSubscription.upsert({
+    where: { tenantId },
+    update: {
+      plan: provisioning.subscriptionPlan,
+      billingStatus: provisioning.billingStatus,
+      premiumEnabled: params.clientAccessConfig.tenantPlan === "PRO",
+    },
+    create: {
+      tenantId,
+      plan: provisioning.subscriptionPlan,
+      billingStatus: provisioning.billingStatus,
+      premiumEnabled: params.clientAccessConfig.tenantPlan === "PRO",
+      temporaryPagesEnabled: true,
+      businessProjectLimit: params.clientAccessConfig.tenantPlan === "PRO" ? 3 : 1,
+      labsAssistantLimit: params.clientAccessConfig.tenantPlan === "PRO" ? 2 : 1,
+      trialStartedAt: new Date(),
+      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      graceEndsAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+      currentPeriodEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  await params.tx.tenantModule.updateMany({
+    where: {
+      tenantId,
+      moduleId: { in: [userAccessModuleIds.business, userAccessModuleIds.labs] },
+      NOT: { moduleId: { in: provisioning.activeModuleIds } },
+    },
+    data: {
+      isActive: false,
+      activatedAt: null,
+    },
+  });
+
+  for (const moduleId of provisioning.activeModuleIds) {
+    await params.tx.tenantModule.upsert({
+      where: {
+        tenantId_moduleId: {
+          tenantId,
+          moduleId,
+        },
+      },
+      update: {
+        isActive: true,
+        activatedAt: new Date(),
+      },
+      create: {
+        tenantId,
+        moduleId,
+        isActive: true,
+        activatedAt: new Date(),
+      },
+    });
+  }
+
+  const selectedSubmodules = await params.tx.moduleSubmodule.findMany({
+    where: { moduleId: { in: provisioning.activeModuleIds } },
+    select: { id: true },
+  });
+  const selectedSubmoduleIds = selectedSubmodules.map((submodule) => submodule.id);
+
+  if (selectedSubmoduleIds.length > 0) {
+    await params.tx.tenantSubmodule.updateMany({
+      where: {
+        tenantId,
+        submoduleId: { in: selectedSubmoduleIds },
+        NOT: { submoduleId: { in: provisioning.activeSubmoduleIds } },
+      },
+      data: {
+        isActive: false,
+        activatedAt: null,
+      },
+    });
+  }
+
+  for (const submoduleId of provisioning.activeSubmoduleIds) {
+    await params.tx.tenantSubmodule.upsert({
+      where: {
+        tenantId_submoduleId: {
+          tenantId,
+          submoduleId,
+        },
+      },
+      update: {
+        isActive: true,
+        activatedAt: new Date(),
+      },
+      create: {
+        tenantId,
+        submoduleId,
+        isActive: true,
+        activatedAt: new Date(),
+      },
+    });
+  }
+
+  return tenantId;
+}
+
 export async function upsertMasterUserWithStateAction(
   _: AdminGovernanceActionState,
   formData: FormData,
@@ -4614,9 +4784,23 @@ export async function upsertMasterUserWithStateAction(
       return { error: "Uno o mas modulos seleccionados no son validos." };
     }
 
+    if (clientAccessConfig?.proSubmoduleId) {
+      const selectedSubmodule = await prisma.moduleSubmodule.findUnique({
+        where: { id: clientAccessConfig.proSubmoduleId },
+        select: { id: true, moduleId: true },
+      });
+
+      if (!selectedSubmodule || !moduleIds.includes(selectedSubmodule.moduleId)) {
+        return { error: "El submodulo Pro no pertenece a los modulos seleccionados." };
+      }
+    }
+
     const clientAccessConfigValue = clientAccessConfig
       ? (clientAccessConfig as Prisma.InputJsonValue)
       : Prisma.JsonNull;
+    const tenantSlugSeed = parsed.data.uiRole === "cliente"
+      ? await generateUniqueTenantSlug(parsed.data.name || parsed.data.email.split("@")[0] || "cliente")
+      : "";
 
     const result = await prisma.$transaction(async (tx) => {
       const roleRecord = await tx.role.upsert({
@@ -4691,6 +4875,18 @@ export async function upsertMasterUserWithStateAction(
           });
         }
 
+        if (clientAccessConfig) {
+          await provisionClientWorkspaceFromMasterUser({
+            tx,
+            userId: createdUser.id,
+            userName: parsed.data.name,
+            userEmail: parsed.data.email,
+            moduleIds,
+            clientAccessConfig,
+            tenantSlugSeed,
+          });
+        }
+
         return { userId: createdUser.id, created: true as const };
       }
 
@@ -4740,6 +4936,18 @@ export async function upsertMasterUserWithStateAction(
             isActive: true,
           })),
           skipDuplicates: true,
+        });
+      }
+
+      if (clientAccessConfig) {
+        await provisionClientWorkspaceFromMasterUser({
+          tx,
+          userId: updatedUser.id,
+          userName: parsed.data.name,
+          userEmail: parsed.data.email,
+          moduleIds,
+          clientAccessConfig,
+          tenantSlugSeed,
         });
       }
 

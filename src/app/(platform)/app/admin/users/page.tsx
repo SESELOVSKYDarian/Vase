@@ -87,6 +87,8 @@ export default async function AdminUsersPage() {
             status: true,
             totalAmount: true,
             paidAmount: true,
+            moduleId: true,
+            submoduleId: true,
             dueAt: true,
             paidAt: true,
             createdAt: true,
@@ -125,6 +127,29 @@ export default async function AdminUsersPage() {
           ? "100% pagado"
           : `${paidPercent}% pagado · falta ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(debt)}`;
 
+    const rawClientAccessConfig = user.clientAccessConfig as
+      | {
+          tenantPlan?: "TRIAL" | "PRO";
+          proSubmoduleId?: string | null;
+          moduleLimits?: Record<string, { pages?: number | null; chatbots?: number | null }>;
+        }
+      | null;
+    const clientAccessConfig = rawClientAccessConfig
+      ? {
+          tenantPlan: rawClientAccessConfig.tenantPlan ?? "TRIAL",
+          proSubmoduleId: rawClientAccessConfig.proSubmoduleId ?? null,
+          moduleLimits: Object.fromEntries(
+            Object.entries(rawClientAccessConfig.moduleLimits ?? {}).map(([moduleId, limits]) => [
+              moduleId,
+              {
+                pages: limits.pages ?? null,
+                chatbots: limits.chatbots ?? null,
+              },
+            ]),
+          ),
+        }
+      : null;
+
     return {
       id: user.id,
       name: user.name,
@@ -159,13 +184,7 @@ export default async function AdminUsersPage() {
         )
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .slice(0, 20),
-      clientAccessConfig: user.clientAccessConfig as
-        | {
-            tenantPlan?: "TRIAL" | "PRO";
-            proSubmoduleId?: string | null;
-            moduleLimits?: Record<string, { pages?: number | null; chatbots?: number | null }>;
-          }
-        | null,
+      clientAccessConfig,
     };
   });
 

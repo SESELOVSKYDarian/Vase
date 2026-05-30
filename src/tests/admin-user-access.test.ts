@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAdminCreatedUserVerification,
+  buildClientTenantAccessProvisioning,
   buildTenantModuleAccessSummary,
   getRoleMappingFromUiRole,
   inferUiRoleFromStoredRoles,
@@ -84,5 +85,37 @@ describe("admin user access helpers", () => {
         rawPassword: "Vase-123456#789",
       }),
     ).toBe(true);
+  });
+
+  it("builds tenant provisioning from the client modal access", () => {
+    expect(
+      buildClientTenantAccessProvisioning({
+        moduleIds: ["vase_business"],
+        tenantPlan: "PRO",
+        proSubmoduleId: "custom-submodule-id",
+      }),
+    ).toEqual({
+      onboardingProduct: "BUSINESS",
+      tenantStatus: "ACTIVE",
+      subscriptionPlan: "PREMIUM",
+      billingStatus: "ACTIVE",
+      activeModuleIds: ["vase_business"],
+      activeSubmoduleIds: ["custom-submodule-id"],
+    });
+
+    expect(
+      buildClientTenantAccessProvisioning({
+        moduleIds: ["vase_business", "vase_labs"],
+        tenantPlan: "TRIAL",
+        proSubmoduleId: "custom-submodule-id",
+      }),
+    ).toMatchObject({
+      onboardingProduct: "BOTH",
+      tenantStatus: "TRIAL",
+      subscriptionPlan: "START",
+      billingStatus: "TRIAL",
+      activeModuleIds: ["vase_business", "vase_labs"],
+      activeSubmoduleIds: [],
+    });
   });
 });
