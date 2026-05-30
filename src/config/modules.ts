@@ -11,6 +11,19 @@ export type ModuleBillingType = "monthly" | "one_time" | "custom" | "included";
 export type ModuleStatus = "active" | "inactive";
 export type ModuleProduct = "BUSINESS" | "LABS";
 
+export type PlatformSubmoduleDefinition = {
+  key: string;
+  name: string;
+  description: string;
+  route: string;
+  pricing: {
+    development: number;
+    hostingMonthly?: number | null;
+    hostingYearly?: number | null;
+    currency: string;
+  };
+};
+
 export type PlatformModuleDefinition = {
   id: PlatformModuleId;
   key: PlatformModuleKey;
@@ -30,6 +43,7 @@ export type PlatformModuleDefinition = {
     currency: string;
     type: Extract<ModuleBillingType, "monthly" | "one_time">;
   };
+  submodules: readonly PlatformSubmoduleDefinition[];
   billing: {
     type: ModuleBillingType;
     monthlyFrom?: number | null;
@@ -83,13 +97,39 @@ export const platformModules: readonly PlatformModuleDefinition[] = [
     recommendedFlagPrefixes: ["business_", "integrations_", "premium_"],
     activationMode: "automatic",
     defaultPricing: {
-      price: 1070000,
+      price: 1800000,
       currency: "ARS",
       type: "one_time",
     },
+    submodules: [
+      {
+        key: "plantilla",
+        name: "Plantilla",
+        description: "Sitio con base prediseñada para salida rapida.",
+        route: "/app/business/plantilla",
+        pricing: {
+          development: 780000,
+          hostingMonthly: 25000,
+          hostingYearly: 280000,
+          currency: "ARS",
+        },
+      },
+      {
+        key: "personalizado",
+        name: "Personalizado",
+        description: "Desarrollo a medida con alcance completo.",
+        route: "/app/business/personalizado",
+        pricing: {
+          development: 1800000,
+          hostingMonthly: 25000,
+          hostingYearly: 280000,
+          currency: "ARS",
+        },
+      },
+    ],
     billing: {
       type: "one_time",
-      setupFrom: 1070000,
+      setupFrom: 1800000,
       currency: "ARS",
     },
   },
@@ -109,13 +149,51 @@ export const platformModules: readonly PlatformModuleDefinition[] = [
     recommendedFlagPrefixes: ["labs_", "automation_", "meta_"],
     activationMode: "automatic",
     defaultPricing: {
-      price: 90000,
+      price: 120000,
       currency: "ARS",
       type: "monthly",
     },
+    submodules: [
+      {
+        key: "starter",
+        name: "Starter",
+        description: "Entrada simple para automatizacion inicial.",
+        route: "/app/labs/starter",
+        pricing: {
+          development: 0,
+          hostingMonthly: 120000,
+          hostingYearly: null,
+          currency: "ARS",
+        },
+      },
+      {
+        key: "growth",
+        name: "Growth",
+        description: "IA con mayor capacidad operativa.",
+        route: "/app/labs/growth",
+        pricing: {
+          development: 0,
+          hostingMonthly: 170000,
+          hostingYearly: null,
+          currency: "ARS",
+        },
+      },
+      {
+        key: "pro",
+        name: "Pro",
+        description: "Capacidad avanzada para operaciones intensivas.",
+        route: "/app/labs/pro",
+        pricing: {
+          development: 0,
+          hostingMonthly: 220000,
+          hostingYearly: null,
+          currency: "ARS",
+        },
+      },
+    ],
     billing: {
       type: "monthly",
-      monthlyFrom: 90000,
+      monthlyFrom: 120000,
       currency: "ARS",
     },
   },

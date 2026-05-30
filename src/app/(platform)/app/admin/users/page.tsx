@@ -1,105 +1,38 @@
 import { forbidden } from "next/navigation";
-import { ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminAccessPolicyForm } from "@/components/admin/admin-access-policy-form";
-import { AdminManualUserCreateForm } from "@/components/admin/admin-manual-user-create-form";
-import { AdminUserAccessManagerModal } from "@/components/admin/admin-user-access-manager-modal";
-import { AdminUserGovernanceForm } from "@/components/admin/admin-user-governance-form";
-import { AdminUserPasswordResetForm } from "@/components/admin/admin-user-password-reset-form";
-import { AdminUserRolesForm } from "@/components/admin/admin-user-roles-form";
-import { AdminUserTenantAccessForm } from "@/components/admin/admin-user-tenant-access-form";
-import { PanelCard } from "@/components/ui/panel-card";
+import { AdminMasterUsersWorkspace } from "@/components/admin/admin-master-users-workspace";
+import { inferUiRoleFromStoredRoles } from "@/lib/admin/user-access";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
-import {
-  buildTenantModuleAccessSummary,
-  userAccessModuleIds,
-} from "@/lib/admin/user-access";
 import { prisma } from "@/lib/db/prisma";
 
-type AdminUsersPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-function getStringParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function hasActiveModule(
-  modules: Array<{ moduleId: string; isActive: boolean }>,
-  moduleId: string,
-) {
-  return modules.some((module) => module.moduleId === moduleId && module.isActive);
-}
-
-export default async function AdminUsersPage({ searchParams }: AdminUsersPageProps) {
+export default async function AdminUsersPage() {
   try {
     await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
   } catch {
     forbidden();
   }
 
-  const params = await searchParams;
-  const q = getStringParam(params.q)?.trim();
-  const role = getStringParam(params.role);
-
-  const [users, tenants, modulesCatalog] = await Promise.all([
+  const [usersRaw, modulesRaw, clientAccountsRaw] = await Promise.all([
     prisma.user.findMany({
-      where: {
-        ...(q
-          ? {
-              OR: [
-                { name: { contains: q } },
-                { email: { contains: q } },
-              ],
-            }
-          : {}),
-        ...(role ? { platformRole: role as "SUPER_ADMIN" | "SUPPORT" | "DEVELOPER" | "USER" } : {}),
-      },
-      include: {
-        adminAccessPolicy: true,
-        internalProfile: true,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        platformRole: true,
+        clientAccessConfig: true,
         appRoles: {
-          include: {
+          select: {
             role: {
               select: { key: true },
             },
           },
         },
-        memberships: {
-          orderBy: { createdAt: "desc" },
-          include: {
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                accountName: true,
-                tenantModules: {
-                  select: {
-                    moduleId: true,
-                    isActive: true,
-                  },
-                },
-                tenantSubmodules: {
-                  select: {
-                    submoduleId: true,
-                    isActive: true,
-                  },
-                },
-              },
-            },
-          },
+        moduleAccesses: {
+          where: { isActive: true },
+          select: { moduleId: true },
         },
       },
-      orderBy: [{ platformRole: "asc" }, { createdAt: "desc" }],
-      take: 200,
-    }),
-    prisma.tenant.findMany({
-      select: {
-        id: true,
-        name: true,
-        accountName: true,
-      },
-      orderBy: { accountName: "asc" },
+      orderBy: [{ createdAt: "desc" }],
       take: 300,
     }),
     prisma.module.findMany({
@@ -107,235 +40,165 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
       select: {
         id: true,
         name: true,
-        description: true,
         product: true,
-        isActive: true,
+        pricing: {
+          orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+          select: {
+            price: true,
+            currency: true,
+            type: true,
+            isActive: true,
+          },
+        },
         submodules: {
-          where: { isActive: true },
           select: {
             id: true,
             key: true,
             name: true,
-            description: true,
-            isActive: true,
+            pricing: {
+              orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+              select: {
+                price: true,
+                currency: true,
+                type: true,
+                isActive: true,
+              },
+            },
           },
           orderBy: { name: "asc" },
         },
       },
       orderBy: [{ product: "asc" }, { name: "asc" }],
     }),
+    prisma.clientAccount.findMany({
+      select: {
+        id: true,
+        name: true,
+        companyName: true,
+        managedByUserId: true,
+        email: true,
+        updatedAt: true,
+        payments: {
+          orderBy: [{ createdAt: "desc" }],
+          select: {
+            id: true,
+            concept: true,
+            category: true,
+            status: true,
+            totalAmount: true,
+            paidAmount: true,
+            dueAt: true,
+            paidAt: true,
+            createdAt: true,
+          },
+        },
+      },
+    }),
   ]);
 
-  const activeMemberships = users.reduce(
-    (total, user) => total + user.memberships.filter((membership) => membership.status === "ACTIVE").length,
-    0,
-  );
-  const labsTenants = new Set(
-    users.flatMap((user) =>
-      user.memberships
-        .filter((membership) =>
-          hasActiveModule(membership.tenant.tenantModules, userAccessModuleIds.labs),
+  const users = usersRaw.map((user) => {
+    const appRoles = user.appRoles.map((entry) => entry.role.key);
+    const uiRole = inferUiRoleFromStoredRoles({
+      platformRole: user.platformRole,
+      appRoles,
+    });
+    const userAccounts = clientAccountsRaw.filter(
+      (account) => account.managedByUserId === user.id || account.email === user.email,
+    );
+    const primaryAccount = userAccounts
+      .slice()
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
+    const paymentTotals = userAccounts.reduce(
+      (acc, account) => {
+        const accountTotal = account.payments.reduce((sum, payment) => sum + Number(payment.totalAmount), 0);
+        const accountPaid = account.payments.reduce((sum, payment) => sum + Number(payment.paidAmount), 0);
+        return { total: acc.total + accountTotal, paid: acc.paid + accountPaid };
+      },
+      { total: 0, paid: 0 },
+    );
+    const debt = Math.max(0, paymentTotals.total - paymentTotals.paid);
+    const paidPercent = paymentTotals.total > 0 ? Math.min(100, Math.round((paymentTotals.paid / paymentTotals.total) * 100)) : 0;
+    const paymentSummary =
+      paymentTotals.total <= 0
+        ? "Sin pagos registrados"
+        : debt <= 0
+          ? "100% pagado"
+          : `${paidPercent}% pagado · falta ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(debt)}`;
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      uiRole,
+      moduleIds: user.moduleAccesses.map((entry) => entry.moduleId),
+      paymentSummary,
+      primaryClientAccountId: primaryAccount?.id ?? null,
+      paymentHistory: userAccounts
+        .flatMap((account) =>
+          account.payments.map((payment) => ({
+            id: payment.id,
+            accountLabel: account.companyName ? `${account.name} · ${account.companyName}` : account.name,
+            moduleId: payment.moduleId,
+            submoduleId: payment.submoduleId,
+            moduleLabel: payment.moduleId ? modulesRaw.find((module) => module.id === payment.moduleId)?.name ?? null : null,
+            submoduleLabel: payment.submoduleId
+              ? modulesRaw
+                  .flatMap((module) => module.submodules)
+                  .find((submodule) => submodule.id === payment.submoduleId)?.name ?? null
+              : null,
+            concept: payment.concept,
+            category: payment.category,
+            status: payment.status,
+            totalAmount: Number(payment.totalAmount),
+            paidAmount: Number(payment.paidAmount),
+            pendingAmount: Math.max(0, Number(payment.totalAmount) - Number(payment.paidAmount)),
+            dueAt: payment.dueAt,
+            paidAt: payment.paidAt,
+            createdAt: payment.createdAt,
+          })),
         )
-        .map((membership) => membership.tenantId),
-    ),
-  );
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 20),
+      clientAccessConfig: user.clientAccessConfig as
+        | {
+            tenantPlan?: "TRIAL" | "PRO";
+            proSubmoduleId?: string | null;
+            moduleLimits?: Record<string, { pages?: number | null; chatbots?: number | null }>;
+          }
+        | null,
+    };
+  });
+
+  const modules = modulesRaw.map((module) => ({
+    id: module.id,
+    name: module.name,
+    product: module.product,
+    pricing: module.pricing.map((entry) => ({
+      price: Number(entry.price),
+      currency: entry.currency,
+      type: entry.type,
+      isActive: entry.isActive,
+    })),
+    submodules: module.submodules.map((submodule) => ({
+      id: submodule.id,
+      key: submodule.key,
+      name: submodule.name,
+      pricing: submodule.pricing.map((entry) => ({
+        price: Number(entry.price),
+        currency: entry.currency,
+        type: entry.type,
+        isActive: entry.isActive,
+      })),
+    })),
+  }));
 
   return (
     <AppShell
       title="Usuarios"
-      subtitle="Gestion de roles, tenants y acceso a Vase Business o Vase Labs desde el control master."
+      subtitle="Panel unificado de usuarios, acceso por modulo y cobros del cliente."
       tenantLabel="Admin Master"
     >
-      <section className="grid gap-4 md:grid-cols-3">
-        <PanelCard title="Usuarios" description="Total listado con los filtros actuales.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">{users.length}</p>
-        </PanelCard>
-        <PanelCard title="Memberships activos" description="Relaciones usuario-tenant con acceso operativo.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">{activeMemberships}</p>
-        </PanelCard>
-        <PanelCard title="Tenants con Labs" description="Clientes con modulo Vase Labs activo.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">{labsTenants.size}</p>
-        </PanelCard>
-      </section>
-
-      <PanelCard title="Filtros" description="Busca usuarios por nombre, email o rol de plataforma.">
-        <form action="/app/admin/users" className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
-          <input
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder="Buscar por nombre o email..."
-            className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm"
-          />
-          <select
-            name="role"
-            defaultValue={role ?? ""}
-            className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm"
-          >
-            <option value="">Todos los roles</option>
-            <option value="USER">User</option>
-            <option value="SUPPORT">Support</option>
-            <option value="DEVELOPER">Developer</option>
-            <option value="SUPER_ADMIN">Super Admin</option>
-          </select>
-          <button className="min-h-10 rounded-xl bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)]">
-            Aplicar
-          </button>
-        </form>
-      </PanelCard>
-
-      <PanelCard
-        title="Crear cuenta manual"
-        description="Alta directa por Super Admin con password definida y verificacion de email automatica."
-      >
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-3 py-1 text-xs text-[var(--muted)]">
-          <Sparkles className="h-3.5 w-3.5" />
-          Onboarding asistido para cuentas existentes
-        </div>
-        <AdminManualUserCreateForm tenants={tenants} />
-      </PanelCard>
-
-      <PanelCard
-        title="Asignacion rapida"
-        description="Selecciona un usuario, tenant, rol y modulos. Labs se activa por tenant."
-      >
-        {users.length === 0 || tenants.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">Necesitas al menos un usuario y un tenant para asignar acceso.</p>
-        ) : (
-          <div className="grid gap-4">
-            {users.slice(0, 8).map((user) => (
-              <div key={user.id} className="grid gap-2">
-                <p className="text-sm font-semibold text-[var(--foreground)]">
-                  {user.name} <span className="font-normal text-[var(--muted)]">{user.email}</span>
-                </p>
-                <AdminUserTenantAccessForm userId={user.id} tenants={tenants} title="Asignar tenant y modulos" />
-              </div>
-            ))}
-          </div>
-        )}
-      </PanelCard>
-
-      <PanelCard title="Usuarios registrados" description="Roles de plataforma, permisos y acceso por tenant.">
-        <div className="grid gap-5">
-          {users.map((user) => (
-            <article
-              key={user.id}
-              className="grid gap-4 rounded-[28px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)]/75 p-5"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-soft)]">
-                    {user.platformRole}
-                  </p>
-                  <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">{user.name}</h2>
-                  <p className="text-sm text-[var(--muted)]">{user.email}</p>
-                  <p className="mt-1 text-xs text-[var(--muted)]">
-                    Estado: {user.isDisabled ? "Deshabilitado" : "Activo"}
-                    {user.internalProfile ? ` - Perfil interno: ${user.internalProfile.type}` : ""}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-[var(--surface)] px-4 py-3 text-sm text-[var(--muted)]">
-                  <p className="inline-flex items-center gap-1.5">
-                    <UsersRound className="h-4 w-4" />
-                    Tenants: {user.memberships.length}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-                <div className="grid gap-3">
-                  <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
-                    <p className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted-soft)]">
-                      <ShieldCheck className="h-4 w-4" />
-                      Seguridad de acceso
-                    </p>
-                    <AdminUserPasswordResetForm userId={user.id} />
-                  </div>
-                  <AdminUserGovernanceForm userId={user.id} platformRole={user.platformRole} />
-                  <AdminUserRolesForm
-                    userId={user.id}
-                    selectedRoles={
-                      user.appRoles.length > 0
-                        ? user.appRoles.map((entry) => entry.role.key)
-                        : user.platformRole === "SUPER_ADMIN"
-                          ? ["ADMIN"]
-                          : user.platformRole === "SUPPORT"
-                            ? ["SOPORTE"]
-                            : user.platformRole === "DEVELOPER"
-                              ? ["DEVELOPER"]
-                              : ["CLIENTE"]
-                    }
-                  />
-                  <AdminAccessPolicyForm userId={user.id} policy={user.adminAccessPolicy} />
-                </div>
-
-                <div className="grid gap-3">
-                  <AdminUserTenantAccessForm
-                    userId={user.id}
-                    tenants={tenants}
-                    title="Agregar acceso a tenant"
-                  />
-                  <AdminUserAccessManagerModal
-                    user={{
-                      id: user.id,
-                      name: user.name,
-                      email: user.email,
-                      isDisabled: user.isDisabled,
-                    }}
-                    memberships={user.memberships.map((membership) => ({
-                      membershipId: membership.id,
-                      tenantId: membership.tenantId,
-                      tenantName: membership.tenant.name,
-                      tenantAccountName: membership.tenant.accountName,
-                      role: membership.role,
-                      status: membership.status,
-                      moduleActivations: membership.tenant.tenantModules,
-                      submoduleActivations: membership.tenant.tenantSubmodules,
-                    }))}
-                    modulesCatalog={modulesCatalog}
-                  />
-
-                  {user.memberships.length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--muted)]">
-                      Este usuario todavia no tiene tenants asignados.
-                    </p>
-                  ) : (
-                    user.memberships.map((membership) => {
-                      const modules = membership.tenant.tenantModules;
-                      return (
-                        <div key={membership.id} className="grid gap-3 rounded-2xl bg-[var(--surface)] p-3">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-[var(--foreground)]">
-                                {membership.tenant.accountName}
-                              </p>
-                              <p className="text-xs text-[var(--muted)]">
-                                Rol: {membership.role} - Estado: {membership.status}
-                              </p>
-                            </div>
-                            <p className="rounded-full bg-[var(--surface-strong)] px-3 py-1 text-xs text-[var(--muted)]">
-                              {buildTenantModuleAccessSummary(modules)}
-                            </p>
-                          </div>
-                          <AdminUserTenantAccessForm
-                            userId={user.id}
-                            tenants={tenants}
-                            defaultTenantId={membership.tenantId}
-                            defaultRole={membership.role}
-                            defaultStatus={membership.status}
-                            businessAccess={hasActiveModule(modules, userAccessModuleIds.business)}
-                            labsAccess={hasActiveModule(modules, userAccessModuleIds.labs)}
-                            title="Edicion rapida (legacy)"
-                          />
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </PanelCard>
+      <AdminMasterUsersWorkspace users={users} modules={modules} />
     </AppShell>
   );
 }

@@ -35,7 +35,7 @@ export default async function AdminModulesPage() {
         </div>
       </section>
 
-      <AdminModulesConsole modules={modules} tenants={modules[0]?.tenants ?? []} />
+      <AdminModulesConsole modules={modules} />
     </AppShell>
   );
 }

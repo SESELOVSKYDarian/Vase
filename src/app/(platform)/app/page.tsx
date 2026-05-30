@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import type { Shortcut } from "@/components/layout/app-shell";
+import { PanelCard } from "@/components/ui/panel-card";
 import Link from "next/link";
 import type { Route } from "next";
 import { requireUser } from "@/lib/auth/guards";
+import { getAppIndexRedirectPath } from "@/lib/auth/protected-app-redirect";
 import { getTenantMembership } from "@/lib/tenancy/resolve-tenant";
 import { prisma } from "@/lib/db/prisma";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
@@ -25,13 +27,33 @@ function formatDate(value: Date | null) {
 
 export default async function AppIndexPage() {
   const session = await requireUser();
-
-  if (session.user.platformRole === "SUPER_ADMIN") redirect("/app/admin" as Route);
-  if (session.user.platformRole === "SUPPORT") redirect("/app/support" as Route);
-  if (session.user.platformRole === "DEVELOPER") redirect("/app/developer" as Route);
-
   const membership = await getTenantMembership(session.user.id);
-  if (!membership) redirect("/signin" as Route);
+  const redirectPath = getAppIndexRedirectPath({
+    platformRole: session.user.platformRole,
+    tenantRole: membership?.role ?? null,
+  });
+
+  if (redirectPath) redirect(redirectPath as Route);
+
+  if (!membership) {
+    return (
+      <AppShell
+        title="Workspace pendiente"
+        subtitle="Tu cuenta ya esta activa, pero todavia no tiene un espacio asignado."
+        tenantLabel="Vase"
+        currentUserName={session.user.name ?? session.user.email ?? "Usuario"}
+      >
+        <PanelCard
+          title="Acceso en revision"
+          description="Un administrador tiene que vincular esta cuenta a un cliente, tenant o modulo antes de abrir el panel operativo."
+        >
+          <p className="text-sm leading-7 text-[var(--muted)]">
+            No hace falta volver a iniciar sesion. Cuando el acceso quede asignado, este panel te va a llevar al workspace correspondiente.
+          </p>
+        </PanelCard>
+      </AppShell>
+    );
+  }
 
   switch (membership.role) {
     case "OWNER": {
@@ -42,7 +64,25 @@ export default async function AppIndexPage() {
         prisma.tenantSubscription.findUnique({ where: { tenantId: membership.tenantId } }),
       ]);
 
-      if (!dashboard) redirect("/signin" as Route);
+      if (!dashboard) {
+        return (
+          <AppShell
+            title="Workspace en preparacion"
+            subtitle="Tu acceso esta activo, pero el tablero todavia no tiene datos disponibles."
+            tenantLabel={membership.tenant.name}
+            currentUserName={session.user.name ?? membership.tenant.name}
+          >
+            <PanelCard
+              title="Configuracion pendiente"
+              description="Estamos esperando que se complete la configuracion del tenant para mostrar el panel principal."
+            >
+              <p className="text-sm leading-7 text-[var(--muted)]">
+                La sesion esta iniciada correctamente. Revisa la asignacion del cliente desde el panel admin si este estado no cambia.
+              </p>
+            </PanelCard>
+          </AppShell>
+        );
+      }
 
       return (
         <AppShell
@@ -121,9 +161,23 @@ export default async function AppIndexPage() {
         </AppShell>
       );
     }
-    case "MANAGER":
-      redirect("/app/manager" as Route);
     default:
-      redirect("/app/member" as Route);
+      return (
+        <AppShell
+          title="Workspace"
+          subtitle="Tu acceso esta activo."
+          tenantLabel={membership.tenant.name}
+          currentUserName={session.user.name ?? membership.tenant.name}
+        >
+          <PanelCard
+            title="Rol sin panel dedicado"
+            description="No encontramos una vista principal especifica para este rol."
+          >
+            <p className="text-sm leading-7 text-[var(--muted)]">
+              La cuenta no se cerrara ni volvera a login. Pide a un administrador revisar el rol asignado si necesitas otro acceso.
+            </p>
+          </PanelCard>
+        </AppShell>
+      );
   }
 }

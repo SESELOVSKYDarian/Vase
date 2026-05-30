@@ -1,7 +1,7 @@
 ﻿"use server";
 
 import { revalidatePath } from "next/cache";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
 import { requireVerifiedPlatformRole, requireVerifiedUser, platformRoles } from "@/lib/auth/guards";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
@@ -25,14 +25,19 @@ import {
   createManualUserByAdminSchema,
   createDeveloperUserSchema,
   createAdminModuleSchema,
+  deleteAdminModuleSchema,
   toggleFeatureFlagSchema,
   updateAdminModulePricingSchema,
   createModuleSubmoduleSchema,
+  deleteModuleSubmoduleSchema,
   updateModuleSubmoduleSchema,
   updateModuleSubmodulePricingSchema,
   setTenantModuleActivationSchema,
   setTenantSubmoduleActivationSchema,
   publishModuleArtifactSchema,
+  upsertMasterUserSchema,
+  deleteMasterUserSchema,
+  createUserClientPaymentSchema,
   updateAdminModuleSchema,
   updateSupportTemplateAdminSchema,
   updateTenantGovernanceSchema,
@@ -89,7 +94,12 @@ import {
 import { createAuditLog } from "@/server/services/audit-log";
 import { createAutoAdminNotification } from "@/server/services/admin-notifications-auto";
 import { ensureModuleCatalogSynced, normalizePricingType } from "@/server/services/modules";
-import { userAccessModuleIds } from "@/lib/admin/user-access";
+import {
+  buildAdminCreatedUserVerification,
+  getRoleMappingFromUiRole,
+  shouldForceAdminCreatedUserPasswordReset,
+  userAccessModuleIds,
+} from "@/lib/admin/user-access";
 import { validateUpload } from "@/lib/security/upload";
 import { saveLocalUpload } from "@/lib/storage/local-upload";
 import {
@@ -522,6 +532,7 @@ export async function createSupportUserAction(
 
     const temporaryPassword = parsed.data.password || generateTemporaryPassword();
     const passwordHash = await hashPassword(temporaryPassword);
+    const now = new Date();
     const user = await prisma.user.create({
       data: {
         name: parsed.data.name,
@@ -529,8 +540,9 @@ export async function createSupportUserAction(
         passwordHash,
         platformRole: parsed.data.platformRole,
         locale: "es",
+        ...buildAdminCreatedUserVerification(now),
         forcePasswordChange: true,
-        tempPasswordIssuedAt: new Date(),
+        tempPasswordIssuedAt: now,
         internalProfile: {
           create: {
             type: "SUPPORT",
@@ -835,6 +847,51 @@ export async function updateAdminModuleAction(
     return { success: "Modulo actualizado." };
   } catch {
     return { error: "No pudimos actualizar el modulo." };
+  }
+}
+
+export async function deleteAdminModuleAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = deleteAdminModuleSchema.safeParse({
+      moduleId: formData.get("moduleId"),
+    });
+    if (!parsed.success) {
+      return { error: "Modulo invalido." };
+    }
+
+    const existing = await prisma.module.findUnique({
+      where: { id: parsed.data.moduleId },
+      select: { id: true, name: true },
+    });
+    if (!existing) {
+      return { error: "El modulo ya no existe." };
+    }
+
+    await prisma.module.delete({
+      where: { id: parsed.data.moduleId },
+    });
+
+    await createAuditLog({
+      action: "platform.module_deleted",
+      targetType: "module",
+      targetId: existing.id,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { name: existing.name },
+    });
+
+    revalidatePath("/app/admin/modules");
+    return { success: "Modulo eliminado definitivamente." };
+  } catch {
+    return { error: "No pudimos eliminar el modulo." };
   }
 }
 
@@ -1753,6 +1810,51 @@ export async function updateModuleSubmoduleAction(
   }
 }
 
+export async function deleteModuleSubmoduleAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = deleteModuleSubmoduleSchema.safeParse({
+      submoduleId: formData.get("submoduleId"),
+    });
+    if (!parsed.success) {
+      return { error: "Submodulo invalido." };
+    }
+
+    const existing = await prisma.moduleSubmodule.findUnique({
+      where: { id: parsed.data.submoduleId },
+      select: { id: true, name: true, moduleId: true },
+    });
+    if (!existing) {
+      return { error: "El submodulo ya no existe." };
+    }
+
+    await prisma.moduleSubmodule.delete({
+      where: { id: parsed.data.submoduleId },
+    });
+
+    await createAuditLog({
+      action: "platform.module_submodule_deleted",
+      targetType: "module_submodule",
+      targetId: existing.id,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { name: existing.name, moduleId: existing.moduleId },
+    });
+
+    revalidatePath("/app/admin/modules");
+    return { success: "Submodulo eliminado definitivamente." };
+  } catch {
+    return { error: "No pudimos eliminar el submodulo." };
+  }
+}
+
 export async function updateModuleSubmodulePricingAction(
   _: AdminGovernanceActionState,
   formData: FormData,
@@ -2120,6 +2222,7 @@ export async function createDeveloperUserAction(
 
     const temporaryPassword = parsed.data.password || generateTemporaryPassword();
     const passwordHash = await hashPassword(temporaryPassword);
+    const now = new Date();
 
     const user = await prisma.user.create({
       data: {
@@ -2128,8 +2231,9 @@ export async function createDeveloperUserAction(
         passwordHash,
         platformRole: "DEVELOPER",
         locale: "es",
+        ...buildAdminCreatedUserVerification(now),
         forcePasswordChange: true,
-        tempPasswordIssuedAt: new Date(),
+        tempPasswordIssuedAt: now,
         internalProfile: {
           create: {
             type: "DEVELOPER",
@@ -2532,7 +2636,7 @@ export async function createManualUserByAdminAction(
           passwordHash,
           platformRole: "USER",
           locale: "es",
-          emailVerified: now,
+          ...buildAdminCreatedUserVerification(now),
           forcePasswordChange: parsed.data.forcePasswordChange,
           tempPasswordIssuedAt: parsed.data.forcePasswordChange ? now : null,
           passwordChangedAt: now,
@@ -4408,6 +4512,400 @@ export async function rollbackCustomProjectDeploymentAction(
   }
 }
 
+function parseModuleIds(rawValue: FormDataEntryValue | null) {
+  if (typeof rawValue !== "string" || rawValue.trim().length === 0) return [];
+  return rawValue
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+type ClientAccessConfigInput = {
+  tenantPlan: "TRIAL" | "PRO";
+  proSubmoduleId: string | null;
+  moduleLimits: Record<string, { pages?: number | null; chatbots?: number | null }>;
+};
+
+function parseClientAccessConfig(rawValue: FormDataEntryValue | null): ClientAccessConfigInput | null {
+  if (typeof rawValue !== "string" || rawValue.trim().length === 0) return null;
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<ClientAccessConfigInput> | null;
+    if (!parsed || (parsed.tenantPlan !== "TRIAL" && parsed.tenantPlan !== "PRO")) return null;
+    const moduleLimits = parsed.moduleLimits && typeof parsed.moduleLimits === "object" ? parsed.moduleLimits : {};
+    return {
+      tenantPlan: parsed.tenantPlan,
+      proSubmoduleId: typeof parsed.proSubmoduleId === "string" && parsed.proSubmoduleId.trim().length > 0
+        ? parsed.proSubmoduleId.trim()
+        : null,
+      moduleLimits: Object.fromEntries(
+        Object.entries(moduleLimits).map(([moduleId, limits]) => [
+          moduleId,
+          {
+            pages: typeof limits?.pages === "number" && Number.isFinite(limits.pages) ? limits.pages : null,
+            chatbots: typeof limits?.chatbots === "number" && Number.isFinite(limits.chatbots) ? limits.chatbots : null,
+          },
+        ]),
+      ),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function upsertMasterUserWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireAdminPermission(adminPermissions.USERS);
+    await ensureModuleCatalogSynced();
+
+    const parsed = upsertMasterUserSchema.safeParse({
+      userId: String(formData.get("userId") ?? "").trim(),
+      name: sanitizeText(String(formData.get("name") ?? "")),
+      email: String(formData.get("email") ?? "").trim(),
+      password: String(formData.get("password") ?? ""),
+      autoGeneratePassword: formData.get("autoGeneratePassword") === "true",
+      temporaryPassword: formData.get("temporaryPassword") === "true",
+      uiRole: String(formData.get("uiRole") ?? "").trim(),
+      moduleIds: parseModuleIds(formData.get("moduleIds")),
+      clientAccessConfig: String(formData.get("clientAccessConfig") ?? ""),
+    });
+
+    if (!parsed.success) {
+      return { error: "Revisa nombre, email, rol y modulos." };
+    }
+
+    const roleMap = getRoleMappingFromUiRole(parsed.data.uiRole);
+    const createFlow = !parsed.data.userId;
+    const generatedPassword = createFlow && parsed.data.autoGeneratePassword ? generateTemporaryPassword() : null;
+    const rawPassword = (parsed.data.password || generatedPassword || "").trim();
+
+    if (createFlow && !rawPassword) {
+      return { error: "Define una contrasena o usa generacion automatica." };
+    }
+
+    if (rawPassword.length > 0 && (rawPassword.length < 8 || rawPassword.length > 72)) {
+      return { error: "La contrasena debe tener entre 8 y 72 caracteres." };
+    }
+
+    const passwordHash = rawPassword ? await hashPassword(rawPassword) : null;
+    const shouldForcePasswordReset = shouldForceAdminCreatedUserPasswordReset({
+      temporaryPassword: parsed.data.temporaryPassword,
+      rawPassword,
+    });
+    const moduleIds = roleMap.appRole === "ADMIN" ? [] : parsed.data.moduleIds;
+    const clientAccessConfig =
+      parsed.data.uiRole === "cliente" ? parseClientAccessConfig(formData.get("clientAccessConfig")) : null;
+
+    if (parsed.data.uiRole === "cliente" && !clientAccessConfig) {
+      return { error: "Completa el acceso de cliente: tenant, submodulo y limites." };
+    }
+
+    const selectedModules = moduleIds.length
+      ? await prisma.module.findMany({
+          where: { id: { in: moduleIds }, isActive: true },
+          select: { id: true },
+        })
+      : [];
+
+    if (moduleIds.length !== selectedModules.length) {
+      return { error: "Uno o mas modulos seleccionados no son validos." };
+    }
+
+    const clientAccessConfigValue = clientAccessConfig
+      ? (clientAccessConfig as Prisma.InputJsonValue)
+      : Prisma.JsonNull;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const roleRecord = await tx.role.upsert({
+        where: { key: roleMap.appRole },
+        update: {
+          name: roleMap.appRole,
+          isSystem: true,
+        },
+        create: {
+          key: roleMap.appRole,
+          name: roleMap.appRole,
+          isSystem: true,
+        },
+        select: { id: true },
+      });
+
+      const existingByEmail = await tx.user.findUnique({
+        where: { email: parsed.data.email },
+        select: { id: true },
+      });
+
+      if (createFlow) {
+        if (existingByEmail) throw new Error("EMAIL_ALREADY_EXISTS");
+
+        const now = new Date();
+        const createdUser = await tx.user.create({
+          data: {
+            name: parsed.data.name,
+            email: parsed.data.email,
+            passwordHash: passwordHash ?? undefined,
+            platformRole: roleMap.platformRole,
+            locale: "es",
+            clientAccessConfig: clientAccessConfigValue,
+            ...buildAdminCreatedUserVerification(now),
+            forcePasswordChange: shouldForcePasswordReset,
+            tempPasswordIssuedAt: shouldForcePasswordReset ? now : null,
+            ...(parsed.data.uiRole === "soporte" || parsed.data.uiRole === "developer"
+              ? {
+                  internalProfile: {
+                    create: {
+                      type: parsed.data.uiRole === "soporte" ? "SUPPORT" : "DEVELOPER",
+                      tempPasswordActive: shouldForcePasswordReset,
+                      mustResetPassword: shouldForcePasswordReset,
+                      tempPasswordExpiresAt: shouldForcePasswordReset
+                        ? new Date(Date.now() + 1000 * 60 * 60 * 24 * 3)
+                        : null,
+                      availability: "OFFLINE",
+                    },
+                  },
+                }
+              : {}),
+          },
+          select: { id: true, email: true, name: true },
+        });
+
+        await tx.userRole.deleteMany({ where: { userId: createdUser.id } });
+        await tx.userRole.create({
+          data: {
+            userId: createdUser.id,
+            roleId: roleRecord.id,
+          },
+        });
+
+        if (selectedModules.length > 0) {
+          await tx.userModuleAccess.createMany({
+            data: selectedModules.map((module) => ({
+              userId: createdUser.id,
+              moduleId: module.id,
+              isActive: true,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        return { userId: createdUser.id, created: true as const };
+      }
+
+      if (existingByEmail && existingByEmail.id !== parsed.data.userId) {
+        throw new Error("EMAIL_ALREADY_EXISTS");
+      }
+
+      const updatedUser = await tx.user.update({
+        where: { id: parsed.data.userId },
+        data: {
+          name: parsed.data.name,
+          email: parsed.data.email,
+          platformRole: roleMap.platformRole,
+          clientAccessConfig: clientAccessConfigValue,
+          ...(!parsed.data.temporaryPassword
+            ? {
+                forcePasswordChange: false,
+                tempPasswordIssuedAt: null,
+              }
+            : {}),
+          ...(passwordHash
+            ? {
+                passwordHash,
+                forcePasswordChange: shouldForcePasswordReset,
+                tempPasswordIssuedAt: shouldForcePasswordReset ? new Date() : null,
+                passwordChangedAt: new Date(),
+              }
+            : {}),
+        },
+        select: { id: true, email: true, name: true },
+      });
+
+      await tx.userRole.deleteMany({ where: { userId: updatedUser.id } });
+      await tx.userRole.create({
+        data: {
+          userId: updatedUser.id,
+          roleId: roleRecord.id,
+        },
+      });
+
+      await tx.userModuleAccess.deleteMany({ where: { userId: updatedUser.id } });
+      if (selectedModules.length > 0) {
+        await tx.userModuleAccess.createMany({
+          data: selectedModules.map((module) => ({
+            userId: updatedUser.id,
+            moduleId: module.id,
+            isActive: true,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      if (parsed.data.uiRole === "soporte" || parsed.data.uiRole === "developer") {
+        await tx.internalUserProfile.upsert({
+          where: { userId: updatedUser.id },
+          update: {
+            type: parsed.data.uiRole === "soporte" ? "SUPPORT" : "DEVELOPER",
+            tempPasswordActive: passwordHash || !parsed.data.temporaryPassword ? shouldForcePasswordReset : undefined,
+            mustResetPassword: passwordHash || !parsed.data.temporaryPassword ? shouldForcePasswordReset : undefined,
+            tempPasswordExpiresAt: shouldForcePasswordReset
+              ? new Date(Date.now() + 1000 * 60 * 60 * 24 * 3)
+              : !parsed.data.temporaryPassword
+                ? null
+                : undefined,
+          },
+          create: {
+            userId: updatedUser.id,
+            tenantId: null,
+            type: parsed.data.uiRole === "soporte" ? "SUPPORT" : "DEVELOPER",
+            tempPasswordActive: shouldForcePasswordReset,
+            mustResetPassword: shouldForcePasswordReset,
+            tempPasswordExpiresAt: shouldForcePasswordReset
+              ? new Date(Date.now() + 1000 * 60 * 60 * 24 * 3)
+              : null,
+            availability: "OFFLINE",
+          },
+        });
+      } else {
+        await tx.internalUserProfile.deleteMany({ where: { userId: updatedUser.id } });
+      }
+
+      return { userId: updatedUser.id, created: false as const };
+    });
+
+    await createAuditLog({
+      action: result.created ? "platform.master_user_created" : "platform.master_user_updated",
+      targetType: "user",
+      targetId: result.userId,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        uiRole: parsed.data.uiRole,
+        moduleIds,
+      },
+    });
+
+    revalidatePath("/app/admin/users");
+    return { success: result.created ? "Usuario creado." : "Usuario actualizado." };
+  } catch (error) {
+    if (error instanceof Error && error.message === "ROLE_NOT_FOUND") {
+      return { error: "No encontramos el rol seleccionado en el sistema." };
+    }
+    if (error instanceof Error && error.message === "EMAIL_ALREADY_EXISTS") {
+      return { error: "Ya existe un usuario con ese email." };
+    }
+    return { error: "No pudimos guardar el usuario." };
+  }
+}
+
+export async function deleteMasterUserWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireAdminPermission(adminPermissions.USERS);
+    const parsed = deleteMasterUserSchema.safeParse({
+      userId: formData.get("userId"),
+    });
+    if (!parsed.success) return { error: "Usuario invalido para eliminar." };
+    if (parsed.data.userId === adminSession.user.id) return { error: "No puedes eliminar tu propia cuenta." };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.userModuleAccess.deleteMany({ where: { userId: parsed.data.userId } });
+      await tx.userRole.deleteMany({ where: { userId: parsed.data.userId } });
+      await tx.adminAccessPolicy.deleteMany({ where: { userId: parsed.data.userId } });
+      await tx.internalUserProfile.deleteMany({ where: { userId: parsed.data.userId } });
+      await tx.membership.deleteMany({ where: { userId: parsed.data.userId } });
+      await tx.session.deleteMany({ where: { userId: parsed.data.userId } });
+      await tx.user.delete({ where: { id: parsed.data.userId } });
+    });
+
+    await createAuditLog({
+      action: "platform.master_user_deleted",
+      targetType: "user",
+      targetId: parsed.data.userId,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+    });
+
+    revalidatePath("/app/admin/users");
+    return { success: "Usuario eliminado definitivamente." };
+  } catch {
+    return { error: "No pudimos eliminar el usuario." };
+  }
+}
+
+export async function createUserClientPaymentWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    await requireAdminPermission(adminPermissions.BILLING);
+    const parsed = createUserClientPaymentSchema.safeParse({
+      userId: formData.get("userId"),
+      clientAccountId: String(formData.get("clientAccountId") ?? "").trim(),
+      category: formData.get("category"),
+      concept: sanitizeText(String(formData.get("concept") ?? "")),
+      moduleId: String(formData.get("moduleId") ?? "").trim(),
+      submoduleId: String(formData.get("submoduleId") ?? "").trim(),
+      totalAmount: formData.get("totalAmount"),
+      paidAmount: formData.get("paidAmount"),
+      paidAt: String(formData.get("paidAt") ?? "").trim() || undefined,
+      method: sanitizeNullableText(String(formData.get("method") ?? "")) ?? undefined,
+      notes: sanitizeNullableText(String(formData.get("notes") ?? "")) ?? undefined,
+      status: formData.get("status"),
+    });
+    if (!parsed.success) return { error: "Revisa los datos del pago." };
+
+    const user = await prisma.user.findUnique({
+      where: { id: parsed.data.userId },
+      select: { id: true, email: true },
+    });
+    if (!user) return { error: "No encontramos el usuario seleccionado." };
+
+    const linkedAccounts = await prisma.clientAccount.findMany({
+      where: {
+        OR: [{ managedByUserId: user.id }, { email: user.email }],
+      },
+      select: { id: true, tenantId: true, name: true },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 5,
+    });
+    if (linkedAccounts.length === 0) {
+      return { error: "Este usuario cliente no tiene una cuenta cliente vinculada." };
+    }
+
+    const clientAccount =
+      linkedAccounts.find((account) => account.id === parsed.data.clientAccountId) ??
+      linkedAccounts[0];
+
+    const paymentForm = new FormData();
+    paymentForm.set("tenantId", clientAccount.tenantId);
+    paymentForm.set("clientAccountId", clientAccount.id);
+    paymentForm.set("concept", parsed.data.concept);
+    paymentForm.set("category", parsed.data.category);
+    paymentForm.set("moduleId", parsed.data.moduleId ?? "");
+    paymentForm.set("submoduleId", parsed.data.submoduleId ?? "");
+    paymentForm.set("totalAmount", String(parsed.data.totalAmount));
+    paymentForm.set("paidAmount", String(parsed.data.paidAmount));
+    paymentForm.set("paidAt", parsed.data.paidAt ?? "");
+    paymentForm.set("method", parsed.data.method ?? "");
+    paymentForm.set("notes", parsed.data.notes ?? "");
+    paymentForm.set("status", parsed.data.status);
+
+    await createClientPaymentAction(paymentForm);
+    revalidatePath("/app/admin/users");
+    return { success: `Pago registrado para ${clientAccount.name}.` };
+  } catch {
+    return { error: "No pudimos registrar el pago del cliente." };
+  }
+}
+
 export async function createClientAccountWithStateAction(
   _: AdminGovernanceActionState,
   formData: FormData,
@@ -4430,9 +4928,10 @@ export async function createClientPaymentAction(formData: FormData): Promise<voi
     clientAccountId: formData.get("clientAccountId"),
     concept: sanitizeText(String(formData.get("concept") ?? "")),
     category: formData.get("category"),
+    moduleId: String(formData.get("moduleId") ?? "").trim(),
+    submoduleId: String(formData.get("submoduleId") ?? "").trim(),
     totalAmount: formData.get("totalAmount"),
     paidAmount: formData.get("paidAmount"),
-    dueAt: String(formData.get("dueAt") ?? ""),
     paidAt: String(formData.get("paidAt") ?? ""),
     method: sanitizeNullableText(String(formData.get("method") ?? "")) ?? undefined,
     notes: sanitizeNullableText(String(formData.get("notes") ?? "")) ?? undefined,
@@ -4445,11 +4944,12 @@ export async function createClientPaymentAction(formData: FormData): Promise<voi
       tenantId: parsed.data.tenantId,
       clientAccountId: parsed.data.clientAccountId,
       createdByUserId: session.user.id,
+      moduleId: parsed.data.moduleId || null,
+      submoduleId: parsed.data.submoduleId || null,
       concept: parsed.data.concept,
       category: parsed.data.category,
       totalAmount: parsed.data.totalAmount,
       paidAmount: parsed.data.paidAmount,
-      dueAt: toNullableDate(parsed.data.dueAt ?? ""),
       paidAt: toNullableDate(parsed.data.paidAt ?? ""),
       method: parsed.data.method || null,
       notes: parsed.data.notes || null,
@@ -4661,6 +5161,8 @@ export async function updateClientPaymentAction(formData: FormData): Promise<voi
     paymentId: formData.get("paymentId"),
     concept: sanitizeText(String(formData.get("concept") ?? "")),
     category: formData.get("category"),
+    moduleId: String(formData.get("moduleId") ?? "").trim(),
+    submoduleId: String(formData.get("submoduleId") ?? "").trim(),
     totalAmount: formData.get("totalAmount"),
     paidAmount: formData.get("paidAmount"),
     status: formData.get("status"),
@@ -4675,6 +5177,8 @@ export async function updateClientPaymentAction(formData: FormData): Promise<voi
     data: {
       concept: parsed.data.concept,
       category: parsed.data.category,
+      moduleId: parsed.data.moduleId || null,
+      submoduleId: parsed.data.submoduleId || null,
       totalAmount: parsed.data.totalAmount,
       paidAmount: parsed.data.paidAmount,
       status: parsed.data.status,

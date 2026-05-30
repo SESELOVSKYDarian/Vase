@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
+import {
+  getAuthPageRedirectPath,
+  getProtectedAppRedirectPath,
+} from "@/lib/auth/protected-app-redirect";
 import { hasActiveSession } from "@/lib/auth/session";
 import { resolveLocale } from "@/lib/i18n/locale";
 import { getCanonicalOrigin } from "@/lib/security/origin";
@@ -47,17 +51,27 @@ export default auth((request: NextRequest) => {
   }
 
   // 4. Lógica de Autenticación y Sesión (App estándar)
-  const isAuthPage = [
-    "/signin",
-    "/register",
-    "/forgot-password",
-    "/reset-password",
-  ].includes(pathname);
   const isSignedIn = hasActiveSession(authRequest.auth);
-  const canAccessApp = isSignedIn && Boolean(authRequest.auth?.user?.isEmailVerified);
+  const isEmailVerified = Boolean(authRequest.auth?.user?.isEmailVerified);
+  const authPageRedirectPath = getAuthPageRedirectPath({
+    pathname,
+    redirectTo: "/app",
+    isSignedIn,
+    isEmailVerified,
+  });
+  const protectedAppRedirectPath = getProtectedAppRedirectPath({
+    pathname,
+    search: url.search,
+    isSignedIn,
+    isEmailVerified,
+  });
 
-  if (canAccessApp && isAuthPage) {
-    return NextResponse.redirect(new URL("/app", request.url));
+  if (authPageRedirectPath) {
+    return NextResponse.redirect(new URL(authPageRedirectPath, request.url));
+  }
+
+  if (protectedAppRedirectPath) {
+    return NextResponse.redirect(new URL(protectedAppRedirectPath, request.url));
   }
 
   const response = NextResponse.next();

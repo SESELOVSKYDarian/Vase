@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+const masterUserUiRoleSchema = z.enum([
+  "cliente",
+  "admin",
+  "developer",
+  "designer",
+  "tester",
+  "soporte",
+]);
+
 export const createSupportUserSchema = z.object({
   name: z.string().trim().min(2).max(80),
   email: z.email().trim().toLowerCase(),
@@ -317,11 +326,15 @@ export const updateAdminModuleSchema = z.object({
   isActive: z.boolean(),
 });
 
+export const deleteAdminModuleSchema = z.object({
+  moduleId: z.string().trim().min(3).max(80),
+});
+
 export const updateAdminModulePricingSchema = z.object({
   moduleId: z.string().trim().min(3).max(80),
   price: z.coerce.number().nonnegative().max(999999),
   currency: z.string().trim().min(3).max(8).toUpperCase(),
-  type: z.enum(["one_time", "monthly"]),
+  type: z.enum(["one_time", "monthly", "yearly"]),
   isActive: z.boolean(),
 });
 
@@ -342,11 +355,15 @@ export const updateModuleSubmoduleSchema = z.object({
   isActive: z.boolean(),
 });
 
+export const deleteModuleSubmoduleSchema = z.object({
+  submoduleId: z.string().trim().cuid(),
+});
+
 export const updateModuleSubmodulePricingSchema = z.object({
   submoduleId: z.string().trim().cuid(),
   price: z.coerce.number().nonnegative().max(999999),
   currency: z.string().trim().min(3).max(8).toUpperCase(),
-  type: z.enum(["one_time", "monthly"]),
+  type: z.enum(["one_time", "monthly", "yearly"]),
   isActive: z.boolean(),
 });
 
@@ -365,6 +382,38 @@ export const setTenantSubmoduleActivationSchema = z.object({
 export const publishModuleArtifactSchema = z.object({
   artifactId: z.string().trim().cuid(),
 });
+
+export const upsertMasterUserSchema = z.object({
+  userId: z.string().trim().cuid().optional().or(z.literal("")),
+  name: z.string().trim().min(2).max(80),
+  email: z.email().trim().toLowerCase(),
+  password: z.string().max(72).optional().or(z.literal("")),
+  autoGeneratePassword: z.boolean().default(false),
+  temporaryPassword: z.boolean().default(false),
+  uiRole: masterUserUiRoleSchema,
+  moduleIds: z.array(z.string().trim().min(3).max(80)).default([]),
+  clientAccessConfig: z.string().trim().optional().or(z.literal("")),
+});
+
+export const deleteMasterUserSchema = z.object({
+  userId: z.string().trim().cuid(),
+});
+
+export const createUserClientPaymentSchema = z.object({
+  userId: z.string().trim().cuid(),
+  clientAccountId: z.string().trim().cuid().optional().or(z.literal("")),
+  category: z.enum(["DEVELOPMENT", "HOSTING", "MAINTENANCE", "LABS_MONTHLY", "TOKENS", "OTHER"]),
+  concept: z.string().trim().min(2).max(180),
+  moduleId: z.string().trim().cuid().optional().or(z.literal("")),
+  submoduleId: z.string().trim().cuid().optional().or(z.literal("")),
+  totalAmount: z.coerce.number().positive().max(999999999),
+  paidAmount: z.coerce.number().nonnegative().max(999999999),
+  paidAt: z.string().trim().optional(),
+  method: z.string().trim().max(80).optional(),
+  notes: z.string().trim().max(500).optional(),
+  status: z.enum(["TRIAL", "ACTIVE", "PAST_DUE", "CANCELED"]).default("ACTIVE"),
+});
+
 export const createPlatformUpdateSchema = z.object({
   title: z.string().trim().min(3).max(100),
   description: z.string().trim().min(5).max(1000),
@@ -393,9 +442,10 @@ export const createClientPaymentSchema = z.object({
   clientAccountId: z.string().trim().cuid(),
   concept: z.string().trim().min(2).max(180),
   category: z.enum(["DEVELOPMENT", "HOSTING", "MAINTENANCE", "LABS_MONTHLY", "TOKENS", "OTHER"]),
+  moduleId: z.string().trim().cuid().optional().or(z.literal("")),
+  submoduleId: z.string().trim().cuid().optional().or(z.literal("")),
   totalAmount: z.coerce.number().positive().max(999999999),
   paidAmount: z.coerce.number().nonnegative().max(999999999),
-  dueAt: z.string().trim().optional(),
   paidAt: z.string().trim().optional(),
   method: z.string().trim().max(80).optional(),
   notes: z.string().trim().max(500).optional(),
@@ -434,6 +484,8 @@ export const updateClientPaymentSchema = z.object({
   paymentId: z.string().trim().cuid(),
   concept: z.string().trim().min(2).max(180),
   category: z.enum(["DEVELOPMENT", "HOSTING", "MAINTENANCE", "LABS_MONTHLY", "TOKENS", "OTHER"]),
+  moduleId: z.string().trim().cuid().optional().or(z.literal("")),
+  submoduleId: z.string().trim().cuid().optional().or(z.literal("")),
   totalAmount: z.coerce.number().positive().max(999999999),
   paidAmount: z.coerce.number().nonnegative().max(999999999),
   status: z.enum(["TRIAL", "ACTIVE", "PAST_DUE", "CANCELED"]),

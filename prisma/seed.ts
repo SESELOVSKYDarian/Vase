@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { demoFixtures } from "./fixtures/demo";
+import { ensureModuleCatalogSynced } from "../src/server/services/modules";
 
 const prisma = new PrismaClient();
 
@@ -79,6 +80,8 @@ async function main() {
       locale: "es",
     },
   });
+
+  await ensureModuleCatalogSynced();
 
   await prisma.membership.upsert({
     where: {

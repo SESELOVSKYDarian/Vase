@@ -6,11 +6,12 @@ import { type AdminPasswordResetActionState, resetUserPasswordByAdminAction } fr
 
 type Props = {
   userId: string;
+  iconOnly?: boolean;
 };
 
 const initialState: AdminPasswordResetActionState = {};
 
-export function AdminUserPasswordResetForm({ userId }: Props) {
+export function AdminUserPasswordResetForm({ userId, iconOnly = false }: Props) {
   const [state, formAction] = useActionState(resetUserPasswordByAdminAction, initialState);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
@@ -56,14 +57,31 @@ export function AdminUserPasswordResetForm({ userId }: Props) {
 
   return (
     <>
-      <form action={formAction} className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-3">
+      <form
+        action={formAction}
+        className={
+          iconOnly
+            ? "inline-flex"
+            : "grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-3"
+        }
+      >
         <input type="hidden" name="userId" value={userId} />
-        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] px-3 text-xs font-semibold">
-          <KeyRound className="h-4 w-4" />
-          Restablecer contrasena
-        </button>
-        {state.error ? <p className="text-xs text-[var(--danger)]">{state.error}</p> : null}
-        {state.success ? <p className="text-xs text-[var(--success)]">{state.success}</p> : null}
+        {iconOnly ? (
+          <button
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border-subtle)]"
+            title="Restablecer contrasena"
+            aria-label="Restablecer contrasena"
+          >
+            <KeyRound className="h-4 w-4" />
+          </button>
+        ) : (
+          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] px-3 text-xs font-semibold">
+            <KeyRound className="h-4 w-4" />
+            Restablecer contrasena
+          </button>
+        )}
+        {!iconOnly && state.error ? <p className="text-xs text-[var(--danger)]">{state.error}</p> : null}
+        {!iconOnly && state.success ? <p className="text-xs text-[var(--success)]">{state.success}</p> : null}
       </form>
 
       {open && state.generatedPassword ? (

@@ -37,7 +37,7 @@ export function CrudModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4" onClick={onClose} role="presentation">
       <div
-        className={`w-full ${widthClassName} rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5 shadow-[0_24px_64px_rgba(0,0,0,0.2)]`}
+        className={`flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden ${widthClassName} rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5 shadow-[0_24px_64px_rgba(0,0,0,0.2)]`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -58,7 +58,7 @@ export function CrudModal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">{children}</div>
       </div>
     </div>
   );

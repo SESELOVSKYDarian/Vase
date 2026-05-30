@@ -1,4 +1,5 @@
 import { platformModules } from "@/config/modules";
+import type { AppRole, PlatformRole } from "@/lib/auth/roles";
 
 export const userAccessModuleIds = {
   business: "vase_business",
@@ -27,4 +28,55 @@ export function buildTenantModuleAccessSummary(modules: TenantModuleAccess[]) {
     .map((module) => getUserAccessModuleLabel(module.moduleId));
 
   return activeLabels.length > 0 ? activeLabels.join(", ") : "Sin modulos";
+}
+
+export function buildAdminCreatedUserVerification(now = new Date()) {
+  return {
+    emailVerified: now,
+  };
+}
+
+export function shouldForceAdminCreatedUserPasswordReset(input: {
+  temporaryPassword: boolean;
+  rawPassword: string;
+}) {
+  return input.temporaryPassword && input.rawPassword.trim().length > 0;
+}
+
+export type MasterUserUiRole =
+  | "cliente"
+  | "admin"
+  | "developer"
+  | "designer"
+  | "tester"
+  | "soporte";
+
+type RoleMapping = {
+  platformRole: PlatformRole;
+  appRole: AppRole;
+};
+
+const roleMapping: Record<MasterUserUiRole, RoleMapping> = {
+  admin: { platformRole: "SUPER_ADMIN", appRole: "ADMIN" },
+  soporte: { platformRole: "SUPPORT", appRole: "SOPORTE" },
+  developer: { platformRole: "DEVELOPER", appRole: "DEVELOPER" },
+  designer: { platformRole: "USER", appRole: "DESIGNER" },
+  tester: { platformRole: "USER", appRole: "TESTER" },
+  cliente: { platformRole: "USER", appRole: "CLIENTE" },
+};
+
+export function getRoleMappingFromUiRole(uiRole: MasterUserUiRole): RoleMapping {
+  return roleMapping[uiRole];
+}
+
+export function inferUiRoleFromStoredRoles(input: {
+  platformRole: PlatformRole;
+  appRoles: AppRole[];
+}): MasterUserUiRole {
+  if (input.appRoles.includes("ADMIN") || input.platformRole === "SUPER_ADMIN") return "admin";
+  if (input.appRoles.includes("SOPORTE") || input.platformRole === "SUPPORT") return "soporte";
+  if (input.appRoles.includes("DEVELOPER") || input.platformRole === "DEVELOPER") return "developer";
+  if (input.appRoles.includes("DESIGNER")) return "designer";
+  if (input.appRoles.includes("TESTER")) return "tester";
+  return "cliente";
 }

@@ -24,8 +24,7 @@
     "bootstrap:master-admin": "tsx scripts/bootstrap-master-admin.ts",
     "bootstrap:test-account": "tsx scripts/bootstrap-test-account.ts",
     "accounts:reset-default": "tsx scripts/reset-accounts-to-default.ts",
-    "seed:app-roles": "tsx scripts/seed-app-roles.ts"
-    ,
+    "seed:app-roles": "tsx scripts/seed-app-roles.ts",
     "backfill:v2:bridges": "tsx scripts/backfill-v2-bridges.ts"
   },
   "dependencies": {

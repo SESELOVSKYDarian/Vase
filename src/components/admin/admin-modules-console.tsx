@@ -1,35 +1,17 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { Fragment, useActionState, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   createAdminModuleAction,
   createModuleSubmoduleAction,
-  publishModuleArtifactAction,
-  setTenantModuleActivationAction,
-  setTenantSubmoduleActivationAction,
+  deleteAdminModuleAction,
+  deleteModuleSubmoduleAction,
   updateAdminModuleAction,
-  updateAdminModulePricingAction,
   updateModuleSubmoduleAction,
-  updateModuleSubmodulePricingAction,
-  uploadModuleArtifactAction,
   type AdminGovernanceActionState,
 } from "@/app/(platform)/app/admin/actions";
-
-type TenantLite = {
-  id: string;
-  accountName: string;
-  name: string;
-};
-
-type ArtifactView = {
-  id: string;
-  version: string;
-  fileName: string;
-  sizeBytes: number;
-  isPublished: boolean;
-  publishedAt: Date | null;
-  createdAt: Date;
-};
+import { CrudModal } from "@/components/ui/crud-modal";
 
 type SubmoduleView = {
   id: string;
@@ -38,16 +20,6 @@ type SubmoduleView = {
   description: string | null;
   route: string;
   isActive: boolean;
-  activeTenants: number;
-  currentPricing: {
-    id: string | null;
-    price: number;
-    currency: string;
-    type: "monthly" | "one_time";
-    isActive: boolean;
-    updatedAt: Date | null;
-  } | null;
-  artifacts: ArtifactView[];
 };
 
 type ModuleView = {
@@ -57,334 +29,319 @@ type ModuleView = {
   product: "BUSINESS" | "LABS";
   route: string;
   isActive: boolean;
-  activeTenants: number;
-  currentPricing: {
-    id: string | null;
-    price: number;
-    currency: string;
-    type: "monthly" | "one_time";
-    isActive: boolean;
-    updatedAt: Date | null;
-  } | null;
-  artifacts: ArtifactView[];
   submodules: SubmoduleView[];
 };
 
 type Props = {
   modules: ModuleView[];
-  tenants: TenantLite[];
 };
 
 const initialState: AdminGovernanceActionState = {};
 
-export function AdminModulesConsole({ modules, tenants }: Props) {
-  const [createState, createAction] = useActionState(createAdminModuleAction, initialState);
-  const [submoduleCreateState, submoduleCreateAction] = useActionState(createModuleSubmoduleAction, initialState);
-  const [activeFilter, setActiveFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
-  const [productFilter, setProductFilter] = useState<"ALL" | "BUSINESS" | "LABS">("ALL");
-  const [zipFilter, setZipFilter] = useState<"ALL" | "WITH_ZIP" | "WITHOUT_ZIP">("ALL");
+type ModuleModalMode = "create" | "edit";
+type SubmoduleModalMode = "create" | "edit";
 
-  const filteredModules = useMemo(() => {
-    return modules.filter((module) => {
-      if (activeFilter === "ACTIVE" && !module.isActive) return false;
-      if (activeFilter === "INACTIVE" && module.isActive) return false;
-      if (productFilter !== "ALL" && module.product !== productFilter) return false;
-      if (zipFilter === "WITH_ZIP" && module.artifacts.length === 0) return false;
-      if (zipFilter === "WITHOUT_ZIP" && module.artifacts.length > 0) return false;
-      return true;
-    });
-  }, [modules, activeFilter, productFilter, zipFilter]);
+export function AdminModulesConsole({ modules }: Props) {
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+  const [moduleModalMode, setModuleModalMode] = useState<ModuleModalMode | null>(null);
+  const [selectedModule, setSelectedModule] = useState<ModuleView | null>(null);
+  const [deleteModuleTarget, setDeleteModuleTarget] = useState<ModuleView | null>(null);
+  const [submoduleModalMode, setSubmoduleModalMode] = useState<SubmoduleModalMode | null>(null);
+  const [selectedSubmodule, setSelectedSubmodule] = useState<SubmoduleView | null>(null);
+  const [submoduleParentModule, setSubmoduleParentModule] = useState<ModuleView | null>(null);
+  const [deleteSubmoduleTarget, setDeleteSubmoduleTarget] = useState<SubmoduleView | null>(null);
 
-  return (
-    <div className="space-y-7">
-      <section className="grid gap-4 md:grid-cols-4">
-        <article className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
-          <p className="text-xs text-[var(--muted)]">Total módulos</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--foreground)]">{modules.length}</p>
-        </article>
-        <article className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
-          <p className="text-xs text-[var(--muted)]">Activos</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--foreground)]">{modules.filter((m) => m.isActive).length}</p>
-        </article>
-        <article className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
-          <p className="text-xs text-[var(--muted)]">Con ZIP publicado</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--foreground)]">{modules.filter((m) => m.artifacts.some((a) => a.isPublished)).length}</p>
-        </article>
-        <article className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
-          <p className="text-xs text-[var(--muted)]">Submódulos</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--foreground)]">{modules.reduce((acc, m) => acc + m.submodules.length, 0)}</p>
-        </article>
-      </section>
+  const [createModuleState, createModuleFormAction] = useActionState(createAdminModuleAction, initialState);
+  const [updateModuleState, updateModuleFormAction] = useActionState(updateAdminModuleAction, initialState);
+  const [deleteModuleState, deleteModuleFormAction] = useActionState(deleteAdminModuleAction, initialState);
+  const [createSubmoduleState, createSubmoduleFormAction] = useActionState(createModuleSubmoduleAction, initialState);
+  const [updateSubmoduleState, updateSubmoduleFormAction] = useActionState(updateModuleSubmoduleAction, initialState);
+  const [deleteSubmoduleState, deleteSubmoduleFormAction] = useActionState(deleteModuleSubmoduleAction, initialState);
 
-      <section className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <article className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-6">
-          <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-soft)]">Catálogo</p>
-            <h3 className="mt-1 text-xl font-semibold text-[var(--foreground)]">Filtros rápidos</h3>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-[var(--foreground)]">Producto</span>
-              <select value={productFilter} onChange={(e) => setProductFilter(e.target.value as typeof productFilter)} className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-[var(--foreground)]">
-                <option value="ALL">Todos</option>
-                <option value="BUSINESS">Business</option>
-                <option value="LABS">Labs</option>
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-[var(--foreground)]">Estado</span>
-              <select value={activeFilter} onChange={(e) => setActiveFilter(e.target.value as typeof activeFilter)} className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-[var(--foreground)]">
-                <option value="ALL">Todos</option>
-                <option value="ACTIVE">Activos</option>
-                <option value="INACTIVE">Inactivos</option>
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-[var(--foreground)]">ZIP</span>
-              <select value={zipFilter} onChange={(e) => setZipFilter(e.target.value as typeof zipFilter)} className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-[var(--foreground)]">
-                <option value="ALL">Todos</option>
-                <option value="WITH_ZIP">Con ZIP</option>
-                <option value="WITHOUT_ZIP">Sin ZIP</option>
-              </select>
-            </label>
-          </div>
-        </article>
+  const actionFeedback = useMemo(() => {
+    const states = [
+      createModuleState,
+      updateModuleState,
+      deleteModuleState,
+      createSubmoduleState,
+      updateSubmoduleState,
+      deleteSubmoduleState,
+    ];
+    const lastError = states.map((state) => state.error).filter(Boolean).at(-1);
+    const lastSuccess = states.map((state) => state.success).filter(Boolean).at(-1);
+    return { lastError, lastSuccess };
+  }, [
+    createModuleState,
+    updateModuleState,
+    deleteModuleState,
+    createSubmoduleState,
+    updateSubmoduleState,
+    deleteSubmoduleState,
+  ]);
 
-        <article className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-soft)]">Editor</p>
-          <h3 className="mt-1 text-xl font-semibold text-[var(--foreground)]">Crear módulo</h3>
-          <form action={createAction} className="mt-4 grid gap-3">
-            <input name="id" placeholder="id módulo" className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-[var(--foreground)]" />
-            <input name="name" placeholder="nombre técnico" className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-[var(--foreground)]" />
-            <textarea name="description" placeholder="descripción" rows={2} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]" />
-            <div className="grid gap-2 md:grid-cols-2">
-              <select name="product" defaultValue="BUSINESS" className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-[var(--foreground)]">
-                <option value="BUSINESS">Business</option>
-                <option value="LABS">Labs</option>
-              </select>
-              <input name="route" placeholder="/app/nuevo-modulo" className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-[var(--foreground)]" />
-            </div>
-            <label className="inline-flex items-center gap-2 text-sm text-[var(--foreground)]"><input name="isActive" type="checkbox" defaultChecked /> Módulo activo</label>
-            <button className="min-h-11 rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]">Crear módulo</button>
-            {createState.error ? <p className="text-sm text-[var(--danger)]">{createState.error}</p> : null}
-            {createState.success ? <p className="text-sm text-[var(--success)]">{createState.success}</p> : null}
-          </form>
-        </article>
-      </section>
-
-      <section className="space-y-6">
-        {filteredModules.map((module) => (
-          <ModuleItem key={module.id} module={module} tenants={tenants} onSubmoduleCreateAction={submoduleCreateAction} submoduleCreateState={submoduleCreateState} />
-        ))}
-      </section>
-    </div>
-  );
-}
-
-function ModuleItem({
-  module,
-  tenants,
-  onSubmoduleCreateAction,
-  submoduleCreateState,
-}: {
-  module: ModuleView;
-  tenants: TenantLite[];
-  onSubmoduleCreateAction: (payload: FormData) => void;
-  submoduleCreateState: AdminGovernanceActionState;
-}) {
-  const [moduleState, moduleAction] = useActionState(updateAdminModuleAction, initialState);
-  const [pricingState, pricingAction] = useActionState(updateAdminModulePricingAction, initialState);
-  const [zipState, zipAction] = useActionState(uploadModuleArtifactAction, initialState);
-  const [activationState, activationAction] = useActionState(setTenantModuleActivationAction, initialState);
+  const toggleExpanded = (moduleId: string) => {
+    setExpandedModules((previous) => ({ ...previous, [moduleId]: !previous[moduleId] }));
+  };
 
   return (
-    <article className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-6">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+    <section className="space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
+      <header className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted-soft)]">{module.product}</p>
-          <h3 className="text-2xl font-semibold text-[var(--foreground)]">{module.name}</h3>
-          <p className="text-sm text-[var(--muted)]">{module.description ?? "Sin descripción"}</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">{module.route}</p>
+          <h2 className="text-xl font-semibold text-[var(--foreground)]">Módulos</h2>
+          <p className="text-sm text-[var(--muted)]">Gestiona módulos y submódulos desde una sola tabla expandible.</p>
         </div>
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] px-3 py-2 text-xs text-[var(--muted)]">
-          Tenants activos: <strong className="text-[var(--foreground)]">{module.activeTenants}</strong>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedModule(null);
+            setModuleModalMode("create");
+          }}
+          className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--border-subtle)] text-[var(--foreground)] transition hover:bg-[var(--surface)]"
+          aria-label="Crear módulo"
+          title="Crear módulo"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </header>
+
+      <div className="overflow-x-auto rounded-xl border border-[var(--border-subtle)]">
+        <table className="min-w-full text-sm">
+          <thead className="bg-[var(--surface)] text-left text-xs uppercase tracking-[0.08em] text-[var(--muted-soft)]">
+            <tr>
+              <th className="px-4 py-3">Módulo</th>
+              <th className="px-4 py-3">Producto</th>
+              <th className="px-4 py-3">Ruta</th>
+              <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {modules.map((module) => {
+              const isExpanded = expandedModules[module.id] ?? false;
+              return (
+                <Fragment key={module.id}>
+                  <tr className="border-t border-[var(--border-subtle)] text-[var(--foreground)]">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(module.id)}
+                          className="grid h-7 w-7 place-items-center rounded-md border border-[var(--border-subtle)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                          aria-label={isExpanded ? "Contraer submódulos" : "Expandir submódulos"}
+                          title={isExpanded ? "Contraer submódulos" : "Expandir submódulos"}
+                        >
+                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                        <div>
+                          <p className="font-medium">{module.name}</p>
+                          <p className="text-xs text-[var(--muted)]">{module.description ?? "Sin descripción"}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">{module.product === "BUSINESS" ? "Business" : "Labs"}</td>
+                    <td className="px-4 py-3">{module.route}</td>
+                    <td className="px-4 py-3">{module.isActive ? "Activo" : "Inactivo"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSubmoduleParentModule(module);
+                            setSelectedSubmodule(null);
+                            setSubmoduleModalMode("create");
+                          }}
+                          className="grid h-8 w-8 place-items-center rounded-md border border-[var(--border-subtle)] text-[var(--foreground)] hover:bg-[var(--surface)]"
+                          aria-label="Crear submódulo"
+                          title="Crear submódulo"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedModule(module);
+                            setModuleModalMode("edit");
+                          }}
+                          className="grid h-8 w-8 place-items-center rounded-md border border-[var(--border-subtle)] text-[var(--foreground)] hover:bg-[var(--surface)]"
+                          aria-label="Editar módulo"
+                          title="Editar módulo"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteModuleTarget(module)}
+                          className="grid h-8 w-8 place-items-center rounded-md border border-[var(--border-subtle)] text-[var(--danger)] hover:bg-[var(--surface)]"
+                          aria-label="Eliminar módulo"
+                          title="Eliminar módulo"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {isExpanded ? (
+                    <tr className="border-t border-[var(--border-subtle)] bg-[var(--surface)]">
+                      <td colSpan={5} className="px-4 py-3">
+                        {module.submodules.length === 0 ? (
+                          <p className="text-sm text-[var(--muted)]">Sin submódulos.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {module.submodules.map((submodule) => (
+                              <div
+                                key={submodule.id}
+                                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_96px_108px] items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-3 py-2"
+                              >
+                                <div>
+                                  <p className="font-medium text-[var(--foreground)]">{submodule.name}</p>
+                                  <p className="text-xs text-[var(--muted)]">{submodule.description ?? "Sin descripción"}</p>
+                                </div>
+                                <p className="truncate text-xs text-[var(--muted)]">{submodule.route}</p>
+                                <p className="text-xs text-[var(--muted)]">{submodule.isActive ? "Activo" : "Inactivo"}</p>
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSubmoduleParentModule(module);
+                                      setSelectedSubmodule(submodule);
+                                      setSubmoduleModalMode("edit");
+                                    }}
+                                    className="grid h-8 w-8 place-items-center rounded-md border border-[var(--border-subtle)] text-[var(--foreground)] hover:bg-[var(--surface)]"
+                                    aria-label="Editar submódulo"
+                                    title="Editar submódulo"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteSubmoduleTarget(submodule)}
+                                    className="grid h-8 w-8 place-items-center rounded-md border border-[var(--border-subtle)] text-[var(--danger)] hover:bg-[var(--surface)]"
+                                    aria-label="Eliminar submódulo"
+                                    title="Eliminar submódulo"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <form action={moduleAction} className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--muted-soft)]">Editar</p>
-          <input type="hidden" name="moduleId" value={module.id} />
-          <input name="name" defaultValue={module.name} className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]" />
-          <input name="route" defaultValue={module.route} className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]" />
-          <textarea name="description" defaultValue={module.description ?? ""} rows={2} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]" />
-          <label className="inline-flex items-center gap-2 text-sm text-[var(--foreground)]"><input name="isActive" type="checkbox" defaultChecked={module.isActive} /> Activo</label>
-          <button className="min-h-10 rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)]">Guardar</button>
-          {moduleState.error ? <p className="text-xs text-[var(--danger)]">{moduleState.error}</p> : null}
-        </form>
+      {actionFeedback.lastError ? <p className="text-sm text-[var(--danger)]">{actionFeedback.lastError}</p> : null}
+      {actionFeedback.lastSuccess ? <p className="text-sm text-[var(--success)]">{actionFeedback.lastSuccess}</p> : null}
 
-        <form action={pricingAction} className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--muted-soft)]">Precios</p>
-          <input type="hidden" name="moduleId" value={module.id} />
-          <input name="price" type="number" step="0.01" min="0" defaultValue={module.currentPricing?.price ?? 0} className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]" />
-          <div className="grid grid-cols-2 gap-2">
-            <input name="currency" defaultValue={module.currentPricing?.currency ?? "USD"} className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]" />
-            <select name="type" defaultValue={module.currentPricing?.type ?? "monthly"} className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]">
-              <option value="monthly">Mensual</option>
-              <option value="one_time">Único</option>
-            </select>
+      <CrudModal
+        open={moduleModalMode === "create" || moduleModalMode === "edit"}
+        title={moduleModalMode === "edit" ? "Editar módulo" : "Crear módulo"}
+        onClose={() => {
+          setModuleModalMode(null);
+          setSelectedModule(null);
+        }}
+      >
+        <form action={moduleModalMode === "edit" ? updateModuleFormAction : createModuleFormAction} className="grid gap-3">
+          {moduleModalMode === "edit" ? (
+            <input type="hidden" name="moduleId" value={selectedModule?.id ?? ""} />
+          ) : (
+            <input name="id" placeholder="id_modulo" defaultValue={selectedModule?.id ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" />
+          )}
+          <input name="name" placeholder="Nombre técnico" defaultValue={selectedModule?.name ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" />
+          <textarea name="description" placeholder="Descripción" rows={3} defaultValue={selectedModule?.description ?? ""} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]" />
+          <div className="grid gap-3 md:grid-cols-2">
+            {moduleModalMode === "create" ? (
+              <select name="product" defaultValue={selectedModule?.product ?? "BUSINESS"} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]">
+                <option value="BUSINESS">Business</option>
+                <option value="LABS">Labs</option>
+              </select>
+            ) : (
+              <input
+                value={selectedModule?.product === "BUSINESS" ? "Business" : "Labs"}
+                readOnly
+                className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--muted)]"
+              />
+            )}
+            <input name="route" placeholder="/app/modulo" defaultValue={selectedModule?.route ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" />
           </div>
-          <label className="inline-flex items-center gap-2 text-sm text-[var(--foreground)]"><input name="isActive" type="checkbox" defaultChecked={module.currentPricing?.isActive ?? true} /> Pricing activo</label>
-          <button className="min-h-10 rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)]">Actualizar</button>
-          {pricingState.error ? <p className="text-xs text-[var(--danger)]">{pricingState.error}</p> : null}
+          <label className="inline-flex items-center gap-2 text-sm text-[var(--foreground)]">
+            <input name="isActive" type="checkbox" defaultChecked={selectedModule?.isActive ?? true} /> Activo
+          </label>
+          <button className="min-h-11 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)]">
+            {moduleModalMode === "edit" ? "Guardar cambios" : "Crear módulo"}
+          </button>
         </form>
+      </CrudModal>
 
-        <form action={zipAction} className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--muted-soft)]">Publicación ZIP</p>
-          <input type="hidden" name="moduleId" value={module.id} />
-          <input name="version" placeholder="1.0.0" className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]" />
-          <input name="artifact" type="file" accept=".zip,application/zip" className="text-sm text-[var(--foreground)]" />
-          <button className="min-h-10 rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)]">Subir ZIP</button>
-          {zipState.error ? <p className="text-xs text-[var(--danger)]">{zipState.error}</p> : null}
-          {zipState.success ? <p className="text-xs text-[var(--success)]">{zipState.success}</p> : null}
-          <div className="space-y-1">
-            {module.artifacts.slice(0, 3).map((artifact) => (
-              <ArtifactRow key={artifact.id} artifact={artifact} />
-            ))}
-          </div>
+      <CrudModal
+        open={submoduleModalMode === "create" || submoduleModalMode === "edit"}
+        title={submoduleModalMode === "edit" ? "Editar submódulo" : "Crear submódulo"}
+        onClose={() => {
+          setSubmoduleModalMode(null);
+          setSelectedSubmodule(null);
+          setSubmoduleParentModule(null);
+        }}
+      >
+        <form action={submoduleModalMode === "edit" ? updateSubmoduleFormAction : createSubmoduleFormAction} className="grid gap-3">
+          {submoduleModalMode === "edit" ? (
+            <input type="hidden" name="submoduleId" value={selectedSubmodule?.id ?? ""} />
+          ) : (
+            <>
+              <input type="hidden" name="moduleId" value={submoduleParentModule?.id ?? ""} />
+              <input name="key" placeholder="key_submodulo" className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" />
+            </>
+          )}
+          <input name="name" placeholder="Nombre submódulo" defaultValue={selectedSubmodule?.name ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" />
+          <textarea name="description" placeholder="Descripción" rows={3} defaultValue={selectedSubmodule?.description ?? ""} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]" />
+          <input name="route" placeholder="/app/modulo/submodulo" defaultValue={selectedSubmodule?.route ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" />
+          <label className="inline-flex items-center gap-2 text-sm text-[var(--foreground)]">
+            <input name="isActive" type="checkbox" defaultChecked={selectedSubmodule?.isActive ?? true} /> Activo
+          </label>
+          <button className="min-h-11 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)]">
+            {submoduleModalMode === "edit" ? "Guardar cambios" : "Crear submódulo"}
+          </button>
         </form>
-      </div>
+      </CrudModal>
 
-      <div className="mt-5 grid gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--muted-soft)]">Activación por tenant (módulo)</p>
-        <form action={activationAction} className="grid gap-2 md:grid-cols-[1fr_120px_auto]">
-          <input type="hidden" name="moduleId" value={module.id} />
-          <select name="tenantId" className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]">
-            {tenants.map((tenant) => (
-              <option key={tenant.id} value={tenant.id}>{tenant.accountName}</option>
-            ))}
-          </select>
-          <select name="isActive" defaultValue="true" className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]">
-            <option value="true">Activar</option>
-            <option value="false">Desactivar</option>
-          </select>
-          <button className="min-h-10 rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)]">Aplicar</button>
+      <CrudModal
+        open={Boolean(deleteModuleTarget)}
+        title="Eliminar módulo"
+        description="Esta acción elimina el módulo y sus relaciones vinculadas."
+        onClose={() => setDeleteModuleTarget(null)}
+      >
+        <form action={deleteModuleFormAction} className="grid gap-4">
+          <input type="hidden" name="moduleId" value={deleteModuleTarget?.id ?? ""} />
+          <p className="text-sm text-[var(--foreground)]">
+            Confirma eliminación definitiva de <strong>{deleteModuleTarget?.name}</strong>.
+          </p>
+          <button className="min-h-11 rounded-lg bg-[var(--danger)] px-4 text-sm font-semibold text-white">
+            Eliminar definitivamente
+          </button>
         </form>
-        {activationState.error ? <p className="text-xs text-[var(--danger)]">{activationState.error}</p> : null}
-      </div>
+      </CrudModal>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-2">
-        <form action={onSubmoduleCreateAction} className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--muted-soft)]">Crear submódulo</p>
-          <input type="hidden" name="moduleId" value={module.id} />
-          <div className="grid gap-2 md:grid-cols-2">
-            <input name="key" placeholder="key_submodulo" className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]" />
-            <input name="name" placeholder="Nombre submódulo" className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]" />
-          </div>
-          <input name="route" placeholder={`${module.route}/nuevo-submodulo`} className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--foreground)]" />
-          <textarea name="description" rows={2} placeholder="Descripción" className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]" />
-          <label className="inline-flex items-center gap-2 text-sm text-[var(--foreground)]"><input name="isActive" type="checkbox" defaultChecked /> Activo</label>
-          <button className="min-h-10 rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)]">Crear submódulo</button>
-          {submoduleCreateState.error ? <p className="text-xs text-[var(--danger)]">{submoduleCreateState.error}</p> : null}
+      <CrudModal
+        open={Boolean(deleteSubmoduleTarget)}
+        title="Eliminar submódulo"
+        description="Esta acción elimina el submódulo y sus relaciones vinculadas."
+        onClose={() => setDeleteSubmoduleTarget(null)}
+      >
+        <form action={deleteSubmoduleFormAction} className="grid gap-4">
+          <input type="hidden" name="submoduleId" value={deleteSubmoduleTarget?.id ?? ""} />
+          <p className="text-sm text-[var(--foreground)]">
+            Confirma eliminación definitiva de <strong>{deleteSubmoduleTarget?.name}</strong>.
+          </p>
+          <button className="min-h-11 rounded-lg bg-[var(--danger)] px-4 text-sm font-semibold text-white">
+            Eliminar definitivamente
+          </button>
         </form>
-
-        <div className="space-y-3">
-          {module.submodules.map((submodule) => (
-            <SubmoduleItem key={submodule.id} submodule={submodule} tenants={tenants} />
-          ))}
-          {module.submodules.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--muted)]">Sin submódulos creados.</div>
-          ) : null}
-        </div>
-      </div>
-    </article>
+      </CrudModal>
+    </section>
   );
 }
-
-function SubmoduleItem({ submodule, tenants }: { submodule: SubmoduleView; tenants: TenantLite[] }) {
-  const [subState, subAction] = useActionState(updateModuleSubmoduleAction, initialState);
-  const [priceState, priceAction] = useActionState(updateModuleSubmodulePricingAction, initialState);
-  const [zipState, zipAction] = useActionState(uploadModuleArtifactAction, initialState);
-  const [activationState, activationAction] = useActionState(setTenantSubmoduleActivationAction, initialState);
-
-  return (
-    <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-4">
-      <div className="mb-2">
-        <p className="text-sm font-semibold text-[var(--foreground)]">{submodule.name}</p>
-        <p className="text-xs text-[var(--muted)]">{submodule.route}</p>
-      </div>
-
-      <div className="grid gap-3 xl:grid-cols-3">
-        <form action={subAction} className="grid gap-2">
-          <input type="hidden" name="submoduleId" value={submodule.id} />
-          <input name="name" defaultValue={submodule.name} className="min-h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-xs text-[var(--foreground)]" />
-          <input name="route" defaultValue={submodule.route} className="min-h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-xs text-[var(--foreground)]" />
-          <textarea name="description" defaultValue={submodule.description ?? ""} rows={2} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--foreground)]" />
-          <label className="inline-flex items-center gap-2 text-xs text-[var(--foreground)]"><input name="isActive" type="checkbox" defaultChecked={submodule.isActive} /> Activo</label>
-          <button className="min-h-9 rounded-full border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--foreground)]">Guardar</button>
-          {subState.error ? <p className="text-xs text-[var(--danger)]">{subState.error}</p> : null}
-        </form>
-
-        <form action={priceAction} className="grid gap-2">
-          <input type="hidden" name="submoduleId" value={submodule.id} />
-          <input name="price" type="number" step="0.01" min="0" defaultValue={submodule.currentPricing?.price ?? 0} className="min-h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-xs text-[var(--foreground)]" />
-          <div className="grid grid-cols-2 gap-2">
-            <input name="currency" defaultValue={submodule.currentPricing?.currency ?? "USD"} className="min-h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-xs text-[var(--foreground)]" />
-            <select name="type" defaultValue={submodule.currentPricing?.type ?? "monthly"} className="min-h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-xs text-[var(--foreground)]">
-              <option value="monthly">Mensual</option>
-              <option value="one_time">Único</option>
-            </select>
-          </div>
-          <label className="inline-flex items-center gap-2 text-xs text-[var(--foreground)]"><input name="isActive" type="checkbox" defaultChecked={submodule.currentPricing?.isActive ?? true} /> Pricing activo</label>
-          <button className="min-h-9 rounded-full border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--foreground)]">Pricing</button>
-          {priceState.error ? <p className="text-xs text-[var(--danger)]">{priceState.error}</p> : null}
-        </form>
-
-        <div className="grid gap-2">
-          <form action={zipAction} className="grid gap-2">
-            <input type="hidden" name="submoduleId" value={submodule.id} />
-            <input name="version" placeholder="1.0.0" className="min-h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-xs text-[var(--foreground)]" />
-            <input name="artifact" type="file" accept=".zip,application/zip" className="text-xs text-[var(--foreground)]" />
-            <button className="min-h-9 rounded-full border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--foreground)]">Subir ZIP</button>
-          </form>
-          {zipState.error ? <p className="text-xs text-[var(--danger)]">{zipState.error}</p> : null}
-
-          <form action={activationAction} className="grid gap-2 border-t border-[var(--border-subtle)] pt-2">
-            <input type="hidden" name="submoduleId" value={submodule.id} />
-            <select name="tenantId" className="min-h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-xs text-[var(--foreground)]">
-              {tenants.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>{tenant.accountName}</option>
-              ))}
-            </select>
-            <select name="isActive" defaultValue="true" className="min-h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-xs text-[var(--foreground)]">
-              <option value="true">Activar</option>
-              <option value="false">Desactivar</option>
-            </select>
-            <button className="min-h-9 rounded-full border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--foreground)]">Aplicar tenant</button>
-            {activationState.error ? <p className="text-xs text-[var(--danger)]">{activationState.error}</p> : null}
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ArtifactRow({ artifact }: { artifact: ArtifactView }) {
-  const [publishState, publishAction] = useActionState(publishModuleArtifactAction, initialState);
-  return (
-    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--foreground)]">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate">{artifact.version} · {artifact.fileName}</span>
-        <span className={artifact.isPublished ? "text-[var(--success)]" : "text-[var(--muted)]"}>{artifact.isPublished ? "Publicado" : "No publicado"}</span>
-      </div>
-      {!artifact.isPublished ? (
-        <form action={publishAction} className="mt-1">
-          <input type="hidden" name="artifactId" value={artifact.id} />
-          <button className="text-[11px] font-semibold text-[var(--accent-strong)]">Publicar versión</button>
-        </form>
-      ) : null}
-      {publishState.error ? <p className="text-[11px] text-[var(--danger)]">{publishState.error}</p> : null}
-    </div>
-  );
-}
-

@@ -112,17 +112,9 @@ export const authConfig = {
 
       return session;
     },
-    authorized({ auth: currentAuth, request }) {
-      const isSignedIn = !!currentAuth?.user;
-      const isSessionActive =
-        typeof currentAuth?.sessionExpiresAt === "number"
-          ? currentAuth.sessionExpiresAt > Date.now()
-          : isSignedIn;
-
-      if (request.nextUrl.pathname.startsWith("/app")) {
-        return isSignedIn && isSessionActive && Boolean(currentAuth?.user?.isEmailVerified);
-      }
-
+    authorized() {
+      // Route-level redirects are handled in middleware.ts so signed-in users
+      // cannot bounce between NextAuth's default sign-in redirect and our app redirect.
       return true;
     },
   },

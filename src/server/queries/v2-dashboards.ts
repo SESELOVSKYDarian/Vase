@@ -1,5 +1,59 @@
 import { prisma } from "@/lib/db/prisma";
 
+function isMissingProjectStatusColumnError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { code?: string; meta?: { column?: string } };
+  return maybeError.code === "P2022" && maybeError.meta?.column === "vase.Project.status";
+}
+
+async function getProjectCountsSafe() {
+  try {
+    return await prisma.project.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    });
+  } catch (error) {
+    if (isMissingProjectStatusColumnError(error)) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function getUpcomingDeliveriesSafe(now: Date, weekEnd: Date) {
+  try {
+    return await prisma.project.count({
+      where: { dueAt: { gte: now, lt: weekEnd }, status: { in: ["DEPLOYMENT", "TESTING", "DEVELOPMENT"] } },
+    });
+  } catch (error) {
+    if (isMissingProjectStatusColumnError(error)) {
+      return 0;
+    }
+    throw error;
+  }
+}
+
+async function getMainProjectSafe(tenantId: string) {
+  try {
+    return await prisma.project.findFirst({
+      where: { tenantId, status: { in: ["DISCOVERY", "DESIGN", "DEVELOPMENT", "TESTING", "DEPLOYMENT", "PENDING"] } },
+      orderBy: [{ updatedAt: "desc" }],
+      include: {
+        updates: {
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          include: { actorUser: { select: { name: true } } },
+        },
+      },
+    });
+  } catch (error) {
+    if (isMissingProjectStatusColumnError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 function startOfDay(date = new Date()) {
   const value = new Date(date);
   value.setHours(0, 0, 0, 0);
@@ -54,10 +108,7 @@ export async function getMasterV2Dashboard() {
       where: { startsAt: { gte: monthStart, lt: now } },
       _sum: { amount: true },
     }),
-    prisma.project.groupBy({
-      by: ["status"],
-      _count: { _all: true },
-    }),
+    getProjectCountsSafe(),
     prisma.supportTicket.groupBy({
       by: ["status", "priority"],
       _count: { _all: true },
@@ -108,6 +159,7 @@ export async function getMasterV2Dashboard() {
 
   const ingresosMes = Number(monthlyPayments._sum.paidAmount ?? 0);
   const gastosMes = Number(monthlyExpenses._sum.amount ?? 0);
+  const proximasEntregas = await getUpcomingDeliveriesSafe(now, weekEnd);
   return {
     finances: {
       ingresosMes,
@@ -130,9 +182,7 @@ export async function getMasterV2Dashboard() {
         (projectsByStatus.get("DEPLOYMENT") ?? 0),
       finalizados: projectsByStatus.get("COMPLETED") ?? 0,
       pausados: projectsByStatus.get("PAUSED") ?? 0,
-      proximasEntregas: await prisma.project.count({
-        where: { dueAt: { gte: now, lt: weekEnd }, status: { in: ["DEPLOYMENT", "TESTING", "DEVELOPMENT"] } },
-      }),
+      proximasEntregas,
     },
     support: {
       abiertos: ticketsOpen,
@@ -160,17 +210,7 @@ export async function getMasterV2Dashboard() {
 
 export async function getClientV2Dashboard(tenantId: string) {
   const now = new Date();
-  const mainProject = await prisma.project.findFirst({
-    where: { tenantId, status: { in: ["DISCOVERY", "DESIGN", "DEVELOPMENT", "TESTING", "DEPLOYMENT", "PENDING"] } },
-    orderBy: [{ updatedAt: "desc" }],
-    include: {
-      updates: {
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        include: { actorUser: { select: { name: true } } },
-      },
-    },
-  });
+  const mainProject = await getMainProjectSafe(tenantId);
 
   const nextMeeting = await prisma.customProjectMeetingBooking.findFirst({
     where: { tenantId, scheduledStart: { gte: now }, status: "SCHEDULED" },

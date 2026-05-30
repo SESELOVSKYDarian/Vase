@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { SignInForm } from "@/components/auth/sign-in-form";
+import { getAuthPageRedirectPath } from "@/lib/auth/protected-app-redirect";
 import { hasActiveSession } from "@/lib/auth/session";
 
 type SignInPageProps = {
@@ -33,9 +34,15 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
   const redirectTo = normalizeRedirectTarget(params.redirectTo ?? params.callbackUrl);
   const session = await auth();
+  const authPageRedirectPath = getAuthPageRedirectPath({
+    pathname: "/signin",
+    redirectTo,
+    isSignedIn: hasActiveSession(session),
+    isEmailVerified: Boolean(session?.user?.isEmailVerified),
+  });
 
-  if (hasActiveSession(session)) {
-    redirect(redirectTo as Route);
+  if (authPageRedirectPath) {
+    redirect(authPageRedirectPath as Route);
   }
 
   return (

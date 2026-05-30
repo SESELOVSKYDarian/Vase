@@ -151,6 +151,7 @@ enum ModuleProduct {
 enum ModulePricingType {
   ONE_TIME
   MONTHLY
+  YEARLY
 }
 
 enum AuthTokenType {
@@ -424,6 +425,7 @@ model User {
   platformUpdateReads PlatformUpdateRead[]
   adminNotificationReads AdminNotificationRead[]
   shortcuts     Json?
+  clientAccessConfig Json?
   isDisabled    Boolean      @default(false)
   disabledAt    DateTime?
   disabledReason String?
@@ -448,6 +450,7 @@ model User {
   developerTaskAssignments DevTaskAssignmentHistory[] @relation("DevTaskAssignmentActor")
   moduleArtifactsCreated   ModuleArtifact[]           @relation("ModuleArtifactCreatedBy")
   appRoles                UserRole[]
+  moduleAccesses          UserModuleAccess[]
   projectAssignments      ProjectAssignee[]
   projectUpdates          ProjectUpdate[]
   projectsCreated         Project[]                   @relation("ProjectCreatedBy")
@@ -809,9 +812,25 @@ model Module {
   updatedAt    DateTime        @updatedAt
   pricing      ModulePricing[]
   tenantLinks  TenantModule[]
+  userLinks    UserModuleAccess[]
   submodules   ModuleSubmodule[]
+  clientPayments ClientPayment[]
   artifacts    ModuleArtifact[]
   projects     Project[]
+}
+
+model UserModuleAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  moduleId  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@index([moduleId, isActive])
 }
 
 model ModulePricing {
@@ -858,6 +877,7 @@ model ModuleSubmodule {
   module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   pricing     ModuleSubmodulePricing[]
   tenantLinks TenantSubmodule[]
+  clientPayments ClientPayment[]
   artifacts   ModuleArtifact[]
   projects    Project[]
 
@@ -2138,8 +2158,8 @@ model AdminNotification {
   createdByUserId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  tenant          Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  createdByUser   User? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  tenant          Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull, map: "fk_admin_notification_tenant")
+  createdByUser   User? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull, map: "fk_admin_notification_created_by_user")
   readBy          AdminNotificationRead[]
 
   @@index([isActive, startsAt, endsAt])
@@ -2419,6 +2439,8 @@ model ClientPayment {
   tenantId           String
   clientAccountId    String
   createdByUserId    String?
+  moduleId           String?
+  submoduleId        String?
   concept            String
   category           PaymentCategory   @default(OTHER)
   totalAmount        Decimal           @db.Decimal(14, 2)
@@ -2433,11 +2455,14 @@ model ClientPayment {
   tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   clientAccount      ClientAccount     @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
   createdByUser      User?             @relation("ClientPaymentCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  module             Module?           @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  submodule          ModuleSubmodule?  @relation(fields: [submoduleId], references: [id], onDelete: SetNull)
   partialItems       PaymentPartialItem[]
   allocations        PaymentAllocation[]
 
   @@index([tenantId, status, dueAt])
   @@index([clientAccountId, category, status])
+  @@index([moduleId, submoduleId, createdAt])
 }
 
 model PaymentPartialItem {

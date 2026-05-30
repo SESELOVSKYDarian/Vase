@@ -12,7 +12,7 @@ type AdminModulePricingFormProps = {
   moduleId: string;
   price?: number | null;
   currency?: string | null;
-  type?: "monthly" | "one_time" | null;
+  type?: "monthly" | "one_time" | "yearly" | null;
   isActive?: boolean;
 };
 
@@ -54,6 +54,7 @@ export function AdminModulePricingForm(props: AdminModulePricingFormProps) {
             className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
           >
             <option value="monthly">Mensual</option>
+            <option value="yearly">Anual</option>
             <option value="one_time">Unico</option>
           </select>
         </label>
