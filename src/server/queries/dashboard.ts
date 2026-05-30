@@ -185,7 +185,7 @@ export async function getUnifiedTenantDashboard(
     await Promise.all([
       Promise.resolve(getDayRange(0)),
       Promise.resolve(getDayRange(-1)),
-      getTenantModulesAccess(tenantId),
+      getTenantModulesAccess(tenantId, userId),
     ]);
 
   if (!modulesPayload) {

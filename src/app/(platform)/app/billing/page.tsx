@@ -36,7 +36,7 @@ export default async function BillingPage() {
 
   const [dashboard, modulesAccess, subscription, tenant, invoices] = await Promise.all([
     getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
-    getTenantModulesAccess(membership.tenantId),
+    getTenantModulesAccess(membership.tenantId, session.user.id),
     prisma.tenantSubscription.findUnique({
       where: { tenantId: membership.tenantId },
     }),

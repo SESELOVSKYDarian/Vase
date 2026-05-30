@@ -37,7 +37,7 @@ export default async function BusinessPage() {
     forbidden();
   }
 
-  const [dashboard, shellDashboard, clientDashboard, subscription, slots, upcomingBooking] = await Promise.all([
+  const [dashboard, shellDashboard, clientDashboard, subscription, slots, upcomingBooking, businessSubmoduleAccess] = await Promise.all([
     getBusinessOwnerDashboard(membership.tenantId),
     getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
     getClientV2Dashboard(membership.tenantId),
@@ -52,10 +52,31 @@ export default async function BusinessPage() {
       orderBy: { scheduledStart: "asc" },
       include: { customMeeting: { select: { meetingUrl: true } } },
     }),
+    prisma.moduleSubmodule.findMany({
+      where: { moduleId: "vase_business", isActive: true },
+      select: {
+        key: true,
+        tenantLinks: {
+          where: { tenantId: membership.tenantId },
+          select: { isActive: true },
+          take: 1,
+        },
+      },
+    }),
   ]);
   if (!dashboard || !shellDashboard) forbidden();
+  if (!shellDashboard.modules.some((module) => module.key === "business" && module.isActive)) {
+    forbidden();
+  }
 
   const effectivePlan = getEffectivePlan(subscription);
+  const hasExplicitBusinessSubmoduleAccess = businessSubmoduleAccess.some((submodule) => submodule.tenantLinks.length > 0);
+  const canUseTemplateFlow =
+    !hasExplicitBusinessSubmoduleAccess ||
+    businessSubmoduleAccess.some((submodule) => submodule.key === "plantilla" && submodule.tenantLinks.some((link) => link.isActive));
+  const canUseCustomFlow =
+    !hasExplicitBusinessSubmoduleAccess ||
+    businessSubmoduleAccess.some((submodule) => submodule.key === "personalizado" && submodule.tenantLinks.some((link) => link.isActive));
   const canCreatePage = dashboard.plan.plan === "PREMIUM" || dashboard.summary.activePages < (effectivePlan.businessProjectLimit ?? 1);
   const gcalUrl =
     upcomingBooking
@@ -155,6 +176,8 @@ export default async function BusinessPage() {
 
       <BusinessSitesWorkspace
         canCreatePage={canCreatePage}
+        canUseTemplateFlow={canUseTemplateFlow}
+        canUseCustomFlow={canUseCustomFlow}
         slots={slots}
         pages={dashboard.storefrontPages.map((page) => ({
           id: page.id,

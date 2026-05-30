@@ -118,4 +118,17 @@ describe("admin user access helpers", () => {
       activeSubmoduleIds: [],
     });
   });
+
+  it("does not activate unselected modules for a Pro client", () => {
+    expect(
+      buildClientTenantAccessProvisioning({
+        moduleIds: ["vase_business"],
+        tenantPlan: "PRO",
+        proSubmoduleId: null,
+      }),
+    ).toMatchObject({
+      onboardingProduct: "BUSINESS",
+      activeModuleIds: ["vase_business"],
+    });
+  });
 });

@@ -12,7 +12,7 @@ export async function GET() {
       return NextResponse.json({ error: "TENANT_NOT_FOUND" }, { status: 404 });
     }
 
-    const payload = await getTenantModulesAccess(membership.tenantId);
+    const payload = await getTenantModulesAccess(membership.tenantId, session.user.id);
 
     if (!payload) {
       return NextResponse.json({ error: "TENANT_NOT_FOUND" }, { status: 404 });

@@ -28,10 +28,14 @@ type SlotOption = {
 
 export function BusinessSitesWorkspace({
   canCreatePage,
+  canUseTemplateFlow = true,
+  canUseCustomFlow = true,
   pages,
   slots,
 }: {
   canCreatePage: boolean;
+  canUseTemplateFlow?: boolean;
+  canUseCustomFlow?: boolean;
   pages: PageRow[];
   slots: SlotOption[];
 }) {
@@ -85,14 +89,23 @@ export function BusinessSitesWorkspace({
 
             {flow === "choice" ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <button type="button" onClick={() => setFlow("template")} className="rounded-2xl border border-[var(--border-subtle)] p-4 text-left">
-                  <p className="font-semibold text-[var(--foreground)]">Crear con plantilla</p>
-                  <p className="mt-1 text-sm text-[var(--muted)]">Usa el flujo estandar de creacion.</p>
-                </button>
-                <button type="button" onClick={() => setFlow("custom")} className="rounded-2xl border border-[var(--border-subtle)] p-4 text-left">
-                  <p className="font-semibold text-[var(--foreground)]">Pedir plantilla personalizada</p>
-                  <p className="mt-1 text-sm text-[var(--muted)]">Incluye formulario completo y agenda.</p>
-                </button>
+                {canUseTemplateFlow ? (
+                  <button type="button" onClick={() => setFlow("template")} className="rounded-2xl border border-[var(--border-subtle)] p-4 text-left">
+                    <p className="font-semibold text-[var(--foreground)]">Crear con plantilla</p>
+                    <p className="mt-1 text-sm text-[var(--muted)]">Usa el flujo estandar de creacion.</p>
+                  </button>
+                ) : null}
+                {canUseCustomFlow ? (
+                  <button type="button" onClick={() => setFlow("custom")} className="rounded-2xl border border-[var(--border-subtle)] p-4 text-left">
+                    <p className="font-semibold text-[var(--foreground)]">Pedir plantilla personalizada</p>
+                    <p className="mt-1 text-sm text-[var(--muted)]">Incluye formulario completo y agenda.</p>
+                  </button>
+                ) : null}
+                {!canUseTemplateFlow && !canUseCustomFlow ? (
+                  <p className="rounded-2xl border border-[var(--border-subtle)] p-4 text-sm text-[var(--muted)]">
+                    No hay submodulos habilitados para crear paginas en esta cuenta.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 

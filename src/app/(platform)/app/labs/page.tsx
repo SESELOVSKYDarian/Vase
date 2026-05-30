@@ -17,6 +17,9 @@ export default async function LabsPage() {
 
   const dashboard = await getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole);
   if (!dashboard) forbidden();
+  if (!dashboard.modules.some((module) => module.key === "labs" && module.isActive)) {
+    forbidden();
+  }
 
   return (
     <AppShell

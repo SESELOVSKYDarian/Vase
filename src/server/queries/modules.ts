@@ -15,36 +15,54 @@ function resolveProductMatch(
   return moduleProducts.includes(onboardingProduct) || onboardingProduct === "BOTH";
 }
 
-export async function getTenantModulesAccess(tenantId: string) {
+export async function getTenantModulesAccess(tenantId: string, userId?: string) {
   await ensureModuleCatalogSynced();
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: {
-      id: true,
-      name: true,
-      onboardingProduct: true,
-      featureFlags: {
-        select: {
-          key: true,
-          enabled: true,
+  const [tenant, userModuleAccesses] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        name: true,
+        onboardingProduct: true,
+        featureFlags: {
+          select: {
+            key: true,
+            enabled: true,
+          },
+        },
+        storefrontPages: {
+          select: { id: true },
+          take: 1,
+        },
+        aiWorkspace: {
+          select: { id: true },
+        },
+        tenantModules: {
+          select: {
+            moduleId: true,
+            isActive: true,
+          },
         },
       },
-      storefrontPages: {
-        select: { id: true },
-        take: 1,
-      },
-      aiWorkspace: {
-        select: { id: true },
-      },
-      tenantModules: {
-        select: {
-          moduleId: true,
-          isActive: true,
-        },
-      },
-    },
-  });
+    }),
+    userId
+      ? prisma.userModuleAccess.findMany({
+          where: { userId },
+          select: { moduleId: true, isActive: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const userModuleAccessMap = new Map(
+    userModuleAccesses.map((access) => [access.moduleId, access.isActive]),
+  );
+  const hasExplicitUserModuleAccess = userModuleAccessMap.size > 0;
+
+  const userCanAccessModule = (moduleId: string) => {
+    if (!hasExplicitUserModuleAccess) return true;
+    return userModuleAccessMap.get(moduleId) === true;
+  };
 
   if (!tenant) {
     return null;
@@ -82,7 +100,9 @@ export async function getTenantModulesAccess(tenantId: string) {
         ? tenant.storefrontPages.length > 0 || productActive
         : Boolean(tenant.aiWorkspace) || productActive;
     const isActive =
-      Boolean(moduleRow?.isActive) && (tenantModuleActive || flagActive || (productActive && resourceActive));
+      userCanAccessModule(definition.id) &&
+      Boolean(moduleRow?.isActive) &&
+      (tenantModuleActive || flagActive || (productActive && resourceActive));
     const isRecommended =
       !isActive &&
       tenant.featureFlags.some(

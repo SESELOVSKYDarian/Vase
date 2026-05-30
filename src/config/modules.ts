@@ -7,7 +7,7 @@ import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 
 export type PlatformModuleId = "vase_business" | "vase_labs";
 export type PlatformModuleKey = "business" | "labs";
-export type ModuleBillingType = "monthly" | "one_time" | "custom" | "included";
+export type ModuleBillingType = "monthly" | "one_time" | "yearly" | "custom" | "included";
 export type ModuleStatus = "active" | "inactive";
 export type ModuleProduct = "BUSINESS" | "LABS";
 
@@ -70,7 +70,7 @@ export type PlatformModuleAccess = {
   currentPricing: {
     price: number | null;
     currency: string;
-    type: Extract<ModuleBillingType, "monthly" | "one_time">;
+    type: Extract<ModuleBillingType, "monthly" | "one_time" | "yearly">;
   } | null;
   billing: PlatformModuleDefinition["billing"];
 };

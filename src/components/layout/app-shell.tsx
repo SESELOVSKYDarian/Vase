@@ -239,19 +239,22 @@ export function AppShell({
 
     return `${unreadNotifications} novedad${unreadNotifications === 1 ? "" : "es"}`;
   }, [unreadNotifications]);
+  const businessModuleActive = modules.some((module) => module.key === "business" && module.isActive);
+  const labsModuleActive = modules.some((module) => module.key === "labs" && module.isActive);
+  const projectsHref = businessModuleActive ? BUSINESS_WORKSPACE_PATH : labsModuleActive ? "/app/labs" : "/app";
 
   const clientNavItems: NavItem[] = [
     { id: "home", href: "/app", label: "Inicio", icon: Home, description: "Panel principal simple" },
     {
       id: "projects",
-      href: BUSINESS_WORKSPACE_PATH,
+      href: projectsHref,
       label: "Proyectos",
       icon: Building2,
       description: "Tus proyectos por producto",
       children: [
-        { id: "projects-business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business" },
-        { id: "projects-labs", href: "/app/labs", label: "Vase Labs" },
-      ],
+        businessModuleActive ? { id: "projects-business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business" } : null,
+        labsModuleActive ? { id: "projects-labs", href: "/app/labs", label: "Vase Labs" } : null,
+      ].filter((item): item is { id: string; href: string; label: string } => Boolean(item)),
     },
     { id: "tickets", href: "/app/help", label: "Tickets", icon: MessageSquareWarning, description: "Soporte y seguimiento" },
     { id: "payments", href: "/app/billing", label: "Pagos", icon: CreditCard, description: "Pagos y comprobantes" },
@@ -307,26 +310,21 @@ export function AppShell({
 
   const navItems = isAdminShell ? adminNavGroups.flatMap((group) => group.items) : clientNavItems;
 
-  const searchableItems = useMemo(
-    () =>
-      navItems.map((item) => ({
-        id: item.id,
-        href: item.href,
-        label: item.label,
-        description: item.description ?? "",
-        icon: item.icon,
-      })),
-    [navItems],
-  );
+  const searchableItems = navItems.map((item) => ({
+    id: item.id,
+    href: item.href,
+    label: item.label,
+    description: item.description ?? "",
+    icon: item.icon,
+  }));
 
-  const filteredResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const query = searchQuery.toLowerCase();
-    return searchableItems.filter(item => 
-      item.label.toLowerCase().includes(query) || 
-      item.description.toLowerCase().includes(query)
-    );
-  }, [searchQuery, searchableItems]);
+  const query = searchQuery.toLowerCase();
+  const filteredResults = searchQuery.trim()
+    ? searchableItems.filter((item) =>
+        item.label.toLowerCase().includes(query) ||
+        item.description.toLowerCase().includes(query),
+      )
+    : [];
 
   return (
     <SupportChatProvider>
