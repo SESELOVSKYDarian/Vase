@@ -14,6 +14,15 @@ enum PlatformRole {
   USER
 }
 
+enum AppRole {
+  ADMIN
+  CLIENTE
+  DEVELOPER
+  DESIGNER
+  TESTER
+  SOPORTE
+}
+
 enum TenantRole {
   OWNER
   MANAGER
@@ -354,6 +363,18 @@ enum SupportTicketEventType {
   CLOSED
 }
 
+enum SupportTicketSubtaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  CANCELED
+}
+
+enum SupportNoteVisibility {
+  INTERNAL
+  CUSTOMER
+}
+
 enum SupportNotificationType {
   NEW_TICKET
   TICKET_ASSIGNED
@@ -387,6 +408,10 @@ model User {
   supportNotifications SupportNotification[] @relation("SupportNotificationRecipient")
   supportTicketEvents SupportTicketEvent[] @relation("SupportTicketActor")
   supportKnowledgeItems SupportKnowledgeItem[] @relation("SupportKnowledgeCreatedBy")
+  supportTicketSubtasksAssigned SupportTicketSubtask[] @relation("SupportSubtaskAssignee")
+  supportTicketSubtasksCreated  SupportTicketSubtask[] @relation("SupportSubtaskCreator")
+  supportTicketWorklogs         SupportTicketWorklog[]
+  supportTicketAssignments      SupportTicketAssignee[]
   supportAiResponseLogs SupportAiResponseLog[] @relation("SupportAiResponseRequestedBy")
   supportAiConversations SupportAiConversation[] @relation("SupportAiConversationUser")
   supportAiMessages      SupportAiMessage[]      @relation("SupportAiMessageUser")
@@ -422,6 +447,11 @@ model User {
   createdExpenses          Expense[] @relation("ExpenseCreator")
   developerTaskAssignments DevTaskAssignmentHistory[] @relation("DevTaskAssignmentActor")
   moduleArtifactsCreated   ModuleArtifact[]           @relation("ModuleArtifactCreatedBy")
+  appRoles                UserRole[]
+  projectAssignments      ProjectAssignee[]
+  projectUpdates          ProjectUpdate[]
+  projectsCreated         Project[]                   @relation("ProjectCreatedBy")
+  projectProcessUpdates   ProjectProcess[]
 }
 
 model AdminAccessPolicy {
@@ -602,6 +632,35 @@ enum ExpenseStatus {
   OVERDUE
 }
 
+enum ProjectStatus {
+  PENDING
+  DISCOVERY
+  DESIGN
+  DEVELOPMENT
+  TESTING
+  DEPLOYMENT
+  COMPLETED
+  PAUSED
+  CANCELED
+}
+
+enum ProjectProcessType {
+  DISCOVERY
+  DESIGN
+  FRONTEND
+  BACKEND
+  INTEGRATIONS
+  TESTING
+  DEPLOYMENT
+}
+
+enum ProjectProcessStatus {
+  PENDING
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
 enum SupportQueueTieBreaker {
   LOWER_DAILY_TOTAL
   OLDEST_AVAILABLE
@@ -626,16 +685,33 @@ model Membership {
 model Project {
   id          String   @id @default(cuid())
   tenantId    String
+  clientAccountId String?
+  moduleId    String?
+  submoduleId String?
   name        String
   slug        String
+  status      ProjectStatus @default(PENDING)
+  progressPercent Int @default(0)
+  statusDescription String?
   description String?
   createdById String?
+  startsAt    DateTime?
+  dueAt       DateTime?
+  completedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  module      Module?  @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  submodule   ModuleSubmodule? @relation(fields: [submoduleId], references: [id], onDelete: SetNull)
+  clientAccount ClientAccount? @relation(fields: [clientAccountId], references: [id], onDelete: SetNull)
+  createdByUser User? @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  processes   ProjectProcess[]
+  assignees   ProjectAssignee[]
+  updates     ProjectUpdate[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, createdAt])
+  @@index([tenantId, status, updatedAt])
 }
 
 model FeatureFlag {
@@ -651,6 +727,77 @@ model FeatureFlag {
   @@unique([tenantId, key])
 }
 
+model ProjectProcess {
+  id                String               @id @default(cuid())
+  projectId         String
+  processType       ProjectProcessType
+  status            ProjectProcessStatus @default(PENDING)
+  progressPercent   Int                  @default(0)
+  description       String?
+  notifyClient      Boolean              @default(false)
+  lastUpdatedAt     DateTime             @default(now())
+  lastUpdatedByUserId String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lastUpdatedByUser User?                @relation(fields: [lastUpdatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, processType])
+  @@index([projectId, status, updatedAt])
+}
+
+model ProjectAssignee {
+  id         String   @id @default(cuid())
+  projectId  String
+  userId     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId, createdAt])
+}
+
+model ProjectUpdate {
+  id           String   @id @default(cuid())
+  projectId    String
+  actorUserId  String?
+  title        String
+  body         String?
+  notifyClient Boolean  @default(false)
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorUser    User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  key         AppRole  @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userLinks   UserRole[]
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId, createdAt])
+}
+
 model Module {
   id           String          @id
   name         String          @unique
@@ -664,6 +811,7 @@ model Module {
   tenantLinks  TenantModule[]
   submodules   ModuleSubmodule[]
   artifacts    ModuleArtifact[]
+  projects     Project[]
 }
 
 model ModulePricing {
@@ -711,6 +859,7 @@ model ModuleSubmodule {
   pricing     ModuleSubmodulePricing[]
   tenantLinks TenantSubmodule[]
   artifacts   ModuleArtifact[]
+  projects    Project[]
 
   @@unique([moduleId, key])
   @@index([moduleId, isActive])
@@ -1735,6 +1884,9 @@ model SupportTicket {
   events                SupportTicketEvent[]
   notes                 SupportTicketNote[]
   attachments           SupportTicketAttachment[]
+  assignees             SupportTicketAssignee[]
+  subtasks              SupportTicketSubtask[]
+  worklogs              SupportTicketWorklog[]
   notifications         SupportNotification[]
 
   @@index([tenantId, status, priority, queueEnteredAt])
@@ -1760,11 +1912,12 @@ model SupportTicketNote {
   ticketId      String
   authorUserId  String
   body          String
+  visibility    SupportNoteVisibility @default(INTERNAL)
   createdAt     DateTime       @default(now())
   ticket        SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   authorUser    User           @relation("SupportNoteAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
 
-  @@index([ticketId, createdAt])
+  @@index([ticketId, visibility, createdAt])
 }
 
 model SupportTicketAttachment {
@@ -1779,6 +1932,53 @@ model SupportTicketAttachment {
   ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId, createdAt])
+}
+
+model SupportTicketSubtask {
+  id               String                    @id @default(cuid())
+  ticketId         String
+  title            String
+  status           SupportTicketSubtaskStatus @default(PENDING)
+  assignedToUserId String?
+  createdByUserId  String?
+  orderIndex       Int                       @default(0)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  ticket           SupportTicket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assignedToUser   User?                     @relation("SupportSubtaskAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  createdByUser    User?                     @relation("SupportSubtaskCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, status, updatedAt])
+  @@index([assignedToUserId, status, updatedAt])
+}
+
+model SupportTicketWorklog {
+  id           String        @id @default(cuid())
+  ticketId     String
+  actorUserId  String?
+  minutes      Int
+  note         String?
+  happenedAt   DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorUser    User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, happenedAt])
+  @@index([actorUserId, happenedAt])
+}
+
+model SupportTicketAssignee {
+  id          String        @id @default(cuid())
+  ticketId    String
+  userId      String
+  isPrimary   Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, userId])
+  @@index([userId, createdAt])
 }
 
 model SupportReplyTemplate {
@@ -2191,6 +2391,7 @@ model ClientAccount {
   payments           ClientPayment[]
   tasks              DevTask[]
   expenses           Expense[]
+  projects           Project[]
 
   @@index([tenantId, status, contractType])
 }
@@ -2407,4 +2608,203 @@ model FinancialSnapshot {
   tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, snapshotDate])
+}
+
+/// Canonical V2 shadow models (incremental coexistence with legacy tables).
+model ClientV2 {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  sourceClientAccountId String?  @unique
+  companyName           String
+  contactName           String?
+  email                 String?
+  phone                 String?
+  notes                 String?
+  status                String   @default("ACTIVE")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([tenantId, status, createdAt])
+}
+
+model FeatureV2 {
+  id               String   @id @default(cuid())
+  moduleId         String?
+  submoduleId      String?
+  name             String
+  description      String?
+  setupPriceCents  Int      @default(0)
+  maintenanceCents Int      @default(0)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([moduleId, submoduleId, active])
+}
+
+model BudgetV2 {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  sourceCustomQuoteId String?  @unique
+  clientId            String?
+  projectId           String?
+  status              String   @default("DRAFT")
+  totalCents          Int      @default(0)
+  validUntil          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([tenantId, status, createdAt])
+}
+
+model BudgetItemV2 {
+  id          String   @id @default(cuid())
+  budgetId    String
+  title       String
+  description String?
+  quantity    Int      @default(1)
+  unitCents   Int      @default(0)
+  totalCents  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([budgetId, createdAt])
+}
+
+model BudgetVersionV2 {
+  id         String   @id @default(cuid())
+  budgetId   String
+  version    Int
+  snapshot   Json
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  @@unique([budgetId, version])
+  @@index([budgetId, createdAt])
+}
+
+model TicketV2 {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  sourceSupportTicketId String?  @unique
+  projectId             String?
+  clientId              String?
+  title                 String
+  description           String?
+  status                String   @default("NEW")
+  priority              String   @default("MEDIUM")
+  progress              Int      @default(0)
+  estimatedHours        Int?
+  realHours             Int?
+  notifyClient          Boolean  @default(false)
+  createdBy             String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([tenantId, status, priority, createdAt])
+}
+
+model TicketCommentV2 {
+  id              String   @id @default(cuid())
+  ticketId        String
+  userId          String?
+  visibleToClient Boolean  @default(false)
+  content         String
+  createdAt       DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+model MeetingV2 {
+  id                          String   @id @default(cuid())
+  tenantId                    String
+  sourceCustomMeetingId       String?  @unique
+  projectId                   String?
+  clientId                    String?
+  title                       String
+  category                    String
+  meetUrl                     String?
+  scheduledAt                 DateTime?
+  description                 String?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@index([tenantId, scheduledAt, createdAt])
+}
+
+model MeetingTaskV2 {
+  id                String   @id @default(cuid())
+  meetingId         String
+  title             String
+  responsibleUserId String?
+  dueDate           DateTime?
+  completed         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([meetingId, completed, dueDate])
+}
+
+model MeetingDecisionV2 {
+  id          String   @id @default(cuid())
+  meetingId   String
+  description String
+  createdAt   DateTime @default(now())
+
+  @@index([meetingId, createdAt])
+}
+
+model MeetingAttachmentV2 {
+  id         String   @id @default(cuid())
+  meetingId  String
+  fileUrl    String
+  createdAt  DateTime @default(now())
+
+  @@index([meetingId, createdAt])
+}
+
+model InvoiceV2 {
+  id         String   @id @default(cuid())
+  paymentId  String
+  fileUrl    String
+  uploadedBy String?
+  uploadedAt DateTime @default(now())
+
+  @@index([paymentId, uploadedAt])
+}
+
+model DeploymentV2 {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  projectId             String?
+  ticketId              String?
+  version               String
+  zipPath               String?
+  hash                  String?
+  deployedBy            String?
+  deployedAt            DateTime @default(now())
+  sourceStorefrontPageId String?
+
+  @@index([tenantId, deployedAt])
+}
+
+model DeploymentBackupV2 {
+  id               String   @id @default(cuid())
+  deploymentId     String
+  previousVersion  String
+  createdAt        DateTime @default(now())
+
+  @@index([deploymentId, createdAt])
+}
+
+model NotificationV2 {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  userId    String
+  title     String
+  content   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read, createdAt])
 }

@@ -37,6 +37,7 @@ import {
   updateSupportTemplateAdminSchema,
   updateTenantGovernanceSchema,
   updateUserGovernanceSchema,
+  upsertUserRolesSchema,
   updateUserTenantAccessSchema,
   updateUserTenantAccessSnapshotSchema,
   createPlatformUpdateSchema,
@@ -64,6 +65,8 @@ import {
   deleteClientAccountSchema,
   updateClientPaymentSchema,
   deleteClientPaymentSchema,
+  addPaymentPartialItemSchema,
+  attachPaymentInvoiceSchema,
   updateExpenseSchema,
   deleteExpenseSchema,
   updatePartnerConfigSchema,
@@ -75,6 +78,8 @@ import {
   updateMeetingAvailabilitySlotSchema,
   setCustomMeetingLinkSchema,
   provisionCustomProjectSchema,
+  rollbackCustomProjectDeploymentSchema,
+  createProjectWithProcessesSchema,
 } from "@/lib/validators/admin";
 import { reviewCustomizationRequestSchema } from "@/lib/validators/builder";
 import {
@@ -91,6 +96,7 @@ import {
   createCustomStaticSiteManifest,
   downloadGithubRepositoryZip,
   extractCustomSitePackage,
+  rollbackCustomSitePackage,
   type CustomSitePackageSource,
 } from "@/server/services/custom-site-packages";
 
@@ -142,6 +148,66 @@ const customizationPipelineTargets = new Set<CustomizationPipelineTarget>([
   "PENDING_CLIENT",
   "ACCEPTED",
 ]);
+
+const defaultProjectProcessTypes = [
+  "DISCOVERY",
+  "DESIGN",
+  "FRONTEND",
+  "BACKEND",
+  "INTEGRATIONS",
+  "TESTING",
+  "DEPLOYMENT",
+] as const;
+
+async function ensureProjectCreatedFromAcceptedQuote(params: {
+  tx: Prisma.TransactionClient;
+  tenantId: string;
+  customPageRequestId: string;
+  actorUserId: string;
+  moduleId?: string | null;
+  submoduleId?: string | null;
+  projectNameSeed?: string | null;
+}) {
+  const slug = `custom-${params.customPageRequestId.slice(-10).toLowerCase()}`;
+  const projectName =
+    params.projectNameSeed?.trim() || `Proyecto personalizado ${params.customPageRequestId.slice(-6)}`;
+
+  const existing = await params.tx.project.findUnique({
+    where: {
+      tenantId_slug: {
+        tenantId: params.tenantId,
+        slug,
+      },
+    },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await params.tx.project.create({
+    data: {
+      tenantId: params.tenantId,
+      name: projectName,
+      slug,
+      status: "DISCOVERY",
+      moduleId: params.moduleId ?? null,
+      submoduleId: params.submoduleId ?? null,
+      description: "Proyecto generado automaticamente al aprobar presupuesto.",
+      createdById: params.actorUserId,
+    },
+    select: { id: true },
+  });
+
+  await params.tx.projectProcess.createMany({
+    data: defaultProjectProcessTypes.map((processType) => ({
+      projectId: created.id,
+      processType,
+      status: processType === "DISCOVERY" ? "IN_PROGRESS" : "PENDING",
+      progressPercent: processType === "DISCOVERY" ? 5 : 0,
+    })),
+  });
+
+  return created.id;
+}
 
 function toNullableDate(value: string) {
   return value ? new Date(value) : null;
@@ -1282,6 +1348,7 @@ export async function moveCustomizationPipelineStageAction(
       select: {
         id: true,
         tenantId: true,
+        pageScope: true,
         quote: {
           select: {
             id: true,
@@ -1298,6 +1365,7 @@ export async function moveCustomizationPipelineStageAction(
     }
 
     const now = new Date();
+    let createdProjectId: string | null = null;
     await prisma.$transaction(async (tx) => {
       if (targetStage === "REQUESTS") {
         await tx.customPageRequest.update({
@@ -1452,6 +1520,21 @@ export async function moveCustomizationPipelineStageAction(
           },
         },
       });
+
+      const businessModule = await tx.module.findFirst({
+        where: { product: "BUSINESS", isActive: true },
+        select: { id: true },
+        orderBy: { createdAt: "asc" },
+      });
+
+      createdProjectId = await ensureProjectCreatedFromAcceptedQuote({
+        tx,
+        tenantId: request.tenantId,
+        customPageRequestId: request.id,
+        actorUserId: adminSession.user.id,
+        moduleId: businessModule?.id ?? null,
+        projectNameSeed: request.pageScope,
+      });
     });
 
     await createAuditLog({
@@ -1462,13 +1545,16 @@ export async function moveCustomizationPipelineStageAction(
       actorUserId: adminSession.user.id,
       ipAddress: requestContext.ipAddress,
       userAgent: requestContext.userAgent,
-      metadata: { targetStage },
+      metadata: { targetStage, createdProjectId },
     });
 
     revalidatePath("/app/admin");
     revalidatePath("/app/admin/customizations");
     revalidatePath("/app/owner");
     revalidatePath("/app/owner/customizations");
+    if (targetStage === "ACCEPTED") {
+      return { success: "Solicitud aceptada. Proyecto y procesos base creados automaticamente." };
+    }
     return { success: "Solicitud movida de etapa." };
   } catch (error) {
     if (error instanceof Error && error.message === "CUSTOM_PIPELINE_QUOTE_REQUIRED") {
@@ -2074,6 +2160,152 @@ export async function createDeveloperUserAction(
     return { success: `Desarrollador creado. Contrasena temporal: ${temporaryPassword}` };
   } catch {
     return { error: "No pudimos crear el desarrollador." };
+  }
+}
+
+export async function upsertUserRolesAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = upsertUserRolesSchema.safeParse({
+      userId: formData.get("userId"),
+      roles: formData.getAll("roles"),
+    });
+
+    if (!parsed.success) {
+      return { error: "Revisa el usuario y los roles asignados." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const roleKey of parsed.data.roles) {
+        await tx.role.upsert({
+          where: { key: roleKey },
+          update: {
+            name: roleKey,
+          },
+          create: {
+            key: roleKey,
+            name: roleKey,
+            isSystem: true,
+          },
+        });
+      }
+
+      const roleRecords = await tx.role.findMany({
+        where: { key: { in: parsed.data.roles } },
+        select: { id: true },
+      });
+      const roleIds = roleRecords.map((role) => role.id);
+
+      await tx.userRole.deleteMany({
+        where: { userId: parsed.data.userId },
+      });
+      if (roleIds.length > 0) {
+        await tx.userRole.createMany({
+          data: roleIds.map((roleId) => ({
+            userId: parsed.data.userId,
+            roleId,
+          })),
+        });
+      }
+    });
+
+    await createAuditLog({
+      action: "platform.user_roles_updated",
+      targetType: "user",
+      targetId: parsed.data.userId,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        roles: parsed.data.roles,
+      },
+    });
+
+    revalidatePath("/app/admin/users");
+    return { success: "Roles del usuario actualizados." };
+  } catch {
+    return { error: "No pudimos actualizar los roles del usuario." };
+  }
+}
+
+export async function createProjectWithProcessesAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = createProjectWithProcessesSchema.safeParse({
+      tenantId: formData.get("tenantId"),
+      name: sanitizeText(String(formData.get("name") ?? "")),
+      slug: sanitizeText(String(formData.get("slug") ?? "")).toLowerCase(),
+      status: formData.get("status"),
+      moduleId: String(formData.get("moduleId") ?? ""),
+      submoduleId: String(formData.get("submoduleId") ?? ""),
+      clientAccountId: String(formData.get("clientAccountId") ?? ""),
+      description: sanitizeNullableText(String(formData.get("description") ?? "")) ?? undefined,
+    });
+
+    if (!parsed.success) {
+      return { error: "Revisa tenant, nombre y estado del proyecto." };
+    }
+
+    const processTypes = ["DISCOVERY", "DESIGN", "FRONTEND", "BACKEND", "INTEGRATIONS", "TESTING", "DEPLOYMENT"] as const;
+
+    const project = await prisma.$transaction(async (tx) => {
+      const created = await tx.project.create({
+        data: {
+          tenantId: parsed.data.tenantId,
+          name: parsed.data.name,
+          slug: parsed.data.slug,
+          status: parsed.data.status,
+          moduleId: parsed.data.moduleId || null,
+          submoduleId: parsed.data.submoduleId || null,
+          clientAccountId: parsed.data.clientAccountId || null,
+          description: parsed.data.description || null,
+          createdById: adminSession.user.id,
+        },
+      });
+
+      await tx.projectProcess.createMany({
+        data: processTypes.map((processType) => ({
+          projectId: created.id,
+          processType,
+          status: processType === "DISCOVERY" ? "IN_PROGRESS" : "PENDING",
+          progressPercent: processType === "DISCOVERY" ? 5 : 0,
+        })),
+      });
+
+      return created;
+    });
+
+    await createAuditLog({
+      action: "platform.project_created_with_processes",
+      targetType: "project",
+      targetId: project.id,
+      tenantId: parsed.data.tenantId,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        slug: parsed.data.slug,
+        status: parsed.data.status,
+      },
+    });
+
+    revalidatePath("/app/admin");
+    revalidatePath("/app/business");
+    return { success: "Proyecto creado con procesos base." };
+  } catch {
+    return { error: "No pudimos crear el proyecto con sus procesos." };
   }
 }
 
@@ -3779,6 +4011,7 @@ export async function provisionCustomProjectAction(
       fileName: string;
       mimeType: string;
       sizeBytes: number;
+      packageSha256?: string;
       storagePath: string;
       extractedPath?: string;
       fileCount?: number;
@@ -3845,6 +4078,7 @@ export async function provisionCustomProjectAction(
           fileName: zipPackage.fileName,
           mimeType: zipPackage.mimeType,
           sizeBytes: zipPackage.sizeBytes,
+          packageSha256: zipPackage.sha256,
           storagePath: stored.relativePath,
           extractedPath: extracted.storagePath,
           fileCount: extracted.fileCount,
@@ -3989,7 +4223,7 @@ export async function provisionCustomProjectAction(
     const durationMs = Date.now() - startedAt;
     return {
       success: zipPackage
-        ? `Paquete ${packageSourceType === "github" ? "GitHub" : "ZIP"} importado y publicado en ${formatDurationMs(durationMs)}: ${publicUrl}`
+        ? `Paquete ${packageSourceType === "github" ? "GitHub" : "ZIP"} importado y publicado en ${formatDurationMs(durationMs)}: ${publicUrl} · sha256 ${zipPackage.sha256.slice(0, 12)}...`
         : `Proyecto habilitado con plantilla Vase en ${formatDurationMs(durationMs)}: ${publicUrl}`,
       durationMs,
       publicUrl,
@@ -4048,6 +4282,142 @@ export async function createClientAccountAction(formData: FormData): Promise<voi
 
   revalidatePath("/app/admin/clients");
   revalidatePath("/app/admin/finance");
+}
+
+export async function rollbackCustomProjectDeploymentAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  const startedAt = Date.now();
+  try {
+    const adminSession = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+
+    const parsed = rollbackCustomProjectDeploymentSchema.safeParse({
+      requestId: formData.get("requestId"),
+      tenantId: formData.get("tenantId"),
+    });
+    if (!parsed.success) {
+      return { error: "No pudimos interpretar el rollback solicitado.", durationMs: Date.now() - startedAt };
+    }
+
+    const request = await prisma.customPageRequest.findFirst({
+      where: { id: parsed.data.requestId, tenantId: parsed.data.tenantId },
+      select: {
+        id: true,
+        tenantId: true,
+        storefrontPageId: true,
+        referenceFiles: true,
+        storefrontPage: { select: { id: true, slug: true, builderDocument: true } },
+      },
+    });
+    if (!request || !request.storefrontPageId || !request.storefrontPage) {
+      return { error: "La solicitud aun no tiene un sitio provisionado.", durationMs: Date.now() - startedAt };
+    }
+
+    await rollbackCustomSitePackage({ siteId: request.id });
+
+    const rawBuilderDocument = request.storefrontPage.builderDocument as Prisma.JsonObject | null;
+    const previousManifest = (rawBuilderDocument?.customStaticSite as Prisma.JsonObject | undefined) ?? undefined;
+    const nextManifest: Prisma.InputJsonValue = {
+      ...(previousManifest ?? {}),
+      rolledBackAt: new Date().toISOString(),
+      rolledBackByUserId: adminSession.user.id,
+      rollbackFromRequestId: request.id,
+    };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.storefrontPage.update({
+        where: { id: request.storefrontPageId! },
+        data: {
+          builderDocument: {
+            ...(rawBuilderDocument ?? {}),
+            customStaticSite: nextManifest,
+          } as Prisma.InputJsonValue,
+          builderLastSavedAt: new Date(),
+          publishedAt: new Date(),
+        },
+      });
+
+      const latestVersion = await tx.storefrontPageVersion.findFirst({
+        where: { storefrontPageId: request.storefrontPageId! },
+        orderBy: { versionNumber: "desc" },
+        select: { versionNumber: true },
+      });
+
+      await tx.storefrontPageVersion.create({
+        data: {
+          storefrontPageId: request.storefrontPageId!,
+          createdByUserId: adminSession.user.id,
+          versionNumber: (latestVersion?.versionNumber ?? 0) + 1,
+          kind: "PUBLISHED",
+          changeSummary: "Rollback a version anterior inmediata del paquete ZIP.",
+          snapshot: {
+            ...(rawBuilderDocument ?? {}),
+            customStaticSite: nextManifest,
+          } as Prisma.InputJsonValue,
+        },
+      });
+
+      const rollbackMeta = {
+        fileName: "rollback",
+        mimeType: "application/x.rollback",
+        sizeBytes: 0,
+        storagePath: `custom-sites/${request.id}/current`,
+        rolledBackAt: new Date().toISOString(),
+        rolledBackByUserId: adminSession.user.id,
+        source: "custom_project_rollback",
+      };
+      const currentRefs = Array.isArray(request.referenceFiles) ? request.referenceFiles : [];
+      await tx.customPageRequest.update({
+        where: { id: request.id },
+        data: {
+          referenceFiles: [...currentRefs, rollbackMeta] as Prisma.InputJsonValue,
+          reviewedAt: new Date(),
+          reviewedByUserId: adminSession.user.id,
+        },
+      });
+    });
+
+    await createAuditLog({
+      action: "platform.custom_project_rollback",
+      targetType: "custom_page_request",
+      targetId: request.id,
+      tenantId: request.tenantId,
+      actorUserId: adminSession.user.id,
+      metadata: { storefrontPageId: request.storefrontPageId, slug: request.storefrontPage.slug },
+    });
+
+    revalidatePath("/app/admin/customizations");
+    revalidatePath("/app/owner");
+    revalidatePath(`/app/owner/pages/${request.storefrontPageId}`);
+    revalidatePath(`/sites/${request.storefrontPage.slug}.vase.ar`);
+
+    const durationMs = Date.now() - startedAt;
+    return {
+      success: `Rollback aplicado en ${formatDurationMs(durationMs)}.`,
+      durationMs,
+      publicUrl: `https://${request.storefrontPage.slug}.vase.ar`,
+      sourceType: "zip",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message === "CUSTOM_SITE_PREVIOUS_VERSION_MISSING") {
+      return { error: "No hay version anterior para restaurar.", durationMs: Date.now() - startedAt };
+    }
+    return { error: "No pudimos ejecutar el rollback del deployment.", durationMs: Date.now() - startedAt };
+  }
+}
+
+export async function createClientAccountWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    await createClientAccountAction(formData);
+    return { success: "Cliente creado correctamente." };
+  } catch {
+    return { error: "No pudimos crear el cliente." };
+  }
 }
 
 export async function createClientPaymentAction(formData: FormData): Promise<void> {
@@ -4116,6 +4486,18 @@ export async function createClientPaymentAction(formData: FormData): Promise<voi
 
   revalidatePath("/app/admin/clients");
   revalidatePath("/app/admin/finance");
+}
+
+export async function createClientPaymentWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    await createClientPaymentAction(formData);
+    return { success: "Pago registrado correctamente." };
+  } catch {
+    return { error: "No pudimos registrar el pago." };
+  }
 }
 
 export async function createExpenseAction(formData: FormData): Promise<void> {
@@ -4220,6 +4602,18 @@ export async function updateClientAccountAction(formData: FormData): Promise<voi
   revalidatePath("/app/admin/finance");
 }
 
+export async function updateClientAccountWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    await updateClientAccountAction(formData);
+    return { success: "Cliente actualizado." };
+  } catch {
+    return { error: "No pudimos actualizar el cliente." };
+  }
+}
+
 export async function deleteClientAccountAction(formData: FormData): Promise<void> {
   await requireAdminPermission(adminPermissions.BILLING);
   const session = await requireVerifiedUser();
@@ -4245,6 +4639,18 @@ export async function deleteClientAccountAction(formData: FormData): Promise<voi
 
   revalidatePath("/app/admin/clients");
   revalidatePath("/app/admin/finance");
+}
+
+export async function deleteClientAccountWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    await deleteClientAccountAction(formData);
+    return { success: "Cliente eliminado." };
+  } catch {
+    return { error: "No pudimos eliminar el cliente." };
+  }
 }
 
 export async function updateClientPaymentAction(formData: FormData): Promise<void> {
@@ -4301,6 +4707,18 @@ export async function updateClientPaymentAction(formData: FormData): Promise<voi
   revalidatePath("/app/admin/finance");
 }
 
+export async function updateClientPaymentWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    await updateClientPaymentAction(formData);
+    return { success: "Pago actualizado." };
+  } catch {
+    return { error: "No pudimos actualizar el pago." };
+  }
+}
+
 export async function deleteClientPaymentAction(formData: FormData): Promise<void> {
   await requireAdminPermission(adminPermissions.BILLING);
   const session = await requireVerifiedUser();
@@ -4326,6 +4744,153 @@ export async function deleteClientPaymentAction(formData: FormData): Promise<voi
 
   revalidatePath("/app/admin/clients");
   revalidatePath("/app/admin/finance");
+}
+
+export async function deleteClientPaymentWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    await deleteClientPaymentAction(formData);
+    return { success: "Pago eliminado." };
+  } catch {
+    return { error: "No pudimos eliminar el pago." };
+  }
+}
+
+export async function addPaymentPartialItemAction(formData: FormData): Promise<void> {
+  await requireAdminPermission(adminPermissions.BILLING);
+  const session = await requireVerifiedUser();
+  const requestContext = await getRequestContext();
+
+  const parsed = addPaymentPartialItemSchema.safeParse({
+    paymentId: formData.get("paymentId"),
+    amount: formData.get("amount"),
+    paidAt: String(formData.get("paidAt") ?? ""),
+    method: sanitizeNullableText(String(formData.get("method") ?? "")) ?? undefined,
+    note: sanitizeNullableText(String(formData.get("note") ?? "")) ?? undefined,
+  });
+  if (!parsed.success) return;
+
+  const payment = await prisma.clientPayment.findUnique({
+    where: { id: parsed.data.paymentId },
+    select: { id: true, tenantId: true, totalAmount: true, paidAmount: true, concept: true, status: true },
+  });
+  if (!payment) return;
+
+  const newPaidAmount = Number(payment.paidAmount) + parsed.data.amount;
+  const totalAmount = Number(payment.totalAmount);
+  const normalizedPaid = Math.min(newPaidAmount, totalAmount);
+  const nextStatus =
+    normalizedPaid >= totalAmount ? "ACTIVE" : payment.status === "CANCELED" ? "CANCELED" : "PAST_DUE";
+
+  await prisma.$transaction(async (tx) => {
+    await tx.paymentPartialItem.create({
+      data: {
+        paymentId: payment.id,
+        amount: parsed.data.amount,
+        paidAt: toNullableDate(parsed.data.paidAt ?? "") ?? new Date(),
+        method: parsed.data.method ?? null,
+        note: parsed.data.note ?? null,
+      },
+    });
+
+    await tx.clientPayment.update({
+      where: { id: payment.id },
+      data: {
+        paidAmount: normalizedPaid,
+        paidAt: new Date(),
+        status: nextStatus,
+      },
+    });
+  });
+
+  await rebuildPaymentAllocations(payment.id);
+
+  await createAuditLog({
+    action: "platform.client_payment_partial_added",
+    targetType: "client_payment",
+    targetId: payment.id,
+    tenantId: payment.tenantId,
+    actorUserId: session.user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+    metadata: {
+      amount: parsed.data.amount,
+      nextPaidAmount: normalizedPaid,
+      totalAmount,
+      method: parsed.data.method ?? null,
+    },
+  });
+
+  revalidatePath("/app/admin/clients");
+  revalidatePath("/app/admin/finance");
+}
+
+export async function addPaymentPartialItemWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    await addPaymentPartialItemAction(formData);
+    return { success: "Pago parcial registrado correctamente." };
+  } catch {
+    return { error: "No pudimos registrar el pago parcial." };
+  }
+}
+
+export async function attachPaymentInvoiceAction(formData: FormData): Promise<void> {
+  await requireAdminPermission(adminPermissions.BILLING);
+  const session = await requireVerifiedUser();
+  const requestContext = await getRequestContext();
+
+  const parsed = attachPaymentInvoiceSchema.safeParse({
+    paymentId: formData.get("paymentId"),
+    fileUrl: String(formData.get("fileUrl") ?? ""),
+  });
+  if (!parsed.success) return;
+
+  const payment = await prisma.clientPayment.findUnique({
+    where: { id: parsed.data.paymentId },
+    select: { id: true, tenantId: true, concept: true },
+  });
+  if (!payment) return;
+
+  await (prisma as unknown as { invoiceV2: { create: (args: { data: { paymentId: string; fileUrl: string; uploadedBy: string } }) => Promise<unknown> } }).invoiceV2.create({
+    data: {
+      paymentId: payment.id,
+      fileUrl: parsed.data.fileUrl,
+      uploadedBy: session.user.id,
+    },
+  });
+
+  await createAuditLog({
+    action: "platform.client_payment_invoice_attached",
+    targetType: "client_payment",
+    targetId: payment.id,
+    tenantId: payment.tenantId,
+    actorUserId: session.user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+    metadata: {
+      fileUrl: parsed.data.fileUrl,
+    },
+  });
+
+  revalidatePath("/app/admin/clients");
+  revalidatePath("/app/admin/finance");
+}
+
+export async function attachPaymentInvoiceWithStateAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    await attachPaymentInvoiceAction(formData);
+    return { success: "Factura vinculada al pago." };
+  } catch {
+    return { error: "No pudimos vincular la factura." };
+  }
 }
 
 export async function updateExpenseAction(formData: FormData): Promise<void> {

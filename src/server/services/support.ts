@@ -315,19 +315,27 @@ export async function assignSupportTicket(payload: {
   }
 }
 
-export async function addSupportTicketNote(ticketId: string, authorUserId: string, body: string) {
+export async function addSupportTicketNote(
+  ticketId: string,
+  authorUserId: string,
+  body: string,
+  visibility: "INTERNAL" | "CUSTOMER" = "INTERNAL",
+) {
   const note = await prisma.supportTicketNote.create({
     data: {
       ticketId,
       authorUserId,
       body,
+      visibility,
     },
   });
 
   await createSupportTicketEvent(
     ticketId,
     "NOTE_ADDED",
-    "Se agrego una nota interna al ticket.",
+    visibility === "CUSTOMER"
+      ? "Se agrego una nota visible para cliente."
+      : "Se agrego una nota interna al ticket.",
     authorUserId,
   );
 

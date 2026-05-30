@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import {
   takeSupportTicketAction,
   type SupportActionState,
@@ -8,8 +8,20 @@ import {
 
 const initialState: SupportActionState = {};
 
-export function SupportTicketTakeForm({ ticketId }: { ticketId: string }) {
+export function SupportTicketTakeForm({
+  ticketId,
+  onResult,
+}: {
+  ticketId: string;
+  onResult?: (result: { tone: "success" | "error"; message: string }) => void;
+}) {
   const [state, formAction] = useActionState(takeSupportTicketAction, initialState);
+
+  useEffect(() => {
+    if (!onResult) return;
+    if (state.success) onResult({ tone: "success", message: state.success });
+    if (state.error) onResult({ tone: "error", message: state.error });
+  }, [onResult, state.error, state.success]);
 
   return (
     <form action={formAction} className="flex flex-col items-start gap-2">

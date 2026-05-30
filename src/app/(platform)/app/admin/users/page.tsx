@@ -6,6 +6,7 @@ import { AdminManualUserCreateForm } from "@/components/admin/admin-manual-user-
 import { AdminUserAccessManagerModal } from "@/components/admin/admin-user-access-manager-modal";
 import { AdminUserGovernanceForm } from "@/components/admin/admin-user-governance-form";
 import { AdminUserPasswordResetForm } from "@/components/admin/admin-user-password-reset-form";
+import { AdminUserRolesForm } from "@/components/admin/admin-user-roles-form";
 import { AdminUserTenantAccessForm } from "@/components/admin/admin-user-tenant-access-form";
 import { PanelCard } from "@/components/ui/panel-card";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
@@ -57,6 +58,13 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
       include: {
         adminAccessPolicy: true,
         internalProfile: true,
+        appRoles: {
+          include: {
+            role: {
+              select: { key: true },
+            },
+          },
+        },
         memberships: {
           orderBy: { createdAt: "desc" },
           include: {
@@ -243,6 +251,20 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                     <AdminUserPasswordResetForm userId={user.id} />
                   </div>
                   <AdminUserGovernanceForm userId={user.id} platformRole={user.platformRole} />
+                  <AdminUserRolesForm
+                    userId={user.id}
+                    selectedRoles={
+                      user.appRoles.length > 0
+                        ? user.appRoles.map((entry) => entry.role.key)
+                        : user.platformRole === "SUPER_ADMIN"
+                          ? ["ADMIN"]
+                          : user.platformRole === "SUPPORT"
+                            ? ["SOPORTE"]
+                            : user.platformRole === "DEVELOPER"
+                              ? ["DEVELOPER"]
+                              : ["CLIENTE"]
+                    }
+                  />
                   <AdminAccessPolicyForm userId={user.id} policy={user.adminAccessPolicy} />
                 </div>
 

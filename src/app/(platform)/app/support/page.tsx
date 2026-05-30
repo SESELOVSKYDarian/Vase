@@ -9,6 +9,9 @@ import { SupportTicketAttachmentForm } from "@/components/support/support-ticket
 import { SupportTicketResponseForm } from "@/components/support/support-ticket-response-form";
 import { SupportTicketTakeForm } from "@/components/support/support-ticket-take-form";
 import { SupportTicketTriageForm } from "@/components/support/support-ticket-triage-form";
+import { SupportTicketCustomerTimeline } from "@/components/support/support-ticket-customer-timeline";
+import { SupportTicketMetricsStrip } from "@/components/support/support-ticket-metrics-strip";
+import { SupportTicketSummaryCard } from "@/components/support/support-ticket-summary-card";
 import { PanelCard } from "@/components/ui/panel-card";
 import { prisma } from "@/lib/db/prisma";
 import {
@@ -147,18 +150,27 @@ export default async function SupportPage({ searchParams }: SupportPageProps) {
                     </div>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-4">
+                  <SupportTicketSummaryCard
+                    customerLabel={ticket.tenant.accountName}
+                    statusLabel={getSupportStatusLabel(ticket.status)}
+                    priorityLabel={getSupportPriorityLabel(ticket.priority)}
+                    assigneeLabel={ticket.assignedToUser?.name ?? "Cola general"}
+                    subtasks={ticket.subtasks}
+                    worklogs={ticket.worklogs}
+                    notesCount={ticket.notes.length}
+                  />
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
                       En espera: {formatWaitingTime(ticket.waitingSince)}
                     </div>
                     <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                      SLA visible: {ticket.estimatedWaitMinutes} min
+                      SLA visible: {ticket.estimatedWaitMinutes} min · Origen: {ticket.source === "AI_ESCALATION" ? "IA" : "Manual"}
                     </div>
-                    <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                      Asignado a: {ticket.assignedToUser?.name ?? "Cola general"}
-                    </div>
-                    <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                      Origen: {ticket.source === "AI_ESCALATION" ? "IA" : "Manual"}
+                  </div>
+                  <div className="grid gap-2 rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4">
+                    <p className="text-sm font-semibold text-[var(--foreground)]">Progreso operativo</p>
+                    <div className="grid gap-2 md:grid-cols-4">
+                      <SupportTicketMetricsStrip subtasks={ticket.subtasks} worklogs={ticket.worklogs} notesCount={ticket.notes.length} />
                     </div>
                   </div>
 
@@ -219,7 +231,7 @@ export default async function SupportPage({ searchParams }: SupportPageProps) {
                     </div>
 
                     <div className="rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">
-                      <p className="font-semibold text-[var(--foreground)]">Notas internas</p>
+                      <p className="font-semibold text-[var(--foreground)]">Notas</p>
                       <div className="mt-3 grid gap-3">
                         {ticket.notes.length === 0 ? (
                           <p className="text-sm leading-6 text-[var(--muted)]">
@@ -228,11 +240,19 @@ export default async function SupportPage({ searchParams }: SupportPageProps) {
                         ) : (
                           ticket.notes.map((note: SupportTicketItem["notes"][number]) => (
                             <div key={note.id} className="rounded-2xl bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] p-3 text-sm leading-6 text-[var(--muted)]">
-                              <p className="font-medium text-[var(--foreground)]">{note.authorUser.name}</p>
+                              <p className="font-medium text-[var(--foreground)]">
+                                {note.authorUser.name} · {note.visibility === "CUSTOMER" ? "Visible cliente" : "Interna"}
+                              </p>
                               <p>{note.body}</p>
                             </div>
                           ))
                         )}
+                      </div>
+                    </div>
+                    <div className="rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">
+                      <p className="font-semibold text-[var(--foreground)]">Timeline visible cliente</p>
+                      <div className="mt-3">
+                        <SupportTicketCustomerTimeline notes={ticket.notes} events={ticket.events} />
                       </div>
                     </div>
                     <div className="rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">

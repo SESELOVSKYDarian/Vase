@@ -36,6 +36,8 @@ export const appConfig = {
     privilegedSessionMaxAgeSeconds: 60 * 60 * 8,
     emailVerificationHours: 24,
     passwordResetMinutes: 30,
+    loginMaxFailedAttemptsPerDay: Number(process.env.LOGIN_MAX_FAILED_ATTEMPTS_PER_DAY ?? 8),
+    loginAutoLockHours: Number(process.env.LOGIN_AUTO_LOCK_HOURS ?? 24),
     integrationRequestBodyMaxBytes: 1024 * 1024,
     webhookTimeoutMs: 8000,
     secretRotationDays: 90,

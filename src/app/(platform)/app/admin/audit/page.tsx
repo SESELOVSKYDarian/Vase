@@ -12,6 +12,25 @@ function getStringParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+const authSecurityActions = [
+  "auth.signin_failed",
+  "auth.signin_succeeded",
+  "auth.account_temporarily_locked",
+] as const;
+
+function toFriendlyAction(action: string) {
+  switch (action) {
+    case "auth.signin_failed":
+      return "Fallo de inicio de sesion";
+    case "auth.signin_succeeded":
+      return "Inicio de sesion correcto";
+    case "auth.account_temporarily_locked":
+      return "Cuenta bloqueada temporalmente";
+    default:
+      return action;
+  }
+}
+
 export default async function AdminAuditPage({ searchParams }: AdminAuditPageProps) {
   try {
     await requireAdminPermission(adminPermissions.AUDIT);
@@ -23,15 +42,19 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
   const q = getStringParam(params.q)?.trim();
   const action = getStringParam(params.action)?.trim();
   const targetType = getStringParam(params.targetType)?.trim();
+  const eventGroup = getStringParam(params.eventGroup)?.trim();
+
   const exportParams = new URLSearchParams();
   if (q) exportParams.set("q", q);
   if (action) exportParams.set("action", action);
   if (targetType) exportParams.set("targetType", targetType);
+  if (eventGroup) exportParams.set("eventGroup", eventGroup);
 
   const logs = await prisma.auditLog.findMany({
     where: {
       ...(action ? { action } : {}),
       ...(targetType ? { targetType } : {}),
+      ...(eventGroup === "auth_security" ? { action: { in: [...authSecurityActions] } } : {}),
       ...(q
         ? {
             OR: [
@@ -62,15 +85,19 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
 
   return (
     <AppShell
-      title="Auditoría central"
+      title="Auditoria central"
       subtitle="Trazabilidad de acciones administrativas, seguridad, billing y operaciones."
       tenantLabel="Master Admin"
     >
-      <PanelCard title="Filtros" description="Busca por acción, actor o entidad.">
-        <form action="/app/admin/audit" className="grid gap-3 md:grid-cols-4">
+      <PanelCard title="Filtros" description="Busca por accion, actor o entidad.">
+        <form action="/app/admin/audit" className="grid gap-3 md:grid-cols-5">
           <input name="q" defaultValue={q ?? ""} placeholder="Buscar..." className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-          <input name="action" defaultValue={action ?? ""} placeholder="Acción exacta" className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
+          <input name="action" defaultValue={action ?? ""} placeholder="Accion exacta" className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
           <input name="targetType" defaultValue={targetType ?? ""} placeholder="Tipo de destino" className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
+          <select name="eventGroup" defaultValue={eventGroup ?? ""} className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2">
+            <option value="">Todos los grupos</option>
+            <option value="auth_security">Seguridad de acceso</option>
+          </select>
           <button className="rounded-xl bg-[var(--accent-strong)] px-4 py-2 text-sm font-semibold text-[var(--accent-contrast)]">Filtrar</button>
         </form>
         <div className="mt-3">
@@ -87,12 +114,12 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
         <div className="grid gap-3">
           {logs.map((log) => (
             <article key={log.id} className="rounded-2xl border border-[var(--border-subtle)] p-4">
-              <p className="text-sm font-semibold text-[var(--foreground)]">{log.action}</p>
+              <p className="text-sm font-semibold text-[var(--foreground)]">{toFriendlyAction(log.action)}</p>
               <p className="text-xs text-[var(--muted)]">
-                {log.targetType} · {log.targetId ?? "sin target"} · {new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" }).format(log.createdAt)}
+                {log.targetType} | {log.targetId ?? "sin target"} | {new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" }).format(log.createdAt)}
               </p>
               <p className="mt-1 text-xs text-[var(--muted)]">
-                Actor: {log.actorUser?.email ?? "sistema"} · Tenant: {log.tenant?.accountName ?? "global"}
+                Actor: {log.actorUser?.email ?? "sistema"} | Tenant: {log.tenant?.accountName ?? "global"} | IP: {log.ipAddress ?? "sin IP"}
               </p>
             </article>
           ))}

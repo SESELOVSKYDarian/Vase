@@ -18,11 +18,18 @@ export async function GET(request: Request) {
   const q = searchParams.get("q")?.trim() ?? "";
   const action = searchParams.get("action")?.trim() ?? "";
   const targetType = searchParams.get("targetType")?.trim() ?? "";
+  const eventGroup = searchParams.get("eventGroup")?.trim() ?? "";
+  const authSecurityActions = [
+    "auth.signin_failed",
+    "auth.signin_succeeded",
+    "auth.account_temporarily_locked",
+  ] as const;
 
   const logs = await prisma.auditLog.findMany({
     where: {
       ...(action ? { action } : {}),
       ...(targetType ? { targetType } : {}),
+      ...(eventGroup === "auth_security" ? { action: { in: [...authSecurityActions] } } : {}),
       ...(q
         ? {
             OR: [

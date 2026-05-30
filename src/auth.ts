@@ -4,6 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { verifyPassword } from "@/lib/auth/password";
+import { getFallbackRolesFromPlatformRole } from "@/lib/auth/roles";
 import { authConfig } from "./auth.config";
 
 const credentialsSchema = z.object({
@@ -52,6 +53,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           platformRole: user.platformRole,
+          roles: getFallbackRolesFromPlatformRole(user.platformRole),
           locale: user.locale,
           emailVerified: user.emailVerified,
           sessionPreference: parsed.data.sessionPreference,
@@ -63,7 +65,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig.callbacks,
     async jwt({ token, user, trigger }) {
       // Run the original base logic first
-      const baseToken = await authConfig.callbacks.jwt({ token, user, trigger, account: null, profile: null });
+      const baseToken = await authConfig.callbacks.jwt({ token, user, trigger, account: null, profile: undefined });
       
       // If we are in the server (non-edge), we can refresh from DB
       if (baseToken?.sub) {
@@ -73,6 +75,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             select: {
               emailVerified: true,
               platformRole: true,
+              // user_roles table might not exist yet in older environments.
               locale: true,
             },
           });
@@ -80,6 +83,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (databaseUser) {
             baseToken.emailVerified = Boolean(databaseUser.emailVerified);
             baseToken.platformRole = databaseUser.platformRole;
+            baseToken.roles = getFallbackRolesFromPlatformRole(databaseUser.platformRole);
             baseToken.locale = typeof databaseUser.locale === "string" ? databaseUser.locale : "es";
           }
         } catch (error) {

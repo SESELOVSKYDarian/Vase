@@ -28,9 +28,16 @@ export const updateSupportTicketSchema = z.object({
   resolutionSummary: z.string().trim().max(800).optional(),
 });
 
+export const updateSupportTicketAssigneesSchema = z.object({
+  ticketId: z.string().trim().cuid(),
+  assigneeIds: z.array(z.string().trim().cuid()).max(12),
+  primaryAssigneeId: z.string().trim().cuid().optional(),
+});
+
 export const addSupportNoteSchema = z.object({
   ticketId: z.string().trim().cuid(),
   body: z.string().trim().min(3).max(1200),
+  visibility: z.enum(["INTERNAL", "CUSTOMER"]).default("INTERNAL"),
 });
 
 export const sendSupportReplySchema = z.object({
@@ -86,4 +93,29 @@ export const takeSupportTicketSchema = z.object({
 
 export const addSupportTicketAttachmentSchema = z.object({
   ticketId: z.string().trim().cuid(),
+});
+
+export const supportSubtaskStatusSchema = z.enum(["PENDING", "IN_PROGRESS", "DONE", "CANCELED"]);
+
+export const createSupportSubtaskSchema = z.object({
+  ticketId: z.string().trim().cuid(),
+  title: z.string().trim().min(3).max(160),
+  assignedToUserId: z.string().trim().cuid().optional(),
+});
+
+export const updateSupportSubtaskSchema = z.object({
+  subtaskId: z.string().trim().cuid(),
+  status: supportSubtaskStatusSchema.optional(),
+  title: z.string().trim().min(3).max(160).optional(),
+  assignedToUserId: z.string().trim().cuid().optional(),
+});
+
+export const deleteSupportSubtaskSchema = z.object({
+  subtaskId: z.string().trim().cuid(),
+});
+
+export const addSupportWorklogSchema = z.object({
+  ticketId: z.string().trim().cuid(),
+  minutes: z.coerce.number().int().min(1).max(720),
+  note: z.string().trim().max(500).optional(),
 });

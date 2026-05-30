@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   createMeetingAvailabilitySlotAction,
   enableCustomProjectMeetingAction,
+  rollbackCustomProjectDeploymentAction,
   setCustomProjectMeetingLinkAction,
   type AdminGovernanceActionState,
   updateCustomProjectMilestoneAction,
@@ -39,6 +40,7 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [provisionElapsedMs, setProvisionElapsedMs] = useState(0);
   const [provisionState, setProvisionState] = useState<AdminGovernanceActionState>({});
+  const [rollbackState, rollbackAction, rollbackPending] = useActionState(rollbackCustomProjectDeploymentAction, {});
   const [provisionPending, setProvisionPending] = useState(false);
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "processing">("idle");
@@ -53,7 +55,8 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
       !stageState.success &&
       !linkState.success &&
       !slotState.success &&
-      !provisionState.success
+      !provisionState.success &&
+      !rollbackState.success
     ) {
       return;
     }
@@ -63,6 +66,7 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
     linkState.success,
     meetingState.success,
     provisionState.success,
+    rollbackState.success,
     slotState.success,
     stageState.success,
   ]);
@@ -340,6 +344,23 @@ export function CustomProjectControlsForm({ requestId, tenantId, pageScope }: Pr
             {provisionState.publicUrl ? ` · ${provisionState.publicUrl}` : ""}
           </p>
         ) : null}
+      </form>
+
+      <form action={rollbackAction} className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] p-3">
+        <input type="hidden" name="requestId" value={requestId} />
+        <input type="hidden" name="tenantId" value={tenantId} />
+        <p className="text-xs text-[var(--muted)]">Rollback de deployment</p>
+        <button
+          disabled={rollbackPending}
+          className="min-h-10 rounded-xl border border-[var(--border-subtle)] px-3 text-sm font-semibold text-[var(--foreground)]"
+        >
+          {rollbackPending ? "Restaurando version anterior..." : "Volver a version anterior"}
+        </button>
+        <p className="text-xs text-[var(--muted)]">
+          Restaura la version anterior inmediata del sitio publicado y guarda trazabilidad en auditoria.
+        </p>
+        {rollbackState.error ? <p className="text-xs text-[var(--danger)]">{rollbackState.error}</p> : null}
+        {rollbackState.success ? <p className="text-xs text-[var(--success)]">{rollbackState.success}</p> : null}
       </form>
     </div>
   );

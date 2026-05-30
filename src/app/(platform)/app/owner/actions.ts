@@ -21,6 +21,7 @@ import {
   requestCustomPageSchema,
 } from "@/lib/validators/business";
 import { respondCustomizationQuoteSchema } from "@/lib/validators/custom-quotes";
+import { createProjectUpdateSchema } from "@/lib/validators/project";
 import { createAuditLog } from "@/server/services/audit-log";
 
 type CustomProjectMeetingTypeInput =
@@ -37,6 +38,66 @@ const customProjectMeetingTypes = new Set<CustomProjectMeetingTypeInput>([
   "FINAL_DELIVERY",
   "FOLLOW_UP",
 ]);
+
+const defaultProjectProcessTypes = [
+  "DISCOVERY",
+  "DESIGN",
+  "FRONTEND",
+  "BACKEND",
+  "INTEGRATIONS",
+  "TESTING",
+  "DEPLOYMENT",
+] as const;
+
+async function ensureProjectCreatedFromAcceptedQuote(params: {
+  tx: Prisma.TransactionClient;
+  tenantId: string;
+  customPageRequestId: string;
+  actorUserId: string;
+  moduleId?: string | null;
+  submoduleId?: string | null;
+  projectNameSeed?: string | null;
+}) {
+  const slug = `custom-${params.customPageRequestId.slice(-10).toLowerCase()}`;
+  const projectName =
+    params.projectNameSeed?.trim() || `Proyecto personalizado ${params.customPageRequestId.slice(-6)}`;
+
+  const existing = await params.tx.project.findUnique({
+    where: {
+      tenantId_slug: {
+        tenantId: params.tenantId,
+        slug,
+      },
+    },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await params.tx.project.create({
+    data: {
+      tenantId: params.tenantId,
+      name: projectName,
+      slug,
+      status: "DISCOVERY",
+      moduleId: params.moduleId ?? null,
+      submoduleId: params.submoduleId ?? null,
+      description: "Proyecto generado automaticamente al aceptar presupuesto.",
+      createdById: params.actorUserId,
+    },
+    select: { id: true },
+  });
+
+  await params.tx.projectProcess.createMany({
+    data: defaultProjectProcessTypes.map((processType) => ({
+      projectId: created.id,
+      processType,
+      status: processType === "DISCOVERY" ? "IN_PROGRESS" : "PENDING",
+      progressPercent: processType === "DISCOVERY" ? 5 : 0,
+    })),
+  });
+
+  return created.id;
+}
 
 function validationErrorState(error: Record<string, string[]>) {
   return {
@@ -436,6 +497,11 @@ export async function respondToCustomizationQuoteAction(
       tenantId: true,
       status: true,
       customPageRequestId: true,
+      customPageRequest: {
+        select: {
+          pageScope: true,
+        },
+      },
     },
   });
 
@@ -453,6 +519,7 @@ export async function respondToCustomizationQuoteAction(
 
   const accepted = parsed.data.decision === "ACCEPT";
 
+  let createdProjectId: string | null = null;
   await prisma.$transaction(async (tx) => {
     await tx.customQuote.update({
       where: { id: quote.id },
@@ -490,6 +557,23 @@ export async function respondToCustomizationQuoteAction(
         },
       },
     });
+
+    if (accepted) {
+      const businessModule = await tx.module.findFirst({
+        where: { product: "BUSINESS", isActive: true },
+        select: { id: true },
+        orderBy: { createdAt: "asc" },
+      });
+
+      createdProjectId = await ensureProjectCreatedFromAcceptedQuote({
+        tx,
+        tenantId: membership.tenantId,
+        customPageRequestId: quote.customPageRequestId,
+        actorUserId: verifiedSession.user.id,
+        moduleId: businessModule?.id ?? null,
+        projectNameSeed: quote.customPageRequest.pageScope,
+      });
+    }
   });
 
   await createAuditLog({
@@ -502,6 +586,7 @@ export async function respondToCustomizationQuoteAction(
     userAgent: requestContext.userAgent,
     metadata: {
       responseMessage: parsed.data.responseMessage ?? null,
+      createdProjectId,
     },
   });
 
@@ -511,7 +596,7 @@ export async function respondToCustomizationQuoteAction(
   revalidatePath("/app/admin/customizations");
   return {
     success: accepted
-      ? "Presupuesto aceptado. El equipo Vase ya puede avanzar con tu proyecto."
+      ? "Presupuesto aceptado. Creamos el proyecto y sus procesos base automaticamente."
       : "Presupuesto rechazado. El equipo Vase revisara tu feedback.",
   };
 }
@@ -685,4 +770,97 @@ export async function requestCustomProjectMeetingAction(
   revalidatePath("/app/business");
   revalidatePath("/app/owner/customizations");
   return { success: "Solicitud de reunion enviada. Te confirmaremos fecha final." };
+}
+
+export async function createProjectUpdateAction(
+  _: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const requestContext = await getRequestContext();
+  const session = await requireVerifiedUser();
+  const { membership } = await requireTenantRole(tenantRoles.MEMBER);
+
+  const parsed = createProjectUpdateSchema.safeParse({
+    projectId: formData.get("projectId"),
+    processId: sanitizeNullableText(String(formData.get("processId") ?? "")) ?? undefined,
+    title: sanitizeText(String(formData.get("title") ?? "")),
+    content: sanitizeText(String(formData.get("content") ?? "")),
+    progressIncrease: Number(formData.get("progressIncrease") ?? 0),
+    notifyClient: formData.get("notifyClient") === "on",
+  });
+  if (!parsed.success) {
+    return {
+      error: "Revisa titulo, contenido y progreso del avance.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const project = await prisma.project.findFirst({
+    where: { id: parsed.data.projectId, tenantId: membership.tenantId },
+    select: { id: true, progressPercent: true },
+  });
+  if (!project) return { error: "Proyecto no encontrado en tu tenant." };
+
+  const nextProgress = Math.max(0, Math.min(100, project.progressPercent + parsed.data.progressIncrease));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.projectUpdate.create({
+      data: {
+        projectId: project.id,
+        actorUserId: session.user.id,
+        title: parsed.data.title,
+        body: parsed.data.content,
+        notifyClient: parsed.data.notifyClient,
+        metadata: {
+          progressIncrease: parsed.data.progressIncrease,
+          processId: parsed.data.processId ?? null,
+        },
+      },
+    });
+
+    await tx.project.update({
+      where: { id: project.id },
+      data: { progressPercent: nextProgress },
+    });
+
+    if (parsed.data.processId) {
+      const process = await tx.projectProcess.findFirst({
+        where: { id: parsed.data.processId, projectId: project.id },
+        select: { id: true, progressPercent: true },
+      });
+      if (process) {
+        await tx.projectProcess.update({
+          where: { id: process.id },
+          data: {
+            progressPercent: Math.max(
+              0,
+              Math.min(100, process.progressPercent + parsed.data.progressIncrease),
+            ),
+            lastUpdatedAt: new Date(),
+            lastUpdatedByUserId: session.user.id,
+            notifyClient: parsed.data.notifyClient,
+          },
+        });
+      }
+    }
+  });
+
+  await createAuditLog({
+    action: "project.update_created",
+    targetType: "project",
+    targetId: project.id,
+    tenantId: membership.tenantId,
+    actorUserId: session.user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+    metadata: {
+      title: parsed.data.title,
+      progressIncrease: parsed.data.progressIncrease,
+      notifyClient: parsed.data.notifyClient,
+      processId: parsed.data.processId ?? null,
+    },
+  });
+
+  revalidatePath("/app/business");
+  return { success: "Avance registrado en timeline del proyecto." };
 }

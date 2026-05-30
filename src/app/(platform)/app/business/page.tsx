@@ -6,6 +6,7 @@ import { getEffectivePlan } from "@/lib/business/plans";
 import { prisma } from "@/lib/db/prisma";
 import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
 import { getBusinessOwnerDashboard, getUnifiedTenantDashboard } from "@/server/queries/dashboard";
+import { getClientV2Dashboard } from "@/server/queries/v2-dashboards";
 
 function pageStatusTone(status: string): "success" | "warning" | "danger" | "neutral" {
   if (status === "ACTIVE") return "success";
@@ -36,9 +37,10 @@ export default async function BusinessPage() {
     forbidden();
   }
 
-  const [dashboard, shellDashboard, subscription, slots, upcomingBooking] = await Promise.all([
+  const [dashboard, shellDashboard, clientDashboard, subscription, slots, upcomingBooking] = await Promise.all([
     getBusinessOwnerDashboard(membership.tenantId),
     getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
+    getClientV2Dashboard(membership.tenantId),
     prisma.tenantSubscription.findUnique({ where: { tenantId: membership.tenantId } }).catch(() => null),
     prisma.meetingAvailabilitySlot.findMany({
       where: { tenantId: membership.tenantId, isActive: true, endsAt: { gte: new Date() } },
@@ -89,6 +91,67 @@ export default async function BusinessPage() {
           ) : null}
         </PanelCard>
       ) : null}
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <PanelCard title="Proyecto principal" description="Estado y avance general.">
+          {clientDashboard.project ? (
+            <div className="grid gap-1 text-sm text-[var(--muted)]">
+              <p className="font-semibold text-[var(--foreground)]">{clientDashboard.project.name}</p>
+              <p>Estado: {clientDashboard.project.status}</p>
+              <p>Progreso: {clientDashboard.project.progressPercent}%</p>
+              <p>Última actualización: {new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short" }).format(clientDashboard.project.lastUpdatedAt)}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--muted)]">Sin proyecto activo aún.</p>
+          )}
+        </PanelCard>
+
+        <PanelCard title="Próxima reunión" description="Fecha, hora y acceso rápido.">
+          {clientDashboard.nextMeeting ? (
+            <div className="grid gap-2 text-sm text-[var(--muted)]">
+              <p>{new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" }).format(clientDashboard.nextMeeting.startsAt)}</p>
+              {clientDashboard.nextMeeting.meetUrl ? (
+                <a className="text-sm font-semibold text-[var(--accent)]" href={clientDashboard.nextMeeting.meetUrl} target="_blank" rel="noreferrer">
+                  Abrir Meet
+                </a>
+              ) : (
+                <p>Sin link cargado aún.</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--muted)]">Sin reuniones próximas.</p>
+          )}
+        </PanelCard>
+
+        <PanelCard title="Pagos pendientes" description="Estado de cobranzas y vencimientos.">
+          <div className="grid gap-1 text-sm text-[var(--muted)]">
+            <p>Cantidad: <span className="font-semibold text-[var(--foreground)]">{clientDashboard.payments.pendingCount}</span></p>
+            <p>Próximo vencimiento: <span className="font-semibold text-[var(--foreground)]">{clientDashboard.payments.nextDueAt ? new Intl.DateTimeFormat("es-AR", { dateStyle: "short" }).format(clientDashboard.payments.nextDueAt) : "Sin fecha"}</span></p>
+          </div>
+        </PanelCard>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <PanelCard title="Tickets" description="Seguimiento de soporte.">
+          <div className="grid gap-1 text-sm text-[var(--muted)]">
+            <p>Abiertos: <span className="font-semibold text-[var(--foreground)]">{clientDashboard.tickets.openCount}</span></p>
+            <p>Esperando respuesta interna: <span className="font-semibold text-[var(--foreground)]">{clientDashboard.tickets.waitingResponseCount}</span></p>
+          </div>
+        </PanelCard>
+        <PanelCard title="Presupuestos" description="Pendientes de aprobación del cliente.">
+          <p className="text-3xl font-semibold text-[var(--foreground)]">{clientDashboard.budgets.pendingApprovalCount}</p>
+        </PanelCard>
+        <PanelCard title="Últimas novedades" description="Timeline cronológico reciente.">
+          <div className="grid gap-2">
+            {clientDashboard.timeline.length ? clientDashboard.timeline.slice(0, 4).map((item) => (
+              <article key={item.id} className="rounded-lg border border-[var(--border-subtle)] px-2 py-1">
+                <p className="text-xs font-semibold text-[var(--foreground)]">{item.title}</p>
+                <p className="text-[11px] text-[var(--muted)]">{new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short" }).format(item.at)}</p>
+              </article>
+            )) : <p className="text-sm text-[var(--muted)]">Sin novedades recientes.</p>}
+          </div>
+        </PanelCard>
+      </section>
 
       <BusinessSitesWorkspace
         canCreatePage={canCreatePage}

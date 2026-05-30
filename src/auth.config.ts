@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { appConfig } from "@/config/app";
 import { getSessionDurationMs, type SessionPreference } from "@/lib/auth/session";
-import type { PlatformRole } from "@/lib/auth/roles";
+import type { AppRole, PlatformRole } from "@/lib/auth/roles";
 
 const credentialsSchema = z.object({
   email: z.string().email().trim().toLowerCase(),
@@ -19,6 +19,19 @@ function coercePlatformRole(value: unknown): PlatformRole {
 
 function coerceSessionPreference(value: unknown): SessionPreference {
   return value === "remember" ? "remember" : "day";
+}
+
+function coerceRoles(value: unknown): AppRole[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (role): role is AppRole =>
+      role === "ADMIN" ||
+      role === "CLIENTE" ||
+      role === "DEVELOPER" ||
+      role === "DESIGNER" ||
+      role === "TESTER" ||
+      role === "SOPORTE",
+  );
 }
 
 function resolveSessionExpiresAt(token: {
@@ -59,6 +72,7 @@ export const authConfig = {
         token.sub = user.id;
         token.platformRole = coercePlatformRole(user.platformRole);
         token.locale = typeof user.locale === "string" ? user.locale : "es";
+        token.roles = coerceRoles("roles" in user ? user.roles : token.roles);
         token.emailVerified =
           "emailVerified" in user ? Boolean(user.emailVerified) : Boolean(token.emailVerified);
         token.sessionPreference = coerceSessionPreference(
@@ -87,6 +101,7 @@ export const authConfig = {
         session.user.id = token.sub;
         session.user.platformRole = platformRole;
         session.user.locale = locale;
+        session.user.roles = coerceRoles(token.roles);
         session.user.isEmailVerified = Boolean(token.emailVerified);
         session.user.sessionPreference = sessionPreference;
       }

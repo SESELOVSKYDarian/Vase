@@ -30,7 +30,7 @@ import {
   Wrench,
   X,
   Info,
-  TrendingUp,
+  CalendarDays,
   LockKeyhole,
   Check,
 } from "lucide-react";
@@ -84,6 +84,11 @@ type NavItem = {
   label: string;
   icon: typeof Home;
   description?: string;
+  children?: Array<{
+    id: string;
+    href: string;
+    label: string;
+  }>;
 };
 
 type NavGroup = {
@@ -93,24 +98,28 @@ type NavGroup = {
 };
 
 function inferActiveSection(pathname: string) {
-  if (pathname.startsWith("/app/analytics")) {
-    return "analytics";
+  if (pathname.startsWith("/app/help")) {
+    return "tickets";
   }
 
-  if (pathname.startsWith("/app/help")) {
-    return "help";
+  if (pathname.startsWith("/app/billing")) {
+    return "payments";
+  }
+
+  if (pathname.startsWith("/app/owner/customizations")) {
+    return "quotes";
   }
 
   if (pathname.startsWith("/app/settings")) {
-    return "settings";
+    return "profile";
   }
 
   if (pathname.startsWith("/app/labs")) {
-    return "labs";
+    return "projects";
   }
 
   if (pathname.startsWith("/app/business") || pathname.startsWith("/app/owner")) {
-    return "business";
+    return "projects";
   }
 
   return "home";
@@ -233,10 +242,22 @@ export function AppShell({
 
   const clientNavItems: NavItem[] = [
     { id: "home", href: "/app", label: "Inicio", icon: Home, description: "Panel principal simple" },
-    { id: "business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business", icon: Building2, description: "Crear y gestionar pagina" },
-    { id: "labs", href: "/app/labs", label: "Vase Labs", icon: FlaskConical, description: "Crear y gestionar chatbot" },
-    { id: "analytics", href: "/app/analytics", label: "Analiticas", icon: TrendingUp, description: "KPIs y datos del negocio" },
-    { id: "settings", href: "/app/settings", label: "Configuracion", icon: Settings2, description: "Ajustes y facturacion" },
+    {
+      id: "projects",
+      href: BUSINESS_WORKSPACE_PATH,
+      label: "Proyectos",
+      icon: Building2,
+      description: "Tus proyectos por producto",
+      children: [
+        { id: "projects-business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business" },
+        { id: "projects-labs", href: "/app/labs", label: "Vase Labs" },
+      ],
+    },
+    { id: "tickets", href: "/app/help", label: "Tickets", icon: MessageSquareWarning, description: "Soporte y seguimiento" },
+    { id: "payments", href: "/app/billing", label: "Pagos", icon: CreditCard, description: "Pagos y comprobantes" },
+    { id: "quotes", href: "/app/owner/customizations", label: "Presupuestos", icon: ClipboardCheck, description: "Propuestas y estados" },
+    { id: "meetings", href: `${BUSINESS_WORKSPACE_PATH}#reuniones`, label: "Reuniones", icon: CalendarDays, description: "Agenda y decisiones" },
+    { id: "profile", href: "/app/settings", label: "Perfil", icon: Settings2, description: "Cuenta y configuración" },
   ];
 
   const adminNavGroups: NavGroup[] = [
@@ -261,6 +282,8 @@ export function AppShell({
       items: [
         { id: "admin-finance", href: "/app/admin/finance", label: "Finanzas", icon: Wallet, description: "Resumen financiero" },
         { id: "admin-clients", href: "/app/admin/clients", label: "Clientes y Pagos", icon: CreditCard, description: "Cobros y contratos" },
+        { id: "admin-meetings", href: "/app/admin/meetings", label: "Reuniones", icon: CalendarDays, description: "Agenda y notas de clientes" },
+        { id: "admin-quotes", href: "/app/admin/customizations", label: "Presupuestos", icon: FileBarChart2, description: "Pipeline de cotizaciones" },
         { id: "admin-expenses", href: "/app/admin/expenses", label: "Gastos", icon: Receipt, description: "Egresos y vencimientos" },
       ],
     },
@@ -268,8 +291,8 @@ export function AppShell({
       id: "support",
       label: "Soporte y Conocimiento",
       items: [
-        { id: "admin-tickets", href: "/app/admin/tickets", label: "Tickets", icon: MessageSquareWarning, description: "Gestor de incidencias" },
-        { id: "admin-support", href: "/app/admin/support", label: "Soporte", icon: LifeBuoy, description: "Templates y equipo" },
+        { id: "admin-tickets", href: "/app/admin/tickets", label: "Soporte", icon: MessageSquareWarning, description: "Gestor de incidencias" },
+        { id: "admin-support", href: "/app/admin/support", label: "Knowledge", icon: LifeBuoy, description: "Base de conocimiento y equipo" },
         { id: "admin-faqs", href: "/app/admin/faqs", label: "FAQs", icon: ClipboardCheck, description: "Base de respuestas" },
         { id: "admin-wiki", href: "/app/admin/wiki", label: "Wiki", icon: FileBarChart2, description: "Documentacion publica" },
       ],
@@ -279,7 +302,6 @@ export function AppShell({
       label: "Operaciones internas",
       items: [
         { id: "admin-development", href: "/app/admin/development", label: "Development", icon: Wrench, description: "Tareas y equipo dev" },
-        { id: "admin-customizations", href: "/app/admin/customizations", label: "Customizaciones", icon: UserCog, description: "Proyectos a medida" },
       ],
     },
   ];
@@ -358,21 +380,45 @@ export function AppShell({
             <div className="space-y-1">
               {clientNavItems.map((item) => {
                 const Icon = item.icon;
-                const active = item.id === activeSection;
+                const active =
+                  item.id === activeSection ||
+                  (item.children?.some((child) => pathname === child.href || pathname.startsWith(`${child.href}/`)) ?? false);
                 return (
-                  <Link
-                    key={item.id}
-                    href={item.href as Route}
-                    className={[
-                      "flex items-center gap-3 rounded-xl px-4 py-3 text-[13px] transition-colors duration-200",
-                      active
-                        ? "bg-[var(--surface-strong)] font-semibold text-[var(--accent-strong)]"
-                        : "text-[var(--muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]",
-                    ].join(" ")}
-                  >
-                    <Icon className="size-4" />
-                    <span>{item.label}</span>
-                  </Link>
+                  <div key={item.id} className="space-y-1">
+                    <Link
+                      href={item.href as Route}
+                      className={[
+                        "flex items-center gap-3 rounded-xl px-4 py-3 text-[13px] transition-colors duration-200",
+                        active
+                          ? "bg-[var(--surface-strong)] font-semibold text-[var(--accent-strong)]"
+                          : "text-[var(--muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]",
+                      ].join(" ")}
+                    >
+                      <Icon className="size-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                    {item.children ? (
+                      <div className="ml-7 space-y-1">
+                        {item.children.map((child) => {
+                          const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
+                          return (
+                            <Link
+                              key={child.id}
+                              href={child.href as Route}
+                              className={[
+                                "block rounded-lg px-3 py-2 text-[12px] transition-colors",
+                                childActive
+                                  ? "bg-[var(--surface-strong)] font-semibold text-[var(--accent-strong)]"
+                                  : "text-[var(--muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]",
+                              ].join(" ")}
+                            >
+                              {child.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>

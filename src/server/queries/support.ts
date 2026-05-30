@@ -80,6 +80,17 @@ export async function getSupportQueueDashboard(input?: {
           orderBy: { createdAt: "desc" },
           take: 5,
         },
+        subtasks: {
+          orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+          take: 20,
+        },
+        worklogs: {
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          select: {
+            minutes: true,
+          },
+        },
       },
     }),
     prisma.supportReplyTemplate.findMany({

@@ -8,6 +8,9 @@ import { isDatabaseConfigured } from "@/lib/db/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { getRequestContext } from "@/lib/security/request";
 import { sanitizeText } from "@/lib/security/sanitize";
+import { prisma } from "@/lib/db/prisma";
+import { appConfig } from "@/config/app";
+import { createAuditLog } from "@/server/services/audit-log";
 import {
   forgotPasswordSchema,
   registerSchema,
@@ -21,6 +24,8 @@ import {
   requestPasswordReset,
   resendVerificationEmail,
   resetPasswordWithToken,
+  sendLoginSecurityEmail,
+  sendTooManyAttemptsEmail,
   validateSignInCredentials,
 } from "@/server/services/auth-onboarding";
 
@@ -194,6 +199,71 @@ export async function signInAction(
   const result = await validateSignInCredentials(parsed.data.email, parsed.data.password);
 
   if (!result.ok) {
+    const userForFailedAttempt = await findUserByEmail(parsed.data.email);
+    await createAuditLog({
+      action: "auth.signin_failed",
+      targetType: "user",
+      targetId: userForFailedAttempt?.id,
+      actorUserId: userForFailedAttempt?.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        email: parsed.data.email,
+        reason: result.reason,
+      },
+    });
+
+    if (userForFailedAttempt) {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const failedToday = await prisma.auditLog.count({
+        where: {
+          action: "auth.signin_failed",
+          targetId: userForFailedAttempt.id,
+          createdAt: { gte: startOfDay },
+        },
+      });
+
+      if (
+        failedToday >= appConfig.security.loginMaxFailedAttemptsPerDay &&
+        !userForFailedAttempt.isDisabled
+      ) {
+        await prisma.user.update({
+          where: { id: userForFailedAttempt.id },
+          data: {
+            isDisabled: true,
+            disabledAt: new Date(),
+            disabledReason: "AUTO_LOCK_TOO_MANY_FAILED_LOGINS",
+          },
+        });
+
+        await createAuditLog({
+          action: "auth.account_temporarily_locked",
+          targetType: "user",
+          targetId: userForFailedAttempt.id,
+          actorUserId: userForFailedAttempt.id,
+          ipAddress: requestContext.ipAddress,
+          userAgent: requestContext.userAgent,
+          metadata: {
+            failedAttemptsToday: failedToday,
+            lockHours: appConfig.security.loginAutoLockHours,
+          },
+        });
+
+        await sendTooManyAttemptsEmail({
+          email: userForFailedAttempt.email,
+          name: userForFailedAttempt.name,
+          requestContext,
+        });
+
+        return {
+          error:
+            `Detectamos demasiados intentos fallidos. Bloqueamos temporalmente tu cuenta por ${appConfig.security.loginAutoLockHours} horas y te avisamos por email.`,
+        };
+      }
+    }
+
     if (result.reason === "USER_DISABLED") {
       return {
         error: "Tu usuario fue desactivado por administracion. Contacta soporte.",
@@ -227,6 +297,26 @@ export async function signInAction(
 
   const effectiveRedirectTo =
     result.user.platformRole === "SUPER_ADMIN" ? "/app/admin" : redirectTo;
+
+  await createAuditLog({
+    action: "auth.signin_succeeded",
+    targetType: "user",
+    targetId: result.user.id,
+    actorUserId: result.user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+    metadata: {
+      email: result.user.email,
+      platformRole: result.user.platformRole,
+      redirectTo: effectiveRedirectTo,
+    },
+  });
+
+  await sendLoginSecurityEmail({
+    email: result.user.email,
+    name: result.user.name,
+    requestContext,
+  });
 
   try {
     await signIn("credentials", {

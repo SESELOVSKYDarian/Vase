@@ -1,8 +1,10 @@
 import { auth } from "@/auth";
 import { hasActiveSession } from "@/lib/auth/session";
 import {
+  hasAnyRole,
   hasPlatformRole,
   hasTenantRole,
+  type AppRole,
   type PlatformRole,
   type TenantRole,
 } from "@/lib/auth/roles";
@@ -45,6 +47,15 @@ export async function requireVerifiedUser() {
     throw new Error("EMAIL_NOT_VERIFIED");
   }
 
+  return session;
+}
+
+export async function requireAppRole(requiredRoles: AppRole[]) {
+  const session = await requireVerifiedUser();
+  const isAllowed = hasAnyRole(session.user.roles, requiredRoles, session.user.platformRole);
+  if (!isAllowed) {
+    throw new Error("FORBIDDEN");
+  }
   return session;
 }
 

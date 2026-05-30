@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import {
   type SupportActionState,
   updateSupportTicketAction,
@@ -19,6 +19,7 @@ type SupportTicketTriageFormProps = {
     id: string;
     name: string;
   }>;
+  onResult?: (result: { tone: "success" | "error"; message: string }) => void;
 };
 
 export function SupportTicketTriageForm({
@@ -29,8 +30,15 @@ export function SupportTicketTriageForm({
   assignedToUserId,
   resolutionSummary,
   agents,
+  onResult,
 }: SupportTicketTriageFormProps) {
   const [state, formAction] = useActionState(updateSupportTicketAction, initialState);
+
+  useEffect(() => {
+    if (!onResult) return;
+    if (state.success) onResult({ tone: "success", message: state.success });
+    if (state.error) onResult({ tone: "error", message: state.error });
+  }, [onResult, state.error, state.success]);
 
   return (
     <form action={formAction} className="grid gap-3 rounded-[22px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">

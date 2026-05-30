@@ -76,6 +76,11 @@ export const updateUserGovernanceSchema = z.object({
   platformRole: z.enum(["SUPER_ADMIN", "SUPPORT", "DEVELOPER", "USER"]),
 });
 
+export const upsertUserRolesSchema = z.object({
+  userId: z.string().trim().cuid(),
+  roles: z.array(z.enum(["ADMIN", "CLIENTE", "DEVELOPER", "DESIGNER", "TESTER", "SOPORTE"])).min(1),
+});
+
 export const updateUserTenantAccessSchema = z.object({
   userId: z.string().trim().cuid(),
   tenantId: z.string().trim().cuid(),
@@ -279,6 +284,22 @@ export const provisionCustomProjectSchema = z.object({
   deployNotes: z.string().trim().max(600).optional(),
 });
 
+export const rollbackCustomProjectDeploymentSchema = z.object({
+  requestId: z.string().trim().cuid(),
+  tenantId: z.string().trim().cuid(),
+});
+
+export const createProjectWithProcessesSchema = z.object({
+  tenantId: z.string().trim().cuid(),
+  name: z.string().trim().min(3).max(120),
+  slug: z.string().trim().min(3).max(120).regex(/^[a-z0-9-]+$/),
+  status: z.enum(["PENDING", "DISCOVERY", "DESIGN", "DEVELOPMENT", "TESTING", "DEPLOYMENT", "COMPLETED", "PAUSED", "CANCELED"]).default("PENDING"),
+  moduleId: z.string().trim().min(3).max(80).optional().or(z.literal("")),
+  submoduleId: z.string().trim().cuid().optional().or(z.literal("")),
+  clientAccountId: z.string().trim().cuid().optional().or(z.literal("")),
+  description: z.string().trim().max(600).optional(),
+});
+
 export const createAdminModuleSchema = z.object({
   id: z.string().trim().min(3).max(80).regex(/^[a-z0-9_]+$/),
   name: z.string().trim().min(3).max(80).regex(/^[a-z0-9_]+$/),
@@ -420,6 +441,19 @@ export const updateClientPaymentSchema = z.object({
 
 export const deleteClientPaymentSchema = z.object({
   paymentId: z.string().trim().cuid(),
+});
+
+export const addPaymentPartialItemSchema = z.object({
+  paymentId: z.string().trim().cuid(),
+  amount: z.coerce.number().positive().max(999999999),
+  paidAt: z.string().trim().optional(),
+  method: z.string().trim().max(80).optional(),
+  note: z.string().trim().max(500).optional(),
+});
+
+export const attachPaymentInvoiceSchema = z.object({
+  paymentId: z.string().trim().cuid(),
+  fileUrl: z.string().trim().url(),
 });
 
 export const updateExpenseSchema = z.object({

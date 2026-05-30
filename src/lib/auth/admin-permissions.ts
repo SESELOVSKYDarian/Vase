@@ -1,4 +1,4 @@
-import { requireVerifiedUser } from "@/lib/auth/guards";
+import { requireAppRole, requireVerifiedUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 
 export const adminPermissions = {
@@ -13,7 +13,7 @@ export const adminPermissions = {
 export type AdminPermission = (typeof adminPermissions)[keyof typeof adminPermissions];
 
 export async function requireAdminPermission(permission: AdminPermission) {
-  const session = await requireVerifiedUser();
+  const session = await requireAppRole(["ADMIN", "SOPORTE"]);
   const role = session.user.platformRole;
 
   if (role === "SUPER_ADMIN") {

@@ -2,10 +2,9 @@ import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { PanelCard } from "@/components/ui/panel-card";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
-import { getAdminFinanceDashboard } from "@/server/queries/admin-finance";
-import { prisma } from "@/lib/db/prisma";
+import { getMasterV2Dashboard } from "@/server/queries/v2-dashboards";
 
-function formatMoney(value: number) {
+function money(value: number) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
@@ -13,18 +12,8 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
-function monthRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
-  return { start, end };
-}
-
-function lastMonthRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-  const end = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-  return { start, end };
+function fmtDate(value: Date) {
+  return new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short" }).format(value);
 }
 
 export default async function AdminPage() {
@@ -34,176 +23,100 @@ export default async function AdminPage() {
     forbidden();
   }
 
-  const thisMonth = monthRange();
-  const previousMonth = lastMonthRange();
-
-  const [finance, monthlyPayments, userCount, usersLastMonth, topClientsRaw] = await Promise.all([
-    getAdminFinanceDashboard(),
-    prisma.clientPayment.findMany({
-      where: {
-        paidAt: {
-          gte: thisMonth.start,
-          lt: thisMonth.end,
-        },
-      },
-      include: {
-        allocations: {
-          include: {
-            partnerUser: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        },
-      },
-      take: 5000,
-    }),
-    prisma.user.count(),
-    prisma.user.findMany({
-      where: {
-        createdAt: {
-          gte: previousMonth.start,
-          lt: previousMonth.end,
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        createdAt: true,
-      },
-    }),
-    prisma.clientPayment.groupBy({
-      by: ["clientAccountId"],
-      _sum: { paidAmount: true },
-      orderBy: {
-        _sum: {
-          paidAmount: "desc",
-        },
-      },
-      take: 5,
-      where: {
-        paidAmount: { gt: 0 },
-      },
-    }),
-  ]);
-
-  const monthlyPartnerMap = new Map<string, { name: string; amount: number }>();
-  for (const payment of monthlyPayments) {
-    for (const allocation of payment.allocations) {
-      if (allocation.direction !== "PARTNER_DISTRIBUTION") continue;
-      const key = allocation.partnerUserId ?? "no_partner";
-      const current = monthlyPartnerMap.get(key);
-      const name = allocation.partnerUser?.name ?? "Socio sin asignar";
-      const amount = Number(allocation.amount ?? 0);
-      if (!current) {
-        monthlyPartnerMap.set(key, { name, amount });
-      } else {
-        monthlyPartnerMap.set(key, { ...current, amount: current.amount + amount });
-      }
-    }
-  }
-  const monthlyPartnerEarnings = Array.from(monthlyPartnerMap.values()).sort((a, b) => b.amount - a.amount);
-
-  const topClientIds = topClientsRaw.map((row) => row.clientAccountId);
-  const topClientAccounts = await prisma.clientAccount.findMany({
-    where: {
-      id: { in: topClientIds },
-    },
-    select: {
-      id: true,
-      name: true,
-      companyName: true,
-    },
-  });
-  const topClientNameById = new Map(topClientAccounts.map((client) => [client.id, client.companyName || client.name]));
-  const topClients = topClientsRaw.map((row) => ({
-    id: row.clientAccountId,
-    name: topClientNameById.get(row.clientAccountId) ?? "Cliente",
-    paid: Number(row._sum.paidAmount ?? 0),
-  }));
+  const dashboard = await getMasterV2Dashboard();
 
   return (
     <AppShell
       title="Inicio Super Admin"
-      subtitle="Vista simplificada con métricas clave para decisión rápida."
+      subtitle="Vista consolidada de finanzas, proyectos, soporte, clientes, reuniones y deployments."
       tenantLabel="Admin Master"
+      currentUserName="Admin Vase"
     >
       <section className="grid gap-4 md:grid-cols-3">
-        <PanelCard title="Fondo real de empresa" description="Fondo bruto menos gastos registrados.">
-          <p className={`text-3xl font-semibold ${finance.kpis.realCompanyFund >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
-            {formatMoney(finance.kpis.realCompanyFund)}
+        <PanelCard title="Ingresos del mes" description="Cobros registrados en el mes actual.">
+          <p className="text-3xl font-semibold text-[var(--foreground)]">{money(dashboard.finances.ingresosMes)}</p>
+        </PanelCard>
+        <PanelCard title="Gastos del mes" description="Egresos registrados en el mes actual.">
+          <p className="text-3xl font-semibold text-[var(--foreground)]">{money(dashboard.finances.gastosMes)}</p>
+        </PanelCard>
+        <PanelCard title="Ganancia neta" description="Ingresos menos gastos del mes.">
+          <p className={`text-3xl font-semibold ${dashboard.finances.gananciaNetaMes >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+            {money(dashboard.finances.gananciaNetaMes)}
           </p>
         </PanelCard>
-        <PanelCard title="Usuarios registrados" description="Total de usuarios en plataforma.">
-          <p className="text-3xl font-semibold text-[var(--foreground)]">{userCount}</p>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <PanelCard title="Proyectos activos" description="Descubrimiento, diseño, desarrollo, testing o deployment.">
+          <p className="text-3xl font-semibold text-[var(--foreground)]">{dashboard.projects.activos}</p>
         </PanelCard>
-        <PanelCard title="Nuevos (último mes)" description="Usuarios creados en el mes anterior.">
-          <p className="text-3xl font-semibold text-[var(--foreground)]">{usersLastMonth.length}</p>
+        <PanelCard title="Soporte abierto" description="Tickets en cola/asignados/en espera.">
+          <p className="text-3xl font-semibold text-[var(--foreground)]">{dashboard.support.abiertos}</p>
+        </PanelCard>
+        <PanelCard title="Clientes activos" description="Clientes con estado activo.">
+          <p className="text-3xl font-semibold text-[var(--foreground)]">{dashboard.clients.activos}</p>
         </PanelCard>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
-        <PanelCard
-          eyebrow="Socios"
-          title="Ganancias del mes por socio"
-          description="Distribución registrada del mes actual según pagos y allocations."
-        >
-          {monthlyPartnerEarnings.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No hay ganancias de socios registradas este mes.</p>
-          ) : (
-            <div className="space-y-3">
-              {monthlyPartnerEarnings.map((partner) => (
-                <div key={partner.name} className="flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 py-3">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">{partner.name}</p>
-                  <p className="text-sm font-semibold text-[var(--accent-strong)]">{formatMoney(partner.amount)}</p>
-                </div>
-              ))}
-            </div>
-          )}
+        <PanelCard title="Finanzas operativas" description="Pendientes de hosting/mantenimiento y ganancia anual.">
+          <div className="grid gap-2 text-sm text-[var(--muted)]">
+            <p>Ganancia anual parcial: <span className="font-semibold text-[var(--foreground)]">{money(dashboard.finances.gananciaAnual)}</span></p>
+            <p>Hosting pendiente: <span className="font-semibold text-[var(--foreground)]">{dashboard.finances.hostingPendiente}</span></p>
+            <p>Mantenimiento pendiente: <span className="font-semibold text-[var(--foreground)]">{dashboard.finances.mantenimientoPendiente}</span></p>
+          </div>
         </PanelCard>
 
-        <PanelCard
-          eyebrow="Clientes"
-          title="Top 5 clientes que más pagan"
-          description="Ranking por monto total abonado."
-        >
-          {topClients.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No hay pagos suficientes para armar el ranking.</p>
-          ) : (
-            <div className="space-y-3">
-              {topClients.map((client, index) => (
-                <div key={client.id} className="flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 py-3">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">
-                    {index + 1}. {client.name}
-                  </p>
-                  <p className="text-sm font-semibold text-[var(--accent-strong)]">{formatMoney(client.paid)}</p>
-                </div>
-              ))}
-            </div>
-          )}
+        <PanelCard title="Proyectos" description="Estado general y próximas entregas.">
+          <div className="grid gap-2 text-sm text-[var(--muted)]">
+            <p>Finalizados: <span className="font-semibold text-[var(--foreground)]">{dashboard.projects.finalizados}</span></p>
+            <p>Pausados: <span className="font-semibold text-[var(--foreground)]">{dashboard.projects.pausados}</span></p>
+            <p>Próximas entregas (7 días): <span className="font-semibold text-[var(--foreground)]">{dashboard.projects.proximasEntregas}</span></p>
+          </div>
         </PanelCard>
       </section>
 
-      <PanelCard
-        eyebrow="Altas recientes"
-        title="Quiénes se registraron el último mes"
-        description="Últimos usuarios creados en el mes anterior."
-      >
-        {usersLastMonth.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">No hubo registros el último mes.</p>
-        ) : (
-          <div className="space-y-2">
-            {usersLastMonth.map((user) => (
-              <div key={user.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 py-3">
-                <p className="text-sm font-semibold text-[var(--foreground)]">{user.name}</p>
-                <p className="text-xs text-[var(--muted)]">{user.email}</p>
-              </div>
-            ))}
+      <section className="grid gap-6 xl:grid-cols-2">
+        <PanelCard title="Soporte" description="Salud de la operación de tickets.">
+          <div className="grid gap-2 text-sm text-[var(--muted)]">
+            <p>Vencidos: <span className="font-semibold text-[var(--foreground)]">{dashboard.support.vencidos}</span></p>
+            <p>Críticos: <span className="font-semibold text-[var(--foreground)]">{dashboard.support.criticos}</span></p>
+            <p>Esperando cliente: <span className="font-semibold text-[var(--foreground)]">{dashboard.support.esperandoCliente}</span></p>
           </div>
-        )}
-      </PanelCard>
+        </PanelCard>
+
+        <PanelCard title="Clientes y reuniones" description="Actividad comercial y agenda inmediata.">
+          <div className="grid gap-2 text-sm text-[var(--muted)]">
+            <p>Clientes nuevos del mes: <span className="font-semibold text-[var(--foreground)]">{dashboard.clients.nuevos}</span></p>
+            <p>Clientes con pagos vencidos: <span className="font-semibold text-[var(--foreground)]">{dashboard.clients.conPagosVencidos}</span></p>
+            <p>Reuniones hoy: <span className="font-semibold text-[var(--foreground)]">{dashboard.meetings.hoy}</span></p>
+            <p>Reuniones esta semana: <span className="font-semibold text-[var(--foreground)]">{dashboard.meetings.estaSemana}</span></p>
+          </div>
+        </PanelCard>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <PanelCard title="Últimos deployments" description="Publicaciones recientes de proyectos personalizados.">
+          <div className="grid gap-2">
+            {dashboard.deployments.ultimos.length ? dashboard.deployments.ultimos.map((event) => (
+              <article key={event.id} className="rounded-xl border border-[var(--border-subtle)] px-3 py-2 text-sm">
+                <p className="font-semibold text-[var(--foreground)]">{event.targetId ?? "deployment"}</p>
+                <p className="text-xs text-[var(--muted)]">{fmtDate(event.createdAt)} | {event.actorUser?.name ?? "sistema"}</p>
+              </article>
+            )) : <p className="text-sm text-[var(--muted)]">Sin deployments recientes.</p>}
+          </div>
+        </PanelCard>
+        <PanelCard title="Rollbacks recientes" description="Reversiones de deployment registradas.">
+          <div className="grid gap-2">
+            {dashboard.deployments.rollbacksRecientes.length ? dashboard.deployments.rollbacksRecientes.map((event) => (
+              <article key={event.id} className="rounded-xl border border-[var(--border-subtle)] px-3 py-2 text-sm">
+                <p className="font-semibold text-[var(--foreground)]">{event.targetId ?? "rollback"}</p>
+                <p className="text-xs text-[var(--muted)]">{fmtDate(event.createdAt)} | {event.actorUser?.name ?? "sistema"}</p>
+              </article>
+            )) : <p className="text-sm text-[var(--muted)]">Sin rollbacks recientes.</p>}
+          </div>
+        </PanelCard>
+      </section>
     </AppShell>
   );
 }

@@ -7,12 +7,17 @@ import { getRequestContext } from "@/lib/security/request";
 import { sanitizeNullableText, sanitizeText } from "@/lib/security/sanitize";
 import {
   addSupportNoteSchema,
+  addSupportWorklogSchema,
+  createSupportSubtaskSchema,
   createSupportKnowledgeSchema,
   createSupportReplyTemplateSchema,
+  deleteSupportSubtaskSchema,
   deleteSupportKnowledgeSchema,
   sendSupportReplySchema,
   supportAiFeedbackSchema,
   updateSupportKnowledgeSchema,
+  updateSupportSubtaskSchema,
+  updateSupportTicketAssigneesSchema,
   updateSupportTicketSchema,
   takeSupportTicketSchema,
   addSupportTicketAttachmentSchema,
@@ -167,13 +172,19 @@ export async function addSupportNoteAction(
     const parsed = addSupportNoteSchema.safeParse({
       ticketId: formData.get("ticketId"),
       body: sanitizeText(String(formData.get("body") ?? "")),
+      visibility: formData.get("visibility") === "CUSTOMER" ? "CUSTOMER" : "INTERNAL",
     });
 
     if (!parsed.success) {
       return { error: "Escribe una nota interna clara antes de guardar." };
     }
 
-    const note = await addSupportTicketNote(parsed.data.ticketId, session.user.id, parsed.data.body);
+    const note = await addSupportTicketNote(
+      parsed.data.ticketId,
+      session.user.id,
+      parsed.data.body,
+      parsed.data.visibility,
+    );
 
     await createAuditLog({
       action: "support.ticket_note_added",
@@ -182,10 +193,16 @@ export async function addSupportNoteAction(
       actorUserId: session.user.id,
       ipAddress: requestContext.ipAddress,
       userAgent: requestContext.userAgent,
+      metadata: { visibility: parsed.data.visibility },
     });
 
     revalidatePath("/app/support");
-    return { success: "Nota interna agregada." };
+    return {
+      success:
+        parsed.data.visibility === "CUSTOMER"
+          ? "Nota visible para cliente agregada."
+          : "Nota interna agregada.",
+    };
   } catch {
     return { error: "No pudimos guardar la nota interna." };
   }
@@ -555,5 +572,270 @@ export async function addSupportTicketAttachmentAction(
       if (error.message === "FILE_MALWARE_DETECTED") return { error: "Se detecto posible malware en el archivo." };
     }
     return { error: "No pudimos subir el adjunto." };
+  }
+}
+
+export async function createSupportSubtaskAction(
+  _: SupportActionState,
+  formData: FormData,
+): Promise<SupportActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const session = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPPORT);
+
+    const parsed = createSupportSubtaskSchema.safeParse({
+      ticketId: formData.get("ticketId"),
+      title: sanitizeText(String(formData.get("title") ?? "")),
+      assignedToUserId: sanitizeNullableText(String(formData.get("assignedToUserId") ?? "")) ?? undefined,
+    });
+    if (!parsed.success) return { error: "Subtarea invalida." };
+
+    const created = await prisma.supportTicketSubtask.create({
+      data: {
+        ticketId: parsed.data.ticketId,
+        title: parsed.data.title,
+        assignedToUserId: parsed.data.assignedToUserId,
+        createdByUserId: session.user.id,
+      },
+    });
+
+    await createAuditLog({
+      action: "support.ticket_subtask_created",
+      targetType: "support_ticket_subtask",
+      targetId: created.id,
+      actorUserId: session.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { ticketId: parsed.data.ticketId },
+    });
+
+    revalidatePath("/app/admin/tickets");
+    revalidatePath("/app/support");
+    return { success: "Subtarea creada." };
+  } catch {
+    return { error: "No pudimos crear la subtarea." };
+  }
+}
+
+export async function updateSupportSubtaskAction(
+  _: SupportActionState,
+  formData: FormData,
+): Promise<SupportActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const session = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPPORT);
+
+    const parsed = updateSupportSubtaskSchema.safeParse({
+      subtaskId: formData.get("subtaskId"),
+      status: sanitizeNullableText(String(formData.get("status") ?? "")) ?? undefined,
+      title: sanitizeNullableText(String(formData.get("title") ?? "")) ?? undefined,
+      assignedToUserId: sanitizeNullableText(String(formData.get("assignedToUserId") ?? "")) ?? undefined,
+    });
+    if (!parsed.success) return { error: "No pudimos actualizar la subtarea." };
+
+    const subtask = await prisma.supportTicketSubtask.update({
+      where: { id: parsed.data.subtaskId },
+      data: {
+        ...(parsed.data.status ? { status: parsed.data.status } : {}),
+        ...(parsed.data.title ? { title: parsed.data.title } : {}),
+        assignedToUserId: parsed.data.assignedToUserId ?? null,
+      },
+      select: { id: true, ticketId: true },
+    });
+
+    await createAuditLog({
+      action: "support.ticket_subtask_updated",
+      targetType: "support_ticket_subtask",
+      targetId: subtask.id,
+      actorUserId: session.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { ticketId: subtask.ticketId },
+    });
+
+    revalidatePath("/app/admin/tickets");
+    revalidatePath("/app/support");
+    return { success: "Subtarea actualizada." };
+  } catch {
+    return { error: "No pudimos actualizar la subtarea." };
+  }
+}
+
+export async function deleteSupportSubtaskAction(
+  _: SupportActionState,
+  formData: FormData,
+): Promise<SupportActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const session = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPPORT);
+    const parsed = deleteSupportSubtaskSchema.safeParse({
+      subtaskId: formData.get("subtaskId"),
+    });
+    if (!parsed.success) return { error: "Subtarea invalida." };
+
+    const deleted = await prisma.supportTicketSubtask.delete({
+      where: { id: parsed.data.subtaskId },
+      select: { id: true, ticketId: true },
+    });
+
+    await createAuditLog({
+      action: "support.ticket_subtask_deleted",
+      targetType: "support_ticket_subtask",
+      targetId: deleted.id,
+      actorUserId: session.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { ticketId: deleted.ticketId },
+    });
+
+    revalidatePath("/app/admin/tickets");
+    revalidatePath("/app/support");
+    return { success: "Subtarea eliminada." };
+  } catch {
+    return { error: "No pudimos eliminar la subtarea." };
+  }
+}
+
+export async function addSupportWorklogAction(
+  _: SupportActionState,
+  formData: FormData,
+): Promise<SupportActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const session = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPPORT);
+    const parsed = addSupportWorklogSchema.safeParse({
+      ticketId: formData.get("ticketId"),
+      minutes: formData.get("minutes"),
+      note: sanitizeNullableText(String(formData.get("note") ?? "")) ?? undefined,
+    });
+    if (!parsed.success) return { error: "Registro de horas invalido." };
+
+    const worklog = await prisma.supportTicketWorklog.create({
+      data: {
+        ticketId: parsed.data.ticketId,
+        actorUserId: session.user.id,
+        minutes: parsed.data.minutes,
+        note: parsed.data.note,
+      },
+    });
+
+    await createAuditLog({
+      action: "support.ticket_worklog_added",
+      targetType: "support_ticket_worklog",
+      targetId: worklog.id,
+      actorUserId: session.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { ticketId: parsed.data.ticketId, minutes: parsed.data.minutes },
+    });
+
+    revalidatePath("/app/admin/tickets");
+    revalidatePath("/app/support");
+    return { success: "Horas registradas." };
+  } catch {
+    return { error: "No pudimos registrar las horas." };
+  }
+}
+
+export async function updateSupportTicketAssigneesAction(
+  _: SupportActionState,
+  formData: FormData,
+): Promise<SupportActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const session = await requireVerifiedUser();
+    await requireVerifiedPlatformRole(platformRoles.SUPPORT);
+
+    const assigneeIds = Array.from(
+      new Set(
+        formData
+          .getAll("assigneeIds")
+          .map((value) => sanitizeNullableText(String(value ?? "")))
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+    const primaryAssigneeId =
+      sanitizeNullableText(String(formData.get("primaryAssigneeId") ?? "")) ?? undefined;
+
+    const parsed = updateSupportTicketAssigneesSchema.safeParse({
+      ticketId: formData.get("ticketId"),
+      assigneeIds,
+      primaryAssigneeId,
+    });
+    if (!parsed.success) return { error: "No pudimos validar los responsables seleccionados." };
+
+    if (
+      parsed.data.primaryAssigneeId &&
+      !parsed.data.assigneeIds.includes(parsed.data.primaryAssigneeId)
+    ) {
+      return { error: "El responsable principal debe estar dentro de los asignados." };
+    }
+
+    const validAgents = await prisma.user.findMany({
+      where: {
+        id: { in: parsed.data.assigneeIds },
+        platformRole: { in: ["SUPPORT", "SUPER_ADMIN"] },
+      },
+      select: { id: true },
+    });
+    const validAgentIds = new Set(validAgents.map((user) => user.id));
+    const normalizedAssigneeIds = parsed.data.assigneeIds.filter((id) => validAgentIds.has(id));
+
+    if (normalizedAssigneeIds.length !== parsed.data.assigneeIds.length) {
+      return { error: "Uno o mas responsables no tienen permisos para soporte." };
+    }
+
+    const fallbackPrimary = normalizedAssigneeIds[0] ?? null;
+    const primaryId =
+      (parsed.data.primaryAssigneeId && normalizedAssigneeIds.includes(parsed.data.primaryAssigneeId)
+        ? parsed.data.primaryAssigneeId
+        : fallbackPrimary) ?? null;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.supportTicketAssignee.deleteMany({
+        where: { ticketId: parsed.data.ticketId },
+      });
+
+      if (normalizedAssigneeIds.length > 0) {
+        await tx.supportTicketAssignee.createMany({
+          data: normalizedAssigneeIds.map((userId) => ({
+            ticketId: parsed.data.ticketId,
+            userId,
+            isPrimary: primaryId === userId,
+          })),
+        });
+      }
+
+      await tx.supportTicket.update({
+        where: { id: parsed.data.ticketId },
+        data: {
+          assignedToUserId: primaryId,
+          assignmentMode: "MANUAL",
+        },
+      });
+    });
+
+    await createAuditLog({
+      action: "support.ticket_assignees_updated",
+      targetType: "support_ticket",
+      targetId: parsed.data.ticketId,
+      actorUserId: session.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        assigneeIds: normalizedAssigneeIds,
+        primaryAssigneeId: primaryId,
+      },
+    });
+
+    revalidatePath("/app/admin/tickets");
+    revalidatePath("/app/support");
+    return { success: "Responsables actualizados." };
+  } catch {
+    return { error: "No pudimos guardar los responsables." };
   }
 }
