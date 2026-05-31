@@ -1,6 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { clsx } from "clsx";
-import { ScrollReveal } from "@/components/marketing/scroll-reveal";
 
 type PanelCardProps = PropsWithChildren<{
   title: string;
@@ -19,8 +18,7 @@ export function PanelCard({
   children,
 }: PanelCardProps) {
   return (
-    <ScrollReveal
-      variant="card"
+    <section
       className={clsx(
         "surface-card rounded-[28px] p-6",
         className,
@@ -29,24 +27,18 @@ export function PanelCard({
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
           {eyebrow ? (
-            <ScrollReveal variant="text">
-              <p className="vase-kicker">
-                {eyebrow}
-              </p>
-            </ScrollReveal>
+            <p className="vase-kicker">
+              {eyebrow}
+            </p>
           ) : null}
-          <ScrollReveal variant="text" delay={0.04}>
-            <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>
-          </ScrollReveal>
+          <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>
           {description ? (
-            <ScrollReveal variant="text" delay={0.08}>
-              <p className="vase-copy">{description}</p>
-            </ScrollReveal>
+            <p className="vase-copy">{description}</p>
           ) : null}
         </div>
-        {actions ? <ScrollReveal variant="text" delay={0.12}>{actions}</ScrollReveal> : null}
+        {actions ? <div>{actions}</div> : null}
       </div>
-      {children ? <ScrollReveal variant="text" delay={0.12} className="mt-6">{children}</ScrollReveal> : null}
-    </ScrollReveal>
+      {children ? <div className="mt-6">{children}</div> : null}
+    </section>
   );
 }
