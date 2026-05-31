@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
@@ -4327,6 +4327,31 @@ export async function provisionCustomProjectAction(
     revalidatePath(`/sites/${page.slug}.vase.ar`);
     const publicUrl = `https://${page.slug}.vase.ar`;
     const durationMs = Date.now() - startedAt;
+
+    if (zipPackage) {
+      try {
+        const preview_url = `/api/custom-sites/${encodeURIComponent(request.id)}/`;
+        const teflonApiUrl = process.env.TEFLON_API_URL || 'https://api.vase.ar';
+        const webhookSecret = process.env.VASE_WEBHOOK_SECRET || 'vase_provision_secret_2026';
+        
+        await fetch(`${teflonApiUrl}/webhooks/vase-provision`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${webhookSecret}`
+          },
+          body: JSON.stringify({
+            tenant_id: request.tenantId,
+            preview_url
+          })
+        }).catch(err => {
+          console.error('Failed to notify Teflon webhook:', err);
+        });
+      } catch (err) {
+        console.error('Failed to notify Teflon webhook error block:', err);
+      }
+    }
+
     return {
       success: zipPackage
         ? `Paquete ${packageSourceType === "github" ? "GitHub" : "ZIP"} importado y publicado en ${formatDurationMs(durationMs)}: ${publicUrl} · sha256 ${zipPackage.sha256.slice(0, 12)}...`
