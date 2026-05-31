@@ -4343,6 +4343,7 @@ export async function provisionCustomProjectAction(
           },
           body: JSON.stringify({
             tenant_id: request.tenantId,
+            tenant_name: request.tenant.accountName || request.businessName || '',
             preview_url
           })
         }).catch(err => {
