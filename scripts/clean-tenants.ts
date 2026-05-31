@@ -3,89 +3,41 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('--- INICIANDO LIMPIEZA DE BASE DE DATOS ---');
+  console.log('--- INICIANDO LIMPIEZA TOTAL DE BASE DE DATOS (VASE PLATFORM) ---');
 
-  // 1. Identificar el tenant 'vasescompany'
-  const adminTenant = await prisma.tenant.findUnique({
-    where: { slug: 'vasescompany' }
-  });
+  try {
+    // 1. Eliminar todos los tenants
+    // Esto debería eliminar en cascada memberships, projects, categories, etc., según schema.prisma
+    console.log('Buscando tenants (y sus datos asociados en cascada) para eliminar...');
+    const tenantsToDelete = await prisma.tenant.count();
+    
+    if (tenantsToDelete > 0) {
+      const deletedTenants = await prisma.tenant.deleteMany({});
+      console.log(`✅ Se eliminaron todos los tenants (${deletedTenants.count}) y sus datos en cascada correctamente.`);
+    } else {
+      console.log('ℹ️ No hay tenants para eliminar.');
+    }
 
-  if (!adminTenant) {
-    console.error('❌ Error: No se pudo encontrar el tenant administrador con slug "vasescompany".');
-    console.error('Abortando la limpieza por seguridad.');
+    // 2. Eliminar todos los usuarios
+    console.log('Buscando todos los usuarios para eliminar...');
+    const usersToDelete = await prisma.user.count();
+    
+    if (usersToDelete > 0) {
+      const deletedUsers = await prisma.user.deleteMany({});
+      console.log(`✅ Se eliminaron todos los usuarios (${deletedUsers.count}) correctamente.`);
+    } else {
+      console.log('ℹ️ No hay usuarios para eliminar.');
+    }
+
+    console.log('--- LIMPIEZA TOTAL COMPLETADA CON ÉXITO ---');
+    console.log('La base de datos de Vase está ahora completamente vacía (sin tenants ni usuarios).');
+
+  } catch (error) {
+    console.error('❌ Ocurrió un error inesperado durante la limpieza:', error);
     process.exit(1);
-  } else {
-    console.log(`✅ Tenant administrador encontrado: ${adminTenant.name} (${adminTenant.slug})`);
+  } finally {
+    await prisma.$disconnect();
   }
-
-  // 2. Buscar usuarios que vamos a eliminar.
-  // Vamos a eliminar a todos los usuarios que NO sean SUPER_ADMIN y que NO pertenezcan a vasescompany
-  console.log('Buscando usuarios para eliminar...');
-  
-  const usersToDelete = await prisma.user.findMany({
-    where: {
-      AND: [
-        {
-          memberships: {
-            none: {
-              tenant: {
-                slug: 'vasescompany'
-              }
-            }
-          }
-        },
-        {
-          platformRole: {
-            not: 'SUPER_ADMIN'
-          }
-        }
-      ]
-    },
-    select: {
-      id: true,
-      email: true
-    }
-  });
-
-  console.log(`⚠️ Se encontraron ${usersToDelete.length} usuarios para eliminar.`);
-
-  if (usersToDelete.length > 0) {
-    const userIds = usersToDelete.map(u => u.id);
-    const deletedUsers = await prisma.user.deleteMany({
-      where: {
-        id: { in: userIds }
-      }
-    });
-    console.log(`✅ Se eliminaron ${deletedUsers.count} usuarios correctamente.`);
-  }
-
-  // 3. Buscar y eliminar tenants que NO sean vasescompany
-  console.log('Buscando tenants (y sus datos asociados) para eliminar...');
-  const tenantsToDelete = await prisma.tenant.count({
-    where: {
-      slug: { not: 'vasescompany' }
-    }
-  });
-
-  console.log(`⚠️ Se encontraron ${tenantsToDelete} tenants para eliminar.`);
-
-  if (tenantsToDelete > 0) {
-    const deletedTenants = await prisma.tenant.deleteMany({
-      where: {
-        slug: { not: 'vasescompany' }
-      }
-    });
-    console.log(`✅ Se eliminaron ${deletedTenants.count} tenants y sus datos en cascada correctamente.`);
-  }
-
-  console.log('--- LIMPIEZA COMPLETADA CON ÉXITO ---');
 }
 
-main()
-  .catch(e => {
-    console.error('❌ Ocurrió un error inesperado durante la limpieza:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main();
