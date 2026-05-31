@@ -7,19 +7,18 @@ export const dynamic = "force-dynamic";
 export default async function StorefrontHostnamePage({
   params,
 }: {
-  params: Promise<{ hostname: string; slug?: string[] }>;
+  params: Promise<{ hostname: string; path?: string[] }>;
 }) {
-  const { hostname, slug } = await params;
+  const { hostname, path } = await params;
   
-  // Por ahora, buscamos el sitio basándonos en el hostname principal.
-  // En una versión futura, usaremos 'slug' para navegar entre las páginas internas del sitio.
   const site = await getStorefrontByHostname(hostname);
 
   if (!site) {
     notFound();
   }
 
+  // Pass the optional path down so the public storefront iframe can reflect it
   return (
-    <PublicStorefront document={site.document} />
+    <PublicStorefront document={site.document} currentPath={path ? '/' + path.join('/') : ''} />
   );
 }

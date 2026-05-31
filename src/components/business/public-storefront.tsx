@@ -33,12 +33,16 @@ const paletteClassMap = {
   },
 } as const;
 
-export function PublicStorefront({ document }: PublicStorefrontProps) {
+export function PublicStorefront({ document, currentPath = "" }: PublicStorefrontProps) {
   if (document.customStaticSite?.publicBasePath) {
+    const basePath = document.customStaticSite.publicBasePath;
+    const pathSuffix = currentPath || `/${document.customStaticSite.entryPath || "index.html"}`;
+    const cacheBuster = `?v=${encodeURIComponent(document.customStaticSite.importedAt || Date.now())}`;
+    
     return (
       <main className="min-h-screen bg-white">
         <iframe
-          src={`${document.customStaticSite.publicBasePath}/${document.customStaticSite.entryPath || "index.html"}?v=${encodeURIComponent(document.customStaticSite.importedAt || Date.now())}`}
+          src={`${basePath}${pathSuffix}${cacheBuster}`}
           title={document.seo.title || "Sitio personalizado"}
           className="block h-screen min-h-screen w-full border-0"
           sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
