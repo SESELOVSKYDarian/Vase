@@ -23,6 +23,8 @@ const contentTypes: Record<string, string> = {
   ".webm": "video/webm",
 };
 
+export const dynamic = "force-dynamic";
+
 function isSafeSiteId(value: string) {
   return /^[a-zA-Z0-9_-]{4,80}$/.test(value);
 }
@@ -97,7 +99,7 @@ export async function GET(
   return new NextResponse(body, {
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=60",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
       "X-Content-Type-Options": "nosniff",
     },
   });

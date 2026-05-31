@@ -38,7 +38,7 @@ export function PublicStorefront({ document }: PublicStorefrontProps) {
     return (
       <main className="min-h-screen bg-white">
         <iframe
-          src={`${document.customStaticSite.publicBasePath}/${document.customStaticSite.entryPath || "index.html"}`}
+          src={`${document.customStaticSite.publicBasePath}/${document.customStaticSite.entryPath || "index.html"}?v=${encodeURIComponent(document.customStaticSite.importedAt || Date.now())}`}
           title={document.seo.title || "Sitio personalizado"}
           className="block h-screen min-h-screen w-full border-0"
           sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
