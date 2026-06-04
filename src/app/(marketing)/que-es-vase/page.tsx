@@ -100,12 +100,11 @@ const content = {
     ],
     teamTitle: "Quiénes impulsan Vase",
     teamBody:
-      "Lo que empezó entre dos amigos hoy crece con producto, ingeniería y visión operativa para construir tecnología que las empresas puedan adoptar a escala.",
+      "entre dos amigos hoy crece con producto, ingeniería y visión operativa para construir tecnología que las empresas puedan adoptar a escala.",
     team: [
-      ["Equipo fundador", "Origen y visión de producto"],
-      ["Ingeniería", "Plataforma e integraciones"],
-      ["Operaciones", "Implementación y escalabilidad"],
-      ["Diseño", "Experiencia y claridad"],
+      ["Alexis Vallejos"],
+      ["Darian Seselovsky"],
+    
     ],
     ctaTitle: "Construyamos lo que sigue.",
     ctaBody:
@@ -116,10 +115,8 @@ const content = {
 } as const;
 
 const portraitImages = [
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuBMn_FCy7Q6syZfdCrb8lTGubFRZ0t95ND2GqTOw-dx9Qxh-MeXwe7JQ3HHpMiOfvVhCK6cz-QWs29Ey2dDCx0sDfDxf-nQjQF4S-mmUBQnahsiwBMAHzb2apepaz3B1_r9wuMbzEMkfgcx4qsB8jeti71x_-eoMNc6X0NJ6F2lJ6iLT39SwI3wZNS0kUJusguqk8yUDEiPXmU58ZPKOhJ_Iuh4UKWgZUYN70TY90tEiLwg6d-ogbIdEX96L42ADPFKVxBRQdufZPM",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuCtxI9u7zQjwO0oGeFG44UCJbHurAjEvuCqWsqMGv7Q4fbyNAkjRb_2Ds04jbSp9SANP-_obuoPShrIvHEPQLcNYzEW9FZ4JP6N5OOWIZYXUUU4yFKxmQ91ww7geC9Dp-DU5tlw5eq340YqpdSBbSImpSZoHFHIpnKqZqnjTNNa860JxLDHJp6NUih_sDScI4xARKdJ_cS6hkOY6W1dV5dOYvLXrMAN8Iywtcare3Z4lvpwnympCseCIFn5gMC7fGJSc-MxJB686DY",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuCZGQkLq_LxvQVAeM-ZfnstUEny7iK2n5HMfk7zr3h2FFnnN-G9cpybdAxIbExiBMIRJYagyUv9_THLfE5EAyEpeQERcRqkcPm6-UUtozWpDpdDgkEZy4aVbATQnx_Bd1TGpt0ImxER-4y7lKs4O59pitAXqYAIWlWYZYBCd7I6a_kLdaDkX8ZDY4jUw5B3VqJCwrCo3yXj85JXqN5KtAulMyRzI31fF9DHPcXl_XYvewbg7nCdaK979rH8HDdu-Gu9zJ2VFY9SCsI",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuCFxrM_ex5pmHaxtS-CvNXn6kUmV9bbo9LTllfIhacSLOW6aeNaJirI4iGrSQJ6daONi06AM3JL3GtX5iYiby1dkTBJof9m4szpvccnhvVA7bgAil9jBapUuTaWVEE1ksVt77fPTWQPwYuD4ktvbLJxXOpTrv1mn8Lj9pwOsVWSe7tsG6lDrbMhBDb0VHGGnodHeudtQBYwaur5btBRyp_vxgpcfeHy4T070L3SXzZR3FWeVcpg4eWezWiuMPMNDbOSSTLKsysMeG4",
+  "/public/alexis.jpeg",
+  "/public/daran.png",
 ] as const;
 
 export default async function WhatIsVasePage() {
@@ -166,7 +163,7 @@ export default async function WhatIsVasePage() {
               <img
                 className="h-full w-full object-cover"
                 alt="Minimal vase in studio"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAF-OS-Y9fzZQDq1X1da4RAOgWVlKFdqglXL4sOsYnZW3cxh8ICxGqrkqpgI6czPT4jFepp9NYRGWBu-CQPKWnLPMrWjHZr5eW1XK8HJd9Ma8OSWZiKZp1hWqCfjdXwN7HqBkqnso4mnI9VhiQTQrUzh07k_EaTtZ_Et8T2Sf09YNdLFW3-pkmFxXZOALmH9oojVhT7FqJvfh7i83802ZCQsVShYBG9r6eVVn7eiTiXBZq2Rf61bXI4iopMXAtK8-V3leJgj9ooql0"
+                src="/public/dos.jpeg"
               />
             </div>
             <div className="absolute -bottom-10 -right-10 -z-10 h-64 w-64 rounded-full bg-[#18c37e]/10 blur-3xl" />
