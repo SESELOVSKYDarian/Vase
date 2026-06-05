@@ -86,9 +86,7 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
               loginLabel={copy.nav.login}
               registerLabel={copy.nav.register}
               socialItems={[
-                { label: "Instagram", link: "https://instagram.com" },
-                { label: "LinkedIn", link: "https://linkedin.com" },
-                { label: "X", link: "https://x.com" },
+                { label: "Instagram", link: "https://www.instagram.com/vasecorp/" },
               ]}
               items={[
                 {

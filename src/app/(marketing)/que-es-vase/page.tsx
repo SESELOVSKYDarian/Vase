@@ -48,10 +48,8 @@ const content = {
     teamBody:
       "What began between two friends now grows through product, engineering and operational vision focused on building technology companies can adopt at scale.",
     team: [
-      ["Founding team", "Origin and product vision"],
-      ["Engineering", "Platform and integrations"],
-      ["Operations", "Implementation, deployment and scale"],
-      ["Design", "Experience and clarity"],
+      ["Alexis Vallejos", "Co-founder"],
+      ["Darian Seselovsky", "Co-founder"],
     ],
     ctaTitle: "Build what comes next.",
     ctaBody:
@@ -100,11 +98,10 @@ const content = {
     ],
     teamTitle: "Quiénes impulsan Vase",
     teamBody:
-      "entre dos amigos hoy crece con producto, ingeniería y visión operativa para construir tecnología que las empresas puedan adoptar a escala.",
+      "Lo que comenzó entre dos amigos hoy crece con producto, ingeniería y visión operativa para construir tecnología que las empresas puedan adoptar a escala.",
     team: [
-      ["Alexis Vallejos"],
-      ["Darian Seselovsky"],
-    
+      ["Alexis Vallejos", "Cofundador"],
+      ["Darian Seselovsky", "Cofundador"],
     ],
     ctaTitle: "Construyamos lo que sigue.",
     ctaBody:
@@ -115,8 +112,8 @@ const content = {
 } as const;
 
 const portraitImages = [
-  "/public/alexis.jpeg",
-  "/public/daran.png",
+  "/alexis.jpeg",
+  "/daran.png",
 ] as const;
 
 export default async function WhatIsVasePage() {
@@ -163,7 +160,7 @@ export default async function WhatIsVasePage() {
               <img
                 className="h-full w-full object-cover"
                 alt="Minimal vase in studio"
-                src="/public/dos.jpeg"
+                src="/dos.jpeg"
               />
             </div>
             <div className="absolute -bottom-10 -right-10 -z-10 h-64 w-64 rounded-full bg-[#18c37e]/10 blur-3xl" />

@@ -212,28 +212,12 @@ export async function SiteFooter() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <a
-                    href="https://instagram.com"
+                    href="https://www.instagram.com/vasecorp/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex rounded-full bg-white/70 px-4 py-2 text-sm font-medium text-[#2F3030] transition hover:bg-white hover:text-[#3B633D]"
                   >
                     Instagram
-                  </a>
-                  <a
-                    href="https://linkedin.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex rounded-full bg-white/70 px-4 py-2 text-sm font-medium text-[#2F3030] transition hover:bg-white hover:text-[#3B633D]"
-                  >
-                    LinkedIn
-                  </a>
-                  <a
-                    href="https://x.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex rounded-full bg-white/70 px-4 py-2 text-sm font-medium text-[#2F3030] transition hover:bg-white hover:text-[#3B633D]"
-                  >
-                    X
                   </a>
                 </div>
               </div>
