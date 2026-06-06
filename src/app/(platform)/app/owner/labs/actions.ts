@@ -575,9 +575,13 @@ export async function connectLabsChannelAction(
           : "PENDING";
 
     const accountLabel =
-      parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "OPENWA_UNOFFICIAL"
-        ? `OpenWA-${randomBytes(3).toString("hex")}`
-        : parsed.data.accountLabel;
+      parsed.data.accountLabel?.trim().length
+        ? parsed.data.accountLabel.trim()
+        : parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "OPENWA_UNOFFICIAL"
+          ? `OpenWA-${randomBytes(3).toString("hex")}`
+          : parsed.data.channelType === "WHATSAPP"
+            ? `Meta-${membership.tenant.slug}`
+            : `${parsed.data.channelType}-${membership.tenant.slug}`;
 
     const channel =
       existingOpenWaChannel && existingOpenWaChannel.config && typeof existingOpenWaChannel.config === "object"

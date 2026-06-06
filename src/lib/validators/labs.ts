@@ -25,7 +25,7 @@ export const createUrlKnowledgeSchema = z.object({
 export const connectChannelSchema = z.object({
   channelType: z.enum(["WHATSAPP", "INSTAGRAM", "WEBCHAT"]),
   provider: z.enum(["META_OFFICIAL", "OPENWA_UNOFFICIAL", "BAILEYS_UNOFFICIAL"]).default("META_OFFICIAL"),
-  accountLabel: z.string().trim().min(3).max(80),
+  accountLabel: z.string().trim().max(80).optional(),
   externalHandle: z.string().trim().max(120).optional(),
   notes: z.string().trim().max(240).optional(),
   accessToken: z.string().trim().max(240).optional(),

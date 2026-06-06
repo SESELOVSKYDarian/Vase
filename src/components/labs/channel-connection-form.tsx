@@ -10,9 +10,10 @@ const initialState: LabsActionState = {};
 type ChannelConnectionFormProps = {
   canUseInstagram: boolean;
   mode?: "ALL" | "META_ONLY" | "BAILEYS_ONLY";
+  webhookPreviewUrl?: string;
 };
 
-export function ChannelConnectionForm({ canUseInstagram, mode = "ALL" }: ChannelConnectionFormProps) {
+export function ChannelConnectionForm({ canUseInstagram, mode = "ALL", webhookPreviewUrl }: ChannelConnectionFormProps) {
   const [state, formAction] = useActionState(connectLabsChannelAction, initialState);
   const [channelType, setChannelType] = useState("WHATSAPP");
   const [provider, setProvider] = useState(mode === "BAILEYS_ONLY" ? "OPENWA_UNOFFICIAL" : "META_OFFICIAL");
@@ -82,41 +83,35 @@ export function ChannelConnectionForm({ canUseInstagram, mode = "ALL" }: Channel
         ) : (
           <input type="hidden" name="provider" value={effectiveProvider} />
         )}
-        {isOpenWaOnly ? (
-          <input name="accountLabel" type="hidden" value={`Baileys ${new Date().toISOString().slice(0, 10)}`} />
-        ) : (
-          <label className="grid gap-2 text-sm">
-            <span className="font-medium text-[var(--foreground)]">Nombre de la cuenta</span>
-            <input
-              name="accountLabel"
-              className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
-            />
-          </label>
-        )}
+        <input
+          name="accountLabel"
+          type="hidden"
+          value={isOpenWaOnly ? `Baileys ${new Date().toISOString().slice(0, 10)}` : `${isOfficial ? "Meta" : "Canal"} ${new Date().toISOString().slice(0, 10)}`}
+        />
       </div>
-      {isOpenWaOnly ? null : (
-        <>
-          <label className="grid gap-2 text-sm">
-            <span className="font-medium text-[var(--foreground)]">Handle o telefono</span>
-            <input
-              name="externalHandle"
-              className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
-            />
-          </label>
-          <label className="grid gap-2 text-sm">
-            <span className="font-medium text-[var(--foreground)]">Notas</span>
-            <textarea
-              name="notes"
-              rows={3}
-              className="min-h-24 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
-            />
-          </label>
-        </>
-      )}
+      <input name="externalHandle" type="hidden" value="" />
+      <input name="notes" type="hidden" value="" />
 
       {isWhatsApp ? (
         <div className="grid gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-4">
           <p className="text-sm font-medium text-[var(--foreground)]">{isOfficial ? officialHelper : unofficialHelper}</p>
+          {isOfficial && webhookPreviewUrl ? (
+            <div className="grid gap-2 rounded-2xl border border-[#18c37e]/25 bg-[#f1fbf5] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2b6b4f]">Callback URL lista para copiar</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="rounded-xl border border-[#b9e7cc] bg-white px-3 py-2 text-xs text-[var(--foreground)]">
+                  {webhookPreviewUrl}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => copyValue("webhook", webhookPreviewUrl)}
+                  className="min-h-10 rounded-full border border-[#b9e7cc] px-4 text-xs font-semibold text-[#2b6b4f]"
+                >
+                  {copiedField === "webhook" ? "Copiado" : "Copiar URL"}
+                </button>
+              </div>
+            </div>
+          ) : null}
           {isOfficial ? (
             <>
               <input name="accessToken" placeholder="Meta Access Token" className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />

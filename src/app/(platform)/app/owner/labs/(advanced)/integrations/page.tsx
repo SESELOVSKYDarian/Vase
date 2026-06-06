@@ -7,7 +7,9 @@ import { channelTone, getLabsOwnerPageData, trainingTone } from "../_lib/labs-ow
 import { LabsModuleDisabledCard } from "../ui";
 
 export default async function LabsIntegrationsPage() {
-  const { dashboard, labsEnabled } = await getLabsOwnerPageData();
+  const { dashboard, labsEnabled, membership } = await getLabsOwnerPageData();
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://vase.ar").trim().replace(/\/$/, "");
+  const webhookPreviewUrl = `${appUrl}/api/v1/channels/whatsapp/${membership.tenant.slug}/webhook`;
 
   return (
     <div className="space-y-8">
@@ -59,7 +61,11 @@ export default async function LabsIntegrationsPage() {
               <div className="mb-4 rounded-2xl border border-[#18c37e]/25 bg-[#eaf9f1] p-4 text-sm leading-6 text-[#0f5132]">
                 Flujo: 1) crea app en Meta, 2) pega credenciales, 3) usa URL/token webhook que te devuelve Vase.
               </div>
-              <ChannelConnectionForm canUseInstagram={dashboard.limits.canUseInstagram} mode="META_ONLY" />
+              <ChannelConnectionForm
+                canUseInstagram={dashboard.limits.canUseInstagram}
+                mode="META_ONLY"
+                webhookPreviewUrl={webhookPreviewUrl}
+              />
             </PanelCard>
           </section>
 
