@@ -92,7 +92,7 @@ describe("admin user access helpers", () => {
       buildClientTenantAccessProvisioning({
         moduleIds: ["vase_business"],
         tenantPlan: "PRO",
-        proSubmoduleId: "custom-submodule-id",
+        proSubmoduleIds: ["custom-submodule-id", "custom-submodule-id-2"],
       }),
     ).toEqual({
       onboardingProduct: "BUSINESS",
@@ -100,14 +100,14 @@ describe("admin user access helpers", () => {
       subscriptionPlan: "PREMIUM",
       billingStatus: "ACTIVE",
       activeModuleIds: ["vase_business"],
-      activeSubmoduleIds: ["custom-submodule-id"],
+      activeSubmoduleIds: ["custom-submodule-id", "custom-submodule-id-2"],
     });
 
     expect(
       buildClientTenantAccessProvisioning({
         moduleIds: ["vase_business", "vase_labs"],
         tenantPlan: "TRIAL",
-        proSubmoduleId: "custom-submodule-id",
+        proSubmoduleIds: ["custom-submodule-id"],
       }),
     ).toMatchObject({
       onboardingProduct: "BOTH",
@@ -124,7 +124,7 @@ describe("admin user access helpers", () => {
       buildClientTenantAccessProvisioning({
         moduleIds: ["vase_business"],
         tenantPlan: "PRO",
-        proSubmoduleId: null,
+        proSubmoduleIds: [],
       }),
     ).toMatchObject({
       onboardingProduct: "BUSINESS",

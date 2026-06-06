@@ -1,0 +1,400 @@
+⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "127.0.0.1".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['127.0.0.1'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/app/owner..." notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head headCacheNode={{rsc:{...}, ...}}>
+                    <__next_viewport_boundary__>
+                    <MetadataWrapper>
+                      <div
+                        hidden={true}
+-                       bis_skin_checked="1"
+                      >
+                    ...
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="es" data-theme="light" className="manrope_de..." suppressHydrationWarning={true}>
+                          <body
+                            className="min-h-full bg-background text-foreground"
+-                           __processed_9f4a5e04-c643-4feb-9110-f2ccf558210a__="true"
+-                           cz-shortcut-listen="true"
+-                           bis_register="W3sibWFzdGVyIjp0cnVlLCJleHRlbnNpb25JZCI6ImVwcGlvY2VtaG1ubGJoanBsY2drb2ZjaWll..."
+                          >
+                            <Script>
+                            <a>
+                            ...
+                              <SegmentViewNode type="layout" pagePath="(platform)...">
+                                <SegmentTrieNode>
+                                <script>
+                                <script>
+                                <LabsAdvancedLayout>
+                                  <div
+                                    className="min-h-screen overflow-x-hidden bg-[#f8faf8] text-[#191c1b]"
+-                                   bis_skin_checked="1"
+                                  >
+                                    <aside className="fixed left...">
+                                      <div
+                                        className="mb-10 flex items-center gap-3 px-3"
+-                                       bis_skin_checked="1"
+                                      >
+                                        <div
+                                          className="grid h-11 w-11 place-items-center rounded-[1rem] bg-[#006d43] tex..."
+-                                         bis_skin_checked="1"
+                                        >
+                                        <div
+-                                         bis_skin_checked="1"
+                                        >
+                                      <LabsOwnerNav>
+                                      <div
+                                        className="mt-auto space-y-4 border-t border-[#e6e9e7] px-1 pt-6"
+-                                       bis_skin_checked="1"
+                                      >
+                                        <ThemeToggleControl compact={true}>
+                                          <div
+                                            className="flex items-center justify-between gap-3 rounded-2xl border bord..."
+-                                           bis_skin_checked="1"
+                                          >
+                                            <div
+                                              className="min-w-0"
+-                                             bis_skin_checked="1"
+                                            >
+                                            ...
+                                        <div
+                                          className="flex items-center gap-3 rounded-[1.2rem] bg-[#f2f4f2] p-4"
+-                                         bis_skin_checked="1"
+                                        >
+                                          <div
+                                            className="grid h-11 w-11 place-items-center rounded-full bg-[#18c37e]/20 ..."
+-                                           bis_skin_checked="1"
+                                          >
+                                          <div
+                                            className="min-w-0"
+-                                           bis_skin_checked="1"
+                                          >
+                                    <main className="min-h-scre...">
+                                      <div
+                                        className="mx-auto max-w-[96rem]"
+-                                       bis_skin_checked="1"
+                                      >
+                                        <div
+                                          className="mb-6 lg:hidden"
+-                                         bis_skin_checked="1"
+                                        >
+                                          <ThemeToggleControl>
+                                            <div
+                                              className="flex items-center justify-between gap-3 rounded-2xl border bo..."
+-                                             bis_skin_checked="1"
+                                            >
+                                              <div
+                                                className="min-w-0"
+-                                               bis_skin_checked="1"
+                                              >
+                                              ...
+                                        <LabsOwnerMobileNav>
+                                          <div
+                                            className="mb-6 lg:hidden"
+-                                           bis_skin_checked="1"
+                                          >
+                                            <nav>
+                                            <div
+                                              className="mt-4 flex items-center gap-3 rounded-2xl border border-[#dbe3..."
+-                                             bis_skin_checked="1"
+                                            >
+                                              <div
+                                                className="grid h-10 w-10 place-items-center rounded-[0.9rem] bg-[#006..."
+-                                               bis_skin_checked="1"
+                                              >
+                                              <div
+-                                               bis_skin_checked="1"
+                                              >
+                                        ...
+                                          <SegmentViewNode type="page" pagePath="(platform)...">
+                                            <SegmentTrieNode>
+                                            <LabsIntegrationsPage>
+                                              <div
+                                                className="space-y-8"
+-                                               bis_skin_checked="1"
+                                              >
+                                                <header>
+                                                <section className="grid gap-6...">
+                                                  <PanelCard>
+                                                    <section className="surface-ca...">
+                                                      <div
+                                                        className="flex flex-col gap-4 md:flex-row md:items-start md:j..."
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="space-y-2"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                      <div
+                                                        className="mt-6"
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <KnowledgeUrlForm>
+                                                        <div
+                                                          className="mt-6 grid gap-3"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                          <div
+                                                            className="rounded-3xl bg-[color-mix(in_srgb,var(--surface..."
+-                                                           bis_skin_checked="1"
+                                                          >
++                                                           Aun no hay URLs registradas.
+                                                  <PanelCard>
+                                                    <section className="surface-ca...">
+                                                      <div
+                                                        className="flex flex-col gap-4 md:flex-row md:items-start md:j..."
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="space-y-2"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                      <div
+                                                        className="mt-6"
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="mb-4 rounded-2xl border border-[#18c37e]/25 bg-[#..."
+-                                                         bis_skin_checked="1"
+                                                        >
++                                                         Flujo: 1) crea app en Meta, 2) pega credenciales, 3) usa URL/...
+                                                        <ChannelConnectionForm canUseInstagram={false} mode="META_ONLY">
+                                                          <form action={function bound dispatchActionState} ...>
+                                                            <div
+                                                              className="grid gap-4 md:grid-cols-3"
+-                                                             bis_skin_checked="1"
+                                                            >
+                                                            <label>
+                                                            <label>
+                                                            <div
+                                                              className="grid gap-3 rounded-3xl border border-[var(--b..."
+-                                                             bis_skin_checked="1"
+                                                            >
+                                                            ...
+                                                <section className="grid gap-6...">
+                                                  <PanelCard>
+                                                    <section className="surface-ca...">
+                                                      <div
+                                                        className="flex flex-col gap-4 md:flex-row md:items-start md:j..."
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="space-y-2"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                      <div
+                                                        className="mt-6"
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="mb-4 rounded-2xl border border-[var(--danger)]/30..."
+-                                                         bis_skin_checked="1"
+                                                        >
++                                                         Este metodo no oficial se usa bajo tu propio riesgo operativo...
+                                                        <div
+                                                          className="mb-4 rounded-2xl border border-[var(--border-subt..."
+-                                                         bis_skin_checked="1"
+                                                        >
++                                                         Flujo QR: 1) guarda canal Baileys, 2) clic en Generar QR, 3) ...
+                                                        <ChannelConnectionForm canUseInstagram={false} ...>
+                                                          <form action={function bound dispatchActionState} ...>
+                                                            <div
+                                                              className="grid gap-4 md:grid-cols-3"
+-                                                             bis_skin_checked="1"
+                                                            >
+                                                            <div
+                                                              className="grid gap-3 rounded-3xl border border-[var(--b..."
+-                                                             bis_skin_checked="1"
+                                                            >
+                                                              <p>
+                                                              <input>
+                                                              <input>
+                                                              <div
+                                                                className="rounded-2xl border border-[var(--danger)]/3..."
+-                                                               bis_skin_checked="1"
+                                                              >
++                                                               Conexión automática por backend. Solo toca el botón y V...
+                                                            ...
+                                                        <div
+                                                          className="mt-6 grid gap-4"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                  <PanelCard>
+                                                    <section className="surface-ca...">
+                                                      <div
+                                                        className="flex flex-col gap-4 md:flex-row md:items-start md:j..."
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="space-y-2"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                      <div
+                                                        className="mt-6"
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="mt-6 grid gap-3"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                          <div
+                                                            className="rounded-3xl border border-[var(--border-subtle)..."
+-                                                           bis_skin_checked="1"
+                                                          >
+                                                            <div
+                                                              className="flex items-center justify-between gap-3"
+-                                                             bis_skin_checked="1"
+                                                            >
+                                                            ...
+                                                <section className="grid gap-6...">
+                                                  <PanelCard>
+                                                    <section className="surface-ca...">
+                                                      <div
+                                                        className="flex flex-col gap-4 md:flex-row md:items-start md:j..."
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="space-y-2"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                      <div
+                                                        className="mt-6"
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="grid gap-4 text-sm leading-7 text-[var(--muted)]"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                          <div
+                                                            className="rounded-3xl bg-[color-mix(in_srgb,var(--surface..."
+-                                                           bis_skin_checked="1"
+                                                          >
+                                                          <div
+                                                            className="rounded-3xl bg-[color-mix(in_srgb,var(--surface..."
+-                                                           bis_skin_checked="1"
+                                                          >
+                                                          <div
+                                                            className="rounded-3xl bg-[color-mix(in_srgb,var(--surface..."
+-                                                           bis_skin_checked="1"
+                                                          >
+                                                          <div
+                                                            className="rounded-3xl bg-[color-mix(in_srgb,var(--surface..."
+-                                                           bis_skin_checked="1"
+                                                          >
+                                                  <PanelCard>
+                                                    <section className="surface-ca...">
+                                                      <div
+                                                        className="flex flex-col gap-4 md:flex-row md:items-start md:j..."
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="space-y-2"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                      <div
+                                                        className="mt-6"
+-                                                       bis_skin_checked="1"
+                                                      >
+                                                        <div
+                                                          className="grid gap-3 text-sm leading-7 text-[var(--muted)]"
+-                                                         bis_skin_checked="1"
+                                                        >
+                                                          <div
+                                                            className="rounded-3xl bg-[color-mix(in_srgb,var(--surface..."
+-                                                           bis_skin_checked="1"
+                                                          >
+                                                          <div
+                                                            className="rounded-3xl bg-[color-mix(in_srgb,var(--surface..."
+-                                                           bis_skin_checked="1"
+                                                          >
+                                                          <div
+                                                            className="rounded-3xl bg-[color-mix(in_srgb,var(--surface..."
+-                                                           bis_skin_checked="1"
+                                                          >
+                                                          <div
+                                                            className="rounded-3xl bg-[color-mix(in_srgb,var(--surface..."
+-                                                           bis_skin_checked="1"
+                                                          >
+                                          ...
+                                    <div
+                                      className="pointer-events-none fixed right-0 top-0 -z-10 h-1/2 w-1/3 rounded-ful..."
+-                                     bis_skin_checked="1"
+                                    >
+                                    <div
+                                      className="pointer-events-none fixed bottom-0 left-0 -z-10 h-1/3 w-1/4 rounded-f..."
+-                                     bis_skin_checked="1"
+                                    >
+                  ...
+ 
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/app/owner..." notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="es" data-theme="light" className="manrope_de..." suppressHydrationWarning={true}>
+                          <body
+                            className="min-h-full bg-background text-foreground"
+-                           __processed_d0957b2d-6401-4759-a3b8-a4b4ca24f420__="true"
+-                           cz-shortcut-listen="true"
+-                           bis_register="W3sibWFzdGVyIjp0cnVlLCJleHRlbnNpb25JZCI6ImVwcGlvY2VtaG1ubGJoanBsY2drb2ZjaWll..."
+                          >
+                  ...
+ 

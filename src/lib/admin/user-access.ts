@@ -33,7 +33,7 @@ export function buildTenantModuleAccessSummary(modules: TenantModuleAccess[]) {
 type ClientTenantProvisioningInput = {
   moduleIds: string[];
   tenantPlan: "TRIAL" | "PRO";
-  proSubmoduleId?: string | null;
+  proSubmoduleIds?: string[];
 };
 
 export function buildClientTenantAccessProvisioning(input: ClientTenantProvisioningInput) {
@@ -42,6 +42,9 @@ export function buildClientTenantAccessProvisioning(input: ClientTenantProvision
   const hasLabs = activeModuleIds.includes(userAccessModuleIds.labs);
   const onboardingProduct = hasBusiness && hasLabs ? "BOTH" : hasLabs ? "LABS" : "BUSINESS";
   const isPro = input.tenantPlan === "PRO";
+  const activeSubmoduleIds = isPro
+    ? Array.from(new Set((input.proSubmoduleIds ?? []).filter(Boolean)))
+    : [];
 
   return {
     onboardingProduct,
@@ -49,7 +52,7 @@ export function buildClientTenantAccessProvisioning(input: ClientTenantProvision
     subscriptionPlan: isPro ? "PREMIUM" : "START",
     billingStatus: isPro ? "ACTIVE" : "TRIAL",
     activeModuleIds,
-    activeSubmoduleIds: isPro && input.proSubmoduleId ? [input.proSubmoduleId] : [],
+    activeSubmoduleIds,
   } as const;
 }
 

@@ -45,3 +45,6 @@ open-wa-session*.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+*.playwright-mcp

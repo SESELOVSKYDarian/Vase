@@ -102,6 +102,11 @@ export const updateUserTenantAccessSchema = z.object({
 export const updateUserTenantAccessSnapshotSchema = z.object({
   userId: z.string().trim().cuid(),
   tenantId: z.string().trim().cuid(),
+  tenantName: z.string().trim().min(2).max(120).optional().or(z.literal("")),
+  tenantSlug: z.string().trim().min(2).max(120).optional().or(z.literal("")),
+  accountName: z.string().trim().min(2).max(120).optional().or(z.literal("")),
+  industry: z.string().trim().min(2).max(120).optional().or(z.literal("")),
+  tenantStatus: z.enum(["ACTIVE", "TRIAL", "SUSPENDED"]).default("TRIAL"),
   tenantRole: z.enum(["OWNER", "MANAGER", "MEMBER"]),
   membershipStatus: z.enum(["ACTIVE", "INVITED", "SUSPENDED"]).default("ACTIVE"),
   modules: z.array(

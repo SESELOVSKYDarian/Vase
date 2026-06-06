@@ -4343,7 +4343,7 @@ export async function provisionCustomProjectAction(
           },
           body: JSON.stringify({
             tenant_id: request.tenantId,
-            tenant_name: request.tenant.accountName || request.businessName || '',
+            tenant_name: request.tenant.accountName || '',
             preview_url
           })
         }).catch(err => {
@@ -4551,7 +4551,15 @@ function parseModuleIds(rawValue: FormDataEntryValue | null) {
 
 type ClientAccessConfigInput = {
   tenantPlan: "TRIAL" | "PRO";
-  proSubmoduleId: string | null;
+  proSubmoduleIds: string[];
+  proSubmoduleId?: string | null;
+  tenantName: string;
+  tenantSlug: string;
+  accountName: string;
+  industry: string;
+  tenantStatus: "ACTIVE" | "TRIAL" | "SUSPENDED";
+  tenantRole: "OWNER" | "MANAGER" | "MEMBER";
+  membershipStatus: "ACTIVE" | "INVITED" | "SUSPENDED";
   moduleLimits: Record<string, { pages?: number | null; chatbots?: number | null }>;
 };
 
@@ -4561,11 +4569,37 @@ function parseClientAccessConfig(rawValue: FormDataEntryValue | null): ClientAcc
     const parsed = JSON.parse(rawValue) as Partial<ClientAccessConfigInput> | null;
     if (!parsed || (parsed.tenantPlan !== "TRIAL" && parsed.tenantPlan !== "PRO")) return null;
     const moduleLimits = parsed.moduleLimits && typeof parsed.moduleLimits === "object" ? parsed.moduleLimits : {};
+    const legacySubmoduleId = typeof parsed.proSubmoduleId === "string" && parsed.proSubmoduleId.trim().length > 0
+      ? parsed.proSubmoduleId.trim()
+      : null;
     return {
       tenantPlan: parsed.tenantPlan,
-      proSubmoduleId: typeof parsed.proSubmoduleId === "string" && parsed.proSubmoduleId.trim().length > 0
-        ? parsed.proSubmoduleId.trim()
-        : null,
+      proSubmoduleIds: Array.isArray(parsed.proSubmoduleIds)
+        ? parsed.proSubmoduleIds
+            .filter((value): value is string => typeof value === "string")
+            .map((value) => value.trim())
+            .filter(Boolean)
+        : legacySubmoduleId
+          ? [legacySubmoduleId]
+          : [],
+      tenantName: typeof parsed.tenantName === "string" ? parsed.tenantName.trim() : "",
+      tenantSlug: typeof parsed.tenantSlug === "string" ? parsed.tenantSlug.trim() : "",
+      accountName: typeof parsed.accountName === "string" ? parsed.accountName.trim() : "",
+      industry: typeof parsed.industry === "string" ? parsed.industry.trim() : "",
+      tenantStatus:
+        parsed.tenantStatus === "ACTIVE" || parsed.tenantStatus === "TRIAL" || parsed.tenantStatus === "SUSPENDED"
+          ? parsed.tenantStatus
+          : "TRIAL",
+      tenantRole:
+        parsed.tenantRole === "OWNER" || parsed.tenantRole === "MANAGER" || parsed.tenantRole === "MEMBER"
+          ? parsed.tenantRole
+          : "OWNER",
+      membershipStatus:
+        parsed.membershipStatus === "ACTIVE" ||
+        parsed.membershipStatus === "INVITED" ||
+        parsed.membershipStatus === "SUSPENDED"
+          ? parsed.membershipStatus
+          : "ACTIVE",
       moduleLimits: Object.fromEntries(
         Object.entries(moduleLimits).map(([moduleId, limits]) => [
           moduleId,
@@ -4593,7 +4627,7 @@ async function provisionClientWorkspaceFromMasterUser(params: {
   const provisioning = buildClientTenantAccessProvisioning({
     moduleIds: params.moduleIds,
     tenantPlan: params.clientAccessConfig.tenantPlan,
-    proSubmoduleId: params.clientAccessConfig.proSubmoduleId,
+    proSubmoduleIds: params.clientAccessConfig.proSubmoduleIds,
   });
 
   const existingMembership = await params.tx.membership.findFirst({
@@ -4607,13 +4641,13 @@ async function provisionClientWorkspaceFromMasterUser(params: {
   if (!tenantId) {
     const tenant = await params.tx.tenant.create({
       data: {
-        name: params.userName,
-        accountName: params.userName,
-        slug: params.tenantSlugSeed,
+        name: params.clientAccessConfig.tenantName || params.userName,
+        accountName: params.clientAccessConfig.accountName || params.userName,
+        slug: params.clientAccessConfig.tenantSlug || params.tenantSlugSeed,
         billingEmail: params.userEmail,
-        industry: "General",
+        industry: params.clientAccessConfig.industry || "General",
         onboardingProduct: provisioning.onboardingProduct,
-        status: provisioning.tenantStatus,
+        status: params.clientAccessConfig.tenantStatus || provisioning.tenantStatus,
       },
       select: { id: true },
     });
@@ -4622,11 +4656,13 @@ async function provisionClientWorkspaceFromMasterUser(params: {
     await params.tx.tenant.update({
       where: { id: tenantId },
       data: {
-        name: params.userName,
-        accountName: params.userName,
+        name: params.clientAccessConfig.tenantName || params.userName,
+        accountName: params.clientAccessConfig.accountName || params.userName,
         billingEmail: params.userEmail,
+        slug: params.clientAccessConfig.tenantSlug || undefined,
+        industry: params.clientAccessConfig.industry || undefined,
         onboardingProduct: provisioning.onboardingProduct,
-        status: provisioning.tenantStatus,
+        status: params.clientAccessConfig.tenantStatus || provisioning.tenantStatus,
       },
     });
   }
@@ -4639,14 +4675,14 @@ async function provisionClientWorkspaceFromMasterUser(params: {
       },
     },
     update: {
-      role: "OWNER",
-      status: "ACTIVE",
+      role: params.clientAccessConfig.tenantRole,
+      status: params.clientAccessConfig.membershipStatus,
     },
     create: {
       userId: params.userId,
       tenantId,
-      role: "OWNER",
-      status: "ACTIVE",
+      role: params.clientAccessConfig.tenantRole,
+      status: params.clientAccessConfig.membershipStatus,
     },
   });
 
@@ -4706,7 +4742,7 @@ async function provisionClientWorkspaceFromMasterUser(params: {
   }
 
   const selectedSubmodules = await params.tx.moduleSubmodule.findMany({
-    where: { moduleId: { in: provisioning.activeModuleIds } },
+    where: { moduleId: { in: [userAccessModuleIds.business, userAccessModuleIds.labs] } },
     select: { id: true },
   });
   const selectedSubmoduleIds = selectedSubmodules.map((submodule) => submodule.id);
@@ -4797,7 +4833,7 @@ export async function upsertMasterUserWithStateAction(
       parsed.data.uiRole === "cliente" ? parseClientAccessConfig(formData.get("clientAccessConfig")) : null;
 
     if (parsed.data.uiRole === "cliente" && !clientAccessConfig) {
-      return { error: "Completa el acceso de cliente: tenant, submodulo y limites." };
+      return { error: "Completa el acceso de cliente: tenant, submodulos y limites." };
     }
 
     const selectedModules = moduleIds.length
@@ -4811,14 +4847,18 @@ export async function upsertMasterUserWithStateAction(
       return { error: "Uno o mas modulos seleccionados no son validos." };
     }
 
-    if (clientAccessConfig?.proSubmoduleId) {
-      const selectedSubmodule = await prisma.moduleSubmodule.findUnique({
-        where: { id: clientAccessConfig.proSubmoduleId },
+    if (clientAccessConfig?.proSubmoduleIds.length) {
+      const selectedSubmodules = await prisma.moduleSubmodule.findMany({
+        where: { id: { in: clientAccessConfig.proSubmoduleIds } },
         select: { id: true, moduleId: true },
       });
 
-      if (!selectedSubmodule || !moduleIds.includes(selectedSubmodule.moduleId)) {
-        return { error: "El submodulo Pro no pertenece a los modulos seleccionados." };
+      if (selectedSubmodules.length !== clientAccessConfig.proSubmoduleIds.length) {
+        return { error: "Uno o mas submodulos Pro no son validos." };
+      }
+
+      if (selectedSubmodules.some((submodule) => !moduleIds.includes(submodule.moduleId))) {
+        return { error: "Uno o mas submodulos Pro no pertenecen a los modulos seleccionados." };
       }
     }
 

@@ -31,6 +31,23 @@ export default async function AdminUsersPage() {
           where: { isActive: true },
           select: { moduleId: true },
         },
+        memberships: {
+          orderBy: [{ updatedAt: "desc" }],
+          select: {
+            role: true,
+            status: true,
+            tenant: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                accountName: true,
+                industry: true,
+                status: true,
+              },
+            },
+          },
+        },
       },
       orderBy: [{ createdAt: "desc" }],
       take: 300,
@@ -127,17 +144,35 @@ export default async function AdminUsersPage() {
           ? "100% pagado"
           : `${paidPercent}% pagado · falta ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(debt)}`;
 
+    const primaryMembership = user.memberships.find((entry) => entry.status === "ACTIVE") ?? user.memberships[0] ?? null;
     const rawClientAccessConfig = user.clientAccessConfig as
       | {
           tenantPlan?: "TRIAL" | "PRO";
           proSubmoduleId?: string | null;
+          proSubmoduleIds?: string[] | null;
+          tenantName?: string | null;
+          tenantSlug?: string | null;
+          accountName?: string | null;
+          industry?: string | null;
+          tenantStatus?: "ACTIVE" | "TRIAL" | "SUSPENDED" | null;
+          tenantRole?: "OWNER" | "MANAGER" | "MEMBER" | null;
+          membershipStatus?: "ACTIVE" | "INVITED" | "SUSPENDED" | null;
           moduleLimits?: Record<string, { pages?: number | null; chatbots?: number | null }>;
         }
       | null;
     const clientAccessConfig = rawClientAccessConfig
-      ? {
+        ? {
           tenantPlan: rawClientAccessConfig.tenantPlan ?? "TRIAL",
-          proSubmoduleId: rawClientAccessConfig.proSubmoduleId ?? null,
+          proSubmoduleIds:
+            rawClientAccessConfig.proSubmoduleIds ??
+            (rawClientAccessConfig.proSubmoduleId ? [rawClientAccessConfig.proSubmoduleId] : []),
+          tenantName: rawClientAccessConfig.tenantName ?? primaryMembership?.tenant.name ?? "",
+          tenantSlug: rawClientAccessConfig.tenantSlug ?? primaryMembership?.tenant.slug ?? "",
+          accountName: rawClientAccessConfig.accountName ?? primaryMembership?.tenant.accountName ?? "",
+          industry: rawClientAccessConfig.industry ?? primaryMembership?.tenant.industry ?? "",
+          tenantStatus: rawClientAccessConfig.tenantStatus ?? primaryMembership?.tenant.status ?? "TRIAL",
+          tenantRole: rawClientAccessConfig.tenantRole ?? primaryMembership?.role ?? "OWNER",
+          membershipStatus: rawClientAccessConfig.membershipStatus ?? primaryMembership?.status ?? "ACTIVE",
           moduleLimits: Object.fromEntries(
             Object.entries(rawClientAccessConfig.moduleLimits ?? {}).map(([moduleId, limits]) => [
               moduleId,
@@ -156,6 +191,14 @@ export default async function AdminUsersPage() {
       email: user.email,
       uiRole,
       moduleIds: user.moduleAccesses.map((entry) => entry.moduleId),
+      tenantId: primaryMembership?.tenant.id ?? null,
+      tenantName: primaryMembership?.tenant.name ?? null,
+      tenantSlug: primaryMembership?.tenant.slug ?? null,
+      accountName: primaryMembership?.tenant.accountName ?? null,
+      industry: primaryMembership?.tenant.industry ?? null,
+      tenantStatus: primaryMembership?.tenant.status ?? null,
+      tenantRole: primaryMembership?.role ?? null,
+      membershipStatus: primaryMembership?.status ?? null,
       paymentSummary,
       primaryClientAccountId: primaryAccount?.id ?? null,
       paymentHistory: userAccounts

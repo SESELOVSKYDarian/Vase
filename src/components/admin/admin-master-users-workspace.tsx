@@ -29,17 +29,29 @@ import { CrudModal } from "@/components/ui/crud-modal";
 
 type UiRole = "cliente" | "admin" | "developer" | "designer" | "tester" | "soporte";
 type TenantPlan = "TRIAL" | "PRO";
+type TenantStatus = "ACTIVE" | "TRIAL" | "SUSPENDED";
+type TenantRole = "OWNER" | "MANAGER" | "MEMBER";
+type MembershipStatus = "ACTIVE" | "INVITED" | "SUSPENDED";
 
 type ModuleLimitState = {
   pages: string;
   chatbots: string;
 };
 
-type ClientAccessConfig = {
+type ClientAccessConfigData = {
   tenantPlan: TenantPlan;
-  proSubmoduleId: string | null;
+  proSubmoduleIds: string[];
+  tenantName: string;
+  tenantSlug: string;
+  accountName: string;
+  industry: string;
+  tenantStatus: TenantStatus;
+  tenantRole: TenantRole;
+  membershipStatus: MembershipStatus;
   moduleLimits: Record<string, { pages: number | null; chatbots: number | null }>;
-} | null;
+};
+
+type ClientAccessConfig = ClientAccessConfigData | null;
 
 type UserRow = {
   id: string;
@@ -47,6 +59,14 @@ type UserRow = {
   email: string;
   uiRole: UiRole;
   moduleIds: string[];
+  tenantId: string | null;
+  tenantName: string | null;
+  tenantSlug: string | null;
+  accountName: string | null;
+  industry: string | null;
+  tenantStatus: "ACTIVE" | "TRIAL" | "SUSPENDED" | null;
+  tenantRole: "OWNER" | "MANAGER" | "MEMBER" | null;
+  membershipStatus: "ACTIVE" | "INVITED" | "SUSPENDED" | null;
   paymentSummary: string;
   primaryClientAccountId: string | null;
   paymentHistory: Array<{
@@ -131,10 +151,17 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function createEmptyClientAccessConfig(): ClientAccessConfig {
+function createEmptyClientAccessConfig(): ClientAccessConfigData {
   return {
     tenantPlan: "TRIAL",
-    proSubmoduleId: null,
+    proSubmoduleIds: [],
+    tenantName: "",
+    tenantSlug: "",
+    accountName: "",
+    industry: "",
+    tenantStatus: "TRIAL",
+    tenantRole: "OWNER",
+    membershipStatus: "ACTIVE",
     moduleLimits: {},
   };
 }
@@ -156,6 +183,22 @@ function pickActivePrice(
   type: "ONE_TIME" | "MONTHLY" | "YEARLY",
 ) {
   return pricing.find((entry) => entry.isActive && entry.type === type) ?? pricing.find((entry) => entry.type === type) ?? null;
+}
+
+function normalizeClientAccessConfig(user?: UserRow | null): ClientAccessConfigData {
+  const currentConfig = user?.clientAccessConfig ?? createEmptyClientAccessConfig();
+  return {
+    tenantPlan: currentConfig.tenantPlan,
+    proSubmoduleIds: currentConfig.proSubmoduleIds,
+    tenantName: currentConfig.tenantName || user?.tenantName || "",
+    tenantSlug: currentConfig.tenantSlug || user?.tenantSlug || "",
+    accountName: currentConfig.accountName || user?.accountName || user?.tenantName || "",
+    industry: currentConfig.industry || user?.industry || "",
+    tenantStatus: currentConfig.tenantStatus || user?.tenantStatus || "TRIAL",
+    tenantRole: currentConfig.tenantRole || user?.tenantRole || "OWNER",
+    membershipStatus: currentConfig.membershipStatus || user?.membershipStatus || "ACTIVE",
+    moduleLimits: currentConfig.moduleLimits,
+  };
 }
 
 export function AdminMasterUsersWorkspace({ users, modules }: Props) {
@@ -210,16 +253,19 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
     setAutoGeneratePassword(true);
   };
 
+  const updateClientAccessConfig = useCallback(
+    (updater: (current: ClientAccessConfigData) => ClientAccessConfigData) => {
+      setClientAccessConfig((current) => updater(current ?? createEmptyClientAccessConfig()));
+    },
+    [],
+  );
+
   const resetClientAccessState = (nextUser?: UserRow | null) => {
-    const currentConfig = nextUser?.clientAccessConfig ?? createEmptyClientAccessConfig();
     const currentSelectedModules = nextUser?.moduleIds ?? [];
+    const currentConfig = normalizeClientAccessConfig(nextUser);
 
     setSelectedModuleIds(currentSelectedModules);
-    setClientAccessConfig({
-      tenantPlan: currentConfig?.tenantPlan ?? "TRIAL",
-      proSubmoduleId: currentConfig?.proSubmoduleId ?? null,
-      moduleLimits: currentConfig?.moduleLimits ?? {},
-    });
+    setClientAccessConfig(currentConfig);
 
     const limits: Record<string, ModuleLimitState> = {};
     for (const accessModule of modules) {
@@ -256,6 +302,14 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
       email: "",
       uiRole: "cliente",
       moduleIds: [],
+      tenantId: null,
+      tenantName: null,
+      tenantSlug: null,
+      accountName: null,
+      industry: null,
+      tenantStatus: null,
+      tenantRole: null,
+      membershipStatus: null,
       paymentSummary: "Sin pagos",
       primaryClientAccountId: null,
       paymentHistory: [],
@@ -454,6 +508,10 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
 
   const buildClientAccessPayload = () => {
     if (selectedRole !== "cliente") return "";
+    const currentConfig = clientAccessConfig ?? createEmptyClientAccessConfig();
+    const validProSubmoduleIds = currentConfig.proSubmoduleIds.filter((submoduleId) =>
+      availableSubmodules.some((submodule) => submodule.id === submoduleId),
+    );
 
     const moduleLimits = Object.fromEntries(
       selectedModuleIds.map((moduleId) => {
@@ -469,9 +527,15 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
     );
 
     return serializeClientAccessConfig({
-      tenantPlan: clientAccessConfig?.tenantPlan ?? "TRIAL",
-      proSubmoduleId:
-        clientAccessConfig?.tenantPlan === "PRO" && clientAccessConfig.proSubmoduleId ? clientAccessConfig.proSubmoduleId : null,
+      tenantPlan: currentConfig.tenantPlan,
+      proSubmoduleIds: currentConfig.tenantPlan === "PRO" ? validProSubmoduleIds : [],
+      tenantName: currentConfig.tenantName.trim(),
+      tenantSlug: currentConfig.tenantSlug.trim(),
+      accountName: currentConfig.accountName.trim(),
+      industry: currentConfig.industry.trim(),
+      tenantStatus: currentConfig.tenantStatus,
+      tenantRole: currentConfig.tenantRole,
+      membershipStatus: currentConfig.membershipStatus,
       moduleLimits,
     });
   };
@@ -715,14 +779,14 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Tenant</span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Plan de cliente</span>
                     <select
                       value={clientAccessConfig?.tenantPlan ?? "TRIAL"}
                       onChange={(event) =>
-                        setClientAccessConfig((current) => ({
+                        updateClientAccessConfig((current) => ({
                           ...(current ?? createEmptyClientAccessConfig()),
                           tenantPlan: event.target.value as TenantPlan,
-                          proSubmoduleId: current?.proSubmoduleId ?? null,
+                          proSubmoduleIds: current?.proSubmoduleIds ?? [],
                           moduleLimits: current?.moduleLimits ?? {},
                         }))
                       }
@@ -733,7 +797,7 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                     </select>
                   </label>
                   <div className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Estado</span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Estado base</span>
                     <div className="flex min-h-11 items-center rounded-xl border border-[var(--border-subtle)] px-3 text-sm text-[var(--muted)]">
                       {clientAccessConfig?.tenantPlan === "PRO"
                         ? "Cliente confirmado o pago verificado"
@@ -744,20 +808,21 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
 
                 {canSelectSubmodule ? (
                   <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Submodulo permitido</span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Submodulos permitidos</span>
                     <select
-                      value={clientAccessConfig?.proSubmoduleId ?? ""}
+                      multiple
+                      value={(clientAccessConfig?.proSubmoduleIds ?? []).filter((submoduleId) =>
+                        availableSubmodules.some((submodule) => submodule.id === submoduleId),
+                      )}
                       onChange={(event) =>
-                        setClientAccessConfig((current) => ({
+                        updateClientAccessConfig((current) => ({
                           ...(current ?? createEmptyClientAccessConfig()),
-                          tenantPlan: current?.tenantPlan ?? "TRIAL",
-                          proSubmoduleId: event.target.value || null,
+                          proSubmoduleIds: Array.from(event.currentTarget.selectedOptions, (option) => option.value),
                           moduleLimits: current?.moduleLimits ?? {},
                         }))
                       }
-                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
+                      className="min-h-24 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2"
                     >
-                      <option value="">Seleccionar submodulo</option>
                       {availableSubmodules.map((submodule) => (
                         <option key={submodule.id} value={submodule.id}>
                           {submodule.moduleName} · {submodule.name}
@@ -766,6 +831,119 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                     </select>
                   </label>
                 ) : null}
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Nombre del tenant</span>
+                    <input
+                      value={clientAccessConfig?.tenantName ?? ""}
+                      onChange={(event) =>
+                        updateClientAccessConfig((current) => ({
+                          ...(current ?? createEmptyClientAccessConfig()),
+                          tenantName: event.target.value,
+                        }))
+                      }
+                      placeholder="Vase Cliente"
+                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Slug del tenant</span>
+                    <input
+                      value={clientAccessConfig?.tenantSlug ?? ""}
+                      onChange={(event) =>
+                        updateClientAccessConfig((current) => ({
+                          ...(current ?? createEmptyClientAccessConfig()),
+                          tenantSlug: event.target.value,
+                        }))
+                      }
+                      placeholder="cliente-prueba"
+                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Nombre comercial</span>
+                    <input
+                      value={clientAccessConfig?.accountName ?? ""}
+                      onChange={(event) =>
+                        updateClientAccessConfig((current) => ({
+                          ...(current ?? createEmptyClientAccessConfig()),
+                          accountName: event.target.value,
+                        }))
+                      }
+                      placeholder="Cuenta Vase"
+                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Industria</span>
+                    <input
+                      value={clientAccessConfig?.industry ?? ""}
+                      onChange={(event) =>
+                        updateClientAccessConfig((current) => ({
+                          ...(current ?? createEmptyClientAccessConfig()),
+                          industry: event.target.value,
+                        }))
+                      }
+                      placeholder="General"
+                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <label className="grid gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Estado del tenant</span>
+                    <select
+                      value={clientAccessConfig?.tenantStatus ?? "TRIAL"}
+                      onChange={(event) =>
+                        updateClientAccessConfig((current) => ({
+                          ...(current ?? createEmptyClientAccessConfig()),
+                          tenantStatus: event.target.value as TenantStatus,
+                        }))
+                      }
+                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
+                    >
+                      <option value="TRIAL">Trial</option>
+                      <option value="ACTIVE">Activo</option>
+                      <option value="SUSPENDED">Suspendido</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Rol en tenant</span>
+                    <select
+                      value={clientAccessConfig?.tenantRole ?? "OWNER"}
+                      onChange={(event) =>
+                        updateClientAccessConfig((current) => ({
+                          ...(current ?? createEmptyClientAccessConfig()),
+                          tenantRole: event.target.value as TenantRole,
+                        }))
+                      }
+                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
+                    >
+                      <option value="OWNER">Owner</option>
+                      <option value="MANAGER">Manager</option>
+                      <option value="MEMBER">Member</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Estado de membership</span>
+                    <select
+                      value={clientAccessConfig?.membershipStatus ?? "ACTIVE"}
+                      onChange={(event) =>
+                        updateClientAccessConfig((current) => ({
+                          ...(current ?? createEmptyClientAccessConfig()),
+                          membershipStatus: event.target.value as MembershipStatus,
+                        }))
+                      }
+                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
+                    >
+                      <option value="ACTIVE">Activo</option>
+                      <option value="INVITED">Invitado</option>
+                      <option value="SUSPENDED">Suspendido</option>
+                    </select>
+                  </label>
+                </div>
 
                 <div className="grid gap-3">
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">
