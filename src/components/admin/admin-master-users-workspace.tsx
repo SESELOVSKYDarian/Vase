@@ -545,9 +545,9 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
   const isClientRole = selectedRole === "cliente";
   const isClientWizard = isClientRole;
   const clientWizardCanAdvance = isClientWizard ? (userWizardStep === 1 ? true : userWizardStep === 2 ? selectedModuleIds.length > 0 : true) : true;
-  const isProTenant = clientAccessConfig?.tenantPlan === "PRO";
   const showClientSection = isClientRole;
-  const canSelectSubmodule = isClientRole && isProTenant && availableSubmodules.length > 0;
+  const showSubmoduleCards = modules.length > 0 && isClientRole;
+  const canSelectSubmodule = false;
 
   return (
     <section className="grid gap-4">
@@ -776,6 +776,140 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                     <p className="text-sm text-[var(--muted)]">Trial para prueba, Pro para cliente confirmado. Pro habilita submodulo y limites ampliados.</p>
                   </div>
                 </div>
+
+                {showSubmoduleCards ? (
+                  <div className="grid gap-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">
+                      <Layers3 className="h-4 w-4" />
+                      Modulos y submodulos
+                    </div>
+
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      {modules.map((module) => {
+                        const moduleSelected = selectedModuleIds.includes(module.id);
+                        const selectedSubmoduleIds = clientAccessConfig?.proSubmoduleIds ?? [];
+                        const moduleSubmoduleIds = module.submodules.map((submodule) => submodule.id);
+                        const selectedSubmoduleCount = moduleSubmoduleIds.filter((submoduleId) =>
+                          selectedSubmoduleIds.includes(submoduleId),
+                        ).length;
+
+                        return (
+                          <article
+                            key={module.id}
+                            className={[
+                              "rounded-3xl border p-4 shadow-sm transition",
+                              moduleSelected
+                                ? "border-[var(--accent-strong)]/30 bg-[color-mix(in_srgb,var(--accent-strong)_4%,var(--surface))]"
+                                : "border-[var(--border-subtle)] bg-[var(--surface)] hover:border-[var(--accent-strong)]/20",
+                            ].join(" ")}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                                <input
+                                  type="checkbox"
+                                  checked={moduleSelected}
+                                  onChange={(event) => {
+                                    const nextChecked = event.target.checked;
+
+                                    setSelectedModuleIds((current) => {
+                                      const next = nextChecked
+                                        ? Array.from(new Set([...current, module.id]))
+                                        : current.filter((moduleId) => moduleId !== module.id);
+
+                                      setModuleLimitState((limitsCurrent) => {
+                                        const nextLimits = { ...limitsCurrent };
+                                        if (!nextChecked) delete nextLimits[module.id];
+                                        else if (!nextLimits[module.id]) {
+                                          nextLimits[module.id] = { pages: "", chatbots: "" };
+                                        }
+                                        return nextLimits;
+                                      });
+
+                                      return next;
+                                    });
+
+                                    if (!nextChecked) {
+                                      updateClientAccessConfig((current) => ({
+                                        ...current,
+                                        proSubmoduleIds: current.proSubmoduleIds.filter((submoduleId) => !moduleSubmoduleIds.includes(submoduleId)),
+                                      }));
+                                    }
+                                  }}
+                                  className="mt-1 h-4 w-4 rounded border-[var(--border-subtle)] text-[var(--accent-strong)]"
+                                />
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-semibold text-[var(--foreground)]">{module.name}</p>
+                                    <span className="rounded-full border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                                      {module.product === "BUSINESS" ? "Business" : "Labs"}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-xs text-[var(--muted)]">
+                                    {module.submodules.length > 0
+                                      ? `${module.submodules.length} submodulos disponibles`
+                                      : "Este modulo no tiene submodulos cargados."}
+                                  </p>
+                                </div>
+                              </label>
+                              <span className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                                {moduleSelected ? `${selectedSubmoduleCount} elegidos` : "Inactivo"}
+                              </span>
+                            </div>
+
+                            <div className="mt-4 grid gap-2">
+                              {module.submodules.length === 0 ? (
+                                <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--muted)]">
+                                  No hay submodulos para seleccionar.
+                                </div>
+                              ) : (
+                                module.submodules.map((submodule) => {
+                                  const checked = (clientAccessConfig?.proSubmoduleIds ?? []).includes(submodule.id);
+
+                                  return (
+                                    <label
+                                      key={submodule.id}
+                                      className={[
+                                        "flex items-center gap-3 rounded-2xl border px-3 py-3 transition",
+                                        moduleSelected
+                                          ? checked
+                                            ? "border-[var(--accent-strong)]/35 bg-[color-mix(in_srgb,var(--accent-strong)_8%,var(--surface))]"
+                                            : "border-[var(--border-subtle)] bg-[var(--surface)] hover:border-[var(--accent-strong)]/20"
+                                          : "cursor-not-allowed border-[var(--border-subtle)] bg-[var(--surface-strong)] opacity-60",
+                                      ].join(" ")}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        disabled={!moduleSelected}
+                                        onChange={(event) =>
+                                          updateClientAccessConfig((current) => {
+                                            const nextIds = event.target.checked
+                                              ? Array.from(new Set([...current.proSubmoduleIds, submodule.id]))
+                                              : current.proSubmoduleIds.filter((submoduleId) => submoduleId !== submodule.id);
+
+                                            return {
+                                              ...current,
+                                              proSubmoduleIds: nextIds,
+                                            };
+                                          })
+                                        }
+                                        className="h-4 w-4 rounded border-[var(--border-subtle)] text-[var(--accent-strong)] disabled:cursor-not-allowed"
+                                      />
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium text-[var(--foreground)]">{submodule.name}</p>
+                                        <p className="text-xs text-[var(--muted)]">Submodulo de {module.name}</p>
+                                      </div>
+                                    </label>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="grid gap-1">
