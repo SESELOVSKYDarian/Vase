@@ -166,12 +166,12 @@ export function StorefrontPagesTable({ pages }: { pages: StorefrontPageRow[] }) 
                     >
                       Conexion
                     </Link>
-                    <Link
-                      href={BUSINESS_LAUNCH_PATH as Route}
+                    <a
+                      href={BUSINESS_LAUNCH_PATH}
                       className="inline-flex min-h-10 items-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
                     >
                       Administrar
-                    </Link>
+                    </a>
                   </div>
                 </td>
               </tr>

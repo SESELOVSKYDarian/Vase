@@ -44,6 +44,7 @@ import { PricingModal } from "@/components/platform/pricing-modal";
 import { DashboardSupportWidget } from "@/components/support/dashboard-support-widget";
 import { SupportChatProvider } from "@/components/support/support-chat-context";
 import { BUSINESS_LAUNCH_PATH, BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
+import { requiresFullDocumentNavigation } from "@/lib/navigation/document-navigation";
 
 export interface Shortcut {
   id: string;
@@ -77,6 +78,32 @@ type AppShellProps = PropsWithChildren<{
     labs: { canCreate: boolean; remaining: number };
   };
 }>;
+
+function NavLink({
+  href,
+  className,
+  onClick,
+  children,
+}: {
+  href: string;
+  className?: string;
+  onClick?: () => void;
+  children: ReactNode;
+}) {
+  if (requiresFullDocumentNavigation(href)) {
+    return (
+      <a href={href} className={className} onClick={onClick}>
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href as Route} className={className} onClick={onClick}>
+      {children}
+    </Link>
+  );
+}
 
 type NavItem = {
   id: string;
@@ -209,6 +236,11 @@ export function AppShell({
             matched.target === "/app/business" || matched.target === BUSINESS_LAUNCH_PATH
               ? BUSINESS_WORKSPACE_PATH
               : matched.target;
+          if (requiresFullDocumentNavigation(target)) {
+            window.location.assign(target);
+            buffer = "";
+            return;
+          }
           try {
             routerRef.current.push(target as Route);
           } catch {
@@ -382,7 +414,7 @@ export function AppShell({
                   (item.children?.some((child) => pathname === child.href || pathname.startsWith(`${child.href}/`)) ?? false);
                 return (
                   <div key={item.id} className="space-y-1">
-                    <Link
+                    <NavLink
                       href={item.href as Route}
                       className={[
                         "flex items-center gap-3 rounded-xl px-4 py-3 text-[13px] transition-colors duration-200",
@@ -393,13 +425,13 @@ export function AppShell({
                     >
                       <Icon className="size-4" />
                       <span>{item.label}</span>
-                    </Link>
+                    </NavLink>
                     {item.children ? (
                       <div className="ml-7 space-y-1">
                         {item.children.map((child) => {
                           const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
                           return (
-                            <Link
+                            <NavLink
                               key={child.id}
                               href={child.href as Route}
                               className={[
@@ -410,7 +442,7 @@ export function AppShell({
                               ].join(" ")}
                             >
                               {child.label}
-                            </Link>
+                            </NavLink>
                           );
                         })}
                       </div>
@@ -477,7 +509,7 @@ export function AppShell({
                 {filteredResults.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <Link
+                    <NavLink
                       key={item.id}
                       href={item.href as Route}
                       className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-[var(--accent-soft)]"
@@ -493,7 +525,7 @@ export function AppShell({
                         <span className="text-sm font-semibold text-[var(--foreground)]">{item.label}</span>
                         <span className="text-[11px] text-[var(--muted)]">{item.description}</span>
                       </div>
-                    </Link>
+                    </NavLink>
                   );
                 })}
               </div>
@@ -573,7 +605,7 @@ export function AppShell({
                         key={notification.id}
                         className="group relative flex items-start gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 transition-all duration-200 hover:bg-[var(--accent-soft)]"
                       >
-                        <Link
+                        <NavLink
                           href={(notification.href ?? "#") as Route}
                           className="flex flex-1 items-start gap-3"
                           onClick={() => setIsNotificationsOpen(false)}
@@ -587,7 +619,7 @@ export function AppShell({
                               {notification.description}
                             </p>
                           </div>
-                        </Link>
+                        </NavLink>
                         {(notification.notificationType === "platform_update" || notification.notificationType === "admin_notification") && !notification.isRead && (
                           <button
                             onClick={async (e) => {
@@ -770,7 +802,7 @@ export function AppShell({
                     </div>
 
                     <div className="mt-8">
-                      <Link
+                      <NavLink
                         href={(isLocked ? "/precios" : option.creationRoute) as Route}
                         className={[
                           "inline-flex min-h-11 w-full items-center justify-center rounded-full px-5 text-sm font-semibold transition-all",
@@ -781,7 +813,7 @@ export function AppShell({
                         onClick={() => setIsNewProjectModalOpen(false)}
                       >
                         {isLocked ? "Ver planes" : "Comenzar"}
-                      </Link>
+                      </NavLink>
                     </div>
                   </div>
                 );

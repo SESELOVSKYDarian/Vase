@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LockKeyhole, MoveRight } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
 import { type PlatformModuleAccess, MODULE_ICON_MAP } from "@/config/modules";
+import { requiresFullDocumentNavigation } from "@/lib/navigation/document-navigation";
 
 type ModuleCardProps = {
   module: PlatformModuleAccess;
@@ -78,18 +79,33 @@ export function ModuleCard({ module }: ModuleCardProps) {
         <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted-soft)]">
           Flag: {module.featureFlagKey}
         </p>
-        <Link
-          href={primaryHref as Route}
-          className={[
-            "inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold transition-opacity hover:opacity-90",
-            module.isActive
-              ? "bg-[var(--accent-strong)] text-[var(--accent-contrast)]"
-              : "border border-[var(--border-subtle)] bg-[var(--surface-strong)] text-[var(--foreground)]",
-          ].join(" ")}
-        >
-          {primaryLabel}
-          <MoveRight className="size-4" />
-        </Link>
+        {requiresFullDocumentNavigation(primaryHref) ? (
+          <a
+            href={primaryHref}
+            className={[
+              "inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold transition-opacity hover:opacity-90",
+              module.isActive
+                ? "bg-[var(--accent-strong)] text-[var(--accent-contrast)]"
+                : "border border-[var(--border-subtle)] bg-[var(--surface-strong)] text-[var(--foreground)]",
+            ].join(" ")}
+          >
+            {primaryLabel}
+            <MoveRight className="size-4" />
+          </a>
+        ) : (
+          <Link
+            href={primaryHref as Route}
+            className={[
+              "inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold transition-opacity hover:opacity-90",
+              module.isActive
+                ? "bg-[var(--accent-strong)] text-[var(--accent-contrast)]"
+                : "border border-[var(--border-subtle)] bg-[var(--surface-strong)] text-[var(--foreground)]",
+            ].join(" ")}
+          >
+            {primaryLabel}
+            <MoveRight className="size-4" />
+          </Link>
+        )}
       </div>
     </article>
   );

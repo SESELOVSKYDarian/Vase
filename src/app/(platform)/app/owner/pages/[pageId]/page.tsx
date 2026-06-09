@@ -75,13 +75,13 @@ export default async function SiteDashboardPage({
                 Ver sitio en vivo
                 <ExternalLink className="size-4" />
               </a>
-              <Link
+              <a
                 href={BUSINESS_LAUNCH_PATH}
                 className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[var(--accent-strong)] px-8 text-sm font-semibold text-[var(--accent-contrast)] shadow-lg shadow-[var(--accent-soft)] hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
                 Abrir editor visual
                 <Layout className="size-4" />
-              </Link>
+              </a>
             </div>
           </div>
         </section>
@@ -93,9 +93,9 @@ export default async function SiteDashboardPage({
             title="Editor Visual"
             description="Personaliza textos, imágenes y secciones de tu sitio web sin código."
             actions={
-              <Link href={BUSINESS_LAUNCH_PATH} className="text-[var(--accent)]">
+              <a href={BUSINESS_LAUNCH_PATH} className="text-[var(--accent)]">
                 <ChevronRight className="size-6" />
-              </Link>
+              </a>
             }
           >
             <div className="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
@@ -125,9 +125,9 @@ export default async function SiteDashboardPage({
             title="SEO y Social"
             description="Configura como se ve tu sitio en Google y redes sociales."
             actions={
-              <Link href={BUSINESS_LAUNCH_PATH} className="text-[var(--accent)]">
+              <a href={BUSINESS_LAUNCH_PATH} className="text-[var(--accent)]">
                 <ChevronRight className="size-6" />
-              </Link>
+              </a>
             }
           >
             <div className="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">

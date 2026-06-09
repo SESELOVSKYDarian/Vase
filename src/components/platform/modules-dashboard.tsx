@@ -1,9 +1,11 @@
 import Link from "next/link";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 import { ArrowRight, Building2, CheckCircle2, Info, Lock, Sparkles, Store, TrendingUp, UserPlus, FlaskConical, TriangleAlert } from "lucide-react";
 import { PanelCard } from "@/components/ui/panel-card";
 import { ModuleCard } from "@/components/platform/module-card";
 import type { PlatformModuleAccess } from "@/config/modules";
+import { requiresFullDocumentNavigation } from "@/lib/navigation/document-navigation";
 
 type RecentEvent = {
   id: string;
@@ -73,6 +75,30 @@ type ModulesDashboardProps = {
   actorName?: string | null;
   dashboard: UnifiedDashboardData;
 };
+
+function DashboardLink({
+  href,
+  className,
+  children,
+}: {
+  href: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (requiresFullDocumentNavigation(href)) {
+    return (
+      <a href={href} className={className}>
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href as Route} className={className}>
+      {children}
+    </Link>
+  );
+}
 
 function formatMoney(amount: number) {
   return new Intl.NumberFormat("es-AR", {
@@ -260,12 +286,12 @@ export function ModulesDashboard({ actorName, dashboard }: ModulesDashboardProps
                 Dominios conectados: {dashboard.commerce.connectedDomains}/{dashboard.commerce.totalDomains}
               </p>
               <div className="mt-5">
-                <Link
-                  href={(businessModule?.isActive ? businessModule.route : businessModule?.activationRoute ?? "/precios") as Route}
+                <DashboardLink
+                  href={businessModule?.isActive ? businessModule.route : businessModule?.activationRoute ?? "/precios"}
                   className="inline-flex min-h-11 items-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
                 >
                   {businessModule?.isActive ? "Abrir Vase Business" : "Ver planes de Business"}
-                </Link>
+                </DashboardLink>
               </div>
             </div>
           </div>
@@ -306,12 +332,12 @@ export function ModulesDashboard({ actorName, dashboard }: ModulesDashboardProps
                 Conversaciones abiertas: {dashboard.labs.openConversations}. Base de conocimiento: {dashboard.labs.knowledgeItems}.
               </p>
               <div className="mt-5">
-                <Link
-                  href={(labsModule?.isActive ? labsModule.route : labsModule?.activationRoute ?? "/precios") as Route}
+                <DashboardLink
+                  href={labsModule?.isActive ? labsModule.route : labsModule?.activationRoute ?? "/precios"}
                   className="inline-flex min-h-11 items-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
                 >
                   {labsModule?.isActive ? "Abrir Vase Labs" : "Ver planes de Labs"}
-                </Link>
+                </DashboardLink>
               </div>
             </div>
           </div>
@@ -326,19 +352,19 @@ export function ModulesDashboard({ actorName, dashboard }: ModulesDashboardProps
                   {dashboard.recommendation.description}
                 </p>
                 <div className="flex flex-wrap gap-4 pt-2">
-                  <Link
-                    href={dashboard.recommendation.ctaHref as Route}
+                  <DashboardLink
+                    href={dashboard.recommendation.ctaHref}
                     className="rounded-full bg-[#18c37e] px-6 py-2 text-sm font-bold text-[#004a2c] transition-opacity hover:opacity-90"
                   >
                     {dashboard.recommendation.ctaLabel}
-                  </Link>
+                  </DashboardLink>
                   {businessModule ? (
-                    <Link
-                      href={(businessModule.isActive ? businessModule.route : businessModule.activationRoute) as Route}
+                    <DashboardLink
+                      href={businessModule.isActive ? businessModule.route : businessModule.activationRoute}
                       className="rounded-full border border-[var(--border-subtle)] px-6 py-2 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent-soft)]"
                     >
                       {businessModule.isActive ? "Abrir Business" : "Ver planes de Business"}
-                    </Link>
+                    </DashboardLink>
                   ) : null}
                 </div>
               </div>
@@ -437,12 +463,12 @@ export function ModulesDashboard({ actorName, dashboard }: ModulesDashboardProps
             <div className="h-4 w-full overflow-hidden rounded-full bg-[color:color-mix(in_srgb,var(--surface-strong)_70%,transparent)] opacity-60">
               <div className="h-full bg-[var(--accent-strong)]" style={{ width: `${dashboard.hero.score}%` }} />
             </div>
-            <Link
-              href={dashboard.recommendation.ctaHref as Route}
+            <DashboardLink
+              href={dashboard.recommendation.ctaHref}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[var(--border-strong)] text-sm font-bold text-[var(--foreground)] transition-colors hover:bg-[var(--accent-soft)]"
             >
               {dashboard.recommendation.title}
-            </Link>
+            </DashboardLink>
           </div>
         </div>
 
