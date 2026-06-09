@@ -3,6 +3,7 @@ type PlatformHostsInput = {
   appUrl?: string;
   trustedOrigins?: string | string[];
   labsHost?: string;
+  primaryHost?: string;
 };
 
 type EditorHostInput = {
@@ -45,6 +46,20 @@ function getConfiguredHostValues(input: PlatformHostsInput) {
   return [input.appUrl ?? process.env.NEXT_PUBLIC_APP_URL ?? "", ...readHostsFromValue(input.trustedOrigins ?? process.env.TRUSTED_ORIGINS)];
 }
 
+function normalizeComparableHost(value: string, nodeEnv: string | undefined) {
+  const normalized = normalizeHostCandidate(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (nodeEnv === "production" && normalized.includes(":") && !normalized.startsWith("[")) {
+    return normalized.split(":")[0] ?? normalized;
+  }
+
+  return normalized;
+}
+
 export function resolvePlatformHosts(input: PlatformHostsInput = {}) {
   const {
     nodeEnv = process.env.NODE_ENV,
@@ -60,7 +75,8 @@ export function resolvePlatformHosts(input: PlatformHostsInput = {}) {
 }
 
 export function isPlatformHost(hostname: string, input: PlatformHostsInput = {}) {
-  return resolvePlatformHosts(input).includes(hostname.trim().toLowerCase());
+  const nodeEnv = input.nodeEnv ?? process.env.NODE_ENV;
+  return resolvePlatformHosts(input).includes(normalizeComparableHost(hostname, nodeEnv));
 }
 
 export function resolveLabsHosts(input: PlatformHostsInput = {}) {
@@ -77,20 +93,27 @@ export function resolveLabsHosts(input: PlatformHostsInput = {}) {
 }
 
 export function isLabsHost(hostname: string, input: PlatformHostsInput = {}) {
-  return resolveLabsHosts(input).includes(hostname.trim().toLowerCase());
+  const nodeEnv = input.nodeEnv ?? process.env.NODE_ENV;
+  return resolveLabsHosts(input).includes(normalizeComparableHost(hostname, nodeEnv));
 }
 
 export function isLabsWorkspacePath(pathname: string) {
-  return (
-    pathname === "/app/labs" ||
-    pathname.startsWith("/app/labs/") ||
-    pathname === "/app/owner/labs" ||
-    pathname.startsWith("/app/owner/labs/")
-  );
+  return pathname === "/app/labs";
 }
 
 export function resolveLabsRedirectHost(input: PlatformHostsInput = {}) {
   return resolveLabsHosts(input)[0] ?? null;
+}
+
+export function resolvePrimaryPlatformHost(input: PlatformHostsInput = {}) {
+  const { nodeEnv = process.env.NODE_ENV, primaryHost = process.env.VASE_PRIMARY_HOST } = input;
+  const configuredHost = normalizeHostCandidate(primaryHost ?? "");
+
+  if (configuredHost) {
+    return configuredHost;
+  }
+
+  return nodeEnv === "production" ? "vase.ar" : "localhost:3000";
 }
 
 export function buildLabsHostRedirectUrl({
@@ -114,6 +137,39 @@ export function buildLabsHostRedirectUrl({
   }
 
   redirectUrl.host = labsHost;
+  if ((input.nodeEnv ?? process.env.NODE_ENV) === "production") {
+    redirectUrl.protocol = "https:";
+    redirectUrl.port = "";
+  }
+
+  return redirectUrl.toString();
+}
+
+export function buildPrimaryHostRedirectUrl({
+  hostname,
+  url,
+  input = {},
+}: {
+  hostname: string;
+  url: string;
+  input?: PlatformHostsInput;
+}) {
+  if (!isLabsHost(hostname, input)) {
+    return null;
+  }
+
+  const redirectUrl = new URL(url);
+  const isAllowedLabsPath =
+    redirectUrl.pathname === "/" ||
+    redirectUrl.pathname === "/app" ||
+    redirectUrl.pathname.startsWith("/api") ||
+    isLabsWorkspacePath(redirectUrl.pathname);
+
+  if (isAllowedLabsPath) {
+    return null;
+  }
+
+  redirectUrl.host = resolvePrimaryPlatformHost(input);
   if ((input.nodeEnv ?? process.env.NODE_ENV) === "production") {
     redirectUrl.protocol = "https:";
     redirectUrl.port = "";

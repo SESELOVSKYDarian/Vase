@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPrimaryHostRedirectUrl,
   buildLabsHostRedirectUrl,
   getDefaultPlatformPathForHost,
   isLabsWorkspacePath,
@@ -37,7 +38,7 @@ describe("platform host resolution", () => {
     expect(getDefaultPlatformPathForHost("vase.ar", input)).toBe("/app");
   });
 
-  it("redirects Labs workspace routes to the dedicated Labs host", () => {
+  it("redirects only the Labs entry route to the dedicated Labs host", () => {
     const input = {
       nodeEnv: "production",
       appUrl: "https://vase.ar",
@@ -45,8 +46,9 @@ describe("platform host resolution", () => {
     };
 
     expect(isLabsWorkspacePath("/app/labs")).toBe(true);
-    expect(isLabsWorkspacePath("/app/owner/labs")).toBe(true);
-    expect(isLabsWorkspacePath("/app/owner/labs/activity")).toBe(true);
+    expect(isLabsWorkspacePath("/app/labs/starter")).toBe(false);
+    expect(isLabsWorkspacePath("/app/owner/labs")).toBe(false);
+    expect(isLabsWorkspacePath("/app/owner/labs/activity")).toBe(false);
     expect(isLabsWorkspacePath("/app/owner")).toBe(false);
 
     expect(
@@ -55,7 +57,7 @@ describe("platform host resolution", () => {
         url: "https://vase.ar/app/owner/labs?tab=activity",
         input,
       }),
-    ).toBe("https://labs.vase.ar/app/owner/labs?tab=activity");
+    ).toBeNull();
     expect(
       buildLabsHostRedirectUrl({
         hostname: "vase.ar",
@@ -67,6 +69,50 @@ describe("platform host resolution", () => {
       buildLabsHostRedirectUrl({
         hostname: "labs.vase.ar",
         url: "https://labs.vase.ar/app/owner/labs",
+        input,
+      }),
+    ).toBeNull();
+  });
+
+  it("redirects non-Labs-entry routes from the Labs host back to the primary platform host", () => {
+    const input = {
+      nodeEnv: "production",
+      appUrl: "https://labs.vase.ar",
+      trustedOrigins: "https://vase.ar,https://labs.vase.ar",
+    };
+
+    expect(
+      buildPrimaryHostRedirectUrl({
+        hostname: "labs.vase.ar",
+        url: "https://labs.vase.ar/app/labs",
+        input,
+      }),
+    ).toBeNull();
+    expect(
+      buildPrimaryHostRedirectUrl({
+        hostname: "labs.vase.ar",
+        url: "https://labs.vase.ar/app/help",
+        input,
+      }),
+    ).toBe("https://vase.ar/app/help");
+    expect(
+      buildPrimaryHostRedirectUrl({
+        hostname: "labs.vase.ar",
+        url: "https://labs.vase.ar/app/owner/labs/activity?tab=recent",
+        input,
+      }),
+    ).toBe("https://vase.ar/app/owner/labs/activity?tab=recent");
+    expect(
+      buildPrimaryHostRedirectUrl({
+        hostname: "labs.vase.ar",
+        url: "https://labs.vase.ar/signin?redirectTo=%2Fapp%2Flabs",
+        input,
+      }),
+    ).toBe("https://vase.ar/signin?redirectTo=%2Fapp%2Flabs");
+    expect(
+      buildPrimaryHostRedirectUrl({
+        hostname: "labs.vase.ar",
+        url: "https://labs.vase.ar/api/modules",
         input,
       }),
     ).toBeNull();

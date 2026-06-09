@@ -10,6 +10,7 @@ import { resolveLocale } from "@/lib/i18n/locale";
 import { shouldDisablePlatformCache } from "@/lib/security/platform-cache";
 import { getCanonicalOrigin } from "@/lib/security/origin";
 import {
+  buildPrimaryHostRedirectUrl,
   buildLabsHostRedirectUrl,
   getDefaultPlatformPathForHost,
   isPlatformHost,
@@ -40,9 +41,17 @@ export default auth((request: NextRequest) => {
     hostname,
     url: request.url,
   });
+  const primaryHostRedirectUrl = buildPrimaryHostRedirectUrl({
+    hostname,
+    url: request.url,
+  });
 
   if (labsHostRedirectUrl) {
     return NextResponse.redirect(new URL(labsHostRedirectUrl));
+  }
+
+  if (primaryHostRedirectUrl) {
+    return NextResponse.redirect(new URL(primaryHostRedirectUrl));
   }
 
   if (defaultPlatformPath !== "/app" && (pathname === "/" || pathname === "/app")) {

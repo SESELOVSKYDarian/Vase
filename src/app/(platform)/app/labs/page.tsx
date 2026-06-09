@@ -1,5 +1,3 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { PanelCard } from "@/components/ui/panel-card";
@@ -33,19 +31,19 @@ export default async function LabsPage() {
     >
       <section className="grid gap-6 xl:grid-cols-3">
         <PanelCard eyebrow="Paso 1" title="Conecta un canal" description="Conecta WhatsApp o webchat para recibir mensajes.">
-          <Link href={"/app/owner/labs/integrations" as Route} className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]">
+          <a href="/app/owner/labs/integrations" className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]">
             Ir a integraciones
-          </Link>
+          </a>
         </PanelCard>
         <PanelCard eyebrow="Paso 2" title="Carga conocimiento" description="Agrega FAQs, archivos o URLs para entrenar respuestas.">
-          <Link href={"/app/owner/labs/chatbots" as Route} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]">
+          <a href="/app/owner/labs/chatbots" className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]">
             Configurar contenido
-          </Link>
+          </a>
         </PanelCard>
         <PanelCard eyebrow="Paso 3" title="Revisa resultados" description="Monitorea conversaciones y rendimiento en Labs.">
-          <Link href={"/app/owner/labs/activity" as Route} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]">
+          <a href="/app/owner/labs/activity" className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]">
             Ver analiticas
-          </Link>
+          </a>
         </PanelCard>
       </section>
     </AppShell>

@@ -4,7 +4,15 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type PropsWithChildren, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type PropsWithChildren,
+  type ReactNode,
+} from "react";
 import {
   Bell,
   Blocks,
@@ -44,7 +52,10 @@ import { PricingModal } from "@/components/platform/pricing-modal";
 import { DashboardSupportWidget } from "@/components/support/dashboard-support-widget";
 import { SupportChatProvider } from "@/components/support/support-chat-context";
 import { BUSINESS_LAUNCH_PATH, BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
-import { requiresFullDocumentNavigation } from "@/lib/navigation/document-navigation";
+import {
+  requiresFullDocumentNavigation,
+  resolveNavigationHrefForHost,
+} from "@/lib/navigation/document-navigation";
 
 export interface Shortcut {
   id: string;
@@ -79,6 +90,18 @@ type AppShellProps = PropsWithChildren<{
   };
 }>;
 
+function subscribeToRuntimeHost() {
+  return () => {};
+}
+
+function getRuntimeHostSnapshot() {
+  return typeof window === "undefined" ? null : window.location.host;
+}
+
+function getServerRuntimeHostSnapshot() {
+  return null;
+}
+
 function NavLink({
   href,
   className,
@@ -90,16 +113,24 @@ function NavLink({
   onClick?: () => void;
   children: ReactNode;
 }) {
-  if (requiresFullDocumentNavigation(href)) {
+  const runtimeHost = useSyncExternalStore(
+    subscribeToRuntimeHost,
+    getRuntimeHostSnapshot,
+    getServerRuntimeHostSnapshot,
+  );
+  const resolvedHref = resolveNavigationHrefForHost(href, runtimeHost);
+  const isExternalHref = /^https?:\/\//i.test(resolvedHref);
+
+  if (isExternalHref || requiresFullDocumentNavigation(resolvedHref)) {
     return (
-      <a href={href} className={className} onClick={onClick}>
+      <a href={resolvedHref} className={className} onClick={onClick}>
         {children}
       </a>
     );
   }
 
   return (
-    <Link href={href as Route} className={className} onClick={onClick}>
+    <Link href={resolvedHref as Route} className={className} onClick={onClick}>
       {children}
     </Link>
   );
@@ -236,13 +267,14 @@ export function AppShell({
             matched.target === "/app/business" || matched.target === BUSINESS_LAUNCH_PATH
               ? BUSINESS_WORKSPACE_PATH
               : matched.target;
-          if (requiresFullDocumentNavigation(target)) {
-            window.location.assign(target);
+          const resolvedTarget = resolveNavigationHrefForHost(target, window.location.host);
+          if (/^https?:\/\//i.test(resolvedTarget) || requiresFullDocumentNavigation(resolvedTarget)) {
+            window.location.assign(resolvedTarget);
             buffer = "";
             return;
           }
           try {
-            routerRef.current.push(target as Route);
+            routerRef.current.push(resolvedTarget as Route);
           } catch {
             // Router may not be ready yet; silently ignore
           }
