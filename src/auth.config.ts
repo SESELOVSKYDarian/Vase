@@ -2,6 +2,7 @@ import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { appConfig } from "@/config/app";
+import { createAuthCookiesConfig } from "@/lib/auth/cookies";
 import { getSessionDurationMs, type SessionPreference } from "@/lib/auth/session";
 import type { AppRole, PlatformRole } from "@/lib/auth/roles";
 
@@ -56,6 +57,7 @@ export const authConfig = {
     maxAge: appConfig.security.authSessionMaxAgeSeconds,
     updateAge: 60 * 30, // 30 minutes
   },
+  cookies: createAuthCookiesConfig(),
   useSecureCookies: process.env.NODE_ENV === "production",
   providers: [
     Credentials({
