@@ -38,12 +38,12 @@ export default async function LabsPage() {
           </Link>
         </PanelCard>
         <PanelCard eyebrow="Paso 2" title="Carga conocimiento" description="Agrega FAQs, archivos o URLs para entrenar respuestas.">
-          <Link href={"/app/owner/labs/settings" as Route} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]">
+          <Link href={"/app/owner/labs/chatbots" as Route} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]">
             Configurar contenido
           </Link>
         </PanelCard>
-        <PanelCard eyebrow="Paso 3" title="Revisa resultados" description="Monitorea conversaciones y rendimiento en Analiticas.">
-          <Link href={"/app/analytics" as Route} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]">
+        <PanelCard eyebrow="Paso 3" title="Revisa resultados" description="Monitorea conversaciones y rendimiento en Labs.">
+          <Link href={"/app/owner/labs/activity" as Route} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]">
             Ver analiticas
           </Link>
         </PanelCard>

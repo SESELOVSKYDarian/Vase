@@ -98,6 +98,7 @@ import { ensureModuleCatalogSynced, normalizePricingType } from "@/server/servic
 import {
   buildClientTenantAccessProvisioning,
   buildAdminCreatedUserVerification,
+  buildLabsWorkspaceProvisioning,
   getRoleMappingFromUiRole,
   shouldForceAdminCreatedUserPasswordReset,
   userAccessModuleIds,
@@ -1038,7 +1039,18 @@ export async function updateUserTenantAccessAction(
       }),
       prisma.tenant.findUnique({
         where: { id: parsed.data.tenantId },
-        select: { id: true, accountName: true },
+        select: {
+          id: true,
+          accountName: true,
+          name: true,
+          billingEmail: true,
+          subscription: {
+            select: {
+              plan: true,
+              premiumEnabled: true,
+            },
+          },
+        },
       }),
     ]);
 
@@ -1047,6 +1059,9 @@ export async function updateUserTenantAccessAction(
     }
 
     const now = new Date();
+    const activeModuleIds = buildActiveAccessModuleIds(parsed.data);
+    const tenantPlan = resolveTenantPlanFromSubscription(tenant.subscription);
+
     await prisma.$transaction(async (tx) => {
       await tx.membership.upsert({
         where: {
@@ -1103,6 +1118,21 @@ export async function updateUserTenantAccessAction(
           isActive: parsed.data.labsAccess,
           activatedAt: parsed.data.labsAccess ? now : null,
         },
+      });
+
+      await syncUserModuleAccess({
+        tx,
+        userId: parsed.data.userId,
+        moduleIds: activeModuleIds,
+      });
+
+      await syncTenantProductAndLabsWorkspace({
+        tx,
+        tenantId: parsed.data.tenantId,
+        moduleIds: activeModuleIds,
+        tenantPlan,
+        tenantName: tenant.name,
+        userEmail: user.email || tenant.billingEmail || "",
       });
     });
 
@@ -2065,31 +2095,81 @@ export async function setTenantModuleActivationAction(
       return { error: "Datos de activaciÃ³n invÃ¡lidos." };
     }
 
-    const publishedArtifact = await prisma.moduleArtifact.findFirst({
-      where: { moduleId: parsed.data.moduleId, isPublished: true },
-      orderBy: { publishedAt: "desc" },
-      select: { id: true },
-    });
+    const [publishedArtifact, tenant, currentTenantModules] = await Promise.all([
+      prisma.moduleArtifact.findFirst({
+        where: { moduleId: parsed.data.moduleId, isPublished: true },
+        orderBy: { publishedAt: "desc" },
+        select: { id: true },
+      }),
+      prisma.tenant.findUnique({
+        where: { id: parsed.data.tenantId },
+        select: {
+          id: true,
+          name: true,
+          billingEmail: true,
+          subscription: {
+            select: {
+              plan: true,
+              premiumEnabled: true,
+            },
+          },
+        },
+      }),
+      prisma.tenantModule.findMany({
+        where: {
+          tenantId: parsed.data.tenantId,
+          moduleId: { in: [userAccessModuleIds.business, userAccessModuleIds.labs] },
+        },
+        select: {
+          moduleId: true,
+          isActive: true,
+        },
+      }),
+    ]);
 
-    await prisma.tenantModule.upsert({
-      where: {
-        tenantId_moduleId: {
+    if (!tenant) {
+      return { error: "Tenant no encontrado." };
+    }
+
+    const currentModuleState = new Map(currentTenantModules.map((module) => [module.moduleId, module.isActive]));
+    if (parsed.data.moduleId === userAccessModuleIds.business || parsed.data.moduleId === userAccessModuleIds.labs) {
+      currentModuleState.set(parsed.data.moduleId, parsed.data.isActive);
+    }
+    const activeModuleIds = [userAccessModuleIds.business, userAccessModuleIds.labs].filter(
+      (moduleId) => currentModuleState.get(moduleId) === true,
+    );
+    const tenantPlan = resolveTenantPlanFromSubscription(tenant.subscription);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.tenantModule.upsert({
+        where: {
+          tenantId_moduleId: {
+            tenantId: parsed.data.tenantId,
+            moduleId: parsed.data.moduleId,
+          },
+        },
+        update: {
+          isActive: parsed.data.isActive,
+          activatedAt: parsed.data.isActive ? new Date() : null,
+          activeArtifactId: publishedArtifact?.id ?? null,
+        },
+        create: {
           tenantId: parsed.data.tenantId,
           moduleId: parsed.data.moduleId,
+          isActive: parsed.data.isActive,
+          activatedAt: parsed.data.isActive ? new Date() : null,
+          activeArtifactId: publishedArtifact?.id ?? null,
         },
-      },
-      update: {
-        isActive: parsed.data.isActive,
-        activatedAt: parsed.data.isActive ? new Date() : null,
-        activeArtifactId: publishedArtifact?.id ?? null,
-      },
-      create: {
+      });
+
+      await syncTenantProductAndLabsWorkspace({
+        tx,
         tenantId: parsed.data.tenantId,
-        moduleId: parsed.data.moduleId,
-        isActive: parsed.data.isActive,
-        activatedAt: parsed.data.isActive ? new Date() : null,
-        activeArtifactId: publishedArtifact?.id ?? null,
-      },
+        moduleIds: activeModuleIds,
+        tenantPlan,
+        tenantName: tenant.name,
+        userEmail: tenant.billingEmail || "",
+      });
     });
 
     await createAuditLog({
@@ -2441,7 +2521,18 @@ export async function updateUserTenantAccessSnapshotAction(
       }),
       prisma.tenant.findUnique({
         where: { id: parsed.data.tenantId },
-        select: { id: true, accountName: true },
+        select: {
+          id: true,
+          accountName: true,
+          name: true,
+          billingEmail: true,
+          subscription: {
+            select: {
+              plan: true,
+              premiumEnabled: true,
+            },
+          },
+        },
       }),
       prisma.moduleSubmodule.findMany({
         where: {
@@ -2457,6 +2548,10 @@ export async function updateUserTenantAccessSnapshotAction(
 
     const submoduleParentMap = new Map(submoduleCatalog.map((item) => [item.id, item.moduleId]));
     const moduleStateMap = new Map(parsed.data.modules.map((module) => [module.moduleId, module.isActive]));
+    const activeModuleIds = parsed.data.modules
+      .filter((module) => module.isActive)
+      .map((module) => module.moduleId);
+    const tenantPlan = resolveTenantPlanFromSubscription(tenant.subscription);
 
     for (const moduleAccess of parsed.data.modules) {
       for (const submodule of moduleAccess.submodules) {
@@ -2519,6 +2614,21 @@ export async function updateUserTenantAccessSnapshotAction(
           },
         });
       }
+
+      await syncUserModuleAccess({
+        tx,
+        userId: parsed.data.userId,
+        moduleIds: activeModuleIds,
+      });
+
+      await syncTenantProductAndLabsWorkspace({
+        tx,
+        tenantId: parsed.data.tenantId,
+        moduleIds: activeModuleIds,
+        tenantPlan,
+        tenantName: tenant.name,
+        userEmail: user.email || tenant.billingEmail || "",
+      });
 
       for (const moduleAccess of parsed.data.modules) {
         for (const submodule of moduleAccess.submodules) {
@@ -2616,19 +2726,41 @@ export async function createManualUserByAdminAction(
     }
 
     const tenantId = parsed.data.tenantId ? parsed.data.tenantId : null;
+    let tenantForManualAccess: {
+      id: string;
+      name: string;
+      billingEmail: string | null;
+      subscription: {
+        plan: "START" | "PREMIUM";
+        premiumEnabled: boolean;
+      } | null;
+    } | null = null;
+
     if (tenantId) {
       await ensureModuleCatalogSynced();
-      const tenantExists = await prisma.tenant.findUnique({
+      tenantForManualAccess = await prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { id: true },
+        select: {
+          id: true,
+          name: true,
+          billingEmail: true,
+          subscription: {
+            select: {
+              plan: true,
+              premiumEnabled: true,
+            },
+          },
+        },
       });
-      if (!tenantExists) {
+      if (!tenantForManualAccess) {
         return { error: "El tenant seleccionado no existe." };
       }
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
     const now = new Date();
+    const activeModuleIds = buildActiveAccessModuleIds(parsed.data);
+    const tenantPlan = resolveTenantPlanFromSubscription(tenantForManualAccess?.subscription);
 
     const createdUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -2701,6 +2833,21 @@ export async function createManualUserByAdminAction(
             isActive: parsed.data.labsAccess,
             activatedAt: parsed.data.labsAccess ? now : null,
           },
+        });
+
+        await syncUserModuleAccess({
+          tx,
+          userId: user.id,
+          moduleIds: activeModuleIds,
+        });
+
+        await syncTenantProductAndLabsWorkspace({
+          tx,
+          tenantId,
+          moduleIds: activeModuleIds,
+          tenantPlan,
+          tenantName: tenantForManualAccess?.name ?? parsed.data.name,
+          userEmail: parsed.data.email || tenantForManualAccess?.billingEmail || "",
         });
       }
 
@@ -4615,6 +4762,116 @@ function parseClientAccessConfig(rawValue: FormDataEntryValue | null): ClientAcc
   }
 }
 
+type TenantPlanForProvisioning = "TRIAL" | "PRO";
+type TenantSubscriptionPlanSource = {
+  plan: "START" | "PREMIUM";
+  premiumEnabled: boolean;
+} | null | undefined;
+
+function buildActiveAccessModuleIds(input: { businessAccess: boolean; labsAccess: boolean }) {
+  const moduleIds: string[] = [];
+  if (input.businessAccess) moduleIds.push(userAccessModuleIds.business);
+  if (input.labsAccess) moduleIds.push(userAccessModuleIds.labs);
+  return moduleIds;
+}
+
+function resolveTenantPlanFromSubscription(subscription: TenantSubscriptionPlanSource): TenantPlanForProvisioning {
+  return subscription?.plan === "PREMIUM" || subscription?.premiumEnabled ? "PRO" : "TRIAL";
+}
+
+function resolveOnboardingProductFromActiveModules(moduleIds: string[]) {
+  const hasBusiness = moduleIds.includes(userAccessModuleIds.business);
+  const hasLabs = moduleIds.includes(userAccessModuleIds.labs);
+
+  if (hasBusiness && hasLabs) return "BOTH";
+  if (hasLabs) return "LABS";
+  return "BUSINESS";
+}
+
+async function syncUserModuleAccess(params: {
+  tx: Prisma.TransactionClient;
+  userId: string;
+  moduleIds: string[];
+}) {
+  const activeModuleIds = new Set(params.moduleIds);
+
+  for (const moduleId of [userAccessModuleIds.business, userAccessModuleIds.labs]) {
+    const isActive = activeModuleIds.has(moduleId);
+
+    await params.tx.userModuleAccess.upsert({
+      where: {
+        userId_moduleId: {
+          userId: params.userId,
+          moduleId,
+        },
+      },
+      update: {
+        isActive,
+      },
+      create: {
+        userId: params.userId,
+        moduleId,
+        isActive,
+      },
+    });
+  }
+}
+
+async function syncTenantProductAndLabsWorkspace(params: {
+  tx: Prisma.TransactionClient;
+  tenantId: string;
+  moduleIds: string[];
+  tenantPlan: TenantPlanForProvisioning;
+  tenantName: string;
+  userEmail: string;
+}) {
+  await params.tx.tenant.update({
+    where: { id: params.tenantId },
+    data: {
+      onboardingProduct: resolveOnboardingProductFromActiveModules(params.moduleIds),
+    },
+  });
+
+  const labsWorkspace = buildLabsWorkspaceProvisioning({
+    moduleIds: params.moduleIds,
+    tenantPlan: params.tenantPlan,
+    tenantName: params.tenantName,
+    userEmail: params.userEmail,
+  });
+
+  if (!labsWorkspace) return;
+
+  await params.tx.tenantAiWorkspace.upsert({
+    where: { tenantId: params.tenantId },
+    update: {
+      plan: labsWorkspace.plan,
+      monthlyConversationLimit: labsWorkspace.monthlyConversationLimit,
+      monthlyKnowledgeItemLimit: labsWorkspace.monthlyKnowledgeItemLimit,
+      maxChannels: labsWorkspace.maxChannels,
+      maxFiles: labsWorkspace.maxFiles,
+      maxUrls: labsWorkspace.maxUrls,
+    },
+    create: {
+      tenantId: params.tenantId,
+      plan: labsWorkspace.plan,
+      assistantDisplayName: labsWorkspace.assistantDisplayName,
+      tone: labsWorkspace.tone,
+      trainingStatus: labsWorkspace.trainingStatus,
+      timezone: labsWorkspace.timezone,
+      businessHours: labsWorkspace.businessHours as Prisma.InputJsonValue,
+      humanEscalationEnabled: labsWorkspace.humanEscalationEnabled,
+      escalationDestination: labsWorkspace.escalationDestination,
+      escalationContact: labsWorkspace.escalationContact || null,
+      scrapingEnabled: labsWorkspace.scrapingEnabled,
+      monthlyConversationLimit: labsWorkspace.monthlyConversationLimit,
+      monthlyKnowledgeItemLimit: labsWorkspace.monthlyKnowledgeItemLimit,
+      maxChannels: labsWorkspace.maxChannels,
+      maxFiles: labsWorkspace.maxFiles,
+      maxUrls: labsWorkspace.maxUrls,
+    },
+  });
+}
+
 async function provisionClientWorkspaceFromMasterUser(params: {
   tx: Prisma.TransactionClient;
   userId: string;
@@ -4740,6 +4997,15 @@ async function provisionClientWorkspaceFromMasterUser(params: {
       },
     });
   }
+
+  await syncTenantProductAndLabsWorkspace({
+    tx: params.tx,
+    tenantId,
+    moduleIds: provisioning.activeModuleIds,
+    tenantPlan: params.clientAccessConfig.tenantPlan,
+    tenantName: params.clientAccessConfig.tenantName || params.userName,
+    userEmail: params.userEmail,
+  });
 
   const selectedSubmodules = await params.tx.moduleSubmodule.findMany({
     where: { moduleId: { in: [userAccessModuleIds.business, userAccessModuleIds.labs] } },

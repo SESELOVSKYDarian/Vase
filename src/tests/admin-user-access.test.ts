@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAdminCreatedUserVerification,
   buildClientTenantAccessProvisioning,
+  buildLabsWorkspaceProvisioning,
   buildTenantModuleAccessSummary,
   getRoleMappingFromUiRole,
   inferUiRoleFromStoredRoles,
@@ -130,5 +131,50 @@ describe("admin user access helpers", () => {
       onboardingProduct: "BUSINESS",
       activeModuleIds: ["vase_business"],
     });
+  });
+
+  it("builds the default Labs workspace when Labs is selected", () => {
+    expect(
+      buildLabsWorkspaceProvisioning({
+        moduleIds: ["vase_labs"],
+        tenantPlan: "TRIAL",
+        tenantName: "Cliente Vase",
+        userEmail: "cliente@vase.ar",
+      }),
+    ).toMatchObject({
+      plan: "START",
+      assistantDisplayName: "Cliente Vase AI",
+      escalationContact: "cliente@vase.ar",
+      monthlyConversationLimit: 300,
+      monthlyKnowledgeItemLimit: 25,
+      maxChannels: 1,
+      maxFiles: 8,
+      maxUrls: 5,
+    });
+
+    expect(
+      buildLabsWorkspaceProvisioning({
+        moduleIds: ["vase_labs"],
+        tenantPlan: "PRO",
+        tenantName: "Cliente Vase",
+        userEmail: "cliente@vase.ar",
+      }),
+    ).toMatchObject({
+      plan: "PREMIUM",
+      monthlyConversationLimit: 5000,
+      monthlyKnowledgeItemLimit: 120,
+      maxChannels: 3,
+      maxFiles: 40,
+      maxUrls: 30,
+    });
+
+    expect(
+      buildLabsWorkspaceProvisioning({
+        moduleIds: ["vase_business"],
+        tenantPlan: "PRO",
+        tenantName: "Cliente Vase",
+        userEmail: "cliente@vase.ar",
+      }),
+    ).toBeNull();
   });
 });

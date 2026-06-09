@@ -93,6 +93,7 @@ export async function getTenantModulesAccess(tenantId: string, userId?: string) 
   const modules: PlatformModuleAccess[] = platformModules.map((definition) => {
     const moduleRow = moduleRows.find((entry) => entry.id === definition.id);
     const flagActive = enabledFlags.has(definition.featureFlagKey);
+    const hasExplicitTenantModuleAccess = tenantModuleMap.has(definition.id);
     const tenantModuleActive = tenantModuleMap.get(definition.id) ?? false;
     const productActive = resolveProductMatch(definition.supportedProducts, tenant.onboardingProduct);
     const resourceActive =
@@ -102,7 +103,9 @@ export async function getTenantModulesAccess(tenantId: string, userId?: string) 
     const isActive =
       userCanAccessModule(definition.id) &&
       Boolean(moduleRow?.isActive) &&
-      (tenantModuleActive || flagActive || (productActive && resourceActive));
+      (hasExplicitTenantModuleAccess
+        ? tenantModuleActive
+        : flagActive || (productActive && resourceActive));
     const isRecommended =
       !isActive &&
       tenant.featureFlags.some(

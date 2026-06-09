@@ -1,53 +1,63 @@
 import { forbidden } from "next/navigation";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
 import { getLabsOwnerDashboard } from "@/server/queries/labs";
+import { getTenantModulesAccess } from "@/server/queries/modules";
 import { getTenantSupportOverview } from "@/server/queries/support";
 
-type OwnerMembership = Awaited<ReturnType<typeof requireTenantRole>>["membership"];
+type OwnerContext = Awaited<ReturnType<typeof requireTenantRole>>;
+type OwnerMembership = OwnerContext["membership"];
+type OwnerSession = OwnerContext["session"];
 type LabsDashboard = NonNullable<Awaited<ReturnType<typeof getLabsOwnerDashboard>>>;
 type SupportOverview = Awaited<ReturnType<typeof getTenantSupportOverview>>;
 
-function assertLabsEnabled(membership: OwnerMembership) {
-  return membership.tenant.onboardingProduct === "LABS" || membership.tenant.onboardingProduct === "BOTH";
+async function isLabsEnabledForUser(tenantId: string, userId: string) {
+  const modulesPayload = await getTenantModulesAccess(tenantId, userId);
+  return modulesPayload?.modules.some((module) => module.key === "labs" && module.isActive) ?? false;
 }
 
 export async function getLabsOwnerPageData() {
   let membership: OwnerMembership;
+  let session: OwnerSession;
 
   try {
-    ({ membership } = await requireTenantRole(tenantRoles.OWNER));
+    ({ membership, session } = await requireTenantRole(tenantRoles.OWNER));
   } catch {
     forbidden();
   }
 
-  const dashboard = await getLabsOwnerDashboard(membership.tenantId);
+  const [dashboard, labsEnabled] = await Promise.all([
+    getLabsOwnerDashboard(membership.tenantId),
+    isLabsEnabledForUser(membership.tenantId, session.user.id),
+  ]);
 
-  if (!dashboard) {
+  if (!dashboard || !labsEnabled) {
     forbidden();
   }
 
   return {
     membership,
     dashboard: dashboard as LabsDashboard,
-    labsEnabled: assertLabsEnabled(membership),
+    labsEnabled,
   };
 }
 
 export async function getLabsOwnerActivityData() {
   let membership: OwnerMembership;
+  let session: OwnerSession;
 
   try {
-    ({ membership } = await requireTenantRole(tenantRoles.OWNER));
+    ({ membership, session } = await requireTenantRole(tenantRoles.OWNER));
   } catch {
     forbidden();
   }
 
-  const [dashboard, supportOverview] = await Promise.all([
+  const [dashboard, supportOverview, labsEnabled] = await Promise.all([
     getLabsOwnerDashboard(membership.tenantId),
     getTenantSupportOverview(membership.tenantId),
+    isLabsEnabledForUser(membership.tenantId, session.user.id),
   ]);
 
-  if (!dashboard) {
+  if (!dashboard || !labsEnabled) {
     forbidden();
   }
 
@@ -55,7 +65,7 @@ export async function getLabsOwnerActivityData() {
     membership,
     dashboard: dashboard as LabsDashboard,
     supportOverview: supportOverview as SupportOverview,
-    labsEnabled: assertLabsEnabled(membership),
+    labsEnabled,
   };
 }
 

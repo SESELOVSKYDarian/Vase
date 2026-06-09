@@ -1,5 +1,6 @@
 import { platformModules } from "@/config/modules";
 import type { AppRole, PlatformRole } from "@/lib/auth/roles";
+import { getLabsPlanLimits } from "@/lib/labs/plans";
 
 export const userAccessModuleIds = {
   business: "vase_business",
@@ -53,6 +54,45 @@ export function buildClientTenantAccessProvisioning(input: ClientTenantProvision
     billingStatus: isPro ? "ACTIVE" : "TRIAL",
     activeModuleIds,
     activeSubmoduleIds,
+  } as const;
+}
+
+type LabsWorkspaceProvisioningInput = {
+  moduleIds: string[];
+  tenantPlan: "TRIAL" | "PRO";
+  tenantName: string;
+  userEmail: string;
+};
+
+export function buildLabsWorkspaceProvisioning(input: LabsWorkspaceProvisioningInput) {
+  if (!input.moduleIds.includes(userAccessModuleIds.labs)) {
+    return null;
+  }
+
+  const plan = input.tenantPlan === "PRO" ? "PREMIUM" : "START";
+  const limits = getLabsPlanLimits(plan);
+  const tenantName = input.tenantName.trim() || "Vase";
+
+  return {
+    plan,
+    assistantDisplayName: `${tenantName} AI`,
+    tone: "PROFESSIONAL",
+    trainingStatus: "DRAFT",
+    timezone: "America/Argentina/Buenos_Aires",
+    businessHours: {
+      days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+      hoursStart: "09:00",
+      hoursEnd: "18:00",
+    },
+    humanEscalationEnabled: false,
+    escalationDestination: "EMAIL",
+    escalationContact: input.userEmail.trim(),
+    scrapingEnabled: true,
+    monthlyConversationLimit: limits.monthlyConversationLimit,
+    monthlyKnowledgeItemLimit: limits.maxKnowledgeItems,
+    maxChannels: limits.maxChannels,
+    maxFiles: limits.maxFiles,
+    maxUrls: limits.maxUrls,
   } as const;
 }
 
