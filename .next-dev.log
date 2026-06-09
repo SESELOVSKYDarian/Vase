@@ -122,3 +122,22 @@ Creating turbopack project { dir: 'D:\\VSPROJECTS\\WEBS\\Vase', testMode: true }
  POST /signin 303 in 4.7s (next.js: 2ms, application-code: 4.7s)
  GET /app/admin 200 in 111ms (next.js: 2ms, application-code: 109ms)
  GET /app/admin/users 200 in 144ms (next.js: 2ms, application-code: 141ms)
+ GET /app/owner/labs/inbox 200 in 1505ms (next.js: 1445ms, application-code: 60ms)
+ GET /app/owner/labs/integrations 200 in 61ms (next.js: 4ms, application-code: 57ms)
+ GET /app/owner/labs/inbox 200 in 51ms (next.js: 2ms, application-code: 49ms)
+ GET /app/owner/labs/ai-tools 200 in 586ms (next.js: 519ms, application-code: 67ms)
+ GET /app/owner/labs/integrations 200 in 71ms (next.js: 3ms, application-code: 68ms)
+✓ Compiled in 270ms
+ GET /app/owner/labs/integrations 200 in 847ms (next.js: 484ms, application-code: 363ms)
+ GET /app/owner/labs/integrations 200 in 193ms (next.js: 6ms, application-code: 187ms)
+✓ Compiled in 347ms
+ GET /app/owner/labs/integrations 200 in 1091ms (next.js: 744ms, application-code: 347ms)
+ GET /app/owner/labs/integrations 200 in 234ms (next.js: 6ms, application-code: 228ms)
+ GET /app/owner/labs/integrations 200 in 534ms (next.js: 3ms, application-code: 531ms)
+ GET /app/owner/labs/integrations 200 in 478ms (next.js: 6ms, application-code: 472ms)
+ GET /app/owner/labs/integrations 200 in 362ms (next.js: 56ms, application-code: 307ms)
+ GET /app/owner/labs/integrations 200 in 365ms (next.js: 16ms, application-code: 349ms)
+✓ Compiled in 301ms
+ GET /app/owner/labs/integrations 200 in 716ms (next.js: 326ms, application-code: 390ms)
+✓ Compiled in 4s
+ GET /app/owner/labs/integrations 200 in 634ms (next.js: 386ms, application-code: 248ms)
