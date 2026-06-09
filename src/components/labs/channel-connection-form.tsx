@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useActionState } from "react";
+import { Check, Copy } from "lucide-react";
 import type { LabsActionState } from "@/app/(platform)/app/owner/labs/actions";
 import { connectLabsChannelAction } from "@/app/(platform)/app/owner/labs/actions";
 
@@ -11,9 +12,15 @@ type ChannelConnectionFormProps = {
   canUseInstagram: boolean;
   mode?: "ALL" | "META_ONLY" | "BAILEYS_ONLY";
   webhookPreviewUrl?: string;
+  initialWebhookVerifyToken?: string;
 };
 
-export function ChannelConnectionForm({ canUseInstagram, mode = "ALL", webhookPreviewUrl }: ChannelConnectionFormProps) {
+export function ChannelConnectionForm({
+  canUseInstagram,
+  mode = "ALL",
+  webhookPreviewUrl,
+  initialWebhookVerifyToken,
+}: ChannelConnectionFormProps) {
   const [state, formAction] = useActionState(connectLabsChannelAction, initialState);
   const [channelType, setChannelType] = useState("WHATSAPP");
   const [provider, setProvider] = useState(mode === "BAILEYS_ONLY" ? "OPENWA_UNOFFICIAL" : "META_OFFICIAL");
@@ -23,6 +30,13 @@ export function ChannelConnectionForm({ canUseInstagram, mode = "ALL", webhookPr
   const isOfficial = effectiveProvider === "META_OFFICIAL";
   const isOpenWaOnly = mode === "BAILEYS_ONLY";
   const [copiedField, setCopiedField] = useState<"webhook" | "token" | null>(null);
+  const [webhookVerifyToken] = useState(
+    () =>
+      initialWebhookVerifyToken ||
+      (mode !== "BAILEYS_ONLY" && isOfficial
+        ? `vase_meta_preview_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`
+        : ""),
+  );
   const officialHelper = useMemo(
     () => "Credenciales oficiales de Meta Cloud API. Recomendado para alta confiabilidad.",
     [],
@@ -39,6 +53,18 @@ export function ChannelConnectionForm({ canUseInstagram, mode = "ALL", webhookPr
       await navigator.clipboard.writeText(value);
       setCopiedField(kind);
       window.setTimeout(() => setCopiedField((prev) => (prev === kind ? null : prev)), 1800);
+    } catch {
+      setCopiedField(null);
+    }
+  };
+
+  const copyMetaSetup = async () => {
+    const lines = [webhookPreviewUrl ? `Callback URL: ${webhookPreviewUrl}` : null, webhookVerifyToken ? `Verify Token: ${webhookVerifyToken}` : null].filter(Boolean);
+    if (!lines.length) return;
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setCopiedField("token");
+      window.setTimeout(() => setCopiedField(null), 1800);
     } catch {
       setCopiedField(null);
     }
@@ -94,7 +120,19 @@ export function ChannelConnectionForm({ canUseInstagram, mode = "ALL", webhookPr
 
       {isWhatsApp ? (
         <div className="grid gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-4">
-          <p className="text-sm font-medium text-[var(--foreground)]">{isOfficial ? officialHelper : unofficialHelper}</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <p className="text-sm font-medium text-[var(--foreground)]">{isOfficial ? officialHelper : unofficialHelper}</p>
+            {isOfficial && (webhookPreviewUrl || webhookVerifyToken) ? (
+              <button
+                type="button"
+                onClick={copyMetaSetup}
+                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-white/80 px-4 text-xs font-semibold text-[var(--foreground)] transition hover:bg-white"
+              >
+                {copiedField ? <Check className="size-4" /> : <Copy className="size-4" />}
+                {copiedField ? "Copiado" : "Copiar todo"}
+              </button>
+            ) : null}
+          </div>
           {isOfficial && webhookPreviewUrl ? (
             <div className="grid gap-2 rounded-2xl border border-[#18c37e]/25 bg-[#f1fbf5] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2b6b4f]">Callback URL lista para copiar</p>
@@ -105,8 +143,9 @@ export function ChannelConnectionForm({ canUseInstagram, mode = "ALL", webhookPr
                 <button
                   type="button"
                   onClick={() => copyValue("webhook", webhookPreviewUrl)}
-                  className="min-h-10 rounded-full border border-[#b9e7cc] px-4 text-xs font-semibold text-[#2b6b4f]"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#b9e7cc] px-4 text-xs font-semibold text-[#2b6b4f]"
                 >
+                  {copiedField === "webhook" ? <Check className="size-4" /> : <Copy className="size-4" />}
                   {copiedField === "webhook" ? "Copiado" : "Copiar URL"}
                 </button>
               </div>
@@ -114,10 +153,29 @@ export function ChannelConnectionForm({ canUseInstagram, mode = "ALL", webhookPr
           ) : null}
           {isOfficial ? (
             <>
+              <input type="hidden" name="verifyToken" value={webhookVerifyToken} />
+              <div className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-white/70 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Verify Token</p>
+                  <button
+                    type="button"
+                    onClick={() => copyValue("token", webhookVerifyToken)}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold text-[var(--foreground)]"
+                  >
+                    {copiedField === "token" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copiedField === "token" ? "Copiado" : "Copiar token"}
+                  </button>
+                </div>
+                <code className="break-all rounded-xl border border-[var(--border-subtle)] bg-white px-3 py-2 text-xs text-[var(--foreground)]">
+                  {webhookVerifyToken}
+                </code>
+                <p className="text-xs leading-6 text-[var(--muted)]">
+                  Usa este mismo token en Meta antes de presionar verificar. Vase lo reconocerá desde el inicio.
+                </p>
+              </div>
               <input name="accessToken" placeholder="Meta Access Token" className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
               <input name="phoneNumberId" placeholder="Phone Number ID" className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
               <input name="appSecret" placeholder="App Secret (firma webhook)" className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
-              <input name="verifyToken" placeholder="Verify Token (opcional, autogenerado si vacio)" className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
             </>
           ) : (
             <>
@@ -153,8 +211,9 @@ export function ChannelConnectionForm({ canUseInstagram, mode = "ALL", webhookPr
                 <button
                   type="button"
                   onClick={() => copyValue("webhook", state.webhookUrl)}
-                  className="min-h-10 rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold text-[var(--foreground)]"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold text-[var(--foreground)]"
                 >
+                  {copiedField === "webhook" ? <Check className="size-4" /> : <Copy className="size-4" />}
                   {copiedField === "webhook" ? "Copiado" : "Copiar URL"}
                 </button>
               </div>
@@ -170,8 +229,9 @@ export function ChannelConnectionForm({ canUseInstagram, mode = "ALL", webhookPr
                 <button
                   type="button"
                   onClick={() => copyValue("token", state.webhookVerifyToken)}
-                  className="min-h-10 rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold text-[var(--foreground)]"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold text-[var(--foreground)]"
                 >
+                  {copiedField === "token" ? <Check className="size-4" /> : <Copy className="size-4" />}
                   {copiedField === "token" ? "Copiado" : "Copiar token"}
                 </button>
               </div>

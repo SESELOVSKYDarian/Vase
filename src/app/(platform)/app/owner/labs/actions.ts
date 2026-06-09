@@ -27,6 +27,7 @@ import { createAuditLog } from "@/server/services/audit-log";
 import { queueAiTrainingJob } from "@/server/services/labs-training";
 import { createSecurityEvent } from "@/server/services/security-events";
 import { ensureBaileysRuntime, getBaileysState, refreshBaileysQr } from "@/server/services/baileys-gateway";
+import { generateMetaWebhookVerifyToken } from "@/lib/integrations/meta-webhook";
 
 export type LabsActionState = {
   success?: string;
@@ -542,7 +543,7 @@ export async function connectLabsChannelAction(
       };
     }
 
-    const verifyToken = parsed.data.verifyToken || `vase_${randomBytes(8).toString("hex")}`;
+    const verifyToken = parsed.data.verifyToken || generateMetaWebhookVerifyToken(membership.tenant.slug);
     let channelConfig: Prisma.InputJsonValue | undefined;
     let openWaQrAutoInfo: string | undefined;
 
