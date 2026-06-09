@@ -1,7 +1,12 @@
 import { appConfig } from "@/config/app";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 import Script from "next/script";
 import { IBM_Plex_Mono, Manrope, Newsreader } from "next/font/google";
+import {
+  VASE_GOOGLE_ANALYTICS_ID,
+  shouldLoadVaseGoogleAnalytics,
+} from "@/lib/analytics/google-analytics";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
 import "./globals.css";
 
@@ -50,6 +55,10 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const locale = await getRequestLocale();
+  const requestHeaders = await headers();
+  const loadVaseGoogleAnalytics = shouldLoadVaseGoogleAnalytics({
+    requestHost: requestHeaders.get("host"),
+  });
 
   return (
     <html
@@ -59,6 +68,20 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-foreground">
+        {loadVaseGoogleAnalytics ? (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${VASE_GOOGLE_ANALYTICS_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="vase-google-analytics" strategy="afterInteractive">
+              {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${VASE_GOOGLE_ANALYTICS_ID}');`}
+            </Script>
+          </>
+        ) : null}
         <Script id="vase-theme-init" strategy="beforeInteractive">
           {`try {
             var storedTheme = localStorage.getItem("vase-panel-theme");
