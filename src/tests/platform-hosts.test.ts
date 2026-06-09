@@ -38,7 +38,7 @@ describe("platform host resolution", () => {
     expect(getDefaultPlatformPathForHost("vase.ar", input)).toBe("/app");
   });
 
-  it("redirects only the Labs entry route to the dedicated Labs host", () => {
+  it("redirects Labs routes to the dedicated Labs host", () => {
     const input = {
       nodeEnv: "production",
       appUrl: "https://vase.ar",
@@ -46,9 +46,9 @@ describe("platform host resolution", () => {
     };
 
     expect(isLabsWorkspacePath("/app/labs")).toBe(true);
-    expect(isLabsWorkspacePath("/app/labs/starter")).toBe(false);
-    expect(isLabsWorkspacePath("/app/owner/labs")).toBe(false);
-    expect(isLabsWorkspacePath("/app/owner/labs/activity")).toBe(false);
+    expect(isLabsWorkspacePath("/app/labs/starter")).toBe(true);
+    expect(isLabsWorkspacePath("/app/owner/labs")).toBe(true);
+    expect(isLabsWorkspacePath("/app/owner/labs/activity")).toBe(true);
     expect(isLabsWorkspacePath("/app/owner")).toBe(false);
 
     expect(
@@ -57,7 +57,7 @@ describe("platform host resolution", () => {
         url: "https://vase.ar/app/owner/labs?tab=activity",
         input,
       }),
-    ).toBeNull();
+    ).toBe("https://labs.vase.ar/app/owner/labs?tab=activity");
     expect(
       buildLabsHostRedirectUrl({
         hostname: "vase.ar",
@@ -74,7 +74,7 @@ describe("platform host resolution", () => {
     ).toBeNull();
   });
 
-  it("redirects non-Labs-entry routes from the Labs host back to the primary platform host", () => {
+  it("redirects non-Labs routes from the Labs host back to the primary platform host", () => {
     const input = {
       nodeEnv: "production",
       appUrl: "https://labs.vase.ar",
@@ -101,7 +101,7 @@ describe("platform host resolution", () => {
         url: "https://labs.vase.ar/app/owner/labs/activity?tab=recent",
         input,
       }),
-    ).toBe("https://vase.ar/app/owner/labs/activity?tab=recent");
+    ).toBeNull();
     expect(
       buildPrimaryHostRedirectUrl({
         hostname: "labs.vase.ar",

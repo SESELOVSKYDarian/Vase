@@ -19,6 +19,15 @@ function isInternalPath(href: string) {
   return href.startsWith("/") && !href.startsWith("//");
 }
 
+function isLabsNavigationPath(pathname: string) {
+  return (
+    pathname === "/app/labs" ||
+    pathname.startsWith("/app/labs/") ||
+    pathname === "/app/owner/labs" ||
+    pathname.startsWith("/app/owner/labs/")
+  );
+}
+
 export function resolveNavigationHrefForHost(href: string, hostname: string | null | undefined) {
   if (!isLabsHost(hostname) || !isInternalPath(href)) {
     return href;
@@ -26,7 +35,7 @@ export function resolveNavigationHrefForHost(href: string, hostname: string | nu
 
   const pathname = readPathname(href);
 
-  if (pathname === "/app/labs") {
+  if (isLabsNavigationPath(pathname)) {
     return href;
   }
 
@@ -40,8 +49,6 @@ export function requiresFullDocumentNavigation(href: string | null | undefined) 
 
   return (
     href === BUSINESS_LAUNCH_PATH ||
-    pathname === "/app/labs" ||
-    pathname === "/app/owner/labs" ||
-    pathname.startsWith("/app/owner/labs/")
+    isLabsNavigationPath(pathname)
   );
 }

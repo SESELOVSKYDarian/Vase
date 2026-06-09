@@ -98,7 +98,12 @@ export function isLabsHost(hostname: string, input: PlatformHostsInput = {}) {
 }
 
 export function isLabsWorkspacePath(pathname: string) {
-  return pathname === "/app/labs";
+  return (
+    pathname === "/app/labs" ||
+    pathname.startsWith("/app/labs/") ||
+    pathname === "/app/owner/labs" ||
+    pathname.startsWith("/app/owner/labs/")
+  );
 }
 
 export function resolveLabsRedirectHost(input: PlatformHostsInput = {}) {
