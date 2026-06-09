@@ -9,7 +9,7 @@ import { hasActiveSession } from "@/lib/auth/session";
 import { resolveLocale } from "@/lib/i18n/locale";
 import { shouldDisablePlatformCache } from "@/lib/security/platform-cache";
 import { getCanonicalOrigin } from "@/lib/security/origin";
-import { isPlatformHost, resolveEditorHost } from "@/lib/security/platform-hosts";
+import { getDefaultPlatformPathForHost, isPlatformHost, resolveEditorHost } from "@/lib/security/platform-hosts";
 
 const { auth } = NextAuth(authConfig);
 
@@ -30,6 +30,11 @@ export default auth((request: NextRequest) => {
   const editorHost = resolveEditorHost();
   const isBaseDomain = isPlatformHost(hostname);
   const isEditorDomain = hostname === editorHost;
+  const defaultPlatformPath = getDefaultPlatformPathForHost(hostname);
+
+  if (defaultPlatformPath !== "/app" && (pathname === "/" || pathname === "/app")) {
+    return NextResponse.redirect(new URL(defaultPlatformPath, request.url));
+  }
 
   // 2. Definir rutas reservadas que NO deben ser reescritas al storefront
   const isReservedPath = 
@@ -56,7 +61,7 @@ export default auth((request: NextRequest) => {
   const isEmailVerified = Boolean(authRequest.auth?.user?.isEmailVerified);
   const authPageRedirectPath = getAuthPageRedirectPath({
     pathname,
-    redirectTo: "/app",
+    redirectTo: defaultPlatformPath,
     isSignedIn,
     isEmailVerified,
   });

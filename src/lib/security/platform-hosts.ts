@@ -2,6 +2,7 @@ type PlatformHostsInput = {
   nodeEnv?: string;
   appUrl?: string;
   trustedOrigins?: string | string[];
+  labsHost?: string;
 };
 
 type EditorHostInput = {
@@ -40,16 +41,18 @@ function readHostsFromValue(value?: string | string[]) {
   return Array.from(new Set(hosts));
 }
 
+function getConfiguredHostValues(input: PlatformHostsInput) {
+  return [input.appUrl ?? process.env.NEXT_PUBLIC_APP_URL ?? "", ...readHostsFromValue(input.trustedOrigins ?? process.env.TRUSTED_ORIGINS)];
+}
+
 export function resolvePlatformHosts(input: PlatformHostsInput = {}) {
   const {
     nodeEnv = process.env.NODE_ENV,
-    appUrl = process.env.NEXT_PUBLIC_APP_URL,
-    trustedOrigins = process.env.TRUSTED_ORIGINS,
   } = input;
   const defaults = nodeEnv === "production" ? ["vase.ar", "www.vase.ar"] : ["localhost:3000"];
   const hosts = new Set(defaults);
 
-  for (const host of readHostsFromValue([appUrl ?? "", ...readHostsFromValue(trustedOrigins)])) {
+  for (const host of readHostsFromValue(getConfiguredHostValues(input))) {
     hosts.add(host);
   }
 
@@ -58,6 +61,27 @@ export function resolvePlatformHosts(input: PlatformHostsInput = {}) {
 
 export function isPlatformHost(hostname: string, input: PlatformHostsInput = {}) {
   return resolvePlatformHosts(input).includes(hostname.trim().toLowerCase());
+}
+
+export function resolveLabsHosts(input: PlatformHostsInput = {}) {
+  const { nodeEnv = process.env.NODE_ENV, labsHost = process.env.VASE_LABS_HOST } = input;
+  const hosts = new Set(nodeEnv === "production" ? ["labs.vase.ar"] : []);
+
+  for (const host of readHostsFromValue([labsHost ?? "", ...getConfiguredHostValues(input)])) {
+    if (host === "labs.vase.ar" || host.startsWith("labs.")) {
+      hosts.add(host);
+    }
+  }
+
+  return Array.from(hosts);
+}
+
+export function isLabsHost(hostname: string, input: PlatformHostsInput = {}) {
+  return resolveLabsHosts(input).includes(hostname.trim().toLowerCase());
+}
+
+export function getDefaultPlatformPathForHost(hostname: string, input: PlatformHostsInput = {}) {
+  return isLabsHost(hostname, input) ? "/app/labs" : "/app";
 }
 
 export function resolveEditorHost(input: EditorHostInput = {}) {

@@ -1,10 +1,12 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { auth } from "@/auth";
 import { SignInForm } from "@/components/auth/sign-in-form";
 import { getAuthPageRedirectPath } from "@/lib/auth/protected-app-redirect";
 import { hasActiveSession } from "@/lib/auth/session";
+import { getDefaultPlatformPathForHost } from "@/lib/security/platform-hosts";
 
 type SignInPageProps = {
   searchParams: Promise<{ reset?: string; redirectTo?: string; callbackUrl?: string }>;
@@ -32,7 +34,9 @@ function normalizeRedirectTarget(value?: string) {
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
-  const redirectTo = normalizeRedirectTarget(params.redirectTo ?? params.callbackUrl);
+  const requestHeaders = await headers();
+  const defaultRedirectTo = getDefaultPlatformPathForHost(requestHeaders.get("host") ?? "");
+  const redirectTo = normalizeRedirectTarget(params.redirectTo ?? params.callbackUrl ?? defaultRedirectTo);
   const session = await auth();
   const authPageRedirectPath = getAuthPageRedirectPath({
     pathname: "/signin",
