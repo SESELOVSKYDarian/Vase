@@ -3,7 +3,8 @@
 Estrategia: **1 App Service** (Next.js, desde el `Dockerfile` raíz) + **1 MySQL Service**.  
 EasyPanel gestiona el reverse proxy, SSL y dominio — **no se usa Caddy ni docker-compose** en este modo.
 
-Si además vas a usar `vase-app` para lanzar el editor externo de Business en `editor.vase.ar`, revisa también [`business-editor-bridge.md`](business-editor-bridge.md).
+Si además vas a usar `vase-app` para lanzar el editor externo de Business en `editor.vase.ar`, revisa tambien [`business-editor-bridge.md`](business-editor-bridge.md).
+Si queres levantar `vase-labs` como un segundo App Service desde este mismo repo, revisa tambien [`easypanel-vase-labs.md`](easypanel-vase-labs.md).
 
 ---
 
@@ -68,8 +69,9 @@ DATABASE_URL=mysql://vase_user:S3cur3Pass\!@mysql:3306/vase
 
 ## Paso 4 — Variables de entorno
 
-Cargá todas las variables en **Service → Environment**.  
+Carga todas las variables en **Service → Environment**.  
 Referencia completa en `.env.easypanel.example`.
+Si vas a separar Labs en un segundo App Service, usa la misma base y cambia solo las variables por servicio indicadas al final del ejemplo.
 
 ### Variables obligatorias
 
@@ -85,7 +87,7 @@ Referencia completa en `.env.easypanel.example`.
 | `NODE_ENV` | `production` | fijo |
 | `PORT` | `3000` | fijo |
 | `HOSTNAME` | `0.0.0.0` | fijo |
-| `MASTER_ADMIN_PASSWORD` | `vase0091218**` | crea/actualiza el Master Admin al arrancar |
+| `MASTER_ADMIN_PASSWORD` | `define una password fuerte` | crea/actualiza el Master Admin al arrancar |
 | `MASTER_ADMIN_EMAIL` | `vasescompany912@gmail.com` | opcional; si no se define usa este email |
 | `TEST_ACCOUNT_PASSWORD` | contraseña de prueba | opcional; crea/actualiza una cuenta cliente de prueba al arrancar |
 | `TEST_ACCOUNT_EMAIL` | `prueba.piquim@vase.local` | opcional; email de la cuenta cliente de prueba |
@@ -125,7 +127,7 @@ Estas variables conectan `vase.ar` con el servicio `uploads.vase.ar`. `UPLOADS_J
 | Variable | Valor de produccion |
 |---|---|
 | `UPLOADS_BASE_URL` | `https://uploads.vase.ar` |
-| `UPLOADS_JWT_SECRET` | `zDpmaD5A5DU0e2iuan+luSH0XwJn2e/ytayVztQScNCCdsKdGScrhB6RxpzAXhQ7` |
+| `UPLOADS_JWT_SECRET` | `usa el mismo secreto real que en uploads-service` |
 
 > 💡 Usá **EasyPanel Secrets** para `DATABASE_URL`, `AUTH_SECRET`, `SMTP_PASS` y cualquier token/key sensible.
 

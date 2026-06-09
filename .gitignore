@@ -38,6 +38,7 @@ open-wa-session*.json
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.easypanel.example
 
 # vercel
 .vercel

@@ -50,10 +50,11 @@ docker compose --profile chatbot --profile automation up -d
 
 ## Deploy en EasyPanel
 
-Estrategia: **1 App Service** (Dockerfile raíz) + **1 MySQL Service**.  
-EasyPanel gestiona el reverse proxy y SSL — **no se usa docker-compose ni Caddy** en este modo.
+Estrategia base: **1 App Service** (Dockerfile raiz) + **1 MySQL Service**.  
+EasyPanel gestiona el reverse proxy y SSL - **no se usa docker-compose ni Caddy** en este modo.
 
 - Guía completa paso a paso: [`docs/deployment/easypanel.md`](docs/deployment/easypanel.md)
+- Segundo App Service para Labs desde el mismo repo: [`docs/deployment/easypanel-vase-labs.md`](docs/deployment/easypanel-vase-labs.md)
 - Variables de entorno: [`.env.easypanel.example`](.env.easypanel.example)
 - Bridge de acceso a Business Editor: [`docs/deployment/business-editor-bridge.md`](docs/deployment/business-editor-bridge.md)
 - Build Argument requerido: `NEXT_PUBLIC_APP_URL=https://tu-dominio.com`
