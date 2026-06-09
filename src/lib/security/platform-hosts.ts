@@ -116,6 +116,7 @@ export function buildLabsHostRedirectUrl({
   redirectUrl.host = labsHost;
   if ((input.nodeEnv ?? process.env.NODE_ENV) === "production") {
     redirectUrl.protocol = "https:";
+    redirectUrl.port = "";
   }
 
   return redirectUrl.toString();

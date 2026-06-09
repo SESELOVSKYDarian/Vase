@@ -58,6 +58,13 @@ describe("platform host resolution", () => {
     ).toBe("https://labs.vase.ar/app/owner/labs?tab=activity");
     expect(
       buildLabsHostRedirectUrl({
+        hostname: "vase.ar",
+        url: "https://vase.ar:3000/app/labs",
+        input,
+      }),
+    ).toBe("https://labs.vase.ar/app/labs");
+    expect(
+      buildLabsHostRedirectUrl({
         hostname: "labs.vase.ar",
         url: "https://labs.vase.ar/app/owner/labs",
         input,
