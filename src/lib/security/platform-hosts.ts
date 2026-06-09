@@ -80,6 +80,47 @@ export function isLabsHost(hostname: string, input: PlatformHostsInput = {}) {
   return resolveLabsHosts(input).includes(hostname.trim().toLowerCase());
 }
 
+export function isLabsWorkspacePath(pathname: string) {
+  return (
+    pathname === "/app/labs" ||
+    pathname.startsWith("/app/labs/") ||
+    pathname === "/app/owner/labs" ||
+    pathname.startsWith("/app/owner/labs/")
+  );
+}
+
+export function resolveLabsRedirectHost(input: PlatformHostsInput = {}) {
+  return resolveLabsHosts(input)[0] ?? null;
+}
+
+export function buildLabsHostRedirectUrl({
+  hostname,
+  url,
+  input = {},
+}: {
+  hostname: string;
+  url: string;
+  input?: PlatformHostsInput;
+}) {
+  const redirectUrl = new URL(url);
+
+  if (!isLabsWorkspacePath(redirectUrl.pathname) || isLabsHost(hostname, input)) {
+    return null;
+  }
+
+  const labsHost = resolveLabsRedirectHost(input);
+  if (!labsHost) {
+    return null;
+  }
+
+  redirectUrl.host = labsHost;
+  if ((input.nodeEnv ?? process.env.NODE_ENV) === "production") {
+    redirectUrl.protocol = "https:";
+  }
+
+  return redirectUrl.toString();
+}
+
 export function getDefaultPlatformPathForHost(hostname: string, input: PlatformHostsInput = {}) {
   return isLabsHost(hostname, input) ? "/app/labs" : "/app";
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildLabsHostRedirectUrl,
   getDefaultPlatformPathForHost,
+  isLabsWorkspacePath,
   isLabsHost,
   isPlatformHost,
   resolveEditorHost,
@@ -33,6 +35,34 @@ describe("platform host resolution", () => {
     expect(isLabsHost("vase.ar", input)).toBe(false);
     expect(getDefaultPlatformPathForHost("labs.vase.ar", input)).toBe("/app/labs");
     expect(getDefaultPlatformPathForHost("vase.ar", input)).toBe("/app");
+  });
+
+  it("redirects Labs workspace routes to the dedicated Labs host", () => {
+    const input = {
+      nodeEnv: "production",
+      appUrl: "https://vase.ar",
+      trustedOrigins: "https://vase.ar",
+    };
+
+    expect(isLabsWorkspacePath("/app/labs")).toBe(true);
+    expect(isLabsWorkspacePath("/app/owner/labs")).toBe(true);
+    expect(isLabsWorkspacePath("/app/owner/labs/activity")).toBe(true);
+    expect(isLabsWorkspacePath("/app/owner")).toBe(false);
+
+    expect(
+      buildLabsHostRedirectUrl({
+        hostname: "vase.ar",
+        url: "https://vase.ar/app/owner/labs?tab=activity",
+        input,
+      }),
+    ).toBe("https://labs.vase.ar/app/owner/labs?tab=activity");
+    expect(
+      buildLabsHostRedirectUrl({
+        hostname: "labs.vase.ar",
+        url: "https://labs.vase.ar/app/owner/labs",
+        input,
+      }),
+    ).toBeNull();
   });
 
   it("uses the configured editor URL host when present", () => {

@@ -9,7 +9,12 @@ import { hasActiveSession } from "@/lib/auth/session";
 import { resolveLocale } from "@/lib/i18n/locale";
 import { shouldDisablePlatformCache } from "@/lib/security/platform-cache";
 import { getCanonicalOrigin } from "@/lib/security/origin";
-import { getDefaultPlatformPathForHost, isPlatformHost, resolveEditorHost } from "@/lib/security/platform-hosts";
+import {
+  buildLabsHostRedirectUrl,
+  getDefaultPlatformPathForHost,
+  isPlatformHost,
+  resolveEditorHost,
+} from "@/lib/security/platform-hosts";
 
 const { auth } = NextAuth(authConfig);
 
@@ -31,6 +36,14 @@ export default auth((request: NextRequest) => {
   const isBaseDomain = isPlatformHost(hostname);
   const isEditorDomain = hostname === editorHost;
   const defaultPlatformPath = getDefaultPlatformPathForHost(hostname);
+  const labsHostRedirectUrl = buildLabsHostRedirectUrl({
+    hostname,
+    url: request.url,
+  });
+
+  if (labsHostRedirectUrl) {
+    return NextResponse.redirect(new URL(labsHostRedirectUrl));
+  }
 
   if (defaultPlatformPath !== "/app" && (pathname === "/" || pathname === "/app")) {
     return NextResponse.redirect(new URL(defaultPlatformPath, request.url));
