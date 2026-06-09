@@ -20,3 +20,8 @@ export function generateMetaWebhookVerifyToken(tenantSlug: string) {
 
   return `${META_WEBHOOK_TOKEN_PREFIX}_${signature}`;
 }
+
+export function resolveMetaWebhookVerifyToken(tenantSlug: string) {
+  const legacyToken = process.env.META_VERIFY_TOKEN?.trim();
+  return legacyToken || generateMetaWebhookVerifyToken(tenantSlug);
+}

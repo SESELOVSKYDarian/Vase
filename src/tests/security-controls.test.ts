@@ -1,13 +1,34 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import {
   assertSafeExternalUrl,
   sanitizeAllowedPathList,
 } from "@/lib/security/external-requests";
+import {
+  generateMetaWebhookVerifyToken,
+  resolveMetaWebhookVerifyToken,
+} from "@/lib/integrations/meta-webhook";
 import { validateUpload } from "@/lib/security/upload";
 import { buildWebhookHeaders, verifyWebhookSignature } from "@/lib/integrations/webhooks";
 
 describe("security controls", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("resolves the Meta webhook token consistently", () => {
+    vi.stubEnv("META_VERIFY_TOKEN", "");
+
+    expect(generateMetaWebhookVerifyToken("sanitarios-el-teflon")).toMatch(/^vase_meta_[a-f0-9]{32}$/);
+    expect(resolveMetaWebhookVerifyToken("sanitarios-el-teflon")).toMatch(/^vase_meta_[a-f0-9]{32}$/);
+  });
+
+  it("prefers the legacy Meta webhook token when provided", () => {
+    vi.stubEnv("META_VERIFY_TOKEN", "legacy_token");
+
+    expect(resolveMetaWebhookVerifyToken("sanitarios-el-teflon")).toBe("legacy_token");
+  });
+
   it("accepts same-origin mutating requests", () => {
     expect(() =>
       assertSameOrigin(

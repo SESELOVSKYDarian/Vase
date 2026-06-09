@@ -3,7 +3,7 @@ import { KnowledgeUrlForm } from "@/components/labs/knowledge-url-form";
 import { OpenWaQrCard } from "@/components/labs/openwa-qr-card";
 import { StatusBadge } from "@/components/business/status-badge";
 import { PanelCard } from "@/components/ui/panel-card";
-import { generateMetaWebhookVerifyToken } from "@/lib/integrations/meta-webhook";
+import { resolveMetaWebhookVerifyToken } from "@/lib/integrations/meta-webhook";
 import { channelTone, getLabsOwnerPageData, trainingTone } from "../_lib/labs-owner";
 import { LabsModuleDisabledCard } from "../ui";
 
@@ -11,7 +11,7 @@ export default async function LabsIntegrationsPage() {
   const { dashboard, labsEnabled, membership } = await getLabsOwnerPageData();
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://vase.ar").trim().replace(/\/$/, "");
   const webhookPreviewUrl = `${appUrl}/api/v1/channels/whatsapp/${membership.tenant.slug}/webhook`;
-  const webhookVerifyToken = generateMetaWebhookVerifyToken(membership.tenant.slug);
+  const webhookVerifyToken = resolveMetaWebhookVerifyToken(membership.tenant.slug);
 
   return (
     <div className="space-y-8">
