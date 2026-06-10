@@ -28,7 +28,7 @@ export const connectChannelSchema = z.object({
   accountLabel: z.string().trim().max(80).optional(),
   externalHandle: z.string().trim().max(120).optional(),
   notes: z.string().trim().max(240).optional(),
-  accessToken: z.string().trim().max(240).optional(),
+  accessToken: z.string().trim().max(4096).optional(),
   phoneNumberId: z.string().trim().max(120).optional(),
   appSecret: z.string().trim().max(240).optional(),
   verifyToken: z.string().trim().max(120).optional(),
