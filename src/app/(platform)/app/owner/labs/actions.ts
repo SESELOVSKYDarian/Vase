@@ -476,28 +476,35 @@ export async function connectLabsChannelAction(
   formData: FormData,
 ): Promise<LabsActionState> {
   try {
+    const readFormValue = (fieldName: string) => {
+      const value = formData.get(fieldName);
+      return typeof value === "string" ? value : undefined;
+    };
     const requestContext = await getRequestContext();
     const session = await requireVerifiedUser();
     const { membership } = await requireTenantRole(tenantRoles.OWNER);
     const workspace = await requireLabsWorkspace(membership.tenantId);
     const limits = getLabsPlanLimits(workspace.plan);
     const parsed = connectChannelSchema.safeParse({
-      channelType: formData.get("channelType"),
-      provider: formData.get("provider"),
-      accountLabel: sanitizeText(String(formData.get("accountLabel") ?? "")),
-      externalHandle: sanitizeNullableText(String(formData.get("externalHandle") ?? "")) ?? undefined,
-      notes: sanitizeNullableText(String(formData.get("notes") ?? "")) ?? undefined,
-      accessToken: sanitizeNullableText(String(formData.get("accessToken") ?? "")) ?? undefined,
-      phoneNumberId: sanitizeNullableText(String(formData.get("phoneNumberId") ?? "")) ?? undefined,
-      appSecret: sanitizeNullableText(String(formData.get("appSecret") ?? "")) ?? undefined,
-      verifyToken: sanitizeNullableText(String(formData.get("verifyToken") ?? "")) ?? undefined,
-      openwaBaseUrl: sanitizeNullableText(String(formData.get("openwaBaseUrl") ?? "")) ?? undefined,
-      openwaApiKey: sanitizeNullableText(String(formData.get("openwaApiKey") ?? "")) ?? undefined,
+      channelType: readFormValue("channelType"),
+      provider: readFormValue("provider"),
+      accountLabel: sanitizeNullableText(readFormValue("accountLabel")) ?? undefined,
+      externalHandle: sanitizeNullableText(readFormValue("externalHandle")) ?? undefined,
+      notes: sanitizeNullableText(readFormValue("notes")) ?? undefined,
+      accessToken: sanitizeNullableText(readFormValue("accessToken")) ?? undefined,
+      phoneNumberId: sanitizeNullableText(readFormValue("phoneNumberId")) ?? undefined,
+      appSecret: sanitizeNullableText(readFormValue("appSecret")) ?? undefined,
+      verifyToken: sanitizeNullableText(readFormValue("verifyToken")) ?? undefined,
+      openwaBaseUrl: sanitizeNullableText(readFormValue("openwaBaseUrl")) ?? undefined,
+      openwaApiKey: sanitizeNullableText(readFormValue("openwaApiKey")) ?? undefined,
     });
 
     if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
       return {
-        error: "Revisa el canal, la cuenta y los datos de conexion.",
+        error: firstIssue
+          ? `Revisa ${firstIssue.path.join(".") || "el formulario"}: ${firstIssue.message}.`
+          : "Revisa el canal, la cuenta y los datos de conexion.",
       };
     }
 
