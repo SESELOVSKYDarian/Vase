@@ -4,7 +4,6 @@ import {
   Bot,
   Boxes,
   ChartSpline,
-  Globe2,
   Layers3,
   Settings2,
   ShoppingBag,
@@ -50,7 +49,7 @@ const features = [
   {
     title: "Ecommerce personalizado",
     body: "Para marcas con requerimientos diferenciales de UX, branding, integraciones o recorridos comerciales mas complejos.",
-    image: "/listo.png",
+    image: "/vase-business-ecommerce-personalizado.png",
   },
   {
     title: "Integracion con gestion",
@@ -89,6 +88,18 @@ const businessSignals = [
   { label: "Integracion", value: "ERP, stock, pedidos y clientes" },
   { label: "Escalabilidad", value: "Base editable + capa custom" },
 ] as const;
+
+function getFeatureImageClass(image: string) {
+  if (image === "/listo.png") {
+    return "bg-black object-contain p-8";
+  }
+
+  if (image.startsWith("/vase-business-")) {
+    return "bg-white object-contain p-2";
+  }
+
+  return "object-cover";
+}
 
 export default function VaseBusinessPage() {
   return (
@@ -153,7 +164,7 @@ export default function VaseBusinessPage() {
               <div className="relative z-10 translate-x-2 rotate-[2deg] overflow-hidden rounded-[2.5rem] border border-white/70 shadow-[0_28px_70px_rgba(25,28,27,0.1)]">
                 <img
                   alt="Dashboard de Vase Business"
-                  className="aspect-[4/3] w-full object-cover"
+                  className="aspect-[4/3] w-full bg-white object-contain p-2"
                   src={features[0].image}
                 />
               </div>
@@ -279,7 +290,7 @@ export default function VaseBusinessPage() {
                       alt={feature.title}
                       className={[
                         "h-52 w-full transition duration-700 hover:scale-105",
-                        feature.image === "/listo.png" ? "bg-black object-contain p-8" : "object-cover",
+                        getFeatureImageClass(feature.image),
                       ].join(" ")}
                       src={feature.image}
                     />
