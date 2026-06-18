@@ -45,14 +45,12 @@ const features = [
   {
     title: "Plantilla editable premium",
     body: "Ideal para negocios que necesitan velocidad, claridad editorial y una base prolija para salir a mercado.",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDwvEJDHlKrslOpQa6d_lxepMUOWo9RqunM_FmXhmrNHAUTkHBD2cY4O2YVWy9s04u6usTkxMZyN8lp4f0RZYfcapkSJWejP8vIKHKEV82H6T67lPzR-5zS4CIrqz3cPgAilUIZTYsvrduwVJPbD2cD3NmndYxYyHj51eKQwzuDn1SjBz4N6xdOBaDU-67pq8gHixVvLA3njAzuHgsnBY3FQ2JDDL8PoooNcBfmQnJbzY7m8nS63gKsdvK-chg2wllg82MqD8wK_HM",
+    image: "/vase-business-dashboard.png",
   },
   {
     title: "Ecommerce personalizado",
     body: "Para marcas con requerimientos diferenciales de UX, branding, integraciones o recorridos comerciales mas complejos.",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDPWSUxYt3yqtLLQ9eKantBi74jA_5AaXdEtiNw8BxlRepbhexOUERXXeZPYhFDtuLuwbZ_E3GBI2RWKWPc_u7nYdCvu3sLeEEx7i3VhhBnkWfIvMkaLu2tF2ixzdQxwyUSDD2Kgdhl6lg2WrLFX8hbLeolO8UWswT_vZs_eWQUOKnNISLOTfeUSm4Dpy2_E_XdRMxXNb8O5gsH9wfNgyk01dbFWs4Fpq0cR67_elc7P3YNlXKMk3BmsmXy6QgECbsQpeRsL1WLEuM",
+    image: "/listo.png",
   },
   {
     title: "Integracion con gestion",
@@ -279,7 +277,10 @@ export default function VaseBusinessPage() {
                   <div className="overflow-hidden rounded-[1.6rem] bg-[#eceeec]">
                     <img
                       alt={feature.title}
-                      className="h-52 w-full object-cover transition duration-700 hover:scale-105"
+                      className={[
+                        "h-52 w-full transition duration-700 hover:scale-105",
+                        feature.image === "/listo.png" ? "bg-black object-contain p-8" : "object-cover",
+                      ].join(" ")}
                       src={feature.image}
                     />
                   </div>
@@ -299,9 +300,9 @@ export default function VaseBusinessPage() {
           <div className="mx-auto flex w-full max-w-[92rem] flex-col items-center gap-16 lg:flex-row">
             <div className="relative w-full lg:w-1/2">
               <img
-                alt="Equipo operando con Vase Business"
-                className="relative z-10 aspect-[4/5] w-full rounded-[3rem] object-cover shadow-[0_28px_70px_rgba(25,28,27,0.1)]"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_4nnzoa49xXSGSe9FdXT49QeA7tzyQtbk9zV8LHKQTqhw-eBjEghMB2soZ87JyPAK2gJLSzyRzCR1audpLcf3S__R7B_uFp1ZEmHDDDPyYXDJedRN6L-RS76CKuOr4uHgti2nMXsO8mXCSJk0Hor4WCszen1NqoibO2wa_yWC4GulRB79qUj-I3Y7rfq7UrTXT_fwwFtpvNgW1Cg_xugqJQYhUkNzRewwDa7PMNfT-jVO27YqqCPKIysgWyOCAVmh288XgQpiRLk"
+                alt="Listo para operar con Vase Business"
+                className="relative z-10 aspect-[4/5] w-full rounded-[3rem] bg-black object-contain p-12 shadow-[0_28px_70px_rgba(25,28,27,0.1)] sm:p-16"
+                src="/listo.png"
               />
               <div className="absolute right-0 top-1/4 h-56 w-56 rounded-full bg-[#18c37e]/14 blur-3xl" />
             </div>
