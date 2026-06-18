@@ -18,7 +18,15 @@ function extractKnowledgeAnswers(knowledgeText?: string, limit = 3) {
     .map((match) => match[1]?.replace(/\s+/g, " ").trim())
     .filter(Boolean) as string[];
 
-  return matches.slice(0, limit);
+  if (matches.length > 0) {
+    return matches.slice(0, limit);
+  }
+
+  return knowledgeText
+    .split(/\n{2,}/)
+    .map((block) => block.replace(/\s+/g, " ").trim())
+    .filter((block) => block.length > 0)
+    .slice(0, limit);
 }
 
 function tonePrefix(config: TenantAiRuntimeConfig) {

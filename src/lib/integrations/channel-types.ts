@@ -4,6 +4,7 @@ export type InboundChannelMessage = {
   tenantId: string;
   channelType: AiChannelType;
   externalThreadKey: string;
+  externalMessageId?: string | null;
   customerName?: string | null;
   customerContact?: string | null;
   text?: string | null;

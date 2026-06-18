@@ -9,6 +9,7 @@ type ConversationMetadata = {
   state: string;
   context: Record<string, unknown>;
   transcript: Array<{ role: "user" | "assistant"; content: string }>;
+  processedInboundIds: string[];
 };
 
 export async function getOrCreateConversation(input: {
@@ -40,13 +41,14 @@ export async function getOrCreateConversation(input: {
       state: "IDLE",
       context: {},
       transcript: [],
+      processedInboundIds: [],
     },
   });
 }
 
 export function readConversationMetadata(metadata: unknown): ConversationMetadata {
   if (!metadata || typeof metadata !== "object") {
-    return { state: "IDLE", context: {}, transcript: [] };
+    return { state: "IDLE", context: {}, transcript: [], processedInboundIds: [] };
   }
 
   const source = metadata as Record<string, unknown>;
@@ -56,7 +58,18 @@ export function readConversationMetadata(metadata: unknown): ConversationMetadat
     transcript: Array.isArray(source.transcript)
       ? (source.transcript as Array<{ role: "user" | "assistant"; content: string }>)
       : [],
+    processedInboundIds: Array.isArray(source.processedInboundIds)
+      ? source.processedInboundIds.filter((value): value is string => typeof value === "string").slice(-50)
+      : [],
   };
+}
+
+export function hasProcessedInboundMessage(metadata: unknown, externalMessageId?: string | null) {
+  if (!externalMessageId) {
+    return false;
+  }
+
+  return readConversationMetadata(metadata).processedInboundIds.includes(externalMessageId);
 }
 
 export function isAiPaused(metadata: unknown) {
@@ -68,15 +81,20 @@ export async function persistInboundMessage(input: {
   conversationId: string;
   metadata: unknown;
   userMessage: string;
+  externalMessageId?: string | null;
 }) {
   const current = readConversationMetadata(input.metadata);
   const transcript = [...current.transcript, { role: "user" as const, content: input.userMessage }].slice(-20);
+  const processedInboundIds = input.externalMessageId
+    ? [...new Set([...current.processedInboundIds, input.externalMessageId])].slice(-50)
+    : current.processedInboundIds;
 
   return updateConversationState({
     conversationId: input.conversationId,
     metadata: {
       ...current,
       transcript,
+      processedInboundIds,
     },
     incrementMessageCount: true,
     inbound: true,
@@ -103,6 +121,7 @@ export async function persistOutboundMessage(input: {
       state: input.state ?? current.state ?? "IDLE",
       context: input.context ?? current.context ?? {},
       transcript,
+      processedInboundIds: current.processedInboundIds,
     },
     incrementMessageCount: true,
     outbound: true,

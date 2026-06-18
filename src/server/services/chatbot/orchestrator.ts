@@ -5,6 +5,7 @@ import type { InboundChannelMessage } from "@/lib/integrations/channel-types";
 import { dispatchChannelReply } from "@/server/services/chatbot/channel-dispatch";
 import {
   getOrCreateConversation,
+  hasProcessedInboundMessage,
   isAiPaused,
   persistInboundMessage,
   persistOutboundMessage,
@@ -51,13 +52,19 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
     return { ignored: true };
   }
 
-  await persistInboundMessage({
+  if (hasProcessedInboundMessage(conversation.metadata, message.externalMessageId)) {
+    return { conversationId: conversation.id, duplicate: true };
+  }
+
+  const updatedConversation = await persistInboundMessage({
     conversationId: conversation.id,
     metadata: conversation.metadata,
     userMessage: text,
+    externalMessageId: message.externalMessageId,
   });
+  const conversationMetadata = updatedConversation?.metadata ?? conversation.metadata;
 
-  if (isAiPaused(conversation.metadata)) {
+  if (isAiPaused(conversationMetadata)) {
     return { conversationId: conversation.id, paused: true };
   }
 
@@ -66,7 +73,7 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
     aiConfig,
     conversation: {
       id: conversation.id,
-      metadata: conversation.metadata,
+      metadata: conversationMetadata,
       customerName: conversation.customerName,
       customerContact: conversation.customerContact,
     },
@@ -75,7 +82,7 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
 
   await persistOutboundMessage({
     conversationId: conversation.id,
-    metadata: conversation.metadata,
+    metadata: conversationMetadata,
     assistantMessage: decision.reply,
     state: decision.state,
     context: decision.context,

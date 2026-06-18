@@ -14,6 +14,10 @@ vi.mock("@/server/services/chatbot/channel-dispatch", () => ({
 
 vi.mock("@/server/services/chatbot/conversation-state", () => ({
   getOrCreateConversation: vi.fn(),
+  hasProcessedInboundMessage: vi.fn((metadata: unknown, externalMessageId?: string | null) => {
+    const source = metadata as { processedInboundIds?: string[] };
+    return Boolean(externalMessageId && source.processedInboundIds?.includes(externalMessageId));
+  }),
   isAiPaused: vi.fn().mockReturnValue(false),
   persistInboundMessage: vi.fn().mockResolvedValue(undefined),
   persistOutboundMessage: vi.fn().mockResolvedValue(undefined),
@@ -94,11 +98,13 @@ describe("chatbot orchestrator", () => {
       text: "hola",
     });
 
-    expect(persistInboundMessage).toHaveBeenCalledWith({
-      conversationId: "conversation-1",
-      metadata: { transcript: [] },
-      userMessage: "hola",
-    });
+    expect(persistInboundMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: "conversation-1",
+        metadata: { transcript: [] },
+        userMessage: "hola",
+      }),
+    );
     expect(mockedPersistOutboundMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         conversationId: "conversation-1",
@@ -113,5 +119,46 @@ describe("chatbot orchestrator", () => {
         deliveryError: "WhatsApp send failed: Authentication Error",
       }),
     );
+  });
+
+  it("ignores duplicate inbound messages with the same external message id", async () => {
+    mockedGetOrCreateConversation.mockResolvedValueOnce({
+      id: "conversation-1",
+      tenantId: "tenant-1",
+      workspaceId: "workspace-1",
+      channelType: "WHATSAPP",
+      externalThreadKey: "thread-1",
+      customerName: "Alexis",
+      customerContact: "5492230000000",
+      status: "OPEN",
+      aiPaused: false,
+      assignedToUserId: null,
+      metadata: {
+        transcript: [{ role: "user", content: "messi" }],
+        processedInboundIds: ["wamid.duplicate"],
+      },
+      summary: null,
+      lastMessageAt: null,
+      messageCount: 1,
+      escalatedAt: null,
+      closedAt: null,
+      createdAt: new Date("2026-06-18T16:36:00.000Z"),
+      updatedAt: new Date("2026-06-18T16:36:00.000Z"),
+    });
+
+    const result = await handleInboundChannelMessage({
+      tenantId: "tenant-1",
+      channelType: "WHATSAPP",
+      externalThreadKey: "thread-1",
+      customerName: "Alexis",
+      customerContact: "5492230000000",
+      text: "messi",
+      externalMessageId: "wamid.duplicate",
+    });
+
+    expect(result).toEqual({ conversationId: "conversation-1", duplicate: true });
+    expect(persistInboundMessage).not.toHaveBeenCalled();
+    expect(mockedRouteInboundMessage).not.toHaveBeenCalled();
+    expect(mockedDispatchChannelReply).not.toHaveBeenCalled();
   });
 });

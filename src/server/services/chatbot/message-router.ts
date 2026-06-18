@@ -1,4 +1,5 @@
 import { buildTenantKnowledgeContext, generateAssistantReply, summarizeConversation, type TenantAiRuntimeConfig } from "@/server/services/ai";
+import { processQueuedKnowledgeItems } from "@/server/services/ai/knowledge-processing";
 import { resolveBookingReply } from "@/server/services/chatbot/booking-flow";
 import { readConversationMetadata } from "@/server/services/chatbot/conversation-state";
 import { escalateConversation, shouldEscalateToHuman } from "@/server/services/chatbot/escalation";
@@ -51,6 +52,11 @@ export async function routeInboundMessage(input: {
       summary: null,
     };
   }
+
+  await processQueuedKnowledgeItems(
+    input.tenantConfig.tenantId,
+    input.tenantConfig.workspaceId,
+  );
 
   const knowledge = await buildTenantKnowledgeContext(
     input.tenantConfig.tenantId,

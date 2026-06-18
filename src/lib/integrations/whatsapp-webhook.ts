@@ -54,6 +54,7 @@ export function parseWhatsAppWebhookMessage(input: {
     tenantId: input.tenantId,
     channelType: input.channelType || "WHATSAPP",
     externalThreadKey: String(rawMessage.from || contact?.wa_id || ""),
+    externalMessageId: typeof rawMessage.id === "string" ? rawMessage.id : null,
     customerName: contact?.profile?.name || null,
     customerContact: String(rawMessage.from || contact?.wa_id || ""),
     text,
