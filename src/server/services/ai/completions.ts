@@ -1,5 +1,6 @@
 import { buildSummaryPrompt } from "@/server/services/ai/prompts";
 import type { TenantAiRuntimeConfig } from "@/server/services/ai/models";
+import { clampConversationSummary } from "@/lib/chatbot/conversation-summary";
 
 type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -82,7 +83,7 @@ export async function summarizeConversation(input: {
   const lastAssistantLine = [...lines].reverse().find((line) => line.startsWith("assistant:"));
   const systemPrompt = buildSummaryPrompt(input.config);
 
-  return [
+  return clampConversationSummary([
     systemPrompt,
     lastUserLine ? `Intencion principal: ${lastUserLine.replace(/^user:\s*/i, "")}` : null,
     lastAssistantLine
@@ -91,5 +92,5 @@ export async function summarizeConversation(input: {
     `Lineas analizadas: ${lines.length}`,
   ]
     .filter(Boolean)
-    .join("\n");
+    .join("\n"));
 }

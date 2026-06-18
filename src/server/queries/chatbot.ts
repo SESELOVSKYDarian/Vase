@@ -1,4 +1,5 @@
 import { AiChannelType, AiConversationStatus, SupportAssignmentMode, SupportTicketSource, SupportTicketStatus } from "@prisma/client";
+import { clampConversationSummary } from "@/lib/chatbot/conversation-summary";
 import { prisma } from "@/lib/db/prisma";
 
 export async function getConnectedChannelByTenant(
@@ -73,7 +74,7 @@ export async function updateConversationState(input: {
     where: { id: input.conversationId },
     data: {
       metadata: input.metadata,
-      summary: input.summary ?? undefined,
+      summary: clampConversationSummary(input.summary),
       escalatedToHuman: input.escalatedToHuman ?? undefined,
       escalationRequestedAt: input.escalatedToHuman ? now : undefined,
       messageCount: input.incrementMessageCount ? { increment: 1 } : undefined,
@@ -93,7 +94,7 @@ export async function closeConversation(conversationId: string, summary?: string
       status: AiConversationStatus.CLOSED,
       closedAt: now,
       lastMessageAt: now,
-      summary: summary ?? undefined,
+      summary: clampConversationSummary(summary),
     },
   });
 }
