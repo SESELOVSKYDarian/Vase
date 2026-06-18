@@ -7,6 +7,28 @@ type ChatMessage = {
   content: string;
 };
 
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isGreeting(message: string) {
+  const normalized = normalizeText(message).replace(/[!¡?¿.,]/g, "");
+  return ["hola", "buenas", "buen dia", "buenos dias", "buenas tardes", "buenas noches"].includes(normalized);
+}
+
+function isFileMetadataOnly(block: string) {
+  const normalized = normalizeText(block);
+  return (
+    normalized.includes("archivo cargado:") &&
+    normalized.includes("contenido agregado como referencia documental") &&
+    (normalized.includes("tipo:") || normalized.includes("tamano:"))
+  );
+}
+
 function extractKnowledgeAnswers(knowledgeText?: string, limit = 3) {
   if (!knowledgeText) {
     return [];
@@ -25,7 +47,7 @@ function extractKnowledgeAnswers(knowledgeText?: string, limit = 3) {
   return knowledgeText
     .split(/\n{2,}/)
     .map((block) => block.replace(/\s+/g, " ").trim())
-    .filter((block) => block.length > 0)
+    .filter((block) => block.length > 0 && !isFileMetadataOnly(block))
     .slice(0, limit);
 }
 
@@ -52,10 +74,19 @@ export async function generateAssistantReply(input: {
 }) {
   const knowledgeAnswers = extractKnowledgeAnswers(input.knowledgeText);
   const prefix = tonePrefix(input.config);
+  const displayName = input.config.displayName?.trim() || "Vase Labs";
   const recentAssistantReply = [...(input.history || [])]
     .reverse()
     .find((entry) => entry.role === "assistant")
     ?.content?.trim();
+
+  if (isGreeting(input.userMessage)) {
+    return [
+      `Hola, soy el asistente de ${displayName}.`,
+      "Puedo ayudarte con ecommerce personalizado, automatizaciones comerciales, agentes de IA y atencion por WhatsApp.",
+      "Contame si queres consultar por servicios, integraciones o una cotizacion.",
+    ].join("\n\n");
+  }
 
   if (knowledgeAnswers.length > 0) {
     const bullets = knowledgeAnswers.map((answer) => `- ${answer}`).join("\n");
