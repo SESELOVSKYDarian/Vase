@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { processTrainingJob } from "@/server/services/ai/training";
 
 export async function queueAiTrainingJob(
   tenantId: string,
@@ -34,6 +35,14 @@ export async function queueAiTrainingJob(
       trainingStatus: sourceCount === 0 ? "DRAFT" : "QUEUED",
     },
   });
+
+  if (sourceCount > 0) {
+    await processTrainingJob({
+      tenantId,
+      workspaceId,
+      jobId: job.id,
+    });
+  }
 
   return job;
 }
