@@ -13,7 +13,12 @@ export async function getLabsOwnerDashboard(tenantId: string) {
         take: 20,
       }),
       prisma.aiChannelConnection.findMany({
-        where: { tenantId },
+        where: {
+          tenantId,
+          status: {
+            not: "DISCONNECTED",
+          },
+        },
         orderBy: { createdAt: "desc" },
       }),
       prisma.aiConversation.findMany({

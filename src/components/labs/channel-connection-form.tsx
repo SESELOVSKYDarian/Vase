@@ -13,6 +13,11 @@ type ChannelConnectionFormProps = {
   mode?: "ALL" | "META_ONLY" | "BAILEYS_ONLY";
   webhookPreviewUrl?: string;
   initialWebhookVerifyToken?: string;
+  channelId?: string;
+  initialAccountLabel?: string;
+  initialExternalHandle?: string | null;
+  initialPhoneNumberId?: string;
+  submitLabel?: string;
 };
 
 export function ChannelConnectionForm({
@@ -20,6 +25,11 @@ export function ChannelConnectionForm({
   mode = "ALL",
   webhookPreviewUrl,
   initialWebhookVerifyToken,
+  channelId,
+  initialAccountLabel,
+  initialExternalHandle,
+  initialPhoneNumberId,
+  submitLabel,
 }: ChannelConnectionFormProps) {
   const [state, formAction] = useActionState(connectLabsChannelAction, initialState);
   const [channelType, setChannelType] = useState("WHATSAPP");
@@ -72,6 +82,7 @@ export function ChannelConnectionForm({
 
   return (
     <form action={formAction} className="grid gap-4">
+      {channelId ? <input type="hidden" name="channelId" value={channelId} /> : null}
       <div className="grid gap-4 md:grid-cols-3">
         {mode === "ALL" ? (
           <label className="grid gap-2 text-sm">
@@ -109,13 +120,32 @@ export function ChannelConnectionForm({
         ) : (
           <input type="hidden" name="provider" value={effectiveProvider} />
         )}
-        <input
-          name="accountLabel"
-          type="hidden"
-          value={isOpenWaOnly ? `Baileys ${new Date().toISOString().slice(0, 10)}` : `${isOfficial ? "Meta" : "Canal"} ${new Date().toISOString().slice(0, 10)}`}
-        />
+        {channelId ? null : (
+          <input
+            name="accountLabel"
+            type="hidden"
+            value={isOpenWaOnly ? `Baileys ${new Date().toISOString().slice(0, 10)}` : `${isOfficial ? "Meta" : "Canal"} ${new Date().toISOString().slice(0, 10)}`}
+          />
+        )}
       </div>
-      <input name="externalHandle" type="hidden" value="" />
+      {channelId ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          <input
+            name="accountLabel"
+            defaultValue={initialAccountLabel ?? ""}
+            placeholder="Nombre visible del canal"
+            className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]"
+          />
+          <input
+            name="externalHandle"
+            defaultValue={initialExternalHandle ?? ""}
+            placeholder="Handle o telefono visible"
+            className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]"
+          />
+        </div>
+      ) : (
+        <input name="externalHandle" type="hidden" value="" />
+      )}
       <input name="notes" type="hidden" value="" />
 
       {isWhatsApp ? (
@@ -173,9 +203,9 @@ export function ChannelConnectionForm({
                   Usa este mismo token en Meta antes de presionar verificar. Vase lo reconocerá desde el inicio.
                 </p>
               </div>
-              <input name="accessToken" placeholder="Meta Access Token" className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
-              <input name="phoneNumberId" placeholder="Phone Number ID" className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
-              <input name="appSecret" placeholder="App Secret (firma webhook)" className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
+              <input name="accessToken" placeholder={channelId ? "Nuevo Meta Access Token (opcional)" : "Meta Access Token"} className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
+              <input name="phoneNumberId" defaultValue={initialPhoneNumberId ?? ""} placeholder="Phone Number ID" className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
+              <input name="appSecret" placeholder={channelId ? "Nuevo App Secret (opcional)" : "App Secret (firma webhook)"} className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
             </>
           ) : (
             <>
@@ -193,7 +223,7 @@ export function ChannelConnectionForm({
         type="submit"
         className="min-h-11 rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
       >
-        {isOpenWaOnly ? "Guardar y habilitar QR" : "Conectar canal"}
+        {submitLabel ?? (isOpenWaOnly ? "Guardar y habilitar QR" : "Conectar canal")}
       </button>
 
       {state.success ? <p className="text-sm leading-6 text-[var(--success)]">{state.success}</p> : null}

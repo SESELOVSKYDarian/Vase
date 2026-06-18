@@ -1,4 +1,5 @@
 import { ChannelConnectionForm } from "@/components/labs/channel-connection-form";
+import { ChannelDeleteForm } from "@/components/labs/channel-delete-form";
 import { KnowledgeUrlForm } from "@/components/labs/knowledge-url-form";
 import { OpenWaQrCard } from "@/components/labs/openwa-qr-card";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -121,30 +122,58 @@ export default async function LabsIntegrationsPage() {
                     Todavia no hay canales registrados.
                   </div>
                 ) : (
-                  dashboard.channels.map((channel) => (
-                    <div
-                      key={channel.id}
-                      className="rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_82%,transparent)] p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-semibold text-[var(--foreground)]">
-                          {channel.channelType} - {channel.accountLabel}
-                        </p>
-                        <StatusBadge tone={channelTone(channel.status)} label={channel.status} />
+                  dashboard.channels.map((channel) => {
+                    const config =
+                      channel.config && typeof channel.config === "object"
+                        ? (channel.config as Record<string, unknown>)
+                        : {};
+                    const provider = "provider" in config ? String(config.provider) : "N/A";
+                    const phoneNumberId = typeof config.phoneNumberId === "string" ? config.phoneNumberId : "";
+
+                    return (
+                      <div
+                        key={channel.id}
+                        className="rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_82%,transparent)] p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-[var(--foreground)]">
+                              {channel.channelType} - {channel.accountLabel}
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                              {channel.externalHandle ?? "Sin handle registrado"}
+                            </p>
+                            <p className="mt-1 text-xs text-[var(--muted-soft)]">Proveedor: {provider}</p>
+                          </div>
+                          <StatusBadge tone={channelTone(channel.status)} label={channel.status} />
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          <details className="w-full rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-3">
+                            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-[var(--foreground)]">
+                              Editar canal
+                            </summary>
+                            <div className="mt-4">
+                              <ChannelConnectionForm
+                                canUseInstagram={dashboard.limits.canUseInstagram}
+                                mode={provider === "BAILEYS_UNOFFICIAL" ? "BAILEYS_ONLY" : "META_ONLY"}
+                                webhookPreviewUrl={webhookPreviewUrl}
+                                initialWebhookVerifyToken={
+                                  typeof config.verifyToken === "string" ? config.verifyToken : webhookVerifyToken
+                                }
+                                channelId={channel.id}
+                                initialAccountLabel={channel.accountLabel}
+                                initialExternalHandle={channel.externalHandle}
+                                initialPhoneNumberId={phoneNumberId}
+                                submitLabel="Guardar cambios"
+                              />
+                            </div>
+                          </details>
+                          <ChannelDeleteForm channelId={channel.id} />
+                        </div>
                       </div>
-                      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                        {channel.externalHandle ?? "Sin handle registrado"}
-                      </p>
-                      <p className="mt-1 text-xs text-[var(--muted-soft)]">
-                        Proveedor:{" "}
-                        {channel.config &&
-                        typeof channel.config === "object" &&
-                        "provider" in (channel.config as Record<string, unknown>)
-                          ? String((channel.config as Record<string, unknown>).provider)
-                          : "N/A"}
-                      </p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </PanelCard>

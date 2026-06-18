@@ -73,16 +73,6 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
     text,
   });
 
-  if (message.customerContact) {
-    await dispatchChannelReply({
-      channelType: message.channelType,
-      channelId: tenantConfig.channelId,
-      channelConfig: tenantConfig.channelConfig,
-      customerContact: message.customerContact,
-      text: decision.reply,
-    });
-  }
-
   await persistOutboundMessage({
     conversationId: conversation.id,
     metadata: conversation.metadata,
@@ -93,10 +83,31 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
     escalatedToHuman: decision.escalatedToHuman,
   });
 
+  let delivered = false;
+  let deliveryError: string | undefined;
+
+  if (message.customerContact) {
+    try {
+      await dispatchChannelReply({
+        channelType: message.channelType,
+        channelId: tenantConfig.channelId,
+        channelConfig: tenantConfig.channelConfig,
+        customerContact: message.customerContact,
+        text: decision.reply,
+      });
+      delivered = true;
+    } catch (error) {
+      deliveryError = error instanceof Error ? error.message : "Channel delivery failed";
+      console.error(deliveryError);
+    }
+  }
+
   return {
     conversationId: conversation.id,
     reply: decision.reply,
     state: decision.state,
     escalatedToHuman: decision.escalatedToHuman,
+    delivered,
+    deliveryError,
   };
 }

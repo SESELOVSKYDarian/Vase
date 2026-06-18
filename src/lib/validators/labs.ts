@@ -23,6 +23,7 @@ export const createUrlKnowledgeSchema = z.object({
 });
 
 export const connectChannelSchema = z.object({
+  channelId: z.string().trim().cuid().optional(),
   channelType: z.enum(["WHATSAPP", "INSTAGRAM", "WEBCHAT"]),
   provider: z.enum(["META_OFFICIAL", "OPENWA_UNOFFICIAL", "BAILEYS_UNOFFICIAL"]).default("META_OFFICIAL"),
   accountLabel: z.string().trim().max(80).optional(),
@@ -51,5 +52,9 @@ export const setConversationAiModeSchema = z.object({
 });
 
 export const openWaQrActionSchema = z.object({
+  channelId: z.string().trim().cuid(),
+});
+
+export const deleteChannelSchema = z.object({
   channelId: z.string().trim().cuid(),
 });

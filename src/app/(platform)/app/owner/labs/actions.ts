@@ -19,10 +19,12 @@ import {
   createFaqKnowledgeSchema,
   createTrainingJobSchema,
   createUrlKnowledgeSchema,
+  deleteChannelSchema,
   openWaQrActionSchema,
   sendHumanReplySchema,
   setConversationAiModeSchema,
 } from "@/lib/validators/labs";
+import { buildMetaOfficialChannelConfig, getMetaOfficialChannelStatus } from "@/lib/labs/channel-config";
 import { createAuditLog } from "@/server/services/audit-log";
 import { queueAiTrainingJob } from "@/server/services/labs-training";
 import { createSecurityEvent } from "@/server/services/security-events";
@@ -486,6 +488,7 @@ export async function connectLabsChannelAction(
     const workspace = await requireLabsWorkspace(membership.tenantId);
     const limits = getLabsPlanLimits(workspace.plan);
     const parsed = connectChannelSchema.safeParse({
+      channelId: readFormValue("channelId"),
       channelType: readFormValue("channelType"),
       provider: readFormValue("provider"),
       accountLabel: sanitizeNullableText(readFormValue("accountLabel")) ?? undefined,
@@ -516,6 +519,21 @@ export async function connectLabsChannelAction(
 
     const isOpenWaFlow =
       parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "OPENWA_UNOFFICIAL";
+    const editableChannel = parsed.data.channelId
+      ? await prisma.aiChannelConnection.findFirst({
+          where: {
+            id: parsed.data.channelId,
+            tenantId: membership.tenantId,
+          },
+        })
+      : null;
+
+    if (parsed.data.channelId && !editableChannel) {
+      return {
+        error: "No encontramos el canal para editar.",
+      };
+    }
+
     const existingOpenWaChannel = isOpenWaFlow
       ? (
           await prisma.aiChannelConnection.findMany({
@@ -544,7 +562,7 @@ export async function connectLabsChannelAction(
 
     const assistantLimit = Math.max(1, subscription?.labsAssistantLimit ?? 1);
     const effectiveLimit = Math.min(workspace.maxChannels, assistantLimit);
-    if (!existingOpenWaChannel && channelCount >= effectiveLimit) {
+    if (!editableChannel && !existingOpenWaChannel && channelCount >= effectiveLimit) {
       return {
         error: `Tu plan permite hasta ${effectiveLimit} asistente(s) o canal(es) activo(s) en Labs.`,
       };
@@ -561,21 +579,21 @@ export async function connectLabsChannelAction(
       } as Prisma.InputJsonValue;
       openWaQrAutoInfo = "Canal Baileys creado. Usa Generar / Refrescar QR para vincular WhatsApp.";
     } else if (parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "META_OFFICIAL") {
-
-      channelConfig = {
-        provider: "META_OFFICIAL",
+      channelConfig = buildMetaOfficialChannelConfig({
+        existingConfig:
+          editableChannel?.config && typeof editableChannel.config === "object"
+            ? (editableChannel.config as Record<string, unknown>)
+            : undefined,
         accessToken: parsed.data.accessToken,
         phoneNumberId: parsed.data.phoneNumberId,
         appSecret: parsed.data.appSecret,
         verifyToken,
-      } as Prisma.InputJsonValue;
+      }) as Prisma.InputJsonValue;
     }
 
     const status =
       parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "META_OFFICIAL"
-        ? Boolean(parsed.data.accessToken && parsed.data.phoneNumberId && parsed.data.appSecret)
-          ? "CONNECTED"
-          : "PENDING"
+        ? getMetaOfficialChannelStatus(channelConfig as ReturnType<typeof buildMetaOfficialChannelConfig>)
         : parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "OPENWA_UNOFFICIAL"
           ? (channelConfig as Record<string, unknown> | undefined)?.connectionState === "QR_READY"
             ? "PENDING"
@@ -592,7 +610,20 @@ export async function connectLabsChannelAction(
             : `${parsed.data.channelType}-${membership.tenant.slug}`;
 
     const channel =
-      existingOpenWaChannel && existingOpenWaChannel.config && typeof existingOpenWaChannel.config === "object"
+      editableChannel
+        ? await prisma.aiChannelConnection.update({
+            where: { id: editableChannel.id },
+            data: {
+              configuredByUserId: session.user.id,
+              channelType: parsed.data.channelType,
+              status,
+              accountLabel,
+              externalHandle: parsed.data.externalHandle,
+              notes: parsed.data.notes,
+              config: channelConfig,
+            },
+          })
+        : existingOpenWaChannel && existingOpenWaChannel.config && typeof existingOpenWaChannel.config === "object"
         ? await prisma.aiChannelConnection.update({
             where: { id: existingOpenWaChannel.id },
             data: {
@@ -666,6 +697,64 @@ export async function connectLabsChannelAction(
     return {
       error: "No pudimos registrar el canal.",
     };
+  }
+}
+
+export async function deleteLabsChannelAction(
+  _: LabsActionState,
+  formData: FormData,
+): Promise<LabsActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const session = await requireVerifiedUser();
+    const { membership } = await requireTenantRole(tenantRoles.OWNER);
+    const parsed = deleteChannelSchema.safeParse({
+      channelId: formData.get("channelId"),
+    });
+
+    if (!parsed.success) {
+      return { error: "No pudimos identificar el canal a eliminar." };
+    }
+
+    const channel = await prisma.aiChannelConnection.findFirst({
+      where: {
+        id: parsed.data.channelId,
+        tenantId: membership.tenantId,
+      },
+    });
+
+    if (!channel) {
+      return { error: "El canal ya no existe o no pertenece a esta cuenta." };
+    }
+
+    await prisma.aiChannelConnection.update({
+      where: { id: channel.id },
+      data: {
+        status: "DISCONNECTED",
+      },
+    });
+
+    await createAuditLog({
+      action: "labs.channel_deleted",
+      targetType: "ai_channel_connection",
+      targetId: channel.id,
+      tenantId: membership.tenantId,
+      actorUserId: session.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        channelType: channel.channelType,
+        accountLabel: channel.accountLabel,
+      },
+    });
+
+    revalidatePath("/app/owner/labs");
+    revalidatePath("/app/owner/labs/setup");
+    revalidatePath("/app/owner/labs/(advanced)/integrations");
+
+    return { success: "Canal eliminado." };
+  } catch {
+    return { error: "No pudimos eliminar el canal." };
   }
 }
 
