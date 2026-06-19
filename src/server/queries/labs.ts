@@ -24,7 +24,7 @@ export async function getLabsOwnerDashboard(tenantId: string) {
       prisma.aiConversation.findMany({
         where: { tenantId },
         orderBy: { lastMessageAt: "desc" },
-        take: 10,
+        take: 30,
       }),
       prisma.aiTrainingJob.findMany({
         where: { tenantId },

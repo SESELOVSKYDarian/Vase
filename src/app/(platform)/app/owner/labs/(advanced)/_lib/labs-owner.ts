@@ -2,13 +2,11 @@ import { forbidden } from "next/navigation";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
 import { getLabsOwnerDashboard } from "@/server/queries/labs";
 import { getTenantModulesAccess } from "@/server/queries/modules";
-import { getTenantSupportOverview } from "@/server/queries/support";
 
 type OwnerContext = Awaited<ReturnType<typeof requireTenantRole>>;
 type OwnerMembership = OwnerContext["membership"];
 type OwnerSession = OwnerContext["session"];
 type LabsDashboard = NonNullable<Awaited<ReturnType<typeof getLabsOwnerDashboard>>>;
-type SupportOverview = Awaited<ReturnType<typeof getTenantSupportOverview>>;
 
 async function isLabsEnabledForUser(tenantId: string, userId: string) {
   const modulesPayload = await getTenantModulesAccess(tenantId, userId);
@@ -51,9 +49,8 @@ export async function getLabsOwnerActivityData() {
     forbidden();
   }
 
-  const [dashboard, supportOverview, labsEnabled] = await Promise.all([
+  const [dashboard, labsEnabled] = await Promise.all([
     getLabsOwnerDashboard(membership.tenantId),
-    getTenantSupportOverview(membership.tenantId),
     isLabsEnabledForUser(membership.tenantId, session.user.id),
   ]);
 
@@ -64,7 +61,6 @@ export async function getLabsOwnerActivityData() {
   return {
     membership,
     dashboard: dashboard as LabsDashboard,
-    supportOverview: supportOverview as SupportOverview,
     labsEnabled,
   };
 }
@@ -88,7 +84,7 @@ export function readBusinessHours(input: unknown) {
   };
 }
 
-export function trainingTone(status: string) {
+export function trainingTone(status: string): "neutral" | "success" | "warning" | "danger" | "info" {
   switch (status) {
     case "READY":
       return "success";
@@ -102,7 +98,7 @@ export function trainingTone(status: string) {
   }
 }
 
-export function channelTone(status: string) {
+export function channelTone(status: string): "neutral" | "success" | "warning" | "danger" | "info" {
   switch (status) {
     case "CONNECTED":
       return "success";
@@ -115,7 +111,7 @@ export function channelTone(status: string) {
   }
 }
 
-export function conversationTone(status: string) {
+export function conversationTone(status: string): "neutral" | "success" | "warning" | "danger" | "info" {
   switch (status) {
     case "ESCALATED":
       return "warning";

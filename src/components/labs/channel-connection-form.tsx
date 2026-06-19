@@ -91,7 +91,7 @@ export function ChannelConnectionForm({
               name="channelType"
               value={channelType}
               onChange={(event) => setChannelType(event.target.value)}
-              className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+              className="labs-input"
             >
               <option value="WHATSAPP">WhatsApp</option>
               <option value="WEBCHAT">Webchat</option>
@@ -111,7 +111,7 @@ export function ChannelConnectionForm({
               disabled={!isWhatsApp}
               value={provider}
               onChange={(event) => setProvider(event.target.value)}
-              className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)] disabled:opacity-60"
+              className="labs-input disabled:opacity-60"
             >
               <option value="META_OFFICIAL">Meta oficial (seguro)</option>
               <option value="OPENWA_UNOFFICIAL">Baileys QR (no oficial)</option>
@@ -134,13 +134,13 @@ export function ChannelConnectionForm({
             name="accountLabel"
             defaultValue={initialAccountLabel ?? ""}
             placeholder="Nombre visible del canal"
-            className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]"
+            className="labs-input"
           />
           <input
             name="externalHandle"
             defaultValue={initialExternalHandle ?? ""}
             placeholder="Handle o telefono visible"
-            className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]"
+            className="labs-input"
           />
         </div>
       ) : (
@@ -149,14 +149,14 @@ export function ChannelConnectionForm({
       <input name="notes" type="hidden" value="" />
 
       {isWhatsApp ? (
-        <div className="grid gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-4">
+        <div className="grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <p className="text-sm font-medium text-[var(--foreground)]">{isOfficial ? officialHelper : unofficialHelper}</p>
             {isOfficial && (webhookPreviewUrl || webhookVerifyToken) ? (
-              <button
+          <button
                 type="button"
                 onClick={copyMetaSetup}
-                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-white/80 px-4 text-xs font-semibold text-[var(--foreground)] transition hover:bg-white"
+                className="labs-button labs-button-secondary text-xs"
               >
                 {copiedField ? <Check className="size-4" /> : <Copy className="size-4" />}
                 {copiedField ? "Copiado" : "Copiar todo"}
@@ -164,16 +164,16 @@ export function ChannelConnectionForm({
             ) : null}
           </div>
           {isOfficial && webhookPreviewUrl ? (
-            <div className="grid gap-2 rounded-2xl border border-[#18c37e]/25 bg-[#f1fbf5] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2b6b4f]">Callback URL lista para copiar</p>
+            <div className="grid gap-2 rounded-lg border border-[color-mix(in_srgb,var(--success)_28%,var(--border-subtle))] bg-[var(--success-soft)] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--success)]">Callback URL lista para copiar</p>
               <div className="flex flex-wrap items-center gap-2">
-                <code className="rounded-xl border border-[#b9e7cc] bg-white px-3 py-2 text-xs text-[var(--foreground)]">
+                <code className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-3 py-2 text-xs text-[var(--foreground)]">
                   {webhookPreviewUrl}
                 </code>
                 <button
                   type="button"
                   onClick={() => copyValue("webhook", webhookPreviewUrl)}
-                  className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#b9e7cc] px-4 text-xs font-semibold text-[#2b6b4f]"
+                  className="labs-button labs-button-secondary text-xs"
                 >
                   {copiedField === "webhook" ? <Check className="size-4" /> : <Copy className="size-4" />}
                   {copiedField === "webhook" ? "Copiado" : "Copiar URL"}
@@ -184,34 +184,34 @@ export function ChannelConnectionForm({
           {isOfficial ? (
             <>
               <input type="hidden" name="verifyToken" value={webhookVerifyToken} />
-              <div className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-white/70 p-4">
+              <div className="grid gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Verify Token</p>
                   <button
                     type="button"
                     onClick={() => copyValue("token", webhookVerifyToken)}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold text-[var(--foreground)]"
+                    className="labs-button labs-button-secondary text-xs"
                   >
                     {copiedField === "token" ? <Check className="size-4" /> : <Copy className="size-4" />}
                     {copiedField === "token" ? "Copiado" : "Copiar token"}
                   </button>
                 </div>
-                <code className="break-all rounded-xl border border-[var(--border-subtle)] bg-white px-3 py-2 text-xs text-[var(--foreground)]">
+                <code className="break-all rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-3 py-2 text-xs text-[var(--foreground)]">
                   {webhookVerifyToken}
                 </code>
                 <p className="text-xs leading-6 text-[var(--muted)]">
                   Usa este mismo token en Meta antes de presionar verificar. Vase lo reconocerá desde el inicio.
                 </p>
               </div>
-              <input name="accessToken" placeholder={channelId ? "Nuevo Meta Access Token (opcional)" : "Meta Access Token"} className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
-              <input name="phoneNumberId" defaultValue={initialPhoneNumberId ?? ""} placeholder="Phone Number ID" className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
-              <input name="appSecret" placeholder={channelId ? "Nuevo App Secret (opcional)" : "App Secret (firma webhook)"} className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-white/80 px-4 text-sm text-[var(--foreground)]" />
+              <input name="accessToken" placeholder={channelId ? "Nuevo Meta Access Token (opcional)" : "Meta Access Token"} className="labs-input" />
+              <input name="phoneNumberId" defaultValue={initialPhoneNumberId ?? ""} placeholder="Phone Number ID" className="labs-input" />
+              <input name="appSecret" placeholder={channelId ? "Nuevo App Secret (opcional)" : "App Secret (firma webhook)"} className="labs-input" />
             </>
           ) : (
             <>
               <input type="hidden" name="openwaBaseUrl" value="" />
               <input type="hidden" name="openwaApiKey" value="" />
-              <div className="rounded-2xl border border-[var(--danger)]/30 bg-[color-mix(in_srgb,var(--danger)_8%,white)] px-4 py-3 text-sm text-[var(--foreground)]">
+              <div className="rounded-lg border border-[color-mix(in_srgb,var(--danger)_28%,var(--border-subtle))] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--foreground)]">
                 Conexión automática por backend. Solo toca el botón y Vase generará el QR.
               </div>
             </>
@@ -221,7 +221,7 @@ export function ChannelConnectionForm({
 
       <button
         type="submit"
-        className="min-h-11 rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
+        className="labs-button labs-button-primary"
       >
         {submitLabel ?? (isOpenWaOnly ? "Guardar y habilitar QR" : "Conectar canal")}
       </button>
@@ -229,13 +229,13 @@ export function ChannelConnectionForm({
       {state.success ? <p className="text-sm leading-6 text-[var(--success)]">{state.success}</p> : null}
       {state.info ? <p className="text-sm leading-6 text-[var(--muted)]">{state.info}</p> : null}
       {state.webhookUrl || state.webhookVerifyToken ? (
-        <div className="grid gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-4">
+        <div className="grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
           <p className="text-sm font-semibold text-[var(--foreground)]">Webhook de Meta</p>
           {state.webhookUrl ? (
             <div className="grid gap-2">
               <p className="text-xs text-[var(--muted)]">Callback URL</p>
               <div className="flex flex-wrap items-center gap-2">
-                <code className="rounded-xl border border-[var(--border-subtle)] bg-white/80 px-3 py-2 text-xs text-[var(--foreground)]">
+                <code className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-3 py-2 text-xs text-[var(--foreground)]">
                   {state.webhookUrl}
                 </code>
                 <button
@@ -253,7 +253,7 @@ export function ChannelConnectionForm({
             <div className="grid gap-2">
               <p className="text-xs text-[var(--muted)]">Verify Token</p>
               <div className="flex flex-wrap items-center gap-2">
-                <code className="rounded-xl border border-[var(--border-subtle)] bg-white/80 px-3 py-2 text-xs text-[var(--foreground)]">
+                <code className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-3 py-2 text-xs text-[var(--foreground)]">
                   {state.webhookVerifyToken}
                 </code>
                 <button

@@ -20,6 +20,7 @@ import {
   createTrainingJobSchema,
   createUrlKnowledgeSchema,
   deleteChannelSchema,
+  deleteKnowledgeFileSchema,
   openAiSettingsSchema,
   openWaQrActionSchema,
   sendHumanReplySchema,
@@ -272,6 +273,79 @@ export async function uploadLabsKnowledgeFileAction(
 
     return {
       error: "No pudimos registrar el archivo ahora mismo.",
+    };
+  }
+}
+
+export async function deleteLabsKnowledgeFileAction(
+  _: LabsActionState,
+  formData: FormData,
+): Promise<LabsActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const session = await requireVerifiedUser();
+    const { membership } = await requireTenantRole(tenantRoles.OWNER);
+    const workspace = await requireLabsWorkspace(membership.tenantId);
+    const parsed = deleteKnowledgeFileSchema.safeParse({
+      knowledgeItemId: formData.get("knowledgeItemId"),
+    });
+
+    if (!parsed.success) {
+      return {
+        error: "No pudimos identificar el documento a eliminar.",
+      };
+    }
+
+    const file = await prisma.aiKnowledgeItem.findFirst({
+      where: {
+        id: parsed.data.knowledgeItemId,
+        tenantId: membership.tenantId,
+        workspaceId: workspace.id,
+        type: "FILE",
+      },
+    });
+
+    if (!file) {
+      return {
+        error: "El documento ya no existe o no pertenece a este workspace.",
+      };
+    }
+
+    await prisma.aiKnowledgeItem.delete({
+      where: { id: file.id },
+    });
+
+    await queueAiTrainingJob(
+      membership.tenantId,
+      workspace.id,
+      session.user.id,
+      "Documento eliminado de la base de conocimiento.",
+    );
+
+    await createAuditLog({
+      action: "labs.knowledge_file_deleted",
+      targetType: "ai_knowledge_item",
+      targetId: file.id,
+      tenantId: membership.tenantId,
+      actorUserId: session.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        fileName: file.fileName ?? file.title,
+        storageKey: file.storageKey,
+      },
+    });
+
+    revalidatePath("/app/owner/labs");
+    revalidatePath("/app/owner/labs/setup");
+    revalidatePath("/app/owner/labs/chatbots");
+
+    return {
+      success: "Documento eliminado correctamente.",
+    };
+  } catch {
+    return {
+      error: "No pudimos eliminar el documento ahora mismo.",
     };
   }
 }

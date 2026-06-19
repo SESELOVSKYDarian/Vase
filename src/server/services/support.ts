@@ -171,6 +171,15 @@ export async function createSupportTicketFromEscalation(payload: {
         escalationRequestedAt: now,
       },
     });
+
+    await createAutoAdminNotification({
+      title: "Solicitud de derivacion a humano",
+      message: `La conversacion "${payload.subject}" fue derivada y requiere atencion humana.`,
+      href: `/app/owner/labs/inbox?conversationId=${encodeURIComponent(payload.conversationId)}`,
+      category: "support",
+      tone: "warning",
+      tenantId: payload.tenantId,
+    });
   }
 
   await createSupportTicketEvent(

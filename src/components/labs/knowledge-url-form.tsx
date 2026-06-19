@@ -15,7 +15,7 @@ export function KnowledgeUrlForm() {
         <span className="font-medium text-[var(--foreground)]">Titulo de referencia</span>
         <input
           name="title"
-          className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+          className="labs-input"
         />
       </label>
       <label className="grid gap-2 text-sm">
@@ -23,7 +23,7 @@ export function KnowledgeUrlForm() {
         <input
           name="sourceUrl"
           type="url"
-          className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+          className="labs-input"
         />
       </label>
       <label className="grid gap-2 text-sm">
@@ -31,12 +31,12 @@ export function KnowledgeUrlForm() {
         <input
           name="allowedPaths"
           placeholder="/faq,/envios,/cambios"
-          className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+          className="labs-input"
         />
       </label>
       <button
         type="submit"
-        className="min-h-11 rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
+        className="labs-button labs-button-primary"
       >
         Agregar URL
       </button>

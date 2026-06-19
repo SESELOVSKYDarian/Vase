@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Sparkles } from "lucide-react";
+import { Bot } from "lucide-react";
 import { getLabsPlanLabel } from "@/lib/labs/plans";
 import { ThemeToggleControl } from "@/components/ui/theme-toggle-control";
 import { getLabsOwnerPageData } from "./_lib/labs-owner";
@@ -19,35 +19,35 @@ export default async function LabsAdvancedLayout({ children }: { children: React
   const initials = tenantInitials(membership.tenant.name);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f8faf8] text-[#191c1b]">
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-72 flex-col border-r border-[#e6e9e7] bg-[#f8faf8] px-5 py-6 shadow-[0px_24px_48px_rgba(25,28,27,0.06)] lg:flex">
-        <div className="mb-10 flex items-center gap-3 px-3">
-          <div className="grid h-11 w-11 place-items-center rounded-[1rem] bg-[#006d43] text-white">
-            <Sparkles className="size-5" />
+    <div className="labs-shell overflow-x-hidden">
+      <aside className="labs-sidebar fixed left-0 top-0 z-40 hidden h-screen w-72 flex-col px-4 py-5 lg:flex">
+        <div className="mb-7 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
+            <Bot className="size-5" />
           </div>
-          <div>
-            <h1 className="font-[family-name:var(--font-newsreader)] text-xl italic text-[#18c37e]">Vase Labs</h1>
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#191c1b]/60">El Atrio Organico</p>
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold tracking-tight text-[var(--foreground)]">Vase Labs</h1>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Centro IA</p>
           </div>
         </div>
 
         <LabsOwnerNav />
 
-        <div className="mt-auto space-y-4 border-t border-[#e6e9e7] px-1 pt-6">
+        <div className="mt-auto space-y-4 border-t border-[var(--border-subtle)] px-1 pt-5">
           <ThemeToggleControl compact />
-          <div className="flex items-center gap-3 rounded-[1.2rem] bg-[#f2f4f2] p-4">
-            <div className="grid h-11 w-11 place-items-center rounded-full bg-[#18c37e]/20 text-[#006d43] ring-2 ring-[#18c37e]/10">
+          <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent-strong)]">
               <span className="text-xs font-bold">{initials}</span>
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-[#191c1b]">{membership.tenant.name}</p>
-              <p className="truncate text-[11px] text-[#6c7b70]">{getLabsPlanLabel(dashboard.workspace.plan)}</p>
+              <p className="truncate text-xs font-bold text-[var(--foreground)]">{membership.tenant.name}</p>
+              <p className="truncate text-[11px] text-[var(--muted)]">{getLabsPlanLabel(dashboard.workspace.plan)}</p>
             </div>
           </div>
         </div>
       </aside>
 
-      <main className="min-h-screen px-6 py-8 lg:ml-72 lg:px-10 lg:py-10">
+      <main className="min-h-screen px-4 py-5 sm:px-6 lg:ml-72 lg:px-8 lg:py-7">
         <div className="mx-auto max-w-[96rem]">
           <div className="mb-6 lg:hidden">
             <ThemeToggleControl />
@@ -57,8 +57,7 @@ export default async function LabsAdvancedLayout({ children }: { children: React
         </div>
       </main>
 
-      <div className="pointer-events-none fixed right-0 top-0 -z-10 h-1/2 w-1/3 rounded-full bg-gradient-to-bl from-[#006d43]/5 to-transparent blur-[120px] opacity-50" />
-      <div className="pointer-events-none fixed bottom-0 left-0 -z-10 h-1/3 w-1/4 rounded-full bg-gradient-to-tr from-[#36684c]/5 to-transparent blur-[100px] opacity-50" />
+      <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-56 border-b border-[var(--border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent-soft)_70%,transparent),transparent)]" />
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import { buildTenantKnowledgeContext, generateAssistantReply, summarizeConversation, type TenantAiRuntimeConfig } from "@/server/services/ai";
+import { classifyConversationIntent } from "@/server/services/ai";
 import { processQueuedKnowledgeItems } from "@/server/services/ai/knowledge-processing";
 import { resolveBookingReply } from "@/server/services/chatbot/booking-flow";
 import { readConversationMetadata } from "@/server/services/chatbot/conversation-state";
 import { escalateConversation, shouldEscalateToHuman } from "@/server/services/chatbot/escalation";
+import { updateConversationInsights } from "@/server/queries/chatbot";
 import type { TenantChatbotConfig } from "@/server/services/chatbot/tenant-chatbot-config";
 
 export async function routeInboundMessage(input: {
@@ -17,8 +19,14 @@ export async function routeInboundMessage(input: {
   text: string;
 }) {
   const metadata = readConversationMetadata(input.conversation.metadata);
+  const classification = await classifyConversationIntent({
+    config: input.aiConfig,
+    metadata: input.conversation.metadata,
+    currentMessage: input.text,
+  });
+  const humanRequested = shouldEscalateToHuman(input.text, input.tenantConfig) || classification.shouldEscalate;
 
-  if (shouldEscalateToHuman(input.text, input.tenantConfig)) {
+  if (humanRequested) {
     const escalation = await escalateConversation({
       tenantId: input.tenantConfig.tenantId,
       workspaceId: input.tenantConfig.workspaceId,
@@ -27,13 +35,31 @@ export async function routeInboundMessage(input: {
       customerContact: input.conversation.customerContact,
       text: input.text,
     });
+    const summary = await summarizeConversation({
+      config: input.aiConfig,
+      transcript: [
+        ...(metadata.transcript || []).map((entry) => `${entry.role}: ${entry.content}`),
+        `assistant: ${escalation.reply}`,
+      ].join("\n"),
+    });
+
+    await updateConversationInsights({
+      conversationId: input.conversation.id,
+      summary,
+      intentLabel: "HUMAN_REQUESTED",
+      intentScore: 100,
+      intentReason: classification.reason,
+      nextAction: classification.nextAction,
+      classifiedAt: new Date(),
+      escalatedToHuman: true,
+    });
 
     return {
       reply: escalation.reply,
       state: "ESCALATED",
       context: metadata.context || {},
       escalatedToHuman: true,
-      summary: input.text,
+      summary,
     };
   }
 
@@ -44,12 +70,31 @@ export async function routeInboundMessage(input: {
   });
 
   if (booking.handled) {
+    const summary = await summarizeConversation({
+      config: input.aiConfig,
+      transcript: [
+        ...(metadata.transcript || []).map((entry) => `${entry.role}: ${entry.content}`),
+        `assistant: ${booking.reply}`,
+      ].join("\n"),
+    });
+
+    await updateConversationInsights({
+      conversationId: input.conversation.id,
+      summary,
+      intentLabel: classification.label,
+      intentScore: classification.score,
+      intentReason: classification.reason,
+      nextAction: classification.nextAction,
+      classifiedAt: new Date(),
+      escalatedToHuman: false,
+    });
+
     return {
       reply: booking.reply,
       state: booking.state,
       context: booking.context,
       escalatedToHuman: false,
-      summary: null,
+      summary,
     };
   }
 
@@ -69,10 +114,23 @@ export async function routeInboundMessage(input: {
     userMessage: input.text,
     history: metadata.transcript?.slice(-8) || [],
   });
-
   const summary = await summarizeConversation({
     config: input.aiConfig,
-    transcript: [...(metadata.transcript || []).map((entry) => `${entry.role}: ${entry.content}`), `user: ${input.text}`, `assistant: ${reply}`].join("\n"),
+    transcript: [
+      ...(metadata.transcript || []).map((entry) => `${entry.role}: ${entry.content}`),
+      `assistant: ${reply}`,
+    ].join("\n"),
+  });
+
+  await updateConversationInsights({
+    conversationId: input.conversation.id,
+    summary,
+    intentLabel: classification.label,
+    intentScore: classification.score,
+    intentReason: classification.reason,
+    nextAction: classification.nextAction,
+    classifiedAt: new Date(),
+    escalatedToHuman: false,
   });
 
   return {

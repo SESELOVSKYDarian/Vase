@@ -16,12 +16,12 @@ export function TrainingJobForm() {
         <input
           name="summary"
           placeholder="Actualizar FAQ, archivos y URL institucional"
-          className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+          className="labs-input"
         />
       </label>
       <button
         type="submit"
-        className="min-h-11 rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
+        className="labs-button labs-button-primary"
       >
         Iniciar entrenamiento
       </button>

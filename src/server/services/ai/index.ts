@@ -5,6 +5,7 @@ export * from "@/server/services/ai/knowledge";
 export * from "@/server/services/ai/prompts";
 export * from "@/server/services/ai/openai-responses";
 export * from "@/server/services/ai/completions";
+export * from "@/server/services/ai/conversation-insights";
 export * from "@/server/services/ai/transcriptions";
 export * from "@/server/services/ai/training";
 export * from "@/server/services/support-ai";

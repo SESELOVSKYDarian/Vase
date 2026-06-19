@@ -289,6 +289,13 @@ enum AiKnowledgeItemStatus {
   ARCHIVED
 }
 
+enum AiConversationIntentLabel {
+  HOT_LEAD
+  RESEARCHING
+  LOW_INTENT
+  HUMAN_REQUESTED
+}
+
 enum AiAssistantTone {
   WARM
   PROFESSIONAL
@@ -1849,6 +1856,11 @@ model AiConversation {
   customerContact       String?
   externalThreadKey     String?
   summary               String?
+  intentLabel           AiConversationIntentLabel?
+  intentScore           Int?
+  intentReason          String?              @db.Text
+  nextAction            String?              @db.Text
+  classifiedAt          DateTime?
   metadata              Json?
   messageCount          Int                  @default(0)
   escalatedToHuman      Boolean              @default(false)
@@ -2146,6 +2158,7 @@ model AdminNotification {
   id              String @id @default(cuid())
   title           String
   message         String @db.Text
+  href            String?
   tone            String @default("info")
   category        String @default("platform")
   target          AdminNotificationTarget @default(ALL)

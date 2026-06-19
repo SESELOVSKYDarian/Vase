@@ -42,6 +42,10 @@ export const createTrainingJobSchema = z.object({
   summary: z.string().trim().max(200).optional(),
 });
 
+export const deleteKnowledgeFileSchema = z.object({
+  knowledgeItemId: z.string().trim().cuid(),
+});
+
 export const openAiSettingsSchema = z.object({
   openaiEnabled: z.boolean(),
   openaiApiKey: z

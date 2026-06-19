@@ -33,6 +33,6 @@ export async function escalateConversation(input: {
   return {
     ticketId: ticket.id,
     reply:
-      "He derivado tu consulta a una persona del equipo para que pueda continuarla con mejor contexto.",
+      "Ya va a estar siendo atendido/a por un encargado. Mientras tanto, ¿hay algo más en que pueda ayudarle?",
   };
 }

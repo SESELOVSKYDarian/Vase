@@ -46,3 +46,19 @@ export function buildSummaryPrompt(config: TenantAiRuntimeConfig) {
     "Devuelve texto breve y accionable en espanol.",
   ].join("\n");
 }
+
+export function buildConversationClassificationPrompt(config: TenantAiRuntimeConfig) {
+  return [
+    `Clasifica la intencion de la conversacion del tenant ${config.tenantId}.`,
+    "Debes devolver solamente JSON valido con esta forma exacta:",
+    '{"label":"HOT_LEAD|RESEARCHING|LOW_INTENT|HUMAN_REQUESTED","score":0,"reason":"...","nextAction":"..."}',
+    "label representa la oportunidad comercial o necesidad de derivacion.",
+    "score es un entero de 0 a 100.",
+    "reason explica en una frase breve por que elegiste la etiqueta.",
+    "nextAction describe el siguiente paso recomendado para el equipo.",
+    "Usa HUMAN_REQUESTED solo si la persona pide hablar con un humano o derivar la conversacion.",
+    "Usa HOT_LEAD cuando exista clara intencion de compra, cotizacion o contratacion.",
+    "Usa RESEARCHING cuando la persona compara, pregunta o pide mas informacion sin urgencia de compra.",
+    "Usa LOW_INTENT cuando solo busca informacion general, saludos o consultas muy lejanas a conversion.",
+  ].join("\n");
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useActionState } from "react";
 import type { LabsActionState } from "@/app/(platform)/app/owner/labs/actions";
 import { checkOpenWaConnectionAction, refreshOpenWaQrAction } from "@/app/(platform)/app/owner/labs/actions";
@@ -19,7 +20,7 @@ export function OpenWaQrCard({ channelId, accountLabel, qrImageDataUrl, connecti
   const [statusState, statusAction] = useActionState(checkOpenWaConnectionAction, initialState);
 
   return (
-    <div className="rounded-3xl border border-[var(--danger)]/25 bg-[color-mix(in_srgb,var(--danger)_6%,white)] p-5">
+    <div className="rounded-lg border border-[color-mix(in_srgb,var(--danger)_26%,var(--border-subtle))] bg-[var(--danger-soft)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-semibold text-[var(--foreground)]">Baileys QR - {accountLabel}</p>
         <p className="text-xs text-[var(--muted)]">Estado: {connectionState ?? "SIN_VERIFICAR"}</p>
@@ -28,21 +29,21 @@ export function OpenWaQrCard({ channelId, accountLabel, qrImageDataUrl, connecti
       <div className="mt-4 flex flex-wrap gap-3">
         <form action={qrAction}>
           <input type="hidden" name="channelId" value={channelId} />
-          <button className="min-h-11 cursor-pointer rounded-full bg-[#8a2c2c] px-4 text-xs font-semibold text-white">
+          <button className="labs-button bg-[var(--danger)] text-[var(--background)]">
             Generar / Refrescar QR
           </button>
         </form>
         <form action={statusAction}>
           <input type="hidden" name="channelId" value={channelId} />
-          <button className="min-h-11 cursor-pointer rounded-full border border-[var(--border-subtle)] bg-white px-4 text-xs font-semibold text-[var(--foreground)]">
+          <button className="labs-button labs-button-secondary">
             Verificar conexion
           </button>
         </form>
       </div>
 
-      <div className="mt-4 rounded-2xl bg-white p-4">
+      <div className="mt-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4">
         {qrImageDataUrl ? (
-          <img src={qrImageDataUrl} alt="QR de conexion Baileys" className="mx-auto h-56 w-56 rounded-xl border border-[var(--border-subtle)]" />
+          <Image src={qrImageDataUrl} alt="QR de conexion Baileys" width={224} height={224} className="mx-auto rounded-xl border border-[var(--border-subtle)]" />
         ) : (
           <p className="text-sm text-[var(--muted)]">Aun no hay QR generado. Usa el boton para crear uno y escanearlo.</p>
         )}

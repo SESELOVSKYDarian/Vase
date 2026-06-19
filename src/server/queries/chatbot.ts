@@ -1,4 +1,12 @@
-import { AiChannelType, AiConversationStatus, SupportAssignmentMode, SupportTicketSource, SupportTicketStatus } from "@prisma/client";
+import {
+  AiChannelType,
+  AiConversationIntentLabel,
+  AiConversationStatus,
+  Prisma,
+  SupportAssignmentMode,
+  SupportTicketSource,
+  SupportTicketStatus,
+} from "@prisma/client";
 import { clampConversationSummary } from "@/lib/chatbot/conversation-summary";
 import { prisma } from "@/lib/db/prisma";
 
@@ -51,7 +59,7 @@ export async function createConversation(input: {
       customerName: input.customerName,
       customerContact: input.customerContact,
       externalThreadKey: input.externalThreadKey,
-      metadata: input.metadata,
+      metadata: input.metadata as Prisma.InputJsonValue | undefined,
       messageCount: 0,
       startedAt: now,
       lastMessageAt: now,
@@ -73,7 +81,7 @@ export async function updateConversationState(input: {
   return prisma.aiConversation.update({
     where: { id: input.conversationId },
     data: {
-      metadata: input.metadata,
+      metadata: input.metadata as Prisma.InputJsonValue | undefined,
       summary: clampConversationSummary(input.summary),
       escalatedToHuman: input.escalatedToHuman ?? undefined,
       escalationRequestedAt: input.escalatedToHuman ? now : undefined,
@@ -81,6 +89,30 @@ export async function updateConversationState(input: {
       lastMessageAt: now,
       lastInboundAt: input.inbound ? now : undefined,
       lastOutboundAt: input.outbound ? now : undefined,
+    },
+  });
+}
+
+export async function updateConversationInsights(input: {
+  conversationId: string;
+  summary?: string | null;
+  intentLabel?: AiConversationIntentLabel | null;
+  intentScore?: number | null;
+  intentReason?: string | null;
+  nextAction?: string | null;
+  classifiedAt?: Date | null;
+  escalatedToHuman?: boolean;
+}) {
+  return prisma.aiConversation.update({
+    where: { id: input.conversationId },
+    data: {
+      summary: clampConversationSummary(input.summary),
+      intentLabel: input.intentLabel ?? undefined,
+      intentScore: input.intentScore ?? undefined,
+      intentReason: input.intentReason ?? undefined,
+      nextAction: input.nextAction ?? undefined,
+      classifiedAt: input.classifiedAt ?? undefined,
+      escalatedToHuman: input.escalatedToHuman ?? undefined,
     },
   });
 }

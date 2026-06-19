@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 type AutoAdminNotificationInput = {
   title: string;
   message: string;
+  href?: string;
   category: "platform" | "business" | "labs" | "billing" | "support";
   tone?: "info" | "warning" | "danger";
   targetRole?: PlatformRole;
@@ -15,6 +16,7 @@ export async function createAutoAdminNotification(input: AutoAdminNotificationIn
     data: {
       title: input.title,
       message: input.message,
+      href: input.href ?? null,
       category: input.category,
       tone: input.tone ?? "info",
       target: input.targetRole ? "PLATFORM_ROLE" : "ALL",

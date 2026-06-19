@@ -1,11 +1,7 @@
-import { ChannelConnectionForm } from "@/components/labs/channel-connection-form";
-import { ChannelDeleteForm } from "@/components/labs/channel-delete-form";
-import { KnowledgeUrlForm } from "@/components/labs/knowledge-url-form";
-import { OpenWaQrCard } from "@/components/labs/openwa-qr-card";
-import { StatusBadge } from "@/components/business/status-badge";
-import { PanelCard } from "@/components/ui/panel-card";
+import { ChannelsWorkbench } from "@/components/labs/channels-workbench";
+import { LabsPageHeader } from "@/components/labs/labs-ui";
 import { resolveMetaWebhookVerifyToken } from "@/lib/integrations/meta-webhook";
-import { channelTone, getLabsOwnerPageData, trainingTone } from "../_lib/labs-owner";
+import { getLabsOwnerPageData } from "../_lib/labs-owner";
 import { LabsModuleDisabledCard } from "../ui";
 
 export default async function LabsIntegrationsPage() {
@@ -15,236 +11,22 @@ export default async function LabsIntegrationsPage() {
   const webhookVerifyToken = resolveMetaWebhookVerifyToken(membership.tenant.slug);
 
   return (
-    <div className="space-y-8">
-      <header className="max-w-4xl">
-        <h2 className="text-4xl tracking-[-0.04em] text-[#191c1b]">Integraciones</h2>
-        <p className="mt-3 text-lg text-[#4b5b52]">
-          Conecta canales y fuentes de conocimiento con estados visibles por cada integracion.
-        </p>
-      </header>
+    <div className="space-y-6">
+      <LabsPageHeader
+        eyebrow="Entrada de mensajes"
+        title="Canales"
+        description="Conecta y monitorea los canales por donde llegan conversaciones al asistente."
+      />
 
       {!labsEnabled ? (
         <LabsModuleDisabledCard />
       ) : (
-        <>
-          <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-            <PanelCard
-              eyebrow="URLs"
-              title="Scraping controlado"
-              description="Registra URLs del sitio y limita rutas permitidas para entrenamiento de contenido publico permitido."
-            >
-              <KnowledgeUrlForm />
-              <div className="mt-6 grid gap-3">
-                {dashboard.urls.length === 0 ? (
-                  <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 text-sm leading-7 text-[var(--muted)]">
-                    Aun no hay URLs registradas.
-                  </div>
-                ) : (
-                  dashboard.urls.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_82%,transparent)] p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-semibold text-[var(--foreground)]">{item.title}</p>
-                        <StatusBadge tone={trainingTone(item.status)} label={item.status} />
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.sourceUrl}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </PanelCard>
-
-            <PanelCard
-              eyebrow="WhatsApp Oficial"
-              title="Meta Cloud API (recomendado)"
-              description="Mayor estabilidad y cumplimiento. Carga credenciales oficiales y activa el webhook."
-            >
-              <div className="mb-4 rounded-2xl border border-[#18c37e]/25 bg-[#eaf9f1] p-4 text-sm leading-6 text-[#0f5132]">
-                Flujo: 1) crea app en Meta, 2) pega credenciales, 3) usa URL/token webhook que te devuelve Vase.
-              </div>
-              <ChannelConnectionForm
-                canUseInstagram={dashboard.limits.canUseInstagram}
-                mode="META_ONLY"
-                webhookPreviewUrl={webhookPreviewUrl}
-                initialWebhookVerifyToken={webhookVerifyToken}
-              />
-            </PanelCard>
-          </section>
-
-          <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-            <PanelCard
-              eyebrow="WhatsApp No Oficial"
-              title="Baileys + Conexion por QR"
-              description="Conexion simple por QR desde el backend de Vase."
-            >
-              <div className="mb-4 rounded-2xl border border-[var(--danger)]/30 bg-[color-mix(in_srgb,var(--danger)_8%,white)] p-4 text-sm leading-6 text-[#7b1f1f]">
-                Este metodo no oficial se usa bajo tu propio riesgo operativo, de compliance y de bloqueos de cuenta.
-              </div>
-              <div className="mb-4 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-4 text-sm leading-6 text-[var(--muted)]">
-                Flujo QR: 1) guarda canal Baileys, 2) clic en Generar QR, 3) escanea, 4) clic en Verificar conexion.
-              </div>
-              <ChannelConnectionForm canUseInstagram={dashboard.limits.canUseInstagram} mode="BAILEYS_ONLY" />
-              <div className="mt-6 grid gap-4">
-                {dashboard.channels
-                  .filter(
-                    (channel) =>
-                      channel.channelType === "WHATSAPP" &&
-                      channel.config &&
-                      typeof channel.config === "object" &&
-                      (channel.config as Record<string, unknown>).provider === "BAILEYS_UNOFFICIAL",
-                  )
-                  .map((channel) => {
-                    const config = channel.config as Record<string, unknown>;
-                    return (
-                      <OpenWaQrCard
-                        key={`openwa-${channel.id}`}
-                        channelId={channel.id}
-                        accountLabel={channel.accountLabel}
-                        qrImageDataUrl={typeof config.qrImageDataUrl === "string" ? config.qrImageDataUrl : undefined}
-                        connectionState={typeof config.connectionState === "string" ? config.connectionState : undefined}
-                        failureReason={typeof config.failureReason === "string" ? config.failureReason : undefined}
-                      />
-                    );
-                  })}
-              </div>
-            </PanelCard>
-
-            <PanelCard
-              eyebrow="Canales Registrados"
-              title="Estado por cuenta"
-              description="Monitorea estado, proveedor y cuenta conectada."
-            >
-              <div className="mt-6 grid gap-3">
-                {dashboard.channels.length === 0 ? (
-                  <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 text-sm leading-7 text-[var(--muted)]">
-                    Todavia no hay canales registrados.
-                  </div>
-                ) : (
-                  dashboard.channels.map((channel) => {
-                    const config =
-                      channel.config && typeof channel.config === "object"
-                        ? (channel.config as Record<string, unknown>)
-                        : {};
-                    const provider = "provider" in config ? String(config.provider) : "N/A";
-                    const phoneNumberId = typeof config.phoneNumberId === "string" ? config.phoneNumberId : "";
-
-                    return (
-                      <div
-                        key={channel.id}
-                        className="rounded-3xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_82%,transparent)] p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-[var(--foreground)]">
-                              {channel.channelType} - {channel.accountLabel}
-                            </p>
-                            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                              {channel.externalHandle ?? "Sin handle registrado"}
-                            </p>
-                            <p className="mt-1 text-xs text-[var(--muted-soft)]">Proveedor: {provider}</p>
-                          </div>
-                          <StatusBadge tone={channelTone(channel.status)} label={channel.status} />
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                          <details className="w-full rounded-2xl border border-[var(--border-subtle)] bg-white/60 p-3">
-                            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-[var(--foreground)]">
-                              Editar canal
-                            </summary>
-                            <div className="mt-4">
-                              <ChannelConnectionForm
-                                canUseInstagram={dashboard.limits.canUseInstagram}
-                                mode={provider === "BAILEYS_UNOFFICIAL" ? "BAILEYS_ONLY" : "META_ONLY"}
-                                webhookPreviewUrl={webhookPreviewUrl}
-                                initialWebhookVerifyToken={
-                                  typeof config.verifyToken === "string" ? config.verifyToken : webhookVerifyToken
-                                }
-                                channelId={channel.id}
-                                initialAccountLabel={channel.accountLabel}
-                                initialExternalHandle={channel.externalHandle}
-                                initialPhoneNumberId={phoneNumberId}
-                                submitLabel="Guardar cambios"
-                              />
-                            </div>
-                          </details>
-                          <ChannelDeleteForm channelId={channel.id} />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </PanelCard>
-          </section>
-
-          <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <PanelCard
-              eyebrow="Meta"
-              title="Como conectar tus aplicaciones de Meta con Vase"
-              description="Guia operativa para WhatsApp Business e Instagram usando Meta for Developers."
-            >
-              <div className="grid gap-4 text-sm leading-7 text-[var(--muted)]">
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5">
-                  <p className="font-semibold text-[var(--foreground)]">1. Crear app en Meta for Developers</p>
-                  <p className="mt-2">
-                    Crea una app tipo Business, agrega los productos WhatsApp e Instagram Graph API, y vincula un
-                    Business Manager con permisos de administracion.
-                  </p>
-                </div>
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5">
-                  <p className="font-semibold text-[var(--foreground)]">2. Recolectar credenciales clave</p>
-                  <p className="mt-2">
-                    Necesitas al menos: <span className="font-medium">Access Token</span>,{" "}
-                    <span className="font-medium">Phone Number ID</span> (WhatsApp) y secretos de app para validar
-                    firmas de webhook.
-                  </p>
-                </div>
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5">
-                  <p className="font-semibold text-[var(--foreground)]">3. Configurar webhook en Meta</p>
-                  <p className="mt-2">
-                    Define callback URL publica HTTPS y verify token. Vase valida integridad con firma{" "}
-                    <code className="rounded bg-black/5 px-1 py-0.5 text-xs">sha256</code> en el header de Meta y
-                    procesa eventos de mensajes entrantes.
-                  </p>
-                </div>
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5">
-                  <p className="font-semibold text-[var(--foreground)]">4. Registrar el canal en esta pantalla</p>
-                  <p className="mt-2">
-                    Carga canal, cuenta y handle/telefono con el formulario superior. El estado queda en{" "}
-                    <span className="font-medium">PENDING</span> hasta la validacion tecnica final.
-                  </p>
-                </div>
-              </div>
-            </PanelCard>
-
-            <PanelCard
-              eyebrow="Checklist tecnico"
-              title="Datos que debes tener listos"
-              description="Esto evita bloqueos durante la activacion de Meta dentro de Vase Labs."
-            >
-              <div className="grid gap-3 text-sm leading-7 text-[var(--muted)]">
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4">
-                  <p className="font-semibold text-[var(--foreground)]">WhatsApp Cloud API</p>
-                  <p className="mt-1">Access token vigente y Phone Number ID correcto para envio de mensajes.</p>
-                </div>
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4">
-                  <p className="font-semibold text-[var(--foreground)]">Permisos y productos</p>
-                  <p className="mt-1">App con productos habilitados y permisos de negocio aprobados en Meta.</p>
-                </div>
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4">
-                  <p className="font-semibold text-[var(--foreground)]">Seguridad</p>
-                  <p className="mt-1">Secret de app para verificar firma de webhook y endpoint HTTPS publico.</p>
-                </div>
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4">
-                  <p className="font-semibold text-[var(--foreground)]">Pruebas</p>
-                  <p className="mt-1">Mensaje de prueba, evento recibido, y respuesta saliente confirmada en Graph.</p>
-                </div>
-              </div>
-            </PanelCard>
-          </section>
-        </>
+        <ChannelsWorkbench
+          channels={dashboard.channels}
+          canUseInstagram={dashboard.limits.canUseInstagram}
+          webhookPreviewUrl={webhookPreviewUrl}
+          webhookVerifyToken={webhookVerifyToken}
+        />
       )}
     </div>
   );

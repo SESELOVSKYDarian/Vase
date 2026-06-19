@@ -44,11 +44,11 @@ function buildInputText(input: {
   ].filter(Boolean).join("\n\n");
 }
 
-export async function generateOpenAiResponse(input: {
+async function runOpenAiResponses(input: {
   config: TenantAiRuntimeConfig;
-  knowledgeText?: string;
-  userMessage: string;
-  history?: ChatMessage[];
+  instructions: string;
+  inputText: string;
+  temperature?: number;
 }) {
   const openAiConfig = readOpenAiBusinessConfig(
     input.config.businessContext,
@@ -72,8 +72,9 @@ export async function generateOpenAiResponse(input: {
       },
       body: JSON.stringify({
         model: openAiConfig.model,
-        instructions: buildAssistantSystemPrompt(input.config, input.knowledgeText),
-        input: buildInputText(input),
+        instructions: input.instructions,
+        input: input.inputText,
+        temperature: input.temperature,
       }),
     });
 
@@ -86,4 +87,26 @@ export async function generateOpenAiResponse(input: {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function generateOpenAiResponse(input: {
+  config: TenantAiRuntimeConfig;
+  knowledgeText?: string;
+  userMessage: string;
+  history?: ChatMessage[];
+}) {
+  return runOpenAiResponses({
+    config: input.config,
+    instructions: buildAssistantSystemPrompt(input.config, input.knowledgeText),
+    inputText: buildInputText(input),
+  });
+}
+
+export async function generateOpenAiStructuredResponse(input: {
+  config: TenantAiRuntimeConfig;
+  instructions: string;
+  inputText: string;
+  temperature?: number;
+}) {
+  return runOpenAiResponses(input);
 }
