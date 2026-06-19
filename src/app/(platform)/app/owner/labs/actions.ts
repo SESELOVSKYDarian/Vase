@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { requireTenantRole, requireVerifiedUser, tenantRoles } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
-import { persistHumanMessage, setConversationAiPaused } from "@/server/services/chatbot/conversation-state";
+import { persistHumanMessageAndPause, setConversationAiPaused } from "@/server/services/chatbot/conversation-state";
 import { dispatchChannelReply } from "@/server/services/chatbot/channel-dispatch";
 import { getLabsPlanLimits } from "@/lib/labs/plans";
 import { assertSafeExternalUrl, sanitizeAllowedPathList } from "@/lib/security/external-requests";
@@ -949,16 +949,10 @@ export async function sendHumanReplyAction(
       text: parsed.data.message,
     });
 
-    await persistHumanMessage({
+    await persistHumanMessageAndPause({
       conversationId: conversation.id,
       metadata: conversation.metadata,
       humanMessage: parsed.data.message,
-    });
-
-    await setConversationAiPaused({
-      conversationId: conversation.id,
-      metadata: conversation.metadata,
-      paused: true,
     });
 
     await createAuditLog({

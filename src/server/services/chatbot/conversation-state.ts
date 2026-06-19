@@ -147,6 +147,29 @@ export async function persistHumanMessage(input: {
   });
 }
 
+export async function persistHumanMessageAndPause(input: {
+  conversationId: string;
+  metadata: unknown;
+  humanMessage: string;
+}) {
+  const current = readConversationMetadata(input.metadata);
+  const transcript = [...current.transcript, { role: "assistant" as const, content: `[HUMANO] ${input.humanMessage}` }].slice(-20);
+
+  return updateConversationState({
+    conversationId: input.conversationId,
+    metadata: {
+      ...current,
+      context: {
+        ...current.context,
+        aiPaused: true,
+      },
+      transcript,
+    },
+    incrementMessageCount: true,
+    outbound: true,
+  });
+}
+
 export async function setConversationAiPaused(input: {
   conversationId: string;
   metadata: unknown;

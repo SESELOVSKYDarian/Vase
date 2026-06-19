@@ -1,30 +1,118 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useActionState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { LabsActionState } from "@/app/(platform)/app/owner/labs/actions";
 import { sendHumanReplyAction, setConversationAiModeAction } from "@/app/(platform)/app/owner/labs/actions";
+import type { LabsInboxConversation } from "@/server/services/labs-inbox";
 
-type ConversationItem = {
-  id: string;
-  customerName: string | null;
-  customerContact: string | null;
-  channelType: string;
-  status: string;
-  transcript: Array<{ role: "user" | "assistant"; content: string }>;
-  aiPaused: boolean;
-};
+type ConversationItem = LabsInboxConversation;
 
 const initialState: LabsActionState = {};
 
 export function ConversationsInbox({ conversations }: { conversations: ConversationItem[] }) {
+  const [items, setItems] = useState(conversations);
   const [selectedId, setSelectedId] = useState(conversations[0]?.id ?? "");
-  const [replyState, replyAction] = useActionState(sendHumanReplyAction, initialState);
-  const [modeState, modeAction] = useActionState(setConversationAiModeAction, initialState);
+  const [replyState, setReplyState] = useState<LabsActionState>(initialState);
+  const [modeState, setModeState] = useState<LabsActionState>(initialState);
+  const [isPending, startTransition] = useTransition();
+  const replyFormRef = useRef<HTMLFormElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const selected = useMemo(
-    () => conversations.find((conversation) => conversation.id === selectedId) ?? conversations[0],
-    [conversations, selectedId],
+    () => items.find((conversation) => conversation.id === selectedId) ?? items[0],
+    [items, selectedId],
   );
+
+  const refreshConversations = useCallback(async () => {
+    const response = await fetch("/api/labs/inbox", {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const payload = await response.json() as { conversations?: ConversationItem[] };
+    if (Array.isArray(payload.conversations)) {
+      setItems(payload.conversations);
+    }
+  }, []);
+
+  useEffect(() => {
+    setItems(conversations);
+  }, [conversations]);
+
+  useEffect(() => {
+    if (!selected && items[0]) {
+      setSelectedId(items[0].id);
+    }
+  }, [items, selected]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshConversations();
+      }
+    }, 2500);
+
+    return () => window.clearInterval(interval);
+  }, [refreshConversations]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [selected?.id, selected?.transcript.length]);
+
+  function updateConversationLocally(conversationId: string, updater: (conversation: ConversationItem) => ConversationItem) {
+    setItems((current) => current.map((conversation) => (
+      conversation.id === conversationId ? updater(conversation) : conversation
+    )));
+  }
+
+  function handleHumanReply(formData: FormData) {
+    const conversationId = String(formData.get("conversationId") ?? "");
+    const message = String(formData.get("message") ?? "").trim();
+
+    if (!conversationId || !message) {
+      return;
+    }
+
+    setReplyState(initialState);
+    updateConversationLocally(conversationId, (conversation) => ({
+      ...conversation,
+      aiPaused: true,
+      transcript: [
+        ...conversation.transcript,
+        { role: "assistant" as const, content: `[HUMANO] ${message}` },
+      ].slice(-20),
+    }));
+    replyFormRef.current?.reset();
+
+    startTransition(async () => {
+      const result = await sendHumanReplyAction(initialState, formData);
+      setReplyState(result);
+      await refreshConversations();
+    });
+  }
+
+  function handleAiMode(formData: FormData) {
+    const conversationId = String(formData.get("conversationId") ?? "");
+    const paused = String(formData.get("paused") ?? "") === "true";
+
+    if (!conversationId) {
+      return;
+    }
+
+    setModeState(initialState);
+    updateConversationLocally(conversationId, (conversation) => ({
+      ...conversation,
+      aiPaused: paused,
+    }));
+
+    startTransition(async () => {
+      const result = await setConversationAiModeAction(initialState, formData);
+      setModeState(result);
+      await refreshConversations();
+    });
+  }
 
   if (!selected) {
     return <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-6 text-sm text-[var(--muted)]">Aun no hay conversaciones para mostrar.</div>;
@@ -33,7 +121,7 @@ export function ConversationsInbox({ conversations }: { conversations: Conversat
   return (
     <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
       <div className="grid gap-3 rounded-3xl border border-[var(--border-subtle)] bg-white p-4">
-        {conversations.map((conversation) => (
+        {items.map((conversation) => (
           <button
             key={conversation.id}
             type="button"
@@ -56,10 +144,10 @@ export function ConversationsInbox({ conversations }: { conversations: Conversat
       <div className="rounded-3xl border border-[var(--border-subtle)] bg-white p-4">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm font-semibold text-[var(--foreground)]">Chat en vivo</p>
-          <form action={modeAction}>
+          <form action={handleAiMode}>
             <input type="hidden" name="conversationId" value={selected.id} />
             <input type="hidden" name="paused" value={selected.aiPaused ? "false" : "true"} />
-            <button className="min-h-11 cursor-pointer rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold text-[var(--foreground)]">
+            <button disabled={isPending} className="min-h-11 cursor-pointer rounded-full border border-[var(--border-subtle)] px-4 text-xs font-semibold text-[var(--foreground)] disabled:opacity-60">
               {selected.aiPaused ? "Reanudar IA" : "Pausar IA y tomar control"}
             </button>
           </form>
@@ -88,9 +176,10 @@ export function ConversationsInbox({ conversations }: { conversations: Conversat
               </div>
             ))
           )}
+          <div ref={messagesEndRef} />
         </div>
 
-        <form action={replyAction} className="mt-4 grid gap-3">
+        <form ref={replyFormRef} action={handleHumanReply} className="mt-4 grid gap-3">
           <input type="hidden" name="conversationId" value={selected.id} />
           <textarea
             name="message"
@@ -99,8 +188,8 @@ export function ConversationsInbox({ conversations }: { conversations: Conversat
             placeholder="Escribe una respuesta humana..."
             className="min-h-24 rounded-2xl border border-[var(--border-subtle)] bg-white px-4 py-3 text-sm text-[var(--foreground)]"
           />
-          <button className="min-h-11 cursor-pointer rounded-full bg-[#006d43] px-5 text-sm font-semibold text-white">
-            Enviar como humano
+          <button disabled={isPending} className="min-h-11 cursor-pointer rounded-full bg-[#006d43] px-5 text-sm font-semibold text-white disabled:opacity-60">
+            {isPending ? "Enviando..." : "Enviar como humano"}
           </button>
         </form>
 
