@@ -1,9 +1,18 @@
 import { PanelCard } from "@/components/ui/panel-card";
+import { OpenAiSettingsForm } from "@/components/labs/openai-settings-form";
+import { readOpenAiBusinessConfig } from "@/lib/labs/openai-config";
 import { getLabsOwnerPageData } from "../_lib/labs-owner";
 import { LabsModuleDisabledCard } from "../ui";
 
 export default async function LabsAiToolsPage() {
   const { dashboard, labsEnabled } = await getLabsOwnerPageData();
+  const openAiConfig = readOpenAiBusinessConfig(
+    dashboard.workspace.businessContext,
+    dashboard.workspace.modelSlug ?? undefined,
+  );
+  const temperature = dashboard.workspace.temperature == null
+    ? 0.4
+    : Number(dashboard.workspace.temperature);
 
   return (
     <div className="space-y-8">
@@ -17,7 +26,21 @@ export default async function LabsAiToolsPage() {
       {!labsEnabled ? (
         <LabsModuleDisabledCard />
       ) : (
-        <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+          <PanelCard
+            eyebrow="ChatGPT / OpenAI"
+            title="Conexion del modelo conversacional"
+            description="Activa Responses API para que el asistente responda con un modelo tipo ChatGPT usando el conocimiento y el historial del cliente."
+          >
+            <OpenAiSettingsForm
+              enabled={openAiConfig.enabled}
+              model={openAiConfig.model}
+              hasApiKey={openAiConfig.hasApiKey}
+              temperature={temperature}
+              systemPrompt={dashboard.workspace.systemPrompt}
+            />
+          </PanelCard>
+
           <PanelCard
             eyebrow="Metricas"
             title="Indicadores del asistente"
@@ -34,6 +57,15 @@ export default async function LabsAiToolsPage() {
                 <p className="text-sm text-[var(--muted)]">Escaladas a humano</p>
                 <p className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
                   {dashboard.summary.escalatedConversations}
+                </p>
+              </div>
+              <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 md:col-span-2">
+                <p className="text-sm text-[var(--muted)]">Proveedor IA</p>
+                <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                  {openAiConfig.enabled ? `OpenAI - ${openAiConfig.model}` : "Motor local"}
+                </p>
+                <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
+                  API key: {openAiConfig.hasApiKey ? "guardada" : "pendiente"}
                 </p>
               </div>
             </div>

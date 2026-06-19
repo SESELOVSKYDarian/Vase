@@ -3,6 +3,7 @@ export * from "@/server/services/ai/models";
 export * from "@/server/services/ai/tenant-ai-config";
 export * from "@/server/services/ai/knowledge";
 export * from "@/server/services/ai/prompts";
+export * from "@/server/services/ai/openai-responses";
 export * from "@/server/services/ai/completions";
 export * from "@/server/services/ai/transcriptions";
 export * from "@/server/services/ai/training";

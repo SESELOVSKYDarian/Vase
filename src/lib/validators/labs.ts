@@ -41,6 +41,15 @@ export const createTrainingJobSchema = z.object({
   summary: z.string().trim().max(200).optional(),
 });
 
+export const openAiSettingsSchema = z.object({
+  openaiEnabled: z.boolean(),
+  openaiApiKey: z.string().trim().max(4096).optional(),
+  openaiModel: z.string().trim().min(3).max(80),
+  temperature: z.coerce.number().min(0).max(2),
+  systemPrompt: z.string().trim().max(4000).optional(),
+  clearOpenAiApiKey: z.boolean(),
+});
+
 export const sendHumanReplySchema = z.object({
   conversationId: z.string().trim().cuid(),
   message: z.string().trim().min(1).max(2000),

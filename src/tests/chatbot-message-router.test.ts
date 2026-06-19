@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { routeInboundMessage } from "@/server/services/chatbot/message-router";
 import { buildTenantKnowledgeContext, generateAssistantReply, summarizeConversation } from "@/server/services/ai";
+import type { TenantAiRuntimeConfig } from "@/server/services/ai/models";
 import { processQueuedKnowledgeItems } from "@/server/services/ai/knowledge-processing";
 
 vi.mock("@/server/services/ai", () => ({
@@ -21,6 +22,23 @@ vi.mock("@/server/services/chatbot/escalation", () => ({
 const mockedBuildTenantKnowledgeContext = vi.mocked(buildTenantKnowledgeContext);
 const mockedGenerateAssistantReply = vi.mocked(generateAssistantReply);
 const mockedProcessQueuedKnowledgeItems = vi.mocked(processQueuedKnowledgeItems);
+
+const aiConfig: TenantAiRuntimeConfig = {
+  tenantId: "tenant-1",
+  workspaceId: "workspace-1",
+  displayName: "Vase Labs",
+  tone: "PREMIUM",
+  model: "",
+  temperature: 0.4,
+  timezone: "America/Argentina/Buenos_Aires",
+  bookingEnabled: false,
+  businessContext: {},
+  systemPrompt: null,
+  escalation: {
+    enabled: false,
+    destination: "HUMAN_QUEUE",
+  },
+};
 
 describe("chatbot message router", () => {
   beforeEach(() => {
@@ -48,7 +66,7 @@ describe("chatbot message router", () => {
           destination: "HUMAN_QUEUE",
         },
       },
-      aiConfig: { tone: "PREMIUM" },
+      aiConfig,
       conversation: {
         id: "conversation-1",
         metadata: { transcript: [] },

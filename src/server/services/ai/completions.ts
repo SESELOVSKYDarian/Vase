@@ -1,6 +1,7 @@
 import { buildSummaryPrompt } from "@/server/services/ai/prompts";
 import type { TenantAiRuntimeConfig } from "@/server/services/ai/models";
 import { clampConversationSummary } from "@/lib/chatbot/conversation-summary";
+import { generateOpenAiResponse } from "@/server/services/ai/openai-responses";
 
 type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -35,7 +36,7 @@ function extractKnowledgeAnswers(knowledgeText?: string, limit = 3) {
   }
 
   const matches = Array.from(
-    knowledgeText.matchAll(/Respuesta:\s*(.+?)(?=\n(?:Fuente|Categoria|Pregunta):|\n\n|$)/gms),
+    knowledgeText.matchAll(/Respuesta:\s*([\s\S]+?)(?=\n(?:Fuente|Categoria|Pregunta):|\n\n|$)/gm),
   )
     .map((match) => match[1]?.replace(/\s+/g, " ").trim())
     .filter(Boolean) as string[];
@@ -72,6 +73,15 @@ export async function generateAssistantReply(input: {
   userMessage: string;
   history?: ChatMessage[];
 }) {
+  try {
+    const openAiReply = await generateOpenAiResponse(input);
+    if (openAiReply) {
+      return openAiReply;
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "OpenAI response failed");
+  }
+
   const knowledgeAnswers = extractKnowledgeAnswers(input.knowledgeText);
   const prefix = tonePrefix(input.config);
   const displayName = input.config.displayName?.trim() || "Vase Labs";

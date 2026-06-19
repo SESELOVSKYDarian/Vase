@@ -1,4 +1,5 @@
 import type { TenantAiRuntimeConfig } from "@/server/services/ai/models";
+import { stripAiProviderSecretsFromBusinessContext } from "@/lib/labs/openai-config";
 
 function toneInstruction(tone: string) {
   switch (tone) {
@@ -28,8 +29,9 @@ export function buildAssistantSystemPrompt(config: TenantAiRuntimeConfig, knowle
         : "Este tenant no tiene reservas habilitadas salvo que la configuracion lo indique.",
     ].join("\n");
 
-  const businessContext = Object.keys(config.businessContext).length
-    ? `\nContexto del negocio:\n${JSON.stringify(config.businessContext, null, 2)}`
+  const safeBusinessContext = stripAiProviderSecretsFromBusinessContext(config.businessContext);
+  const businessContext = Object.keys(safeBusinessContext).length
+    ? `\nContexto del negocio:\n${JSON.stringify(safeBusinessContext, null, 2)}`
     : "";
 
   const knowledge = knowledgeText ? `\nConocimiento disponible:\n${knowledgeText}` : "";

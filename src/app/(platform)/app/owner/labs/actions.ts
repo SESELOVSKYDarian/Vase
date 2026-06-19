@@ -20,11 +20,13 @@ import {
   createTrainingJobSchema,
   createUrlKnowledgeSchema,
   deleteChannelSchema,
+  openAiSettingsSchema,
   openWaQrActionSchema,
   sendHumanReplySchema,
   setConversationAiModeSchema,
 } from "@/lib/validators/labs";
 import { buildMetaOfficialChannelConfig, getMetaOfficialChannelStatus } from "@/lib/labs/channel-config";
+import { buildOpenAiBusinessContext, DEFAULT_OPENAI_MODEL } from "@/lib/labs/openai-config";
 import { createAuditLog } from "@/server/services/audit-log";
 import { queueAiTrainingJob } from "@/server/services/labs-training";
 import { createSecurityEvent } from "@/server/services/security-events";
@@ -1043,6 +1045,77 @@ export async function queueLabsTrainingAction(
   } catch {
     return {
       error: "No pudimos crear el entrenamiento ahora.",
+    };
+  }
+}
+
+export async function updateLabsOpenAiSettingsAction(
+  _: LabsActionState,
+  formData: FormData,
+): Promise<LabsActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const session = await requireVerifiedUser();
+    const { membership } = await requireTenantRole(tenantRoles.OWNER);
+    const workspace = await requireLabsWorkspace(membership.tenantId);
+    const parsed = openAiSettingsSchema.safeParse({
+      openaiEnabled: formData.get("openaiEnabled") === "on",
+      openaiApiKey: sanitizeNullableText(String(formData.get("openaiApiKey") ?? "")) ?? undefined,
+      openaiModel: sanitizeText(String(formData.get("openaiModel") ?? DEFAULT_OPENAI_MODEL)),
+      temperature: String(formData.get("temperature") ?? "0.4"),
+      systemPrompt: sanitizeNullableText(String(formData.get("systemPrompt") ?? "")) ?? undefined,
+      clearOpenAiApiKey: formData.get("clearOpenAiApiKey") === "on",
+    });
+
+    if (!parsed.success) {
+      return {
+        error: "Revisa API key, modelo, temperatura y prompt del proveedor OpenAI.",
+      };
+    }
+
+    const businessContext = buildOpenAiBusinessContext(workspace.businessContext, {
+      enabled: parsed.data.openaiEnabled,
+      apiKey: parsed.data.openaiApiKey,
+      model: parsed.data.openaiModel,
+      clearApiKey: parsed.data.clearOpenAiApiKey,
+    });
+
+    await prisma.tenantAiWorkspace.update({
+      where: { tenantId: membership.tenantId },
+      data: {
+        modelSlug: parsed.data.openaiModel,
+        temperature: parsed.data.temperature,
+        systemPrompt: parsed.data.systemPrompt ?? null,
+        businessContext: businessContext as Prisma.InputJsonValue,
+      },
+    });
+
+    await createAuditLog({
+      action: "labs.openai_settings_updated",
+      targetType: "tenant_ai_workspace",
+      tenantId: membership.tenantId,
+      actorUserId: session.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        enabled: parsed.data.openaiEnabled,
+        model: parsed.data.openaiModel,
+        hasApiKey: Boolean(businessContext.openai && typeof businessContext.openai === "object" && "hasApiKey" in businessContext.openai && businessContext.openai.hasApiKey),
+      },
+    });
+
+    revalidatePath("/app/owner/labs");
+    revalidatePath("/app/owner/labs/ai-tools");
+    revalidatePath("/app/owner/labs/settings");
+
+    return {
+      success: parsed.data.openaiEnabled
+        ? "ChatGPT/OpenAI conectado para el asistente."
+        : "ChatGPT/OpenAI desactivado. El asistente usara el motor local.",
+    };
+  } catch {
+    return {
+      error: "No pudimos guardar la configuracion de ChatGPT/OpenAI.",
     };
   }
 }

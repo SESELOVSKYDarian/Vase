@@ -66,17 +66,14 @@ describe("chatbot orchestrator", () => {
       customerName: "Alexis",
       customerContact: "5492230000000",
       status: "OPEN",
-      aiPaused: false,
-      assignedToUserId: null,
       metadata: { transcript: [] },
       summary: null,
-      lastMessageAt: null,
+      lastMessageAt: new Date("2026-06-18T16:36:00.000Z"),
       messageCount: 0,
-      escalatedAt: null,
       closedAt: null,
       createdAt: new Date("2026-06-18T16:36:00.000Z"),
       updatedAt: new Date("2026-06-18T16:36:00.000Z"),
-    });
+    } as never);
     mockedRouteInboundMessage.mockResolvedValue({
       reply: "Hola, soy el asistente de Vase Labs.",
       state: "IDLE",
@@ -96,6 +93,7 @@ describe("chatbot orchestrator", () => {
       customerName: "Alexis",
       customerContact: "5492230000000",
       text: "hola",
+      messageType: "text",
     });
 
     expect(persistInboundMessage).toHaveBeenCalledWith(
@@ -131,20 +129,17 @@ describe("chatbot orchestrator", () => {
       customerName: "Alexis",
       customerContact: "5492230000000",
       status: "OPEN",
-      aiPaused: false,
-      assignedToUserId: null,
       metadata: {
         transcript: [{ role: "user", content: "messi" }],
         processedInboundIds: ["wamid.duplicate"],
       },
       summary: null,
-      lastMessageAt: null,
+      lastMessageAt: new Date("2026-06-18T16:36:00.000Z"),
       messageCount: 1,
-      escalatedAt: null,
       closedAt: null,
       createdAt: new Date("2026-06-18T16:36:00.000Z"),
       updatedAt: new Date("2026-06-18T16:36:00.000Z"),
-    });
+    } as never);
 
     const result = await handleInboundChannelMessage({
       tenantId: "tenant-1",
@@ -154,6 +149,7 @@ describe("chatbot orchestrator", () => {
       customerContact: "5492230000000",
       text: "messi",
       externalMessageId: "wamid.duplicate",
+      messageType: "text",
     });
 
     expect(result).toEqual({ conversationId: "conversation-1", duplicate: true });
