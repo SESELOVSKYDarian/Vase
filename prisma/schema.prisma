@@ -1736,7 +1736,7 @@ model TenantAiWorkspace {
   tenantId                String                 @unique
   plan                    AiWorkspacePlan        @default(START)
   assistantDisplayName    String                 @default("Asistente Vase")
-  systemPrompt            String?
+  systemPrompt            String?                @db.Text
   modelSlug               String?
   temperature             Decimal?               @db.Decimal(3, 2)
   tone                    AiAssistantTone        @default(PROFESSIONAL)

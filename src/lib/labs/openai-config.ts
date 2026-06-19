@@ -1,4 +1,5 @@
 export const DEFAULT_OPENAI_MODEL = "gpt-5.5";
+export const OPENAI_SYSTEM_PROMPT_MAX_LENGTH = 4000;
 
 export const OPENAI_MODEL_OPTIONS = [
   {

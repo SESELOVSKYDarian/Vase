@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_OPENAI_MODEL } from "@/lib/labs/openai-config";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { DEFAULT_OPENAI_MODEL, OPENAI_SYSTEM_PROMPT_MAX_LENGTH } from "@/lib/labs/openai-config";
 import { connectChannelSchema, openAiSettingsSchema } from "@/lib/validators/labs";
 
 describe("labs validators", () => {
@@ -40,5 +42,24 @@ describe("labs validators", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("rejects agent prompts above the configured limit", () => {
+    const result = openAiSettingsSchema.safeParse({
+      openaiEnabled: true,
+      openaiApiKey: "sk-test",
+      openaiModel: DEFAULT_OPENAI_MODEL,
+      temperature: "0.4",
+      systemPrompt: "x".repeat(OPENAI_SYSTEM_PROMPT_MAX_LENGTH + 1),
+      clearOpenAiApiKey: false,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("stores the agent prompt in a text column", () => {
+    const schema = readFileSync(join(process.cwd(), "prisma/schema.prisma"), "utf8");
+
+    expect(schema).toMatch(/systemPrompt\s+String\?\s+@db\.Text/);
   });
 });

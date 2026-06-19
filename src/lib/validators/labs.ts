@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isSupportedOpenAiModel } from "@/lib/labs/openai-config";
+import { isSupportedOpenAiModel, OPENAI_SYSTEM_PROMPT_MAX_LENGTH } from "@/lib/labs/openai-config";
 
 export const assistantSettingsSchema = z.object({
   assistantDisplayName: z.string().trim().min(3).max(80),
@@ -55,7 +55,7 @@ export const openAiSettingsSchema = z.object({
     .trim()
     .refine(isSupportedOpenAiModel, "Selecciona un modelo disponible de OpenAI."),
   temperature: z.coerce.number().min(0).max(2),
-  systemPrompt: z.string().trim().max(4000).optional(),
+  systemPrompt: z.string().trim().max(OPENAI_SYSTEM_PROMPT_MAX_LENGTH).optional(),
   clearOpenAiApiKey: z.boolean(),
 });
 

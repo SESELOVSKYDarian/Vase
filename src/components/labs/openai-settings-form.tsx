@@ -7,6 +7,7 @@ import {
   DEFAULT_OPENAI_MODEL,
   isSupportedOpenAiModel,
   OPENAI_MODEL_OPTIONS,
+  OPENAI_SYSTEM_PROMPT_MAX_LENGTH,
 } from "@/lib/labs/openai-config";
 
 const initialState: LabsActionState = {};
@@ -86,10 +87,14 @@ export function OpenAiSettingsForm(props: OpenAiSettingsFormProps) {
         <textarea
           name="systemPrompt"
           rows={8}
+          maxLength={OPENAI_SYSTEM_PROMPT_MAX_LENGTH}
           defaultValue={props.systemPrompt ?? ""}
           placeholder="Sos el asistente comercial de Vase Labs. Responde natural, breve y orientado a ventas..."
           className="rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 py-3 text-[var(--foreground)]"
         />
+        <span className="text-xs leading-5 text-[var(--muted)]">
+          Maximo {OPENAI_SYSTEM_PROMPT_MAX_LENGTH} caracteres.
+        </span>
       </label>
 
       <button
