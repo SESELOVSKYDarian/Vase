@@ -1,5 +1,40 @@
 export const DEFAULT_OPENAI_MODEL = "gpt-5.5";
 
+export const OPENAI_MODEL_OPTIONS = [
+  {
+    value: "gpt-5.5",
+    label: "GPT-5.5",
+    description: "Mayor calidad para respuestas comerciales y razonamiento.",
+  },
+  {
+    value: "gpt-5.5-pro",
+    label: "GPT-5.5 Pro",
+    description: "Mas preciso para casos dificiles, con mayor costo.",
+  },
+  {
+    value: "gpt-5.4",
+    label: "GPT-5.4",
+    description: "Balance entre calidad, velocidad y costo.",
+  },
+  {
+    value: "gpt-5.4-pro",
+    label: "GPT-5.4 Pro",
+    description: "Mas compute para consultas complejas.",
+  },
+  {
+    value: "gpt-5.4-mini",
+    label: "GPT-5.4 mini",
+    description: "Rapido y economico para alto volumen.",
+  },
+  {
+    value: "gpt-5.4-nano",
+    label: "GPT-5.4 nano",
+    description: "Menor costo para respuestas simples.",
+  },
+] as const;
+
+const supportedOpenAiModels = new Set(OPENAI_MODEL_OPTIONS.map((option) => option.value));
+
 export type LabsOpenAiBusinessConfig = {
   enabled: boolean;
   model: string;
@@ -23,6 +58,10 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function readOpenAiSource(context: unknown) {
   return asRecord(asRecord(context).openai);
+}
+
+export function isSupportedOpenAiModel(model: string) {
+  return supportedOpenAiModels.has(model.trim() as (typeof OPENAI_MODEL_OPTIONS)[number]["value"]);
 }
 
 export function readOpenAiBusinessConfig(
@@ -53,16 +92,21 @@ export function buildOpenAiBusinessContext(
   const apiKey = input.clearApiKey
     ? undefined
     : input.apiKey?.trim() || existing.apiKey;
+  const model = input.model?.trim() || existing.model || DEFAULT_OPENAI_MODEL;
+  const openAiConfig: Record<string, unknown> = {
+    enabled: input.enabled,
+    model: isSupportedOpenAiModel(model) ? model : DEFAULT_OPENAI_MODEL,
+    hasApiKey: Boolean(apiKey),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (apiKey) {
+    openAiConfig.apiKey = apiKey;
+  }
 
   return {
     ...current,
-    openai: {
-      enabled: input.enabled,
-      model: input.model?.trim() || existing.model || DEFAULT_OPENAI_MODEL,
-      apiKey,
-      hasApiKey: Boolean(apiKey),
-      updatedAt: new Date().toISOString(),
-    },
+    openai: openAiConfig,
   };
 }
 

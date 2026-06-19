@@ -3,7 +3,11 @@
 import { useActionState } from "react";
 import type { LabsActionState } from "@/app/(platform)/app/owner/labs/actions";
 import { updateLabsOpenAiSettingsAction } from "@/app/(platform)/app/owner/labs/actions";
-import { DEFAULT_OPENAI_MODEL } from "@/lib/labs/openai-config";
+import {
+  DEFAULT_OPENAI_MODEL,
+  isSupportedOpenAiModel,
+  OPENAI_MODEL_OPTIONS,
+} from "@/lib/labs/openai-config";
 
 const initialState: LabsActionState = {};
 
@@ -17,6 +21,9 @@ type OpenAiSettingsFormProps = {
 
 export function OpenAiSettingsForm(props: OpenAiSettingsFormProps) {
   const [state, formAction, pending] = useActionState(updateLabsOpenAiSettingsAction, initialState);
+  const selectedModel = props.model && isSupportedOpenAiModel(props.model)
+    ? props.model
+    : DEFAULT_OPENAI_MODEL;
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -28,12 +35,17 @@ export function OpenAiSettingsForm(props: OpenAiSettingsFormProps) {
       <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
         <label className="grid gap-2 text-sm">
           <span className="font-medium text-[var(--foreground)]">Modelo</span>
-          <input
+          <select
             name="openaiModel"
-            defaultValue={props.model || DEFAULT_OPENAI_MODEL}
-            placeholder={DEFAULT_OPENAI_MODEL}
+            defaultValue={selectedModel}
             className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
-          />
+          >
+            {OPENAI_MODEL_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label} - {option.description}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="grid gap-2 text-sm">
           <span className="font-medium text-[var(--foreground)]">Temperatura</span>
@@ -54,9 +66,12 @@ export function OpenAiSettingsForm(props: OpenAiSettingsFormProps) {
         <input
           name="openaiApiKey"
           type="password"
-          placeholder={props.hasApiKey ? "Clave guardada. Deja vacio para conservarla." : "sk-..."}
+          placeholder={props.hasApiKey ? "Clave guardada. Deja vacio para conservarla." : "Pega una clave nueva sk-..."}
           className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
         />
+        <span className="text-xs leading-5 text-[var(--muted)]">
+          Si una clave fue compartida en un chat o captura, revocala en OpenAI y crea una nueva antes de guardarla.
+        </span>
       </label>
 
       {props.hasApiKey ? (

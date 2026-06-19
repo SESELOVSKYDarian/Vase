@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isSupportedOpenAiModel } from "@/lib/labs/openai-config";
 
 export const assistantSettingsSchema = z.object({
   assistantDisplayName: z.string().trim().min(3).max(80),
@@ -43,8 +44,16 @@ export const createTrainingJobSchema = z.object({
 
 export const openAiSettingsSchema = z.object({
   openaiEnabled: z.boolean(),
-  openaiApiKey: z.string().trim().max(4096).optional(),
-  openaiModel: z.string().trim().min(3).max(80),
+  openaiApiKey: z
+    .string()
+    .trim()
+    .max(4096)
+    .optional()
+    .refine((value) => !value || value.startsWith("sk-"), "La API key debe empezar con sk-."),
+  openaiModel: z
+    .string()
+    .trim()
+    .refine(isSupportedOpenAiModel, "Selecciona un modelo disponible de OpenAI."),
   temperature: z.coerce.number().min(0).max(2),
   systemPrompt: z.string().trim().max(4000).optional(),
   clearOpenAiApiKey: z.boolean(),

@@ -26,7 +26,11 @@ import {
   setConversationAiModeSchema,
 } from "@/lib/validators/labs";
 import { buildMetaOfficialChannelConfig, getMetaOfficialChannelStatus } from "@/lib/labs/channel-config";
-import { buildOpenAiBusinessContext, DEFAULT_OPENAI_MODEL } from "@/lib/labs/openai-config";
+import {
+  buildOpenAiBusinessContext,
+  DEFAULT_OPENAI_MODEL,
+  readOpenAiBusinessConfig,
+} from "@/lib/labs/openai-config";
 import { createAuditLog } from "@/server/services/audit-log";
 import { queueAiTrainingJob } from "@/server/services/labs-training";
 import { createSecurityEvent } from "@/server/services/security-events";
@@ -1068,8 +1072,11 @@ export async function updateLabsOpenAiSettingsAction(
     });
 
     if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
       return {
-        error: "Revisa API key, modelo, temperatura y prompt del proveedor OpenAI.",
+        error: firstIssue
+          ? `Revisa ${firstIssue.path.join(".") || "el formulario"}: ${firstIssue.message}.`
+          : "Revisa API key, modelo, temperatura y prompt del proveedor OpenAI.",
       };
     }
 
@@ -1079,6 +1086,13 @@ export async function updateLabsOpenAiSettingsAction(
       model: parsed.data.openaiModel,
       clearApiKey: parsed.data.clearOpenAiApiKey,
     });
+    const openAiConfig = readOpenAiBusinessConfig(businessContext);
+
+    if (parsed.data.openaiEnabled && !openAiConfig.hasApiKey) {
+      return {
+        error: "Para activar ChatGPT/OpenAI necesitas guardar una API key nueva o conservar una existente.",
+      };
+    }
 
     await prisma.tenantAiWorkspace.update({
       where: { tenantId: membership.tenantId },
@@ -1100,7 +1114,7 @@ export async function updateLabsOpenAiSettingsAction(
       metadata: {
         enabled: parsed.data.openaiEnabled,
         model: parsed.data.openaiModel,
-        hasApiKey: Boolean(businessContext.openai && typeof businessContext.openai === "object" && "hasApiKey" in businessContext.openai && businessContext.openai.hasApiKey),
+        hasApiKey: openAiConfig.hasApiKey,
       },
     });
 
@@ -1113,9 +1127,10 @@ export async function updateLabsOpenAiSettingsAction(
         ? "ChatGPT/OpenAI conectado para el asistente."
         : "ChatGPT/OpenAI desactivado. El asistente usara el motor local.",
     };
-  } catch {
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "OpenAI settings update failed");
     return {
-      error: "No pudimos guardar la configuracion de ChatGPT/OpenAI.",
+      error: "No pudimos guardar la configuracion de ChatGPT/OpenAI. Revisa la consola del servidor para ver el detalle.",
     };
   }
 }
