@@ -1783,7 +1783,7 @@ model AiKnowledgeItem {
   faqQuestion      String?
   faqAnswer        String?
   allowedPaths     Json?
-  contentSnippet   String?
+  contentSnippet   String?               @db.Text
   processingNotes  String?
   failureReason    String?
   lastProcessedAt  DateTime?

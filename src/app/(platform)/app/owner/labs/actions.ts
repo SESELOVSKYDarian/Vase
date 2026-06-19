@@ -32,6 +32,7 @@ import {
   readOpenAiBusinessConfig,
 } from "@/lib/labs/openai-config";
 import { createAuditLog } from "@/server/services/audit-log";
+import { extractPdfKnowledgeSnippetFromFile } from "@/server/services/ai/pdf-text";
 import { queueAiTrainingJob } from "@/server/services/labs-training";
 import { createSecurityEvent } from "@/server/services/security-events";
 import { ensureBaileysRuntime, getBaileysState, refreshBaileysQr } from "@/server/services/baileys-gateway";
@@ -184,6 +185,11 @@ export async function uploadLabsKnowledgeFileAction(
       };
     }
 
+    const extractedContentSnippet =
+      metadata.type === "application/pdf"
+        ? await extractPdfKnowledgeSnippetFromFile(file, metadata.originalName)
+        : null;
+
     await prisma.aiKnowledgeItem.create({
       data: {
         tenantId: membership.tenantId,
@@ -196,7 +202,7 @@ export async function uploadLabsKnowledgeFileAction(
         mimeType: metadata.type,
         fileSizeBytes: metadata.size,
         storageKey: metadata.storageKey,
-        contentSnippet: "Archivo cargado para entrenamiento y procesamiento posterior.",
+        contentSnippet: extractedContentSnippet || "Archivo cargado para entrenamiento y procesamiento posterior.",
       },
     });
 

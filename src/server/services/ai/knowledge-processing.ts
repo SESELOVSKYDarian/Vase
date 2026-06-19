@@ -1,7 +1,7 @@
 import { AiKnowledgeItemType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
-type QueuedKnowledgeItem = {
+export type QueuedKnowledgeItem = {
   id: string;
   type: AiKnowledgeItemType;
   title: string;
@@ -12,7 +12,21 @@ type QueuedKnowledgeItem = {
   contentSnippet: string | null;
 };
 
+const GENERIC_FILE_SNIPPET = "Archivo cargado para entrenamiento y procesamiento posterior.";
+
+function hasUsefulFileSnippet(snippet: string | null) {
+  if (!snippet) {
+    return false;
+  }
+
+  return snippet.trim() !== GENERIC_FILE_SNIPPET;
+}
+
 function describeFile(item: QueuedKnowledgeItem) {
+  if (hasUsefulFileSnippet(item.contentSnippet)) {
+    return item.contentSnippet;
+  }
+
   const fileName = item.fileName || item.title;
   const details = [
     item.mimeType ? `Tipo: ${item.mimeType}` : null,
@@ -33,7 +47,7 @@ function describeUrl(item: QueuedKnowledgeItem) {
   ].filter(Boolean).join(" ");
 }
 
-function buildProcessedSnippet(item: QueuedKnowledgeItem) {
+export function buildProcessedKnowledgeSnippet(item: QueuedKnowledgeItem) {
   if (item.type === AiKnowledgeItemType.FILE) {
     return describeFile(item);
   }
@@ -72,9 +86,9 @@ export async function processQueuedKnowledgeItems(tenantId: string, workspaceId:
         where: { id: item.id },
         data: {
           status: "READY",
-          contentSnippet: buildProcessedSnippet(item),
+          contentSnippet: buildProcessedKnowledgeSnippet(item),
           processingNotes:
-            "Procesado automaticamente como referencia. La extraccion completa de contenido PDF/OCR requiere un extractor dedicado.",
+            "Procesado automaticamente como referencia. Los PDFs con texto seleccionable se guardan como conocimiento; los PDFs escaneados requieren OCR externo.",
           lastProcessedAt: now,
         },
       }),
