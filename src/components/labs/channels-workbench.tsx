@@ -44,13 +44,17 @@ export function ChannelsWorkbench({
   webhookPreviewUrl: string;
   webhookVerifyToken: string;
 }) {
+  const connectedChannels = channels.filter((channel) => channel.status === "CONNECTED");
+
   return (
     <div className="space-y-4">
       <LabsSection>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-semibold text-[var(--foreground)]">{channels.length} canales registrados</p>
-            <p className="text-xs text-[var(--muted)]">Meta oficial, WhatsApp QR y canales web.</p>
+            <p className="text-xs text-[var(--muted)]">
+              {connectedChannels.length} activos · Meta oficial, WhatsApp QR y canales web.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <LabsModal
@@ -90,7 +94,10 @@ export function ChannelsWorkbench({
 
       <LabsSection title="Canales">
         {channels.length === 0 ? (
-          <LabsEmptyState title="Sin canales conectados" description="Conecta WhatsApp, Instagram o Webchat para empezar a recibir conversaciones." />
+          <LabsEmptyState
+            title="Sin canales conectados"
+            description="Conecta WhatsApp, Instagram o Webchat. Cuando uno quede activo aparecera aca con estado conectado."
+          />
         ) : (
           <div className="grid gap-3">
             {channels.map((channel) => {
@@ -100,10 +107,20 @@ export function ChannelsWorkbench({
               const isBaileys = provider === "BAILEYS_UNOFFICIAL";
 
               return (
-                <article key={channel.id} className="labs-subpanel p-4">
+                <article
+                  key={channel.id}
+                  className={[
+                    "labs-subpanel p-4",
+                    channel.status === "CONNECTED"
+                      ? "border-[color-mix(in_srgb,var(--success)_34%,var(--border-subtle))] bg-[var(--success-soft)]"
+                      : channel.status === "ERROR"
+                        ? "border-[color-mix(in_srgb,var(--danger)_34%,var(--border-subtle))] bg-[var(--danger-soft)]"
+                        : "border-[color-mix(in_srgb,var(--warning)_34%,var(--border-subtle))] bg-[var(--warning-soft)]",
+                  ].join(" ")}
+                >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex min-w-0 gap-3">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+                      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--surface-strong)] text-[var(--accent-strong)]">
                         <Cable className="size-4" />
                       </span>
                       <div className="min-w-0">

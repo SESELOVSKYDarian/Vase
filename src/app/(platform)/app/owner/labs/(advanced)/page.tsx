@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Bot, Cable, Database, Flame, MessageSquare, Route, UserRoundCheck } from "lucide-react";
 import { LabsConversationTrendChart, LabsIntentDistributionChart } from "@/components/labs/labs-analytics-charts";
+import { LabsGuidedTour } from "@/components/labs/labs-guided-tour";
 import { LabsActionLink, LabsEmptyState, LabsMetricCard, LabsPageHeader, LabsSection, LabsStatusPill } from "@/components/labs/labs-ui";
 import { buildLabsConversationAnalytics } from "@/server/services/labs-analytics";
 import { getLabsPlanLabel } from "@/lib/labs/plans";
@@ -8,7 +9,7 @@ import { conversationTone, formatDate, getLabsOwnerPageData, trainingTone } from
 import { LabsModuleDisabledCard } from "./ui";
 
 export default async function LabsDashboardPage() {
-  const { dashboard, labsEnabled } = await getLabsOwnerPageData();
+  const { dashboard, labsEnabled, membership } = await getLabsOwnerPageData();
   const analytics = buildLabsConversationAnalytics(dashboard.conversations);
   const pendingTrainingJobs = dashboard.trainingJobs.filter((job) => job.status === "QUEUED" || job.status === "PROCESSING").length;
   const readyTrainingJobs = dashboard.trainingJobs.filter((job) => job.status === "READY").length;
@@ -26,6 +27,7 @@ export default async function LabsDashboardPage() {
         description="Estado vivo de conversaciones, conocimiento, canales y derivaciones humanas."
         actions={
           <>
+            <LabsGuidedTour tenantId={membership.tenantId} />
             <LabsActionLink href="/app/owner/labs/inbox">Abrir inbox</LabsActionLink>
             <Link href="/app/owner/labs/activity" className="labs-button labs-button-secondary">
               Analisis
@@ -38,7 +40,7 @@ export default async function LabsDashboardPage() {
         <LabsModuleDisabledCard />
       ) : (
         <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <section data-labs-tour="metricas" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <LabsMetricCard label="Conversaciones abiertas" value={dashboard.summary.openConversations} icon={MessageSquare} tone="info" />
             <LabsMetricCard label="Derivadas a humano" value={dashboard.summary.escalatedConversations} icon={UserRoundCheck} tone="warning" />
             <LabsMetricCard label="Hot leads" value={analytics.hotLeads} icon={Flame} tone="success" />
@@ -78,7 +80,7 @@ export default async function LabsDashboardPage() {
               ) : null}
             </LabsSection>
 
-            <LabsSection title="Conversaciones que piden atencion" actions={<Link href="/app/owner/labs/activity" className="labs-button labs-button-secondary">Ver todo</Link>}>
+            <LabsSection data-labs-tour="alertas" title="Conversaciones que piden atencion" actions={<Link href="/app/owner/labs/activity" className="labs-button labs-button-secondary">Ver todo</Link>}>
               {criticalConversations.length === 0 ? (
                 <LabsEmptyState title="Sin conversaciones criticas" description="Los hot leads y derivaciones humanas apareceran aca." />
               ) : (

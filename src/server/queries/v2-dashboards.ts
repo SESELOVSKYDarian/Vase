@@ -82,6 +82,11 @@ export async function getMasterV2Dashboard() {
   const todayEnd = endOfDay(now);
   const weekEnd = new Date(todayStart);
   weekEnd.setDate(weekEnd.getDate() + 7);
+  const financeTrendRanges = Array.from({ length: 6 }, (_, index) => {
+    const start = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1, 0, 0, 0, 0);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 1, 0, 0, 0, 0);
+    return { start, end };
+  });
 
   const [
     monthlyPayments,
@@ -95,6 +100,12 @@ export async function getMasterV2Dashboard() {
     meetingsWeek,
     recentDeployments,
     recentRollbacks,
+    activeUsers,
+    disabledUsers,
+    tenantSuspended,
+    membershipSuspended,
+    recentDisabledUsers,
+    financeTrend,
   ] = await Promise.all([
     prisma.clientPayment.aggregate({
       where: { paidAt: { gte: monthStart, lt: now } },
@@ -144,6 +155,35 @@ export async function getMasterV2Dashboard() {
       take: 5,
       select: { id: true, createdAt: true, targetId: true, actorUser: { select: { name: true } } },
     }),
+    prisma.user.count({ where: { isDisabled: false } }),
+    prisma.user.count({ where: { isDisabled: true } }),
+    prisma.tenant.count({ where: { status: "SUSPENDED" } }),
+    prisma.membership.count({ where: { status: "SUSPENDED" } }),
+    prisma.user.findMany({
+      where: { isDisabled: true },
+      orderBy: { disabledAt: "desc" },
+      take: 5,
+      select: { id: true, name: true, email: true, disabledAt: true, disabledReason: true },
+    }),
+    Promise.all(
+      financeTrendRanges.map(async ({ start, end }) => {
+        const [payments, expenses] = await Promise.all([
+          prisma.clientPayment.aggregate({
+            where: { paidAt: { gte: start, lt: end } },
+            _sum: { paidAmount: true },
+          }),
+          prisma.expense.aggregate({
+            where: { startsAt: { gte: start, lt: end } },
+            _sum: { amount: true },
+          }),
+        ]);
+        return {
+          label: new Intl.DateTimeFormat("es-AR", { month: "short" }).format(start),
+          ingresos: Number(payments._sum.paidAmount ?? 0),
+          gastos: Number(expenses._sum.amount ?? 0),
+        };
+      }),
+    ),
   ]);
 
   const projectsByStatus = new Map(projectCounts.map((row) => [row.status, row._count._all]));
@@ -196,6 +236,22 @@ export async function getMasterV2Dashboard() {
       activos: clientsStatusMap.get("ACTIVE") ?? 0,
       nuevos: await prisma.clientAccount.count({ where: { createdAt: { gte: monthStart, lt: now } } }),
       conPagosVencidos: overdueClientPayments,
+    },
+    health: {
+      activeUsers,
+      disabledUsers,
+      tenantSuspended,
+      membershipSuspended,
+      recentDisabledUsers,
+    },
+    charts: {
+      financeTrend,
+      accessHealth: [
+        { label: "Activos", value: activeUsers, tone: "success" as const },
+        { label: "Deshabilitados", value: disabledUsers, tone: "danger" as const },
+        { label: "Tenants susp.", value: tenantSuspended, tone: "warning" as const },
+        { label: "Membresias susp.", value: membershipSuspended, tone: "info" as const },
+      ],
     },
     meetings: {
       hoy: meetingsToday,

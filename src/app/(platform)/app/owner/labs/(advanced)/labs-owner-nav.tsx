@@ -13,12 +13,12 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { href: "/app/owner/labs", label: "Panel", icon: LayoutDashboard },
-  { href: "/app/owner/labs/inbox", label: "Inbox", icon: MessageSquare },
-  { href: "/app/owner/labs/activity", label: "Actividad", icon: Activity },
-  { href: "/app/owner/labs/chatbots", label: "Conocimiento", icon: Bot },
-  { href: "/app/owner/labs/integrations", label: "Canales", icon: Cable },
-  { href: "/app/owner/labs/settings", label: "Ajustes", icon: Settings2 },
+  { id: "panel", href: "/app/owner/labs", label: "Panel", icon: LayoutDashboard },
+  { id: "inbox", href: "/app/owner/labs/inbox", label: "Inbox", icon: MessageSquare },
+  { id: "actividad", href: "/app/owner/labs/activity", label: "Actividad", icon: Activity },
+  { id: "conocimiento", href: "/app/owner/labs/chatbots", label: "Conocimiento", icon: Bot },
+  { id: "canales", href: "/app/owner/labs/integrations", label: "Canales", icon: Cable },
+  { id: "ajustes", href: "/app/owner/labs/settings", label: "Ajustes", icon: Settings2 },
 ] as const;
 
 function isActive(pathname: string, href: string) {
@@ -42,6 +42,7 @@ export function LabsOwnerNav() {
           <Link
             key={item.href}
             href={item.href as never}
+            data-labs-tour={item.id}
             className={[
               "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-[var(--muted)] transition-colors duration-200",
               active

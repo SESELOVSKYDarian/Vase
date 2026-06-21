@@ -1,4 +1,4 @@
-import type { ElementType, PropsWithChildren, ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ElementType, PropsWithChildren, ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { clsx } from "clsx";
@@ -31,11 +31,11 @@ type LabsSectionProps = PropsWithChildren<{
   description?: string;
   actions?: ReactNode;
   className?: string;
-}>;
+}> & ComponentPropsWithoutRef<"section">;
 
-export function LabsSection({ title, eyebrow, description, actions, className, children }: LabsSectionProps) {
+export function LabsSection({ title, eyebrow, description, actions, className, children, ...sectionProps }: LabsSectionProps) {
   return (
-    <section className={clsx("labs-panel p-5", className)}>
+    <section className={clsx("labs-panel p-5", className)} {...sectionProps}>
       {(title || eyebrow || description || actions) ? (
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
@@ -69,19 +69,23 @@ const metricTone = {
 
 export function LabsMetricCard({ label, value, detail, icon: Icon, tone = "neutral" }: LabsMetricCardProps) {
   return (
-    <article className="labs-panel p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-soft)]">{label}</p>
-          <p className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)]">{value}</p>
+    <article className="labs-panel min-h-[10.75rem] p-5">
+      <div className="flex h-full flex-col justify-between gap-5">
+        <div className="flex items-start justify-between gap-4">
+          <p className="max-w-[9.5rem] text-[11px] font-semibold uppercase leading-5 tracking-[0.16em] text-[var(--muted-soft)]">
+            {label}
+          </p>
+          {Icon ? (
+            <span className={clsx("grid size-12 shrink-0 place-items-center rounded-2xl", metricTone[tone])}>
+              <Icon className="size-5" />
+            </span>
+          ) : null}
         </div>
-        {Icon ? (
-          <span className={clsx("grid size-10 place-items-center rounded-lg", metricTone[tone])}>
-            <Icon className="size-4" />
-          </span>
-        ) : null}
+        <div>
+          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">{value}</p>
+          {detail ? <p className="mt-3 text-sm leading-5 text-[var(--muted)]">{detail}</p> : null}
+        </div>
       </div>
-      {detail ? <p className="mt-3 text-xs leading-5 text-[var(--muted)]">{detail}</p> : null}
     </article>
   );
 }

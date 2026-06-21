@@ -24,13 +24,13 @@ export function ThemeToggleControl({ compact = false }: { compact?: boolean }) {
   return (
     <div
       className={[
-        "flex items-center justify-between gap-3 rounded-2xl border border-[#dbe3de] bg-white",
+        "flex items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] shadow-sm",
         compact ? "px-3 py-2" : "px-4 py-3",
       ].join(" ")}
     >
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#6c7b70]">Tema</p>
-        <p className="truncate text-sm font-semibold text-[#191c1b]">{theme === "dark" ? "Modo oscuro" : "Modo claro"}</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted-soft)]">Tema</p>
+        <p className="truncate text-sm font-semibold text-[var(--foreground)]">{theme === "dark" ? "Modo oscuro" : "Modo claro"}</p>
       </div>
       <ThemeToggle checked={theme === "dark"} onChange={() => setTheme((current) => (current === "dark" ? "light" : "dark"))} />
     </div>

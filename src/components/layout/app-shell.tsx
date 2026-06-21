@@ -43,9 +43,14 @@ import {
   Check,
 } from "lucide-react";
 import { signOutAction } from "@/app/(auth)/actions";
-import { markAdminNotificationAsReadAction, markAllNotificationsAsReadAction } from "@/app/(platform)/app/notifications-actions";
+import {
+  markAdminNotificationAsReadAction,
+  markAllNotificationsAsReadAction,
+  markSystemNotificationAsReadAction,
+} from "@/app/(platform)/app/notifications-actions";
 import { markPlatformUpdateAsReadAction } from "@/app/(platform)/app/platform-updates-actions";
 import type { PlatformModuleAccess } from "@/config/modules";
+import type { ShellNotification } from "@/server/services/labs-notifications";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useRouter } from "next/navigation";
 import { PricingModal } from "@/components/platform/pricing-modal";
@@ -72,17 +77,7 @@ type AppShellProps = PropsWithChildren<{
   supportWidget?: ReactNode;
   modules?: PlatformModuleAccess[];
   shortcuts?: Shortcut[];
-  notifications?: Array<{
-    id: string;
-    title: string;
-    description: string;
-    href: string | null;
-    tone: "info" | "warning" | "danger";
-    category: "platform" | "business" | "labs" | "billing";
-    isPlatformUpdate?: boolean;
-    isRead?: boolean;
-    notificationType?: "platform_update" | "admin_notification" | "system_hint";
-  }>;
+  notifications?: ShellNotification[];
   currentUserName?: string;
   projectCreation?: {
     business: { canCreate: boolean; remaining: number };
@@ -193,6 +188,19 @@ function NotificationToneIcon({ tone }: { tone: "info" | "warning" | "danger" })
   }
 
   return <Info className="size-4 text-[var(--info)]" />;
+}
+
+function notificationSourceClass(sourceLabel?: string) {
+  switch (sourceLabel) {
+    case "Vase Labs":
+      return "border-[color-mix(in_srgb,var(--success)_28%,var(--border-subtle))] bg-[var(--success-soft)] text-[var(--success)]";
+    case "Vase Business":
+      return "border-[color-mix(in_srgb,var(--info)_28%,var(--border-subtle))] bg-[var(--info-soft)] text-[var(--info)]";
+    case "Billing":
+      return "border-[color-mix(in_srgb,var(--warning)_28%,var(--border-subtle))] bg-[var(--warning-soft)] text-[var(--warning)]";
+    default:
+      return "border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--foreground)]";
+  }
 }
 
 export function AppShell({
@@ -330,44 +338,56 @@ export function AppShell({
   const adminNavGroups: NavGroup[] = [
     {
       id: "overview",
-      label: "Overview",
-      items: [{ id: "admin-home", href: "/app/admin", label: "Inicio Admin", icon: Shield, description: "Vista ejecutiva de plataforma" }],
+      label: "Super Admin",
+      items: [{ id: "admin-home", href: "/app/admin", label: "Panel", icon: Shield, description: "Vista ejecutiva de plataforma" }],
     },
     {
-      id: "platform",
-      label: "Plataforma",
+      id: "access",
+      label: "Acceso",
       items: [
         { id: "admin-users", href: "/app/admin/users", label: "Usuarios", icon: UserCog, description: "Roles, modulos y cobros por cliente" },
-        { id: "admin-modules", href: "/app/admin/modules", label: "Modulos", icon: Blocks, description: "Catalogo y precios" },
-        { id: "admin-settings", href: "/app/admin/settings", label: "Ajustes", icon: SlidersHorizontal, description: "Reglas financieras" },
-        { id: "admin-audit", href: "/app/admin/audit", label: "Auditoria", icon: ScrollText, description: "Eventos y trazabilidad" },
+        { id: "admin-modules", href: "/app/admin/modules", label: "Modulos", icon: Blocks, description: "Catalogo, planes y precios" },
       ],
     },
     {
-      id: "commercial",
-      label: "Comercial y Finanzas",
+      id: "money",
+      label: "Finanzas",
       items: [
-        { id: "admin-finance", href: "/app/admin/finance", label: "Finanzas", icon: Wallet, description: "Resumen financiero" },
-        { id: "admin-meetings", href: "/app/admin/meetings", label: "Reuniones", icon: CalendarDays, description: "Agenda y notas de clientes" },
-        { id: "admin-quotes", href: "/app/admin/customizations", label: "Presupuestos", icon: FileBarChart2, description: "Pipeline de cotizaciones" },
+        { id: "admin-finance", href: "/app/admin/finance", label: "Resumen", icon: Wallet, description: "Ingresos, cobros y saldos" },
         { id: "admin-expenses", href: "/app/admin/expenses", label: "Gastos", icon: Receipt, description: "Egresos y vencimientos" },
       ],
     },
     {
+      id: "operations",
+      label: "Operaciones",
+      items: [
+        { id: "admin-meetings", href: "/app/admin/meetings", label: "Reuniones", icon: CalendarDays, description: "Agenda y notas de clientes" },
+        { id: "admin-quotes", href: "/app/admin/customizations", label: "Presupuestos", icon: FileBarChart2, description: "Pipeline de cotizaciones" },
+        { id: "admin-development", href: "/app/admin/development", label: "Delivery", icon: Wrench, description: "Tareas y equipo dev" },
+      ],
+    },
+    {
       id: "support",
-      label: "Soporte y Conocimiento",
+      label: "Soporte",
       items: [
         { id: "admin-tickets", href: "/app/admin/tickets", label: "Soporte", icon: MessageSquareWarning, description: "Gestor de incidencias" },
-        { id: "admin-support", href: "/app/admin/support", label: "Knowledge", icon: LifeBuoy, description: "Base de conocimiento y equipo" },
+        { id: "admin-support", href: "/app/admin/support", label: "Equipo", icon: LifeBuoy, description: "Base de soporte y equipo" },
+      ],
+    },
+    {
+      id: "knowledge",
+      label: "Conocimiento",
+      items: [
         { id: "admin-faqs", href: "/app/admin/faqs", label: "FAQs", icon: ClipboardCheck, description: "Base de respuestas" },
         { id: "admin-wiki", href: "/app/admin/wiki", label: "Wiki", icon: FileBarChart2, description: "Documentacion publica" },
       ],
     },
     {
-      id: "ops",
-      label: "Operaciones internas",
+      id: "settings",
+      label: "Ajustes",
       items: [
-        { id: "admin-development", href: "/app/admin/development", label: "Development", icon: Wrench, description: "Tareas y equipo dev" },
+        { id: "admin-settings", href: "/app/admin/settings", label: "Ajustes", icon: SlidersHorizontal, description: "Reglas financieras y plataforma" },
+        { id: "admin-audit", href: "/app/admin/audit", label: "Auditoria", icon: ScrollText, description: "Eventos y trazabilidad" },
       ],
     },
   ];
@@ -609,7 +629,13 @@ export function AppShell({
                         const adminNotificationIds = notifications
                           .filter((n) => n.notificationType === "admin_notification" && !n.isRead)
                           .map((n) => n.id);
-                        await markAllNotificationsAsReadAction({ platformUpdateIds, adminNotificationIds });
+                        const systemNotifications = notifications
+                          .filter((n) => (n.notificationType === "system_hint" || n.notificationType === "labs_system") && !n.isRead)
+                          .map((n) => ({
+                            id: n.id,
+                            notificationType: n.notificationType as "system_hint" | "labs_system",
+                          }));
+                        await markAllNotificationsAsReadAction({ platformUpdateIds, adminNotificationIds, systemNotifications });
                       }}
                       className="inline-flex min-h-8 items-center justify-center rounded-full border border-[var(--border-subtle)] px-3 text-[11px] font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]"
                     >
@@ -644,6 +670,14 @@ export function AppShell({
                         >
                           <NotificationToneIcon tone={notification.tone} />
                           <div className="space-y-1">
+                            <span
+                              className={[
+                                "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]",
+                                notificationSourceClass(notification.sourceLabel),
+                              ].join(" ")}
+                            >
+                              {notification.sourceLabel ?? "Vase"}
+                            </span>
                             <p className="text-sm font-semibold text-[var(--foreground)]">
                               {notification.title}
                             </p>
@@ -652,7 +686,10 @@ export function AppShell({
                             </p>
                           </div>
                         </NavLink>
-                        {(notification.notificationType === "platform_update" || notification.notificationType === "admin_notification") && !notification.isRead && (
+                        {(notification.notificationType === "platform_update" ||
+                          notification.notificationType === "admin_notification" ||
+                          notification.notificationType === "system_hint" ||
+                          notification.notificationType === "labs_system") && !notification.isRead && (
                           <button
                             onClick={async (e) => {
                               e.preventDefault();
@@ -661,6 +698,11 @@ export function AppShell({
                                 await markPlatformUpdateAsReadAction(notification.id);
                               } else if (notification.notificationType === "admin_notification") {
                                 await markAdminNotificationAsReadAction(notification.id);
+                              } else if (notification.notificationType === "system_hint" || notification.notificationType === "labs_system") {
+                                await markSystemNotificationAsReadAction({
+                                  notificationId: notification.id,
+                                  notificationType: notification.notificationType,
+                                });
                               }
                             }}
                             className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-2 text-[11px] font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-strong)] hover:text-white"

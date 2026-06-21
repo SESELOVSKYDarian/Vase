@@ -2983,6 +2983,7 @@ export async function updateUserStatusAction(
       },
     });
     revalidatePath("/app/admin");
+    revalidatePath("/app/admin/users");
     return { success: parsed.data.isDisabled ? "Usuario desactivado." : "Usuario reactivado." };
   } catch {
     return { error: "No pudimos actualizar el estado del usuario." };

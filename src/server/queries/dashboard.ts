@@ -5,6 +5,11 @@ import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 import { getEffectivePlan, getPlanLimits } from "@/lib/business/plans";
 import { getTenantModulesAccess } from "@/server/queries/modules";
 import { syncStorefrontPageLifecycle } from "@/server/services/business-lifecycle";
+import {
+  buildLabsSystemNotifications,
+  buildNotificationReadKey,
+  type ShellNotification,
+} from "@/server/services/labs-notifications";
 
 export async function getPlatformAdminOverview() {
   const [users, tenants, auditEvents] = await Promise.all([
@@ -227,7 +232,11 @@ export async function getUnifiedTenantDashboard(
     adminTargetedNotifications,
     platformReadRows,
     adminReadRows,
+    systemReadRows,
     labsWorkspace,
+    labsNotificationConversations,
+    labsNotificationChannels,
+    labsNotificationTrainingJobs,
   ] = await Promise.all([
     prisma.order.aggregate({
       where: {
@@ -499,13 +508,69 @@ export async function getUnifiedTenantDashboard(
           })
           .catch(() => [])
       : Promise.resolve([]),
+    userId
+      ? prisma.systemNotificationRead
+          .findMany({
+            where: { userId, tenantId },
+            select: { notificationKey: true },
+          })
+          .catch(() => [])
+      : Promise.resolve([]),
     prisma.tenantAiWorkspace.findUnique({
       where: { tenantId },
       select: { id: true },
     }).catch(() => null),
+    prisma.aiConversation.findMany({
+      where: {
+        tenantId,
+        OR: [{ escalatedToHuman: true }, { intentLabel: "HOT_LEAD" }],
+      },
+      orderBy: { lastMessageAt: "desc" },
+      take: 6,
+      select: {
+        id: true,
+        customerName: true,
+        customerContact: true,
+        channelType: true,
+        summary: true,
+        intentLabel: true,
+        escalatedToHuman: true,
+        lastMessageAt: true,
+      },
+    }),
+    prisma.aiChannelConnection.findMany({
+      where: {
+        tenantId,
+        status: { in: ["ERROR", "PENDING"] },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 4,
+      select: {
+        id: true,
+        channelType: true,
+        accountLabel: true,
+        status: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.aiTrainingJob.findMany({
+      where: {
+        tenantId,
+        status: "FAILED",
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 3,
+      select: {
+        id: true,
+        status: true,
+        summary: true,
+        updatedAt: true,
+      },
+    }),
   ]);
   const platformReadSet = new Set(platformReadRows.map((row) => row.updateId));
   const adminReadSet = new Set(adminReadRows.map((row) => row.notificationId));
+  const systemReadSet = new Set(systemReadRows.map((row) => row.notificationKey));
 
   const salesTodayAmount = Number(todaySales._sum.totalAmount ?? 0);
   const salesYesterdayAmount = Number(yesterdaySales._sum.totalAmount ?? 0);
@@ -537,7 +602,18 @@ export async function getUnifiedTenantDashboard(
   const labsUsed = labsWorkspace ? 1 : 0;
   const labsRemaining = Math.max(0, labsProjectLimit - labsUsed);
 
-  const notifications = [
+  const systemHintIsRead = (id: string) =>
+    systemReadSet.has(id) || systemReadSet.has(buildNotificationReadKey("system_hint", id));
+
+  const labsSystemNotifications = buildLabsSystemNotifications({
+    tenantId,
+    conversations: labsNotificationConversations,
+    channels: labsNotificationChannels,
+    trainingJobs: labsNotificationTrainingJobs,
+    readKeys: systemReadSet,
+  });
+
+  const notifications: ShellNotification[] = [
     ...activePlatformUpdates.map((item) => ({
       id: item.id,
       title: item.title,
@@ -545,6 +621,15 @@ export async function getUnifiedTenantDashboard(
       href: item.href,
       tone: item.tone as "info" | "warning" | "danger",
       category: item.category as "platform" | "business" | "labs" | "billing",
+      sourceLabel: (
+        item.category === "business"
+          ? "Vase Business"
+          : item.category === "labs"
+            ? "Vase Labs"
+            : item.category === "billing"
+              ? "Billing"
+              : "Vase"
+      ) as ShellNotification["sourceLabel"],
       createdAt: item.publishedAt,
       isPlatformUpdate: true,
       isRead: platformReadSet.has(item.id),
@@ -564,11 +649,13 @@ export async function getUnifiedTenantDashboard(
       href: "/app",
       tone: (item.tone as "info" | "warning" | "danger") ?? "info",
       category: (item.category === "support" ? "platform" : item.category) as "platform" | "business" | "labs" | "billing",
+      sourceLabel: "Vase" as const,
       createdAt: item.createdAt,
       isPlatformUpdate: false,
       isRead: adminReadSet.has(item.id),
       notificationType: "admin_notification" as const,
     })),
+    ...labsSystemNotifications,
     ...(businessModule?.isActive && hostingDaysLeft <= 45
       ? [
           {
@@ -581,8 +668,9 @@ export async function getUnifiedTenantDashboard(
             href: "/precios",
             tone: hostingDaysLeft <= 7 ? ("danger" as const) : ("warning" as const),
             category: "billing" as const,
+            sourceLabel: "Billing" as const,
             createdAt: new Date(),
-            isRead: false,
+            isRead: systemHintIsRead("hosting-expiry"),
             notificationType: "system_hint" as const,
           },
         ]
@@ -599,8 +687,9 @@ export async function getUnifiedTenantDashboard(
             href: "/precios",
             tone: labsDaysLeft <= 3 ? ("danger" as const) : ("warning" as const),
             category: "billing" as const,
+            sourceLabel: "Billing" as const,
             createdAt: new Date(),
-            isRead: false,
+            isRead: systemHintIsRead("labs-period-expiry"),
             notificationType: "system_hint" as const,
           },
         ]
@@ -615,8 +704,9 @@ export async function getUnifiedTenantDashboard(
             href: "/precios",
             tone: "danger" as const,
             category: "billing" as const,
+            sourceLabel: "Billing" as const,
             createdAt: new Date(),
-            isRead: false,
+            isRead: systemHintIsRead("billing-past-due"),
             notificationType: "system_hint" as const,
           },
         ]
@@ -633,8 +723,9 @@ export async function getUnifiedTenantDashboard(
             href: "/app/settings",
             tone: businessTrialDaysLeft <= 1 ? ("danger" as const) : ("warning" as const),
             category: "billing" as const,
+            sourceLabel: "Billing" as const,
             createdAt: new Date(),
-            isRead: false,
+            isRead: systemHintIsRead("business-trial-expiry"),
             notificationType: "system_hint" as const,
           },
         ]

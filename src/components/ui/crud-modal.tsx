@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
 
 type CrudModalProps = {
@@ -20,39 +20,50 @@ export function CrudModal({
   children,
   widthClassName = "max-w-2xl",
 }: CrudModalProps) {
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("keydown", onKeyDown);
-    window.setTimeout(() => closeButtonRef.current?.focus(), 20);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4" onClick={onClose} role="presentation">
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      role="presentation"
+    >
       <div
-        className={`flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden ${widthClassName} rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5 shadow-[0_24px_64px_rgba(0,0,0,0.2)]`}
-        onClick={(event) => event.stopPropagation()}
+        className={`flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden ${widthClassName} rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.28)] outline-none`}
+        onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-[var(--foreground)]">{title}</h3>
-            {description ? <p className="text-sm text-[var(--muted)]">{description}</p> : null}
+            <h3 id={titleId} className="text-lg font-semibold text-[var(--foreground)]">{title}</h3>
+            {description ? <p id={descriptionId} className="text-sm text-[var(--muted)]">{description}</p> : null}
           </div>
           <button
-            ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="grid h-10 w-10 place-items-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)] transition hover:text-[var(--foreground)]"
+            className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)] transition hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-strong)]"
             aria-label="Cerrar modal"
           >
             <X className="h-4 w-4" />

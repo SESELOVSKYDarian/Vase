@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useActionState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 import type { LabsActionState } from "@/app/(platform)/app/owner/labs/actions";
 import { connectLabsChannelAction } from "@/app/(platform)/app/owner/labs/actions";
@@ -31,6 +32,7 @@ export function ChannelConnectionForm({
   initialPhoneNumberId,
   submitLabel,
 }: ChannelConnectionFormProps) {
+  const router = useRouter();
   const [state, formAction] = useActionState(connectLabsChannelAction, initialState);
   const [channelType, setChannelType] = useState("WHATSAPP");
   const [provider, setProvider] = useState(mode === "BAILEYS_ONLY" ? "OPENWA_UNOFFICIAL" : "META_OFFICIAL");
@@ -79,6 +81,12 @@ export function ChannelConnectionForm({
       setCopiedField(null);
     }
   };
+
+  useEffect(() => {
+    if (state.success) {
+      router.refresh();
+    }
+  }, [router, state.success]);
 
   return (
     <form action={formAction} className="grid gap-4">

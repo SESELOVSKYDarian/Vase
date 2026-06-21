@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Bot } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Bot } from "lucide-react";
 import { getLabsPlanLabel } from "@/lib/labs/plans";
 import { ThemeToggleControl } from "@/components/ui/theme-toggle-control";
 import { getLabsOwnerPageData } from "./_lib/labs-owner";
@@ -34,6 +35,13 @@ export default async function LabsAdvancedLayout({ children }: { children: React
         <LabsOwnerNav />
 
         <div className="mt-auto space-y-4 border-t border-[var(--border-subtle)] px-1 pt-5">
+          <Link
+            href="/app/labs"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]"
+          >
+            <ArrowLeft className="size-4" />
+            Volver al Panel de Vase
+          </Link>
           <ThemeToggleControl compact />
           <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent-strong)]">
@@ -50,7 +58,16 @@ export default async function LabsAdvancedLayout({ children }: { children: React
       <main className="min-h-screen px-4 py-5 sm:px-6 lg:ml-72 lg:px-8 lg:py-7">
         <div className="mx-auto max-w-[96rem]">
           <div className="mb-6 lg:hidden">
-            <ThemeToggleControl />
+            <div className="grid gap-3">
+              <Link
+                href="/app/labs"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)]"
+              >
+                <ArrowLeft className="size-4" />
+                Volver al Panel de Vase
+              </Link>
+              <ThemeToggleControl />
+            </div>
           </div>
           <LabsOwnerMobileNav />
           {children}

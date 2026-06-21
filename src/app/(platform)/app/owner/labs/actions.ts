@@ -72,6 +72,13 @@ async function requireLabsWorkspace(tenantId: string) {
   return workspace;
 }
 
+function revalidateLabsCorePaths() {
+  revalidatePath("/app/labs");
+  revalidatePath("/app/owner/labs");
+  revalidatePath("/app/owner/labs/setup");
+  revalidatePath("/app/owner/labs/integrations");
+}
+
 export async function updateLabsAssistantSettingsAction(
   _: LabsActionState,
   formData: FormData,
@@ -133,8 +140,7 @@ export async function updateLabsAssistantSettingsAction(
       userAgent: requestContext.userAgent,
     });
 
-    revalidatePath("/app/owner/labs");
-    revalidatePath("/app/owner/labs/setup");
+    revalidateLabsCorePaths();
     return {
       success: "Configuracion del asistente actualizada.",
     };
@@ -229,6 +235,7 @@ export async function uploadLabsKnowledgeFileAction(
     });
 
     revalidatePath("/app/owner/labs");
+    revalidatePath("/app/labs");
     revalidatePath("/app/owner/labs/setup");
     return {
       success: "Archivo agregado a la cola de entrenamiento.",
@@ -336,8 +343,7 @@ export async function deleteLabsKnowledgeFileAction(
       },
     });
 
-    revalidatePath("/app/owner/labs");
-    revalidatePath("/app/owner/labs/setup");
+    revalidateLabsCorePaths();
     revalidatePath("/app/owner/labs/chatbots");
 
     return {
@@ -417,6 +423,7 @@ export async function createLabsFaqAction(
     });
 
     revalidatePath("/app/owner/labs");
+    revalidatePath("/app/labs");
     revalidatePath("/app/owner/labs/setup");
     return {
       success: "FAQ agregada correctamente.",
@@ -517,6 +524,7 @@ export async function createLabsUrlAction(
     });
 
     revalidatePath("/app/owner/labs");
+    revalidatePath("/app/labs");
     revalidatePath("/app/owner/labs/setup");
     return {
       success: "URL agregada a la cola de revision y entrenamiento.",
@@ -753,8 +761,7 @@ export async function connectLabsChannelAction(
       },
     });
 
-    revalidatePath("/app/owner/labs");
-    revalidatePath("/app/owner/labs/setup");
+    revalidateLabsCorePaths();
 
     const webhookInfo =
       parsed.data.channelType === "WHATSAPP" && parsed.data.provider === "META_OFFICIAL"
@@ -834,9 +841,7 @@ export async function deleteLabsChannelAction(
       },
     });
 
-    revalidatePath("/app/owner/labs");
-    revalidatePath("/app/owner/labs/setup");
-    revalidatePath("/app/owner/labs/(advanced)/integrations");
+    revalidateLabsCorePaths();
 
     return { success: "Canal eliminado." };
   } catch {
@@ -902,7 +907,7 @@ export async function refreshOpenWaQrAction(
       actorUserId: session.user.id,
     });
 
-    revalidatePath("/app/owner/labs/integrations");
+    revalidateLabsCorePaths();
     return { success: "QR actualizado. Escanealo desde WhatsApp." };
   } catch {
     return { error: "No pudimos refrescar el QR de Baileys." };
@@ -969,7 +974,7 @@ export async function checkOpenWaConnectionAction(
       metadata: { state, connected },
     });
 
-    revalidatePath("/app/owner/labs/integrations");
+    revalidateLabsCorePaths();
     return connected
       ? { success: "Baileys conectado. Canal listo para usar." }
       : { info: `Sesion aun no conectada (estado: ${state}).` };
@@ -1116,6 +1121,7 @@ export async function queueLabsTrainingAction(
     );
 
     revalidatePath("/app/owner/labs");
+    revalidatePath("/app/labs");
     revalidatePath("/app/owner/labs/setup");
     return {
       success: "Entrenamiento enviado a cola.",

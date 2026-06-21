@@ -431,6 +431,7 @@ model User {
   placedOrders   Order[]         @relation("OrderPlacedBy")
   platformUpdateReads PlatformUpdateRead[]
   adminNotificationReads AdminNotificationRead[]
+  systemNotificationReads SystemNotificationRead[]
   shortcuts     Json?
   clientAccessConfig Json?
   isDisabled    Boolean      @default(false)
@@ -533,6 +534,7 @@ model Tenant {
   syncJobs          SyncJob[]
   productSyncRecords ProductSyncRecord[]
   adminNotifications AdminNotification[]
+  systemNotificationReads SystemNotificationRead[]
   clientAccounts     ClientAccount[]
   financialSnapshots FinancialSnapshot[]
   supportQueuePolicies SupportQueuePolicy[]
@@ -2273,6 +2275,21 @@ model PlatformUpdateRead {
   user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([updateId, userId])
+}
+
+model SystemNotificationRead {
+  id              String   @id @default(cuid())
+  tenantId        String
+  userId          String
+  notificationKey String
+  source          String
+  readAt          DateTime @default(now())
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, notificationKey])
+  @@index([userId, readAt])
+  @@index([tenantId, source, readAt])
 }
 
 model InternalUserProfile {
