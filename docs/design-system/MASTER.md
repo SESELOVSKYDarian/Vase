@@ -5,7 +5,7 @@
 - Premium sin ruido visual.
 - Clara para usuarios no tecnicos.
 - Global y robusta, con lenguaje visual consistente entre marketing, cliente y admin.
-- Oscura por defecto, con jade como acento operativo y glassmorphism sobrio.
+- Clara/editorial en marketing y densa/operativa en paneles cuando corresponde, con jade como acento y glassmorphism sobrio.
 
 ## Visual Principles
 - `Clarity first`: cada pantalla debe explicar que esta pasando y cual es la proxima accion.
@@ -16,15 +16,13 @@
 
 ## Tokens
 
-### Color
-- `background`: `#0D1117`, carbon oscuro.
-- `background-elevated`: capa base secundaria para profundidad.
-- `surface`: capas transluidas sobre carbon.
-- `surface-strong`: vidrio mas definido para foco y formularios.
-- `foreground`: `#F8FAFC`, alto contraste limpio.
-- `muted`: `#94A3B8`, texto secundario.
-- `accent`: `#18C37E`, accion y progreso.
-- `accent-strong`: `#0E9F6E`, estados activos y detalles de precision.
+- `carbon`: `#000202`, texto fuerte y fondos premium.
+- `graphite`: `#2F3030`, superficies oscuras y bordes.
+- `jade`: `#3B633D`, accion principal y marca.
+- `sage`: `#739374`, acento suave y apoyo visual.
+- `mist`: `#EFF3F4`, fondo claro editorial.
+- `white`: `#FFFFFF`, superficies limpias.
+- `slate`: `#64748B`, texto secundario.
 - `success`, `warning`, `danger`, `info`, `premium`: semanticos operativos.
 
 ### Typography
@@ -96,10 +94,10 @@
 - El color nunca debe ser el unico indicador.
 - Respetar `prefers-reduced-motion`.
 
-## Dark Mode
-- Es el modo base del producto.
-- El light mode existe como variante complementaria, no como identidad principal.
-- Mantener la misma jerarquia, no invertir simplemente colores.
+## Light / Dark
+- Marketing puede usar light editorial como direccion principal.
+- Paneles pueden usar superficies oscuras si mejora jerarquia operativa.
+- No invertir colores automaticamente: cada modo debe preservar contraste, jerarquia y tono premium.
 
 ## Future UI Governance
 - Nuevas pantallas deben reutilizar tokens y componentes base.

@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ChannelType {
+  WEBCHAT
+  WHATSAPP
+  INSTAGRAM
+  FACEBOOK
+}
+
+enum ConversationStatus {
+  OPEN
+  ESCALATED
+  CLOSED
+}
+
+model Assistant {
+  id             String   @id @default(cuid())
+  globalTenantId String
+  name           String
+  model          String
+  systemPrompt   String?
+  active         Boolean  @default(true)
+  channels       Channel[]
+  knowledgeItems KnowledgeItem[]
+  conversations  Conversation[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Channel {
+  id          String      @id @default(cuid())
+  assistantId String
+  type        ChannelType
+  externalId  String?
+  status      String      @default("DISCONNECTED")
+  assistant   Assistant   @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model KnowledgeItem {
+  id          String    @id @default(cuid())
+  assistantId String
+  title       String
+  sourceType  String
+  content     String
+  status      String    @default("READY")
+  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Conversation {
+  id          String             @id @default(cuid())
+  assistantId String
+  status      ConversationStatus @default(OPEN)
+  externalUserId String?
+  assistant   Assistant          @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  messages    Message[]
+  handoffs    Handoff[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           String
+  content        String
+  tokens         Int?
+  costCents      Int?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+}
+
+model Handoff {
+  id             String       @id @default(cuid())
+  conversationId String
+  reason         String
+  target         String       @default("workplace")
+  status         String       @default("PENDING")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+}

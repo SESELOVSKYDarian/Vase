@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlatformRole {
+  SUPER_ADMIN
+  SUPPORT
+  DEVELOPER
+  USER
+}
+
+enum TenantRole {
+  OWNER
+  MANAGER
+  MEMBER
+}
+
+enum LifecycleStatus {
+  ACTIVE
+  TRIAL
+  SUSPENDED
+  EXPIRED
+  CANCELLED
+}
+
+model User {
+  id               String       @id @default(cuid())
+  email            String       @unique
+  name             String?
+  passwordHash     String?
+  emailVerifiedAt  DateTime?
+  platformRole     PlatformRole @default(USER)
+  sessionVersion   Int          @default(1)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  accounts         Account[]
+  sessions         Session[]
+  memberships      Membership[]
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  type              String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         Int?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  legalName String?
+  taxId     String?
+  tenants   Tenant[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tenant {
+  id          String          @id @default(cuid())
+  companyId   String
+  name        String
+  slug        String          @unique
+  status      LifecycleStatus @default(TRIAL)
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branches    Branch[]
+  memberships Membership[]
+  entitlements Entitlement[]
+  subscriptions Subscription[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  address   String?
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Membership {
+  id        String     @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      TenantRole
+  status    LifecycleStatus @default(ACTIVE)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([userId, tenantId])
+}
+
+model ProductPlan {
+  id          String   @id @default(cuid())
+  productKey  String
+  name        String
+  priceCents  Int
+  currency    String   @default("ARS")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id          String          @id @default(cuid())
+  tenantId    String
+  planId      String
+  status      LifecycleStatus @default(TRIAL)
+  currentPeriodEnd DateTime?
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan        ProductPlan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Entitlement {
+  id           String          @id @default(cuid())
+  tenantId     String
+  productKey   String
+  status       LifecycleStatus @default(TRIAL)
+  seats        Int             @default(1)
+  expiresAt    DateTime?
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([tenantId, productKey])
+}

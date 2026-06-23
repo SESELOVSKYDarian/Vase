@@ -1,205 +1,149 @@
-# Product Requirements Document
+# Vase Platform V3 - Product Requirements
 
-## Vase - Plataforma Modular para Negocios Digitales
+## Objetivo
 
-## 1. Resumen del Producto
-**Vase** es una plataforma SaaS modular que permite a empresas construir, automatizar y escalar su negocio digital mediante la combinacion de dos productos principales:
+Construir Vase como una plataforma SaaS modular, multiempresa y multiproducto para digitalizar, gestionar, vender y automatizar negocios.
 
-- `Vase Business`: Ecommerce y presencia online
-- `Vase Labs`: Automatizacion, chatbot e inteligencia artificial
+## Productos
 
-El sistema esta disenado para ser flexible, escalable y configurable, permitiendo a cada cliente seleccionar solo los modulos que necesita.
+- `vase-portal`: captacion y marketing.
+- `vase-app`: identidad, tenants, billing, marketplace y launcher.
+- `vase-admin`: control plane global.
+- `vase-help`: documentacion y knowledge base.
+- `vase-business`: ecommerce SaaS.
+- `vase-management`: ERP SaaS argentino.
+- `vase-labs`: IA SaaS.
+- `vase-workplace`: operacion interna.
 
-## 2. Objetivo del Producto
-- Simplificar la digitalizacion de negocios
-- Permitir crear soluciones personalizadas sin desarrollo complejo
-- Automatizar procesos de ventas y atencion
-- Integrar sistemas externos mediante APIs
-- Escalar segun el crecimiento del cliente
+## Requisitos Funcionales Globales
 
-## 3. Publico Objetivo
-- Emprendedores y pymes
-- Negocios fisicos que quieren digitalizarse
-- Ecommerce en crecimiento
-- Empresas que buscan automatizar atencion al cliente
-- Negocios que usan WhatsApp/Instagram como canal principal
+- Registro desde portal.
+- Login centralizado desde App.
+- Creacion de empresa y tenant.
+- Membresias por tenant.
+- Roles globales y por tenant.
+- Billing y licencias centralizadas en App.
+- Launcher de productos contratados.
+- Redireccion a billing si no hay entitlement.
+- Admin con visibilidad global sin acceso directo a DBs de productos.
+- Help como fuente oficial para documentacion e IA.
+- Handoff de IA hacia Workplace cuando no haya respuesta.
 
-## 4. Arquitectura del Producto
+## Requisitos Por Producto
 
-### 4.1 Estructura General
-Vase se compone de:
+### Portal
 
-- Plataforma central
-- Productos independientes
-- Modulos activables
-- Sistema de configuracion dinamica
+- Landing principal.
+- Productos.
+- Precios.
+- Blog.
+- Contacto.
+- SEO.
+- Registro/login inicial.
 
-### 4.2 Productos
+### App
 
-#### Vase Business
-- Ecommerce
-- Gestion de productos
-- Plantillas personalizables
-- Integracion con sistemas de gestion
+- Auth.js.
+- Usuarios.
+- Empresas.
+- Tenants.
+- Memberships.
+- Branches.
+- Planes.
+- Suscripciones.
+- Entitlements.
+- Marketplace.
+- Launcher.
 
-#### Vase Labs
-- Chatbot inteligente
-- Automatizacion de procesos
-- IA basada en prompts
-- Integraciones con canales de comunicacion
+### Admin
 
-## 5. Sistema de Modulos
+- Service registry.
+- Health dashboards.
+- Auditoria.
+- Usuarios globales.
+- Tenants.
+- Soporte.
+- Pricing catalog.
+- Control de IA.
 
-### 5.1 Modulos de Vase Business
-- Ecommerce base
-- Hosting
-- Personalizacion de frontend
-- Integracion API con ERP o sistemas
-- Gestion de productos
+### Help
 
-### 5.2 Modulos de Vase Labs
-- Chatbot WhatsApp
-- Chatbot Instagram
-- Chatbot Facebook
-- Sistema de reservas
-- IA prompting
-- Automatizaciones con n8n
-- Integraciones externas
+- Docs por producto.
+- FAQs.
+- Changelog.
+- Status.
+- Knowledge chunks para IA.
 
-### 5.3 Caracteristicas de los modulos
-- Independientes
-- Configurables
-- Activables/desactivables
-- Con precio individual
-- Pago unico o suscripcion mensual
+### Business
 
-## 6. Onboarding Inteligente
-El sistema incluye un onboarding guiado con asistencia de IA.
+- Storefronts.
+- Productos.
+- Categorias.
+- Marcas.
+- Clientes ecommerce.
+- Pedidos.
+- Pagos ecommerce.
+- Dominios.
+- Integraciones.
+- Bridge con `editor.vase.ar`.
 
-### 6.1 Flujo de registro
-1. Seleccion de producto
-2. Recoleccion de datos de negocio
-3. Recomendacion por IA
-4. Personalizacion de modulos
-5. Calculo dinamico del precio
-6. Registro final
+### Management
 
-## 7. Modelo de Negocio
+- Empresas.
+- Sucursales.
+- POS.
+- Clientes.
+- Productos.
+- Stock.
+- Depositos.
+- Ventas.
+- Compras.
+- Proveedores.
+- Tesoreria.
+- Reportes.
+- Preparacion ARCA/AFIP.
 
-### 7.1 Estructura de ingresos
-- Pago por modulos
-- Suscripciones mensuales
-- Desarrollo personalizado
-- Hosting
+### Labs
 
-### 7.2 Ejemplo
-- Ecommerce base: pago unico
-- Chatbot: mensual
-- Automatizacion: mensual
-- Custom frontend: presupuesto
+- Assistants.
+- Chatbots.
+- Canales.
+- Inbox.
+- Knowledge.
+- Training.
+- Conversations.
+- Handoffs.
+- Automatizaciones.
 
-## 8. Requisitos Funcionales
+### Workplace
 
-### 8.1 Gestion de cuentas
-- Registro/login
-- Panel de usuario
-- Gestion de modulos activos
+- Staff profiles.
+- Tickets.
+- Comentarios.
+- QA.
+- Worklogs.
+- Roadmap.
+- Seguimiento interno.
 
-### 8.2 Sistema de modulos
-- Activar/desactivar modulos
-- Configuracion por modulo
-- Persistencia en base de datos
+## Requisitos No Funcionales
 
-### 8.3 Chatbot
-- Interpretacion de mensajes
-- Integracion con canales
-- Personalizacion por negocio
-- Conexion con automatizaciones
+- Next.js App Router.
+- TypeScript.
+- Tailwind CSS cuando se implemente UI completa.
+- Prisma ORM.
+- PostgreSQL por app.
+- Redis compartido.
+- Docker por app.
+- EasyPanel ready.
+- API interna protegida por token.
+- Tests de estructura, contratos y health.
 
-### 8.4 Ecommerce
-- Gestion de productos
-- Catalogo
-- Carrito de compras
-- Integracion con backend
+## Criterios De Aceptacion
 
-### 8.5 Automatizacion
-- Flujos con n8n o sistema propio
-- Integraciones API
-- Eventos automatizados
-
-### 8.6 IA
-- Sistema de recomendaciones
-- Prompting configurable
-- Adaptacion al negocio
-
-## 9. Requisitos No Funcionales
-- Escalabilidad multi-tenant
-- Alta disponibilidad
-- Seguridad
-- Performance
-- Modularidad
-- Facilidad de uso
-
-## 10. Arquitectura Tecnica Objetivo
-- Backend: Node.js + Express + API REST
-- Frontend: React / Vite
-- Infraestructura: Docker + Docker Compose + VPS + Caddy
-- Servicios: backend principal, chatbot, n8n y MySQL
-
-## 11. Modelo de Datos Simplificado
-
-### accounts
-- id
-- business_name
-- email
-- password
-
-### products
-- id
-- name
-
-### modules
-- id
-- name
-- product_id
-- price
-- type
-
-### account_modules
-- account_id
-- module_id
-- status
-
-## 12. Roadmap
-
-### Fase 1
-- Registro
-- Ecommerce basico
-- Chatbot simple
-- Docker deploy
-
-### Fase 2
-- IA onboarding
-- Modulos dinamicos
-- n8n integrado
-
-### Fase 3
-- Multi-tenant avanzado
-- Integraciones externas
-- Escalabilidad cloud
-
-## 13. Propuesta de Valor
-- Crear el sistema digital sin conocimientos tecnicos
-- Automatizar ventas y atencion
-- Escalar sin cambiar de plataforma
-- Adaptar el sistema al crecimiento del negocio
-
-## 14. Diferencial Competitivo
-- Sistema modular real
-- IA aplicada al onboarding
-- Integracion directa con canales de venta
-- Flexibilidad total
-- Enfoque en simplicidad
-
-## 15. Conclusion
-Vase busca transformar negocios tradicionales en sistemas digitales escalables combinando ecommerce, automatizacion e inteligencia artificial en una unica solucion modular.
+- Cada app builda por workspace.
+- Cada app tiene DB propia.
+- Cada app responde health live/ready.
+- Internal admin health exige token.
+- No existe monolito activo.
+- No hay imports desde rutas eliminadas.
+- CI valida V3.

@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id             String   @id @default(cuid())
+  globalTenantId String
+  legalName      String
+  taxId          String?
+  branches       Branch[]
+  customers      Customer[]
+  products       Product[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  address   String?
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  warehouses Warehouse[]
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  branchId  String
+  name      String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  movements StockMovement[]
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  taxId     String?
+  email     String?
+  phone     String?
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sales     Sale[]
+}
+
+model Supplier {
+  id             String   @id @default(cuid())
+  globalTenantId String
+  name           String
+  taxId          String?
+  purchases      Purchase[]
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  companyId String
+  sku       String?
+  name      String
+  priceCents Int     @default(0)
+  stockMovements StockMovement[]
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model StockMovement {
+  id          String    @id @default(cuid())
+  productId   String
+  warehouseId String
+  quantity    Int
+  reason      String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+}
+
+model Sale {
+  id          String   @id @default(cuid())
+  customerId  String?
+  totalCents  Int      @default(0)
+  status      String   @default("DRAFT")
+  cae         String?
+  arcaQr      String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}
+
+model Purchase {
+  id          String   @id @default(cuid())
+  supplierId  String?
+  totalCents  Int      @default(0)
+  status      String   @default("DRAFT")
+  supplier    Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}
+
+model CashAccount {
+  id             String   @id @default(cuid())
+  globalTenantId String
+  name           String
+  balanceCents   Int      @default(0)
+  currency       String   @default("ARS")
+}

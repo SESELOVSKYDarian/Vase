@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ServiceStatus {
+  OK
+  DEGRADED
+  DOWN
+}
+
+model ServiceRegistryEntry {
+  id        String        @id @default(cuid())
+  key       String        @unique
+  domain    String
+  baseUrl   String
+  status    ServiceStatus @default(OK)
+  lastSeenAt DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model AdminAuditEvent {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  serviceKey   String
+  action       String
+  target       String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([serviceKey, createdAt])
+}
+
+model AiControlPolicy {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  productKey  String?
+  model       String
+  dailyLimit  Int?
+  prompt      String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

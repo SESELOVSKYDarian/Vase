@@ -1,89 +1,116 @@
-# Vase Technical Architecture
+# Vase Platform V3 - Technical Architecture
 
 ## Resumen
-Vase es una plataforma SaaS multi-tenant orientada a una arquitectura modular con dos productos principales:
 
-- `Vase Business`
-- `Vase Labs`
+Vase Platform V3 es un monorepo de servicios SaaS independientes. Cada producto tiene app Next.js, Dockerfile y base PostgreSQL propia.
 
-La direccion funcional del producto debe priorizar:
+## Estructura
 
-- onboarding guiado con recomendacion de modulos
-- activacion progresiva de capacidades por tenant
-- pricing dinamico por modulo
-- separacion clara entre negocio, automatizacion e IA
+```text
+apps/
+  vase-portal
+  vase-app
+  vase-admin
+  vase-help
+  vase-business
+  vase-management
+  vase-labs
+  vase-workplace
+packages/
+  contracts
+  config
+  auth
+  ui
+  internal-api
+```
 
-## Direccion de arquitectura
-Aunque el estado actual del repositorio use una app unificada, la arquitectura objetivo del producto debe contemplar:
+## Ownership
 
-- frontend separado para experiencia comercial y onboarding
-- backend desacoplado por dominios funcionales
-- servicio de chatbot independiente
-- servicio de automatizacion con n8n
-- base de datos relacional central
-- despliegue con contenedores y reverse proxy por subdominios
+- App owns identity, tenants, billing, entitlements.
+- Admin owns governance, audit, service registry, AI control.
+- Help owns docs and KB.
+- Business owns ecommerce.
+- Management owns ERP.
+- Labs owns AI SaaS.
+- Workplace owns internal operations.
+- Portal owns marketing and acquisition.
 
-## Capas de dominio
+## Data
 
-### Core
-- auth
-- cuentas
-- tenants
-- billing
-- modulos
-- pricing
-- permisos
+Cada app tiene PostgreSQL propia:
 
-### Business
-- ecommerce
-- storefront
-- productos
-- frontend configurable
-- integraciones ERP y sistemas de gestion
+- `postgres-portal`
+- `postgres-app`
+- `postgres-admin`
+- `postgres-help`
+- `postgres-business`
+- `postgres-management`
+- `postgres-labs`
+- `postgres-workplace`
 
-### Labs
-- chatbot
-- prompting
-- canales conversacionales
-- automatizaciones
-- integraciones externas
+Reglas:
 
-### Admin/Ops
-- soporte
-- auditoria
-- observabilidad
-- operaciones internas
+- No cross database joins.
+- No acceso directo a DB de otro servicio.
+- Proyecciones locales cuando haga falta.
+- Integracion por API interna o eventos.
 
-## Decisiones operativas para produccion
-- App stateless para escalar horizontalmente
-- Persistencia central para tenants, productos, modulos y activaciones
-- Rate limiting persistido para consistencia multi-instancia
-- Logs estructurados JSON para observabilidad externa
-- Health probes y metricas operativas separadas
-- Seeds reproducibles para bootstrap de staging y demo
+## Shared Redis
 
-## Reparabilidad
-- Servicios y queries desacoplados
-- Seeds y fixtures para reconstruir entornos
-- Health endpoints para diagnostico automatico
-- Runbook explicito para deploy, rollback y backups
+Servicio:
 
-## Escalabilidad global
-- Frontend publico detras de cache/CDN
-- APIs y paneles detras de autoscaling
-- Base de datos primaria con posibilidad de replicas
-- Worker pool futuro para webhooks, scraping, entrenamiento, lifecycle y automatizaciones
+```text
+redis-platform
+```
 
-## Mantenibilidad
-- Validacion Zod en servidor
-- Dominio separado por carpetas o servicios
-- Seguridad centralizada
-- Testing por capas: unit, integration y e2e
+Uso:
 
-## Regla de diseno para cambios futuros
-Todo cambio funcional o tecnico deberia responder estas preguntas:
+- cache
+- rate limiting
+- sesiones distribuidas si aplica
+- eventos
+- colas
+- locks
+- invalidacion de claims
 
-1. A que producto pertenece: `Business`, `Labs` o `Core`
-2. Si es un modulo activable o una capacidad base
-3. Como impacta en pricing, onboarding y multi-tenant
-4. Si debe operar como feature flag, configuracion de tenant o servicio separado
+## Internal APIs
+
+Cada app debe exponer:
+
+- `GET /api/health/live`
+- `GET /api/health/ready`
+- `GET /api/internal/admin/health`
+
+Las rutas internas usan:
+
+- `SERVICE_TO_SERVICE_TOKEN`
+- allowlist cuando se implemente
+- auditoria en endpoints administrativos sensibles
+
+## Deploy
+
+Cada app se despliega como servicio EasyPanel independiente.
+
+Ver:
+
+- `docs/v3/easypanel.md`
+- `docs/v3/worktree-deploy.md`
+
+## CI
+
+El CI ejecuta:
+
+- `npm run test:v3`
+- `npm run typecheck`
+- `npm run build`
+- `npm run lint`
+- `prisma validate` por app
+
+## Reglas De Cambio
+
+- No crear monolito nuevo.
+- No crear DB compartida.
+- No mezclar billing en productos.
+- No mover gobierno global a productos.
+- No mover operacion interna a Admin si corresponde a Workplace.
+- Si una capacidad se comparte, crear contrato o helper en `packages/*`.

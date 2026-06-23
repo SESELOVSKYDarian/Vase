@@ -1,3 +1,0 @@
--- Baseline migration for an existing production database.
--- This file is intentionally empty. It is marked as applied once so Prisma
--- can track future migrations without touching existing data.

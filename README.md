@@ -1,80 +1,67 @@
-# Vase
+# Vase Platform V3
 
-Base enterprise de Vase sobre Next.js App Router, Prisma, Auth.js y MySQL lista para despliegue en VPS con Docker Compose y Caddy.
+Vase es una plataforma SaaS modular para digitalizar, gestionar, vender y automatizar negocios.
 
-## Scripts principales
+Este repo esta organizado como monorepo V3: cada producto vive como app independiente en `apps/*`, y el codigo compartido vive en `packages/*`.
+
+## Leer Primero
+
+- `PROJECT_CONTEXT.md`: contexto maestro del proyecto para IA y colaboradores.
+- `docs/company/product-and-company.md`: que es Vase, que hace la empresa y que hace cada producto.
+- `docs/company/brand-and-design.md`: marca, tono, colores, UI y reglas visuales.
+- `docs/company/ai-working-context.md`: reglas para que una IA trabaje correctamente en este repo.
+- `docs/v3/easypanel.md`: despliegue por servicio en EasyPanel.
+- `docs/v3/worktree-deploy.md`: worktree/sparse checkout para trabajar o desplegar una app puntual.
+
+## Apps
+
+| App | Dominio | Workspace |
+| --- | --- | --- |
+| `apps/vase-portal` | `vase.ar` | `@vase/portal` |
+| `apps/vase-app` | `app.vase.ar` | `@vase/app` |
+| `apps/vase-admin` | `admin.vase.ar` | `@vase/admin` |
+| `apps/vase-help` | `help.vase.ar` | `@vase/help` |
+| `apps/vase-business` | `business.vase.ar` | `@vase/business` |
+| `apps/vase-management` | `management.vase.ar` | `@vase/management` |
+| `apps/vase-labs` | `labs.vase.ar` | `@vase/labs` |
+| `apps/vase-workplace` | `workplace.vase.ar` | `@vase/workplace` |
+
+## Packages
+
+- `packages/contracts`
+- `packages/config`
+- `packages/auth`
+- `packages/ui`
+- `packages/internal-api`
+
+## Comandos
 
 ```bash
-npm run dev
-npm run lint
-npm run test
-npm run test:integration
-npm run test:e2e
+npm run test:v3
 npm run typecheck
 npm run build
-npm run prisma:generate
-npm run prisma:migrate:deploy
-npm run prisma:seed
+npm run lint
 ```
 
-## Despliegue con Docker
-
-1. Crear `.env` a partir de `.env.example` y completar secretos reales.
-2. Apuntar DNS de `vase.ar`, `api.vase.ar`, `bot.vase.ar` y `n8n.vase.ar` al VPS.
-3. Levantar la plataforma:
+Build por app:
 
 ```bash
-docker compose up -d
+npm run build --workspace @vase/app
+npm run build --workspace @vase/business
 ```
 
-### Servicios
-
-- `frontend`: Next.js para `https://vase.ar`
-- `backend`: instancia separada para `https://api.vase.ar`
-- `db`: MySQL accesible internamente como `db`
-- `caddy`: reverse proxy con HTTPS automatico
-- `chatbot`: opcional con perfil `chatbot`
-- `n8n`: opcional con perfil `automation`
-
-### Perfiles opcionales
+Validar Prisma por app:
 
 ```bash
-docker compose --profile chatbot --profile automation up -d
+npx prisma validate --schema apps/vase-app/prisma/schema.prisma
 ```
 
-## Health y operaciones
+## Reglas
 
-- `GET /api/health/live`
-- `GET /api/health/ready`
-- `GET /api/ops/metrics` con `MONITORING_TOKEN`
-
-## Deploy en EasyPanel
-
-Estrategia base: **1 App Service** (Dockerfile raiz) + **1 MySQL Service**.  
-EasyPanel gestiona el reverse proxy y SSL - **no se usa docker-compose ni Caddy** en este modo.
-
-- Guía completa paso a paso: [`docs/deployment/easypanel.md`](docs/deployment/easypanel.md)
-- Segundo App Service para Labs desde el mismo repo: [`docs/deployment/easypanel-vase-labs.md`](docs/deployment/easypanel-vase-labs.md)
-- Variables de entorno: [`.env.easypanel.example`](.env.easypanel.example)
-- Bridge de acceso a Business Editor: [`docs/deployment/business-editor-bridge.md`](docs/deployment/business-editor-bridge.md)
-- Build Argument requerido: `NEXT_PUBLIC_APP_URL=https://tu-dominio.com`
-- Puerto: `3000`
-
-## Documentación operativa
-
-- `docs/production/TESTING_STRATEGY.md`
-- `docs/production/OPERATIONS_RUNBOOK.md`
-- `docs/production/TECHNICAL_ARCHITECTURE.md`
-- `docs/security/SECURITY_AUDIT.md`
-
-## Checklist de regresion (Admin Master R2)
-
-- `Admin > Development`: crear tarea, editar estado/prioridad/asignacion, subir adjunto y verificar comentarios recientes.
-- `Admin > Development`: probar filtros por texto, estado, prioridad, developer y vencimiento (`with_due`, `overdue`, `soon`).
-- `Admin > Tickets`: crear/triage ticket, tomar ticket sin asignar, responder con template y agregar nota interna.
-- `Admin > Tickets`: subir adjunto y validar visualizacion de adjuntos en ticket.
-- `Admin > Tickets`: probar filtros por estado, prioridad, origen, agente asignado y demora (`Demorados +24h`).
-- `Support workspace`: validar vistas `Todos`, `Mis tickets`, `Sin asignar`, `Urgentes`.
-- `Support workspace`: tomar ticket desde cola y confirmar cambio de asignacion/estado.
-- `Disponibilidad interna`: cambiar estado (`ONLINE`, `OFFLINE`, `BUSY`) y validar impacto en auto-asignacion.
-- `Cola automatica`: crear solicitud por endpoint interno y confirmar asignacion al soporte online con menor carga.
+- No reintroducir monolito.
+- No crear `src/` raiz.
+- No crear `prisma/` raiz.
+- No usar `legacy/`.
+- Cada app tiene DB PostgreSQL propia.
+- Compartir codigo solo mediante `packages/*`.
+- Cada servicio EasyPanel usa el Dockerfile de su app.

@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TicketStatus {
+  NEW
+  TRIAGED
+  IN_PROGRESS
+  IN_REVIEW
+  BLOCKED
+  DONE
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model StaffProfile {
+  id           String   @id @default(cuid())
+  globalUserId String   @unique
+  name         String
+  email        String
+  role         String
+  active       Boolean  @default(true)
+  tickets      Ticket[] @relation("TicketAssignee")
+  worklogs     Worklog[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Ticket {
+  id             String         @id @default(cuid())
+  globalTenantId String?
+  title          String
+  description    String
+  status         TicketStatus   @default(NEW)
+  priority       TicketPriority @default(MEDIUM)
+  source         String         @default("MANUAL")
+  assignedToId   String?
+  assignee       StaffProfile?  @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  worklogs       Worklog[]
+  comments       TicketComment[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorGlobalUserId String?
+  body      String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Worklog {
+  id        String       @id @default(cuid())
+  ticketId  String?
+  staffId   String
+  minutes   Int
+  summary   String
+  ticket    Ticket?      @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  staff     StaffProfile @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+}
+
+model RoadmapItem {
+  id        String   @id @default(cuid())
+  productKey String
+  title     String
+  status    String   @default("PLANNED")
+  targetDate DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
