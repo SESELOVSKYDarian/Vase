@@ -5,10 +5,12 @@ import type { LabsActionState } from "@/app/(platform)/app/owner/labs/actions";
 import { updateLabsOpenAiSettingsAction } from "@/app/(platform)/app/owner/labs/actions";
 import {
   DEFAULT_OPENAI_MODEL,
+  getOpenAiModelOptionsForPlan,
   isSupportedOpenAiModel,
-  OPENAI_MODEL_OPTIONS,
   OPENAI_SYSTEM_PROMPT_MAX_LENGTH,
+  resolveOpenAiModelForPlan,
 } from "@/lib/labs/openai-config";
+import type { AiWorkspacePlan } from "@prisma/client";
 
 const initialState: LabsActionState = {};
 
@@ -18,13 +20,15 @@ type OpenAiSettingsFormProps = {
   hasApiKey: boolean;
   temperature: number;
   systemPrompt?: string | null;
+  plan: AiWorkspacePlan;
 };
 
 export function OpenAiSettingsForm(props: OpenAiSettingsFormProps) {
   const [state, formAction, pending] = useActionState(updateLabsOpenAiSettingsAction, initialState);
   const selectedModel = props.model && isSupportedOpenAiModel(props.model)
-    ? props.model
+    ? resolveOpenAiModelForPlan(props.model, props.plan)
     : DEFAULT_OPENAI_MODEL;
+  const modelOptions = getOpenAiModelOptionsForPlan(props.plan);
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -41,12 +45,15 @@ export function OpenAiSettingsForm(props: OpenAiSettingsFormProps) {
             defaultValue={selectedModel}
             className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
           >
-            {OPENAI_MODEL_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label} - {option.description}
+            {modelOptions.map((option) => (
+              <option key={option.value} value={option.value} disabled={!option.isAvailable}>
+                {option.label} - {option.isAvailable ? option.description : "Plan superior requerido"}
               </option>
             ))}
           </select>
+          <span className="text-xs leading-5 text-[var(--muted)]">
+            Labs Start usa nano para cuidar tokens. Los modelos superiores se habilitan con plan pago o add-on.
+          </span>
         </label>
         <label className="grid gap-2 text-sm">
           <span className="font-medium text-[var(--foreground)]">Temperatura</span>

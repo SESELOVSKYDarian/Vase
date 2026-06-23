@@ -79,6 +79,7 @@ export function SettingsWorkbench(props: SettingsWorkbenchProps) {
             hasApiKey={props.hasApiKey}
             temperature={props.temperature}
             systemPrompt={props.systemPrompt}
+            plan={props.plan}
           />
         </LabsSection>
       ) : null}

@@ -7,6 +7,8 @@ import {
   persistOutboundMessage,
 } from "@/server/services/chatbot/conversation-state";
 import { routeInboundMessage } from "@/server/services/chatbot/message-router";
+import { transcribeAudio } from "@/server/services/ai";
+import { downloadWhatsAppMedia } from "@/lib/integrations";
 
 vi.mock("@/server/services/chatbot/channel-dispatch", () => ({
   dispatchChannelReply: vi.fn(),
@@ -53,6 +55,8 @@ const mockedDispatchChannelReply = vi.mocked(dispatchChannelReply);
 const mockedGetOrCreateConversation = vi.mocked(getOrCreateConversation);
 const mockedPersistOutboundMessage = vi.mocked(persistOutboundMessage);
 const mockedRouteInboundMessage = vi.mocked(routeInboundMessage);
+const mockedTranscribeAudio = vi.mocked(transcribeAudio);
+const mockedDownloadWhatsAppMedia = vi.mocked(downloadWhatsAppMedia);
 
 describe("chatbot orchestrator", () => {
   beforeEach(() => {
@@ -156,5 +160,37 @@ describe("chatbot orchestrator", () => {
     expect(persistInboundMessage).not.toHaveBeenCalled();
     expect(mockedRouteInboundMessage).not.toHaveBeenCalled();
     expect(mockedDispatchChannelReply).not.toHaveBeenCalled();
+  });
+
+  it("transcribes WhatsApp audio before routing the conversation", async () => {
+    mockedDownloadWhatsAppMedia.mockResolvedValueOnce(Buffer.from("audio-data"));
+    mockedTranscribeAudio.mockResolvedValueOnce("Necesito saber cuanto sale Vase Labs.");
+
+    const result = await handleInboundChannelMessage({
+      tenantId: "tenant-1",
+      channelType: "WHATSAPP",
+      externalThreadKey: "thread-1",
+      externalMessageId: "wamid.audio",
+      customerName: "Alexis",
+      customerContact: "5492230000000",
+      messageType: "audio",
+      mediaId: "media-1",
+    });
+
+    expect(mockedDownloadWhatsAppMedia).toHaveBeenCalledWith("media-1", "bad-token");
+    expect(mockedTranscribeAudio).toHaveBeenCalledWith(Buffer.from("audio-data"), expect.anything());
+    expect(persistInboundMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: "conversation-1",
+        userMessage: "Necesito saber cuanto sale Vase Labs.",
+        externalMessageId: "wamid.audio",
+      }),
+    );
+    expect(mockedRouteInboundMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Necesito saber cuanto sale Vase Labs.",
+      }),
+    );
+    expect(result).toEqual(expect.objectContaining({ conversationId: "conversation-1" }));
   });
 });

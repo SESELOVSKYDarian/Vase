@@ -9,13 +9,35 @@ import {
 } from "@/lib/labs/openai-config";
 
 describe("OpenAI Labs config", () => {
-  it("preserves an existing API key when the form submits an empty key", () => {
+  it("uses nano as the default model to control token costs", () => {
+    expect(DEFAULT_OPENAI_MODEL).toBe("gpt-5-nano");
+  });
+
+  it("coerces a Start workspace back to nano when a premium model is submitted", () => {
     const context = buildOpenAiBusinessContext(
-      { openai: { enabled: true, apiKey: "sk-existing", model: "gpt-5.5" } },
+      { openai: { enabled: true, apiKey: "sk-existing", model: DEFAULT_OPENAI_MODEL } },
       {
         enabled: true,
         apiKey: "",
-        model: "gpt-5.4",
+        model: "gpt-5.5",
+        clearApiKey: false,
+      },
+    );
+
+    expect(readOpenAiBusinessConfig(context)).toEqual(
+      expect.objectContaining({
+        model: DEFAULT_OPENAI_MODEL,
+      }),
+    );
+  });
+
+  it("preserves an existing API key when the form submits an empty key", () => {
+    const context = buildOpenAiBusinessContext(
+      { openai: { enabled: true, apiKey: "sk-existing", model: DEFAULT_OPENAI_MODEL } },
+      {
+        enabled: true,
+        apiKey: "",
+        model: DEFAULT_OPENAI_MODEL,
         clearApiKey: false,
       },
     );
@@ -25,7 +47,7 @@ describe("OpenAI Labs config", () => {
         enabled: true,
         apiKey: "sk-existing",
         hasApiKey: true,
-        model: "gpt-5.4",
+        model: DEFAULT_OPENAI_MODEL,
       }),
     );
   });
@@ -36,7 +58,7 @@ describe("OpenAI Labs config", () => {
       openai: {
         enabled: true,
         apiKey: "sk-secret",
-        model: "gpt-5.5",
+        model: DEFAULT_OPENAI_MODEL,
       },
     });
 
@@ -68,7 +90,7 @@ describe("OpenAI Labs config", () => {
     expect(OPENAI_MODEL_OPTIONS).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ value: DEFAULT_OPENAI_MODEL }),
-        expect.objectContaining({ value: "gpt-5.4-mini" }),
+        expect.objectContaining({ value: "gpt-5.4-mini", requiresPaidPlan: true }),
       ]),
     );
     expect(isSupportedOpenAiModel(DEFAULT_OPENAI_MODEL)).toBe(true);

@@ -31,6 +31,7 @@ import {
   buildOpenAiBusinessContext,
   DEFAULT_OPENAI_MODEL,
   readOpenAiBusinessConfig,
+  resolveOpenAiModelForPlan,
 } from "@/lib/labs/openai-config";
 import { createAuditLog } from "@/server/services/audit-log";
 import { extractPdfKnowledgeSnippetFromFile } from "@/server/services/ai/pdf-text";
@@ -1165,8 +1166,11 @@ export async function updateLabsOpenAiSettingsAction(
       apiKey: parsed.data.openaiApiKey,
       model: parsed.data.openaiModel,
       clearApiKey: parsed.data.clearOpenAiApiKey,
+    }, {
+      plan: workspace.plan,
     });
     const openAiConfig = readOpenAiBusinessConfig(businessContext);
+    const effectiveModel = resolveOpenAiModelForPlan(parsed.data.openaiModel, workspace.plan);
 
     if (parsed.data.openaiEnabled && !openAiConfig.hasApiKey) {
       return {
@@ -1177,7 +1181,7 @@ export async function updateLabsOpenAiSettingsAction(
     await prisma.tenantAiWorkspace.update({
       where: { tenantId: membership.tenantId },
       data: {
-        modelSlug: parsed.data.openaiModel,
+        modelSlug: effectiveModel,
         temperature: parsed.data.temperature,
         systemPrompt: parsed.data.systemPrompt ?? null,
         businessContext: businessContext as Prisma.InputJsonValue,
@@ -1193,7 +1197,8 @@ export async function updateLabsOpenAiSettingsAction(
       userAgent: requestContext.userAgent,
       metadata: {
         enabled: parsed.data.openaiEnabled,
-        model: parsed.data.openaiModel,
+        model: effectiveModel,
+        requestedModel: parsed.data.openaiModel,
         hasApiKey: openAiConfig.hasApiKey,
       },
     });
