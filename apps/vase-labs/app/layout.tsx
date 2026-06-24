@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "./globals.css";
 
 export const metadata = { title: "Vase Labs", description: "IA SaaS de Vase." };
 

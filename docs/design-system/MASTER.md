@@ -103,3 +103,9 @@
 - Nuevas pantallas deben reutilizar tokens y componentes base.
 - Evitar hardcodes de color salvo casos excepcionales.
 - Si una pagina necesita romper el sistema, debe documentarse como excepcion.
+
+## Vase Labs Visual Pattern
+- Labs usa una direccion `AI operations`: calma, precision y control humano visible.
+- La base visual combina mist, white, carbon, jade y sage con glassmorphism sobrio.
+- Instagram y Facebook pueden aparecer como acentos de canal, pero no deben dominar la identidad visual.
+- Los conectores sociales deben diferenciar claramente entre `preparado`, `pendiente` y `conectado` para no prometer integraciones inexistentes.
