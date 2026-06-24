@@ -1,17 +1,37 @@
 # EasyPanel V3
 
-Cada producto de Vase se despliega como App Service independiente usando el `Dockerfile` de su carpeta:
+Esta guia explica como desplegar Vase Platform V3 en EasyPanel usando un App Service independiente por producto.
 
-| Servicio | Dockerfile | Dominio | Base |
-| --- | --- | --- | --- |
-| `vase-portal-app` | `apps/vase-portal/Dockerfile` | `vase.ar` | `postgres-portal` |
-| `vase-app-app` | `apps/vase-app/Dockerfile` | `app.vase.ar` | `postgres-app` |
-| `vase-admin-app` | `apps/vase-admin/Dockerfile` | `admin.vase.ar` | `postgres-admin` |
-| `vase-help-app` | `apps/vase-help/Dockerfile` | `help.vase.ar` | `postgres-help` |
-| `vase-business-app` | `apps/vase-business/Dockerfile` | `business.vase.ar` | `postgres-business` |
-| `vase-management-app` | `apps/vase-management/Dockerfile` | `management.vase.ar` | `postgres-management` |
-| `vase-labs-app` | `apps/vase-labs/Dockerfile` | `labs.vase.ar` | `postgres-labs` |
-| `vase-workplace-app` | `apps/vase-workplace/Dockerfile` | `workplace.vase.ar` | `postgres-workplace` |
+La arquitectura V3 no se despliega como un monolito unico. Cada app vive en `apps/*`, tiene su propio `Dockerfile`, su propia base PostgreSQL y su propio dominio.
+
+## Idea principal
+
+En EasyPanel no se debe levantar el repo completo como una sola app raiz. Se debe crear un servicio por cada producto y apuntar cada servicio al Dockerfile correspondiente.
+
+Ejemplo:
+
+- Para Business se crea un App Service `vase-business-app`.
+- Ese App Service usa el Dockerfile `apps/vase-business/Dockerfile`.
+- Ese servicio escucha en el puerto interno de Business.
+- Se le asigna el dominio `business.vase.ar`.
+- Se le conecta una base PostgreSQL propia llamada, por ejemplo, `postgres-business`.
+
+## Servicios esperados
+
+| Producto | Servicio EasyPanel | Dockerfile | Dominio | Puerto | Base PostgreSQL |
+| --- | --- | --- | --- | --- | --- |
+| Portal | `vase-portal-app` | `apps/vase-portal/Dockerfile` | `vase.ar` | `3001` | `postgres-portal` |
+| App | `vase-app-app` | `apps/vase-app/Dockerfile` | `app.vase.ar` | `3002` | `postgres-app` |
+| Admin | `vase-admin-app` | `apps/vase-admin/Dockerfile` | `admin.vase.ar` | `3003` | `postgres-admin` |
+| Help | `vase-help-app` | `apps/vase-help/Dockerfile` | `help.vase.ar` | `3004` | `postgres-help` |
+| Business | `vase-business-app` | `apps/vase-business/Dockerfile` | `business.vase.ar` | `3005` | `postgres-business` |
+| Management | `vase-management-app` | `apps/vase-management/Dockerfile` | `management.vase.ar` | `3006` | `postgres-management` |
+| Labs | `vase-labs-app` | `apps/vase-labs/Dockerfile` | `labs.vase.ar` | `3007` | `postgres-labs` |
+| Workplace | `vase-workplace-app` | `apps/vase-workplace/Dockerfile` | `workplace.vase.ar` | `3008` | `postgres-workplace` |
+
+> Nota: si algun `package.json` de una app define otro puerto, EasyPanel debe respetar el puerto real de esa app. El puerto de EasyPanel debe coincidir con el `next start --port` de cada workspace.
+
+## Infraestructura compartida
 
 Crear tambien un Redis compartido:
 
@@ -19,7 +39,18 @@ Crear tambien un Redis compartido:
 REDIS_URL=redis://redis-platform:6379
 ```
 
-Variables compartidas por todas las apps:
+Uso esperado de Redis:
+
+- cache
+- sesiones distribuidas cuando aplique
+- rate limiting
+- colas
+- eventos internos
+- invalidacion de permisos o claims
+
+## Variables compartidas por todas las apps
+
+Estas variables deben repetirse en todos los App Services, cambiando solo las especificas de cada producto.
 
 ```env
 AUTH_SECRET=CHANGE_ME_BASE64_32
@@ -27,7 +58,310 @@ AUTH_COOKIE_DOMAIN=.vase.ar
 SERVICE_TO_SERVICE_TOKEN=CHANGE_ME_BASE64_32
 SESSION_ISSUER=app.vase.ar
 SESSION_AUDIENCE=vase-platform
+REDIS_URL=redis://redis-platform:6379
 TRUSTED_ORIGINS=https://vase.ar,https://app.vase.ar,https://admin.vase.ar,https://help.vase.ar,https://business.vase.ar,https://management.vase.ar,https://labs.vase.ar,https://workplace.vase.ar
 ```
 
-Cada app usa su propio `DATABASE_URL` PostgreSQL documentado en `apps/*/.env.example`.
+Reglas:
+
+- `AUTH_SECRET` debe ser el mismo en las apps que compartan sesion o validacion de identidad.
+- `AUTH_COOKIE_DOMAIN=.vase.ar` permite cookies compartibles entre subdominios.
+- `SERVICE_TO_SERVICE_TOKEN` protege endpoints internos entre apps.
+- `TRUSTED_ORIGINS` debe contener todos los dominios oficiales de la plataforma.
+- No subir secretos reales al repositorio.
+
+## Variables especificas por app
+
+Cada app necesita su propio `DATABASE_URL` apuntando a su PostgreSQL.
+
+### Portal
+
+```env
+NEXT_PUBLIC_APP_URL=https://vase.ar
+DATABASE_URL=postgresql://vase_portal_user:PASSWORD@postgres-portal:5432/vase_portal
+APP_KEY=portal
+PORT=3001
+```
+
+### App
+
+```env
+NEXT_PUBLIC_APP_URL=https://app.vase.ar
+DATABASE_URL=postgresql://vase_app_user:PASSWORD@postgres-app:5432/vase_app
+APP_KEY=app
+PORT=3002
+```
+
+### Admin
+
+```env
+NEXT_PUBLIC_APP_URL=https://admin.vase.ar
+DATABASE_URL=postgresql://vase_admin_user:PASSWORD@postgres-admin:5432/vase_admin
+APP_KEY=admin
+PORT=3003
+```
+
+### Help
+
+```env
+NEXT_PUBLIC_APP_URL=https://help.vase.ar
+DATABASE_URL=postgresql://vase_help_user:PASSWORD@postgres-help:5432/vase_help
+APP_KEY=help
+PORT=3004
+```
+
+### Business
+
+```env
+NEXT_PUBLIC_APP_URL=https://business.vase.ar
+DATABASE_URL=postgresql://vase_business_user:PASSWORD@postgres-business:5432/vase_business
+APP_KEY=business
+PORT=3005
+```
+
+Business debe integrarse con:
+
+```env
+EDITOR_URL=https://editor.vase.ar
+VASE_APP_URL=https://app.vase.ar
+```
+
+Cuando se agregue la carpeta o servicio del editor, se debe documentar tambien el bridge de autenticacion entre `app.vase.ar`, `business.vase.ar` y `editor.vase.ar`.
+
+### Management
+
+```env
+NEXT_PUBLIC_APP_URL=https://management.vase.ar
+DATABASE_URL=postgresql://vase_management_user:PASSWORD@postgres-management:5432/vase_management
+APP_KEY=management
+PORT=3006
+```
+
+Management sera el ERP SaaS argentino y debe integrarse con App para identidad, tenants y permisos.
+
+### Labs
+
+```env
+NEXT_PUBLIC_APP_URL=https://labs.vase.ar
+DATABASE_URL=postgresql://vase_labs_user:PASSWORD@postgres-labs:5432/vase_labs
+APP_KEY=labs
+PORT=3007
+```
+
+Variables futuras o esperadas para Labs:
+
+```env
+OPENAI_API_KEY=CHANGE_ME
+META_APP_ID=CHANGE_ME
+META_APP_SECRET=CHANGE_ME
+META_VERIFY_TOKEN=CHANGE_ME
+WHATSAPP_ACCESS_TOKEN=CHANGE_ME
+INSTAGRAM_ACCESS_TOKEN=CHANGE_ME
+FACEBOOK_PAGE_ACCESS_TOKEN=CHANGE_ME
+```
+
+Labs debe manejar:
+
+- WhatsApp
+- Instagram
+- Facebook
+- webchat
+- inbox
+- asistentes IA
+- knowledge base
+- training
+- handoff humano
+
+### Workplace
+
+```env
+NEXT_PUBLIC_APP_URL=https://workplace.vase.ar
+DATABASE_URL=postgresql://vase_workplace_user:PASSWORD@postgres-workplace:5432/vase_workplace
+APP_KEY=workplace
+PORT=3008
+```
+
+Workplace es interno de Vase. Debe exigir rol interno/staff y no debe estar disponible para clientes comunes.
+
+## Paso a paso en EasyPanel para una app
+
+Ejemplo con Business.
+
+### 1. Crear PostgreSQL
+
+1. Entrar a EasyPanel.
+2. Crear un servicio PostgreSQL.
+3. Nombre sugerido: `postgres-business`.
+4. Crear base: `vase_business`.
+5. Crear usuario: `vase_business_user`.
+6. Guardar password segura.
+7. Confirmar que el servicio quede en estado `Running`.
+
+### 2. Crear App Service
+
+1. Crear nuevo servicio tipo App.
+2. Fuente: GitHub.
+3. Repo: `SESELOVSKYDarian/Vase`.
+4. Branch: `Vase-Test-Repos` o la rama productiva que contenga V3.
+5. Build type: Dockerfile.
+6. Dockerfile path: `apps/vase-business/Dockerfile`.
+7. Puerto interno: `3005`.
+8. Dominio: `business.vase.ar`.
+
+### 3. Cargar variables
+
+Cargar variables compartidas y especificas:
+
+```env
+NEXT_PUBLIC_APP_URL=https://business.vase.ar
+DATABASE_URL=postgresql://vase_business_user:PASSWORD@postgres-business:5432/vase_business
+AUTH_SECRET=CHANGE_ME_BASE64_32
+AUTH_COOKIE_DOMAIN=.vase.ar
+SERVICE_TO_SERVICE_TOKEN=CHANGE_ME_BASE64_32
+SESSION_ISSUER=app.vase.ar
+SESSION_AUDIENCE=vase-platform
+REDIS_URL=redis://redis-platform:6379
+TRUSTED_ORIGINS=https://vase.ar,https://app.vase.ar,https://admin.vase.ar,https://help.vase.ar,https://business.vase.ar,https://management.vase.ar,https://labs.vase.ar,https://workplace.vase.ar
+APP_KEY=business
+PORT=3005
+```
+
+### 4. Deploy
+
+1. Guardar variables.
+2. Ejecutar deploy.
+3. Revisar logs de build.
+4. Revisar logs de arranque.
+5. Asociar dominio y SSL.
+
+### 5. Verificar health checks
+
+Cada app debe exponer:
+
+```txt
+/api/health/live
+/api/health/ready
+/api/internal/admin/health
+```
+
+Para Business:
+
+```bash
+curl https://business.vase.ar/api/health/live
+curl https://business.vase.ar/api/health/ready
+```
+
+Respuesta esperada:
+
+```json
+{"status":"ok"}
+```
+
+## Build por app localmente
+
+Desde la raiz del repo:
+
+```bash
+npm install
+npm run build --workspace @vase/business
+```
+
+Para validar Prisma de Business:
+
+```bash
+npx prisma validate --schema apps/vase-business/prisma/schema.prisma
+```
+
+Repetir el mismo criterio para cada app cambiando el workspace y el schema.
+
+## Orden recomendado de despliegue
+
+1. `vase-app` porque centraliza identidad, tenants, billing, marketplace y launcher.
+2. `vase-admin` porque gobierna la plataforma.
+3. `vase-business` porque ya tiene utilidad comercial inmediata.
+4. `vase-labs` porque es prioridad para IA, Instagram, Facebook e inbox.
+5. `vase-help` porque documenta y alimenta knowledge base.
+6. `vase-workplace` porque coordina el trabajo interno.
+7. `vase-management` cuando se empiece el ERP.
+8. `vase-portal` cuando se quiera dejar la captacion publica prolija.
+
+El orden puede cambiar si comercialmente conviene desplegar primero Business o Labs, pero tecnicamente `vase-app` deberia estar antes para identidad y permisos.
+
+## Diferencia entre App, Admin y Workplace
+
+- `vase-app`: lo usa el cliente. Maneja identidad, empresas, licencias, modulos, billing y launcher.
+- `vase-admin`: lo usa Vase para gobernar la plataforma, clientes, modulos, pricing y monitoreo global.
+- `vase-workplace`: lo usa el staff interno de Vase para tickets, QA, desarrollo, diseno, roadmaps, worklogs y handoffs humanos.
+
+## Reglas que no se deben romper
+
+- No reintroducir monolito.
+- No crear `src/` raiz.
+- No crear `prisma/` raiz.
+- No usar `legacy/` como fuente activa.
+- No importar codigo entre apps con rutas relativas.
+- Compartir codigo solo desde `packages/*`.
+- Cada app debe poder buildear y desplegarse por separado.
+- Cada app debe tener su propia base PostgreSQL.
+- No hacer joins cross-database.
+- Integrar apps por API interna, eventos o proyecciones locales.
+
+## Problemas comunes
+
+### EasyPanel muestra 502
+
+Revisar:
+
+- que el puerto interno sea el correcto
+- que el comando `next start` escuche en `0.0.0.0`
+- que el dominio apunte al servicio correcto
+- que el contenedor no se haya caido por variables faltantes
+
+### Build falla
+
+Revisar:
+
+- Dockerfile path correcto
+- branch correcta
+- que `package-lock.json` exista en la raiz
+- que los packages compartidos existan en `packages/*`
+- que el workspace exista en el `package.json` raiz
+
+### Ready health falla
+
+Revisar:
+
+- `DATABASE_URL`
+- nombre del servicio PostgreSQL
+- usuario/password
+- nombre de la base
+- migraciones o schema Prisma
+
+### Cookies o login entre subdominios no funcionan
+
+Revisar:
+
+- `AUTH_SECRET` igual entre apps relacionadas
+- `AUTH_COOKIE_DOMAIN=.vase.ar`
+- `TRUSTED_ORIGINS`
+- HTTPS activo en todos los subdominios
+- `SESSION_ISSUER=app.vase.ar`
+- `SESSION_AUDIENCE=vase-platform`
+
+## Checklist antes de dar una app por lista
+
+- App Service creado.
+- PostgreSQL propio creado.
+- Dominio asociado.
+- SSL activo.
+- Variables compartidas cargadas.
+- Variables especificas cargadas.
+- Health live responde.
+- Health ready responde.
+- Build sin errores.
+- Logs sin errores criticos.
+- Workspace build localmente.
+- Prisma validate OK.
+- No depende de `legacy/`.
+- No depende de `src/` raiz.
+- No depende de `prisma/` raiz.
