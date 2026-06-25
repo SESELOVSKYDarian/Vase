@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@prisma/client": "^6.6.0",
     "@vase/contracts": "file:../../packages/contracts",
     "@vase/internal-api": "file:../../packages/internal-api",
     "next": "16.2.1",

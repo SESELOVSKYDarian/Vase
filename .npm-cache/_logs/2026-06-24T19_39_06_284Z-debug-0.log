@@ -1,0 +1,95 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.9.0
+2 info using node@v22.12.0
+3 silly config load:file:C:\Program Files\nodejs\node_modules\npm\npmrc
+4 silly config load:file:D:\VSPROJECTS\WEBS\Vase\.npmrc
+5 silly config load:file:C:\Users\Usuario\.npmrc
+6 silly config load:file:C:\Users\Usuario\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm install
+8 verbose argv "install" "--package-lock-only" "--ignore-scripts" "--cache" ".\\.npm-cache"
+9 verbose logfile logs-max:10 dir:D:\VSPROJECTS\WEBS\Vase\.npm-cache\_logs\2026-06-24T19_39_06_284Z-
+10 verbose logfile D:\VSPROJECTS\WEBS\Vase\.npm-cache\_logs\2026-06-24T19_39_06_284Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly idealTree buildDeps
+14 silly fetch manifest nodemailer@^6.8.0
+15 silly packumentCache full:https://registry.npmjs.org/nodemailer cache-miss
+16 http fetch GET https://registry.npmjs.org/npm attempt 1 failed with EACCES
+17 http fetch GET https://registry.npmjs.org/nodemailer attempt 1 failed with EACCES
+18 http fetch GET https://registry.npmjs.org/npm attempt 2 failed with EACCES
+19 http fetch GET https://registry.npmjs.org/nodemailer attempt 2 failed with EACCES
+20 http fetch GET https://registry.npmjs.org/npm attempt 3 failed with EACCES
+21 http fetch GET https://registry.npmjs.org/nodemailer attempt 3 failed with EACCES
+22 silly placeDep ROOT nodemailer@ REPLACE for: @auth/core@0.41.0 want: ^6.8.0
+23 warn ERESOLVE overriding peer dependency {
+23 warn ERESOLVE   code: 'ERESOLVE',
+23 warn ERESOLVE   edge: {
+23 warn ERESOLVE     type: 'peerOptional',
+23 warn ERESOLVE     name: 'nodemailer',
+23 warn ERESOLVE     spec: '^7.0.7',
+23 warn ERESOLVE     from: {
+23 warn ERESOLVE       name: 'next-auth',
+23 warn ERESOLVE       version: '5.0.0-beta.30',
+23 warn ERESOLVE       location: 'node_modules/next-auth',
+23 warn ERESOLVE       isWorkspace: false,
+23 warn ERESOLVE       dependents: [Array]
+23 warn ERESOLVE     }
+23 warn ERESOLVE   },
+23 warn ERESOLVE   dep: {
+23 warn ERESOLVE     name: 'nodemailer',
+23 warn ERESOLVE     version: undefined,
+23 warn ERESOLVE     errors: [ [FetchError] ],
+23 warn ERESOLVE     package: {},
+23 warn ERESOLVE     whileInstalling: {
+23 warn ERESOLVE       name: '@auth/core',
+23 warn ERESOLVE       version: '0.41.0',
+23 warn ERESOLVE       path: 'D:\\VSPROJECTS\\WEBS\\Vase\\node_modules\\@auth\\core'
+23 warn ERESOLVE     },
+23 warn ERESOLVE     location: 'node_modules/nodemailer',
+23 warn ERESOLVE     isWorkspace: false,
+23 warn ERESOLVE     dependents: [ [Object] ]
+23 warn ERESOLVE   },
+23 warn ERESOLVE   force: false,
+23 warn ERESOLVE   isMine: false,
+23 warn ERESOLVE   strictPeerDeps: false,
+23 warn ERESOLVE   current: {
+23 warn ERESOLVE     name: 'nodemailer',
+23 warn ERESOLVE     version: '7.0.7',
+23 warn ERESOLVE     location: 'node_modules/nodemailer',
+23 warn ERESOLVE     isWorkspace: false,
+23 warn ERESOLVE     dependents: [ [Object], [Object], [Object] ]
+23 warn ERESOLVE   }
+23 warn ERESOLVE }
+24 warn ERESOLVE overriding peer dependency {
+24 warn ERESOLVE   code: 'ERESOLVE',
+24 warn ERESOLVE   edge: {
+24 warn ERESOLVE     type: 'peerOptional',
+24 warn ERESOLVE     name: 'nodemailer',
+24 warn ERESOLVE     spec: '^6.8.0',
+24 warn ERESOLVE     from: {
+24 warn ERESOLVE       location: 'D:\\VSPROJECTS\\WEBS\\Vase\\node_modules\\@auth\\core'
+24 warn ERESOLVE     }
+24 warn ERESOLVE   },
+24 warn ERESOLVE   dep: {
+24 warn ERESOLVE     name: 'nodemailer',
+24 warn ERESOLVE     version: undefined,
+24 warn ERESOLVE     errors: [ [FetchError] ],
+24 warn ERESOLVE     package: {},
+24 warn ERESOLVE     whileInstalling: {
+24 warn ERESOLVE       name: '@auth/core',
+24 warn ERESOLVE       version: '0.41.0',
+24 warn ERESOLVE       path: 'D:\\VSPROJECTS\\WEBS\\Vase\\node_modules\\@auth\\core'
+24 warn ERESOLVE     },
+24 warn ERESOLVE     location: 'node_modules/nodemailer',
+24 warn ERESOLVE     isWorkspace: false,
+24 warn ERESOLVE     dependents: [ [Object] ]
+24 warn ERESOLVE   },
+24 warn ERESOLVE   force: false,
+24 warn ERESOLVE   isMine: true,
+24 warn ERESOLVE   strictPeerDeps: false,
+24 warn ERESOLVE   current: null
+24 warn ERESOLVE }
+25 silly timing Tried to end timer that doesn't exist: idealTree:#root
+26 silly tarball no local data for https://registry.npmjs.org/@tailwindcss/oxide-wasm32-wasi/-/oxide-wasm32-wasi-4.2.2.tgz. Extracting by manifest.
+27 http fetch GET https://registry.npmjs.org/@tailwindcss/oxide-wasm32-wasi/-/oxide-wasm32-wasi-4.2.2.tgz attempt 1 failed with EACCES
+28 http fetch GET https://registry.npmjs.org/@tailwindcss/oxide-wasm32-wasi/-/oxide-wasm32-wasi-4.2.2.tgz attempt 2 failed with EACCES

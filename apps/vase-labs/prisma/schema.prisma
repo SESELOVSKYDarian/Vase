@@ -7,11 +7,45 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum ChannelType {
-  WEBCHAT
+enum LabsPlan {
+  STARTER
+  GROWTH
+  PRO
+}
+
+enum LabsChannel {
   WHATSAPP
   INSTAGRAM
   FACEBOOK
+}
+
+enum LabsChannelProvider {
+  META_OFFICIAL
+  OPENWA_UNOFFICIAL
+  BAILEYS_UNOFFICIAL
+}
+
+enum ChannelConnectionStatus {
+  DISCONNECTED
+  PENDING
+  CONNECTED
+  ERROR
+  QR_READY
+}
+
+enum TokenPack {
+  BASIC
+  MEDIUM
+  PRO
+}
+
+enum LabsServiceStatus {
+  ACTIVE
+  TRIAL
+  PAUSED
+  SUSPENDED
+  EXPIRED
+  CANCELLED
 }
 
 enum ConversationStatus {
@@ -20,9 +54,15 @@ enum ConversationStatus {
   CLOSED
 }
 
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
 model Assistant {
   id             String   @id @default(cuid())
   globalTenantId String
+  tenantSlug     String?  @unique
   name           String
   model          String
   systemPrompt   String?
@@ -32,17 +72,52 @@ model Assistant {
   conversations  Conversation[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([globalTenantId])
 }
 
 model Channel {
-  id          String      @id @default(cuid())
-  assistantId String
-  type        ChannelType
-  externalId  String?
-  status      String      @default("DISCONNECTED")
-  assistant   Assistant   @relation(fields: [assistantId], references: [id], onDelete: Cascade)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id                String                  @id @default(cuid())
+  assistantId       String
+  type              LabsChannel
+  provider          LabsChannelProvider?
+  providerAccountId String?
+  phoneNumberId     String?
+  wabaId            String?
+  accountLabel      String?
+  externalId        String?
+  externalHandle    String?
+  webhookUrl        String?
+  config            Json?
+  status            ChannelConnectionStatus @default(DISCONNECTED)
+  connectedAt       DateTime?
+  lastSyncedAt      DateTime?
+  lastError         String?
+  assistant         Assistant               @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([type, status])
+  @@index([provider, status])
+}
+
+model LabsEntitlement {
+  id                 String            @id @default(cuid())
+  globalTenantId     String            @unique
+  plan               LabsPlan
+  status             LabsServiceStatus @default(ACTIVE)
+  enabledChannels    LabsChannel[]
+  tokenPack          TokenPack?
+  tokensIncluded     Int
+  tokensUsed         Int               @default(0)
+  extraTokens        Int               @default(0)
+  currentPeriodStart DateTime?
+  renewsAt           DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([globalTenantId, status])
+  @@index([renewsAt])
 }
 
 model KnowledgeItem {
@@ -58,26 +133,69 @@ model KnowledgeItem {
 }
 
 model Conversation {
-  id          String             @id @default(cuid())
-  assistantId String
-  status      ConversationStatus @default(OPEN)
-  externalUserId String?
-  assistant   Assistant          @relation(fields: [assistantId], references: [id], onDelete: Cascade)
-  messages    Message[]
-  handoffs    Handoff[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id                String             @id @default(cuid())
+  assistantId       String
+  channel           LabsChannel?
+  status            ConversationStatus @default(OPEN)
+  externalUserId    String?
+  externalThreadKey String?
+  customerName      String?
+  customerContact   String?
+  summary           String?
+  intentLabel       String?
+  intentScore       Int?
+  metadata          Json?
+  messageCount      Int                @default(0)
+  escalatedToHuman  Boolean            @default(false)
+  lastMessageAt     DateTime?
+  lastInboundAt     DateTime?
+  lastOutboundAt    DateTime?
+  assistant         Assistant          @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  messages          Message[]
+  handoffs          Handoff[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([assistantId, status, lastMessageAt])
+  @@index([externalThreadKey])
+  @@unique([assistantId, channel, externalThreadKey])
 }
 
 model Message {
+  id                String           @id @default(cuid())
+  conversationId    String
+  role              String
+  direction         MessageDirection?
+  content           String
+  providerMessageId String?
+  tokens            Int?
+  costCents         Int?
+  metadata          Json?
+  conversation      Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt         DateTime         @default(now())
+
+  @@index([providerMessageId])
+}
+
+model TokenUsage {
   id             String       @id @default(cuid())
-  conversationId String
-  role           String
-  content        String
-  tokens         Int?
+  globalTenantId String
+  assistantId    String?
+  conversationId String?
+  messageId      String?
+  channel        LabsChannel
+  inputTokens    Int          @default(0)
+  outputTokens   Int          @default(0)
+  totalTokens    Int
   costCents      Int?
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  source         String       @default("assistant")
   createdAt      DateTime     @default(now())
+
+  @@index([globalTenantId, createdAt])
+  @@index([conversationId])
+  @@index([messageId])
+  @@index([channel])
+  @@index([assistantId])
 }
 
 model Handoff {

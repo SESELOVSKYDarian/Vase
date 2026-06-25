@@ -120,6 +120,7 @@ model ProductPlan {
   name        String
   priceCents  Int
   currency    String   @default("ARS")
+  metadata    Json?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -145,6 +146,7 @@ model Entitlement {
   status       LifecycleStatus @default(TRIAL)
   seats        Int             @default(1)
   expiresAt    DateTime?
+  metadata     Json?
   tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt

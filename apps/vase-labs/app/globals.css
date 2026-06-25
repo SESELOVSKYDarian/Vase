@@ -455,6 +455,21 @@ a:focus-visible {
   background: radial-gradient(circle at 86% 10%, var(--facebook-soft), transparent 14rem);
 }
 
+.channel-card.whatsapp::before {
+  background: radial-gradient(circle at 86% 10%, rgba(59, 99, 61, 0.16), transparent 14rem);
+}
+
+.channel-card.is-locked {
+  background: rgba(255, 255, 255, 0.58);
+  border-style: dashed;
+}
+
+.channel-card.is-locked h3,
+.channel-card.is-locked p,
+.channel-card.is-locked li {
+  color: rgba(0, 2, 2, 0.52);
+}
+
 .channel-topline {
   position: relative;
   justify-content: space-between;
@@ -479,6 +494,10 @@ a:focus-visible {
 
 .facebook .channel-badge {
   background: linear-gradient(145deg, #60a5fa, var(--facebook));
+}
+
+.whatsapp .channel-badge {
+  background: linear-gradient(145deg, var(--sage), var(--jade));
 }
 
 .channel-card h3 {
@@ -549,7 +568,9 @@ a:focus-visible {
 }
 
 .inbox-panel,
-.handoff-panel {
+.handoff-panel,
+.tokens-panel,
+.plans-panel {
   background:
     radial-gradient(circle at top right, rgba(59, 99, 61, 0.14), transparent 17rem),
     rgba(255, 255, 255, 0.72);
@@ -561,12 +582,49 @@ a:focus-visible {
   gap: 12px;
 }
 
+.inbox-channel-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.inbox-channel-strip span {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  padding: 0 12px;
+  color: rgba(0, 2, 2, 0.48);
+  background: rgba(255, 255, 255, 0.54);
+  border: 1px dashed rgba(0, 2, 2, 0.14);
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.inbox-channel-strip span.is-active {
+  color: var(--carbon);
+  background: rgba(115, 147, 116, 0.15);
+  border-color: rgba(59, 99, 61, 0.24);
+  border-style: solid;
+}
+
 .conversation-card,
 .readiness-list article {
   padding: 16px;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid var(--line);
   border-radius: 20px;
+}
+
+.conversation-card.is-locked {
+  background: rgba(255, 255, 255, 0.48);
+  border-style: dashed;
+}
+
+.conversation-card.is-locked strong,
+.conversation-card.is-locked p {
+  color: rgba(0, 2, 2, 0.5);
 }
 
 .conversation-card div,
@@ -629,6 +687,149 @@ a:focus-visible {
   width: 62%;
 }
 
+.token-meter {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+}
+
+.token-meter > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.token-meter span,
+.token-breakdown p,
+.plan-card p {
+  color: var(--slate);
+}
+
+.token-meter strong {
+  font-size: 1.8rem;
+  letter-spacing: -0.04em;
+}
+
+.meter-track {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  background: rgba(0, 2, 2, 0.08);
+  border-radius: 999px;
+}
+
+.meter-track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--jade), var(--sage));
+  border-radius: inherit;
+}
+
+.token-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.token-breakdown p {
+  display: grid;
+  gap: 4px;
+  min-height: 88px;
+  padding: 14px;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+
+.token-breakdown strong {
+  color: var(--carbon);
+  font-size: 1.25rem;
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.cta-row a {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  padding: 0 16px;
+  color: var(--white);
+  text-decoration: none;
+  background: linear-gradient(135deg, var(--jade), #28472b);
+  border-radius: 999px;
+}
+
+.cta-row a:last-child {
+  color: var(--carbon);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+}
+
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.plan-card {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+}
+
+.plan-card.is-current {
+  background: rgba(115, 147, 116, 0.14);
+  border-color: rgba(59, 99, 61, 0.26);
+}
+
+.plan-card > div {
+  display: grid;
+  gap: 10px;
+}
+
+.plan-card strong {
+  font-size: 1.2rem;
+}
+
+.plan-card ul {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 14px 0 0;
+  list-style: none;
+}
+
+.plan-card li {
+  color: rgba(0, 2, 2, 0.38);
+  font-size: 0.9rem;
+}
+
+.plan-card li.is-included {
+  color: var(--carbon);
+  font-weight: 800;
+}
+
+.plan-card li::before {
+  content: "- ";
+}
+
+.plan-card li.is-included::before {
+  color: var(--jade);
+  content: "+ ";
+}
+
 @media (max-width: 1180px) {
   .labs-shell,
   .hero-panel,
@@ -651,6 +852,10 @@ a:focus-visible {
 
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plans-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -683,7 +888,8 @@ a:focus-visible {
   }
 
   .metric-grid,
-  .channel-grid {
+  .channel-grid,
+  .token-breakdown {
     grid-template-columns: 1fr;
   }
 
