@@ -1,6 +1,7 @@
 FROM node:22-alpine AS runner
 WORKDIR /repo
 COPY package.json package-lock.json ./
+COPY tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/vase-app ./apps/vase-app
 RUN npm install
