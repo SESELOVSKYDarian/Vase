@@ -1,2 +1,15 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# The migrated editor contains large source files that Git can misclassify as
+# binary. Force text normalization for source and deployment files only.
+apps/vase-editor/**/*.css text eol=lf
+apps/vase-editor/**/*.env.example text eol=lf
+apps/vase-editor/**/*.html text eol=lf
+apps/vase-editor/**/*.js text eol=lf
+apps/vase-editor/**/*.json text eol=lf
+apps/vase-editor/**/*.jsx text eol=lf
+apps/vase-editor/**/*.md text eol=lf
+apps/vase-editor/**/*.sql text eol=lf
+apps/vase-editor/**/*.ts text eol=lf
+apps/vase-editor/Dockerfile text eol=lf

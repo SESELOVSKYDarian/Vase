@@ -1,6 +1,7 @@
 # EasyPanel V3
 
-Esta guia explica como desplegar Vase Platform V3 en EasyPanel usando un App Service independiente por producto.
+Esta guia explica como desplegar Vase Platform V3 y el editor existente en
+EasyPanel usando un App Service independiente por producto.
 
 La arquitectura V3 no se despliega como un monolito unico. Cada app vive en `apps/*`, tiene su propio `Dockerfile`, su propia base PostgreSQL y su propio dominio.
 
@@ -25,6 +26,7 @@ Ejemplo:
 | Admin | `vase-admin-app` | `apps/vase-admin/Dockerfile` | `admin.vase.ar` | `3003` | `postgres-admin` |
 | Help | `vase-help-app` | `apps/vase-help/Dockerfile` | `help.vase.ar` | `3004` | `postgres-help` |
 | Business | `vase-business-app` | `apps/vase-business/Dockerfile` | `business.vase.ar` | `3005` | `postgres-business` |
+| Editor | `vase-editor` | `apps/vase-editor/Dockerfile` | `editor.vase.ar` | `3000` | `vase-business-pg` existente |
 | Management | `vase-management-app` | `apps/vase-management/Dockerfile` | `management.vase.ar` | `3006` | `postgres-management` |
 | Labs | `vase-labs-app` | `apps/vase-labs/Dockerfile` | `labs.vase.ar` | `3007` | `postgres-labs` |
 | Workplace | `vase-workplace-app` | `apps/vase-workplace/Dockerfile` | `workplace.vase.ar` | `3008` | `postgres-workplace` |
@@ -126,7 +128,32 @@ EDITOR_URL=https://editor.vase.ar
 VASE_APP_URL=https://app.vase.ar
 ```
 
-Cuando se agregue la carpeta o servicio del editor, se debe documentar tambien el bridge de autenticacion entre `app.vase.ar`, `business.vase.ar` y `editor.vase.ar`.
+Business V3 no debe usar la base del editor. Su schema Prisma pertenece a
+`postgres-business`, mientras que el editor conserva la base existente
+`vase-business-pg`.
+
+### Editor
+
+El editor migrado vive en `apps/vase-editor`. No es una app Next.js ni usa el
+puerto de Business V3:
+
+```env
+NODE_ENV=production
+PORT=3000
+DATABASE_URL=postgres://postgres:CHANGE_ME_PASSWORD@vase_vase-business-pg:5432/vase?sslmode=disable
+PUBLIC_API_URL=https://editor.vase.ar
+PUBLIC_ADMIN_URL=https://editor.vase.ar/admin/evolution
+VASE_BUSINESS_SSO_SECRET=CHANGE_ME_SSO_SECRET
+VASE_BUSINESS_SSO_ISSUER=vase-app
+VASE_BUSINESS_SSO_AUDIENCE=vase-business
+```
+
+Usar `apps/vase-editor/.env.example` como lista completa. Las variables
+`VITE_*` deben cargarse tambien como Docker build arguments porque Vite las
+incorpora durante el build.
+
+El bridge de autenticacion entre App y Editor esta documentado en
+`docs/deployment/business-editor-bridge.md`.
 
 ### Management
 
@@ -257,6 +284,44 @@ Respuesta esperada:
 {"status":"ok"}
 ```
 
+El Editor conserva su health check existente:
+
+```bash
+curl https://editor.vase.ar/health
+```
+
+Respuesta esperada:
+
+```json
+{"ok":true}
+```
+
+## Migrar el Editor existente
+
+El servicio actual de `editor.vase.ar` puede pasar del repositorio
+`Proyecto-Teflon` al monorepo sin cambiar la base ni los dominios.
+
+1. Hacer backup de `vase-business-pg`.
+2. No borrar ni modificar todavia el servicio actual `vase-business`.
+3. Crear un App Service temporal llamado `vase-editor-next`.
+4. Usar el repo `SESELOVSKYDarian/Vase` y la rama productiva que contenga `apps/vase-editor`.
+5. Elegir build por Dockerfile con path `apps/vase-editor/Dockerfile`.
+6. Configurar puerto interno `3000`.
+7. Copiar las variables del servicio anterior sin guardarlas en Git.
+8. Cargar cada variable `VITE_*` tambien como Docker build argument.
+9. Mantener `DATABASE_URL` apuntando a `vase-business-pg`.
+10. Usar primero un dominio temporal, por ejemplo `editor-next.vase.ar`.
+11. Confirmar que `https://editor-next.vase.ar/health` devuelve `{"ok":true}`.
+12. Probar login, `/admin/evolution`, uploads y una tienda publicada.
+13. Restaurar los valores finales `editor.vase.ar` y volver a desplegar.
+14. Mover `editor.vase.ar`, `*.vase.ar` y los dominios personalizados del servicio anterior al nuevo.
+15. Probar `https://vase.ar/app/business/launch`.
+16. Eliminar el servicio anterior solo despues de verificar el corte. No eliminar `vase-business-pg`.
+
+El wildcard `*.vase.ar` pertenece al Editor y captura subdominios de tiendas.
+Los dominios exactos de las apps V3 deben permanecer asociados a sus propios
+servicios.
+
 ## Build por app localmente
 
 Desde la raiz del repo:
@@ -279,11 +344,12 @@ Repetir el mismo criterio para cada app cambiando el workspace y el schema.
 1. `vase-app` porque centraliza identidad, tenants, billing, marketplace y launcher.
 2. `vase-admin` porque gobierna la plataforma.
 3. `vase-business` porque ya tiene utilidad comercial inmediata.
-4. `vase-labs` porque es prioridad para IA, Instagram, Facebook e inbox.
-5. `vase-help` porque documenta y alimenta knowledge base.
-6. `vase-workplace` porque coordina el trabajo interno.
-7. `vase-management` cuando se empiece el ERP.
-8. `vase-portal` cuando se quiera dejar la captacion publica prolija.
+4. `vase-editor` para servir el editor y las tiendas existentes desde el monorepo.
+5. `vase-labs` porque es prioridad para IA, Instagram, Facebook e inbox.
+6. `vase-help` porque documenta y alimenta knowledge base.
+7. `vase-workplace` porque coordina el trabajo interno.
+8. `vase-management` cuando se empiece el ERP.
+9. `vase-portal` cuando se quiera dejar la captacion publica prolija.
 
 El orden puede cambiar si comercialmente conviene desplegar primero Business o Labs, pero tecnicamente `vase-app` deberia estar antes para identidad y permisos.
 
@@ -303,6 +369,7 @@ El orden puede cambiar si comercialmente conviene desplegar primero Business o L
 - Compartir codigo solo desde `packages/*`.
 - Cada app debe poder buildear y desplegarse por separado.
 - Cada app debe tener su propia base PostgreSQL.
+- Editor y Business V3 no deben compartir base ni schema.
 - No hacer joins cross-database.
 - Integrar apps por API interna, eventos o proyecciones locales.
 

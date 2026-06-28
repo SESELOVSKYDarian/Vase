@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+**/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -55,6 +56,9 @@ open-wa-session*.json
 # env files (can opt-in for committing if needed)
 .env*
 !.env.easypanel.example
+!apps/*/.env.example
+!apps/vase-editor/server/.env.example
+!apps/vase-editor/web/.env.example
 
 # vercel
 .vercel

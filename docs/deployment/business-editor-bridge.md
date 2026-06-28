@@ -1,15 +1,16 @@
 # Bridge de acceso a `editor.vase.ar`
 
-Esta guia cubre solo el acceso compartido entre `vase-app` y `vase-business`.
+Esta guia cubre el acceso compartido entre `vase-app` y `vase-editor`.
 
 ## Objetivo
 
-Usar el mismo usuario autenticado en `vase-app` para entrar al editor de Business sin crear otra cuenta manual dentro de `vase-business`.
+Usar el mismo usuario autenticado en `vase-app` para entrar al editor de
+Business sin crear otra cuenta manual dentro de `vase-editor`.
 
 ## Variables necesarias en `vase-app`
 
 ```env
-VASE_BUSINESS_SSO_SECRET=vase091218
+VASE_BUSINESS_SSO_SECRET=CHANGE_ME_SSO_SECRET
 VASE_BUSINESS_SSO_ISSUER=vase-app
 VASE_BUSINESS_SSO_AUDIENCE=vase-business
 BUSINESS_EDITOR_URL=https://editor.vase.ar/admin/evolution
@@ -17,7 +18,8 @@ BUSINESS_EDITOR_URL=https://editor.vase.ar/admin/evolution
 
 Notas:
 
-- `VASE_BUSINESS_SSO_SECRET` debe ser exactamente igual al configurado en `vase-business`. Valor definido: `vase091218`.
+- `VASE_BUSINESS_SSO_SECRET` debe ser un secreto largo y exactamente igual en
+  `vase-app` y `vase-editor`.
 - `BUSINESS_EDITOR_URL` se puede omitir si en produccion siempre vas a usar `https://editor.vase.ar/admin/evolution`.
 
 ## Ruta de lanzamiento
