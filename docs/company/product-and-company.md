@@ -127,7 +127,7 @@ Incluye:
 - dominios
 - integraciones
 - pagos ecommerce
-- bridge con `editor.vase.ar`
+- bridge con `business.vase.ar`
 
 Objetivo: que un negocio pueda vender y operar su presencia comercial digital.
 

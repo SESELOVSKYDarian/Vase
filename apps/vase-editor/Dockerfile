@@ -2,7 +2,7 @@ FROM node:20-alpine AS web-build
 
 ARG VITE_API_URL=
 ARG VITE_TENANT_ID=
-ARG VITE_EDITOR_HOST=editor.vase.ar
+ARG VITE_EDITOR_HOST=business.vase.ar
 ARG VITE_EXTERNAL_AUTH=true
 ARG VITE_VASE_APP_URL=https://vase.ar
 ARG VITE_VASE_APP_LAUNCH_URL=https://vase.ar/app/business/launch

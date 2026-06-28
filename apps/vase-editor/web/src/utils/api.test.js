@@ -47,7 +47,7 @@ test('getTenantHeaders sends storefront host on public tenant storefronts', () =
 
 test('editor tenant-admin user tenant wins over stale active tenant', () => {
   setWindowLocation({
-    host: 'editor.vase.ar',
+    host: 'business.vase.ar',
     pathname: '/admin/evolution',
     localStorage: createLocalStorage({
       teflon_active_tenant: '11111111-1111-4111-8111-111111111111',
@@ -65,7 +65,7 @@ test('editor tenant-admin user tenant wins over stale active tenant', () => {
 
 test('editor master admin can keep selected active tenant', () => {
   setWindowLocation({
-    host: 'editor.vase.ar',
+    host: 'business.vase.ar',
     pathname: '/admin/evolution',
     localStorage: createLocalStorage({
       teflon_active_tenant: '11111111-1111-4111-8111-111111111111',

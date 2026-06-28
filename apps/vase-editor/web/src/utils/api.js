@@ -91,7 +91,7 @@ export function getApiBase() {
         const isEditor = isEditorContext();
 
         // On storefront custom domains (not editor, not localhost), always use own origin
-        // so that piquim.ar calls piquim.ar, not a hardcoded VITE_API_URL like editor.vase.ar
+        // so that piquim.ar calls piquim.ar, not a hardcoded VITE_API_URL like business.vase.ar
         if (!isLocal && !isEditor) {
             return window.location.origin.replace(/\/+$/, '');
         }

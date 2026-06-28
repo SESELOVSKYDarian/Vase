@@ -21,7 +21,7 @@ function createRequest(headers = {}) {
 test('resolveHostCandidates prioritizes storefront host over API host', () => {
   const req = createRequest({
     'x-storefront-host': 'teflon.vase.ar',
-    host: 'editor.vase.ar',
+    host: 'business.vase.ar',
   });
 
   assert.deepEqual(resolveHostCandidates(req), ['teflon.vase.ar']);

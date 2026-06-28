@@ -1,7 +1,7 @@
 # Vase Editor
 
 Vase Editor is the multi-tenant ecommerce editor currently served from
-`editor.vase.ar`. It contains an Express API and a Vite frontend in one
+`business.vase.ar`. It contains an Express API and a Vite frontend in one
 container.
 
 This source was migrated from `Proyecto-Teflon` commit
@@ -11,11 +11,11 @@ imported.
 
 ## Service boundaries
 
-- Editor: `editor.vase.ar`, port `3000`, this directory.
-- Business V3: `business.vase.ar`, port `3005`, `apps/vase-business`.
+- Business: `business.vase.ar`, port `3000`, this directory.
+- Business V3: reserved workspace in `apps/vase-business`; do not deploy it.
 - Identity and launcher: `vase.ar`, `apps/vase-app`.
 
-Editor and Business V3 must not share a public domain or database schema.
+Business V3 must receive another domain and database before it is deployed.
 
 ## Local verification
 
@@ -47,7 +47,7 @@ Use the repository root as Docker build context:
 ```text
 Dockerfile: apps/vase-editor/Dockerfile
 Internal port: 3000
-Domain: editor.vase.ar
+Domain: business.vase.ar
 ```
 
 Copy runtime variables from `.env.example` into EasyPanel. Configure every

@@ -14,10 +14,10 @@ assets, SQL files, and safe examples are imported. Generated dependencies,
 build output, uploads, caches, local environment files, and scratch data remain
 outside the monorepo.
 
-The existing `apps/vase-business` Next.js application remains separate:
+The existing `apps/vase-business` Next.js application remains reserved:
 
-- `apps/vase-business` serves `business.vase.ar` on port `3005`.
-- `apps/vase-editor` serves `editor.vase.ar` on port `3000`.
+- `apps/vase-business` is not deployed until it receives another domain.
+- `apps/vase-editor` serves Business at `business.vase.ar` on port `3000`.
 - `vase-app` launches the editor through the existing SSO bridge.
 
 ## Deployment

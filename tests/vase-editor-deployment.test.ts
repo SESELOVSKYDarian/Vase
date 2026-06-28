@@ -48,6 +48,22 @@ describe("Vase Editor deployment", () => {
     expect(serverApp).toContain("app.get('/health'");
   });
 
+  it("publishes the editor as business.vase.ar", () => {
+    const deploymentFiles = [
+      "apps/vase-editor/.env.example",
+      "apps/vase-editor/Dockerfile",
+      "apps/vase-editor/README.md",
+      "apps/vase-editor/server/.env.example",
+      "apps/vase-editor/web/.env.example",
+      "apps/vase-editor/web/src/components/admin/evolution/IntegrationsEditor.jsx",
+      "docs/deployment/business-editor-bridge.md",
+      "docs/v3/easypanel.md",
+    ].map((relativePath) => fs.readFileSync(path.join(rootDir, relativePath), "utf8"));
+
+    expect(deploymentFiles.join("\n")).toContain("business.vase.ar");
+    expect(deploymentFiles.join("\n")).not.toContain("editor.vase.ar");
+  });
+
   it("commits placeholders instead of runtime secrets", () => {
     const envExample = readRequiredFile(".env.example");
 

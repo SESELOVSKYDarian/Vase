@@ -139,10 +139,10 @@ const IntegrationsEditor = ({ manager }) => {
     const expectedAdminUrl = currentFrontendOrigin ? `${currentFrontendOrigin}/admin/evolution` : '';
     const backendEnvSnippet = useMemo(
         () => [
-            `PUBLIC_API_URL=${expectedServiceOrigin || 'https://editor.vase.ar'}`,
-            `INTEGRATIONS_PUBLIC_BASE_URL=${expectedServiceOrigin || 'https://editor.vase.ar'}`,
-            `PUBLIC_ADMIN_URL=${expectedAdminUrl || 'https://editor.vase.ar/admin/evolution'}`,
-            `CORS_ORIGIN=${currentFrontendOrigin || 'https://editor.vase.ar'}`,
+            `PUBLIC_API_URL=${expectedServiceOrigin || 'https://business.vase.ar'}`,
+            `INTEGRATIONS_PUBLIC_BASE_URL=${expectedServiceOrigin || 'https://business.vase.ar'}`,
+            `PUBLIC_ADMIN_URL=${expectedAdminUrl || 'https://business.vase.ar/admin/evolution'}`,
+            `CORS_ORIGIN=${currentFrontendOrigin || 'https://business.vase.ar'}`,
         ].join('\n'),
         [currentFrontendOrigin, expectedAdminUrl, expectedServiceOrigin]
     );
@@ -150,7 +150,7 @@ const IntegrationsEditor = ({ manager }) => {
         () => [
             currentFrontendOrigin && expectedServiceOrigin === currentFrontendOrigin
                 ? '# VITE_API_URL no hace falta si frontend y API comparten el mismo host'
-                : `VITE_API_URL=${expectedServiceOrigin || 'https://editor.vase.ar'}`,
+                : `VITE_API_URL=${expectedServiceOrigin || 'https://business.vase.ar'}`,
             manifest?.tenant_id
                 ? `# VITE_TENANT_ID=${manifest.tenant_id}  # solo para desarrollo local`
                 : '# VITE_TENANT_ID=  # dejar vacio en produccion para resolver por dominio',

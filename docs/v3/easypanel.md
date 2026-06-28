@@ -11,11 +11,11 @@ En EasyPanel no se debe levantar el repo completo como una sola app raiz. Se deb
 
 Ejemplo:
 
-- Para Business se crea un App Service `vase-business-app`.
-- Ese App Service usa el Dockerfile `apps/vase-business/Dockerfile`.
-- Ese servicio escucha en el puerto interno de Business.
+- Para Business se crea un App Service `vase-business`.
+- Ese App Service usa el Dockerfile `apps/vase-editor/Dockerfile`.
+- Ese servicio escucha en el puerto interno `3000`.
 - Se le asigna el dominio `business.vase.ar`.
-- Se le conecta una base PostgreSQL propia llamada, por ejemplo, `postgres-business`.
+- Se conecta a la base PostgreSQL existente `vase-business-pg`.
 
 ## Servicios esperados
 
@@ -25,8 +25,7 @@ Ejemplo:
 | App | `vase-app-app` | `apps/vase-app/Dockerfile` | `app.vase.ar` | `3002` | `postgres-app` |
 | Admin | `vase-admin-app` | `apps/vase-admin/Dockerfile` | `admin.vase.ar` | `3003` | `postgres-admin` |
 | Help | `vase-help-app` | `apps/vase-help/Dockerfile` | `help.vase.ar` | `3004` | `postgres-help` |
-| Business | `vase-business-app` | `apps/vase-business/Dockerfile` | `business.vase.ar` | `3005` | `postgres-business` |
-| Editor | `vase-editor` | `apps/vase-editor/Dockerfile` | `editor.vase.ar` | `3000` | `vase-business-pg` existente |
+| Business | `vase-business` | `apps/vase-editor/Dockerfile` | `business.vase.ar` | `3000` | `vase-business-pg` existente |
 | Management | `vase-management-app` | `apps/vase-management/Dockerfile` | `management.vase.ar` | `3006` | `postgres-management` |
 | Labs | `vase-labs-app` | `apps/vase-labs/Dockerfile` | `labs.vase.ar` | `3007` | `postgres-labs` |
 | Workplace | `vase-workplace-app` | `apps/vase-workplace/Dockerfile` | `workplace.vase.ar` | `3008` | `postgres-workplace` |
@@ -112,37 +111,27 @@ APP_KEY=help
 PORT=3004
 ```
 
-### Business
+### Business V3 reservado
 
 ```env
-NEXT_PUBLIC_APP_URL=https://business.vase.ar
+NEXT_PUBLIC_APP_URL=CHANGE_ME_BUSINESS_V3_URL
 DATABASE_URL=postgresql://vase_business_user:PASSWORD@postgres-business:5432/vase_business
 APP_KEY=business
 PORT=3005
 ```
 
-Business debe integrarse con:
+El workspace Next.js `apps/vase-business` no se despliega mientras
+`business.vase.ar` pertenezca al Business actual. Antes de activarlo se le debe
+asignar otro dominio y otra base.
 
-```env
-EDITOR_URL=https://editor.vase.ar
-VASE_APP_URL=https://app.vase.ar
-```
-
-Business V3 no debe usar la base del editor. Su schema Prisma pertenece a
-`postgres-business`, mientras que el editor conserva la base existente
-`vase-business-pg`.
-
-### Editor
-
-El editor migrado vive en `apps/vase-editor`. No es una app Next.js ni usa el
-puerto de Business V3:
+### Business actual
 
 ```env
 NODE_ENV=production
 PORT=3000
 DATABASE_URL=postgres://postgres:CHANGE_ME_PASSWORD@vase_vase-business-pg:5432/vase?sslmode=disable
-PUBLIC_API_URL=https://editor.vase.ar
-PUBLIC_ADMIN_URL=https://editor.vase.ar/admin/evolution
+PUBLIC_API_URL=https://business.vase.ar
+PUBLIC_ADMIN_URL=https://business.vase.ar/admin/evolution
 VASE_BUSINESS_SSO_SECRET=CHANGE_ME_SSO_SECRET
 VASE_BUSINESS_SSO_ISSUER=vase-app
 VASE_BUSINESS_SSO_AUDIENCE=vase-business
@@ -152,7 +141,7 @@ Usar `apps/vase-editor/.env.example` como lista completa. Las variables
 `VITE_*` deben cargarse tambien como Docker build arguments porque Vite las
 incorpora durante el build.
 
-El bridge de autenticacion entre App y Editor esta documentado en
+El bridge de autenticacion entre App y Business esta documentado en
 `docs/deployment/business-editor-bridge.md`.
 
 ### Management
@@ -210,19 +199,14 @@ PORT=3008
 
 Workplace es interno de Vase. Debe exigir rol interno/staff y no debe estar disponible para clientes comunes.
 
-## Paso a paso en EasyPanel para una app
+## Paso a paso en EasyPanel para Business
 
-Ejemplo con Business.
-
-### 1. Crear PostgreSQL
+### 1. Respaldar PostgreSQL
 
 1. Entrar a EasyPanel.
-2. Crear un servicio PostgreSQL.
-3. Nombre sugerido: `postgres-business`.
-4. Crear base: `vase_business`.
-5. Crear usuario: `vase_business_user`.
-6. Guardar password segura.
-7. Confirmar que el servicio quede en estado `Running`.
+2. Entrar a `vase-business-pg`.
+3. Crear un backup manual.
+4. Confirmar que el backup termine correctamente.
 
 ### 2. Crear App Service
 
@@ -231,27 +215,26 @@ Ejemplo con Business.
 3. Repo: `SESELOVSKYDarian/Vase`.
 4. Branch: `Vase-Test-Repos` o la rama productiva que contenga V3.
 5. Build type: Dockerfile.
-6. Dockerfile path: `apps/vase-business/Dockerfile`.
-7. Puerto interno: `3005`.
-8. Dominio: `business.vase.ar`.
+6. Dockerfile path: `apps/vase-editor/Dockerfile`.
+7. Puerto interno: `3000`.
+8. Dominio temporal: `business-next.vase.ar`.
 
 ### 3. Cargar variables
 
-Cargar variables compartidas y especificas:
+Cargar las variables de `apps/vase-editor/.env.example`. Para la prueba
+temporal usar:
 
 ```env
-NEXT_PUBLIC_APP_URL=https://business.vase.ar
-DATABASE_URL=postgresql://vase_business_user:PASSWORD@postgres-business:5432/vase_business
-AUTH_SECRET=CHANGE_ME_BASE64_32
-AUTH_COOKIE_DOMAIN=.vase.ar
-SERVICE_TO_SERVICE_TOKEN=CHANGE_ME_BASE64_32
-SESSION_ISSUER=app.vase.ar
-SESSION_AUDIENCE=vase-platform
-REDIS_URL=redis://redis-platform:6379
-TRUSTED_ORIGINS=https://vase.ar,https://app.vase.ar,https://admin.vase.ar,https://help.vase.ar,https://business.vase.ar,https://management.vase.ar,https://labs.vase.ar,https://workplace.vase.ar
-APP_KEY=business
-PORT=3005
+PUBLIC_API_URL=https://business-next.vase.ar
+INTEGRATIONS_PUBLIC_BASE_URL=https://business-next.vase.ar
+PUBLIC_ADMIN_URL=https://business-next.vase.ar/admin/evolution
+VITE_API_URL=https://business-next.vase.ar
+VITE_EDITOR_HOST=business-next.vase.ar
+PORT=3000
 ```
+
+Mantener `DATABASE_URL` apuntando a `vase-business-pg`. Configurar cada
+variable `VITE_*` tambien como Docker build argument.
 
 ### 4. Deploy
 
@@ -263,31 +246,8 @@ PORT=3005
 
 ### 5. Verificar health checks
 
-Cada app debe exponer:
-
-```txt
-/api/health/live
-/api/health/ready
-/api/internal/admin/health
-```
-
-Para Business:
-
 ```bash
-curl https://business.vase.ar/api/health/live
-curl https://business.vase.ar/api/health/ready
-```
-
-Respuesta esperada:
-
-```json
-{"status":"ok"}
-```
-
-El Editor conserva su health check existente:
-
-```bash
-curl https://editor.vase.ar/health
+curl https://business-next.vase.ar/health
 ```
 
 Respuesta esperada:
@@ -298,58 +258,54 @@ Respuesta esperada:
 
 ## Migrar el Editor existente
 
-El servicio actual de `editor.vase.ar` puede pasar del repositorio
+El servicio actual de `business.vase.ar` puede pasar del repositorio
 `Proyecto-Teflon` al monorepo sin cambiar la base ni los dominios.
 
 1. Hacer backup de `vase-business-pg`.
 2. No borrar ni modificar todavia el servicio actual `vase-business`.
-3. Crear un App Service temporal llamado `vase-editor-next`.
+3. Crear un App Service temporal llamado `vase-business-next`.
 4. Usar el repo `SESELOVSKYDarian/Vase` y la rama productiva que contenga `apps/vase-editor`.
 5. Elegir build por Dockerfile con path `apps/vase-editor/Dockerfile`.
 6. Configurar puerto interno `3000`.
 7. Copiar las variables del servicio anterior sin guardarlas en Git.
 8. Cargar cada variable `VITE_*` tambien como Docker build argument.
 9. Mantener `DATABASE_URL` apuntando a `vase-business-pg`.
-10. Usar primero un dominio temporal, por ejemplo `editor-next.vase.ar`.
-11. Confirmar que `https://editor-next.vase.ar/health` devuelve `{"ok":true}`.
+10. Usar primero el dominio temporal `business-next.vase.ar`.
+11. Confirmar que `https://business-next.vase.ar/health` devuelve `{"ok":true}`.
 12. Probar login, `/admin/evolution`, uploads y una tienda publicada.
-13. Restaurar los valores finales `editor.vase.ar` y volver a desplegar.
-14. Mover `editor.vase.ar`, `*.vase.ar` y los dominios personalizados del servicio anterior al nuevo.
+13. Restaurar los valores finales `business.vase.ar` y volver a desplegar.
+14. Mover `business.vase.ar`, `*.vase.ar` y los dominios personalizados del servicio anterior al nuevo.
 15. Probar `https://vase.ar/app/business/launch`.
 16. Eliminar el servicio anterior solo despues de verificar el corte. No eliminar `vase-business-pg`.
 
-El wildcard `*.vase.ar` pertenece al Editor y captura subdominios de tiendas.
+El wildcard `*.vase.ar` pertenece a Business y captura subdominios de tiendas.
 Los dominios exactos de las apps V3 deben permanecer asociados a sus propios
 servicios.
 
 ## Build por app localmente
 
-Desde la raiz del repo:
+Para Business actual, desde la raiz del repo:
 
 ```bash
-npm install
-npm run build --workspace @vase/business
+npm ci --prefix apps/vase-editor/server
+npm ci --prefix apps/vase-editor/web
+npm run build --prefix apps/vase-editor/web
+docker build -f apps/vase-editor/Dockerfile -t vase-business .
 ```
 
-Para validar Prisma de Business:
-
-```bash
-npx prisma validate --schema apps/vase-business/prisma/schema.prisma
-```
-
-Repetir el mismo criterio para cada app cambiando el workspace y el schema.
+El schema Prisma de `apps/vase-business` no se aplica sobre
+`vase-business-pg`.
 
 ## Orden recomendado de despliegue
 
 1. `vase-app` porque centraliza identidad, tenants, billing, marketplace y launcher.
 2. `vase-admin` porque gobierna la plataforma.
-3. `vase-business` porque ya tiene utilidad comercial inmediata.
-4. `vase-editor` para servir el editor y las tiendas existentes desde el monorepo.
-5. `vase-labs` porque es prioridad para IA, Instagram, Facebook e inbox.
-6. `vase-help` porque documenta y alimenta knowledge base.
-7. `vase-workplace` porque coordina el trabajo interno.
-8. `vase-management` cuando se empiece el ERP.
-9. `vase-portal` cuando se quiera dejar la captacion publica prolija.
+3. `vase-business` desde `apps/vase-editor` para servir Business y las tiendas.
+4. `vase-labs` porque es prioridad para IA, Instagram, Facebook e inbox.
+5. `vase-help` porque documenta y alimenta knowledge base.
+6. `vase-workplace` porque coordina el trabajo interno.
+7. `vase-management` cuando se empiece el ERP.
+8. `vase-portal` cuando se quiera dejar la captacion publica prolija.
 
 El orden puede cambiar si comercialmente conviene desplegar primero Business o Labs, pero tecnicamente `vase-app` deberia estar antes para identidad y permisos.
 

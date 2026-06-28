@@ -85,7 +85,7 @@ Construir Vase como una plataforma SaaS modular, multiempresa y multiproducto pa
 - Pagos ecommerce.
 - Dominios.
 - Integraciones.
-- Bridge con `editor.vase.ar`.
+- Bridge con `business.vase.ar`.
 
 ### Management
 
