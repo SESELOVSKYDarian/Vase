@@ -12,7 +12,8 @@ En EasyPanel no se debe levantar el repo completo como una sola app raiz. Se deb
 Ejemplo:
 
 - Para Business se crea un App Service `vase-business`.
-- Ese App Service usa el Dockerfile `apps/vase-editor/Dockerfile`.
+- La ruta de compilacion del monorepo es `/apps/vase-editor`.
+- EasyPanel usa el `Dockerfile` que existe dentro de esa carpeta.
 - Ese servicio escucha en el puerto interno `3000`.
 - Se le asigna el dominio `business.vase.ar`.
 - Se conecta a la base PostgreSQL existente `vase-business-pg`.
@@ -25,7 +26,7 @@ Ejemplo:
 | App | `vase-app-app` | `apps/vase-app/Dockerfile` | `app.vase.ar` | `3002` | `postgres-app` |
 | Admin | `vase-admin-app` | `apps/vase-admin/Dockerfile` | `admin.vase.ar` | `3003` | `postgres-admin` |
 | Help | `vase-help-app` | `apps/vase-help/Dockerfile` | `help.vase.ar` | `3004` | `postgres-help` |
-| Business | `vase-business` | `apps/vase-editor/Dockerfile` | `business.vase.ar` | `3000` | `vase-business-pg` existente |
+| Business | `vase-business` | `/apps/vase-editor` | `business.vase.ar` | `3000` | `vase-business-pg` existente |
 | Management | `vase-management-app` | `apps/vase-management/Dockerfile` | `management.vase.ar` | `3006` | `postgres-management` |
 | Labs | `vase-labs-app` | `apps/vase-labs/Dockerfile` | `labs.vase.ar` | `3007` | `postgres-labs` |
 | Workplace | `vase-workplace-app` | `apps/vase-workplace/Dockerfile` | `workplace.vase.ar` | `3008` | `postgres-workplace` |
@@ -215,7 +216,7 @@ Workplace es interno de Vase. Debe exigir rol interno/staff y no debe estar disp
 3. Repo: `SESELOVSKYDarian/Vase`.
 4. Branch: `Vase-Test-Repos` o la rama productiva que contenga V3.
 5. Build type: Dockerfile.
-6. Dockerfile path: `apps/vase-editor/Dockerfile`.
+6. Ruta de compilacion: `/apps/vase-editor`.
 7. Puerto interno: `3000`.
 8. Dominio temporal: `business-next.vase.ar`.
 
@@ -265,7 +266,7 @@ El servicio actual de `business.vase.ar` puede pasar del repositorio
 2. No borrar ni modificar todavia el servicio actual `vase-business`.
 3. Crear un App Service temporal llamado `vase-business-next`.
 4. Usar el repo `SESELOVSKYDarian/Vase` y la rama productiva que contenga `apps/vase-editor`.
-5. Elegir build por Dockerfile con path `apps/vase-editor/Dockerfile`.
+5. Configurar la ruta de compilacion `/apps/vase-editor`; EasyPanel detecta el `Dockerfile` de esa carpeta.
 6. Configurar puerto interno `3000`.
 7. Copiar las variables del servicio anterior sin guardarlas en Git.
 8. Cargar cada variable `VITE_*` tambien como Docker build argument.
@@ -290,7 +291,7 @@ Para Business actual, desde la raiz del repo:
 npm ci --prefix apps/vase-editor/server
 npm ci --prefix apps/vase-editor/web
 npm run build --prefix apps/vase-editor/web
-docker build -f apps/vase-editor/Dockerfile -t vase-business .
+docker build -t vase-business apps/vase-editor
 ```
 
 El schema Prisma de `apps/vase-business` no se aplica sobre

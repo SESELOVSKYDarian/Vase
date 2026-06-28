@@ -25,7 +25,7 @@ From the repository root:
 npm ci --prefix apps/vase-editor/server
 npm ci --prefix apps/vase-editor/web
 npm run build --prefix apps/vase-editor/web
-docker build -f apps/vase-editor/Dockerfile -t vase-editor .
+docker build -t vase-business apps/vase-editor
 ```
 
 The running service exposes:
@@ -42,10 +42,11 @@ Expected response:
 
 ## EasyPanel
 
-Use the repository root as Docker build context:
+Use the editor directory as the EasyPanel build path:
 
 ```text
-Dockerfile: apps/vase-editor/Dockerfile
+Build path: /apps/vase-editor
+Dockerfile: Dockerfile
 Internal port: 3000
 Domain: business.vase.ar
 ```

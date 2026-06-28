@@ -22,10 +22,10 @@ The existing `apps/vase-business` Next.js application remains reserved:
 
 ## Deployment
 
-EasyPanel builds from the repository root with
-`apps/vase-editor/Dockerfile`. Docker `COPY` paths therefore include the
-`apps/vase-editor` prefix. The editor continues using the existing
-`vase-business-pg` service during migration.
+EasyPanel builds from `/apps/vase-editor`, where it detects the local
+`Dockerfile`. Docker `COPY` paths are relative to that application directory.
+The editor continues using the existing `vase-business-pg` service during
+migration.
 
 The new EasyPanel service is deployed first on a temporary domain. After
 `/health`, editor login, SSO launch, storefronts, uploads, and custom domains
@@ -41,5 +41,5 @@ SMTP password, Cloudflare token, and webhook secret.
 ## Verification
 
 Automated checks verify the deployment structure, port, health endpoint,
-root-context Docker paths, and absence of committed runtime `.env` files.
+application-context Docker paths, and absence of committed runtime `.env` files.
 The Vite frontend and Docker image must also build successfully.

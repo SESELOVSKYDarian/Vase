@@ -10,9 +10,9 @@ ARG VITE_VASE_APP_LOGIN_URL=https://vase.ar/signin
 ARG VITE_VASE_APP_SIGNUP_URL=https://vase.ar/register
 
 WORKDIR /app/web
-COPY apps/vase-editor/web/package*.json ./
+COPY web/package*.json ./
 RUN npm ci
-COPY apps/vase-editor/web/ ./
+COPY web/ ./
 
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_TENANT_ID=$VITE_TENANT_ID
@@ -31,10 +31,10 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 WORKDIR /app/server
-COPY apps/vase-editor/server/package*.json ./
+COPY server/package*.json ./
 RUN npm ci --omit=dev
-COPY apps/vase-editor/server/ ./
-COPY apps/vase-editor/db/ /app/db/
+COPY server/ ./
+COPY db/ /app/db/
 COPY --from=web-build /app/web/dist /app/web/dist
 
 EXPOSE 3000

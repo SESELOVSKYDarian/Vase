@@ -4,7 +4,7 @@
 
 **Goal:** Import the production editor into `Vase` as an independently deployable EasyPanel service.
 
-**Architecture:** Preserve the editor's Express API and Vite frontend under `apps/vase-editor`, using a multi-stage Docker image built from the monorepo root. Keep the V3 Business app and editor as separate services connected through the existing SSO bridge.
+**Architecture:** Preserve the editor's Express API and Vite frontend under `apps/vase-editor`, using a multi-stage Docker image built from that application directory. Keep the V3 Business app and editor as separate services connected through the existing SSO bridge.
 
 **Tech Stack:** Node.js 20, Express, React 18, Vite 5, PostgreSQL, Docker, EasyPanel
 
@@ -36,7 +36,7 @@
 **Files:**
 - Create: `apps/vase-editor/Dockerfile`
 
-- [x] Prefix all Docker `COPY` sources with `apps/vase-editor`.
+- [x] Keep Docker `COPY` sources relative to the `/apps/vase-editor` build path.
 - [x] Preserve Vite build arguments, Node production mode, port `3000`, and the Express startup command.
 - [x] Run the deployment contract test and verify it passes.
 
@@ -57,5 +57,5 @@
 - [x] Install server and web dependencies with `npm ci`.
 - [x] Run Node tests for the server and frontend utilities.
 - [x] Run `npm run build --prefix apps/vase-editor/web`.
-- [x] Run `docker build -f apps/vase-editor/Dockerfile -t vase-editor:verify .`.
+- [x] Run `docker build -t vase-editor:verify apps/vase-editor`.
 - [x] Run the targeted deployment test, root test suite, `git diff --check`, and a secret-pattern scan.
