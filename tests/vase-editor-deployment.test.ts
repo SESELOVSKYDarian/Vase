@@ -64,6 +64,21 @@ describe("Vase Editor deployment", () => {
     expect(deploymentFiles.join("\n")).not.toContain("editor.vase.ar");
   });
 
+  it("launches Business from the authenticated app origin", () => {
+    const dockerfile = readRequiredFile("Dockerfile");
+    const envExample = readRequiredFile(".env.example");
+
+    expect(dockerfile).toContain(
+      "ARG VITE_VASE_APP_LAUNCH_URL=https://app.vase.ar/app/business/launch",
+    );
+    expect(envExample).toContain("VITE_VASE_APP_URL=https://app.vase.ar");
+    expect(envExample).toContain(
+      "VITE_VASE_APP_LAUNCH_URL=https://app.vase.ar/app/business/launch",
+    );
+    expect(envExample).toContain("VITE_VASE_APP_LOGIN_URL=https://app.vase.ar/signin");
+    expect(envExample).toContain("VITE_VASE_APP_SIGNUP_URL=https://app.vase.ar/register");
+  });
+
   it("commits placeholders instead of runtime secrets", () => {
     const envExample = readRequiredFile(".env.example");
 

@@ -4,10 +4,10 @@ ARG VITE_API_URL=
 ARG VITE_TENANT_ID=
 ARG VITE_EDITOR_HOST=business.vase.ar
 ARG VITE_EXTERNAL_AUTH=true
-ARG VITE_VASE_APP_URL=https://vase.ar
-ARG VITE_VASE_APP_LAUNCH_URL=https://vase.ar/app/business/launch
-ARG VITE_VASE_APP_LOGIN_URL=https://vase.ar/signin
-ARG VITE_VASE_APP_SIGNUP_URL=https://vase.ar/register
+ARG VITE_VASE_APP_URL=https://app.vase.ar
+ARG VITE_VASE_APP_LAUNCH_URL=https://app.vase.ar/app/business/launch
+ARG VITE_VASE_APP_LOGIN_URL=https://app.vase.ar/signin
+ARG VITE_VASE_APP_SIGNUP_URL=https://app.vase.ar/register
 
 WORKDIR /app/web
 COPY web/package*.json ./
