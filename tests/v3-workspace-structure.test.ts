@@ -40,24 +40,36 @@ describe("V3 workspace structure", () => {
         app.key === "vase-app"
           ? path.join(base, "src", "app")
           : path.join(base, "app");
+      const appRouterLabel =
+        app.key === "vase-app"
+          ? `${app.path}/src/app`
+          : `${app.path}/app`;
+      const rootPagePath =
+        app.key === "vase-app"
+          ? path.join(appRouterBase, "(marketing)", "page.tsx")
+          : path.join(appRouterBase, "page.tsx");
+      const rootPageLabel =
+        app.key === "vase-app"
+          ? `${appRouterLabel}/(marketing)/page.tsx`
+          : `${appRouterLabel}/page.tsx`;
       expect(fs.existsSync(path.join(base, "package.json")), `${app.path}/package.json`).toBe(true);
       expect(fs.existsSync(path.join(base, "tsconfig.json")), `${app.path}/tsconfig.json`).toBe(true);
       expect(fs.existsSync(path.join(base, "next.config.ts")), `${app.path}/next.config.ts`).toBe(true);
       expect(fs.existsSync(path.join(base, "Dockerfile")), `${app.path}/Dockerfile`).toBe(true);
       expect(fs.existsSync(path.join(base, ".env.example")), `${app.path}/.env.example`).toBe(true);
       expect(fs.existsSync(path.join(base, "README.md")), `${app.path}/README.md`).toBe(true);
-      expect(fs.existsSync(path.join(appRouterBase, "page.tsx")), `${app.path}/app/page.tsx`).toBe(true);
+      expect(fs.existsSync(rootPagePath), rootPageLabel).toBe(true);
       expect(
         fs.existsSync(path.join(appRouterBase, "api", "health", "live", "route.ts")),
-        `${app.path}/app/api/health/live/route.ts`,
+        `${appRouterLabel}/api/health/live/route.ts`,
       ).toBe(true);
       expect(
         fs.existsSync(path.join(appRouterBase, "api", "health", "ready", "route.ts")),
-        `${app.path}/app/api/health/ready/route.ts`,
+        `${appRouterLabel}/api/health/ready/route.ts`,
       ).toBe(true);
       expect(
         fs.existsSync(path.join(appRouterBase, "api", "internal", "admin", "health", "route.ts")),
-        `${app.path}/app/api/internal/admin/health/route.ts`,
+        `${appRouterLabel}/api/internal/admin/health/route.ts`,
       ).toBe(true);
       expect(fs.existsSync(path.join(base, "prisma", "schema.prisma")), `${app.path}/prisma/schema.prisma`).toBe(true);
 
