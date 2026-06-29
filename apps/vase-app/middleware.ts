@@ -10,8 +10,9 @@ import { resolveLocale } from "@/lib/i18n/locale";
 import { shouldDisablePlatformCache } from "@/lib/security/platform-cache";
 import { getCanonicalOrigin } from "@/lib/security/origin";
 import {
-  buildPrimaryHostRedirectUrl,
+  buildDefaultPlatformRedirectUrl,
   buildLabsHostRedirectUrl,
+  buildPrimaryHostRedirectUrl,
   getDefaultPlatformPathForHost,
   isPlatformHost,
   resolveEditorHost,
@@ -37,6 +38,10 @@ export default auth((request: NextRequest) => {
   const isBaseDomain = isPlatformHost(hostname);
   const isEditorDomain = hostname === editorHost;
   const defaultPlatformPath = getDefaultPlatformPathForHost(hostname);
+  const defaultPlatformRedirectUrl = buildDefaultPlatformRedirectUrl({
+    hostname,
+    url: request.url,
+  });
   const labsHostRedirectUrl = buildLabsHostRedirectUrl({
     hostname,
     url: request.url,
@@ -45,6 +50,10 @@ export default auth((request: NextRequest) => {
     hostname,
     url: request.url,
   });
+
+  if (defaultPlatformRedirectUrl) {
+    return NextResponse.redirect(new URL(defaultPlatformRedirectUrl));
+  }
 
   if (labsHostRedirectUrl) {
     return NextResponse.redirect(new URL(labsHostRedirectUrl));

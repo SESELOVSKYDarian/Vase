@@ -118,7 +118,34 @@ export function resolvePrimaryPlatformHost(input: PlatformHostsInput = {}) {
     return configuredHost;
   }
 
-  return nodeEnv === "production" ? "vase.ar" : "localhost:3000";
+  return nodeEnv === "production" ? "app.vase.ar" : "localhost:3002";
+}
+
+export function buildDefaultPlatformRedirectUrl({
+  hostname,
+  url,
+  input = {},
+}: {
+  hostname: string;
+  url: string;
+  input?: PlatformHostsInput;
+}) {
+  const normalizedHost = normalizeComparableHost(
+    hostname,
+    input.nodeEnv ?? process.env.NODE_ENV,
+  );
+  if (normalizedHost !== resolvePrimaryPlatformHost(input)) {
+    return null;
+  }
+
+  const redirectUrl = new URL(url);
+  if (redirectUrl.pathname !== "/") {
+    return null;
+  }
+
+  redirectUrl.pathname = "/app";
+  redirectUrl.search = "";
+  return redirectUrl.toString();
 }
 
 export function buildLabsHostRedirectUrl({
@@ -198,5 +225,5 @@ export function resolveEditorHost(input: EditorHostInput = {}) {
     return configuredHost;
   }
 
-  return nodeEnv === "production" ? "editor.vase.ar" : "localhost:5173";
+  return nodeEnv === "production" ? "business.vase.ar" : "localhost:5173";
 }

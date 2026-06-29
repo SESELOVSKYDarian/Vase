@@ -14,5 +14,9 @@ export function isTrustedOrigin(origin: string) {
 }
 
 export function getCanonicalOrigin() {
-  return getTrustedOrigins()[0] ?? "http://localhost:3000";
+  const configured = String(process.env.NEXT_PUBLIC_APP_URL ?? "").trim();
+  if (configured) {
+    return normalizeOrigin(configured);
+  }
+  return getTrustedOrigins()[0] ?? "http://localhost:3002";
 }

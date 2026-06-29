@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildPrimaryHostRedirectUrl,
+  buildDefaultPlatformRedirectUrl,
   buildLabsHostRedirectUrl,
+  buildPrimaryHostRedirectUrl,
   getDefaultPlatformPathForHost,
-  isLabsWorkspacePath,
   isLabsHost,
+  isLabsWorkspacePath,
   isPlatformHost,
   resolveEditorHost,
   resolvePlatformHosts,
+  resolvePrimaryPlatformHost,
 } from "@/lib/security/platform-hosts";
 
 describe("platform host resolution", () => {
@@ -94,7 +96,7 @@ describe("platform host resolution", () => {
         url: "https://labs.vase.ar/app/help",
         input,
       }),
-    ).toBe("https://vase.ar/app/help");
+    ).toBe("https://app.vase.ar/app/help");
     expect(
       buildPrimaryHostRedirectUrl({
         hostname: "labs.vase.ar",
@@ -108,7 +110,7 @@ describe("platform host resolution", () => {
         url: "https://labs.vase.ar/signin?redirectTo=%2Fapp%2Flabs",
         input,
       }),
-    ).toBe("https://vase.ar/signin?redirectTo=%2Fapp%2Flabs");
+    ).toBe("https://app.vase.ar/signin?redirectTo=%2Fapp%2Flabs");
     expect(
       buildPrimaryHostRedirectUrl({
         hostname: "labs.vase.ar",
@@ -126,5 +128,25 @@ describe("platform host resolution", () => {
       }),
     ).toBe("editor.vase.ar");
     expect(resolveEditorHost({ nodeEnv: "development" })).toBe("localhost:5173");
+  });
+
+  it("uses app.vase.ar as the production authenticated host", () => {
+    expect(
+      resolvePrimaryPlatformHost({
+        nodeEnv: "production",
+      }),
+    ).toBe("app.vase.ar");
+
+    expect(
+      buildDefaultPlatformRedirectUrl({
+        hostname: "app.vase.ar",
+        url: "https://app.vase.ar/",
+        input: { nodeEnv: "production" },
+      }),
+    ).toBe("https://app.vase.ar/app");
+  });
+
+  it("uses business.vase.ar as the default Business editor host", () => {
+    expect(resolveEditorHost({ nodeEnv: "production" })).toBe("business.vase.ar");
   });
 });
