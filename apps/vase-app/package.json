@@ -28,6 +28,7 @@
     "backfill:v2:bridges": "tsx scripts/backfill-v2-bridges.ts"
   },
   "dependencies": {
+    "@vase/internal-api": "file:../../packages/internal-api",
     "@auth/prisma-adapter": "^2.11.1",
     "@formatjs/intl-localematcher": "^0.8.2",
     "@prisma/client": "^6.6.0",
