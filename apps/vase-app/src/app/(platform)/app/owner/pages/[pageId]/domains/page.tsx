@@ -6,6 +6,7 @@ import { PanelCard } from "@/components/ui/panel-card";
 import { StatusBadge } from "@/components/business/status-badge";
 import { DomainConnectionForm } from "@/components/business/domain-connection-form";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
+import { getPlanLimits } from "@/lib/business/plans";
 import { getStorefrontBuilderData } from "@/server/queries/builder";
 
 export default async function SiteDomainsPage({
@@ -28,7 +29,7 @@ export default async function SiteDomainsPage({
     notFound();
   }
 
-  const canUseCustomDomain = builder.plan.canUseCustomDomain;
+  const canUseCustomDomain = getPlanLimits(builder.plan).canUseCustomDomain;
 
   return (
     <AppShell
@@ -83,7 +84,7 @@ export default async function SiteDomainsPage({
                     <div className="flex items-center justify-between">
                       <p className="font-bold text-[var(--foreground)]">{conn.hostname}</p>
                       <StatusBadge 
-                        tone={conn.status === "ACTIVE" ? "success" : "warning"} 
+                        tone={conn.status === "CONNECTED" ? "success" : "warning"}
                         label={conn.status} 
                       />
                     </div>

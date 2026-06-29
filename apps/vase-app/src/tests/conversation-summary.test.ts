@@ -6,7 +6,7 @@ describe("conversation summary helpers", () => {
     const summary = clampConversationSummary("x".repeat(500));
 
     expect(summary).toHaveLength(180);
-    expect(summary.endsWith("...")).toBe(true);
+    expect(summary?.endsWith("...")).toBe(true);
   });
 
   it("normalizes whitespace before truncating", () => {

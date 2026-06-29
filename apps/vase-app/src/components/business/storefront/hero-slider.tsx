@@ -42,7 +42,9 @@ export type HeroSliderProps = BlockBaseProps & {
   };
 };
 
-function heroLayoutClasses(align: HeroSliderProps["styles"] extends { contentAlign?: infer A } ? A : never) {
+function heroLayoutClasses(
+  align: NonNullable<HeroSliderProps["styles"]>["contentAlign"],
+) {
   if (align === "center") return "items-center text-center";
   if (align === "right") return "items-end text-right";
   return "items-start text-left";

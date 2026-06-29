@@ -27,7 +27,7 @@ Notas:
 La ruta que emite el token y redirige al editor es:
 
 ```text
-/app/business/launch
+https://app.vase.ar/app/business/launch
 ```
 
 Comportamiento:
@@ -45,7 +45,7 @@ Comportamiento:
 Ejemplo:
 
 ```text
-https://vase.ar/signin?redirectTo=/app/business/launch
+https://app.vase.ar/signin?redirectTo=/app/business/launch
 ```
 
 Si el usuario ya tiene sesion, entra directo al launcher.  
@@ -55,7 +55,7 @@ Si no tiene sesion, al autenticarse vuelve a `/app/business/launch`.
 
 1. carga las variables de entorno
 2. despliega `vase-app`
-3. inicia sesion en `https://vase.ar/signin`
-4. abre `https://vase.ar/app/business/launch`
+3. inicia sesion en `https://app.vase.ar/signin`
+4. abre `https://app.vase.ar/app/business/launch`
 5. confirma redirect a `https://business.vase.ar/admin/evolution?vase_token=...`
 6. confirma que el editor termina logueado y operativo

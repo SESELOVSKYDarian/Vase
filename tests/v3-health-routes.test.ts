@@ -1,5 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { v3WorkspaceApps } from "../packages/config/src/index";
+
+vi.mock("@/lib/observability/logger", () => ({
+  logEvent: vi.fn(),
+}));
+
+vi.mock("@/server/services/health", () => ({
+  getLivenessPayload: () => ({
+    status: "ok",
+    service: "vase-app",
+    environment: "test",
+    uptimeSeconds: 1,
+    timestamp: "2026-06-29T00:00:00.000Z",
+  }),
+  getReadinessPayload: async () => ({
+    status: "ok",
+    service: "vase-app",
+    environment: "test",
+    uptimeSeconds: 1,
+    timestamp: "2026-06-29T00:00:00.000Z",
+    checks: { database: "vase-db" },
+    latencyMs: 1,
+  }),
+}));
 
 import * as adminInternalHealth from "../apps/vase-admin/app/api/internal/admin/health/route";
 import * as adminLive from "../apps/vase-admin/app/api/health/live/route";

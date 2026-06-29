@@ -1,4 +1,9 @@
-import { CheckoutMethod, OrderChannel, OrderStatus, PaymentStatus } from "@prisma/client";
+import {
+  CheckoutMethod,
+  OrderChannel,
+  OrderStatus,
+  PaymentStatus,
+} from "@prisma/client";
 import {
   createOrderPayment,
   createOrderWithItems,
@@ -7,7 +12,11 @@ import {
   updateOrderStatus,
 } from "@/server/queries/business/orders";
 import { type CheckoutItemInput, normalizeOrderChannel, normalizePaymentMethod, validateCheckoutItems } from "@/server/services/business/checkout";
-import { createOrderNumber, roundMoney } from "@/server/services/business/shared";
+import {
+  createOrderNumber,
+  roundMoney,
+  toInputJsonObject,
+} from "@/server/services/business/shared";
 
 export function formatOrderAmount(value: number, currency = "ARS") {
   return `${roundMoney(value).toFixed(2)} ${currency}`;
@@ -181,7 +190,7 @@ export async function registerOrderPayment(input: {
     status: PaymentStatus.PENDING,
     reference: input.reference || null,
     externalId: input.externalId || null,
-    metadata: input.metadata,
+    metadata: input.metadata ? toInputJsonObject(input.metadata) : undefined,
   });
 }
 

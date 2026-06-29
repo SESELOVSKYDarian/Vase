@@ -38,4 +38,16 @@ describe("Vase App V3 migration", () => {
     expect(dockerfile).toContain("EXPOSE 3002");
     expect(dockerfile).toContain("prisma-startup.sh");
   });
+
+  it("does not fall back to the old authenticated origin", () => {
+    expect(read("src/app/layout.tsx")).toContain(
+      'process.env.NEXT_PUBLIC_APP_URL ?? "https://app.vase.ar"',
+    );
+    expect(read("src/lib/navigation/document-navigation.ts")).toContain(
+      'PRIMARY_PLATFORM_ORIGIN = "https://app.vase.ar"',
+    );
+    expect(read("src/lib/business/links.ts")).toContain(
+      'BUSINESS_EDITOR_ORIGIN = "https://business.vase.ar"',
+    );
+  });
 });

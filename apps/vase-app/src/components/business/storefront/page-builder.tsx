@@ -99,7 +99,9 @@ export function StorefrontPageBuilder({ sections = [], onNavigate, emptyState }:
           return null;
         }
 
-        const Component = componentMap[section.type];
+        const Component = (
+          componentMap as Record<string, ComponentType<Record<string, unknown>>>
+        )[section.type];
         const rawProps = section.props || {};
         const anchor = section.anchor || (typeof rawProps.anchor === "string" ? rawProps.anchor : anchorMap[section.type]);
         const anchorId = anchor && !usedAnchors.has(anchor) ? anchor : undefined;

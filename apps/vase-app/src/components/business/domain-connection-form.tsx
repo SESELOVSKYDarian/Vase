@@ -3,10 +3,11 @@
 import { useActionState } from "react";
 import { Globe, AlertCircle, CheckCircle2 } from "lucide-react";
 import { requestDomainConnectionAction } from "@/app/(platform)/app/owner/actions";
+import type { AuthActionState } from "@/app/(auth)/actions";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { AuthNotice } from "@/components/auth/auth-notice";
 
-const initialState = {};
+const initialState: AuthActionState = {};
 
 export function DomainConnectionForm({ 
   pageId, 

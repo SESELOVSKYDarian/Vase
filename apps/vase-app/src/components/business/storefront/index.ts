@@ -33,7 +33,6 @@ export {
   HomeDecorHeroSlider,
   SanitariosIndustrialHeroSlider,
 } from "@/components/business/storefront/hero-slider";
-export { default as StorefrontPageBuilder } from "@/components/business/storefront/page-builder";
 export { StorefrontPageBuilder } from "@/components/business/storefront/page-builder";
 export { default as Services } from "@/components/business/storefront/services";
 export type * from "@/components/business/storefront/types";

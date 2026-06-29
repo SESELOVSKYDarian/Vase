@@ -57,7 +57,7 @@ export async function validateCheckoutItems(input: {
 }) {
   const normalizedItems = normalizeItems(input.items);
   if (!normalizedItems.length) {
-    return { valid: false, errors: ["empty_items"] as string[] };
+    return { valid: false as const, errors: ["empty_items"] as string[] };
   }
 
   const [products, profile, offers] = await Promise.all([
@@ -134,16 +134,21 @@ export async function validateCheckoutItems(input: {
       })
     : null;
 
-  const shippingAmount = shippingQuote?.ok ? shippingQuote.amount : 0;
-
-  return {
-    valid: errors.length === 0,
+  const shippingAmount = shippingQuote?.ok === true ? shippingQuote.amount : 0;
+  const items = lineItems.filter(
+    (item): item is NonNullable<typeof item> => item !== null,
+  );
+  const checkout = {
     errors,
     currency,
     subtotal: roundMoney(subtotal),
     shippingAmount,
     total: roundMoney(subtotal + shippingAmount),
-    items: lineItems.filter(Boolean),
+    items,
     shippingQuote,
   };
+
+  return errors.length === 0
+    ? { valid: true as const, ...checkout }
+    : { valid: false as const, ...checkout };
 }

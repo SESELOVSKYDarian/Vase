@@ -46,7 +46,6 @@ const nextConfig: NextConfig = {
   },
   typescript: {
     tsconfigPath: "tsconfig.build.json",
-    ignoreBuildErrors: true,
   },
   experimental: {
     authInterrupts: true,

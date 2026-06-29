@@ -24,7 +24,7 @@ export async function getAssignedPriceListForUser(tenantId: string, userId: stri
 
 export async function getAutomaticPriceListForSegment(
   tenantId: string,
-  type: PriceListType.RETAIL | PriceListType.WHOLESALE,
+  type: Extract<PriceListType, "RETAIL" | "WHOLESALE">,
 ) {
   return prisma.priceList.findFirst({
     where: {

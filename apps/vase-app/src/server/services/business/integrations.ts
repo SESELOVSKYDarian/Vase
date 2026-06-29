@@ -8,7 +8,13 @@ import {
   upsertProductSyncRecord,
 } from "@/server/queries/business/integrations";
 import { buildCatalogListing } from "@/server/services/business/catalog";
-import { createOrderNumber, readText, toNumber } from "@/server/services/business/shared";
+import {
+  asStringArray,
+  createOrderNumber,
+  readText,
+  toInputJsonObject,
+  toNumber,
+} from "@/server/services/business/shared";
 
 function slugify(value: string) {
   return value
@@ -27,7 +33,7 @@ export function normalizeSyncItem(rawItem: unknown) {
   const name =
     readText(raw.name ?? raw.title ?? raw.detalle_ampliado ?? raw.detalleAbreviado) || sku;
   const slug = slugify(name);
-  const images = Array.isArray(raw.images ?? raw.imagenes) ? (raw.images ?? raw.imagenes) : [];
+  const images = asStringArray(raw.images ?? raw.imagenes);
   const categoryLabels = Array.isArray(raw.category_labels)
     ? raw.category_labels.map((item) => String(item))
     : typeof raw.category === "string"
@@ -49,7 +55,7 @@ export function normalizeSyncItem(rawItem: unknown) {
     images,
     categoryLabels,
     isActive: raw.is_active !== false && raw.activo !== false,
-    rawPayload: raw,
+    rawPayload: toInputJsonObject(raw),
   };
 }
 

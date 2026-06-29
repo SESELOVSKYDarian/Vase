@@ -21,7 +21,7 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
-const mockedPrisma = vi.mocked(prisma);
+const mockedPrisma = vi.mocked(prisma, { deep: true });
 const mockedProcessTrainingJob = vi.mocked(processTrainingJob);
 
 describe("labs training queue", () => {

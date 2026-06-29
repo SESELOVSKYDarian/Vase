@@ -9,7 +9,7 @@ export async function getRequestContext() {
       requestHeaders.get("x-real-ip") ??
       "unknown",
     userAgent: requestHeaders.get("user-agent"),
-    host: requestHeaders.get("host") ?? "localhost:3000",
+    host: requestHeaders.get("host") ?? "localhost:3002",
     protocol:
       requestHeaders.get("x-forwarded-proto") ??
       (process.env.NODE_ENV === "production" ? "https" : "http"),

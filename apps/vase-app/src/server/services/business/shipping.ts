@@ -8,7 +8,12 @@ type GeoPoint = {
 };
 
 type ShippingCustomerInput = {
-  shippingLocation?: Partial<GeoPoint> | null;
+  shippingLocation?: {
+    latitude?: number | null;
+    longitude?: number | null;
+    lat?: number | null;
+    lng?: number | null;
+  } | null;
   shippingLatitude?: number | null;
   shippingLongitude?: number | null;
   latitude?: number | null;
@@ -111,11 +116,11 @@ export async function resolveShippingQuote(input: {
   ]);
 
   if (!zones.length) {
-    return { ok: false, error: "location_shipping_not_configured" as const };
+    return { ok: false as const, error: "location_shipping_not_configured" as const };
   }
 
   if (!location) {
-    return { ok: false, error: "shipping_location_required" as const };
+    return { ok: false as const, error: "shipping_location_required" as const };
   }
 
   const preferredBranchId = readText(input.preferredBranchId);
@@ -142,7 +147,7 @@ export async function resolveShippingQuote(input: {
   if (polygonMatches.length) {
     const best = polygonMatches[0];
     return {
-      ok: true,
+      ok: true as const,
       amount: roundMoney(best.amount),
       zoneId: best.zone.id,
       zoneType: best.zone.type,
@@ -190,12 +195,12 @@ export async function resolveShippingQuote(input: {
     .sort((a, b) => (a!.distanceKm ?? 0) - (b!.distanceKm ?? 0));
 
   if (!distanceMatches.length) {
-    return { ok: false, error: "delivery_out_of_range" as const };
+    return { ok: false as const, error: "delivery_out_of_range" as const };
   }
 
   const best = distanceMatches[0]!;
   return {
-    ok: true,
+    ok: true as const,
     amount: best.amount,
     zoneId: best.zone.id,
     zoneType: best.zone.type,

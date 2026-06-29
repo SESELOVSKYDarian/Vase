@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 
+export const dynamic = "force-dynamic";
+
 export default async function PublicDocsPage() {
   const docs = await prisma.wikiDocument.findMany({
     where: { status: "PUBLISHED", isPublic: true },

@@ -4,6 +4,7 @@ import type { BuilderDocument } from "@/lib/business/builder";
 
 type PublicStorefrontProps = {
   document: BuilderDocument;
+  currentPath?: string;
 };
 
 const paletteClassMap = {

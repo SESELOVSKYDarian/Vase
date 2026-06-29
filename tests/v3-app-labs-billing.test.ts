@@ -3,7 +3,7 @@ import {
   createLabsCheckoutPreview,
   createLabsEntitlementProjection,
   createLabsTenantProvisioning,
-} from "../apps/vase-app/app/lib/labs-billing";
+} from "../apps/vase-app/src/lib/labs/billing-preparation";
 
 describe("Vase App Labs billing preparation", () => {
   it("previews a future Labs checkout without processing payment", () => {

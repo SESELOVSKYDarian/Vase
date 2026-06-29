@@ -9,8 +9,14 @@ function getTrustedOrigins() {
   }
 
   return process.env.NODE_ENV === "production"
-    ? ["https://vase.ar", "https://api.vase.ar"]
-    : ["http://localhost:3000", "http://127.0.0.1:3000"];
+    ? [
+        "https://app.vase.ar",
+        "https://vase.ar",
+        "https://business.vase.ar",
+        "https://labs.vase.ar",
+        "https://api.vase.ar",
+      ]
+    : ["http://localhost:3002", "http://127.0.0.1:3002"];
 }
 
 export const appConfig = {

@@ -32,11 +32,11 @@ describe("security controls", () => {
   it("accepts same-origin mutating requests", () => {
     expect(() =>
       assertSameOrigin(
-        new Request("http://localhost:3000/api/test", {
+        new Request("http://localhost:3002/api/test", {
           method: "POST",
           headers: {
-            origin: "http://localhost:3000",
-            host: "localhost:3000",
+            origin: "http://localhost:3002",
+            host: "localhost:3002",
           },
         }),
       ),

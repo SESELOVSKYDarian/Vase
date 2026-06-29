@@ -4478,7 +4478,7 @@ export async function provisionCustomProjectAction(
 
     if (zipPackage) {
       try {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vase.ar';
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.vase.ar';
         const preview_url = `${appUrl}/api/custom-sites/${encodeURIComponent(request.id)}/`;
         const teflonApiUrl = process.env.TEFLON_API_URL || 'https://api.vase.ar';
         const webhookSecret = process.env.VASE_WEBHOOK_SECRET || 'vase_provision_secret_2026';

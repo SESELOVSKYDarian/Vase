@@ -12,7 +12,7 @@ import { processQueuedKnowledgeItems } from "@/server/services/ai/knowledge-proc
 vi.mock("@/server/services/ai", () => ({
   buildTenantKnowledgeContext: vi.fn().mockResolvedValue({ items: [], text: "" }),
   classifyConversationIntent: vi.fn().mockResolvedValue({
-    label: "GENERAL",
+    label: "RESEARCHING",
     score: 70,
     reason: "Consulta general",
     nextAction: "RESPOND",
@@ -61,7 +61,7 @@ describe("chatbot message router", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedClassifyConversationIntent.mockResolvedValue({
-      label: "GENERAL",
+      label: "RESEARCHING",
       score: 70,
       reason: "Consulta general",
       nextAction: "RESPOND",

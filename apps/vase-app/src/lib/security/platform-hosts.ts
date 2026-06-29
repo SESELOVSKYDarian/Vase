@@ -64,7 +64,10 @@ export function resolvePlatformHosts(input: PlatformHostsInput = {}) {
   const {
     nodeEnv = process.env.NODE_ENV,
   } = input;
-  const defaults = nodeEnv === "production" ? ["vase.ar", "www.vase.ar"] : ["localhost:3000"];
+  const defaults =
+    nodeEnv === "production"
+      ? ["app.vase.ar", "vase.ar", "www.vase.ar"]
+      : ["localhost:3002"];
   const hosts = new Set(defaults);
 
   for (const host of readHostsFromValue(getConfiguredHostValues(input))) {

@@ -10,6 +10,8 @@ import { PanelCard } from "@/components/ui/panel-card";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { prisma } from "@/lib/db/prisma";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminWikiPage() {
   try {
     await requireAdminPermission(adminPermissions.WIKI);

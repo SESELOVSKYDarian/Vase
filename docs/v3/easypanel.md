@@ -3,7 +3,7 @@
 Esta guia explica como desplegar Vase Platform V3 y el editor existente en
 EasyPanel usando un App Service independiente por producto.
 
-La arquitectura V3 no se despliega como un monolito unico. Cada app vive en `apps/*`, tiene su propio `Dockerfile`, su propia base PostgreSQL y su propio dominio.
+La arquitectura V3 no se despliega como un monolito unico. Cada app vive en `apps/*`, tiene su propio `Dockerfile`, su propia base y su propio dominio.
 
 ## Idea principal
 
@@ -20,16 +20,30 @@ Ejemplo:
 
 ## Servicios esperados
 
-| Producto | Servicio EasyPanel | Dockerfile | Dominio | Puerto | Base PostgreSQL |
+| Producto | Servicio EasyPanel | Dockerfile | Dominio | Puerto | Base de datos |
 | --- | --- | --- | --- | --- | --- |
 | Portal | `vase-portal-app` | `apps/vase-portal/Dockerfile` | `vase.ar` | `3001` | `postgres-portal` |
-| App | `vase-app-app` | `apps/vase-app/Dockerfile` | `app.vase.ar` | `3002` | `postgres-app` |
+| App | `vase-app-next` | `apps/vase-app/Dockerfile` | `app.vase.ar` | `3002` | `vase-db` (MySQL transitorio) |
 | Admin | `vase-admin-app` | `apps/vase-admin/Dockerfile` | `admin.vase.ar` | `3003` | `postgres-admin` |
 | Help | `vase-help-app` | `apps/vase-help/Dockerfile` | `help.vase.ar` | `3004` | `postgres-help` |
 | Business | `vase-business` | `/apps/vase-editor` | `business.vase.ar` | `3000` | `vase-business-pg` existente |
 | Management | `vase-management-app` | `apps/vase-management/Dockerfile` | `management.vase.ar` | `3006` | `postgres-management` |
 | Labs | `vase-labs-app` | `apps/vase-labs/Dockerfile` | `labs.vase.ar` | `3007` | `postgres-labs` |
 | Workplace | `vase-workplace-app` | `apps/vase-workplace/Dockerfile` | `workplace.vase.ar` | `3008` | `postgres-workplace` |
+
+### Transicion de Vase App
+
+El destino final de Vase App es `postgres-app`, pero la primera migracion usa
+temporalmente el MySQL existente `vase-db` para conservar usuarios, empresas,
+membresias y contrasenas. La migracion a PostgreSQL se ejecuta despues de
+validar paridad funcional en `app.vase.ar`.
+
+Durante esta etapa:
+
+- el servicio actual de `vase.ar` permanece activo;
+- el servicio nuevo se llama `vase-app-next`;
+- `vase-app-next` usa `app.vase.ar`, puerto `3002` y `vase-db`;
+- no se ejecutan resets ni migraciones destructivas.
 
 > Nota: si algun `package.json` de una app define otro puerto, EasyPanel debe respetar el puerto real de esa app. El puerto de EasyPanel debe coincidir con el `next start --port` de cada workspace.
 
@@ -74,7 +88,8 @@ Reglas:
 
 ## Variables especificas por app
 
-Cada app necesita su propio `DATABASE_URL` apuntando a su PostgreSQL.
+Cada app necesita su propio `DATABASE_URL`. Vase App conserva temporalmente
+MySQL; los demas workspaces V3 usan PostgreSQL.
 
 ### Portal
 
@@ -89,7 +104,9 @@ PORT=3001
 
 ```env
 NEXT_PUBLIC_APP_URL=https://app.vase.ar
-DATABASE_URL=postgresql://vase_app_user:PASSWORD@postgres-app:5432/vase_app
+DATABASE_URL=mysql://USER:PASSWORD@vase-db:3306/vase
+VASE_PRIMARY_HOST=app.vase.ar
+BUSINESS_EDITOR_URL=https://business.vase.ar/admin/evolution
 APP_KEY=app
 PORT=3002
 ```
@@ -136,6 +153,10 @@ PUBLIC_ADMIN_URL=https://business.vase.ar/admin/evolution
 VASE_BUSINESS_SSO_SECRET=CHANGE_ME_SSO_SECRET
 VASE_BUSINESS_SSO_ISSUER=vase-app
 VASE_BUSINESS_SSO_AUDIENCE=vase-business
+VITE_VASE_APP_URL=https://app.vase.ar
+VITE_VASE_APP_LAUNCH_URL=https://app.vase.ar/app/business/launch
+VITE_VASE_APP_LOGIN_URL=https://app.vase.ar/signin
+VITE_VASE_APP_SIGNUP_URL=https://app.vase.ar/register
 ```
 
 Usar `apps/vase-editor/.env.example` como lista completa. Las variables
@@ -276,7 +297,7 @@ El servicio actual de `business.vase.ar` puede pasar del repositorio
 12. Probar login, `/admin/evolution`, uploads y una tienda publicada.
 13. Restaurar los valores finales `business.vase.ar` y volver a desplegar.
 14. Mover `business.vase.ar`, `*.vase.ar` y los dominios personalizados del servicio anterior al nuevo.
-15. Probar `https://vase.ar/app/business/launch`.
+15. Probar `https://app.vase.ar/app/business/launch`.
 16. Eliminar el servicio anterior solo despues de verificar el corte. No eliminar `vase-business-pg`.
 
 El wildcard `*.vase.ar` pertenece a Business y captura subdominios de tiendas.
@@ -325,7 +346,7 @@ El orden puede cambiar si comercialmente conviene desplegar primero Business o L
 - No importar codigo entre apps con rutas relativas.
 - Compartir codigo solo desde `packages/*`.
 - Cada app debe poder buildear y desplegarse por separado.
-- Cada app debe tener su propia base PostgreSQL.
+- Cada app debe tener su propia base; la excepcion temporal de Vase App es `vase-db`.
 - Editor y Business V3 no deben compartir base ni schema.
 - No hacer joins cross-database.
 - Integrar apps por API interna, eventos o proyecciones locales.

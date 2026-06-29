@@ -58,7 +58,7 @@ export default async function LabsPage() {
     : [];
   const completedSteps = setupItems.filter((item) => item.done).length;
   const setupProgress = setupItems.length > 0 ? Math.round((completedSteps / setupItems.length) * 100) : 0;
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://vase.ar").trim().replace(/\/$/, "");
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.vase.ar").trim().replace(/\/$/, "");
   const webhookPreviewUrl = `${appUrl}/api/v1/channels/whatsapp/${membership.tenant.slug}/webhook`;
   const webhookVerifyToken = resolveMetaWebhookVerifyToken(membership.tenant.slug);
 

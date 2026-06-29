@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://vase.ar";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.vase.ar";
   const routes = [
     "",
     "/que-es-vase",

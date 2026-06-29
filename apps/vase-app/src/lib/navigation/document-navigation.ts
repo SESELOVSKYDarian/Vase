@@ -1,10 +1,10 @@
 import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 
-export const PRIMARY_PLATFORM_ORIGIN = "https://vase.ar";
+export const PRIMARY_PLATFORM_ORIGIN = "https://app.vase.ar";
 
 function readPathname(href: string) {
   try {
-    return new URL(href, "https://vase.ar").pathname;
+    return new URL(href, PRIMARY_PLATFORM_ORIGIN).pathname;
   } catch {
     return href;
   }

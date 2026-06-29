@@ -35,7 +35,7 @@ export const v3WorkspaceApps: V3WorkspaceApp[] = [
     path: "apps/vase-app",
     domain: "app.vase.ar",
     packageName: "@vase/app",
-    databaseService: "postgres-app",
+    databaseService: "vase-db",
     responsibility: "Identidad, tenants, billing, marketplace y launcher.",
   },
   {

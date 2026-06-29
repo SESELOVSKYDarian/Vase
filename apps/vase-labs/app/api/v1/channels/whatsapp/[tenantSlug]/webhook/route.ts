@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { labsPrisma } from "../../../../../../../lib/db";
+import { labsPrisma } from "../../../../../../lib/db";
 import {
   handleWhatsAppMetaWebhook,
   PrismaWhatsAppWebhookRepository,
   verifyWhatsAppWebhookSubscription,
-} from "../../../../../../../lib/whatsapp-webhook-service";
+} from "../../../../../../lib/whatsapp-webhook-service";
 
 export const dynamic = "force-dynamic";
 
