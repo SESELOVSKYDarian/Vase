@@ -33,25 +33,43 @@ describe("V3 workspace structure", () => {
     ]);
   });
 
-  it("creates each V3 app with independent deploy files, health routes, and Postgres config", () => {
+  it("creates each V3 app with independent deploy files, health routes, and database config", () => {
     for (const app of v3WorkspaceApps) {
       const base = path.join(rootDir, app.path);
+      const appRouterBase =
+        app.key === "vase-app"
+          ? path.join(base, "src", "app")
+          : path.join(base, "app");
       expect(fs.existsSync(path.join(base, "package.json")), `${app.path}/package.json`).toBe(true);
       expect(fs.existsSync(path.join(base, "tsconfig.json")), `${app.path}/tsconfig.json`).toBe(true);
       expect(fs.existsSync(path.join(base, "next.config.ts")), `${app.path}/next.config.ts`).toBe(true);
       expect(fs.existsSync(path.join(base, "Dockerfile")), `${app.path}/Dockerfile`).toBe(true);
       expect(fs.existsSync(path.join(base, ".env.example")), `${app.path}/.env.example`).toBe(true);
       expect(fs.existsSync(path.join(base, "README.md")), `${app.path}/README.md`).toBe(true);
-      expect(fs.existsSync(path.join(base, "app", "page.tsx")), `${app.path}/app/page.tsx`).toBe(true);
-      expect(fs.existsSync(path.join(base, "app", "api", "health", "live", "route.ts")), `${app.path}/app/api/health/live/route.ts`).toBe(true);
-      expect(fs.existsSync(path.join(base, "app", "api", "health", "ready", "route.ts")), `${app.path}/app/api/health/ready/route.ts`).toBe(true);
-      expect(fs.existsSync(path.join(base, "app", "api", "internal", "admin", "health", "route.ts")), `${app.path}/app/api/internal/admin/health/route.ts`).toBe(true);
+      expect(fs.existsSync(path.join(appRouterBase, "page.tsx")), `${app.path}/app/page.tsx`).toBe(true);
+      expect(
+        fs.existsSync(path.join(appRouterBase, "api", "health", "live", "route.ts")),
+        `${app.path}/app/api/health/live/route.ts`,
+      ).toBe(true);
+      expect(
+        fs.existsSync(path.join(appRouterBase, "api", "health", "ready", "route.ts")),
+        `${app.path}/app/api/health/ready/route.ts`,
+      ).toBe(true);
+      expect(
+        fs.existsSync(path.join(appRouterBase, "api", "internal", "admin", "health", "route.ts")),
+        `${app.path}/app/api/internal/admin/health/route.ts`,
+      ).toBe(true);
       expect(fs.existsSync(path.join(base, "prisma", "schema.prisma")), `${app.path}/prisma/schema.prisma`).toBe(true);
 
       const envExample = readText(path.join(app.path, ".env.example"));
       const schema = readText(path.join(app.path, "prisma", "schema.prisma"));
-      expect(envExample).toContain("DATABASE_URL=postgresql://");
-      expect(schema).toContain('provider = "postgresql"');
+      const expectedDatabaseProvider =
+        app.key === "vase-app" ? 'provider = "mysql"' : 'provider = "postgresql"';
+      const expectedDatabaseProtocol =
+        app.key === "vase-app" ? "DATABASE_URL=mysql://" : "DATABASE_URL=postgresql://";
+
+      expect(envExample).toContain(expectedDatabaseProtocol);
+      expect(schema).toContain(expectedDatabaseProvider);
     }
   });
 
