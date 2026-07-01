@@ -39,6 +39,7 @@ uploads/
 .kiro/
 .playwright-mcp/
 .codex-env-values.txt
+.superpowers/
 
 # debug
 npm-debug.log*
