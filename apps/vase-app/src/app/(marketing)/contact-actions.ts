@@ -2,10 +2,8 @@
 
 import { contactInquirySchema } from "@/lib/validators/contact";
 import { sanitizeText } from "@/lib/security/sanitize";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { getRequestContext } from "@/lib/security/request";
-import { sendContactEmail } from "@/server/services/contact-email";
-import { createAuditLog } from "@/server/services/audit-log";
+import { deliverPortalContactInquiry } from "@/server/services/portal-content";
 
 export type ContactActionState = {
   success?: string;
@@ -38,11 +36,9 @@ export async function submitContactInquiry(
   }
 
   try {
-    await enforceRateLimit({
-      scope: "marketing:contact",
-      key: `${requestContext.ipAddress}:${parsed.data.email}`,
-      limit: 4,
-      windowSeconds: 60 * 30,
+    await deliverPortalContactInquiry(parsed.data, {
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "RATE_LIMIT_EXCEEDED") {
@@ -51,27 +47,6 @@ export async function submitContactInquiry(
       };
     }
 
-    throw error;
-  }
-
-  try {
-    await sendContactEmail(parsed.data);
-
-    await createAuditLog({
-      action: "marketing.contact_inquiry_submitted",
-      targetType: "contact_inquiry",
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      metadata: {
-        fullName: parsed.data.fullName,
-        email: parsed.data.email,
-      },
-    });
-
-    return {
-      success: "Recibimos tu consulta. Te vamos a responder por email pronto.",
-    };
-  } catch (error) {
     if (error instanceof Error && error.message === "CONTACT_EMAIL_NOT_CONFIGURED") {
       return {
         error: "El canal de contacto no esta configurado todavia. Revisa las variables de entorno.",
@@ -82,4 +57,8 @@ export async function submitContactInquiry(
       error: "No pudimos enviar tu consulta ahora. Intenta nuevamente en unos minutos.",
     };
   }
+
+  return {
+    success: "Recibimos tu consulta. Te vamos a responder por email pronto.",
+  };
 }
