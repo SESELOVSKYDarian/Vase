@@ -16,6 +16,7 @@ function createContext(overrides: Partial<WhatsAppWebhookContext> = {}): WhatsAp
     assistantId: "assistant_123",
     globalTenantId: "tenant_123",
     tenantSlug: "tenant-demo",
+    channelType: "WHATSAPP",
     channel: {
       id: "channel_123",
       provider: "META_OFFICIAL",
@@ -156,8 +157,8 @@ describe("Vase Labs WhatsApp Meta webhook", () => {
     });
 
     expect(result.status).toBe(200);
-    expect(result.body.aiBlockedReason).toBe("CHANNEL_NOT_INCLUDED");
-    expect(repository.persisted[0]?.aiBlockedReason).toBe("CHANNEL_NOT_INCLUDED");
+    expect(result.body.aiBlockedReason).toBe("CHANNEL_NOT_ENTITLED");
+    expect(repository.persisted[0]?.aiBlockedReason).toBe("CHANNEL_NOT_ENTITLED");
   });
 
   it("ignores Meta webhook payloads without messages", async () => {
