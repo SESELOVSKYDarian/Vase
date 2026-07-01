@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import {
   requiresFullDocumentNavigation,
+  resolveAppHomeHref,
   resolveNavigationHrefForHost,
+  resolveShortcutHref,
 } from "@/lib/navigation/document-navigation";
 
 describe("document navigation guard", () => {
@@ -20,6 +22,14 @@ describe("document navigation guard", () => {
     expect(requiresFullDocumentNavigation("/app/business")).toBe(false);
     expect(requiresFullDocumentNavigation("/app/admin/users")).toBe(false);
     expect(requiresFullDocumentNavigation("/precios")).toBe(false);
+  });
+
+  it("resolves the public Home and Home shortcut", () => {
+    expect(resolveAppHomeHref()).toBe("https://vase.ar");
+    expect(resolveShortcutHref("goto_home", "/app")).toBe("https://vase.ar");
+    expect(resolveShortcutHref("goto_settings", "/app/settings")).toBe(
+      "/app/settings",
+    );
   });
 
   it("keeps Labs routes on the Labs host and sends non-Labs routes to the primary host", () => {

@@ -1,6 +1,15 @@
 import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
+import { productOrigins } from "@/config/origins";
 
 export const PRIMARY_PLATFORM_ORIGIN = "https://app.vase.ar";
+
+export function resolveAppHomeHref() {
+  return productOrigins.publicSite;
+}
+
+export function resolveShortcutHref(id: string, target: string) {
+  return id === "goto_home" ? resolveAppHomeHref() : target;
+}
 
 function readPathname(href: string) {
   try {

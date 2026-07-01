@@ -4,11 +4,13 @@ import type { Route } from "next";
 import { ArrowUpRight } from "lucide-react";
 import { getMarketingChromeCopy } from "@/config/public-site";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
+import { resolveAppHomeHref } from "@/lib/navigation/document-navigation";
 import { FooterContactModal } from "./footer-contact-modal";
 
 export async function SiteFooter() {
   const locale = await getRequestLocale();
   const copy = getMarketingChromeCopy(locale);
+  const homeHref = resolveAppHomeHref();
 
   const labels =
     locale === "es"
@@ -109,7 +111,7 @@ export async function SiteFooter() {
 
           <div className="grid gap-8 py-8 lg:grid-cols-[0.95fr_0.8fr_0.8fr_0.7fr]">
             <div className="space-y-5">
-              <Link href="/" className="inline-flex items-center gap-3 text-[#000202]" aria-label="Vase">
+              <a href={homeHref} className="inline-flex items-center gap-3 text-[#000202]" aria-label="Vase">
                 <Image
                   src="/vasecolorlogo.png"
                   alt="Vase"
@@ -119,7 +121,7 @@ export async function SiteFooter() {
                   unoptimized
                 />
                 <span className="text-lg font-semibold tracking-[-0.04em]">Vase</span>
-              </Link>
+              </a>
             </div>
 
             <div className="space-y-4">
@@ -157,9 +159,9 @@ export async function SiteFooter() {
                   {labels.resources}
                 </p>
                 <div className="flex flex-col gap-2 text-sm text-[#2F3030]">
-                  <Link href="/" className="transition hover:text-[#3B633D]">
+                  <a href={homeHref} className="transition hover:text-[#3B633D]">
                     {copy.nav.home}
-                  </Link>
+                  </a>
                   <Link href="/integraciones" className="transition hover:text-[#3B633D]">
                     {labels.integrations}
                   </Link>
