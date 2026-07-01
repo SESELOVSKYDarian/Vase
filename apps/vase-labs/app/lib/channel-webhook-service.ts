@@ -33,6 +33,23 @@ export type PersistChannelInboundMessageResult = {
 
 export interface ChannelWebhookRepository {
   findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
+  markWebhookEventProcessing?(input: {
+    context: ChannelWebhookContext;
+    providerEventId?: string | null;
+    providerMessageId?: string | null;
+    rawPayload?: unknown;
+  }): Promise<{ duplicate: boolean }>;
+  markWebhookEventProcessed?(input: {
+    context: ChannelWebhookContext;
+    providerMessageId?: string | null;
+    conversationId: string;
+    messageId: string;
+  }): Promise<void>;
+  markWebhookEventFailed?(input: {
+    context: ChannelWebhookContext;
+    providerMessageId?: string | null;
+    reason: string;
+  }): Promise<void>;
   persistInboundMessage(input: PersistChannelInboundMessageInput): Promise<PersistChannelInboundMessageResult>;
 }
 
@@ -111,6 +128,10 @@ function readMetaChannelProviderConfig(config: unknown) {
     appSecret: typeof source.appSecret === "string" ? source.appSecret : undefined,
     verifyToken: typeof source.verifyToken === "string" ? source.verifyToken : undefined,
   };
+}
+
+function isConnectedChannel(context: ChannelWebhookContext) {
+  return context.channel?.status === "CONNECTED";
 }
 
 function resolveAiBlockedReason(entitlement: LabsRuntimeEntitlement | null, channelType: LabsChannel) {
@@ -325,6 +346,84 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
       aiBlockedReason: input.aiBlockedReason,
     };
   }
+
+  async markWebhookEventProcessing(input: {
+    context: ChannelWebhookContext;
+    providerEventId?: string | null;
+    providerMessageId?: string | null;
+    rawPayload?: unknown;
+  }): Promise<{ duplicate: boolean }> {
+    if (!input.context.channel?.id || !input.providerMessageId) {
+      return { duplicate: false };
+    }
+
+    try {
+      await this.prisma.$executeRaw`
+        INSERT INTO "WebhookEvent" (
+          id,
+          "channelId",
+          "providerEventId",
+          "providerMessageId",
+          status,
+          metadata,
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          ${randomUUID()},
+          ${input.context.channel.id},
+          ${input.providerEventId ?? null},
+          ${input.providerMessageId},
+          'PROCESSING',
+          ${metadataJson({ rawPayload: input.rawPayload ?? null })},
+          ${new Date()},
+          ${new Date()}
+        )
+      `;
+      return { duplicate: false };
+    } catch {
+      return { duplicate: true };
+    }
+  }
+
+  async markWebhookEventProcessed(input: {
+    context: ChannelWebhookContext;
+    providerMessageId?: string | null;
+    conversationId: string;
+    messageId: string;
+  }): Promise<void> {
+    if (!input.context.channel?.id || !input.providerMessageId) return;
+
+    await this.prisma.$executeRaw`
+      UPDATE "WebhookEvent"
+      SET
+        status = 'PROCESSED',
+        "processedAt" = ${new Date()},
+        metadata = ${metadataJson({ conversationId: input.conversationId, messageId: input.messageId })},
+        "updatedAt" = ${new Date()}
+      WHERE "channelId" = ${input.context.channel.id}
+        AND "providerMessageId" = ${input.providerMessageId}
+    `;
+  }
+
+  async markWebhookEventFailed(input: {
+    context: ChannelWebhookContext;
+    providerMessageId?: string | null;
+    reason: string;
+  }): Promise<void> {
+    if (!input.context.channel?.id || !input.providerMessageId) return;
+
+    await this.prisma.$executeRaw`
+      UPDATE "WebhookEvent"
+      SET
+        status = 'FAILED',
+        "failedAt" = ${new Date()},
+        metadata = ${metadataJson({ reason: input.reason })},
+        "updatedAt" = ${new Date()}
+      WHERE "channelId" = ${input.context.channel.id}
+        AND "providerMessageId" = ${input.providerMessageId}
+    `;
+  }
 }
 
 export function getChannelWebhookVerifyResult(input: {
@@ -377,6 +476,13 @@ export async function handleMetaChannelWebhook(input: {
     };
   }
 
+  if (!isConnectedChannel(context)) {
+    return {
+      status: 200,
+      body: { ok: true, ignored: true, reason: "channel_not_connected" },
+    };
+  }
+
   const providerConfig = readMetaChannelProviderConfig(context.channel.config);
 
   if (!providerConfig.appSecret || !verifyMetaSignature(providerConfig.appSecret, input.rawBody, input.signatureHeader)) {
@@ -408,12 +514,42 @@ export async function handleMetaChannelWebhook(input: {
     };
   }
 
-  const aiBlockedReason = resolveAiBlockedReason(context.entitlement, input.channelType);
-  const persisted = await input.repository.persistInboundMessage({
+  const event = await input.repository.markWebhookEventProcessing?.({
     context,
-    message,
-    aiBlockedReason,
+    providerEventId: message.externalMessageId,
+    providerMessageId: message.externalMessageId,
+    rawPayload: message.rawPayload,
   });
+
+  if (event?.duplicate) {
+    return {
+      status: 200,
+      body: { ok: true, processed: false, reason: "duplicate" },
+    };
+  }
+
+  const aiBlockedReason = resolveAiBlockedReason(context.entitlement, input.channelType);
+  let persisted: PersistChannelInboundMessageResult;
+  try {
+    persisted = await input.repository.persistInboundMessage({
+      context,
+      message,
+      aiBlockedReason,
+    });
+    await input.repository.markWebhookEventProcessed?.({
+      context,
+      providerMessageId: message.externalMessageId,
+      conversationId: persisted.conversationId,
+      messageId: persisted.messageId,
+    });
+  } catch (error) {
+    await input.repository.markWebhookEventFailed?.({
+      context,
+      providerMessageId: message.externalMessageId,
+      reason: error instanceof Error ? error.message : "PERSIST_FAILED",
+    });
+    throw error;
+  }
 
   return {
     status: 200,

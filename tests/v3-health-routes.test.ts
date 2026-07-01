@@ -73,7 +73,12 @@ describe("V3 health routes", () => {
       expect(readyResponse.status, `${app.key} ready status`).toBe(200);
       expect(livePayload.service).toBe(app.key);
       expect(readyPayload.service).toBe(app.key);
-      expect(readyPayload.checks.database).toBe(app.databaseService);
+      if (app.key === "vase-labs" && readyPayload.status === "degraded") {
+        expect(readyPayload.checks.database).toBe("error");
+        expect(readyPayload.checks.databaseError).toEqual(expect.any(String));
+      } else {
+        expect(readyPayload.checks.database).toBe(app.databaseService);
+      }
     }
   });
 

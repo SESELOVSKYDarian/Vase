@@ -182,21 +182,57 @@ Management sera el ERP SaaS argentino y debe integrarse con App para identidad, 
 ```env
 NEXT_PUBLIC_APP_URL=https://labs.vase.ar
 DATABASE_URL=postgresql://vase_labs_user:PASSWORD@postgres-labs:5432/vase_labs
+AUTH_SECRET=CHANGE_ME_BASE64_32
+AUTH_COOKIE_DOMAIN=.vase.ar
+SERVICE_TO_SERVICE_TOKEN=CHANGE_ME_BASE64_32
+SESSION_ISSUER=app.vase.ar
+SESSION_AUDIENCE=vase-platform
+REDIS_URL=redis://redis-platform:6379
+TRUSTED_ORIGINS=https://vase.ar,https://app.vase.ar,https://admin.vase.ar,https://help.vase.ar,https://business.vase.ar,https://management.vase.ar,https://labs.vase.ar,https://workplace.vase.ar
 APP_KEY=labs
 PORT=3007
 ```
 
-Variables futuras o esperadas para Labs:
+Variables Meta, IA y secretos operativos para Labs:
 
 ```env
 OPENAI_API_KEY=CHANGE_ME
 META_APP_ID=CHANGE_ME
 META_APP_SECRET=CHANGE_ME
 META_VERIFY_TOKEN=CHANGE_ME
+META_WEBHOOK_SECRET=CHANGE_ME_BASE64_32
 WHATSAPP_ACCESS_TOKEN=CHANGE_ME
 INSTAGRAM_ACCESS_TOKEN=CHANGE_ME
 FACEBOOK_PAGE_ACCESS_TOKEN=CHANGE_ME
+META_OAUTH_REDIRECT_URI=https://labs.vase.ar/api/v1/meta/oauth/callback
+TOKEN_ENCRYPTION_SECRET=CHANGE_ME_BASE64_32
 ```
+
+La integracion interna App/Admin -> Labs debe usar `SERVICE_TO_SERVICE_TOKEN` contra `https://labs.vase.ar/api/internal/admin/labs/entitlements`. Esa ruta sincroniza la proyeccion local `LabsEntitlement` y evita joins entre bases.
+
+Los packs de tokens productivos son:
+
+- `BASIC`: 500.000 tokens.
+- `MEDIUM`: 1.200.000 tokens.
+- `PRO`: 3.000.000 tokens.
+
+Antes del deploy productivo de Labs, ejecutar migraciones Prisma de `apps/vase-labs/prisma/schema.prisma` y verificar:
+
+```bash
+curl https://labs.vase.ar/api/health/live
+curl https://labs.vase.ar/api/health/ready
+```
+
+`ready` debe devolver `status: "ok"` y `checks.database: "postgres-labs"`. Si devuelve `status: "degraded"` con `checks.database: "error"`, revisar `DATABASE_URL`, credenciales, red interna y migraciones.
+
+Callbacks Meta que deben cargarse en la app de Meta:
+
+- OAuth: `https://labs.vase.ar/api/v1/meta/oauth/callback`
+- WhatsApp webhook: `https://labs.vase.ar/api/v1/channels/whatsapp/{tenantSlug}/webhook`
+- Instagram webhook: `https://labs.vase.ar/api/v1/channels/instagram/{tenantSlug}/webhook`
+- Facebook webhook: `https://labs.vase.ar/api/v1/channels/facebook/{tenantSlug}/webhook`
+
+Las rutas de webhook deben responder rapido. El webhook solo valida, deduplica y persiste; IA/outbound debe correr fuera del request HTTP mediante worker, cron interno protegido o cola.
 
 Labs debe manejar:
 

@@ -59,6 +59,18 @@ enum MessageDirection {
   OUTBOUND
 }
 
+enum WebhookEventStatus {
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum MessageDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 model Assistant {
   id             String   @id @default(cuid())
   globalTenantId String
@@ -94,11 +106,59 @@ model Channel {
   lastSyncedAt      DateTime?
   lastError         String?
   assistant         Assistant               @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  secrets           ChannelSecret[]
+  webhookEvents     WebhookEvent[]
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
 
   @@index([type, status])
   @@index([provider, status])
+}
+
+model MetaOAuthState {
+  id          String      @id @default(cuid())
+  tenantSlug  String
+  channelType LabsChannel
+  stateHash   String      @unique
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@index([tenantSlug, channelType])
+  @@index([expiresAt])
+}
+
+model ChannelSecret {
+  id             String    @id @default(cuid())
+  channelId      String
+  kind           String
+  encryptedValue String
+  expiresAt      DateTime?
+  rotatedAt      DateTime?
+  channel        Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([channelId, kind])
+  @@index([expiresAt])
+}
+
+model WebhookEvent {
+  id                String             @id @default(cuid())
+  channelId         String
+  providerEventId   String?
+  providerMessageId String?
+  status            WebhookEventStatus @default(PROCESSING)
+  metadata          Json?
+  processedAt       DateTime?
+  failedAt          DateTime?
+  channel           Channel            @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([channelId, providerMessageId])
+  @@index([channelId, status])
+  @@index([providerEventId])
 }
 
 model LabsEntitlement {
@@ -172,9 +232,28 @@ model Message {
   costCents         Int?
   metadata          Json?
   conversation      Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  deliveries        MessageDelivery[]
   createdAt         DateTime         @default(now())
 
   @@index([providerMessageId])
+}
+
+model MessageDelivery {
+  id                String                @id @default(cuid())
+  messageId         String
+  channel           LabsChannel
+  status            MessageDeliveryStatus @default(PENDING)
+  providerMessageId String?
+  error             String?
+  metadata          Json?
+  sentAt            DateTime?
+  failedAt          DateTime?
+  message           Message               @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([messageId])
+  @@index([channel, status])
 }
 
 model TokenUsage {
@@ -204,6 +283,10 @@ model Handoff {
   reason         String
   target         String       @default("workplace")
   status         String       @default("PENDING")
+  assignedTo     String?
+  notes          String?
+  priority       String       @default("normal")
+  resolvedAt     DateTime?
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
 }

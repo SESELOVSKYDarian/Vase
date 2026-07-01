@@ -18,7 +18,7 @@ describe("Vase App Labs billing preparation", () => {
     expect(preview.productKey).toBe("labs");
     expect(preview.access.enabledChannels).toEqual(["WHATSAPP", "INSTAGRAM"]);
     expect(preview.access.tokensIncluded).toBe(250000);
-    expect(preview.access.extraTokens).toBe(100000);
+    expect(preview.access.extraTokens).toBe(500000);
   });
 
   it("creates a tenant provisioning payload with company, tenant and owner membership", () => {
@@ -51,6 +51,6 @@ describe("Vase App Labs billing preparation", () => {
     expect(projection.labs.plan).toBe("PRO");
     expect(projection.labs.enabledChannels).toEqual(["WHATSAPP", "INSTAGRAM", "FACEBOOK"]);
     expect(projection.labs.tokensIncluded).toBe(1000000);
-    expect(projection.labs.extraTokens).toBe(500000);
+    expect(projection.labs.extraTokens).toBe(1200000);
   });
 });

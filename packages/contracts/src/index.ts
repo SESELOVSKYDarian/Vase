@@ -68,9 +68,37 @@ export const channelMessageTypeSchema = z.enum(["text", "audio", "image", "docum
 
 export const channelMessageDirectionSchema = z.enum(["INBOUND", "OUTBOUND"]);
 
+export const webhookEventStatusSchema = z.enum(["PROCESSING", "PROCESSED", "FAILED"]);
+export const messageDeliveryStatusSchema = z.enum(["PENDING", "SENT", "FAILED"]);
+export const handoffStatusSchema = z.enum(["PENDING", "ASSIGNED", "RESOLVED", "CANCELLED"]);
+
 export const outboundChannelMessageSchema = z.object({
   to: z.string().min(1),
   text: z.string().min(1),
+});
+
+export const metaConnectStartSchema = z.object({
+  tenantSlug: z.string().min(1),
+  channelType: labsChannelSchema,
+});
+
+export const metaConnectStartResultSchema = z.object({
+  authorizationUrl: z.string().url(),
+  state: z.string().min(1),
+  expiresAt: z.iso.datetime(),
+  scopes: z.array(z.string().min(1)),
+});
+
+export const channelConnectionSummarySchema = z.object({
+  id: z.string().min(1),
+  type: labsChannelSchema,
+  provider: labsChannelProviderSchema.nullable(),
+  status: channelConnectionStatusSchema,
+  accountLabel: z.string().nullable(),
+  externalHandle: z.string().nullable(),
+  connectedAt: z.iso.datetime().nullable(),
+  lastSyncedAt: z.iso.datetime().nullable(),
+  lastError: z.string().nullable(),
 });
 
 export const inboundChannelMessageSchema = z.object({
@@ -130,6 +158,58 @@ export const tokenUsageSchema = z.object({
   occurredAt: z.iso.datetime(),
 });
 
+export const inboxMessageSchema = z.object({
+  id: z.string().min(1),
+  conversationId: z.string().min(1),
+  role: z.string().min(1),
+  direction: channelMessageDirectionSchema.nullable(),
+  content: z.string(),
+  providerMessageId: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
+export const inboxConversationSchema = z.object({
+  id: z.string().min(1),
+  globalTenantId: z.string().min(1),
+  channel: labsChannelSchema.nullable(),
+  status: z.enum(["OPEN", "ESCALATED", "CLOSED"]),
+  customerName: z.string().nullable(),
+  customerContact: z.string().nullable().optional(),
+  lastMessageAt: z.iso.datetime().nullable(),
+  messageCount: z.number().int().nonnegative(),
+  escalatedToHuman: z.boolean(),
+});
+
+export const handoffRequestSchema = z.object({
+  conversationId: z.string().min(1),
+  reason: z.string().min(3),
+  priority: z.enum(["low", "normal", "high"]).default("normal"),
+});
+
+export const handoffAssignmentSchema = z.object({
+  handoffId: z.string().min(1),
+  assignedTo: z.string().min(1),
+});
+
+export const knowledgeItemDtoSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  sourceType: z.string().min(1),
+  content: z.string(),
+  status: z.enum(["READY", "TRAINING", "ERROR"]),
+});
+
+export const labsAnalyticsSummarySchema = z.object({
+  conversationsOpen: z.number().int().nonnegative(),
+  conversationsEscalated: z.number().int().nonnegative(),
+  inboundMessages: z.number().int().nonnegative(),
+  outboundMessages: z.number().int().nonnegative(),
+  tokensUsed: z.number().int().nonnegative(),
+  costCents: z.number().int().nonnegative(),
+  connectedChannels: z.number().int().nonnegative(),
+  pendingHandoffs: z.number().int().nonnegative(),
+});
+
 export const labsServiceStatusSchema = z.enum(["ACTIVE", "TRIAL", "PAUSED", "SUSPENDED", "EXPIRED", "CANCELLED"]);
 
 export const labsAdminTenantControlSchema = z.object({
@@ -167,9 +247,9 @@ export const LABS_PLAN_LIMITS = {
 } as const satisfies Record<z.infer<typeof labsPlanSchema>, LabsPlanLimits>;
 
 export const TOKEN_PACK_TOKENS = {
-  BASIC: 100000,
-  MEDIUM: 500000,
-  PRO: 1500000,
+  BASIC: 500000,
+  MEDIUM: 1200000,
+  PRO: 3000000,
 } as const satisfies Record<z.infer<typeof tokenPackSchema>, number>;
 
 export const LABS_AVERAGE_TOKENS_PER_MESSAGE = 500;
@@ -261,6 +341,9 @@ export type LabsChannelProvider = z.infer<typeof labsChannelProviderSchema>;
 export type ChannelConnectionStatus = z.infer<typeof channelConnectionStatusSchema>;
 export type ChannelMessageType = z.infer<typeof channelMessageTypeSchema>;
 export type ChannelMessageDirection = z.infer<typeof channelMessageDirectionSchema>;
+export type WebhookEventStatus = z.infer<typeof webhookEventStatusSchema>;
+export type MessageDeliveryStatus = z.infer<typeof messageDeliveryStatusSchema>;
+export type HandoffStatus = z.infer<typeof handoffStatusSchema>;
 export type InboundChannelMessage = z.infer<typeof inboundChannelMessageSchema>;
 export type OutboundChannelMessage = z.infer<typeof outboundChannelMessageSchema>;
 export type WhatsAppProviderConfig = z.infer<typeof whatsappProviderConfigSchema>;
@@ -268,3 +351,12 @@ export type LabsEntitlement = z.infer<typeof labsEntitlementSchema>;
 export type TokenUsage = z.infer<typeof tokenUsageSchema>;
 export type LabsServiceStatus = z.infer<typeof labsServiceStatusSchema>;
 export type LabsAdminTenantControl = z.infer<typeof labsAdminTenantControlSchema>;
+export type MetaConnectStart = z.infer<typeof metaConnectStartSchema>;
+export type MetaConnectStartResult = z.infer<typeof metaConnectStartResultSchema>;
+export type ChannelConnectionSummary = z.infer<typeof channelConnectionSummarySchema>;
+export type InboxConversation = z.infer<typeof inboxConversationSchema>;
+export type InboxMessage = z.infer<typeof inboxMessageSchema>;
+export type HandoffRequest = z.infer<typeof handoffRequestSchema>;
+export type HandoffAssignment = z.infer<typeof handoffAssignmentSchema>;
+export type KnowledgeItemDto = z.infer<typeof knowledgeItemDtoSchema>;
+export type LabsAnalyticsSummary = z.infer<typeof labsAnalyticsSummarySchema>;

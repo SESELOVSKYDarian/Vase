@@ -122,9 +122,9 @@ describe("V3 contracts", () => {
     });
     expect(getLabsPlanLimits("GROWTH").includedChannels).toEqual(["WHATSAPP", "INSTAGRAM"]);
     expect(getLabsPlanLimits("PRO").monthlyTokenLimit).toBe(1000000);
-    expect(getTokenPackTokens("BASIC")).toBe(100000);
-    expect(getTokenPackTokens("MEDIUM")).toBe(500000);
-    expect(getTokenPackTokens("PRO")).toBe(1500000);
+    expect(getTokenPackTokens("BASIC")).toBe(500000);
+    expect(getTokenPackTokens("MEDIUM")).toBe(1200000);
+    expect(getTokenPackTokens("PRO")).toBe(3000000);
   });
 
   it("validates Labs admin tenant control payloads", () => {
@@ -148,9 +148,9 @@ describe("V3 contracts", () => {
 
   it("estimates messages from token packs using the shared average", () => {
     expect(estimateMessagesFromTokens(1000)).toBe(2);
-    expect(estimateMessagesFromTokenPack("BASIC")).toBe(200);
-    expect(estimateMessagesFromTokenPack("MEDIUM")).toBe(1000);
-    expect(estimateMessagesFromTokenPack("PRO")).toBe(3000);
+    expect(estimateMessagesFromTokenPack("BASIC")).toBe(1000);
+    expect(estimateMessagesFromTokenPack("MEDIUM")).toBe(2400);
+    expect(estimateMessagesFromTokenPack("PRO")).toBe(6000);
   });
 
   it("calculates the remaining Labs token balance without going negative", () => {
