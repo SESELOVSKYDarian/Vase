@@ -36,12 +36,12 @@ describe("V3 workspace structure", () => {
   it("creates each V3 app with independent deploy files, health routes, and Postgres config", () => {
     for (const app of v3WorkspaceApps) {
       const base = path.join(rootDir, app.path);
-      const appRouterBase =
-        app.key === "vase-app"
-          ? path.join(base, "src", "app")
-          : path.join(base, "app");
+      const srcAppRouterBase = path.join(base, "src", "app");
+      const appRouterBase = fs.existsSync(srcAppRouterBase)
+        ? srcAppRouterBase
+        : path.join(base, "app");
       const rootPage =
-        app.key === "vase-app"
+        app.key === "vase-app" || app.key === "vase-portal"
           ? path.join(appRouterBase, "(marketing)", "page.tsx")
           : path.join(appRouterBase, "page.tsx");
       expect(fs.existsSync(path.join(base, "package.json")), `${app.path}/package.json`).toBe(true);
