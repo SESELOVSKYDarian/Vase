@@ -43,18 +43,24 @@ export async function submitContactInquiry(
   } catch (error) {
     if (error instanceof Error && error.message === "RATE_LIMIT_EXCEEDED") {
       return {
-        error: "Recibimos muchas consultas seguidas desde este origen. Intenta nuevamente en unos minutos.",
+        error:
+          "Recibimos muchas consultas seguidas desde este origen. Intenta nuevamente en unos minutos.",
       };
     }
 
-    if (error instanceof Error && error.message === "CONTACT_EMAIL_NOT_CONFIGURED") {
+    if (
+      error instanceof Error &&
+      error.message === "CONTACT_EMAIL_NOT_CONFIGURED"
+    ) {
       return {
-        error: "El canal de contacto no esta configurado todavia. Revisa las variables de entorno.",
+        error:
+          "El canal de contacto no esta configurado todavia. Revisa las variables de entorno.",
       };
     }
 
     return {
-      error: "No pudimos enviar tu consulta ahora. Intenta nuevamente en unos minutos.",
+      error:
+        "No pudimos enviar tu consulta ahora. Intenta nuevamente en unos minutos.",
     };
   }
 

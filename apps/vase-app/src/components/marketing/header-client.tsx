@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ChevronDown, Menu, X, ArrowRight } from "lucide-react";
+import { productOrigins } from "@/config/origins";
 
 interface HeaderClientProps {
   copy: any;
@@ -16,6 +17,7 @@ export function HeaderClient({ copy, featureDescriptions }: HeaderClientProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const publicHref = (path = "") => `${productOrigins.publicSite}${path}`;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -48,12 +50,12 @@ export function HeaderClient({ copy, featureDescriptions }: HeaderClientProps) {
   return (
     <>
       <nav aria-label="Primary navigation" className="hidden items-center gap-2 lg:flex">
-        <Link
-          href="/"
+        <a
+          href={publicHref()}
           className="inline-flex min-h-10 items-center rounded-full px-4 text-sm font-medium text-black transition hover:bg-white/50"
         >
           {copy.nav.home}
-        </Link>
+        </a>
 
         <div className="relative" ref={dropdownRef}>
           <button
@@ -68,8 +70,8 @@ export function HeaderClient({ copy, featureDescriptions }: HeaderClientProps) {
 
           {isDropdownOpen && (
             <div className="absolute left-1/2 top-[calc(100%+0.85rem)] z-50 w-72 -translate-x-1/2 rounded-[28px] bg-white/90 p-3 shadow-[0_32px_64px_rgba(0,0,0,0.12)] backdrop-blur-2xl border border-black/5">
-              <Link
-                href="/vase-business"
+              <a
+                href={publicHref("/vase-business")}
                 onClick={() => setIsDropdownOpen(false)}
                 className="group block rounded-[20px] px-5 py-4 text-sm text-black transition hover:bg-black/[0.03]"
               >
@@ -80,9 +82,9 @@ export function HeaderClient({ copy, featureDescriptions }: HeaderClientProps) {
                 <p className="mt-1.5 text-[13px] leading-relaxed text-black/60 font-medium">
                   {featureDescriptions.business}
                 </p>
-              </Link>
-              <Link
-                href="/vaselabs"
+              </a>
+              <a
+                href={publicHref("/vaselabs")}
                 onClick={() => setIsDropdownOpen(false)}
                 className="group mt-1 block rounded-[20px] px-5 py-4 text-sm text-black transition hover:bg-black/[0.03]"
               >
@@ -93,23 +95,23 @@ export function HeaderClient({ copy, featureDescriptions }: HeaderClientProps) {
                 <p className="mt-1.5 text-[13px] leading-relaxed text-black/60 font-medium">
                   {featureDescriptions.labs}
                 </p>
-              </Link>
+              </a>
             </div>
           )}
         </div>
 
-        <Link
-          href="/que-es-vase"
+        <a
+          href={publicHref("/que-es-vase")}
           className="inline-flex min-h-10 items-center rounded-full px-4 text-sm font-medium text-black transition hover:bg-white/50"
         >
           {copy.nav.about}
-        </Link>
-        <Link
-          href="/precios"
+        </a>
+        <a
+          href={publicHref("/precios")}
           className="inline-flex min-h-10 items-center rounded-full px-4 text-sm font-medium text-black transition hover:bg-white/50"
         >
           {copy.nav.pricing}
-        </Link>
+        </a>
       </nav>
 
       {/* Mobile Menu Toggle */}
@@ -125,51 +127,51 @@ export function HeaderClient({ copy, featureDescriptions }: HeaderClientProps) {
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[60] flex flex-col bg-white p-6 lg:hidden animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="flex items-center justify-between mb-12">
-            <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold tracking-tight">Vase</Link>
+            <a href={publicHref()} onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold tracking-tight">Vase</a>
             <button onClick={() => setIsMobileMenuOpen(false)} className="size-11 flex items-center justify-center rounded-full bg-black/5">
               <X className="size-6" />
             </button>
           </div>
           
           <div className="flex flex-col gap-6">
-            <Link 
-              href="/" 
+            <a
+              href={publicHref()}
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-4xl font-bold tracking-tighter hover:text-[var(--accent)] transition-colors"
             >
               {copy.nav.home}
-            </Link>
+            </a>
             <div className="flex flex-col gap-4 pl-2 border-l-2 border-black/5">
               <p className="text-xs font-bold uppercase tracking-widest text-black/40">{copy.nav.features}</p>
-              <Link 
-                href="/vase-business" 
+              <a
+                href={publicHref("/vase-business")}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="text-2xl font-bold tracking-tight"
               >
                 {copy.nav.business}
-              </Link>
-              <Link 
-                href="/vaselabs" 
+              </a>
+              <a
+                href={publicHref("/vaselabs")}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="text-2xl font-bold tracking-tight"
               >
                 {copy.nav.labs}
-              </Link>
+              </a>
             </div>
-            <Link 
-              href="/que-es-vase" 
+            <a
+              href={publicHref("/que-es-vase")}
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-4xl font-bold tracking-tighter hover:text-[var(--accent)] transition-colors"
             >
               {copy.nav.about}
-            </Link>
-            <Link 
-              href="/precios" 
+            </a>
+            <a
+              href={publicHref("/precios")}
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-4xl font-bold tracking-tighter hover:text-[var(--accent)] transition-colors"
             >
               {copy.nav.pricing}
-            </Link>
+            </a>
           </div>
 
           <div className="mt-auto flex flex-col gap-4">

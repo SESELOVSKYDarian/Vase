@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { Route } from "next";
 import { ArrowUpRight } from "lucide-react";
+import { productOrigins } from "@/config/origins";
 import { getMarketingChromeCopy } from "@/config/public-site";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { resolveAppHomeHref } from "@/lib/navigation/document-navigation";
@@ -11,6 +11,7 @@ export async function SiteFooter() {
   const locale = await getRequestLocale();
   const copy = getMarketingChromeCopy(locale);
   const homeHref = resolveAppHomeHref();
+  const publicHref = (path: string) => `${productOrigins.publicSite}${path}`;
 
   const labels =
     locale === "es"
@@ -129,27 +130,27 @@ export async function SiteFooter() {
                 {labels.product}
               </p>
               <div className="space-y-3 text-sm text-[#2F3030]">
-                <Link href="/vase-business" className="group block">
+                <a href={publicHref("/vase-business")} className="group block">
                   <span className="inline-flex items-center gap-1 font-medium text-[#000202]">
                     {copy.nav.business}
                     <ArrowUpRight className="size-3.5 opacity-0 transition group-hover:opacity-100" />
                   </span>
                   <p className="mt-1 text-[#2F3030]/68">{labels.businessNote}</p>
-                </Link>
-                <Link href="/vaselabs" className="group block">
+                </a>
+                <a href={publicHref("/vaselabs")} className="group block">
                   <span className="inline-flex items-center gap-1 font-medium text-[#000202]">
                     {copy.nav.labs}
                     <ArrowUpRight className="size-3.5 opacity-0 transition group-hover:opacity-100" />
                   </span>
                   <p className="mt-1 text-[#2F3030]/68">{labels.labsNote}</p>
-                </Link>
-                <Link href="/developers/api" className="group block">
+                </a>
+                <a href={publicHref("/developers/api")} className="group block">
                   <span className="inline-flex items-center gap-1 font-medium text-[#000202]">
                     API
                     <ArrowUpRight className="size-3.5 opacity-0 transition group-hover:opacity-100" />
                   </span>
                   <p className="mt-1 text-[#2F3030]/68">{labels.apiNote}</p>
-                </Link>
+                </a>
               </div>
             </div>
 
@@ -162,15 +163,15 @@ export async function SiteFooter() {
                   <a href={homeHref} className="transition hover:text-[#3B633D]">
                     {copy.nav.home}
                   </a>
-                  <Link href="/integraciones" className="transition hover:text-[#3B633D]">
+                  <a href={publicHref("/integraciones")} className="transition hover:text-[#3B633D]">
                     {labels.integrations}
-                  </Link>
-                  <Link href="/preguntas-frecuentes" className="transition hover:text-[#3B633D]">
+                  </a>
+                  <a href={publicHref("/preguntas-frecuentes")} className="transition hover:text-[#3B633D]">
                     {labels.faq}
-                  </Link>
-                  <Link href="/precios" className="transition hover:text-[#3B633D]">
+                  </a>
+                  <a href={publicHref("/precios")} className="transition hover:text-[#3B633D]">
                     {labels.pricing}
-                  </Link>
+                  </a>
                 </div>
               </div>
 
@@ -179,9 +180,9 @@ export async function SiteFooter() {
                   {labels.company}
                 </p>
                 <div className="flex flex-col gap-2 text-sm text-[#2F3030]">
-                  <Link href="/que-es-vase" className="transition hover:text-[#3B633D]">
+                  <a href={publicHref("/que-es-vase")} className="transition hover:text-[#3B633D]">
                     {labels.about}
-                  </Link>
+                  </a>
                   <Link href="/signin" className="transition hover:text-[#3B633D]">
                     {labels.signin}
                   </Link>
@@ -197,15 +198,15 @@ export async function SiteFooter() {
                 {labels.legal}
               </p>
               <div className="flex flex-col gap-2 text-sm text-[#2F3030]">
-                <Link href={"/terminos-y-condiciones" as Route} className="transition hover:text-[#3B633D]">
+                <a href={publicHref("/terminos-y-condiciones")} className="transition hover:text-[#3B633D]">
                   {labels.terms}
-                </Link>
-                <Link href={"/politica-de-privacidad" as Route} className="transition hover:text-[#3B633D]">
+                </a>
+                <a href={publicHref("/politica-de-privacidad")} className="transition hover:text-[#3B633D]">
                   {labels.privacy}
-                </Link>
-                <Link href={"/seguridad" as Route} className="transition hover:text-[#3B633D]">
+                </a>
+                <a href={publicHref("/seguridad")} className="transition hover:text-[#3B633D]">
                   {labels.security}
-                </Link>
+                </a>
               </div>
 
               <div className="space-y-3 pt-3">

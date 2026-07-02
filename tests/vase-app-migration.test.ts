@@ -28,6 +28,18 @@ describe("Vase App V3 migration", () => {
     expect(fs.existsSync(path.join(appDir, "proxy.ts"))).toBe(false);
   });
 
+  it("keeps public marketing pages in Portal only", () => {
+    expect(
+      fs.existsSync(path.join(appDir, "src", "app", "(marketing)", "page.tsx")),
+    ).toBe(false);
+    expect(
+      fs.existsSync(
+        path.resolve("apps/vase-portal/src/app/(marketing)/page.tsx"),
+      ),
+    ).toBe(true);
+    expect(read("src/app/robots.ts")).toContain('disallow: "/"');
+  });
+
   it("keeps the stage-one Prisma datasource on MySQL", () => {
     expect(read("prisma/schema.prisma")).toContain('provider = "mysql"');
   });

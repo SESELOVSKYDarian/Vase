@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { productOrigins } from "@/config/origins";
 
 interface Feature {
   id: string;
@@ -32,12 +32,12 @@ export function FeatureTabs({ features, title, badge, body, plansLabel }: Featur
             <div className="flex items-center justify-between gap-4">
               {badge ? <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#315032]">{badge}</p> : <span />}
               {plansLabel ? (
-                <Link
-                  href="/precios"
+                <a
+                  href={`${productOrigins.publicSite}/precios`}
                   className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-[rgba(59,99,61,0.14)] bg-white px-4 text-sm font-semibold text-[#1f3121] transition hover:border-[rgba(59,99,61,0.26)] hover:bg-[#eef4ee]"
                 >
                   {plansLabel}
-                </Link>
+                </a>
               ) : null}
             </div>
             {title ? <h2 className="mt-4 text-2xl font-semibold tracking-[-0.045em] text-[#152116] sm:text-[2.25rem] sm:leading-tight">{title}</h2> : null}

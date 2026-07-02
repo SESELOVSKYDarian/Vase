@@ -3,7 +3,7 @@
 import { createPortal } from "react-dom";
 import { useActionState, useEffect, useId, useState } from "react";
 import { X } from "lucide-react";
-import { submitContactInquiry, type ContactActionState } from "@/app/(marketing)/contact-actions";
+import { submitContactInquiry, type ContactActionState } from "@/app/(auth)/contact-actions";
 
 const initialState: ContactActionState = {};
 

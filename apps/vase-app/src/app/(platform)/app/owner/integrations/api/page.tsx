@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { productOrigins } from "@/config/origins";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { PanelCard } from "@/components/ui/panel-card";
@@ -65,9 +66,12 @@ export default async function OwnerIntegrationsApiPage({
         title="Gestion privada de integraciones"
         description="Esta vista organiza credenciales seguras por tenant, limites de consumo, logs de uso y webhooks con foco en seguridad fuerte y operacion no tecnica."
         actions={
-          <Link href="/developers/api" className="text-sm font-semibold text-[var(--accent)]">
+          <a
+            href={`${productOrigins.publicSite}/developers/api`}
+            className="text-sm font-semibold text-[var(--accent)]"
+          >
             Ver portal publico
-          </Link>
+          </a>
         }
       >
         <div className="grid gap-4 md:grid-cols-3">

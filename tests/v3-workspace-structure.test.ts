@@ -41,9 +41,11 @@ describe("V3 workspace structure", () => {
         ? srcAppRouterBase
         : path.join(base, "app");
       const rootPage =
-        app.key === "vase-app" || app.key === "vase-portal"
-          ? path.join(appRouterBase, "(marketing)", "page.tsx")
-          : path.join(appRouterBase, "page.tsx");
+        app.key === "vase-app"
+          ? path.join(appRouterBase, "(platform)", "app", "page.tsx")
+          : app.key === "vase-portal"
+            ? path.join(appRouterBase, "(marketing)", "page.tsx")
+            : path.join(appRouterBase, "page.tsx");
       expect(fs.existsSync(path.join(base, "package.json")), `${app.path}/package.json`).toBe(true);
       expect(fs.existsSync(path.join(base, "tsconfig.json")), `${app.path}/tsconfig.json`).toBe(true);
       expect(fs.existsSync(path.join(base, "next.config.ts")), `${app.path}/next.config.ts`).toBe(true);
