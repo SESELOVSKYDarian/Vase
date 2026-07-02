@@ -22,6 +22,12 @@ describe("Vase App V3 migration", () => {
     expect(fs.existsSync(path.join(appDir, "src", "auth.ts"))).toBe(true);
   });
 
+  it("uses the Next 16 proxy convention beside src/app", () => {
+    expect(fs.existsSync(path.join(appDir, "src", "proxy.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(appDir, "middleware.ts"))).toBe(false);
+    expect(fs.existsSync(path.join(appDir, "proxy.ts"))).toBe(false);
+  });
+
   it("keeps the stage-one Prisma datasource on MySQL", () => {
     expect(read("prisma/schema.prisma")).toContain('provider = "mysql"');
   });

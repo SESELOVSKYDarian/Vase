@@ -36,9 +36,9 @@ describe("document navigation guard", () => {
     expect(resolveNavigationHrefForHost("/app/labs", "labs.vase.ar")).toBe("/app/labs");
     expect(resolveNavigationHrefForHost("/app/labs#knowledge", "labs.vase.ar")).toBe("/app/labs#knowledge");
     expect(resolveNavigationHrefForHost("/app/labs/starter", "labs.vase.ar")).toBe("/app/labs/starter");
-    expect(resolveNavigationHrefForHost("/app/help", "labs.vase.ar")).toBe("https://app.vase.ar/app/help");
+    expect(resolveNavigationHrefForHost("/app/help", "labs.vase.ar")).toBe("/app/owner/labs");
     expect(resolveNavigationHrefForHost("/app/owner/labs/activity", "labs.vase.ar")).toBe("/app/owner/labs/activity");
-    expect(resolveNavigationHrefForHost("/precios", "labs.vase.ar")).toBe("https://app.vase.ar/precios");
+    expect(resolveNavigationHrefForHost("/precios", "labs.vase.ar")).toBe("/app/owner/labs");
     expect(resolveNavigationHrefForHost("/app/help", "vase.ar")).toBe("/app/help");
   });
 });

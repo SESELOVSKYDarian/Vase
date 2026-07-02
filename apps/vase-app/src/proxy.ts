@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
 import {
@@ -12,9 +12,10 @@ import { getCanonicalOrigin } from "@/lib/security/origin";
 import {
   buildDefaultPlatformRedirectUrl,
   buildLabsHostRedirectUrl,
-  buildPrimaryHostRedirectUrl,
+  buildPublicSiteRedirectUrl,
   getDefaultPlatformPathForHost,
   isPlatformHost,
+  resolveLabsHostRequest,
   resolveEditorHost,
 } from "@/lib/security/platform-hosts";
 
@@ -46,7 +47,11 @@ export default auth((request: NextRequest) => {
     hostname,
     url: request.url,
   });
-  const primaryHostRedirectUrl = buildPrimaryHostRedirectUrl({
+  const labsHostDecision = resolveLabsHostRequest({
+    hostname,
+    url: request.url,
+  });
+  const publicSiteRedirectUrl = buildPublicSiteRedirectUrl({
     hostname,
     url: request.url,
   });
@@ -59,8 +64,16 @@ export default auth((request: NextRequest) => {
     return NextResponse.redirect(new URL(labsHostRedirectUrl));
   }
 
-  if (primaryHostRedirectUrl) {
-    return NextResponse.redirect(new URL(primaryHostRedirectUrl));
+  if (labsHostDecision.type === "redirect") {
+    return NextResponse.redirect(labsHostDecision.url);
+  }
+
+  if (labsHostDecision.type === "reject") {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  if (publicSiteRedirectUrl) {
+    return NextResponse.redirect(publicSiteRedirectUrl);
   }
 
   if (defaultPlatformPath !== "/app" && (pathname === "/" || pathname === "/app")) {
