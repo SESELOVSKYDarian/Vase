@@ -7,8 +7,8 @@ export function HeroGraphic() {
   return (
     <div className="relative w-full max-w-2xl mx-auto h-[400px] md:h-[500px] flex items-center justify-center">
       {/* Background blobs for depth */}
-      <motion.div 
-        animate={{ 
+      <motion.div
+        animate={{
           scale: [1, 1.1, 1],
           rotate: [0, 90, 0]
         }}
@@ -16,8 +16,8 @@ export function HeroGraphic() {
         className="absolute w-64 h-64 bg-[rgba(59,99,61,0.15)] rounded-full blur-3xl opacity-60"
         style={{ top: '10%', left: '20%' }}
       />
-      <motion.div 
-        animate={{ 
+      <motion.div
+        animate={{
           scale: [1, 1.2, 1],
           rotate: [0, -90, 0]
         }}
@@ -27,7 +27,7 @@ export function HeroGraphic() {
       />
 
       {/* Main Glassy Card */}
-      <motion.div 
+      <motion.div
         initial={{ y: 50, opacity: 0, rotateX: 10 }}
         animate={{ y: 0, opacity: 1, rotateX: 0 }}
         transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}

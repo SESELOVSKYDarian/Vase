@@ -29,10 +29,10 @@ export function TestimonialCarousel({ items }: { items: string[][] }) {
         <div className="flex -ml-4">
           {items.map((item, index) => (
             <div key={index} className="flex-[0_0_100%] min-w-0 pl-4 sm:flex-[0_0_65%] lg:flex-[0_0_45%] py-4">
-              <article 
+              <article
                 className={`transition-all duration-500 rounded-[36px] p-8 md:p-12 h-full flex flex-col justify-between ${
-                  index === selectedIndex 
-                    ? "bg-white/90 shadow-[0_30px_60px_rgba(59,99,61,0.08)] scale-100 opacity-100 backdrop-blur-2xl border border-[rgba(59,99,61,0.1)]" 
+                  index === selectedIndex
+                    ? "bg-white/90 shadow-[0_30px_60px_rgba(59,99,61,0.08)] scale-100 opacity-100 backdrop-blur-2xl border border-[rgba(59,99,61,0.1)]"
                     : "bg-white/50 shadow-sm scale-95 opacity-60 backdrop-blur-xl border border-transparent"
                 }`}
               >
@@ -60,15 +60,15 @@ export function TestimonialCarousel({ items }: { items: string[][] }) {
           ))}
         </div>
       </div>
-      
-      <button 
+
+      <button
         onClick={scrollPrev}
         className="absolute left-0 top-1/2 -translate-y-1/2 z-10 size-12 md:size-14 rounded-full bg-white/90 backdrop-blur-xl shadow-[0_12px_24px_rgba(59,99,61,0.1)] grid place-items-center text-[var(--foreground)] hover:bg-white transition-all border border-[rgba(59,99,61,0.05)] scale-90 md:scale-100"
         aria-label="Previous testimonial"
       >
         <ChevronLeft className="size-6 text-[var(--accent)]" />
       </button>
-      <button 
+      <button
         onClick={scrollNext}
         className="absolute right-0 top-1/2 -translate-y-1/2 z-10 size-12 md:size-14 rounded-full bg-white/90 backdrop-blur-xl shadow-[0_12px_24px_rgba(59,99,61,0.1)] grid place-items-center text-[var(--foreground)] hover:bg-white transition-all border border-[rgba(59,99,61,0.05)] scale-90 md:scale-100"
         aria-label="Next testimonial"

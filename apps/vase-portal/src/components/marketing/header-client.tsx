@@ -130,10 +130,10 @@ export function HeaderClient({ copy, featureDescriptions }: HeaderClientProps) {
               <X className="size-6" />
             </button>
           </div>
-          
+
           <div className="flex flex-col gap-6">
-            <Link 
-              href="/" 
+            <Link
+              href="/"
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-4xl font-bold tracking-tighter hover:text-[var(--accent)] transition-colors"
             >
@@ -141,30 +141,30 @@ export function HeaderClient({ copy, featureDescriptions }: HeaderClientProps) {
             </Link>
             <div className="flex flex-col gap-4 pl-2 border-l-2 border-black/5">
               <p className="text-xs font-bold uppercase tracking-widest text-black/40">{copy.nav.features}</p>
-              <Link 
-                href="/vase-business" 
+              <Link
+                href="/vase-business"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="text-2xl font-bold tracking-tight"
               >
                 {copy.nav.business}
               </Link>
-              <Link 
-                href="/vaselabs" 
+              <Link
+                href="/vaselabs"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="text-2xl font-bold tracking-tight"
               >
                 {copy.nav.labs}
               </Link>
             </div>
-            <Link 
-              href="/que-es-vase" 
+            <Link
+              href="/que-es-vase"
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-4xl font-bold tracking-tighter hover:text-[var(--accent)] transition-colors"
             >
               {copy.nav.about}
             </Link>
-            <Link 
-              href="/precios" 
+            <Link
+              href="/precios"
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-4xl font-bold tracking-tighter hover:text-[var(--accent)] transition-colors"
             >
@@ -173,15 +173,15 @@ export function HeaderClient({ copy, featureDescriptions }: HeaderClientProps) {
           </div>
 
           <div className="mt-auto flex flex-col gap-4">
-            <Link 
-              href="/register" 
+            <Link
+              href="/register"
               onClick={() => setIsMobileMenuOpen(false)}
               className="flex h-16 items-center justify-center rounded-2xl bg-black text-white text-lg font-bold shadow-lg active:scale-[0.98] transition-transform"
             >
               {copy.nav.register}
             </Link>
-            <Link 
-              href="/signin" 
+            <Link
+              href="/signin"
               onClick={() => setIsMobileMenuOpen(false)}
               className="flex h-16 items-center justify-center rounded-2xl bg-black/5 text-black text-lg font-bold active:scale-[0.98] transition-transform"
             >
