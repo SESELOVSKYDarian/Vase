@@ -45,6 +45,7 @@ COPY --from=builder /repo/packages ./packages
 COPY --from=builder /repo/apps/vase-app ./apps/vase-app
 
 WORKDIR /repo/apps/vase-app
+EXPOSE 3000
 EXPOSE 3002
 
-CMD ["sh", "scripts/prisma-startup.sh", "sh", "-c", "if [ -n \"$MASTER_ADMIN_PASSWORD\" ]; then npm run bootstrap:master-admin; fi && if [ -n \"$TEST_ACCOUNT_PASSWORD\" ]; then npm run bootstrap:test-account; fi && npx next start -H 0.0.0.0 -p 3002"]
+CMD ["sh", "scripts/prisma-startup.sh", "sh", "-c", "if [ -n \"$MASTER_ADMIN_PASSWORD\" ]; then npm run bootstrap:master-admin; fi && if [ -n \"$TEST_ACCOUNT_PASSWORD\" ]; then npm run bootstrap:test-account; fi && npx next start -H 0.0.0.0 -p \"${PORT:-3002}\""]

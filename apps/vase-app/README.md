@@ -18,5 +18,6 @@ npm run dev --workspace @vase/app
 
 - Build context: `/`
 - Dockerfile: `apps/vase-app/Dockerfile`
-- Internal port: `3002`
-- Domain: `app.vase.ar`
+- Internal port for `app-vase`: `3002`
+- Internal port for `vase-labs`: `3000`
+- Domains: `app.vase.ar`, `labs.vase.ar`

@@ -44,7 +44,7 @@ describe("Vase App V3 migration", () => {
     expect(read("prisma/schema.prisma")).toContain('provider = "mysql"');
   });
 
-  it("builds and starts the workspace on port 3002", () => {
+  it("keeps local scripts on 3002 but lets the Docker runtime honor PORT", () => {
     const packageJson = JSON.parse(read("package.json")) as {
       scripts: Record<string, string>;
     };
@@ -53,11 +53,14 @@ describe("Vase App V3 migration", () => {
     expect(packageJson.scripts.dev).toContain("--port 3002");
     expect(packageJson.scripts.start).toContain("--port 3002");
     expect(dockerfile).toContain("COPY tsconfig.base.json");
+    expect(dockerfile).toContain("ENV PORT=3002");
+    expect(dockerfile).toContain("EXPOSE 3000");
     expect(dockerfile).toContain("EXPOSE 3002");
     expect(dockerfile).toContain("prisma-startup.sh");
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_PUBLIC_SITE_ORIGIN");
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_APP_URL");
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_LABS_URL");
+    expect(dockerfile).toContain("${PORT:-3002}");
   });
 
   it("does not fall back to the old authenticated origin", () => {
