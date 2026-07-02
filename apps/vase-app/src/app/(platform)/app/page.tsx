@@ -11,6 +11,11 @@ import { prisma } from "@/lib/db/prisma";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 import { getTenantAnalytics } from "@/server/queries/analytics";
 import { getBillingLabel, getPlanLabel } from "@/lib/business/plans";
+import { LabsRequiredNotice } from "@/components/labs/labs-required-notice";
+
+type AppIndexPageProps = {
+  searchParams: Promise<{ labs?: string | string[] }>;
+};
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-AR", {
@@ -25,7 +30,9 @@ function formatDate(value: Date | null) {
   return new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" }).format(value);
 }
 
-export default async function AppIndexPage() {
+export default async function AppIndexPage({ searchParams }: AppIndexPageProps) {
+  const query = await searchParams;
+  const showLabsRequired = query.labs === "required";
   const session = await requireUser();
   const membership = await getTenantMembership(session.user.id);
   const redirectPath = getAppIndexRedirectPath({
@@ -95,6 +102,7 @@ export default async function AppIndexPage() {
           currentUserName={session.user.name ?? membership.tenant.name}
           projectCreation={dashboard.projectCreation}
         >
+          {showLabsRequired ? <LabsRequiredNotice /> : null}
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <article className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
               <p className="text-xs text-[var(--muted)]">Ventas hoy</p>
