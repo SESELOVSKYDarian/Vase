@@ -1,7 +1,7 @@
 import { createHealthResponse } from "@vase/internal-api";
 import { NextResponse } from "next/server";
-import { portalOrigins } from "@/config/origins";
-import { checkPortalAppReadiness } from "@/lib/readiness";
+import { portalOrigins } from "../../../../config/origins";
+import { checkPortalAppReadiness } from "../../../../lib/readiness";
 
 export async function GET() {
   const readiness = await checkPortalAppReadiness({

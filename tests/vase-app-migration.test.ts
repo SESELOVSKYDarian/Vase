@@ -55,6 +55,9 @@ describe("Vase App V3 migration", () => {
     expect(dockerfile).toContain("COPY tsconfig.base.json");
     expect(dockerfile).toContain("EXPOSE 3002");
     expect(dockerfile).toContain("prisma-startup.sh");
+    expect(dockerfile).toContain("ARG NEXT_PUBLIC_PUBLIC_SITE_ORIGIN");
+    expect(dockerfile).toContain("ARG NEXT_PUBLIC_APP_URL");
+    expect(dockerfile).toContain("ARG NEXT_PUBLIC_LABS_URL");
   });
 
   it("does not fall back to the old authenticated origin", () => {

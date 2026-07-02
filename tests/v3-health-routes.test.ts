@@ -42,9 +42,9 @@ import * as labsReady from "../apps/vase-labs/app/api/health/ready/route";
 import * as managementInternalHealth from "../apps/vase-management/app/api/internal/admin/health/route";
 import * as managementLive from "../apps/vase-management/app/api/health/live/route";
 import * as managementReady from "../apps/vase-management/app/api/health/ready/route";
-import * as portalInternalHealth from "../apps/vase-portal/app/api/internal/admin/health/route";
-import * as portalLive from "../apps/vase-portal/app/api/health/live/route";
-import * as portalReady from "../apps/vase-portal/app/api/health/ready/route";
+import * as portalInternalHealth from "../apps/vase-portal/src/app/api/internal/admin/health/route";
+import * as portalLive from "../apps/vase-portal/src/app/api/health/live/route";
+import * as portalReady from "../apps/vase-portal/src/app/api/health/ready/route";
 import * as workplaceInternalHealth from "../apps/vase-workplace/app/api/internal/admin/health/route";
 import * as workplaceLive from "../apps/vase-workplace/app/api/health/live/route";
 import * as workplaceReady from "../apps/vase-workplace/app/api/health/ready/route";
@@ -62,18 +62,30 @@ const routes = {
 
 describe("V3 health routes", () => {
   it("serves live and ready probes for every app", async () => {
-    for (const app of v3WorkspaceApps) {
-      const route = routes[app.key];
-      const liveResponse = await route.live.GET();
-      const readyResponse = await route.ready.GET();
-      const livePayload = await liveResponse.json();
-      const readyPayload = await readyResponse.json();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response('{"status":"ok"}', { status: 200 }));
 
-      expect(liveResponse.status, `${app.key} live status`).toBe(200);
-      expect(readyResponse.status, `${app.key} ready status`).toBe(200);
-      expect(livePayload.service).toBe(app.key);
-      expect(readyPayload.service).toBe(app.key);
-      expect(readyPayload.checks.database).toBe(app.databaseService);
+    try {
+      for (const app of v3WorkspaceApps) {
+        const route = routes[app.key];
+        const liveResponse = await route.live.GET();
+        const readyResponse = await route.ready.GET();
+        const livePayload = await liveResponse.json();
+        const readyPayload = await readyResponse.json();
+
+        expect(liveResponse.status, `${app.key} live status`).toBe(200);
+        expect(readyResponse.status, `${app.key} ready status`).toBe(200);
+        expect(livePayload.service).toBe(app.key);
+        expect(readyPayload.service).toBe(app.key);
+        if (app.key === "vase-portal") {
+          expect(readyPayload.checks.app).toBe("ok");
+        } else {
+          expect(readyPayload.checks.database).toBe(app.databaseService);
+        }
+      }
+    } finally {
+      fetchMock.mockRestore();
     }
   });
 

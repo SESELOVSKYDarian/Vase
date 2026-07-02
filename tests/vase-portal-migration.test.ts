@@ -5,6 +5,19 @@ import { describe, expect, it } from "vitest";
 const portal = path.resolve("apps/vase-portal");
 
 describe("Vase Portal migration", () => {
+  it("packages Portal from the monorepo root for EasyPanel", () => {
+    const dockerfile = fs.readFileSync(
+      path.join(portal, "Dockerfile"),
+      "utf8",
+    );
+
+    expect(dockerfile).toContain("COPY tsconfig.base.json");
+    expect(dockerfile).toContain(
+      "npm run build --workspace @vase/portal",
+    );
+    expect(dockerfile).toContain("EXPOSE 3001");
+  });
+
   it("contains the production marketing foundation", () => {
     for (const relativePath of [
       "src/app/layout.tsx",
