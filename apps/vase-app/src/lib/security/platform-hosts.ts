@@ -1,3 +1,5 @@
+import { productOrigins } from "@/config/origins";
+
 type PlatformHostsInput = {
   nodeEnv?: string;
   appUrl?: string;
@@ -5,6 +7,31 @@ type PlatformHostsInput = {
   labsHost?: string;
   primaryHost?: string;
 };
+
+export const LABS_HOME_PATH = "/app/owner/labs";
+
+const AUTH_PATHS = [
+  "/signin",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+] as const;
+
+const PUBLIC_MARKETING_PATHS = [
+  "/demo",
+  "/developers/api",
+  "/developers/docs",
+  "/integraciones",
+  "/politica-de-privacidad",
+  "/precios",
+  "/preguntas-frecuentes",
+  "/que-es-vase",
+  "/seguridad",
+  "/terminos-y-condiciones",
+  "/vase-business",
+  "/vaselabs",
+] as const;
 
 type EditorHostInput = {
   nodeEnv?: string;
@@ -177,7 +204,117 @@ export function buildLabsHostRedirectUrl({
     redirectUrl.port = "";
   }
 
+  if (
+    redirectUrl.pathname === "/app/labs" ||
+    redirectUrl.pathname.startsWith("/app/labs/")
+  ) {
+    redirectUrl.pathname = LABS_HOME_PATH;
+    redirectUrl.search = "";
+    redirectUrl.hash = "";
+  }
+
   return redirectUrl.toString();
+}
+
+function isAllowedLabsApiPath(pathname: string) {
+  return (
+    pathname === "/api/health/live" ||
+    pathname === "/api/health/ready" ||
+    pathname.startsWith("/api/auth/") ||
+    pathname === "/api/labs/inbox" ||
+    pathname.startsWith("/api/labs/")
+  );
+}
+
+export function resolveLabsHostRequest({
+  hostname,
+  url,
+  input = {},
+}: {
+  hostname: string;
+  url: string;
+  input?: PlatformHostsInput;
+}):
+  | { type: "allow" }
+  | { type: "redirect"; url: string }
+  | { type: "reject"; status: 404 } {
+  if (!isLabsHost(hostname, input)) {
+    return { type: "allow" };
+  }
+
+  const target = new URL(url);
+
+  if (isLabsWorkspacePath(target.pathname)) {
+    if (
+      target.pathname === "/app/labs" ||
+      target.pathname.startsWith("/app/labs/")
+    ) {
+      target.pathname = LABS_HOME_PATH;
+      target.search = "";
+      target.hash = "";
+      return { type: "redirect", url: target.toString() };
+    }
+    return { type: "allow" };
+  }
+
+  if (AUTH_PATHS.includes(target.pathname as (typeof AUTH_PATHS)[number])) {
+    target.host = resolvePrimaryPlatformHost(input);
+    if ((input.nodeEnv ?? process.env.NODE_ENV) === "production") {
+      target.protocol = "https:";
+      target.port = "";
+    }
+    return { type: "redirect", url: target.toString() };
+  }
+
+  if (target.pathname.startsWith("/api/")) {
+    return isAllowedLabsApiPath(target.pathname)
+      ? { type: "allow" }
+      : { type: "reject", status: 404 };
+  }
+
+  if (target.pathname.includes(".") || target.pathname.startsWith("/_next/")) {
+    return { type: "allow" };
+  }
+
+  target.pathname = LABS_HOME_PATH;
+  target.search = "";
+  target.hash = "";
+  return { type: "redirect", url: target.toString() };
+}
+
+export function buildPublicSiteRedirectUrl({
+  hostname,
+  url,
+  input = {},
+}: {
+  hostname: string;
+  url: string;
+  input?: PlatformHostsInput;
+}) {
+  const normalizedHost = normalizeComparableHost(
+    hostname,
+    input.nodeEnv ?? process.env.NODE_ENV,
+  );
+  if (normalizedHost !== resolvePrimaryPlatformHost(input)) {
+    return null;
+  }
+
+  const target = new URL(url);
+  const isPublicPath = PUBLIC_MARKETING_PATHS.some(
+    (path) =>
+      target.pathname === path ||
+      (path === "/developers/docs" &&
+        target.pathname.startsWith("/developers/docs/")),
+  );
+
+  if (!isPublicPath) {
+    return null;
+  }
+
+  const publicOrigin = new URL(productOrigins.publicSite);
+  target.protocol = publicOrigin.protocol;
+  target.host = publicOrigin.host;
+  return target.toString();
 }
 
 export function buildPrimaryHostRedirectUrl({
@@ -214,7 +351,7 @@ export function buildPrimaryHostRedirectUrl({
 }
 
 export function getDefaultPlatformPathForHost(hostname: string, input: PlatformHostsInput = {}) {
-  return isLabsHost(hostname, input) ? "/app/labs" : "/app";
+  return isLabsHost(hostname, input) ? LABS_HOME_PATH : "/app";
 }
 
 export function resolveEditorHost(input: EditorHostInput = {}) {

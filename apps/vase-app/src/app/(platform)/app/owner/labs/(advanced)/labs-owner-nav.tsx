@@ -82,7 +82,11 @@ export function LabsOwnerMobileNav() {
           );
         })}
       </nav>
-      <div className="mt-4 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
+      <Link
+        href="/app/owner/labs"
+        aria-label="Volver al Panel de Vase Labs"
+        className="mt-4 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3"
+      >
         <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
           <Sparkles className="size-4" />
         </div>
@@ -90,7 +94,7 @@ export function LabsOwnerMobileNav() {
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Vase Labs</p>
           <p className="text-sm font-semibold text-[var(--foreground)]">Gestion avanzada</p>
         </div>
-      </div>
+      </Link>
     </div>
   );
 }

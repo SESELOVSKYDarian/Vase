@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { buttonStyles } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
+import { productOrigins } from "@/config/origins";
 
 type CtaBandProps = {
   title: string;
@@ -26,9 +27,12 @@ export function CtaBand({ title, description }: CtaBandProps) {
           <Link href="/register" className={buttonStyles({ tone: "primary" })}>
             Registrarse
           </Link>
-          <Link href="/demo" className={buttonStyles({ tone: "secondary" })}>
+          <a
+            href={`${productOrigins.publicSite}/demo`}
+            className={buttonStyles({ tone: "secondary" })}
+          >
             Solicitar demo
-          </Link>
+          </a>
         </ScrollReveal>
       </div>
     </ScrollReveal>

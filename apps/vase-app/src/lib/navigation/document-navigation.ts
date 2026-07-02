@@ -1,6 +1,16 @@
 import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
+import { productOrigins } from "@/config/origins";
+import { LABS_HOME_PATH } from "@/lib/security/platform-hosts";
 
 export const PRIMARY_PLATFORM_ORIGIN = "https://app.vase.ar";
+
+export function resolveAppHomeHref() {
+  return productOrigins.publicSite;
+}
+
+export function resolveShortcutHref(id: string, target: string) {
+  return id === "goto_home" ? resolveAppHomeHref() : target;
+}
 
 function readPathname(href: string) {
   try {
@@ -39,7 +49,7 @@ export function resolveNavigationHrefForHost(href: string, hostname: string | nu
     return href;
   }
 
-  return new URL(href, PRIMARY_PLATFORM_ORIGIN).toString();
+  return LABS_HOME_PATH;
 }
 
 export function requiresFullDocumentNavigation(href: string | null | undefined) {

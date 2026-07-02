@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDefaultPlatformRedirectUrl,
   buildLabsHostRedirectUrl,
+  buildPublicSiteRedirectUrl,
   buildPrimaryHostRedirectUrl,
   getDefaultPlatformPathForHost,
   isLabsHost,
@@ -9,6 +10,7 @@ import {
   isPlatformHost,
   resolveEditorHost,
   resolvePlatformHosts,
+  resolveLabsHostRequest,
   resolvePrimaryPlatformHost,
 } from "@/lib/security/platform-hosts";
 
@@ -36,7 +38,7 @@ describe("platform host resolution", () => {
 
     expect(isLabsHost("labs.vase.ar", input)).toBe(true);
     expect(isLabsHost("vase.ar", input)).toBe(false);
-    expect(getDefaultPlatformPathForHost("labs.vase.ar", input)).toBe("/app/labs");
+    expect(getDefaultPlatformPathForHost("labs.vase.ar", input)).toBe("/app/owner/labs");
     expect(getDefaultPlatformPathForHost("vase.ar", input)).toBe("/app");
   });
 
@@ -66,7 +68,7 @@ describe("platform host resolution", () => {
         url: "https://vase.ar:3000/app/labs",
         input,
       }),
-    ).toBe("https://labs.vase.ar/app/labs");
+    ).toBe("https://labs.vase.ar/app/owner/labs");
     expect(
       buildLabsHostRedirectUrl({
         hostname: "labs.vase.ar",
@@ -144,6 +146,80 @@ describe("platform host resolution", () => {
         input: { nodeEnv: "production" },
       }),
     ).toBe("https://app.vase.ar/app");
+  });
+
+  it("normalizes Labs entry routes to the Labs owner panel", () => {
+    const input = { nodeEnv: "production" };
+
+    expect(
+      resolveLabsHostRequest({
+        hostname: "labs.vase.ar",
+        url: "https://labs.vase.ar/",
+        input,
+      }),
+    ).toEqual({
+      type: "redirect",
+      url: "https://labs.vase.ar/app/owner/labs",
+    });
+    expect(
+      resolveLabsHostRequest({
+        hostname: "labs.vase.ar",
+        url: "https://labs.vase.ar/app/help",
+        input,
+      }),
+    ).toEqual({
+      type: "redirect",
+      url: "https://labs.vase.ar/app/owner/labs",
+    });
+  });
+
+  it("centralizes Labs authentication on App", () => {
+    expect(
+      resolveLabsHostRequest({
+        hostname: "labs.vase.ar",
+        url: "https://labs.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs",
+        input: { nodeEnv: "production" },
+      }),
+    ).toEqual({
+      type: "redirect",
+      url: "https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs",
+    });
+  });
+
+  it("rejects unrelated APIs on the Labs host", () => {
+    expect(
+      resolveLabsHostRequest({
+        hostname: "labs.vase.ar",
+        url: "https://labs.vase.ar/api/modules",
+        input: { nodeEnv: "production" },
+      }),
+    ).toEqual({ type: "reject", status: 404 });
+  });
+
+  it("allows only Labs infrastructure APIs", () => {
+    for (const path of [
+      "/api/auth/session",
+      "/api/labs/inbox",
+      "/api/health/live",
+    ]) {
+      expect(
+        resolveLabsHostRequest({
+          hostname: "labs.vase.ar",
+          url: `https://labs.vase.ar${path}`,
+          input: { nodeEnv: "production" },
+        }),
+      ).toEqual({ type: "allow" });
+    }
+  });
+
+  it("redirects App marketing routes to Portal", () => {
+    expect(
+      buildPublicSiteRedirectUrl({
+        hostname: "app.vase.ar",
+        url: "https://app.vase.ar/precios?from=app",
+        input: { nodeEnv: "production" },
+      }),
+    ).toBe("https://vase.ar/precios?from=app");
   });
 
   it("uses business.vase.ar as the default Business editor host", () => {

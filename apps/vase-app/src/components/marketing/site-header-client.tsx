@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { buttonStyles } from "@/components/ui/button";
+import { resolveAppHomeHref } from "@/lib/navigation/document-navigation";
 import { StaggeredMenu } from "./staggered-menu";
 
 interface SiteHeaderClientProps {
@@ -23,6 +24,7 @@ interface SiteHeaderClientProps {
 }
 
 export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
+  const homeHref = resolveAppHomeHref();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
   const [featuresSectionActive, setFeaturesSectionActive] = useState(false);
@@ -92,7 +94,7 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
                 {
                   label: copy.nav.home,
                   ariaLabel: copy.nav.home,
-                  link: "/",
+                  link: homeHref,
                 },
                 {
                   label: copy.nav.business,
@@ -124,8 +126,8 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
             />
           </div>
 
-          <Link
-            href="/"
+          <a
+            href={homeHref}
             className="absolute left-1/2 flex -translate-x-1/2 items-center justify-center text-lg font-semibold tracking-[-0.04em] text-[var(--foreground)] transition-opacity duration-200"
             aria-label="Vase"
           >
@@ -138,7 +140,7 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
               priority
               unoptimized
             />
-          </Link>
+          </a>
 
           <div className="ml-auto flex items-center gap-5 transition-opacity duration-200">
             <Link href="/signin" className="hidden text-sm font-medium text-[var(--foreground)] md:inline-flex">

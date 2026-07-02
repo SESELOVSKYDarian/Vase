@@ -59,7 +59,9 @@ import { SupportChatProvider } from "@/components/support/support-chat-context";
 import { BUSINESS_LAUNCH_PATH, BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 import {
   requiresFullDocumentNavigation,
+  resolveAppHomeHref,
   resolveNavigationHrefForHost,
+  resolveShortcutHref,
 } from "@/lib/navigation/document-navigation";
 
 export interface Shortcut {
@@ -271,10 +273,11 @@ export function AppShell({
       const matched = shortcuts.find((s) => s.combo === buffer);
       if (matched) {
         if (matched.action === "link") {
+          const shortcutTarget = resolveShortcutHref(matched.id, matched.target);
           const target =
-            matched.target === "/app/business" || matched.target === BUSINESS_LAUNCH_PATH
+            shortcutTarget === "/app/business" || shortcutTarget === BUSINESS_LAUNCH_PATH
               ? BUSINESS_WORKSPACE_PATH
-              : matched.target;
+              : shortcutTarget;
           const resolvedTarget = resolveNavigationHrefForHost(target, window.location.host);
           if (/^https?:\/\//i.test(resolvedTarget) || requiresFullDocumentNavigation(resolvedTarget)) {
             window.location.assign(resolvedTarget);
@@ -316,7 +319,7 @@ export function AppShell({
   const projectsHref = businessModuleActive ? BUSINESS_WORKSPACE_PATH : labsModuleActive ? "/app/labs" : "/app";
 
   const clientNavItems: NavItem[] = [
-    { id: "home", href: "/app", label: "Inicio", icon: Home, description: "Panel principal simple" },
+    { id: "home", href: resolveAppHomeHref(), label: "Inicio", icon: Home, description: "Sitio público de Vase" },
     {
       id: "projects",
       href: projectsHref,
@@ -415,7 +418,11 @@ export function AppShell({
     <div className="min-h-screen bg-[var(--surface)] text-[var(--foreground)]">
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-[var(--border-subtle)] bg-[var(--background)] lg:flex">
         <div className="p-6">
-          <div className="flex items-center gap-3">
+          <a
+            href={resolveAppHomeHref()}
+            aria-label="Ir a vase.ar"
+            className="flex items-center gap-3"
+          >
             <div className="grid h-10 w-10 place-items-center overflow-hidden">
               <Image src="/vasecolorlogo.png" alt="Vase" width={40} height={40} className="h-10 w-10 object-contain" />
             </div>
@@ -424,7 +431,7 @@ export function AppShell({
                 Vase
               </h1>
             </div>
-          </div>
+          </a>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-4">

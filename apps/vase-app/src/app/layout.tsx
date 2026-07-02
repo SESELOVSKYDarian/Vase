@@ -36,8 +36,8 @@ export const metadata: Metadata = {
     "Base enterprise de Vase con Next.js, Auth.js, Prisma, multi-tenancy y seguridad por defecto.",
   applicationName: appConfig.name,
   robots: {
-    index: true,
-    follow: true,
+    index: false,
+    follow: false,
   },
   openGraph: {
     type: "website",

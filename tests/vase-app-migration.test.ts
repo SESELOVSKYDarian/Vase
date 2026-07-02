@@ -22,6 +22,24 @@ describe("Vase App V3 migration", () => {
     expect(fs.existsSync(path.join(appDir, "src", "auth.ts"))).toBe(true);
   });
 
+  it("uses the Next 16 proxy convention beside src/app", () => {
+    expect(fs.existsSync(path.join(appDir, "src", "proxy.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(appDir, "middleware.ts"))).toBe(false);
+    expect(fs.existsSync(path.join(appDir, "proxy.ts"))).toBe(false);
+  });
+
+  it("keeps public marketing pages in Portal only", () => {
+    expect(
+      fs.existsSync(path.join(appDir, "src", "app", "(marketing)", "page.tsx")),
+    ).toBe(false);
+    expect(
+      fs.existsSync(
+        path.resolve("apps/vase-portal/src/app/(marketing)/page.tsx"),
+      ),
+    ).toBe(true);
+    expect(read("src/app/robots.ts")).toContain('disallow: "/"');
+  });
+
   it("keeps the stage-one Prisma datasource on MySQL", () => {
     expect(read("prisma/schema.prisma")).toContain('provider = "mysql"');
   });
@@ -37,6 +55,9 @@ describe("Vase App V3 migration", () => {
     expect(dockerfile).toContain("COPY tsconfig.base.json");
     expect(dockerfile).toContain("EXPOSE 3002");
     expect(dockerfile).toContain("prisma-startup.sh");
+    expect(dockerfile).toContain("ARG NEXT_PUBLIC_PUBLIC_SITE_ORIGIN");
+    expect(dockerfile).toContain("ARG NEXT_PUBLIC_APP_URL");
+    expect(dockerfile).toContain("ARG NEXT_PUBLIC_LABS_URL");
   });
 
   it("does not fall back to the old authenticated origin", () => {

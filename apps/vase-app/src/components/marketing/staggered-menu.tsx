@@ -12,7 +12,7 @@ import "./staggered-menu.css";
 export interface StaggeredMenuItem {
   label: string;
   ariaLabel: string;
-  link: Route;
+  link: string;
 }
 
 export interface StaggeredMenuSocialItem {
@@ -306,26 +306,36 @@ export function StaggeredMenu({
                   <div className="vm-panel-scroll">
                     <nav aria-label="Navegacion principal">
                       <ul className="vm-nav-list" role="list" data-numbering={displayItemNumbering || undefined}>
-                        {items.map((item, index) => (
-                          <li className="vm-nav-itemWrap" key={item.label + index}>
-                            <Link
-                              className="vm-nav-item"
-                              href={item.link}
-                              aria-label={item.ariaLabel}
-                              data-index={index + 1}
-                              data-active={
-                                item.link === "/"
-                                  ? pathname === "/"
-                                  : pathname === item.link || pathname.startsWith(`${item.link}/`)
-                                    ? "true"
-                                    : undefined
-                              }
-                              onClick={closeMenu}
-                            >
-                              <span className="vm-nav-itemLabel">{item.label}</span>
-                            </Link>
-                          </li>
-                        ))}
+                        {items.map((item, index) => {
+                          const external = /^https?:\/\//i.test(item.link);
+                          const sharedProps = {
+                            className: "vm-nav-item",
+                            "aria-label": item.ariaLabel,
+                            "data-index": index + 1,
+                            "data-active": external
+                              ? undefined
+                              : item.link === "/"
+                                ? pathname === "/"
+                                : pathname === item.link || pathname.startsWith(`${item.link}/`)
+                                  ? "true"
+                                  : undefined,
+                            onClick: closeMenu,
+                          };
+
+                          return (
+                            <li className="vm-nav-itemWrap" key={item.label + index}>
+                              {external ? (
+                                <a href={item.link} {...sharedProps}>
+                                  <span className="vm-nav-itemLabel">{item.label}</span>
+                                </a>
+                              ) : (
+                                <Link href={item.link as Route} {...sharedProps}>
+                                  <span className="vm-nav-itemLabel">{item.label}</span>
+                                </Link>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </nav>
 
