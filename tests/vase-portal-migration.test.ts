@@ -10,12 +10,18 @@ describe("Vase Portal migration", () => {
       path.join(portal, "Dockerfile"),
       "utf8",
     );
+    const packageJson = JSON.parse(
+      fs.readFileSync(path.join(portal, "package.json"), "utf8"),
+    ) as { scripts: Record<string, string> };
 
     expect(dockerfile).toContain("COPY tsconfig.base.json");
     expect(dockerfile).toContain(
       "npm run build --workspace @vase/portal",
     );
-    expect(dockerfile).toContain("EXPOSE 3001");
+    expect(dockerfile).toContain("ENV PORT=3000");
+    expect(dockerfile).toContain("EXPOSE 3000");
+    expect(packageJson.scripts.dev).toContain("--port 3000");
+    expect(packageJson.scripts.start).toContain("--port 3000");
   });
 
   it("contains the production marketing foundation", () => {

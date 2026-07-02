@@ -28,7 +28,7 @@ WORKDIR /repo
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
-ENV PORT=3001
+ENV PORT=3000
 
 COPY --from=builder /repo/node_modules ./node_modules
 COPY --from=builder /repo/package.json ./package.json
@@ -36,5 +36,5 @@ COPY --from=builder /repo/package-lock.json ./package-lock.json
 COPY --from=builder /repo/packages ./packages
 COPY --from=builder /repo/apps/vase-portal ./apps/vase-portal
 
-EXPOSE 3001
+EXPOSE 3000
 CMD ["npm", "run", "start", "--workspace", "@vase/portal"]

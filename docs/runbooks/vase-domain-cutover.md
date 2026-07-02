@@ -19,7 +19,7 @@ Separar los tres límites públicos del producto:
 | Rama | `Vase-Test-Repos` |
 | Ruta de compilación | `/` |
 | Dockerfile | `apps/vase-portal/Dockerfile` |
-| Puerto | `3001` |
+| Puerto | `3000` |
 | Dominio | `vase.ar` |
 
 Argumentos de build:
@@ -34,7 +34,7 @@ Variables de runtime:
 ```text
 NODE_ENV=production
 HOSTNAME=0.0.0.0
-PORT=3001
+PORT=3000
 APP_INTERNAL_URL=http://vase-app-next:3002
 SERVICE_TO_SERVICE_TOKEN=<MISMO_TOKEN_ALEATORIO_EN_AMBOS_SERVICIOS>
 ```
