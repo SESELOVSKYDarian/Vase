@@ -54,6 +54,8 @@ type BuilderEditorProps = {
 
 type ViewportMode = "desktop" | "mobile";
 
+const gtmContainerPattern = /^GTM-[A-Z0-9]+$/i;
+
 const customizationInitialState = {
   businessDescription: "",
   desiredColors: "",
@@ -108,6 +110,24 @@ export function BuilderEditor({
 
   const selectedBlock =
     document.blocks.find((block) => block.id === selectedBlockId) ?? document.blocks[0] ?? null;
+  const seoTracking = document.seo.tracking ?? {
+    googleTagManagerContainerId: null,
+    enabled: false,
+    notes: null,
+  };
+  const seoTitle = document.seo.title.trim();
+  const seoDescription = document.seo.description?.trim() ?? "";
+  const seoKeyword = document.seo.keyword?.trim() ?? "";
+  const seoCanonicalPath = document.seo.canonicalPath?.trim() ?? "";
+  const secondaryKeywords = document.seo.secondaryKeywords ?? [];
+  const primaryDomain = domainConnections[0]?.hostname ?? `${pageSlug}.vase.ar`;
+  const previewUrl = seoCanonicalPath
+    ? `https://${primaryDomain}${seoCanonicalPath.startsWith("/") ? seoCanonicalPath : `/${seoCanonicalPath}`}`
+    : `https://${primaryDomain}/${pageSlug}`;
+  const titleLength = seoTitle.length;
+  const descriptionLength = seoDescription.length;
+  const gtmContainerId = seoTracking.googleTagManagerContainerId?.trim() ?? "";
+  const hasValidGtmContainer = gtmContainerPattern.test(gtmContainerId);
 
   useEffect(() => {
     const serialized = JSON.stringify(document);
@@ -140,6 +160,13 @@ export function BuilderEditor({
 
   function updateDocument(nextDocument: BuilderDocument) {
     setDocument(nextDocument);
+  }
+
+  function updateSeo(nextSeo: BuilderDocument["seo"]) {
+    updateDocument({
+      ...document,
+      seo: nextSeo,
+    });
   }
 
   function updateBlock(nextBlock: BuilderBlock) {
@@ -545,32 +572,229 @@ export function BuilderEditor({
                 }
                 options={builderSectionSpacing.map((value) => ({ value, label: value }))}
               />
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_92%,white)] p-5 shadow-[0_18px_36px_rgba(25,28,27,0.05)]">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold tracking-[0.22em] text-[var(--muted-soft)] uppercase">
+                SEO
+              </p>
+              <h3 className="font-serif text-2xl tracking-[-0.04em] text-[var(--foreground)]">
+                Posicionamiento en Google
+              </h3>
+              <p className="text-sm leading-7 text-[var(--muted)]">
+                Define lo que Google debe leer, como se ve el snippet y si esta pagina puede recibir
+                tracking con Google Tag Manager.
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-3">
               <InputField
-                label="SEO title"
+                label="Titulo para Google"
                 value={document.seo.title}
                 onChange={(value) =>
-                  updateDocument({
-                    ...document,
-                    seo: {
-                      ...document.seo,
-                      title: value,
-                    },
+                  updateSeo({
+                    ...document.seo,
+                    title: value,
                   })
                 }
               />
               <TextAreaField
-                label="SEO description"
+                label="Descripcion para Google"
                 value={document.seo.description ?? ""}
                 onChange={(value) =>
-                  updateDocument({
-                    ...document,
-                    seo: {
-                      ...document.seo,
-                      description: value,
-                    },
+                  updateSeo({
+                    ...document.seo,
+                    description: value,
+                  })
+                }
+                hint="Apunta a 140-160 caracteres y explica el valor principal."
+              />
+              <InputField
+                label="Palabra principal"
+                value={document.seo.keyword ?? ""}
+                onChange={(value) =>
+                  updateSeo({
+                    ...document.seo,
+                    keyword: value,
                   })
                 }
               />
+              <TextAreaField
+                label="Palabras secundarias"
+                value={secondaryKeywords.join("\n")}
+                onChange={(value) =>
+                  updateSeo({
+                    ...document.seo,
+                    secondaryKeywords: value
+                      .split("\n")
+                      .map((keyword) => keyword.trim())
+                      .filter(Boolean),
+                  })
+                }
+                hint="Una por linea. Usa pocas y que realmente describan la pagina."
+              />
+              <InputField
+                label="Canonical path"
+                value={document.seo.canonicalPath ?? ""}
+                onChange={(value) =>
+                  updateSeo({
+                    ...document.seo,
+                    canonicalPath: value,
+                  })
+                }
+              />
+              <InputField
+                label="Titulo social"
+                value={document.seo.ogTitle ?? ""}
+                onChange={(value) =>
+                  updateSeo({
+                    ...document.seo,
+                    ogTitle: value,
+                  })
+                }
+              />
+              <TextAreaField
+                label="Descripcion social"
+                value={document.seo.ogDescription ?? ""}
+                onChange={(value) =>
+                  updateSeo({
+                    ...document.seo,
+                    ogDescription: value,
+                  })
+                }
+              />
+
+              <div className="rounded-[24px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_88%,white)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold tracking-[0.18em] uppercase text-[var(--muted-soft)]">
+                      Google preview
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--muted)]">Vista previa del resultado en buscadores.</p>
+                  </div>
+                  <StatusBadge tone={document.seo.indexable === false ? "warning" : "success"} label={document.seo.indexable === false ? "No index" : "Indexable"} />
+                </div>
+                <div className="mt-4 rounded-[20px] border border-[var(--border-subtle)] bg-white p-4">
+                  <p className="text-sm font-semibold text-[#1a0dab]">
+                    {seoTitle || "Titulo de ejemplo para Google"}
+                  </p>
+                  <p className="mt-1 text-xs text-[#006621]">{previewUrl}</p>
+                  <p className="mt-2 text-sm leading-6 text-[#4d5156]">
+                    {seoDescription || "Describe el valor de la pagina con claridad para mejorar el snippet y la tasa de clics."}
+                  </p>
+                </div>
+                <div className="mt-4 grid gap-2 text-xs text-[var(--muted)] sm:grid-cols-3">
+                  <p>
+                    Titulo: <span className="font-semibold text-[var(--foreground)]">{titleLength}</span> caracteres
+                  </p>
+                  <p>
+                    Descripcion: <span className="font-semibold text-[var(--foreground)]">{descriptionLength}</span> caracteres
+                  </p>
+                  <p>
+                    Dominio: <span className="font-semibold text-[var(--foreground)]">{primaryDomain}</span>
+                  </p>
+                </div>
+                <div className="mt-3 grid gap-2 text-sm leading-6 text-[var(--muted)]">
+                  {titleLength < 50 ? <p>El titulo esta corto; apunta a 50-60 caracteres.</p> : null}
+                  {titleLength > 60 ? <p>El titulo es largo; puede truncarse en Google.</p> : null}
+                  {descriptionLength < 140 ? <p>La descripcion esta corta; intenta llegar a 140-160 caracteres.</p> : null}
+                  {descriptionLength > 160 ? <p>La descripcion es larga; puede recortarse en el snippet.</p> : null}
+                {document.seo.indexable === false ? <p>Esta pagina esta marcada como no indexable.</p> : null}
+              </div>
+              </div>
+
+              <label className="flex items-center gap-3 rounded-[22px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_88%,white)] px-4 py-3 text-sm text-[var(--foreground)]">
+                <input
+                  type="checkbox"
+                  checked={document.seo.indexable !== false}
+                  onChange={(event) =>
+                    updateSeo({
+                      ...document.seo,
+                      indexable: event.target.checked,
+                    })
+                  }
+                  className="size-4 rounded border-[var(--border-subtle)]"
+                />
+                Permitir indexacion en Google
+              </label>
+
+              <label className="grid gap-2 text-sm">
+                <span className="font-medium text-[var(--foreground)]">Google Tag Manager</span>
+                <input
+                  value={gtmContainerId}
+                  onChange={(event) =>
+                    updateSeo({
+                      ...document.seo,
+                      tracking: {
+                        googleTagManagerContainerId: event.target.value,
+                        enabled: seoTracking.enabled ?? false,
+                        notes: seoTracking.notes ?? null,
+                      },
+                    })
+                  }
+                  placeholder="GTM-MM5V2SDT"
+                  className="min-h-11 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+                />
+                <span className="text-xs leading-5 text-[var(--muted-soft)]">
+                  Agrega el contenedor para insertar el script en el <code>&lt;head&gt;</code> y el
+                  <code> noscript </code> en <code>&lt;body&gt;</code> del sitio publico.
+                </span>
+              </label>
+
+              <label className="flex items-center gap-3 rounded-[22px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_88%,white)] px-4 py-3 text-sm text-[var(--foreground)]">
+                <input
+                  type="checkbox"
+                  checked={seoTracking.enabled ?? false}
+                  onChange={(event) =>
+                    updateSeo({
+                      ...document.seo,
+                      tracking: {
+                        googleTagManagerContainerId: gtmContainerId,
+                        enabled: event.target.checked,
+                        notes: seoTracking.notes ?? null,
+                      },
+                    })
+                  }
+                  className="size-4 rounded border-[var(--border-subtle)]"
+                />
+                Activar GTM en el sitio publico
+              </label>
+
+              <TextAreaField
+                label="Notas internas de tracking"
+                value={seoTracking.notes ?? ""}
+                onChange={(value) =>
+                  updateSeo({
+                    ...document.seo,
+                    tracking: {
+                      googleTagManagerContainerId: gtmContainerId,
+                      enabled: seoTracking.enabled ?? false,
+                      notes: value,
+                    },
+                  })
+                }
+                hint="Opcional. Sirve para dejar contexto interno sobre analytics o futuras integraciones."
+              />
+
+              <div className="grid gap-2 text-sm leading-6 text-[var(--muted)]">
+                {seoTracking.enabled && !hasValidGtmContainer ? (
+                  <p>GTM esta activo pero el ID no tiene formato valido.</p>
+                ) : null}
+                {seoTracking.enabled && !gtmContainerId ? (
+                  <p>Activa tracking solo cuando cargues un contenedor GTM valido.</p>
+                ) : null}
+                {(document.seo.indexable ?? true) && pageStatus !== "ACTIVE" ? (
+                  <p>La pagina aun no esta activa; el SEO ayuda, pero el sitio publico todavia no esta listo.</p>
+                ) : null}
+                {seoTracking.enabled && pageStatus !== "ACTIVE" ? (
+                  <p>GTM deberia usarse solo en paginas publicas o activas.</p>
+                ) : null}
+                {!domainConnections.length ? (
+                  <p>Conecta un dominio para que esta pagina tenga una URL publica real para Google.</p>
+                ) : null}
+              </div>
             </div>
           </section>
 

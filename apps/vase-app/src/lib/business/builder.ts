@@ -101,6 +101,17 @@ export type BuilderDocument = {
   seo: {
     title: string;
     description?: string | null;
+    keyword?: string | null;
+    secondaryKeywords?: string[];
+    canonicalPath?: string | null;
+    indexable?: boolean;
+    ogTitle?: string | null;
+    ogDescription?: string | null;
+    tracking?: {
+      googleTagManagerContainerId?: string | null;
+      enabled?: boolean;
+      notes?: string | null;
+    } | null;
   };
   blocks: BuilderBlock[];
 };
@@ -409,6 +420,17 @@ export function createInitialBuilderDocument(
     seo: {
       title: "Nueva pagina Vase",
       description: "Pagina ecommerce editada desde Vase Business.",
+      keyword: null,
+      secondaryKeywords: [],
+      canonicalPath: null,
+      indexable: true,
+      ogTitle: null,
+      ogDescription: null,
+      tracking: {
+        googleTagManagerContainerId: null,
+        enabled: false,
+        notes: null,
+      },
     },
     blocks,
   };
@@ -473,6 +495,29 @@ export function normalizeBuilderDocument(
     theme: {
       ...document.theme,
       palette: nextPalette,
+    },
+    seo: {
+      title: document.seo.title,
+      description: document.seo.description ?? null,
+      keyword: document.seo.keyword ?? null,
+      secondaryKeywords: document.seo.secondaryKeywords ?? [],
+      canonicalPath: document.seo.canonicalPath ?? null,
+      indexable: document.seo.indexable ?? true,
+      ogTitle: document.seo.ogTitle ?? null,
+      ogDescription: document.seo.ogDescription ?? null,
+      tracking: document.seo.tracking
+        ? {
+            googleTagManagerContainerId: document.seo.tracking.googleTagManagerContainerId ?? null,
+            enabled:
+              document.seo.tracking.enabled ??
+              Boolean(document.seo.tracking.googleTagManagerContainerId),
+            notes: document.seo.tracking.notes ?? null,
+          }
+        : {
+            googleTagManagerContainerId: null,
+            enabled: false,
+            notes: null,
+          },
     },
     blocks: document.blocks.filter((block) =>
       capabilities.availableBlockTypes.includes(block.type),

@@ -4324,6 +4324,7 @@ export async function provisionCustomProjectAction(
           ...builderDocument,
           customStaticSite,
           seo: {
+            ...builderDocument.seo,
             title: parsed.data.pageName,
             description: parsed.data.deployNotes ?? request.businessDescription ?? null,
           },

@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import { clsx } from "clsx";
+import Script from "next/script";
 import type { BuilderDocument } from "@/lib/business/builder";
+import { resolveGtmContainerId } from "@/lib/seo/gtm";
 
 type PublicStorefrontProps = {
   document: BuilderDocument;
@@ -52,6 +54,7 @@ export function PublicStorefront({ document, currentPath = "" }: PublicStorefron
     );
   }
 
+  const gtmContainerId = resolveGtmContainerId(document.seo.tracking);
   const palette = paletteClassMap[document.theme.palette];
   const spacingClass =
     document.theme.sectionSpacing === "compact"
@@ -62,6 +65,26 @@ export function PublicStorefront({ document, currentPath = "" }: PublicStorefron
 
   return (
     <div className={clsx("min-h-screen font-sans antialiased", palette.shell)}>
+      {gtmContainerId ? (
+        <>
+          <Script id={`gtm-head-${gtmContainerId}`} strategy="beforeInteractive">
+            {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${gtmContainerId}');`}
+          </Script>
+          <noscript>
+            <iframe
+              src={`https://www.googletagmanager.com/ns.html?id=${gtmContainerId}`}
+              height="0"
+              width="0"
+              style={{ display: "none", visibility: "hidden" }}
+              aria-hidden="true"
+            />
+          </noscript>
+        </>
+      ) : null}
       <main className={clsx("mx-auto max-w-7xl px-6 py-12 md:px-12 md:py-24 grid", spacingClass)}>
         {document.blocks.filter((block) => block.enabled).map((block) => {
           if (block.type === "hero") {

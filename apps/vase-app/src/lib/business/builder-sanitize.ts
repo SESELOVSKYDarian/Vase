@@ -28,6 +28,25 @@ export function sanitizeBuilderDocument(document: BuilderDocument): BuilderDocum
     seo: {
       title: sanitizeText(document.seo.title),
       description: sanitizeNullableText(document.seo.description),
+      keyword: sanitizeNullableText(document.seo.keyword),
+      secondaryKeywords: Array.isArray(document.seo.secondaryKeywords)
+        ? document.seo.secondaryKeywords.map((keyword) => sanitizeText(keyword)).filter(Boolean)
+        : [],
+      canonicalPath: sanitizeNullableText(document.seo.canonicalPath),
+      indexable: document.seo.indexable ?? true,
+      ogTitle: sanitizeNullableText(document.seo.ogTitle),
+      ogDescription: sanitizeNullableText(document.seo.ogDescription),
+      tracking: document.seo.tracking
+        ? {
+            googleTagManagerContainerId: sanitizeNullableText(
+              document.seo.tracking.googleTagManagerContainerId,
+            ),
+            enabled:
+              document.seo.tracking.enabled ??
+              Boolean(document.seo.tracking.googleTagManagerContainerId),
+            notes: sanitizeNullableText(document.seo.tracking.notes),
+          }
+        : null,
     },
     blocks: document.blocks.map((block) => {
       if (block.type === "hero") {

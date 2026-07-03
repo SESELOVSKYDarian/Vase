@@ -1,6 +1,13 @@
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, relative, sep } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db/prisma";
+import type { BuilderDocument } from "@/lib/business/builder";
+import {
+  buildGoogleTagManagerBodySnippet,
+  buildGoogleTagManagerHeadSnippet,
+  resolveGtmContainerId,
+} from "@/lib/seo/gtm";
 import { getCustomSitesBaseDir } from "@/server/services/custom-site-paths";
 
 const contentTypes: Record<string, string> = {
@@ -66,17 +73,36 @@ async function readCustomSiteFile(siteId: string, pathParts: string[]) {
   return null;
 }
 
-function rewriteIndexHtml(html: string, siteId: string) {
+function rewriteIndexHtml(html: string, siteId: string, gtmContainerId: string | null) {
   const basePath = `/api/custom-sites/${encodeURIComponent(siteId)}/`;
-  const withBase = html.includes("<base ")
-    ? html
-    : html.replace(/<head([^>]*)>/i, `<head$1><base href="${basePath}">`);
+  const headInsert = `${gtmContainerId ? buildGoogleTagManagerHeadSnippet(gtmContainerId) : ""}${html.includes("<base ") ? "" : `<base href="${basePath}">`}`;
+  let rewritten = html.replace(/<head([^>]*)>/i, `<head$1>${headInsert}`);
 
-  return withBase
+  if (gtmContainerId) {
+    rewritten = rewritten.replace(/<body([^>]*)>/i, `<body$1>${buildGoogleTagManagerBodySnippet(gtmContainerId)}`);
+  }
+
+  return rewritten
     .replaceAll('src="/', `src="${basePath}`)
     .replaceAll("src='/", `src='${basePath}`)
     .replaceAll('href="/', `href="${basePath}`)
     .replaceAll("href='/", `href='${basePath}`);
+}
+
+async function getCustomSiteTracking(siteId: string) {
+  const request = await prisma.customPageRequest.findUnique({
+    where: { id: siteId },
+    select: {
+      storefrontPage: {
+        select: {
+          builderDocument: true,
+        },
+      },
+    },
+  });
+
+  const document = request?.storefrontPage?.builderDocument as BuilderDocument | null;
+  return resolveGtmContainerId(document?.seo.tracking ?? null);
 }
 
 export async function GET(
@@ -85,6 +111,7 @@ export async function GET(
 ) {
   const { siteId, path = [] } = await context.params;
   const file = await readCustomSiteFile(siteId, path);
+  const gtmContainerId = await getCustomSiteTracking(siteId);
 
   if (!file) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -93,7 +120,7 @@ export async function GET(
   const extension = extname(file.path).toLowerCase();
   const contentType = contentTypes[extension] || "application/octet-stream";
   const body = extension === ".html"
-    ? rewriteIndexHtml(file.bytes.toString("utf8"), siteId)
+    ? rewriteIndexHtml(file.bytes.toString("utf8"), siteId, gtmContainerId)
     : file.bytes;
 
   return new NextResponse(body, {

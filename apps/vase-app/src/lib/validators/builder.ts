@@ -117,6 +117,19 @@ export const builderDocumentSchema = z.object({
   seo: z.object({
     title: z.string().trim().min(3).max(80),
     description: z.string().trim().max(200).nullish(),
+    keyword: z.string().trim().max(120).nullish(),
+    secondaryKeywords: z.array(z.string().trim().max(120)).max(12).optional(),
+    canonicalPath: z.string().trim().max(240).nullish(),
+    indexable: z.boolean().optional(),
+    ogTitle: z.string().trim().max(120).nullish(),
+    ogDescription: z.string().trim().max(200).nullish(),
+    tracking: z
+      .object({
+        googleTagManagerContainerId: z.string().trim().max(32).nullish(),
+        enabled: z.boolean().optional(),
+        notes: z.string().trim().max(240).nullish(),
+      })
+      .nullish(),
   }),
   blocks: z.array(builderBlockSchema).min(1).max(16),
 });
