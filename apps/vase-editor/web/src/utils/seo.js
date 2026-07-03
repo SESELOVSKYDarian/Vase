@@ -60,7 +60,7 @@ export const normalizeSeoSettings = (rawSeo = {}) => ({
 });
 
 export const buildGtmSnippets = (containerId = '') => {
-    const id = String(containerId || '').trim();
+    const id = String(containerId || '').trim().replace(/[^A-Za-z0-9_-]/g, '');
     if (!id) {
         return { head: '', body: '' };
     }

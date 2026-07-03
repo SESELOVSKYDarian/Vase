@@ -25,6 +25,41 @@ export function resolveHostCandidates(req) {
     : [host];
 }
 
+async function resolveTenantByHostCandidates(hostCandidates) {
+  if (!hostCandidates.length) return null;
+
+  const result = await pool.query(
+    [
+      'select t.id, t.name, t.external_tenant_slug',
+      'from tenant_domains d',
+      'join tenants t on t.id = d.tenant_id',
+      'where d.domain = any($1::text[]) and t.status = $2',
+      'order by array_position($1::text[], d.domain) asc',
+      'limit 1',
+    ].join(' '),
+    [hostCandidates, 'active']
+  );
+  if (result.rows[0]) {
+    return result.rows[0];
+  }
+
+  const hostSlug = String(hostCandidates[0] || '').split('.')[0] || '';
+  if (!hostSlug) {
+    return null;
+  }
+
+  const slugResult = await pool.query(
+    [
+      'select id, name, external_tenant_slug',
+      'from tenants',
+      'where status = $2 and lower(coalesce(external_tenant_slug, \'\')) = $1',
+      'limit 1',
+    ].join(' '),
+    [hostSlug, 'active']
+  );
+  return slugResult.rows[0] || null;
+}
+
 export async function resolveTenant(req, res, next) {
   try {
     const headerTenant = req.get('x-tenant-id');
@@ -57,18 +92,7 @@ export async function resolveTenant(req, res, next) {
         console.log(
           `Tenant resolution by host: raw="${forwardedHost}" normalized="${host}" candidates=[${hostCandidates.join(', ')}] path="${req.path}"`
         );
-        const result = await pool.query(
-          [
-            'select t.id, t.name, t.external_tenant_slug',
-            'from tenant_domains d',
-            'join tenants t on t.id = d.tenant_id',
-            'where d.domain = any($1::text[]) and t.status = $2',
-            'order by array_position($1::text[], d.domain) asc',
-            'limit 1',
-          ].join(' '),
-          [hostCandidates, 'active']
-        );
-        tenant = result.rows[0];
+        tenant = await resolveTenantByHostCandidates(hostCandidates);
         if (tenant) {
           console.log(`Tenant resolved by host "${host}": ${tenant.name} (${tenant.id})`);
         }

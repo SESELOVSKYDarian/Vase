@@ -16,9 +16,9 @@ import { webhooksRouter } from './routes/webhooks.js';
 import { integrationsRouter } from './routes/integrations.js';
 import { uploadsRouter } from './routes/uploads.js';
 import { authenticate, optionalAuthenticate, requireRole } from './middleware/auth.js';
-import { resolveHostCandidates } from './middleware/tenant.js';
 import { pool } from './db.js';
-import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from '../../web/src/utils/seo.js';
+import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from './services/seo.js';
+import { normalizeDomainInput } from './services/tenantDomains.js';
 
 const app = express();
 app.set('trust proxy', true);
@@ -71,6 +71,10 @@ const escapeHtml = (value) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+function firstHeaderValue(value) {
+  return String(value || '').split(',')[0].trim();
+}
+
 async function resolvePublicTenant(req) {
   const headerTenant = String(req.get('x-tenant-id') || '').trim();
   if (UUID_REGEX.test(headerTenant)) {
@@ -83,7 +87,18 @@ async function resolvePublicTenant(req) {
     }
   }
 
-  const hostCandidates = resolveHostCandidates(req);
+  const rawHost = firstHeaderValue(
+    req.get('x-storefront-host') ||
+    req.get('x-original-host') ||
+    req.get('x-forwarded-host') ||
+    req.hostname ||
+    req.get('host') ||
+    ''
+  );
+  const normalizedHost = normalizeDomainInput(rawHost);
+  const hostCandidates = normalizedHost
+    ? (normalizedHost.startsWith('www.') ? [normalizedHost, normalizedHost.slice(4)] : [normalizedHost])
+    : [];
   if (!hostCandidates.length) {
     return null;
   }
@@ -99,7 +114,25 @@ async function resolvePublicTenant(req) {
     ].join(' '),
     [hostCandidates, 'active']
   );
-  return result.rows[0] || null;
+  if (result.rows[0]) {
+    return result.rows[0];
+  }
+
+  const hostSlug = normalizedHost.split('.')[0] || '';
+  if (!hostSlug) {
+    return null;
+  }
+
+  const slugResult = await pool.query(
+    [
+      'select id, name, external_tenant_slug',
+      'from tenants',
+      'where status = $2 and lower(coalesce(external_tenant_slug, \'\')) = $1',
+      'limit 1',
+    ].join(' '),
+    [hostSlug, 'active']
+  );
+  return slugResult.rows[0] || null;
 }
 
 // Serve uploaded images

@@ -576,7 +576,20 @@ async function resolveTenantIdFromRequest(req) {
       ].join(' '),
       [candidates, 'active']
     );
-    return result.rows[0]?.id || '';
+    if (result.rows[0]?.id) {
+      return result.rows[0].id;
+    }
+
+    const hostSlug = candidates[0].split('.')[0] || '';
+    if (!hostSlug) {
+      return '';
+    }
+
+    const slugResult = await pool.query(
+      'select id from tenants where status = $2 and lower(coalesce(external_tenant_slug, \'\')) = $1 limit 1',
+      [hostSlug, 'active']
+    );
+    return slugResult.rows[0]?.id || '';
   } catch (err) {
     console.warn('resolveTenantIdFromRequest host lookup failed:', err.message);
     return '';
