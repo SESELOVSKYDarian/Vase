@@ -21,6 +21,11 @@ import {
 import { StorefrontPreview } from "@/components/business/storefront-preview";
 import { DomainRequestForm } from "@/components/business/domain-request-form";
 import { StatusBadge } from "@/components/business/status-badge";
+import {
+  buildGoogleTagManagerBodySnippet,
+  buildGoogleTagManagerHeadSnippet,
+  resolveGtmContainerId,
+} from "@/lib/seo/gtm";
 
 type BuilderEditorProps = {
   pageId: string;
@@ -578,14 +583,14 @@ export function BuilderEditor({
           <section className="rounded-[28px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_92%,white)] p-5 shadow-[0_18px_36px_rgba(25,28,27,0.05)]">
             <div className="space-y-2">
               <p className="text-xs font-semibold tracking-[0.22em] text-[var(--muted-soft)] uppercase">
-                SEO
+                Operaciones
               </p>
               <h3 className="font-serif text-2xl tracking-[-0.04em] text-[var(--foreground)]">
-                Posicionamiento en Google
+                SEO y tracking del cliente
               </h3>
               <p className="text-sm leading-7 text-[var(--muted)]">
-                Define lo que Google debe leer, como se ve el snippet y si esta pagina puede recibir
-                tracking con Google Tag Manager.
+                Carga los codigos que necesita la web del cliente para posicionamiento, indexacion y
+                medicion. Todo queda guardado por sitio.
               </p>
             </div>
 
@@ -700,10 +705,10 @@ export function BuilderEditor({
                   {titleLength < 50 ? <p>El titulo esta corto; apunta a 50-60 caracteres.</p> : null}
                   {titleLength > 60 ? <p>El titulo es largo; puede truncarse en Google.</p> : null}
                   {descriptionLength < 140 ? <p>La descripcion esta corta; intenta llegar a 140-160 caracteres.</p> : null}
-                  {descriptionLength > 160 ? <p>La descripcion es larga; puede recortarse en el snippet.</p> : null}
+                {descriptionLength > 160 ? <p>La descripcion es larga; puede recortarse en el snippet.</p> : null}
                 {document.seo.indexable === false ? <p>Esta pagina esta marcada como no indexable.</p> : null}
               </div>
-              </div>
+            </div>
 
               <label className="flex items-center gap-3 rounded-[22px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_88%,white)] px-4 py-3 text-sm text-[var(--foreground)]">
                 <input
@@ -763,7 +768,7 @@ export function BuilderEditor({
               </label>
 
               <TextAreaField
-                label="Notas internas de tracking"
+                label="Notas internas de SEO"
                 value={seoTracking.notes ?? ""}
                 onChange={(value) =>
                   updateSeo({
@@ -777,6 +782,25 @@ export function BuilderEditor({
                 }
                 hint="Opcional. Sirve para dejar contexto interno sobre analytics o futuras integraciones."
               />
+
+              {resolveGtmContainerId(seoTracking) ? (
+                <div className="grid gap-3 rounded-[24px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_88%,white)] p-4">
+                  <div>
+                    <p className="text-xs font-semibold tracking-[0.18em] uppercase text-[var(--muted-soft)]">
+                      Codigo generado
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      Este es el snippet que recibira la web del cliente.
+                    </p>
+                  </div>
+                  <pre className="overflow-x-auto rounded-[18px] bg-[#111827] p-4 text-[11px] leading-5 text-[#E5E7EB]">
+                    {buildGoogleTagManagerHeadSnippet(resolveGtmContainerId(seoTracking) ?? "")}
+                  </pre>
+                  <pre className="overflow-x-auto rounded-[18px] bg-[#111827] p-4 text-[11px] leading-5 text-[#E5E7EB]">
+                    {buildGoogleTagManagerBodySnippet(resolveGtmContainerId(seoTracking) ?? "")}
+                  </pre>
+                </div>
+              ) : null}
 
               <div className="grid gap-2 text-sm leading-6 text-[var(--muted)]">
                 {seoTracking.enabled && !hasValidGtmContainer ? (
