@@ -300,6 +300,7 @@ function normalizeTenantSettingsPayload(row = {}) {
     ...settings,
     branding: settings.branding || {},
     theme: settings.theme || {},
+    seo: settings.seo || {},
     commerce: {
       ...commerce,
       price_tier_labels: normalizePriceTierLabels(commerce.price_tier_labels),
@@ -645,7 +646,7 @@ tenantRouter.get('/settings', async (req, res, next) => {
 
   try {
     const result = await pool.query(
-      'select branding, theme, commerce from tenant_settings where tenant_id = $1',
+      'select branding, theme, seo, commerce from tenant_settings where tenant_id = $1',
       [tenantId]
     );
     const settings = normalizeTenantSettingsPayload(result.rows[0] || { branding: {}, theme: {}, commerce: {} });
@@ -927,8 +928,8 @@ tenantRouter.put('/settings', async (req, res, next) => {
 
     if (!existing.rowCount) {
       const insertRes = await pool.query(
-        'insert into tenant_settings (tenant_id, branding, theme, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb) returning branding, theme, commerce',
-        [tenantId, branding, theme, commerce]
+        'insert into tenant_settings (tenant_id, branding, theme, seo, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb) returning branding, theme, seo, commerce',
+        [tenantId, branding, theme, seo || {}, commerce]
       );
       return res.json({ tenant_id: tenantId, settings: normalizeTenantSettingsPayload(insertRes.rows[0]) });
     }
@@ -938,12 +939,13 @@ tenantRouter.put('/settings', async (req, res, next) => {
         'update tenant_settings',
         'set branding = branding || $2::jsonb,',
         'theme = theme || $3::jsonb,',
-        'commerce = commerce || $4::jsonb,',
+        'seo = seo || $4::jsonb,',
+        'commerce = commerce || $5::jsonb,',
         'updated_at = now()',
         'where tenant_id = $1',
-        'returning branding, theme, commerce',
+        'returning branding, theme, seo, commerce',
       ].join(' '),
-      [tenantId, branding, theme, commerce]
+      [tenantId, branding, theme, seo, commerce]
     );
 
     return res.json({ tenant_id: tenantId, settings: normalizeTenantSettingsPayload(updateRes.rows[0]) });

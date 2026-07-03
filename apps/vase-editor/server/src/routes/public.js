@@ -392,7 +392,7 @@ publicRouter.get('/tenant', async (req, res, next) => {
   try {
     res.set('Cache-Control', 'no-store, max-age=0');
     const result = await pool.query(
-      'select branding, theme, commerce from tenant_settings where tenant_id = $1',
+      'select branding, theme, seo, commerce from tenant_settings where tenant_id = $1',
       [req.tenant.id]
     );
     const rawSettings = result.rows[0] || { branding: {}, theme: {}, commerce: {} };
@@ -401,6 +401,7 @@ publicRouter.get('/tenant', async (req, res, next) => {
       ...rawSettings,
       branding: rawSettings.branding || {},
       theme: rawSettings.theme || {},
+      seo: rawSettings.seo || {},
       commerce: {
         ...commerce,
         price_tier_labels: normalizePriceTierLabels(commerce.price_tier_labels),

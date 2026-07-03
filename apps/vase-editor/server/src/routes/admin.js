@@ -23,7 +23,7 @@ adminRouter.get('/tenants', async (req, res, next) => {
 
 adminRouter.post('/tenants', async (req, res, next) => {
   try {
-    const { name, domain, branding, theme, commerce } = req.body;
+    const { name, domain, branding, theme, seo, commerce } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'name_required' });
     }
@@ -43,8 +43,8 @@ adminRouter.post('/tenants', async (req, res, next) => {
       const settingsCommerce = commerce || { mode: 'hybrid', currency: 'ARS', whatsapp_number: '' };
 
       await client.query(
-        'insert into tenant_settings (tenant_id, branding, theme, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb)',
-        [tenant.id, settingsBranding, settingsTheme, settingsCommerce]
+        'insert into tenant_settings (tenant_id, branding, theme, seo, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb)',
+        [tenant.id, settingsBranding, settingsTheme, seo || {}, settingsCommerce]
       );
 
       if (domain) {
@@ -82,7 +82,7 @@ adminRouter.get('/tenants/:id', async (req, res, next) => {
     }
 
     const settingsRes = await pool.query(
-      'select branding, theme, commerce from tenant_settings where tenant_id = $1',
+      'select branding, theme, seo, commerce from tenant_settings where tenant_id = $1',
       [req.params.id]
     );
 
@@ -96,6 +96,7 @@ adminRouter.put('/tenants/:id/settings', async (req, res, next) => {
   try {
     const branding = req.body.branding || {};
     const theme = req.body.theme || {};
+    const seo = req.body.seo || {};
     const commerce = req.body.commerce || {};
 
     const tenantCheck = await pool.query(
@@ -118,8 +119,8 @@ adminRouter.put('/tenants/:id/settings', async (req, res, next) => {
 
     if (!existing.rowCount) {
       const insertRes = await pool.query(
-        'insert into tenant_settings (tenant_id, branding, theme, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb) returning branding, theme, commerce',
-        [req.params.id, branding, theme, commerce]
+        'insert into tenant_settings (tenant_id, branding, theme, seo, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb) returning branding, theme, seo, commerce',
+        [req.params.id, branding, theme, seo, commerce]
       );
       return res.json({ tenant_id: req.params.id, settings: insertRes.rows[0] });
     }
@@ -129,12 +130,13 @@ adminRouter.put('/tenants/:id/settings', async (req, res, next) => {
         'update tenant_settings',
         'set branding = branding || $2::jsonb,',
         'theme = theme || $3::jsonb,',
-        'commerce = commerce || $4::jsonb,',
+        'seo = seo || $4::jsonb,',
+        'commerce = commerce || $5::jsonb,',
         'updated_at = now()',
         'where tenant_id = $1',
-        'returning branding, theme, commerce',
+        'returning branding, theme, seo, commerce',
       ].join(' '),
-      [req.params.id, branding, theme, commerce]
+      [req.params.id, branding, theme, seo, commerce]
     );
 
     return res.json({ tenant_id: req.params.id, settings: updateRes.rows[0] });

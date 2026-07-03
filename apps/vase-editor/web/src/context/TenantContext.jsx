@@ -6,6 +6,7 @@ import { normalizePriceTierLabels } from '../utils/priceTierLabels';
 import { PIQUIM_CATALOG_CARDS, PIQUIM_FOOTER_DEFAULTS } from '../data/piquimBranding';
 import { isPiquimTenantIdentity, resolveTenantBrandName, resolveTenantDesignPreset } from '../utils/tenantBranding';
 import StoreSkeleton from '../components/StoreSkeleton';
+import { buildDefaultSeoSettings, normalizeSeoSettings } from '../utils/seo';
 
 const DEFAULT_TENANT = {
     id: '',
@@ -97,6 +98,7 @@ const buildDefaultSettings = (tenant = DEFAULT_TENANT, rawSettings = {}) => {
     theme: {
         ...(piquim ? DEFAULT_STOREFRONT_LIGHT_THEME : GENERIC_STOREFRONT_THEME),
     },
+    seo: buildDefaultSeoSettings(),
     commerce: {
         currency: 'ARS',
         locale: 'es-AR',
@@ -195,6 +197,7 @@ function mergeTenantSettings(rawSettings = {}, tenant = DEFAULT_TENANT) {
     const piquim = isPiquimTenantIdentity({ tenant, settings: rawSettings });
     const rawBranding = rawSettings.branding || {};
     const rawFooter = rawBranding.footer || {};
+    const rawSeo = rawSettings.seo || {};
 
     return {
         branding: {
@@ -249,6 +252,7 @@ function mergeTenantSettings(rawSettings = {}, tenant = DEFAULT_TENANT) {
                 ...(rawSettings.theme?.catalog || {}),
             },
         },
+        seo: normalizeSeoSettings(rawSeo),
         commerce: {
             ...defaults.commerce,
             ...(rawSettings.commerce || {}),

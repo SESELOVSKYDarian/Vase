@@ -16,6 +16,7 @@ import { DEFAULT_STOREFRONT_LIGHT_THEME } from '../../utils/storefrontTheme';
 import { PIQUIM_CATALOG_CARDS, PIQUIM_FOOTER_DEFAULTS } from '../../data/piquimBranding';
 import { normalizePriceTierLabels } from '../../utils/priceTierLabels';
 import { isPiquimTenantIdentity, resolveTenantDesignPreset } from '../../utils/tenantBranding';
+import { buildDefaultSeoSettings, normalizeSeoSettings } from '../../utils/seo';
 
 const RESERVED_PLACEHOLDER_TERMS = new Set(['messi']);
 
@@ -140,6 +141,7 @@ export function useEditorState(user) {
             ...DEFAULT_STOREFRONT_LIGHT_THEME,
             admin_panel: DEFAULT_ADMIN_PANEL_THEME,
         },
+        seo: buildDefaultSeoSettings(),
             commerce: {
                 price_visibility: 'authenticated',
                 whatsapp_number: '',
@@ -462,7 +464,8 @@ export function useEditorState(user) {
                         ...prev.commerce,
                         ...(data.settings?.commerce || {}),
                         price_tier_labels: normalizePriceTierLabels(data.settings?.commerce?.price_tier_labels),
-                    }
+                    },
+                    seo: normalizeSeoSettings(data.settings?.seo || prev.seo),
                 }));
             }
 

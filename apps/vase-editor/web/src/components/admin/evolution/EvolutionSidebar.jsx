@@ -13,6 +13,7 @@ import {
     Plug,
     Bell,
     Truck,
+    MagnifyingGlass,
 } from '@phosphor-icons/react';
 import useEvolutionStore from '../../../store/useEvolutionStore';
 import { cn } from '../../../utils/cn';
@@ -86,6 +87,7 @@ const EvolutionSidebar = ({ branding }) => {
                 { id: 'notifications', label: 'Notificaciones', shortLabel: 'Alertas', icon: Bell },
                 { id: 'integrations', label: 'Integraciones', shortLabel: 'Integr.', icon: Plug },
                 { id: 'users', label: 'Usuarios', shortLabel: 'Usuarios', icon: Users },
+                { id: 'seo', label: 'SEO', shortLabel: 'SEO', icon: MagnifyingGlass },
             ],
         },
     ];

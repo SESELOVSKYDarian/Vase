@@ -25,6 +25,7 @@ CREATE TABLE tenant_settings (
   tenant_id uuid PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
   branding jsonb NOT NULL DEFAULT '{}'::jsonb,
   theme jsonb NOT NULL DEFAULT '{}'::jsonb,
+  seo jsonb NOT NULL DEFAULT '{}'::jsonb,
   commerce jsonb NOT NULL DEFAULT '{}'::jsonb,
   updated_at timestamptz NOT NULL DEFAULT now()
 );

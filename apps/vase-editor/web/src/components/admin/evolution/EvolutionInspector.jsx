@@ -32,7 +32,7 @@ const EvolutionInspector = ({
         setInspectorOpen,
     } = useEvolutionStore();
 
-    const hideFooterModules = ['catalog', 'categories', 'pricing', 'checkout', 'users', 'customers', 'tenants', 'notifications'];
+    const hideFooterModules = ['catalog', 'categories', 'pricing', 'checkout', 'users', 'customers', 'tenants', 'notifications', 'seo'];
     const allowSaveWithoutSelectionModules = ['design_live', 'settings_live', 'shipping', 'checkout'];
     const isWideInspector = activeModule === 'catalog' || activeModule === 'users';
 

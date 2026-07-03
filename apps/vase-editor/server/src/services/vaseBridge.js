@@ -270,7 +270,7 @@ async function upsertTenant(client, payload) {
 
 async function ensureTenantSettings(client, tenantId, tenantName, designPreset = null, staticSiteUrl = '') {
   const existingSettingsRes = await client.query(
-    'select branding, theme, commerce from tenant_settings where tenant_id = $1',
+    'select branding, theme, seo, commerce from tenant_settings where tenant_id = $1',
     [tenantId]
   );
 
@@ -301,10 +301,10 @@ async function ensureTenantSettings(client, tenantId, tenantName, designPreset =
   const defaults = buildDefaultTenantSettings(tenantName, designPreset, staticSiteUrl);
   await client.query(
     [
-      'insert into tenant_settings (tenant_id, branding, theme, commerce)',
-      'values ($1, $2::jsonb, $3::jsonb, $4::jsonb)',
+      'insert into tenant_settings (tenant_id, branding, theme, seo, commerce)',
+      'values ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb)',
     ].join(' '),
-    [tenantId, defaults.branding, defaults.theme, defaults.commerce]
+    [tenantId, defaults.branding, defaults.theme, {}, defaults.commerce]
   );
 }
 

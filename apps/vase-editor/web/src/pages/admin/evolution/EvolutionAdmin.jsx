@@ -17,6 +17,7 @@ import IntegrationsEditor from '../../../components/admin/evolution/Integrations
 import NotificationsEditor from '../../../components/admin/evolution/NotificationsEditor';
 import TenantsEditor from '../../../components/admin/evolution/TenantsEditor';
 import AppearanceEditor from '../../../components/admin/evolution/AppearanceEditor';
+import SeoEditor from '../../../components/admin/evolution/SeoEditor';
 import MediaLibrary from '../../../components/admin/evolution/MediaLibrary';
 import EvolutionInput from '../../../components/admin/evolution/EvolutionInput';
 import LegacyAdminFrame from '../../../components/admin/evolution/LegacyAdminFrame';
@@ -309,6 +310,14 @@ const EvolutionAdmin = () => {
                 keywords: 'integraciones erp dominios',
                 onSelect: () => setActiveModule('integrations'),
             },
+            {
+                id: 'module-seo',
+                kind: 'module',
+                label: 'SEO',
+                description: 'Metadatos y Google Tag Manager',
+                keywords: 'seo google tag manager meta canonical robots',
+                onSelect: () => setActiveModule('seo'),
+            },
         ];
 
         const productItems = (Array.isArray(editor.products) ? editor.products : []).map((product) => ({
@@ -592,6 +601,15 @@ const EvolutionAdmin = () => {
                 return (
                     <IntegrationsEditor
                         manager={integrationManager}
+                    />
+                );
+            case 'seo':
+                return (
+                    <SeoEditor
+                        settings={editor.settings}
+                        setSettings={editor.setSettings}
+                        onSave={handleSave}
+                        isSaving={editor.saving}
                     />
                 );
             case 'notifications':

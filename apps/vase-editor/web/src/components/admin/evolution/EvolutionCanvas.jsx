@@ -70,6 +70,7 @@ const MODULE_LABELS = {
     checkout: 'Checkout',
     shipping: 'Envios',
     integrations: 'Integraciones',
+    seo: 'SEO',
     notifications: 'Notificaciones',
     tenants: 'Empresas',
     legacy: 'Editor legacy',

@@ -55,8 +55,8 @@ webhooksRouter.post('/vase-provision', async (req, res, next) => {
 
     if (!existing.rowCount) {
       await pool.query(
-        'insert into tenant_settings (tenant_id, branding, theme, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb)',
-        [tenantId, brandingUpdate, {}, {}]
+        'insert into tenant_settings (tenant_id, branding, theme, seo, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb)',
+        [tenantId, brandingUpdate, {}, {}, {}]
       );
     } else {
       await pool.query(

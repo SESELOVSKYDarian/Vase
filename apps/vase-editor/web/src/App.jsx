@@ -66,9 +66,9 @@ function AppContent() {
 
     useEffect(() => {
         const brandName = resolveTenantBrandName({ tenant, settings });
-        document.title = isAdminRoute || isPreviewRoute
-            ? `${brandName} | Editor`
-            : brandName;
+        if (isAdminRoute || isPreviewRoute) {
+            document.title = `${brandName} | Editor`;
+        }
     }, [isAdminRoute, isPreviewRoute, settings, tenant]);
 
     let Component = HomePage;

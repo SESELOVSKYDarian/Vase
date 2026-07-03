@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import Header from './Header';
 import Footer from './Footer';
 import PiquimFooter from './PiquimFooter';
@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { normalizeInternalPath } from '../../utils/navigation';
 import { isPiquimTenantIdentity } from '../../utils/tenantBranding';
+import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from '../../utils/seo';
 
 export default function StoreLayout({ children }) {
     const { toast } = useStore();
@@ -36,6 +37,97 @@ export default function StoreLayout({ children }) {
         };
     });
     const navbarConfig = settings?.branding?.navbar || {};
+    const seo = useMemo(() => normalizeSeoSettings(settings?.seo || {}), [settings?.seo]);
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return undefined;
+
+        const brandName = settings?.branding?.name || 'Vase Business';
+        const currentPath = window.location.pathname || '/';
+        const title = seo.title || brandName;
+        const description = seo.description || '';
+        const canonicalUrl = resolveCanonicalUrl({
+            pathname: currentPath,
+            canonicalPath: seo.canonicalPath,
+        });
+        const robots = seo.indexable ? 'index,follow' : 'noindex,nofollow';
+        const ogTitle = seo.ogTitle || title;
+        const ogDescription = seo.ogDescription || description;
+
+        document.title = title;
+
+        const upsertMeta = (selector, attrs) => {
+            let element = document.head.querySelector(selector);
+            if (!attrs.content) {
+                element?.remove();
+                return;
+            }
+            if (!element) {
+                element = document.createElement('meta');
+                document.head.appendChild(element);
+            }
+            Object.entries(attrs).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    element.setAttribute(key, value);
+                }
+            });
+        };
+
+        const upsertLink = (selector, attrs) => {
+            let element = document.head.querySelector(selector);
+            if (!attrs.href) {
+                element?.remove();
+                return;
+            }
+            if (!element) {
+                element = document.createElement('link');
+                document.head.appendChild(element);
+            }
+            Object.entries(attrs).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    element.setAttribute(key, value);
+                }
+            });
+        };
+
+        upsertMeta('meta[name="description"]', { name: 'description', content: description });
+        upsertMeta('meta[name="robots"]', { name: 'robots', content: robots });
+        upsertMeta('meta[property="og:title"]', { property: 'og:title', content: ogTitle });
+        upsertMeta('meta[property="og:description"]', { property: 'og:description', content: ogDescription });
+        upsertLink('link[rel="canonical"]', { rel: 'canonical', href: canonicalUrl });
+
+        const gtmContainerId = seo.tracking?.enabled ? seo.tracking.googleTagManagerContainerId : '';
+        const { head, body } = buildGtmSnippets(gtmContainerId);
+        const headId = 'vase-gtm-script';
+        const bodyId = 'vase-gtm-noscript';
+        document.getElementById(headId)?.remove();
+        document.getElementById(bodyId)?.remove();
+
+        if (head && gtmContainerId) {
+            const scriptWrap = document.createElement('div');
+            scriptWrap.innerHTML = head;
+            const script = scriptWrap.querySelector('script');
+            if (script) {
+                script.id = headId;
+                document.head.appendChild(script);
+            }
+        }
+
+        if (body && gtmContainerId) {
+            const bodyWrap = document.createElement('div');
+            bodyWrap.innerHTML = body;
+            const noscript = bodyWrap.querySelector('noscript');
+            if (noscript) {
+                noscript.id = bodyId;
+                document.body.insertAdjacentElement('afterbegin', noscript);
+            }
+        }
+
+        return () => {
+            document.getElementById(headId)?.remove();
+            document.getElementById(bodyId)?.remove();
+        };
+    }, [seo, settings?.branding?.name]);
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-[var(--font-family)] text-[color:var(--color-text,#181411)] dark:text-[#f8f7f5] min-h-screen flex flex-col">
