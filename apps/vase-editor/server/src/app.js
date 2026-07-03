@@ -19,6 +19,7 @@ import { authenticate, optionalAuthenticate, requireRole } from './middleware/au
 import { pool } from './db.js';
 import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from './services/seo.js';
 import { normalizeDomainInput } from './services/tenantDomains.js';
+import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from './services/tenantSettings.js';
 
 const app = express();
 app.set('trust proxy', true);
@@ -193,10 +194,8 @@ if (hasWebBuild) {
     req.tenant = tenant;
 
     const html = fs.readFileSync(webIndexPath, 'utf8');
-    const settingsRes = await pool.query(
-      'select branding, theme, seo, commerce from tenant_settings where tenant_id = $1',
-      [req.tenant.id]
-    );
+    await ensureTenantSettingsSeoColumn();
+    const settingsRes = await queryTenantSettingsWithSeo(req.tenant.id);
     const rawSettings = settingsRes.rows[0] || {};
     const seo = normalizeSeoSettings(rawSettings.seo || {});
     const brandName = String(rawSettings.branding?.name || req.tenant?.name || 'Vase Business').trim();

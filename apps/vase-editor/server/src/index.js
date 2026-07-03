@@ -462,6 +462,13 @@ async function runStartupMigrations() {
 
   await pool.query(
     [
+      'ALTER TABLE tenant_settings',
+      "ADD COLUMN IF NOT EXISTS seo jsonb NOT NULL DEFAULT '{}'::jsonb",
+    ].join(' ')
+  );
+
+  await pool.query(
+    [
       'ALTER TABLE user_tenants',
       'ADD COLUMN IF NOT EXISTS price_adjustment_percent numeric(6,2) NOT NULL DEFAULT 0',
     ].join(' ')

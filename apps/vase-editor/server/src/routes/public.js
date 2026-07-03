@@ -4,6 +4,7 @@ import { normalizePriceAdjustments } from '../services/pricing.js';
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
 import { pool } from '../db.js';
 import { resolveEffectiveProductPrice, resolvePricingProfile } from '../services/userPricing.js';
+import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
 import {
   applyOfferDiscount,
   getTenantOffers,
@@ -391,10 +392,8 @@ async function isReviewsEnabled(tenantId) {
 publicRouter.get('/tenant', async (req, res, next) => {
   try {
     res.set('Cache-Control', 'no-store, max-age=0');
-    const result = await pool.query(
-      'select branding, theme, seo, commerce from tenant_settings where tenant_id = $1',
-      [req.tenant.id]
-    );
+    await ensureTenantSettingsSeoColumn();
+    const result = await queryTenantSettingsWithSeo(req.tenant.id);
     const rawSettings = result.rows[0] || { branding: {}, theme: {}, commerce: {} };
     const commerce = rawSettings.commerce && typeof rawSettings.commerce === 'object' ? rawSettings.commerce : {};
     const settings = {

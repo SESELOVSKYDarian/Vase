@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
 import { pool } from '../db.js';
+import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from './tenantSettings.js';
 import { signToken } from '../middleware/auth.js';
 import { normalizeDisplayName, normalizeEmailInput } from './mailer.js';
 import { ensureTenantPlatformDomain } from './tenantDomains.js';
@@ -269,10 +270,8 @@ async function upsertTenant(client, payload) {
 }
 
 async function ensureTenantSettings(client, tenantId, tenantName, designPreset = null, staticSiteUrl = '') {
-  const existingSettingsRes = await client.query(
-    'select branding, theme, seo, commerce from tenant_settings where tenant_id = $1',
-    [tenantId]
-  );
+  await ensureTenantSettingsSeoColumn();
+  const existingSettingsRes = await queryTenantSettingsWithSeo(tenantId);
 
   const safeName = normalizeDisplayName(tenantName) || 'Vase Business';
 
@@ -299,6 +298,7 @@ async function ensureTenantSettings(client, tenantId, tenantName, designPreset =
   }
 
   const defaults = buildDefaultTenantSettings(tenantName, designPreset, staticSiteUrl);
+  await ensureTenantSettingsSeoColumn();
   await client.query(
     [
       'insert into tenant_settings (tenant_id, branding, theme, seo, commerce)',

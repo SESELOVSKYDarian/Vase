@@ -1,5 +1,6 @@
 import express from 'express';
 import { pool } from '../db.js';
+import { ensureTenantSettingsSeoColumn } from '../services/tenantSettings.js';
 
 export const webhooksRouter = express.Router();
 
@@ -54,11 +55,13 @@ webhooksRouter.post('/vase-provision', async (req, res, next) => {
     );
 
     if (!existing.rowCount) {
+      await ensureTenantSettingsSeoColumn();
       await pool.query(
         'insert into tenant_settings (tenant_id, branding, theme, seo, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb)',
         [tenantId, brandingUpdate, {}, {}, {}]
       );
     } else {
+      await ensureTenantSettingsSeoColumn();
       await pool.query(
         'update tenant_settings set branding = branding || $2::jsonb, updated_at = now() where tenant_id = $1',
         [tenantId, brandingUpdate]

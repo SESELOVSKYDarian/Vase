@@ -9,6 +9,7 @@ import { ensureDefaultPriceLists, ensurePricingSchema } from '../services/userPr
 import { getTenantOffers } from '../services/offers.js';
 import { buildTenantIntegrationManifest, resolveServerBaseUrl } from '../services/integrationManifest.js';
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
+import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
 import {
   buildTenantDomainsPayload as buildTenantDomainsPayloadService,
   ensureTenantPlatformDomain as ensureTenantPlatformDomainService,
@@ -645,10 +646,8 @@ tenantRouter.get('/settings', async (req, res, next) => {
   if (!tenantId) return;
 
   try {
-    const result = await pool.query(
-      'select branding, theme, seo, commerce from tenant_settings where tenant_id = $1',
-      [tenantId]
-    );
+    await ensureTenantSettingsSeoColumn();
+    const result = await queryTenantSettingsWithSeo(tenantId);
     const settings = normalizeTenantSettingsPayload(result.rows[0] || { branding: {}, theme: {}, commerce: {} });
     return res.json({ tenant_id: tenantId, settings });
   } catch (err) {
@@ -927,6 +926,7 @@ tenantRouter.put('/settings', async (req, res, next) => {
     );
 
     if (!existing.rowCount) {
+      await ensureTenantSettingsSeoColumn();
       const insertRes = await pool.query(
         'insert into tenant_settings (tenant_id, branding, theme, seo, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb) returning branding, theme, seo, commerce',
         [tenantId, branding, theme, seo || {}, commerce]
@@ -934,6 +934,7 @@ tenantRouter.put('/settings', async (req, res, next) => {
       return res.json({ tenant_id: tenantId, settings: normalizeTenantSettingsPayload(insertRes.rows[0]) });
     }
 
+    await ensureTenantSettingsSeoColumn();
     const updateRes = await pool.query(
       [
         'update tenant_settings',

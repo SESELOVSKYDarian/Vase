@@ -2,6 +2,7 @@ import express from 'express';
 import { pool } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { ensureTenantPlatformDomain } from '../services/tenantDomains.js';
+import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
 
 export const adminRouter = express.Router();
 
@@ -42,6 +43,7 @@ adminRouter.post('/tenants', async (req, res, next) => {
       const settingsTheme = theme || { primary: '#f97316', font_family: 'Inter' };
       const settingsCommerce = commerce || { mode: 'hybrid', currency: 'ARS', whatsapp_number: '' };
 
+      await ensureTenantSettingsSeoColumn();
       await client.query(
         'insert into tenant_settings (tenant_id, branding, theme, seo, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb)',
         [tenant.id, settingsBranding, settingsTheme, seo || {}, settingsCommerce]
@@ -81,10 +83,8 @@ adminRouter.get('/tenants/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'tenant_not_found' });
     }
 
-    const settingsRes = await pool.query(
-      'select branding, theme, seo, commerce from tenant_settings where tenant_id = $1',
-      [req.params.id]
-    );
+    await ensureTenantSettingsSeoColumn();
+    const settingsRes = await queryTenantSettingsWithSeo(req.params.id);
 
     return res.json({ tenant: tenantRes.rows[0], settings: settingsRes.rows[0] || {} });
   } catch (err) {
@@ -118,6 +118,7 @@ adminRouter.put('/tenants/:id/settings', async (req, res, next) => {
     );
 
     if (!existing.rowCount) {
+      await ensureTenantSettingsSeoColumn();
       const insertRes = await pool.query(
         'insert into tenant_settings (tenant_id, branding, theme, seo, commerce) values ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb) returning branding, theme, seo, commerce',
         [req.params.id, branding, theme, seo, commerce]
@@ -125,6 +126,7 @@ adminRouter.put('/tenants/:id/settings', async (req, res, next) => {
       return res.json({ tenant_id: req.params.id, settings: insertRes.rows[0] });
     }
 
+    await ensureTenantSettingsSeoColumn();
     const updateRes = await pool.query(
       [
         'update tenant_settings',
