@@ -1,9 +1,10 @@
-# Vase Business Google Positioning Section Design
+# Vase Business SEO Section Design
 
 ## Objective
 
 Add a dedicated section inside the Business editor for improving Google
-positioning of a page before publishing it.
+positioning of a page before publishing it, with first-class support for
+Google Tag Manager.
 
 The section must help the editor user:
 
@@ -11,6 +12,7 @@ The section must help the editor user:
 - write metadata that can rank and render well in search results
 - validate the page is ready to be indexed
 - understand what is missing before publication
+- manage site-wide tracking snippets without editing code
 
 This is an editorial SEO feature, not an automated ranking promise.
 
@@ -23,21 +25,24 @@ configuration sidebar:
 - `SEO description`
 
 That is enough for a minimal page, but not enough for a user who wants a more
-guided workflow for Google discovery and snippet quality.
+guided workflow for Google discovery, snippet quality, and analytics
+injection.
 
 This design adds a new section that sits beside the existing SEO fields and
-organizes the work around search intent, indexing readiness, and snippet
-preview.
+organizes the work around search intent, indexing readiness, snippet
+preview, and tracking code.
 
 ## Scope
 
 ### In scope
 
-- A new "Posicionamiento en Google" section in the Business editor.
+- A new `SEO` section in the Business editor.
 - Metadata fields for search and social snippet quality.
 - A live preview of how the page can appear in Google.
 - Basic guidance and warnings when the page is weak for indexing.
 - Autosave support for the new SEO data.
+- A first supported tracking block for Google Tag Manager.
+- A data shape that can hold additional tracking providers later.
 
 ### Out of scope
 
@@ -48,11 +53,12 @@ preview.
 - Ranking guarantees.
 - Technical SEO changes outside the editor unless they are needed to expose
   the new data.
+- Multi-provider tag management UI beyond the first GTM block.
 
 ## Recommended Approach
 
-Use a single dedicated sidebar card called "Posicionamiento en Google" rather
-than scattering SEO controls across multiple places.
+Use a single dedicated sidebar card called `SEO` rather than scattering SEO
+controls across multiple places.
 
 Why this approach:
 
@@ -60,6 +66,8 @@ Why this approach:
 - it matches the existing editor layout
 - it keeps metadata, preview, and validation together
 - it can be built without redesigning the whole Business workspace
+- it gives a clean place to add tracking code without mixing it into page
+  content controls
 
 ## User Experience
 
@@ -84,17 +92,19 @@ should understand three things immediately:
 - Secondary keywords
 - Content checklist
 - Google snippet preview
+- Google Tag Manager field
+- Optional tracking notes for future providers
 
 ### Suggested copy direction
 
 - Keep the tone commercial and plain.
-- Avoid jargon like "SERP" or "crawl budget" in the interface.
-- Use direct labels such as "Titulo para Google", "Descripcion para Google"
-  and "Palabra principal".
+- Avoid jargon like `SERP` or `crawl budget` in the interface.
+- Use direct labels such as `Titulo para Google`, `Descripcion para Google`,
+  `Palabra principal`, and `Google Tag Manager`.
 
 ## Information Architecture
 
-The section should be structured in four blocks:
+The section should be structured in five blocks:
 
 ### 1. Search intent
 
@@ -159,6 +169,30 @@ Behavior:
 - visually mark overflow or truncated values
 - fall back to safe placeholders when a field is empty
 
+### 5. Tracking code
+
+Capture the first supported site-wide tracking snippet.
+
+Fields:
+
+- Google Tag Manager container ID
+- enable / disable toggle
+- optional note for internal use
+
+Behavior:
+
+- the editor should store only the GTM container ID, not the full snippet
+- the runtime should render the official GTM script in `<head>` and the
+  `noscript` iframe immediately after `<body>`
+- the UI should make clear that this applies to the public site, not the admin
+  workspace
+- if the field is empty, no tracking code should be injected
+
+Future-ready constraint:
+
+- the data model should allow adding more providers later, but the UI should
+  only expose GTM for now
+
 ## Data Model
 
 The current `seo` object is too small for a guided positioning workflow.
@@ -177,6 +211,11 @@ seo: {
   indexable?: boolean;
   ogTitle?: string | null;
   ogDescription?: string | null;
+  tracking?: {
+    googleTagManagerContainerId?: string | null;
+    enabled?: boolean;
+    notes?: string | null;
+  } | null;
 }
 ```
 
@@ -189,6 +228,8 @@ Notes:
   user explicitly turns indexing off.
 - Open Graph fields are optional but useful when the page is shared outside
   Google.
+- `tracking.enabled` should default to `false` until the user adds a GTM
+  container ID.
 
 ## Validation Rules
 
@@ -222,6 +263,12 @@ hard error.
 - warn if the page has no connected domain and the user wants to rank in
   Google
 
+### Tracking
+
+- warn if GTM is enabled but the container ID is missing
+- warn if the container ID format does not look like a GTM ID
+- warn if tracking is enabled on a page that is still temporary or unpublished
+
 ## Content Guidance
 
 The section should help the user improve the page, not just fill metadata.
@@ -241,6 +288,7 @@ Optional checklist items:
 - the description explains the benefit
 - the page has at least one visible heading in the content
 - the page is linked to a public domain
+- the GTM container ID is present when tracking is enabled
 
 ## Layout
 
@@ -262,15 +310,19 @@ page.
 - The preview must update immediately when metadata changes.
 - The section must not break pages that do not yet have all the new fields.
 - The section must degrade gracefully if a domain is missing.
+- The GTM snippet must only render on the public site and must not affect the
+  admin/editor chrome.
 
 ## Acceptance Criteria
 
-- Business editor users can edit a dedicated Google positioning section.
+- Business editor users can edit a dedicated SEO section.
 - The editor stores the new SEO metadata in drafts and published pages.
 - The page preview reflects the entered title and description live.
 - The interface shows warnings when metadata is weak or indexing is not ready.
 - Existing pages without the new fields still open without errors.
 - The current SEO title and description behavior remains compatible.
+- The public site renders the GTM snippet only when a GTM container ID is set.
+- The admin/editor app does not render the GTM snippet.
 
 ## Testing
 
@@ -281,6 +333,9 @@ Minimum checks:
 - verify draft autosave persists the new SEO fields
 - verify the preview updates when the user edits title and description
 - verify the empty state warns clearly when the page has no public domain
+- verify the public site emits the GTM `<head>` script and `<body>` noscript
+  iframe when enabled
+- verify the admin/editor app never emits that tracking snippet
 
 ## Rollout Notes
 
@@ -289,4 +344,6 @@ Minimum checks:
 - Keep the feature visible to page owners who can already edit the page.
 - If later needed, the same data can feed richer SEO reporting or publishing
   checks.
+- Start with GTM only; add more providers behind the same model later without
+  changing the stored page contract.
 
