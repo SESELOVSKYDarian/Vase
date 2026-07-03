@@ -586,7 +586,7 @@ export function BuilderEditor({
                 Operaciones
               </p>
               <h3 className="font-serif text-2xl tracking-[-0.04em] text-[var(--foreground)]">
-                SEO y tracking del cliente
+                SEO del sitio
               </h3>
               <p className="text-sm leading-7 text-[var(--muted)]">
                 Carga los codigos que necesita la web del cliente para posicionamiento, indexacion y
