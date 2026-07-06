@@ -6,6 +6,7 @@ import { requireTenantRole, requireVerifiedUser, tenantRoles } from "@/lib/auth/
 import type { IntegrationScope } from "@/config/integrations";
 import { prisma } from "@/lib/db/prisma";
 import {
+  buildCompatibilityConsumerSecret,
   generateApiCredential,
   generateWebhookSecret,
 } from "@/lib/integrations/credentials";
@@ -27,6 +28,7 @@ export type IntegrationActionState = {
   success?: string;
   error?: string;
   secret?: string;
+  compatibilitySecret?: string;
 };
 
 function fieldValueList(formData: FormData, fieldName: string) {
@@ -94,6 +96,10 @@ export async function createIntegrationCredentialAction(
     return {
       success: "Credencial creada. Copia la API key ahora: no volvera a mostrarse completa.",
       secret: generated.displayToken,
+      compatibilitySecret: buildCompatibilityConsumerSecret({
+        tenantId: membership.tenantId,
+        tokenValue: generated.displayToken,
+      }) ?? undefined,
     };
   } catch {
     return {
@@ -170,6 +176,10 @@ export async function rotateIntegrationCredentialAction(
     return {
       success: "Credencial rotada. Usa la nueva API key desde ahora.",
       secret: next.displayToken,
+      compatibilitySecret: buildCompatibilityConsumerSecret({
+        tenantId: membership.tenantId,
+        tokenValue: next.displayToken,
+      }) ?? undefined,
     };
   } catch {
     return {

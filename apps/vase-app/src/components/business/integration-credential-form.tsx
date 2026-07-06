@@ -63,6 +63,13 @@ export function IntegrationCredentialForm() {
           <code>{state.secret}</code>
         </pre>
       ) : null}
+      {state.secret && state.compatibilitySecret ? (
+        <pre className="overflow-x-auto rounded-[22px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4 text-sm text-[var(--foreground)]">
+          <code>{`consumer_key=${state.secret}
+consumer_secret=${state.compatibilitySecret}
+scope_requerido=products:sync`}</code>
+        </pre>
+      ) : null}
       {state.error ? <p className="text-sm leading-6 text-[var(--danger)]">{state.error}</p> : null}
     </form>
   );

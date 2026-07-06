@@ -1,4 +1,5 @@
 export const integrationScopes = [
+  "products:sync",
   "catalog:read",
   "stock:read",
   "prices:read",

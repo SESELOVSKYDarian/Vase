@@ -1,5 +1,6 @@
 import { pool } from '../db.js';
 import { buildProductSyncCompatibilitySecret } from '../services/integrationManifest.js';
+import { introspectRemoteIntegrationCredential } from './remoteIntegrationAuth.js';
 
 const readApiKeyFromRequest = (req) => {
     const headerKey = String(req.get('x-api-key') || req.query.api_key || '').trim();
@@ -88,12 +89,30 @@ export const validateApiKey = async (req, res, next) => {
     try {
         const tokenRecord = await findApiTokenByValue(apiKey);
 
-        if (!tokenRecord) {
+        if (tokenRecord) {
+            req.apiKey = tokenRecord;
+            req.tenantId = req.apiKey.tenant_id;
+            next();
+            return;
+        }
+
+        const remoteCredential = await introspectRemoteIntegrationCredential({
+            req,
+            token: apiKey,
+            scope: 'products:sync',
+        });
+
+        if (!remoteCredential) {
             return res.status(403).json({ error: 'invalid_api_key' });
         }
 
-        req.apiKey = tokenRecord;
-        req.tenantId = req.apiKey.tenant_id;
+        req.apiKey = {
+            id: remoteCredential.credentialId,
+            tenant_id: remoteCredential.tenantId,
+            name: remoteCredential.credentialName,
+            scope: remoteCredential.scope,
+        };
+        req.tenantId = remoteCredential.tenantId;
         next();
     } catch (err) {
         next(err);
@@ -113,21 +132,40 @@ export const validateCompatibilityConsumerCredentials = async (req, res, next) =
 
     try {
         const tokenRecord = await findApiTokenByValue(consumerKey);
-        if (!tokenRecord) {
+        if (tokenRecord) {
+            const expectedSecret = buildProductSyncCompatibilitySecret({
+                tenantId: tokenRecord.tenant_id,
+                tokenValue: tokenRecord.token_hash,
+            });
+
+            if (!expectedSecret || expectedSecret !== consumerSecret) {
+                return res.status(403).json({ error: 'invalid_consumer_secret' });
+            }
+
+            req.apiKey = tokenRecord;
+            req.tenantId = tokenRecord.tenant_id;
+            req.integrationAuthMode = 'consumer_key_secret';
+            return next();
+        }
+
+        const remoteCredential = await introspectRemoteIntegrationCredential({
+            req,
+            token: consumerKey,
+            scope: 'products:sync',
+            consumerSecret,
+        });
+
+        if (!remoteCredential) {
             return res.status(403).json({ error: 'invalid_consumer_key' });
         }
 
-        const expectedSecret = buildProductSyncCompatibilitySecret({
-            tenantId: tokenRecord.tenant_id,
-            tokenValue: tokenRecord.token_hash,
-        });
-
-        if (!expectedSecret || expectedSecret !== consumerSecret) {
-            return res.status(403).json({ error: 'invalid_consumer_secret' });
-        }
-
-        req.apiKey = tokenRecord;
-        req.tenantId = tokenRecord.tenant_id;
+        req.apiKey = {
+            id: remoteCredential.credentialId,
+            tenant_id: remoteCredential.tenantId,
+            name: remoteCredential.credentialName,
+            scope: remoteCredential.scope,
+        };
+        req.tenantId = remoteCredential.tenantId;
         req.integrationAuthMode = 'consumer_key_secret';
         return next();
     } catch (err) {

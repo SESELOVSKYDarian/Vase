@@ -64,6 +64,28 @@ export function verifySecretHash(rawSecret: string, secretHash: string) {
   return timingSafeEqual(incoming, stored);
 }
 
+export function buildCompatibilityConsumerSecret(input: {
+  tenantId: string;
+  tokenValue: string;
+}) {
+  const normalizedTenantId = String(input.tenantId || "").trim();
+  const normalizedTokenValue = String(input.tokenValue || "").trim();
+
+  if (!normalizedTenantId || !normalizedTokenValue) {
+    return null;
+  }
+
+  const salt = String(
+    process.env.INTEGRATIONS_COMPAT_SECRET_SALT ||
+      process.env.AUTH_SECRET ||
+      "vase-integrations-compat",
+  );
+
+  return createHash("sha256")
+    .update(`${salt}:${normalizedTenantId}:${normalizedTokenValue}`)
+    .digest("hex");
+}
+
 export function generateWebhookSecret() {
   const secret = `${WEBHOOK_SECRET_PREFIX}_${randomBytes(24).toString("hex")}`;
 

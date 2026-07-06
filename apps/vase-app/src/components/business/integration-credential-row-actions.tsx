@@ -54,6 +54,13 @@ export function IntegrationCredentialRowActions({
           <code>{rotateState.secret}</code>
         </pre>
       ) : null}
+      {rotateState.secret && rotateState.compatibilitySecret ? (
+        <pre className="overflow-x-auto rounded-[22px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4 text-sm text-[var(--foreground)]">
+          <code>{`consumer_key=${rotateState.secret}
+consumer_secret=${rotateState.compatibilitySecret}
+scope_requerido=products:sync`}</code>
+        </pre>
+      ) : null}
       {rotateState.error ? <p className="text-sm leading-6 text-[var(--danger)]">{rotateState.error}</p> : null}
       {revokeState.success ? <p className="text-sm leading-6 text-[var(--success)]">{revokeState.success}</p> : null}
       {revokeState.error ? <p className="text-sm leading-6 text-[var(--danger)]">{revokeState.error}</p> : null}
