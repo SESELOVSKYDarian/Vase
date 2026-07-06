@@ -97,18 +97,27 @@ export async function sendLoginSecurityEmail(params: {
       : "IP no disponible";
   const deviceHint = params.requestContext.userAgent ?? "Dispositivo no disponible";
 
-  await sendNoticeEmail({
-    email: params.email,
-    subject: "Nuevo inicio de sesion en tu cuenta Vase",
-    message: [
-      params.name ? `Hola ${params.name},` : "Hola,",
-      "Detectamos un inicio de sesion correcto en tu cuenta Vase.",
-      `Fecha y hora: ${new Date().toLocaleString("es-AR")}`,
-      `Origen: ${locationHint}`,
-      `Dispositivo/navegador: ${deviceHint}`,
-      "Si no fuiste vos, cambia tu contrasena y contacta soporte.",
-    ].join("\n"),
-  });
+  try {
+    await sendNoticeEmail({
+      email: params.email,
+      subject: "Nuevo inicio de sesion en tu cuenta Vase",
+      message: [
+        params.name ? `Hola ${params.name},` : "Hola,",
+        "Detectamos un inicio de sesion correcto en tu cuenta Vase.",
+        `Fecha y hora: ${new Date().toLocaleString("es-AR")}`,
+        `Origen: ${locationHint}`,
+        `Dispositivo/navegador: ${deviceHint}`,
+        "Si no fuiste vos, cambia tu contrasena y contacta soporte.",
+      ].join("\n"),
+    });
+  } catch (error) {
+    console.warn("[auth] login security email failed", {
+      email: params.email,
+      code: error instanceof Error && "code" in error ? error.code : undefined,
+      responseCode:
+        error instanceof Error && "responseCode" in error ? error.responseCode : undefined,
+    });
+  }
 }
 
 export async function sendTooManyAttemptsEmail(params: {
