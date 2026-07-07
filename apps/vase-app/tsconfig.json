@@ -20,7 +20,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@vase/auth": ["../../packages/auth/src/index.ts"],
+      "@vase/contracts": ["../../packages/contracts/src/index.ts"],
+      "@vase/internal-api": ["../../packages/internal-api/src/index.ts"]
     }
   },
   "include": [

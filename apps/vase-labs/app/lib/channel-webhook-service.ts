@@ -1,4 +1,4 @@
-import { Prisma, type PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "./db";
 import { randomUUID } from "node:crypto";
 import type { InboundChannelMessage, LabsChannel, LabsChannelProvider } from "@vase/contracts";
 import { canTenantUseChannel, createRuntimeEntitlement, type LabsRuntimeEntitlement } from "./billing";
@@ -33,6 +33,10 @@ export type PersistChannelInboundMessageResult = {
 
 export interface ChannelWebhookRepository {
   findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
+  findContextByProviderAccountId?(
+    channelType: LabsChannel,
+    providerAccountId: string,
+  ): Promise<ChannelWebhookContext | null>;
   markWebhookEventProcessing?(input: {
     context: ChannelWebhookContext;
     providerEventId?: string | null;
@@ -86,6 +90,12 @@ type ChannelRow = {
   provider: LabsChannelProvider | null;
   status: string;
   config: unknown;
+};
+
+type ProviderChannelRow = ChannelRow & {
+  assistantId: string;
+  globalTenantId: string;
+  tenantSlug: string | null;
 };
 
 type EntitlementRow = {
@@ -242,6 +252,57 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
             config: normalizeRecord(channel.config),
           }
         : null,
+      entitlement: buildRuntimeEntitlement(entitlements[0]),
+    };
+  }
+
+  async findContextByProviderAccountId(
+    channelType: LabsChannel,
+    providerAccountId: string,
+  ): Promise<ChannelWebhookContext | null> {
+    const rows = await this.prisma.$queryRaw<ProviderChannelRow[]>`
+      SELECT
+        c.id,
+        c.provider,
+        c.status,
+        c.config,
+        a.id AS "assistantId",
+        a."globalTenantId",
+        a."tenantSlug"
+      FROM "Channel" c
+      JOIN "Assistant" a ON a.id = c."assistantId"
+      WHERE c.type = ${enumValue(channelType)}
+        AND c.provider = 'META_OFFICIAL'
+        AND (
+          c."providerAccountId" = ${providerAccountId}
+          OR c.config->>'parentId' = ${providerAccountId}
+        )
+      ORDER BY c."updatedAt" DESC
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row?.tenantSlug) return null;
+
+    const entitlements = await this.prisma.$queryRaw<EntitlementRow[]>`
+      SELECT
+        "globalTenantId", plan, status, "enabledChannels", "tokenPack",
+        "tokensIncluded", "tokensUsed", "extraTokens", "currentPeriodStart", "renewsAt"
+      FROM "LabsEntitlement"
+      WHERE "globalTenantId" = ${row.globalTenantId}
+      LIMIT 1
+    `;
+
+    return {
+      assistantId: row.assistantId,
+      globalTenantId: row.globalTenantId,
+      tenantSlug: row.tenantSlug,
+      channelType,
+      channel: {
+        id: row.id,
+        provider: row.provider,
+        status: row.status,
+        config: normalizeRecord(row.config),
+      },
       entitlement: buildRuntimeEntitlement(entitlements[0]),
     };
   }
@@ -465,6 +526,7 @@ export async function handleMetaChannelWebhook(input: {
   tenantSlug: string;
   rawBody: string;
   signatureHeader: string | null;
+  appSecret?: string;
   parseMessage: ParseChannelWebhookMessage;
 }): Promise<ChannelWebhookPostResult> {
   const context = await input.repository.findContextByTenantSlug(input.tenantSlug, input.channelType);
@@ -484,8 +546,9 @@ export async function handleMetaChannelWebhook(input: {
   }
 
   const providerConfig = readMetaChannelProviderConfig(context.channel.config);
+  const appSecret = input.appSecret ?? providerConfig.appSecret;
 
-  if (!providerConfig.appSecret || !verifyMetaSignature(providerConfig.appSecret, input.rawBody, input.signatureHeader)) {
+  if (!appSecret || !verifyMetaSignature(appSecret, input.rawBody, input.signatureHeader)) {
     return {
       status: 401,
       body: { ok: false, reason: "invalid_signature" },
@@ -561,4 +624,54 @@ export async function handleMetaChannelWebhook(input: {
       aiBlockedReason,
     },
   };
+}
+
+export async function handleGlobalMetaChannelWebhook(input: {
+  channelType: LabsChannel;
+  repository: ChannelWebhookRepository;
+  rawBody: string;
+  signatureHeader: string | null;
+  appSecret: string;
+  parseMessage: ParseChannelWebhookMessage;
+}): Promise<ChannelWebhookPostResult> {
+  if (!verifyMetaSignature(input.appSecret, input.rawBody, input.signatureHeader)) {
+    return { status: 401, body: { ok: false, reason: "invalid_signature" } };
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(input.rawBody);
+  } catch {
+    return { status: 200, body: { ok: true, ignored: true, reason: "invalid_json" } };
+  }
+
+  const entry = normalizeRecord(payload)?.entry;
+  const firstEntry = Array.isArray(entry) ? normalizeRecord(entry[0]) : null;
+  const providerAccountId =
+    typeof firstEntry?.id === "string" ? firstEntry.id.trim() : "";
+  if (!providerAccountId || !input.repository.findContextByProviderAccountId) {
+    return { status: 200, body: { ok: true, ignored: true, reason: "provider_account_missing" } };
+  }
+
+  const context = await input.repository.findContextByProviderAccountId(
+    input.channelType,
+    providerAccountId,
+  );
+  if (!context) {
+    return { status: 200, body: { ok: true, ignored: true, reason: "channel_not_configured" } };
+  }
+
+  const repository: ChannelWebhookRepository = {
+    ...input.repository,
+    findContextByTenantSlug: async () => context,
+  };
+  return handleMetaChannelWebhook({
+    channelType: input.channelType,
+    repository,
+    tenantSlug: context.tenantSlug,
+    rawBody: input.rawBody,
+    signatureHeader: input.signatureHeader,
+    appSecret: input.appSecret,
+    parseMessage: input.parseMessage,
+  });
 }

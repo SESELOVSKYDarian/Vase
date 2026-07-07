@@ -85,6 +85,30 @@ class MemoryRepository implements ChannelWebhookRepository {
 }
 
 describe("Vase Labs Meta webhook hardening", () => {
+  it("verifies signatures with Vase's global Meta app secret, not channel config", async () => {
+    const repository = new MemoryRepository(createContext({
+      channel: {
+        id: "channel_123",
+        provider: "META_OFFICIAL",
+        status: "CONNECTED",
+        config: { verifyToken: "verify-token" },
+      },
+    }));
+    const body = JSON.stringify(createInstagramPayload());
+
+    const result = await handleMetaChannelWebhook({
+      channelType: "INSTAGRAM",
+      repository,
+      tenantSlug: "tenant-demo",
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("global-meta-secret", body)}`,
+      appSecret: "global-meta-secret",
+      parseMessage: parseInstagramWebhookMessage,
+    });
+
+    expect(result.body).toMatchObject({ ok: true, processed: true });
+  });
+
   it("ignores messages for channels that are not connected", async () => {
     const repository = new MemoryRepository(createContext({
       channel: {

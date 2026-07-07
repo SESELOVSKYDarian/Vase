@@ -1,26 +1,43 @@
 import { NextResponse } from "next/server";
 import { labsPrisma } from "../../../../lib/db";
+import { resolveLabsRequestContext } from "../../../../lib/request-context";
 
-export async function GET(
-  _request: Request,
+export function GET() {
+  return NextResponse.json(
+    { error: "TENANT_SCOPED_CHANNEL_LIST_REMOVED" },
+    { status: 410 },
+  );
+}
+
+export async function DELETE(
+  request: Request,
   { params }: { params: Promise<{ tenantSlug: string }> },
 ) {
-  const { tenantSlug } = await params;
-  const assistants = await (labsPrisma as any).$queryRaw<Array<{ id: string }>>`
-    SELECT id FROM "Assistant" WHERE "tenantSlug" = ${tenantSlug} LIMIT 1
-  `;
-  const assistant = assistants[0];
+  try {
+    const { tenantSlug: channelId } = await params;
+    const { assistant } = await resolveLabsRequestContext(request.headers.get("cookie"));
+    const channel = await labsPrisma.channel.findFirst({
+      where: { id: channelId, assistantId: assistant.id },
+      select: { id: true },
+    });
+    if (!channel) {
+      return NextResponse.json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
+    }
 
-  if (!assistant) {
-    return NextResponse.json({ channels: [] });
+    await labsPrisma.$transaction([
+      labsPrisma.channelSecret.deleteMany({ where: { channelId } }),
+      labsPrisma.channel.update({
+        where: { id: channelId },
+        data: {
+          status: "DISCONNECTED",
+          connectedAt: null,
+          lastError: null,
+        },
+      }),
+    ]);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "CHANNEL_DISCONNECT_FAILED";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
-
-  const channels = await (labsPrisma as any).$queryRaw`
-    SELECT id, type, provider, status, "accountLabel", "externalHandle", "connectedAt", "lastSyncedAt", "lastError"
-    FROM "Channel"
-    WHERE "assistantId" = ${assistant.id}
-    ORDER BY "createdAt" DESC
-  `;
-
-  return NextResponse.json({ channels });
 }

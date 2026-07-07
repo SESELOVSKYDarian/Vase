@@ -1,6 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "baseUrl": ".", "plugins": [{ "name": "next" }] },
-  "include": ["next-env.d.ts", "app/**/*.ts", "app/**/*.tsx", ".next/types/**/*.ts"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@vase/auth": ["../../packages/auth/src/index.ts"],
+      "@vase/contracts": ["../../packages/contracts/src/index.ts"],
+      "@vase/internal-api": ["../../packages/internal-api/src/index.ts"]
+    },
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["next-env.d.ts", "app/**/*.ts", "app/**/*.tsx", "scripts/**/*.ts", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }

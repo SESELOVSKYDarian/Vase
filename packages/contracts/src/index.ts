@@ -89,6 +89,58 @@ export const metaConnectStartResultSchema = z.object({
   scopes: z.array(z.string().min(1)),
 });
 
+export const metaConnectionAttemptStatusSchema = z.enum([
+  "AUTHORIZING",
+  "SELECTING_ASSET",
+  "VERIFYING",
+  "CONNECTED",
+  "FAILED",
+]);
+
+export const metaAssetCandidateSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(["WHATSAPP_PHONE", "INSTAGRAM_ACCOUNT", "FACEBOOK_PAGE"]),
+  name: z.string().min(1),
+  handle: z.string().nullable().optional(),
+  parentId: z.string().nullable().optional(),
+});
+
+export const metaConnectionAttemptSchema = z.object({
+  id: z.string().min(1),
+  channelType: labsChannelSchema,
+  status: metaConnectionAttemptStatusSchema,
+  expiresAt: z.iso.datetime(),
+  candidates: z.array(metaAssetCandidateSchema),
+  errorCode: z.string().nullable(),
+});
+
+export const redactedChannelSummarySchema = z.object({
+  id: z.string().min(1),
+  type: labsChannelSchema,
+  provider: z.literal("META_OFFICIAL"),
+  status: channelConnectionStatusSchema,
+  accountLabel: z.string().nullable(),
+  externalHandle: z.string().nullable(),
+  providerAccountId: z.string().nullable(),
+  connectedAt: z.iso.datetime().nullable(),
+  lastSyncedAt: z.iso.datetime().nullable(),
+  lastError: z.string().nullable(),
+  secretStatus: z.enum(["CONFIGURED", "MISSING"]),
+});
+
+export const labsSessionContextSchema = z.object({
+  globalUserId: z.string().min(1),
+  globalTenantId: z.string().min(1),
+  tenantSlug: z.string().min(1),
+  tenantName: z.string().min(1),
+  role: z.enum(["OWNER", "MANAGER", "MEMBER"]),
+  entitlement: z.object({
+    plan: labsPlanSchema,
+    status: z.enum(["ACTIVE", "TRIAL", "PAUSED", "SUSPENDED", "EXPIRED", "CANCELLED"]),
+    enabledChannels: z.array(labsChannelSchema),
+  }),
+});
+
 export const channelConnectionSummarySchema = z.object({
   id: z.string().min(1),
   type: labsChannelSchema,
@@ -353,6 +405,11 @@ export type LabsServiceStatus = z.infer<typeof labsServiceStatusSchema>;
 export type LabsAdminTenantControl = z.infer<typeof labsAdminTenantControlSchema>;
 export type MetaConnectStart = z.infer<typeof metaConnectStartSchema>;
 export type MetaConnectStartResult = z.infer<typeof metaConnectStartResultSchema>;
+export type MetaConnectionAttemptStatus = z.infer<typeof metaConnectionAttemptStatusSchema>;
+export type MetaAssetCandidate = z.infer<typeof metaAssetCandidateSchema>;
+export type MetaConnectionAttempt = z.infer<typeof metaConnectionAttemptSchema>;
+export type RedactedChannelSummary = z.infer<typeof redactedChannelSummarySchema>;
+export type LabsSessionContext = z.infer<typeof labsSessionContextSchema>;
 export type ChannelConnectionSummary = z.infer<typeof channelConnectionSummarySchema>;
 export type InboxConversation = z.infer<typeof inboxConversationSchema>;
 export type InboxMessage = z.infer<typeof inboxMessageSchema>;

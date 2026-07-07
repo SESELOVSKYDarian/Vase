@@ -1,38 +1,35 @@
 import { NextResponse } from "next/server";
-import { createMetaOAuthService } from "../../../../../lib/meta-oauth";
+import { createMetaRuntime } from "../../../../../lib/meta-runtime";
 
-function createService() {
-  return createMetaOAuthService({
-    appId: process.env.META_APP_ID ?? "",
-    appSecret: process.env.META_APP_SECRET ?? "",
-    redirectUri: process.env.META_OAUTH_REDIRECT_URI ?? "https://labs.vase.ar/api/v1/meta/oauth/callback",
-    stateSecret: process.env.META_WEBHOOK_SECRET ?? process.env.SERVICE_TO_SERVICE_TOKEN ?? "local-meta-state-secret",
-  });
-}
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const params = new URL(request.url).searchParams;
-  const code = params.get("code");
-  const state = params.get("state");
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const destination = new URL("/app/channels", url.origin);
 
   if (!code || !state) {
-    return NextResponse.json({ error: "CODE_AND_STATE_REQUIRED" }, { status: 400 });
+    destination.searchParams.set("oauth", "cancelled");
+    return NextResponse.redirect(destination);
   }
 
   try {
-    const service = createService();
-    const statePayload = service.verifyState(state);
-    const token = await service.exchangeCodeForAccessToken(code);
-
-    return NextResponse.json({
-      ok: true,
-      tenantSlug: statePayload.tenantSlug,
-      channelType: statePayload.channelType,
-      tokenType: token.tokenType,
-      expiresIn: token.expiresIn,
-      accessToken: "secret_configured",
-    });
+    const result = await createMetaRuntime().service.callback({ code, state });
+    destination.searchParams.set("oauth", "complete");
+    destination.searchParams.set("attempt", result.attemptId);
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "META_OAUTH_CALLBACK_FAILED" }, { status: 400 });
+    const message = error instanceof Error ? error.message : "META_OAUTH_FAILED";
+    const safeCode = [
+      "META_OAUTH_STATE_EXPIRED",
+      "META_OAUTH_STATE_CONSUMED_OR_MISMATCHED",
+      "META_NO_ELIGIBLE_ASSETS",
+    ].includes(message)
+      ? message
+      : "META_OAUTH_FAILED";
+    destination.searchParams.set("oauth", "failed");
+    destination.searchParams.set("reason", safeCode);
   }
+
+  return NextResponse.redirect(destination);
 }

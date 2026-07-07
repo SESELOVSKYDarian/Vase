@@ -181,6 +181,7 @@ Management sera el ERP SaaS argentino y debe integrarse con App para identidad, 
 
 ```env
 NEXT_PUBLIC_APP_URL=https://labs.vase.ar
+APP_INTERNAL_URL=http://app-vase:3002
 DATABASE_URL=postgresql://vase_labs_user:PASSWORD@postgres-labs:5432/vase_labs
 AUTH_SECRET=CHANGE_ME_BASE64_32
 AUTH_COOKIE_DOMAIN=.vase.ar
@@ -199,14 +200,15 @@ Variables Meta, IA y secretos operativos para Labs:
 OPENAI_API_KEY=CHANGE_ME
 META_APP_ID=CHANGE_ME
 META_APP_SECRET=CHANGE_ME
+META_GRAPH_VERSION=v24.0
+META_WHATSAPP_CONFIG_ID=CHANGE_ME
 META_VERIFY_TOKEN=CHANGE_ME
 META_WEBHOOK_SECRET=CHANGE_ME_BASE64_32
-WHATSAPP_ACCESS_TOKEN=CHANGE_ME
-INSTAGRAM_ACCESS_TOKEN=CHANGE_ME
-FACEBOOK_PAGE_ACCESS_TOKEN=CHANGE_ME
 META_OAUTH_REDIRECT_URI=https://labs.vase.ar/api/v1/meta/oauth/callback
 TOKEN_ENCRYPTION_SECRET=CHANGE_ME_BASE64_32
 ```
+
+`APP_INTERNAL_URL` debe apuntar al nombre interno del servicio App en EasyPanel, no al dominio publico. Labs valida la cookie compartida y usa `SERVICE_TO_SERVICE_TOKEN` para resolver tenant/rol sin acceder a la base de App.
 
 La integracion interna App/Admin -> Labs debe usar `SERVICE_TO_SERVICE_TOKEN` contra `https://labs.vase.ar/api/internal/admin/labs/entitlements`. Esa ruta sincroniza la proyeccion local `LabsEntitlement` y evita joins entre bases.
 
@@ -219,9 +221,21 @@ Los packs de tokens productivos son:
 Antes del deploy productivo de Labs, ejecutar migraciones Prisma de `apps/vase-labs/prisma/schema.prisma` y verificar:
 
 ```bash
+npm run prisma:generate --workspace @vase/labs
+npm run prisma:migrate:deploy --workspace @vase/labs
+npm run migrate:legacy-channels --workspace @vase/labs
 curl https://labs.vase.ar/api/health/live
 curl https://labs.vase.ar/api/health/ready
 ```
+
+El flujo oficial requiere además completar en Meta Business:
+
+- verificacion del negocio y App Review;
+- acceso avanzado para WhatsApp, Instagram Messaging y Pages Messaging;
+- callback OAuth `https://labs.vase.ar/api/v1/meta/oauth/callback`;
+- callbacks globales de la app Meta bajo `/api/v1/meta/webhooks/{whatsapp|instagram|facebook}`;
+- las rutas históricas por tenant se conservan temporalmente para compatibilidad, pero las nuevas suscripciones deben usar los callbacks globales;
+- configuración de Embedded Signup cuyo ID se guarda en `META_WHATSAPP_CONFIG_ID`.
 
 `ready` debe devolver `status: "ok"` y `checks.database: "postgres-labs"`. Si devuelve `status: "degraded"` con `checks.database: "error"`, revisar `DATABASE_URL`, credenciales, red interna y migraciones.
 

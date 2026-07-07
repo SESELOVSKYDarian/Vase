@@ -1,4 +1,5 @@
 import type { CookiesOptions } from "@auth/core/types";
+import { sharedAuthCookieName } from "@vase/auth";
 
 type AuthCookieEnvironment = {
   AUTH_COOKIE_DOMAIN?: string;
@@ -6,7 +7,6 @@ type AuthCookieEnvironment = {
 };
 
 const DEFAULT_PRODUCTION_COOKIE_DOMAIN = ".vase.ar";
-const SHARED_SESSION_COOKIE_NAME = "__Secure-authjs.session-token";
 
 function normalizeCookieDomain(value: string) {
   const trimmed = value.trim().toLowerCase();
@@ -51,7 +51,7 @@ export function createAuthCookiesConfig(
 
   return {
     sessionToken: {
-      name: SHARED_SESSION_COOKIE_NAME,
+      name: sharedAuthCookieName,
       options: {
         domain,
         httpOnly: true,

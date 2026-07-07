@@ -35,6 +35,7 @@ export async function POST(
     tenantSlug,
     rawBody,
     signatureHeader: request.headers.get("x-hub-signature-256"),
+    appSecret: process.env.META_APP_SECRET,
   });
 
   return NextResponse.json(result.body, { status: result.status });

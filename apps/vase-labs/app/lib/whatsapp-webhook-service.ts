@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "./db";
 import type {
   ChannelWebhookContext,
   ChannelWebhookRepository,
@@ -53,6 +53,7 @@ export async function handleWhatsAppMetaWebhook(input: {
   tenantSlug: string;
   rawBody: string;
   signatureHeader: string | null;
+  appSecret?: string;
 }): Promise<WebhookPostResult> {
   return handleMetaChannelWebhook({
     channelType: "WHATSAPP",
@@ -60,6 +61,7 @@ export async function handleWhatsAppMetaWebhook(input: {
     tenantSlug: input.tenantSlug,
     rawBody: input.rawBody,
     signatureHeader: input.signatureHeader,
+    appSecret: input.appSecret,
     parseMessage: ({ globalTenantId, payload }) =>
       parseWhatsAppWebhookMessage({
         globalTenantId,

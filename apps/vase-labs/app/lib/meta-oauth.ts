@@ -6,8 +6,8 @@ const DEFAULT_EXPIRES_MS = 10 * 60 * 1000;
 
 const CHANNEL_SCOPES: Record<LabsChannel, string[]> = {
   WHATSAPP: ["business_management", "whatsapp_business_management", "whatsapp_business_messaging"],
-  INSTAGRAM: ["pages_show_list", "instagram_basic", "instagram_manage_messages", "pages_manage_metadata"],
-  FACEBOOK: ["pages_show_list", "pages_messaging", "pages_manage_metadata"],
+  INSTAGRAM: ["pages_show_list", "pages_read_engagement", "instagram_basic", "instagram_manage_messages", "pages_manage_metadata"],
+  FACEBOOK: ["pages_show_list", "pages_read_engagement", "pages_messaging", "pages_manage_metadata"],
 };
 
 interface MetaOAuthServiceInput {
@@ -15,12 +15,16 @@ interface MetaOAuthServiceInput {
   appSecret: string;
   redirectUri: string;
   stateSecret: string;
+  whatsappConfigId?: string;
   graphVersion?: string;
   now?: () => Date;
   fetcher?: typeof fetch;
 }
 
 export interface MetaOAuthStatePayload {
+  attemptId: string;
+  globalUserId: string;
+  globalTenantId: string;
   tenantSlug: string;
   channelType: LabsChannel;
   expiresAt: string;
@@ -45,7 +49,7 @@ export function createMetaOAuthService(input: MetaOAuthServiceInput) {
   const graphVersion = input.graphVersion ?? DEFAULT_GRAPH_VERSION;
 
   return {
-    createAuthorizationUrl(request: { tenantSlug: string; channelType: LabsChannel }): MetaConnectStartResult {
+    createAuthorizationUrl(request: Omit<MetaOAuthStatePayload, "expiresAt">): MetaConnectStartResult {
       const scopes = CHANNEL_SCOPES[request.channelType];
       const expiresAt = new Date(now().getTime() + DEFAULT_EXPIRES_MS).toISOString();
       const payload = base64urlJson({ ...request, expiresAt });
@@ -55,6 +59,11 @@ export function createMetaOAuthService(input: MetaOAuthServiceInput) {
       url.searchParams.set("redirect_uri", input.redirectUri);
       url.searchParams.set("state", state);
       url.searchParams.set("scope", scopes.join(","));
+      url.searchParams.set("response_type", "code");
+      if (request.channelType === "WHATSAPP" && input.whatsappConfigId) {
+        url.searchParams.set("config_id", input.whatsappConfigId);
+        url.searchParams.set("override_default_response_type", "true");
+      }
 
       return {
         authorizationUrl: url.toString(),

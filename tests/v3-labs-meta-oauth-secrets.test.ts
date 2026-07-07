@@ -21,6 +21,9 @@ describe("Vase Labs Meta OAuth and channel secrets", () => {
     });
 
     const result = service.createAuthorizationUrl({
+      attemptId: "attempt_instagram",
+      globalUserId: "user_123",
+      globalTenantId: "tenant_123",
       tenantSlug: "tenant-demo",
       channelType: "INSTAGRAM",
     });
@@ -34,6 +37,33 @@ describe("Vase Labs Meta OAuth and channel secrets", () => {
     expect(service.verifyState(result.state)).toMatchObject({
       tenantSlug: "tenant-demo",
       channelType: "INSTAGRAM",
+    });
+  });
+
+  it("binds OAuth state to the user, tenant and one connection attempt", () => {
+    const service = createMetaOAuthService({
+      appId: "app_123",
+      appSecret: "app_secret",
+      redirectUri: "https://labs.vase.ar/api/v1/meta/oauth/callback",
+      stateSecret: "state-secret",
+      whatsappConfigId: "wa-config-123",
+    });
+
+    const result = service.createAuthorizationUrl({
+      attemptId: "attempt_123",
+      globalUserId: "user_123",
+      globalTenantId: "tenant_123",
+      tenantSlug: "tenant-demo",
+      channelType: "WHATSAPP",
+    });
+    const url = new URL(result.authorizationUrl);
+
+    expect(url.searchParams.get("config_id")).toBe("wa-config-123");
+    expect(service.verifyState(result.state)).toMatchObject({
+      attemptId: "attempt_123",
+      globalUserId: "user_123",
+      globalTenantId: "tenant_123",
+      channelType: "WHATSAPP",
     });
   });
 });

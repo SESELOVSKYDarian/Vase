@@ -69,3 +69,6 @@ open-wa-session*.json
 **/*.tsbuildinfo
 next-env.d.ts
 
+# workspace-local generated database clients
+**/app/generated/prisma/
+
