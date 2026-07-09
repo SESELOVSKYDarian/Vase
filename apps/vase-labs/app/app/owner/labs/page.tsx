@@ -1,11 +1,10 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Bot, Cable, Database, Flame, MessageSquare, Route, UserRoundCheck } from "lucide-react";
+import { Bot, Cable, Database, MessageSquare, Route } from "lucide-react";
 import { labsPrisma } from "../../../lib/db";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
 import {
-  LabsActionLink,
   LabsEmptyState,
   LabsMetricCard,
   LabsPageHeader,
@@ -147,26 +146,45 @@ export default async function LabsDashboardPage() {
   return (
     <div className="space-y-6">
       <LabsPageHeader
-        eyebrow="Operacion IA"
-        title="Panel de control"
-        description="Estado vivo de conversaciones, conocimiento, canales y derivaciones humanas."
-        actions={
-          <>
-            <LabsActionLink href="/app/owner/labs/inbox">Abrir inbox</LabsActionLink>
-            <Link href="/app/owner/labs/activity" className="labs-button labs-button-secondary">
-              Analisis
-            </Link>
-          </>
-        }
+        title="Bienvenido a Vase Labs"
+        description="Centro de IA y automatizacion para llevar conversaciones, conocimiento y operaciones en un solo lugar."
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <LabsMetricCard label="Conversaciones abiertas" value={data.openConversations} icon={MessageSquare} tone="info" />
-        <LabsMetricCard label="Derivadas a humano" value={data.escalatedConversations} icon={UserRoundCheck} tone="warning" />
-        <LabsMetricCard label="Hot leads" value={analytics.hotLeads} icon={Flame} tone="success" />
-        <LabsMetricCard label="Canales conectados" value={data.connectedChannels} icon={Cable} tone="info" />
-        <LabsMetricCard label="Conocimiento cargado" value={data.knowledgeItemCount} icon={Database} tone="neutral" />
-        <LabsMetricCard label="Training" value={`${data.readyKnowledge}/${data.knowledgeItemCount}`} detail="Fuentes listas" icon={Bot} tone="neutral" />
+      <section className="grid gap-4 xl:grid-cols-3">
+        <Link href="/app/owner/labs/chatbots" className="labs-action-card">
+          <div>
+            <p>Constructor</p>
+            <strong>Crear chatbot</strong>
+          </div>
+          <span aria-hidden="true">
+            <Bot className="size-5" />
+          </span>
+        </Link>
+        <Link href="/app/owner/labs/activity" className="labs-action-card">
+          <div>
+            <p>Flujos</p>
+            <strong>Nueva automatizacion</strong>
+          </div>
+          <span aria-hidden="true">
+            <Cable className="size-5" />
+          </span>
+        </Link>
+        <Link href="/app/owner/labs/settings" className="labs-action-card">
+          <div>
+            <p>Inteligencia</p>
+            <strong>Configurar IA</strong>
+          </div>
+          <span aria-hidden="true">
+            <Database className="size-5" />
+          </span>
+        </Link>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <LabsMetricCard label="Leads operativos" value={data.knowledgeItemCount} detail="Items activos de conocimiento." icon={Database} tone="neutral" />
+        <LabsMetricCard label="Conversiones" value={data.connectedChannels} detail="Canales conectados o pendientes." icon={Cable} tone="info" />
+        <LabsMetricCard label="Bots activos" value={data.openConversations} detail="Conversaciones abiertas recientes." icon={MessageSquare} tone="info" />
+        <LabsMetricCard label="Ahorro de tiempo" value={data.escalatedConversations} detail="Casos derivados a humano." icon={Bot} tone="success" />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">

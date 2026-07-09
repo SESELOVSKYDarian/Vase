@@ -15,9 +15,10 @@ describe("Vase Labs standalone owner experience", () => {
 
     expect(page).toContain("resolveLabsRequestContext");
     expect(page).toContain("labsPrisma");
-    expect(page).toContain("owner-labs-shell");
-    expect(styles).toContain(".owner-labs-shell");
-    expect(styles).toContain(".owner-labs-sidebar");
+    expect(page).toContain("Bienvenido a Vase Labs");
+    expect(styles).toContain(".labs-app-shell");
+    expect(styles).toContain(".labs-app-sidebar");
+    expect(styles).toContain(".labs-action-card");
   });
 
   it("keeps old channel entrypoints pointed at the owner Labs dashboard", () => {
@@ -34,7 +35,7 @@ describe("Vase Labs standalone owner experience", () => {
       "utf8",
     );
 
-    expect(labsChannelsPage).toContain('redirect("/app/owner/labs")');
+    expect(labsChannelsPage).toContain('redirect("/app/owner/labs/integrations")');
     expect(appChannelsPage).toContain('new URL("/app/owner/labs", productOrigins.labs).toString() as Route');
     expect(oauthCallback).toContain('new URL("/app/owner/labs", url.origin)');
   });

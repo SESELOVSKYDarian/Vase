@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
+import { Bot, SunMedium } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
-import { LabsOwnerNav } from "./labs-owner-nav";
+import { LabsOwnerMobileNav, LabsOwnerNav } from "./labs-owner-nav";
 
 function tenantInitials(name: string) {
   return name
@@ -41,32 +42,50 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
   const plan = resolved.context.entitlement.plan;
 
   return (
-    <div className="labs-shell">
-      <aside className="labs-rail" aria-label="Navegacion principal de Vase Labs">
-        <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">
-            VL
-          </span>
-          <div>
-            <p className="eyebrow">Vase Platform</p>
-            <strong>Labs</strong>
+    <div className="labs-app-shell overflow-x-hidden">
+      <aside className="labs-app-sidebar fixed left-0 top-0 z-40 hidden h-screen w-72 flex-col px-4 py-5 lg:flex">
+        <div className="mb-7 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
+            <Bot className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold tracking-tight text-[var(--foreground)]">Vase Labs</h1>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Centro IA</p>
           </div>
         </div>
 
         <LabsOwnerNav />
 
-        <div className="rail-card">
-          <p>{resolved.context.tenantName}</p>
-          <strong>{initials || "VL"}</strong>
-          <span>
-            Plan {plan}. La IA, canales y conocimiento se gestionan desde este panel.
-          </span>
+        <div className="mt-auto space-y-4 border-t border-[var(--border-subtle)] px-1 pt-5">
+          <div className="labs-theme-card">
+            <div>
+              <p>Tema</p>
+              <strong>Modo claro</strong>
+            </div>
+            <span aria-hidden="true">
+              <SunMedium className="size-4" />
+            </span>
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+              <span className="text-xs font-bold">{initials || "VL"}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-[var(--foreground)]">{resolved.context.tenantName}</p>
+              <p className="truncate text-[11px] text-[var(--muted)]">{plan}</p>
+            </div>
+          </div>
         </div>
       </aside>
 
-      <section className="labs-stage">
-        <main>{children}</main>
-      </section>
+      <main className="min-h-screen px-4 py-5 sm:px-6 lg:ml-72 lg:px-8 lg:py-7">
+        <div className="mx-auto max-w-[96rem]">
+          <LabsOwnerMobileNav />
+          {children}
+        </div>
+      </main>
+
+      <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-56 border-b border-[var(--border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent-soft)_70%,transparent),transparent)]" />
     </div>
   );
 }
