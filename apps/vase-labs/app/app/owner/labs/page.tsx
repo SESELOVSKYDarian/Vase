@@ -172,7 +172,6 @@ async function getOwnerLabsData() {
     connectedChannels,
     knowledgeItemCount: knowledgeItems.length,
     readyKnowledge,
-    tokensUsed,
     conversations,
     knowledgeItems,
     criticalConversations,
