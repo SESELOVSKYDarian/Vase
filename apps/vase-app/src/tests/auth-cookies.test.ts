@@ -27,6 +27,20 @@ describe("auth cookie configuration", () => {
     ).toBe(".staging.vase.ar");
   });
 
+  it("uses the shared domain when EasyPanel exposes Vase production hosts without NODE_ENV", () => {
+    expect(
+      resolveAuthCookieDomain({
+        NEXT_PUBLIC_APP_URL: "https://app.vase.ar",
+      }),
+    ).toBe(".vase.ar");
+
+    expect(
+      resolveAuthCookieDomain({
+        VASE_LABS_HOST: "labs.vase.ar",
+      }),
+    ).toBe(".vase.ar");
+  });
+
   it("keeps host-only cookies outside production", () => {
     expect(resolveAuthCookieDomain({ NODE_ENV: "development" })).toBeUndefined();
     expect(createAuthCookiesConfig({ NODE_ENV: "development" })).toBeUndefined();
