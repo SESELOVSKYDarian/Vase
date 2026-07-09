@@ -2071,6 +2071,92 @@ a:focus-visible {
   box-shadow: 10px 0 34px color-mix(in srgb, var(--glass-shadow) 42%, transparent);
 }
 
+.labs-organic-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 0.15rem 0 2.35rem;
+  padding: 0 0.65rem;
+  color: var(--foreground);
+}
+
+.labs-organic-brand h1 {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 1.25rem;
+  font-style: italic;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.labs-organic-brand p {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.labs-organic-nav-link {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0 1rem;
+  color: var(--foreground);
+  text-decoration: none;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.labs-organic-nav-link svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+.labs-organic-nav-link:hover {
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-soft) 54%, transparent);
+}
+
+.labs-organic-nav-link.is-active {
+  color: var(--accent-contrast);
+  background: linear-gradient(135deg, #06965f, #18c37e);
+  box-shadow: 0 16px 34px rgba(24, 195, 126, 0.22);
+  transform: translateX(1px);
+}
+
+.labs-organic-mobile-link {
+  display: inline-flex;
+  min-height: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0 0.9rem;
+  color: var(--muted);
+  text-decoration: none;
+  background: var(--surface);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.labs-organic-mobile-link.is-active {
+  color: var(--accent-contrast);
+  background: linear-gradient(135deg, #06965f, #18c37e);
+}
+
 .labs-theme-card {
   display: flex;
   min-height: 3.6rem;

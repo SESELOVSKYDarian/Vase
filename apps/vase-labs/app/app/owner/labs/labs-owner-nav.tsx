@@ -14,11 +14,13 @@ import {
 
 const navItems = [
   { id: "panel", href: "/app/owner/labs", label: "Panel", icon: LayoutDashboard },
+  { id: "automatizacion", href: "/app/owner/labs/automation", label: "Automatizacion", icon: Cable },
+  { id: "chatbots", href: "/app/owner/labs/chatbots", label: "Chatbots", icon: Bot },
   { id: "inbox", href: "/app/owner/labs/inbox", label: "Inbox", icon: MessageSquare },
+  { id: "integraciones", href: "/app/owner/labs/integrations", label: "Integraciones", icon: Cable },
+  { id: "herramientas-ia", href: "/app/owner/labs/ai-tools", label: "Herramientas IA", icon: Bot },
+  { id: "configuracion", href: "/app/owner/labs/settings", label: "Configuracion", icon: Settings2 },
   { id: "actividad", href: "/app/owner/labs/activity", label: "Actividad", icon: Activity },
-  { id: "conocimiento", href: "/app/owner/labs/chatbots", label: "Conocimiento", icon: Bot },
-  { id: "canales", href: "/app/owner/labs/integrations", label: "Canales", icon: Cable },
-  { id: "ajustes", href: "/app/owner/labs/settings", label: "Ajustes", icon: Settings2 },
 ] as const;
 
 function isActive(pathname: string, href: string) {
@@ -45,10 +47,8 @@ export function LabsOwnerNav() {
             data-labs-tour={item.id}
             aria-current={active ? "page" : undefined}
             className={[
-              "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-[var(--muted)] transition-colors duration-200",
-              active
-                ? "bg-[var(--foreground)] text-[var(--background)] shadow-sm"
-                : "hover:bg-[var(--surface)] hover:text-[var(--foreground)]",
+              "labs-organic-nav-link",
+              active ? "is-active" : "",
             ].join(" ")}
           >
             <Icon className="size-4" />
@@ -75,10 +75,8 @@ export function LabsOwnerMobileNav() {
               href={item.href as never}
               aria-current={active ? "page" : undefined}
               className={[
-                "inline-flex min-h-10 shrink-0 items-center rounded-lg px-3 text-xs font-bold transition-colors",
-                active
-                  ? "bg-[var(--foreground)] text-[var(--background)]"
-                  : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]",
+                "labs-organic-mobile-link",
+                active ? "is-active" : "",
               ].join(" ")}
             >
               {item.label}
@@ -95,8 +93,8 @@ export function LabsOwnerMobileNav() {
           <Sparkles className="size-4" />
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Vase Labs</p>
-          <p className="text-sm font-semibold text-[var(--foreground)]">Gestion avanzada</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--muted-soft)]">El Atrio Organico</p>
+          <p className="text-sm font-semibold italic text-[var(--accent-strong)]">Vase Labs</p>
         </div>
       </Link>
     </div>

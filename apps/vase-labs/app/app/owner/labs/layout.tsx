@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Bot, SunMedium } from "lucide-react";
+import { Sparkles, SunMedium } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
@@ -44,13 +44,13 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
   return (
     <div className="labs-app-shell overflow-x-hidden">
       <aside className="labs-app-sidebar fixed left-0 top-0 z-40 hidden h-screen w-72 flex-col px-4 py-5 lg:flex">
-        <div className="mb-7 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
-            <Bot className="size-5" />
+        <div className="labs-organic-brand">
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
+            <Sparkles className="size-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold tracking-tight text-[var(--foreground)]">Vase Labs</h1>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Centro IA</p>
+            <h1>Vase Labs</h1>
+            <p>El Atrio Organico</p>
           </div>
         </div>
 
