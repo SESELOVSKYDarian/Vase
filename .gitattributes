@@ -13,3 +13,4 @@ apps/vase-editor/**/*.md text eol=lf
 apps/vase-editor/**/*.sql text eol=lf
 apps/vase-editor/**/*.ts text eol=lf
 apps/vase-editor/Dockerfile text eol=lf
+apps/vase-app/scripts/*.sh text eol=lf
