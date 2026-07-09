@@ -1,8 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getLabsPlanLimits, type LabsChannel } from "@vase/contracts";
-import { Bot, Cable, Database, MessageSquare, Route } from "lucide-react";
 import { labsPrisma } from "../../../lib/db";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
 import {
@@ -13,58 +11,38 @@ import {
   getAiAvailability,
   type LabsRuntimeStatus,
 } from "../../../lib/billing";
-import {
-  LabsEmptyState,
-  LabsMetricCard,
-  LabsPageHeader,
-  LabsSection,
-  LabsStatusPill,
-} from "./labs-ui";
-import { LabsConversationTrendChart, LabsIntentDistributionChart } from "./labs-analytics-charts";
-import { buildLabsConversationAnalytics } from "./labs-analytics";
+import { LabsStatusPill } from "./labs-ui";
 
 export const dynamic = "force-dynamic";
 
-const channelLabels: Record<LabsChannel, string> = {
-  WHATSAPP: "WhatsApp",
-  INSTAGRAM: "Instagram",
-  FACEBOOK: "Facebook",
+const planChannels: Record<string, LabsChannel[]> = {
+  STARTER: ["WHATSAPP"],
+  GROWTH: ["WHATSAPP", "INSTAGRAM"],
+  PRO: ["WHATSAPP", "INSTAGRAM", "FACEBOOK"],
+};
+
+const channelLabels: Record<LabsChannel, { name: string; tag: string; tone: string; description: string }> = {
+  WHATSAPP: {
+    name: "WhatsApp",
+    tag: "wa",
+    tone: "whatsapp",
+    description: "Atencion automatizada para consultas comerciales y soporte inicial.",
+  },
+  INSTAGRAM: {
+    name: "Instagram",
+    tag: "ig",
+    tone: "instagram",
+    description: "DMs y consultas sociales con contexto de IA y derivacion humana.",
+  },
+  FACEBOOK: {
+    name: "Facebook",
+    tag: "fb",
+    tone: "facebook",
+    description: "Mensajes de pagina y leads conectados al inbox omnicanal.",
+  },
 };
 
 const allChannels: LabsChannel[] = ["WHATSAPP", "INSTAGRAM", "FACEBOOK"];
-
-function trainingTone(status: string): "neutral" | "success" | "warning" | "danger" | "info" {
-  switch (status) {
-    case "READY":
-      return "success";
-    case "FAILED":
-      return "danger";
-    case "PROCESSING":
-    case "QUEUED":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
-
-function conversationTone(status: string): "neutral" | "success" | "warning" | "danger" | "info" {
-  switch (status) {
-    case "ESCALATED":
-      return "warning";
-    case "CLOSED":
-      return "neutral";
-    default:
-      return "info";
-  }
-}
-
-function formatDate(value: Date | null) {
-  if (!value) return "Sin fecha";
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(value);
-}
 
 async function getOwnerLabsData() {
   const requestHeaders = await headers();
@@ -164,7 +142,7 @@ async function getOwnerLabsData() {
     aiAvailability,
     channelAccess: allChannels.map((channel) => ({
       channel,
-      label: channelLabels[channel],
+      label: channelLabels[channel].name,
       access: canTenantUseChannel(runtimeEntitlement, channel),
     })),
     openConversations,
@@ -181,219 +159,199 @@ async function getOwnerLabsData() {
 
 export default async function LabsDashboardPage() {
   const data = await getOwnerLabsData();
-  const analytics = buildLabsConversationAnalytics(
-    data.conversations.map((c) => ({
-      channel: c.channel,
-      intentLabel: c.intentLabel,
-      escalatedToHuman: c.escalatedToHuman,
-      lastMessageAt: c.lastMessageAt,
-    })),
-  );
-  const setupCompleted =
-    data.setupSteps.hasKnowledge && data.setupSteps.hasChannel && data.setupSteps.hasEscalation;
+  const planCards = (["STARTER", "GROWTH", "PRO"] as const).map((plan) => ({
+    plan,
+    title: plan.charAt(0) + plan.slice(1).toLowerCase(),
+    tokens: getLabsPlanLimits(plan).monthlyTokenLimit.toLocaleString("es-AR"),
+    cta: plan === data.plan ? "Plan actual" : plan === "PRO" ? "Subir a Pro" : "Plan inicial",
+  }));
+  const visibleConversations = data.conversations.slice(0, 5);
 
   return (
-    <div className="space-y-6">
-      <LabsPageHeader
-        title="Bienvenido a Vase Labs"
-        description="Centro de IA y automatizacion para llevar conversaciones, conocimiento y operaciones en un solo lugar."
-      />
+    <>
+      <header className="hero-panel" id="plan">
+        <div className="hero-copy">
+          <p className="eyebrow">Plan y consumo</p>
+          <h1>Tu acceso a Labs, canales y tokens en una sola vista.</h1>
+          <p>
+            El tenant esta en {data.plan}: los canales habilitados, el saldo de tokens y el estado de IA quedan
+            visibles sin salir del panel operativo.
+          </p>
+          <div className="hero-actions" aria-label="Acciones principales">
+            <a href="/app/owner/labs/settings">Comprar tokens</a>
+            <a href="/app/owner/labs/integrations">Gestionar canales</a>
+          </div>
+        </div>
 
-      <section className="grid gap-4 xl:grid-cols-3">
-        <Link href="/app/owner/labs/chatbots" className="labs-action-card">
-          <div>
-            <p>Constructor</p>
-            <strong>Crear chatbot</strong>
-          </div>
-          <span aria-hidden="true">
-            <Bot className="size-5" />
-          </span>
-        </Link>
-        <Link href="/app/owner/labs/activity" className="labs-action-card">
-          <div>
-            <p>Flujos</p>
-            <strong>Nueva automatizacion</strong>
-          </div>
-          <span aria-hidden="true">
-            <Cable className="size-5" />
-          </span>
-        </Link>
-        <Link href="/app/owner/labs/settings" className="labs-action-card">
-          <div>
-            <p>Inteligencia</p>
-            <strong>Configurar IA</strong>
-          </div>
-          <span aria-hidden="true">
-            <Database className="size-5" />
-          </span>
-        </Link>
+        <div className="signal-card" aria-label="Resumen del plan actual">
+          <span className="signal-orbit" aria-hidden="true" />
+          <p>Plan actual</p>
+          <strong>{data.plan}</strong>
+          <small>
+            {data.enabledChannels.map((channel) => channelLabels[channel].name).join(", ") || "Sin canales"}.
+            {" "}{data.remainingTokens.toLocaleString("es-AR")} tokens disponibles.
+          </small>
+        </div>
+      </header>
+
+      <section className="metric-grid" aria-label="Metricas principales">
+        {[
+          { label: "Plan actual", value: data.plan, detail: `${data.enabledChannels.length} canales habilitados` },
+          { label: "Tokens restantes", value: data.remainingTokens.toLocaleString("es-AR"), detail: `${data.tokenUsagePercent}% usado del saldo total` },
+          { label: "Mensajes estimados", value: data.remainingMessages.toLocaleString("es-AR"), detail: "Estimacion basada en 500 tokens por mensaje" },
+          { label: "IA", value: data.aiAvailability.aiEnabled ? "Activa" : "Pausada", detail: data.aiAvailability.reason },
+        ].map((metric) => (
+          <article className="metric-card" key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{metric.value}</strong>
+            <p>{metric.detail}</p>
+          </article>
+        ))}
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <LabsMetricCard label="Leads operativos" value={data.knowledgeItemCount} detail="Items activos de conocimiento." icon={Database} tone="neutral" />
-        <LabsMetricCard label="Conversiones" value={data.connectedChannels} detail="Canales conectados o pendientes." icon={Cable} tone="info" />
-        <LabsMetricCard label="Bots activos" value={data.openConversations} detail="Conversaciones abiertas recientes." icon={MessageSquare} tone="info" />
-        <LabsMetricCard label="Ahorro de tiempo" value={data.escalatedConversations} detail="Casos derivados a humano." icon={Bot} tone="success" />
-      </section>
+      <section className="content-grid">
+        <div className="panel channels-panel" id="channels">
+          <div className="section-heading">
+            <p className="eyebrow">Canales por plan</p>
+            <h2>Solo se muestran activos los canales incluidos.</h2>
+          </div>
 
-      <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <LabsSection
-          eyebrow="Plan y tokens"
-          title={`Plan ${data.plan}`}
-          description={data.aiAvailability.aiEnabled ? "IA activa con saldo disponible." : "IA pausada; la intervencion humana sigue disponible."}
-        >
-          <div className="grid gap-4">
-            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
-              <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <div className="channel-grid">
+            {data.channelAccess.map(({ channel, access }) => {
+              const channelMeta = channelLabels[channel];
+
+              return (
+                <article className={`channel-card ${channelMeta.tone} ${access.allowed ? "" : "is-locked"}`} key={channel}>
+                  <div className="channel-topline">
+                    <span className="channel-badge" aria-hidden="true">
+                      {channelMeta.tag}
+                    </span>
+                    <LabsStatusPill label={access.allowed ? "Incluido" : "Upgrade"} tone={access.allowed ? "success" : "warning"} />
+                  </div>
+                  <h3>{channelMeta.name}</h3>
+                  <p>{channelMeta.description}</p>
+                  <ul>
+                    <li>{access.allowed ? `Disponible en ${data.plan}` : "Disponible por upgrade"}</li>
+                    <li>{access.allowed ? "Puede recibir IA" : "No se marca como activo"}</li>
+                    <li>{access.humanInterventionAllowed ? "Handoff humano disponible" : "Revisar permisos"}</li>
+                  </ul>
+                  <button type="button" disabled>
+                    {access.allowed ? "Canal incluido" : "Requiere upgrade"}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="panel tokens-panel" id="tokens">
+          <div className="section-heading">
+            <p className="eyebrow">Tokens</p>
+            <h2>Saldo claro antes de automatizar.</h2>
+          </div>
+
+          <div className="token-meter" aria-label="Uso de tokens">
+            <div>
+              <span>Usados</span>
+              <strong>{data.tokensUsed.toLocaleString("es-AR")}</strong>
+            </div>
+            <div>
+              <span>Restantes</span>
+              <strong>{data.remainingTokens.toLocaleString("es-AR")}</strong>
+            </div>
+            <span className="meter-track">
+              <span style={{ width: `${data.tokenUsagePercent}%` }} />
+            </span>
+          </div>
+
+          <div className="token-breakdown">
+            <p>
+              <strong>{data.tokensIncluded.toLocaleString("es-AR")}</strong>
+              Tokens incluidos
+            </p>
+            <p>
+              <strong>{data.extraTokens.toLocaleString("es-AR")}</strong>
+              Tokens extra
+            </p>
+            <p>
+              <strong>{data.remainingMessages.toLocaleString("es-AR")}</strong>
+              Mensajes estimados
+            </p>
+          </div>
+        </div>
+
+        <div className="panel plans-panel" id="plans">
+          <div className="section-heading">
+            <p className="eyebrow">Planes Labs</p>
+            <h2>Upgrade cuando el canal lo justifica.</h2>
+          </div>
+
+          <div className="plans-grid">
+            {planCards.map((plan) => (
+              <article className={`plan-card ${plan.plan === data.plan ? "is-current" : ""}`} key={plan.plan}>
                 <div>
-                  <p className="vase-kicker">Tokens restantes</p>
-                  <p className="mt-2 text-4xl font-semibold tracking-tight text-[var(--foreground)]">
-                    {data.remainingTokens.toLocaleString("es-AR")}
-                  </p>
+                  <strong>{plan.title}</strong>
+                  <LabsStatusPill label={plan.cta} tone={plan.plan === data.plan ? "success" : "warning"} />
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">
-                    {data.remainingMessages.toLocaleString("es-AR")} mensajes estimados
-                  </p>
-                  <p className="mt-1 text-xs text-[var(--muted)]">{data.tokenUsagePercent}% usado</p>
-                </div>
-              </div>
-              <div className="mt-4 h-3 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--muted-soft)_18%,transparent)]">
-                <span
-                  className="block h-full rounded-full bg-[linear-gradient(90deg,var(--accent-strong),var(--premium,#18c37e))]"
-                  style={{ width: `${data.tokenUsagePercent}%` }}
-                />
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="labs-subpanel p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-soft)]">Incluidos</p>
-                <p className="mt-2 text-xl font-semibold text-[var(--foreground)]">{data.tokensIncluded.toLocaleString("es-AR")}</p>
-              </div>
-              <div className="labs-subpanel p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-soft)]">Extra</p>
-                <p className="mt-2 text-xl font-semibold text-[var(--foreground)]">{data.extraTokens.toLocaleString("es-AR")}</p>
-              </div>
-              <div className="labs-subpanel p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-soft)]">Estado IA</p>
-                <p className="mt-2 text-xl font-semibold text-[var(--foreground)]">{data.aiAvailability.reason}</p>
-              </div>
-            </div>
+                <p>{plan.tokens} tokens mensuales</p>
+                <ul>
+                  {allChannels.map((channel) => (
+                    <li className={(planChannels[plan.plan] ?? []).includes(channel) ? "is-included" : ""} key={channel}>
+                      {channelLabels[channel].name}
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
           </div>
-        </LabsSection>
+        </div>
 
-        <LabsSection
-          eyebrow="Canales por plan"
-          title="Acceso operativo"
-          description="Los canales no incluidos quedan marcados para upgrade, manteniendo handoff humano disponible."
-        >
-          <div className="grid gap-3 md:grid-cols-3">
-            {data.channelAccess.map(({ channel, label, access }) => (
-              <div key={channel} className="labs-subpanel p-4">
-                <div className="flex items-start justify-between gap-3">
+        <div className="panel inbox-panel" id="inbox">
+          <div className="section-heading">
+            <p className="eyebrow">Inbox cliente</p>
+            <h2>Vista adaptada al plan actual.</h2>
+          </div>
+
+          <div className="inbox-channel-strip" aria-label="Canales visibles en el inbox">
+            {data.channelAccess.map(({ channel, access }) => (
+              <span className={access.allowed ? "is-active" : ""} key={channel}>
+                {channelLabels[channel].name}
+                {!access.allowed ? " upgrade" : ""}
+              </span>
+            ))}
+          </div>
+
+          <div className="conversation-list">
+            {visibleConversations.length === 0 ? (
+              <article className="conversation-card is-locked">
+                <div>
+                  <strong>Sin conversaciones recientes</strong>
+                  <span>Labs</span>
+                </div>
+                <p>Las conversaciones del inbox apareceran aca cuando ingresen mensajes por los canales conectados.</p>
+                <footer>
+                  <LabsStatusPill label="Pendiente" tone="warning" />
+                  <small>Esperando actividad</small>
+                </footer>
+              </article>
+            ) : (
+              visibleConversations.map((conversation) => (
+                <article className="conversation-card" key={conversation.id}>
                   <div>
-                    <p className="text-sm font-semibold text-[var(--foreground)]">{label}</p>
-                    <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                      {access.allowed ? "Disponible para IA" : access.requiresUpgrade ? "Requiere upgrade" : "IA pausada"}
-                    </p>
+                    <strong>{conversation.customerName ?? conversation.customerContact ?? "Cliente"}</strong>
+                    <span>{conversation.channel ? channelLabels[conversation.channel].name : "Labs"}</span>
                   </div>
-                  <LabsStatusPill label={access.allowed ? "Incluido" : "Upgrade"} tone={access.allowed ? "success" : "warning"} />
-                </div>
-              </div>
-            ))}
+                  <p>{conversation.summary ?? "Sin resumen disponible"}</p>
+                  <footer>
+                    <LabsStatusPill label={conversation.escalatedToHuman ? "Escalado" : conversation.status} tone={conversation.escalatedToHuman ? "warning" : "success"} />
+                    <small>{conversation.intentLabel ?? "Sin intencion"}</small>
+                  </footer>
+                </article>
+              ))
+            )}
           </div>
-        </LabsSection>
+        </div>
       </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-        <LabsSection title="Ritmo de conversaciones">
-          <LabsConversationTrendChart analytics={analytics} />
-        </LabsSection>
-        <LabsSection title="Distribucion de intencion">
-          <LabsIntentDistributionChart analytics={analytics} />
-        </LabsSection>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-        <LabsSection title="Salud del setup" description={data.plan}>
-          <div className="grid gap-3">
-            {([
-              ["Conocimiento", data.setupSteps.hasKnowledge],
-              ["Canales", data.setupSteps.hasChannel],
-              ["Escalamiento humano", data.setupSteps.hasEscalation],
-            ] as const).map(([label, ok]) => (
-              <div key={label} className="flex items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-4 py-3">
-                <span className="text-sm font-semibold text-[var(--foreground)]">{label}</span>
-                <LabsStatusPill label={ok ? "Listo" : "Pendiente"} tone={ok ? "success" : "warning"} />
-              </div>
-            ))}
-          </div>
-          {!setupCompleted ? (
-            <Link href="/app/owner/labs/setup" className="labs-button labs-button-primary mt-4">
-              Completar setup
-              <Route className="size-4" />
-            </Link>
-          ) : null}
-        </LabsSection>
-
-        <LabsSection
-          title="Conversaciones que piden atencion"
-          actions={
-            <Link href="/app/owner/labs/activity" className="labs-button labs-button-secondary">
-              Ver todo
-            </Link>
-          }
-        >
-          {data.criticalConversations.length === 0 ? (
-            <LabsEmptyState title="Sin conversaciones criticas" description="Los hot leads y derivaciones humanas apareceran aca." />
-          ) : (
-            <div className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-lg border border-[var(--border-subtle)]">
-              {data.criticalConversations.map((conversation) => (
-                <div
-                  key={conversation.id}
-                  className="grid gap-2 bg-[var(--surface)] p-4 transition-colors hover:bg-[var(--surface-strong)] md:grid-cols-[1fr_auto]"
-                >
-                  <div>
-                    <p className="font-semibold text-[var(--foreground)]">
-                      {conversation.customerName ?? conversation.customerContact ?? "Cliente"} - {conversation.channel ?? "LABS"}
-                    </p>
-                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--muted)]">
-                      {conversation.summary ?? "Sin resumen disponible"}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                    <LabsStatusPill
-                      label={conversation.intentLabel ?? conversation.status}
-                      tone={conversation.escalatedToHuman ? "warning" : conversationTone(conversation.status)}
-                    />
-                    <span className="text-xs text-[var(--muted)]">{formatDate(conversation.lastMessageAt)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </LabsSection>
-      </section>
-
-      <LabsSection title="Entrenamiento reciente">
-        {data.knowledgeItems.length === 0 ? (
-          <LabsEmptyState title="Sin entrenamientos" description="Cuando actualices conocimiento vas a ver el progreso aca." />
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {data.knowledgeItems.slice(0, 4).map((item) => (
-              <div key={item.id} className="labs-subpanel p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">{item.title}</p>
-                  <LabsStatusPill label={item.status} tone={trainingTone(item.status)} />
-                </div>
-                <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                  {formatDate(item.createdAt)}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </LabsSection>
-    </div>
+    </>
   );
 }

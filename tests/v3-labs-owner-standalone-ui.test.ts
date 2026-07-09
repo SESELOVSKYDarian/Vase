@@ -15,10 +15,11 @@ describe("Vase Labs standalone owner experience", () => {
 
     expect(page).toContain("resolveLabsRequestContext");
     expect(page).toContain("labsPrisma");
-    expect(page).toContain("Bienvenido a Vase Labs");
-    expect(styles).toContain(".labs-app-shell");
-    expect(styles).toContain(".labs-app-sidebar");
-    expect(styles).toContain(".labs-action-card");
+    expect(page).toContain("Tu acceso a Labs, canales y tokens en una sola vista.");
+    expect(page).toContain("content-grid");
+    expect(styles).toContain(".labs-rail");
+    expect(styles).toContain(".hero-panel");
+    expect(styles).toContain(".content-grid");
   });
 
   it("keeps old channel entrypoints pointed at the owner Labs dashboard", () => {
