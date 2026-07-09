@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type MouseEvent,
   type PropsWithChildren,
   type ReactNode,
 } from "react";
@@ -104,11 +105,13 @@ function NavLink({
   href,
   className,
   onClick,
+  forceDocumentNavigation = false,
   children,
 }: {
   href: string;
   className?: string;
-  onClick?: () => void;
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+  forceDocumentNavigation?: boolean;
   children: ReactNode;
 }) {
   const runtimeHost = useSyncExternalStore(
@@ -119,9 +122,20 @@ function NavLink({
   const resolvedHref = resolveNavigationHrefForHost(href, runtimeHost);
   const isExternalHref = /^https?:\/\//i.test(resolvedHref);
 
-  if (isExternalHref || requiresFullDocumentNavigation(resolvedHref)) {
+  if (isExternalHref || forceDocumentNavigation || requiresFullDocumentNavigation(resolvedHref)) {
     return (
-      <a href={resolvedHref} className={className} onClick={onClick}>
+      <a
+        href={resolvedHref}
+        className={className}
+        onClick={(event) => {
+          onClick?.(event);
+          if (event.defaultPrevented) return;
+          if (forceDocumentNavigation && typeof window !== "undefined") {
+            event.preventDefault();
+            window.location.assign(resolvedHref);
+          }
+        }}
+      >
         {children}
       </a>
     );
@@ -140,10 +154,12 @@ type NavItem = {
   label: string;
   icon: typeof Home;
   description?: string;
+  forceDocumentNavigation?: boolean;
   children?: Array<{
     id: string;
     href: string;
     label: string;
+    forceDocumentNavigation?: boolean;
   }>;
 };
 
@@ -330,8 +346,8 @@ export function AppShell({
       description: "Tus proyectos por producto",
       children: [
         businessModuleActive ? { id: "projects-business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business" } : null,
-        labsModuleActive ? { id: "projects-labs", href: labsHomeHref, label: "Vase Labs" } : null,
-      ].filter((item): item is { id: string; href: string; label: string } => Boolean(item)),
+        labsModuleActive ? { id: "projects-labs", href: labsHomeHref, label: "Vase Labs", forceDocumentNavigation: true } : null,
+      ].filter((item): item is { id: string; href: string; label: string; forceDocumentNavigation?: boolean } => Boolean(item)),
     },
     { id: "tickets", href: "/app/help", label: "Tickets", icon: MessageSquareWarning, description: "Soporte y seguimiento" },
     { id: "payments", href: "/app/billing", label: "Pagos", icon: CreditCard, description: "Pagos y comprobantes" },
@@ -477,6 +493,7 @@ export function AppShell({
                   <div key={item.id} className="space-y-1">
                     <NavLink
                       href={item.href as Route}
+                      forceDocumentNavigation={item.forceDocumentNavigation}
                       className={[
                         "flex items-center gap-3 rounded-xl px-4 py-3 text-[13px] transition-colors duration-200",
                         active
@@ -495,6 +512,7 @@ export function AppShell({
                             <NavLink
                               key={child.id}
                               href={child.href as Route}
+                              forceDocumentNavigation={child.forceDocumentNavigation}
                               className={[
                                 "block rounded-lg px-3 py-2 text-[12px] transition-colors",
                                 childActive
