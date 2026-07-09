@@ -35,7 +35,7 @@ describe("Vase Labs standalone owner experience", () => {
     );
 
     expect(labsChannelsPage).toContain('redirect("/app/owner/labs")');
-    expect(appChannelsPage).toContain('new URL("/app/owner/labs", productOrigins.labs)');
+    expect(appChannelsPage).toContain('new URL("/app/owner/labs", productOrigins.labs).toString() as Route');
     expect(oauthCallback).toContain('new URL("/app/owner/labs", url.origin)');
   });
 });
