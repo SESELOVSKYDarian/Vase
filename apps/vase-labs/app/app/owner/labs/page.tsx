@@ -12,7 +12,8 @@ import {
   LabsSection,
   LabsStatusPill,
 } from "./labs-ui";
-import { LabsConversationTrendChart, LabsIntentDistributionChart, buildLabsConversationAnalytics } from "./labs-analytics-charts";
+import { LabsConversationTrendChart, LabsIntentDistributionChart } from "./labs-analytics-charts";
+import { buildLabsConversationAnalytics } from "./labs-analytics";
 
 export const dynamic = "force-dynamic";
 
