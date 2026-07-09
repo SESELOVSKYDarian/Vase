@@ -32,26 +32,34 @@ async function main() {
     const providerAccountId =
       channel.providerAccountId ?? `legacy:${channel.legacyId}`;
 
-    await labsPrisma.$executeRaw`
-      INSERT INTO "Channel" (
-        id, "assistantId", type, provider, status, "providerAccountId",
-        "accountLabel", "externalHandle", config, "lastError", "createdAt", "updatedAt"
-      )
-      VALUES (
-        ${channel.legacyId}, ${assistant.id}, CAST(${channel.type} AS "LabsChannel"),
-        'META_OFFICIAL', 'PENDING', ${providerAccountId}, ${channel.accountLabel},
-        ${channel.externalHandle}, CAST(${JSON.stringify(channel.config)} AS jsonb),
-        ${channel.lastError}, ${new Date()}, ${new Date()}
-      )
-      ON CONFLICT ("assistantId", type, "providerAccountId")
-      DO UPDATE SET
-        "accountLabel" = EXCLUDED."accountLabel",
-        "externalHandle" = EXCLUDED."externalHandle",
-        config = EXCLUDED.config,
-        status = 'PENDING',
-        "lastError" = ${channel.lastError},
-        "updatedAt" = ${new Date()}
-    `;
+    await labsPrisma.channel.upsert({
+      where: {
+        assistantId_type_providerAccountId: {
+          assistantId: assistant.id,
+          type: channel.type,
+          providerAccountId,
+        },
+      },
+      create: {
+        id: channel.legacyId,
+        assistantId: assistant.id,
+        type: channel.type,
+        provider: "META_OFFICIAL",
+        status: "PENDING",
+        providerAccountId,
+        accountLabel: channel.accountLabel,
+        externalHandle: channel.externalHandle,
+        config: channel.config,
+        lastError: channel.lastError,
+      },
+      update: {
+        accountLabel: channel.accountLabel,
+        externalHandle: channel.externalHandle,
+        config: channel.config,
+        status: "PENDING",
+        lastError: channel.lastError,
+      },
+    });
   }
 
   console.log(JSON.stringify({ imported: channels.length }));

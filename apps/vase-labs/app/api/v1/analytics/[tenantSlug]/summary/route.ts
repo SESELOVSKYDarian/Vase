@@ -7,33 +7,44 @@ export async function GET(
   { params }: { params: Promise<{ tenantSlug: string }> },
 ) {
   const { tenantSlug } = await params;
-  const conversations = await (labsPrisma as any).$queryRaw`
-    SELECT c.status, c."escalatedToHuman"
-    FROM "Conversation" c JOIN "Assistant" a ON a.id = c."assistantId"
-    WHERE a."tenantSlug" = ${tenantSlug}
-  `;
-  const messages = await (labsPrisma as any).$queryRaw`
-    SELECT m.direction, c.channel
-    FROM "Message" m JOIN "Conversation" c ON c.id = m."conversationId"
-    JOIN "Assistant" a ON a.id = c."assistantId"
-    WHERE a."tenantSlug" = ${tenantSlug}
-  `;
-  const tokenUsages = await (labsPrisma as any).$queryRaw`
-    SELECT t."totalTokens", t."costCents"
-    FROM "TokenUsage" t JOIN "Assistant" a ON a."globalTenantId" = t."globalTenantId"
-    WHERE a."tenantSlug" = ${tenantSlug}
-  `;
-  const channels = await (labsPrisma as any).$queryRaw`
-    SELECT ch.type, ch.status
-    FROM "Channel" ch JOIN "Assistant" a ON a.id = ch."assistantId"
-    WHERE a."tenantSlug" = ${tenantSlug}
-  `;
-  const handoffs = await (labsPrisma as any).$queryRaw`
-    SELECT h.status
-    FROM "Handoff" h JOIN "Conversation" c ON c.id = h."conversationId"
-    JOIN "Assistant" a ON a.id = c."assistantId"
-    WHERE a."tenantSlug" = ${tenantSlug}
-  `;
+  const assistant = await (labsPrisma as any).assistant.findUnique({
+    where: { tenantSlug },
+    include: {
+      channels: { select: { type: true, status: true } },
+      conversations: {
+        select: {
+          status: true,
+          escalatedToHuman: true,
+          channel: true,
+          messages: { select: { direction: true } },
+          handoffs: { select: { status: true } },
+        },
+      },
+    },
+  });
 
-  return NextResponse.json({ summary: summarizeLabsAnalytics({ conversations, messages, tokenUsages, channels, handoffs }) });
+  const conversations = assistant?.conversations ?? [];
+  const messages = conversations.flatMap((conversation: any) =>
+    conversation.messages.map((message: any) => ({
+      ...message,
+      channel: conversation.channel,
+    })),
+  );
+  const tokenUsages = assistant
+    ? await (labsPrisma as any).tokenUsage.findMany({
+        where: { globalTenantId: assistant.globalTenantId },
+        select: { totalTokens: true, costCents: true },
+      })
+    : [];
+  const handoffs = conversations.flatMap((conversation: any) => conversation.handoffs);
+
+  return NextResponse.json({
+    summary: summarizeLabsAnalytics({
+      conversations,
+      messages,
+      tokenUsages,
+      channels: assistant?.channels ?? [],
+      handoffs,
+    }),
+  });
 }

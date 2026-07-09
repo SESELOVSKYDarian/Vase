@@ -23,19 +23,17 @@ export async function POST(
       return NextResponse.json({ error: "TEXT_REQUIRED" }, { status: 400 });
     }
 
-    const conversations = await labsPrisma.$queryRaw<Array<{
-      id: string;
-      channel: LabsChannel | null;
-      customerContact: string | null;
-    }>>`
-      SELECT c.id, c.channel, c."customerContact"
-      FROM "Conversation" c
-      JOIN "Assistant" a ON a.id = c."assistantId"
-      WHERE a."globalTenantId" = ${context.globalTenantId}
-        AND c.id = ${conversationId}
-      LIMIT 1
-    `;
-    const conversation = conversations[0];
+    const conversation = await (labsPrisma as any).conversation.findFirst({
+      where: {
+        id: conversationId,
+        assistant: { globalTenantId: context.globalTenantId },
+      },
+      select: {
+        id: true,
+        channel: true,
+        customerContact: true,
+      },
+    }) as { id: string; channel: LabsChannel | null; customerContact: string | null } | null;
     if (!conversation?.channel || !conversation.customerContact) {
       return NextResponse.json({ error: "CONVERSATION_NOT_DELIVERABLE" }, { status: 404 });
     }
@@ -55,26 +53,29 @@ export async function POST(
     const messageId = randomUUID();
     const now = new Date();
     await labsPrisma.$transaction(async (tx) => {
-      await tx.$executeRaw`
-        INSERT INTO "Message" (
-          id, "conversationId", role, direction, content,
-          "providerMessageId", "createdAt"
-        )
-        VALUES (
-          ${messageId}, ${conversationId}, 'assistant', 'OUTBOUND', ${text},
-          ${delivery.providerMessageId}, ${now}
-        )
-      `;
-      await tx.$executeRaw`
-        INSERT INTO "MessageDelivery" (
-          id, "messageId", channel, status, "providerMessageId",
-          "sentAt", "createdAt", "updatedAt"
-        )
-        VALUES (
-          ${randomUUID()}, ${messageId}, CAST(${conversation.channel} AS "LabsChannel"),
-          'SENT', ${delivery.providerMessageId}, ${now}, ${now}, ${now}
-        )
-      `;
+      await (tx as any).message.create({
+        data: {
+          id: messageId,
+          conversationId,
+          role: "assistant",
+          direction: "OUTBOUND",
+          content: text,
+          providerMessageId: delivery.providerMessageId,
+          createdAt: now,
+        },
+      });
+      await (tx as any).messageDelivery.create({
+        data: {
+          id: randomUUID(),
+          messageId,
+          channel: conversation.channel,
+          status: "SENT",
+          providerMessageId: delivery.providerMessageId,
+          sentAt: now,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
     });
 
     return NextResponse.json({

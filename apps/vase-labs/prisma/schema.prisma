@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -86,7 +86,7 @@ model Assistant {
   tenantSlug     String?  @unique
   name           String
   model          String
-  systemPrompt   String?
+  systemPrompt   String?  @db.Text
   active         Boolean  @default(true)
   channels       Channel[]
   knowledgeItems KnowledgeItem[]
@@ -109,12 +109,12 @@ model Channel {
   accountLabel      String?
   externalId        String?
   externalHandle    String?
-  webhookUrl        String?
+  webhookUrl        String?                 @db.Text
   config            Json?
   status            ChannelConnectionStatus @default(DISCONNECTED)
   connectedAt       DateTime?
   lastSyncedAt      DateTime?
-  lastError         String?
+  lastError         String?                 @db.Text
   assistant         Assistant               @relation(fields: [assistantId], references: [id], onDelete: Cascade)
   secrets           ChannelSecret[]
   webhookEvents     WebhookEvent[]
@@ -165,7 +165,7 @@ model ChannelSecret {
   id             String    @id @default(cuid())
   channelId      String
   kind           String
-  encryptedValue String
+  encryptedValue String    @db.Text
   expiresAt      DateTime?
   rotatedAt      DateTime?
   channel        Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
@@ -199,7 +199,7 @@ model LabsEntitlement {
   globalTenantId     String            @unique
   plan               LabsPlan
   status             LabsServiceStatus @default(ACTIVE)
-  enabledChannels    LabsChannel[]
+  enabledChannels    Json
   tokenPack          TokenPack?
   tokensIncluded     Int
   tokensUsed         Int               @default(0)
@@ -218,7 +218,7 @@ model KnowledgeItem {
   assistantId String
   title       String
   sourceType  String
-  content     String
+  content     String    @db.Text
   status      String    @default("READY")
   assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
@@ -234,7 +234,7 @@ model Conversation {
   externalThreadKey String?
   customerName      String?
   customerContact   String?
-  summary           String?
+  summary           String?            @db.Text
   intentLabel       String?
   intentScore       Int?
   metadata          Json?
@@ -259,7 +259,7 @@ model Message {
   conversationId    String
   role              String
   direction         MessageDirection?
-  content           String
+  content           String           @db.Text
   providerMessageId String?
   tokens            Int?
   costCents         Int?
@@ -277,7 +277,7 @@ model MessageDelivery {
   channel           LabsChannel
   status            MessageDeliveryStatus @default(PENDING)
   providerMessageId String?
-  error             String?
+  error             String?               @db.Text
   metadata          Json?
   sentAt            DateTime?
   failedAt          DateTime?
@@ -317,7 +317,7 @@ model Handoff {
   target         String       @default("workplace")
   status         String       @default("PENDING")
   assignedTo     String?
-  notes          String?
+  notes          String?      @db.Text
   priority       String       @default("normal")
   resolvedAt     DateTime?
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

@@ -33,7 +33,7 @@ describe("V3 workspace structure", () => {
     ]);
   });
 
-  it("creates each V3 app with independent deploy files, health routes, and Postgres config", () => {
+  it("creates each V3 app with independent deploy files, health routes, and database config", () => {
     for (const app of v3WorkspaceApps) {
       const base = path.join(rootDir, app.path);
       const srcAppRouterBase = path.join(base, "src", "app");
@@ -70,9 +70,9 @@ describe("V3 workspace structure", () => {
       const envExample = readText(path.join(app.path, ".env.example"));
       const schema = readText(path.join(app.path, "prisma", "schema.prisma"));
       const expectedDatabaseProvider =
-        app.key === "vase-app" ? 'provider = "mysql"' : 'provider = "postgresql"';
+        app.key === "vase-app" || app.key === "vase-labs" ? 'provider = "mysql"' : 'provider = "postgresql"';
       const expectedDatabaseProtocol =
-        app.key === "vase-app" ? "DATABASE_URL=mysql://" : "DATABASE_URL=postgresql://";
+        app.key === "vase-app" || app.key === "vase-labs" ? "DATABASE_URL=mysql://" : "DATABASE_URL=postgresql://";
 
       expect(envExample).toContain(expectedDatabaseProtocol);
       expect(schema).toContain(expectedDatabaseProvider);

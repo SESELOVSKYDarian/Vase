@@ -13,12 +13,10 @@ export async function POST(
     return NextResponse.json({ error: "ASSIGNED_TO_REQUIRED" }, { status: 400 });
   }
 
-  const handoffs = await (labsPrisma as any).$queryRaw`
-    UPDATE "Handoff"
-    SET status = 'ASSIGNED', "assignedTo" = ${assignedTo}
-    WHERE id = ${handoffId}
-    RETURNING *
-  `;
+  const handoff = await (labsPrisma as any).handoff.update({
+    where: { id: handoffId },
+    data: { status: "ASSIGNED", assignedTo },
+  });
 
-  return NextResponse.json({ handoff: handoffs[0] ?? null });
+  return NextResponse.json({ handoff });
 }

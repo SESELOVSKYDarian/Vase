@@ -10,21 +10,29 @@ export async function POST(
   const body = await request.json().catch(() => ({}));
   const reason = typeof body.reason === "string" ? body.reason : "human requested";
   const handoffId = randomUUID();
-  const handoffs = await (labsPrisma as any).$queryRaw`
-    INSERT INTO "Handoff" (id, "conversationId", reason, target, status, priority, "createdAt")
-    SELECT ${handoffId}, c.id, ${reason}, 'workplace', 'PENDING', 'normal', ${new Date()}
-    FROM "Conversation" c
-    JOIN "Assistant" a ON a.id = c."assistantId"
-    WHERE a."tenantSlug" = ${tenantSlug}
-      AND c.id = ${conversationId}
-    RETURNING *
-  `;
+  const conversation = await (labsPrisma as any).conversation.findFirst({
+    where: { id: conversationId, assistant: { tenantSlug } },
+    select: { id: true },
+  });
+  if (!conversation) {
+    return NextResponse.json({ handoff: null }, { status: 404 });
+  }
 
-  await (labsPrisma as any).$executeRaw`
-    UPDATE "Conversation"
-    SET status = 'ESCALATED', "escalatedToHuman" = true, "updatedAt" = ${new Date()}
-    WHERE id = ${conversationId}
-  `;
+  const handoff = await (labsPrisma as any).handoff.create({
+    data: {
+      id: handoffId,
+      conversationId,
+      reason,
+      target: "workplace",
+      status: "PENDING",
+      priority: "normal",
+    },
+  });
 
-  return NextResponse.json({ handoff: handoffs[0] ?? null });
+  await (labsPrisma as any).conversation.update({
+    where: { id: conversationId },
+    data: { status: "ESCALATED", escalatedToHuman: true },
+  });
+
+  return NextResponse.json({ handoff });
 }

@@ -28,7 +28,7 @@ Ejemplo:
 | Help | `vase-help-app` | `apps/vase-help/Dockerfile` | `help.vase.ar` | `3004` | `postgres-help` |
 | Business | `vase-business` | `/apps/vase-editor` | `business.vase.ar` | `3000` | `vase-business-pg` existente |
 | Management | `vase-management-app` | `apps/vase-management/Dockerfile` | `management.vase.ar` | `3006` | `postgres-management` |
-| Labs | `vase-labs-app` | `apps/vase-labs/Dockerfile` | `labs.vase.ar` | `3007` | `postgres-labs` |
+| Labs | `vase-labs-app` | `apps/vase-labs/Dockerfile` | `labs.vase.ar` | `3007` | `vase-db` (MySQL) |
 | Workplace | `vase-workplace-app` | `apps/vase-workplace/Dockerfile` | `workplace.vase.ar` | `3008` | `postgres-workplace` |
 
 ### Transicion de Vase App
@@ -88,8 +88,8 @@ Reglas:
 
 ## Variables especificas por app
 
-Cada app necesita su propio `DATABASE_URL`. Vase App conserva temporalmente
-MySQL; los demas workspaces V3 usan PostgreSQL.
+Cada app necesita su propio `DATABASE_URL`. Vase App y Vase Labs usan MySQL;
+los demas workspaces V3 usan PostgreSQL.
 
 ### Portal
 
@@ -200,7 +200,7 @@ no incluye carpeta `prisma/migrations`.
 ```env
 NEXT_PUBLIC_APP_URL=https://labs.vase.ar
 APP_INTERNAL_URL=http://app-vase:3002
-DATABASE_URL=postgresql://vase_labs_user:PASSWORD@postgres-labs:5432/vase_labs
+DATABASE_URL=mysql://vase_labs_user:PASSWORD@vase-db:3306/vase_labs
 AUTH_SECRET=CHANGE_ME_BASE64_32
 AUTH_COOKIE_DOMAIN=.vase.ar
 SERVICE_TO_SERVICE_TOKEN=CHANGE_ME_BASE64_32
@@ -255,7 +255,7 @@ El flujo oficial requiere además completar en Meta Business:
 - las rutas históricas por tenant se conservan temporalmente para compatibilidad, pero las nuevas suscripciones deben usar los callbacks globales;
 - configuración de Embedded Signup cuyo ID se guarda en `META_WHATSAPP_CONFIG_ID`.
 
-`ready` debe devolver `status: "ok"` y `checks.database: "postgres-labs"`. Si devuelve `status: "degraded"` con `checks.database: "error"`, revisar `DATABASE_URL`, credenciales, red interna y migraciones.
+`ready` debe devolver `status: "ok"` y `checks.database: "mysql-labs"`. Si devuelve `status: "degraded"` con `checks.database: "error"`, revisar `DATABASE_URL`, credenciales, red interna y migraciones.
 
 Callbacks Meta que deben cargarse en la app de Meta:
 

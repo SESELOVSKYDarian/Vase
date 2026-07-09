@@ -8,16 +8,34 @@ export async function GET(
   const { tenantSlug } = await params;
   const search = new URL(request.url).searchParams;
   const status = search.get("status");
-  const conversations = await (labsPrisma as any).$queryRaw`
-    SELECT c.id, a."globalTenantId", c.channel, c.status, c."customerName", c."customerContact",
-           c."lastMessageAt", c."messageCount", c."escalatedToHuman"
-    FROM "Conversation" c
-    JOIN "Assistant" a ON a.id = c."assistantId"
-    WHERE a."tenantSlug" = ${tenantSlug}
-      AND (${status} IS NULL OR c.status::text = ${status})
-    ORDER BY c."lastMessageAt" DESC NULLS LAST
-    LIMIT 100
-  `;
+  const assistant = await (labsPrisma as any).assistant.findUnique({
+    where: { tenantSlug },
+    select: { id: true, globalTenantId: true },
+  });
+  const rows = assistant
+    ? await (labsPrisma as any).conversation.findMany({
+        where: {
+          assistantId: assistant.id,
+          ...(status ? { status } : {}),
+        },
+        orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }],
+        take: 100,
+        select: {
+          id: true,
+          channel: true,
+          status: true,
+          customerName: true,
+          customerContact: true,
+          lastMessageAt: true,
+          messageCount: true,
+          escalatedToHuman: true,
+        },
+      })
+    : [];
+  const conversations = rows.map((conversation: any) => ({
+    ...conversation,
+    globalTenantId: assistant?.globalTenantId ?? "",
+  }));
 
   return NextResponse.json({ conversations });
 }

@@ -98,6 +98,44 @@ function parseNullableDate(value: string | Date | null | undefined): Date | null
   return value instanceof Date ? value : new Date(value);
 }
 
+const allowedChannels: LabsChannel[] = ["WHATSAPP", "INSTAGRAM", "FACEBOOK"];
+
+function normalizeEnabledChannels(value: unknown): LabsChannel[] {
+  if (Array.isArray(value)) {
+    return value.filter((channel): channel is LabsChannel =>
+      allowedChannels.includes(channel as LabsChannel),
+    );
+  }
+
+  if (typeof value === "string") {
+    try {
+      return normalizeEnabledChannels(JSON.parse(value));
+    } catch {
+      return value
+        .split(",")
+        .map((channel) => channel.trim())
+        .filter((channel): channel is LabsChannel =>
+          allowedChannels.includes(channel as LabsChannel),
+        );
+    }
+  }
+
+  return [];
+}
+
+function mapEntitlementRecord(record: unknown): LabsEntitlementRecord | null {
+  if (!record || typeof record !== "object") {
+    return null;
+  }
+
+  const current = record as LabsEntitlementRecord & { enabledChannels: unknown };
+
+  return {
+    ...current,
+    enabledChannels: normalizeEnabledChannels(current.enabledChannels),
+  };
+}
+
 function toRuntimeEntitlement(record: LabsEntitlementRecord): LabsRuntimeEntitlement {
   return createRuntimeEntitlement({
     globalTenantId: record.globalTenantId,
@@ -176,16 +214,18 @@ export function createLabsEntitlementsService(repository: LabsEntitlementsReposi
 
 export const prismaLabsEntitlementsRepository: LabsEntitlementsRepository = {
   async findByGlobalTenantId(globalTenantId) {
-    return (labsPrisma as any).labsEntitlement.findUnique({
+    const record = await (labsPrisma as any).labsEntitlement.findUnique({
       where: { globalTenantId },
     });
+    return mapEntitlementRecord(record);
   },
 
   async upsert(input) {
-    return (labsPrisma as any).labsEntitlement.upsert({
+    const record = await (labsPrisma as any).labsEntitlement.upsert({
       where: { globalTenantId: input.globalTenantId },
       create: {
         ...input,
+        enabledChannels: input.enabledChannels,
         tokensUsed: input.tokensUsed ?? 0,
       },
       update: {
@@ -200,6 +240,11 @@ export const prismaLabsEntitlementsRepository: LabsEntitlementsRepository = {
         renewsAt: input.renewsAt,
       },
     });
+    const mapped = mapEntitlementRecord(record);
+    if (!mapped) {
+      throw new Error("LABS_ENTITLEMENT_PERSIST_FAILED");
+    }
+    return mapped;
   },
 
   async registerUsage(globalTenantId, usage) {
@@ -227,7 +272,12 @@ export const prismaLabsEntitlementsRepository: LabsEntitlementsRepository = {
         },
       });
 
-      return { entitlement, usage: persistedUsage };
+      const mappedEntitlement = mapEntitlementRecord(entitlement);
+      if (!mappedEntitlement) {
+        throw new Error("LABS_ENTITLEMENT_USAGE_FAILED");
+      }
+
+      return { entitlement: mappedEntitlement, usage: persistedUsage };
     });
   },
 };

@@ -114,16 +114,41 @@ type EntitlementRow = {
 type ConversationRow = { id: string; metadata: unknown };
 type IdRow = { id: string };
 
+const allowedChannels: LabsChannel[] = ["WHATSAPP", "INSTAGRAM", "FACEBOOK"];
+
 function normalizeRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
+function normalizeEnabledChannels(value: unknown): LabsChannel[] {
+  if (Array.isArray(value)) {
+    return value.filter((channel): channel is LabsChannel =>
+      allowedChannels.includes(channel as LabsChannel),
+    );
+  }
+
+  if (typeof value === "string") {
+    try {
+      return normalizeEnabledChannels(JSON.parse(value));
+    } catch {
+      return value
+        .split(",")
+        .map((channel) => channel.trim())
+        .filter((channel): channel is LabsChannel =>
+          allowedChannels.includes(channel as LabsChannel),
+        );
+    }
+  }
+
+  return [];
+}
+
 function metadataJson(value: Record<string, unknown>) {
-  return Prisma.sql`CAST(${JSON.stringify(value)} AS jsonb)`;
+  return Prisma.sql`${JSON.stringify(value)}`;
 }
 
 function enumValue(channelType: LabsChannel) {
-  return Prisma.sql`CAST(${channelType} AS "LabsChannel")`;
+  return Prisma.sql`${channelType}`;
 }
 
 function messageContent(message: InboundChannelMessage) {
@@ -188,7 +213,7 @@ function buildRuntimeEntitlement(row: EntitlementRow | undefined): LabsRuntimeEn
     globalTenantId: row.globalTenantId,
     plan: row.plan,
     status: row.status,
-    enabledChannels: row.enabledChannels,
+    enabledChannels: normalizeEnabledChannels(row.enabledChannels),
     tokenPack: row.tokenPack,
     tokensIncluded: row.tokensIncluded,
     tokensUsed: row.tokensUsed,
@@ -203,9 +228,9 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
 
   async findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null> {
     const assistants = await this.prisma.$queryRaw<AssistantRow[]>`
-      SELECT id, "globalTenantId", "tenantSlug"
-      FROM "Assistant"
-      WHERE "tenantSlug" = ${tenantSlug}
+      SELECT id, globalTenantId, tenantSlug
+      FROM Assistant
+      WHERE tenantSlug = ${tenantSlug}
       LIMIT 1
     `;
     const assistant = assistants[0];
@@ -213,27 +238,27 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
 
     const channels = await this.prisma.$queryRaw<ChannelRow[]>`
       SELECT id, provider, status, config
-      FROM "Channel"
-      WHERE "assistantId" = ${assistant.id}
+      FROM Channel
+      WHERE assistantId = ${assistant.id}
         AND type = ${enumValue(channelType)}
         AND (provider IS NULL OR provider = 'META_OFFICIAL')
-      ORDER BY "createdAt" DESC
+      ORDER BY createdAt DESC
       LIMIT 1
     `;
     const entitlements = await this.prisma.$queryRaw<EntitlementRow[]>`
       SELECT
-        "globalTenantId",
+        globalTenantId,
         plan,
         status,
-        "enabledChannels",
-        "tokenPack",
-        "tokensIncluded",
-        "tokensUsed",
-        "extraTokens",
-        "currentPeriodStart",
-        "renewsAt"
-      FROM "LabsEntitlement"
-      WHERE "globalTenantId" = ${assistant.globalTenantId}
+        enabledChannels,
+        tokenPack,
+        tokensIncluded,
+        tokensUsed,
+        extraTokens,
+        currentPeriodStart,
+        renewsAt
+      FROM LabsEntitlement
+      WHERE globalTenantId = ${assistant.globalTenantId}
       LIMIT 1
     `;
 
@@ -266,18 +291,18 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         c.provider,
         c.status,
         c.config,
-        a.id AS "assistantId",
-        a."globalTenantId",
-        a."tenantSlug"
-      FROM "Channel" c
-      JOIN "Assistant" a ON a.id = c."assistantId"
+        a.id AS assistantId,
+        a.globalTenantId,
+        a.tenantSlug
+      FROM Channel c
+      JOIN Assistant a ON a.id = c.assistantId
       WHERE c.type = ${enumValue(channelType)}
         AND c.provider = 'META_OFFICIAL'
         AND (
-          c."providerAccountId" = ${providerAccountId}
-          OR c.config->>'parentId' = ${providerAccountId}
+          c.providerAccountId = ${providerAccountId}
+          OR JSON_UNQUOTE(JSON_EXTRACT(c.config, '$.parentId')) = ${providerAccountId}
         )
-      ORDER BY c."updatedAt" DESC
+      ORDER BY c.updatedAt DESC
       LIMIT 1
     `;
     const row = rows[0];
@@ -285,10 +310,10 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
 
     const entitlements = await this.prisma.$queryRaw<EntitlementRow[]>`
       SELECT
-        "globalTenantId", plan, status, "enabledChannels", "tokenPack",
-        "tokensIncluded", "tokensUsed", "extraTokens", "currentPeriodStart", "renewsAt"
-      FROM "LabsEntitlement"
-      WHERE "globalTenantId" = ${row.globalTenantId}
+        globalTenantId, plan, status, enabledChannels, tokenPack,
+        tokensIncluded, tokensUsed, extraTokens, currentPeriodStart, renewsAt
+      FROM LabsEntitlement
+      WHERE globalTenantId = ${row.globalTenantId}
       LIMIT 1
     `;
 
@@ -312,10 +337,10 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     const channelType = input.message.channelType;
     const existing = await this.prisma.$queryRaw<ConversationRow[]>`
       SELECT id, metadata
-      FROM "Conversation"
-      WHERE "assistantId" = ${input.context.assistantId}
+      FROM Conversation
+      WHERE assistantId = ${input.context.assistantId}
         AND channel = ${enumValue(channelType)}
-        AND "externalThreadKey" = ${input.message.externalThreadKey}
+        AND externalThreadKey = ${input.message.externalThreadKey}
       LIMIT 1
     `;
 
@@ -323,22 +348,22 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
 
     if (!conversation) {
       const conversationId = randomUUID();
-      const created = await this.prisma.$queryRaw<ConversationRow[]>`
-        INSERT INTO "Conversation" (
+      await this.prisma.$executeRaw`
+        INSERT INTO Conversation (
           id,
-          "assistantId",
+          assistantId,
           channel,
           status,
-          "externalUserId",
-          "externalThreadKey",
-          "customerName",
-          "customerContact",
+          externalUserId,
+          externalThreadKey,
+          customerName,
+          customerContact,
           metadata,
-          "messageCount",
-          "lastMessageAt",
-          "lastInboundAt",
-          "createdAt",
-          "updatedAt"
+          messageCount,
+          lastMessageAt,
+          lastInboundAt,
+          createdAt,
+          updatedAt
         )
         VALUES (
           ${conversationId},
@@ -356,37 +381,39 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
           ${now},
           ${now}
         )
-        RETURNING id, metadata
       `;
-      conversation = created[0];
+      conversation = {
+        id: conversationId,
+        metadata: mergeConversationMetadata(null, input),
+      };
     }
 
     const nextMetadata = mergeConversationMetadata(conversation.metadata, input);
 
     await this.prisma.$executeRaw`
-      UPDATE "Conversation"
+      UPDATE Conversation
       SET
         metadata = ${metadataJson(nextMetadata)},
-        "customerName" = COALESCE(${input.message.customerName ?? null}, "customerName"),
-        "customerContact" = COALESCE(${input.message.customerContact ?? null}, "customerContact"),
-        "messageCount" = "messageCount" + 1,
-        "lastMessageAt" = ${now},
-        "lastInboundAt" = ${now},
-        "updatedAt" = ${now}
+        customerName = COALESCE(${input.message.customerName ?? null}, customerName),
+        customerContact = COALESCE(${input.message.customerContact ?? null}, customerContact),
+        messageCount = messageCount + 1,
+        lastMessageAt = ${now},
+        lastInboundAt = ${now},
+        updatedAt = ${now}
       WHERE id = ${conversation.id}
     `;
 
     const messageId = randomUUID();
-    const messages = await this.prisma.$queryRaw<IdRow[]>`
-      INSERT INTO "Message" (
+    await this.prisma.$executeRaw`
+      INSERT INTO Message (
         id,
-        "conversationId",
+        conversationId,
         role,
         direction,
         content,
-        "providerMessageId",
+        providerMessageId,
         metadata,
-        "createdAt"
+        createdAt
       )
       VALUES (
         ${messageId},
@@ -398,12 +425,11 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         ${metadataJson(buildMessageMetadata(input))},
         ${now}
       )
-      RETURNING id
     `;
 
     return {
       conversationId: conversation.id,
-      messageId: messages[0]?.id ?? "",
+      messageId,
       aiBlockedReason: input.aiBlockedReason,
     };
   }
@@ -420,15 +446,15 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
 
     try {
       await this.prisma.$executeRaw`
-        INSERT INTO "WebhookEvent" (
+        INSERT INTO WebhookEvent (
           id,
-          "channelId",
-          "providerEventId",
-          "providerMessageId",
+          channelId,
+          providerEventId,
+          providerMessageId,
           status,
           metadata,
-          "createdAt",
-          "updatedAt"
+          createdAt,
+          updatedAt
         )
         VALUES (
           ${randomUUID()},
@@ -456,14 +482,14 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     if (!input.context.channel?.id || !input.providerMessageId) return;
 
     await this.prisma.$executeRaw`
-      UPDATE "WebhookEvent"
+      UPDATE WebhookEvent
       SET
         status = 'PROCESSED',
-        "processedAt" = ${new Date()},
+        processedAt = ${new Date()},
         metadata = ${metadataJson({ conversationId: input.conversationId, messageId: input.messageId })},
-        "updatedAt" = ${new Date()}
-      WHERE "channelId" = ${input.context.channel.id}
-        AND "providerMessageId" = ${input.providerMessageId}
+        updatedAt = ${new Date()}
+      WHERE channelId = ${input.context.channel.id}
+        AND providerMessageId = ${input.providerMessageId}
     `;
   }
 
@@ -475,14 +501,14 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     if (!input.context.channel?.id || !input.providerMessageId) return;
 
     await this.prisma.$executeRaw`
-      UPDATE "WebhookEvent"
+      UPDATE WebhookEvent
       SET
         status = 'FAILED',
-        "failedAt" = ${new Date()},
+        failedAt = ${new Date()},
         metadata = ${metadataJson({ reason: input.reason })},
-        "updatedAt" = ${new Date()}
-      WHERE "channelId" = ${input.context.channel.id}
-        AND "providerMessageId" = ${input.providerMessageId}
+        updatedAt = ${new Date()}
+      WHERE channelId = ${input.context.channel.id}
+        AND providerMessageId = ${input.providerMessageId}
     `;
   }
 }

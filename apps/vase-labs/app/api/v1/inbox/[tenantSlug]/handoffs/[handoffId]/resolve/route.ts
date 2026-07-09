@@ -6,20 +6,16 @@ export async function POST(
   { params }: { params: Promise<{ handoffId: string }> },
 ) {
   const { handoffId } = await params;
-  const handoffs = await (labsPrisma as any).$queryRaw<Array<{ conversationId: string }>>`
-    UPDATE "Handoff"
-    SET status = 'RESOLVED', "resolvedAt" = ${new Date()}
-    WHERE id = ${handoffId}
-    RETURNING *
-  `;
-  const handoff = handoffs[0];
+  const handoff = await (labsPrisma as any).handoff.update({
+    where: { id: handoffId },
+    data: { status: "RESOLVED", resolvedAt: new Date() },
+  });
 
   if (handoff) {
-    await (labsPrisma as any).$executeRaw`
-      UPDATE "Conversation"
-      SET status = 'OPEN', "escalatedToHuman" = false, "updatedAt" = ${new Date()}
-      WHERE id = ${handoff.conversationId}
-    `;
+    await (labsPrisma as any).conversation.update({
+      where: { id: handoff.conversationId },
+      data: { status: "OPEN", escalatedToHuman: false },
+    });
   }
 
   return NextResponse.json({ handoff: handoff ?? null });

@@ -6,14 +6,19 @@ export async function GET(
   { params }: { params: Promise<{ tenantSlug: string }> },
 ) {
   const { tenantSlug } = await params;
-  const channels = await (labsPrisma as any).$queryRaw`
-    SELECT ch.type, ch.status, COUNT(c.id)::int AS conversations
-    FROM "Channel" ch
-    JOIN "Assistant" a ON a.id = ch."assistantId"
-    LEFT JOIN "Conversation" c ON c."assistantId" = a.id AND c.channel = ch.type
-    WHERE a."tenantSlug" = ${tenantSlug}
-    GROUP BY ch.type, ch.status
-  `;
+  const assistant = await (labsPrisma as any).assistant.findUnique({
+    where: { tenantSlug },
+    include: {
+      channels: { select: { type: true, status: true } },
+      conversations: { select: { channel: true } },
+    },
+  });
+  const channels = (assistant?.channels ?? []).map((channel: any) => ({
+    ...channel,
+    conversations: (assistant?.conversations ?? []).filter(
+      (conversation: any) => conversation.channel === channel.type,
+    ).length,
+  }));
 
   return NextResponse.json({ channels });
 }

@@ -9,7 +9,7 @@ describe("Vase Labs readiness", () => {
     });
 
     expect(payload.status).toBe("ok");
-    expect(payload.checks.database).toBe("postgres-labs");
+    expect(payload.checks.database).toBe("mysql-labs");
   });
 
   it("reports degraded when the database ping fails", async () => {
