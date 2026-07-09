@@ -16,4 +16,4 @@ ENV HOSTNAME=$HOSTNAME
 ENV PORT=$PORT
 
 EXPOSE 3000
-CMD ["sh", "-c", "cd apps/vase-labs && npx next start -H \"${HOSTNAME:-0.0.0.0}\" -p \"${PORT:-3000}\""]
+CMD ["sh", "-c", "node apps/vase-labs/scripts/validate-runtime-env.js && cd apps/vase-labs && npx next start -H \"${HOSTNAME:-0.0.0.0}\" -p \"${PORT:-3000}\""]

@@ -3,6 +3,7 @@ import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import {
   requiresFullDocumentNavigation,
   resolveAppHomeHref,
+  resolveLabsHomeHref,
   resolveNavigationHrefForHost,
   resolveShortcutHref,
 } from "@/lib/navigation/document-navigation";
@@ -26,6 +27,7 @@ describe("document navigation guard", () => {
 
   it("resolves the public Home and Home shortcut", () => {
     expect(resolveAppHomeHref()).toBe("https://vase.ar");
+    expect(resolveLabsHomeHref()).toBe("https://labs.vase.ar/app/owner/labs");
     expect(resolveShortcutHref("goto_home", "/app")).toBe("https://vase.ar");
     expect(resolveShortcutHref("goto_settings", "/app/settings")).toBe(
       "/app/settings",
@@ -40,5 +42,13 @@ describe("document navigation guard", () => {
     expect(resolveNavigationHrefForHost("/app/owner/labs/activity", "labs.vase.ar")).toBe("/app/owner/labs/activity");
     expect(resolveNavigationHrefForHost("/precios", "labs.vase.ar")).toBe("/app/owner/labs");
     expect(resolveNavigationHrefForHost("/app/help", "vase.ar")).toBe("/app/help");
+  });
+
+  it("sends Labs navigation from the primary app host to the standalone Labs origin", () => {
+    expect(resolveNavigationHrefForHost("/app/labs", "app.vase.ar")).toBe("https://labs.vase.ar/app/owner/labs");
+    expect(resolveNavigationHrefForHost("/app/labs#knowledge", "app.vase.ar")).toBe("https://labs.vase.ar/app/owner/labs");
+    expect(resolveNavigationHrefForHost("/app/owner/labs/activity?tab=recent", "app.vase.ar")).toBe(
+      "https://labs.vase.ar/app/owner/labs/activity?tab=recent",
+    );
   });
 });

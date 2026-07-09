@@ -8,6 +8,10 @@ export function resolveAppHomeHref() {
   return productOrigins.publicSite;
 }
 
+export function resolveLabsHomeHref() {
+  return new URL(LABS_HOME_PATH, productOrigins.labs).toString();
+}
+
 export function resolveShortcutHref(id: string, target: string) {
   return id === "goto_home" ? resolveAppHomeHref() : target;
 }
@@ -29,6 +33,21 @@ function isInternalPath(href: string) {
   return href.startsWith("/") && !href.startsWith("//");
 }
 
+function resolveLabsOriginHref(href: string) {
+  const target = new URL(href, productOrigins.labs);
+
+  if (
+    target.pathname === "/app/labs" ||
+    target.pathname.startsWith("/app/labs/")
+  ) {
+    target.pathname = LABS_HOME_PATH;
+    target.search = "";
+    target.hash = "";
+  }
+
+  return target.toString();
+}
+
 function isLabsNavigationPath(pathname: string) {
   return (
     pathname === "/app/labs" ||
@@ -39,11 +58,19 @@ function isLabsNavigationPath(pathname: string) {
 }
 
 export function resolveNavigationHrefForHost(href: string, hostname: string | null | undefined) {
-  if (!isLabsHost(hostname) || !isInternalPath(href)) {
+  if (!isInternalPath(href)) {
     return href;
   }
 
   const pathname = readPathname(href);
+
+  if (!isLabsHost(hostname) && isLabsNavigationPath(pathname)) {
+    return resolveLabsOriginHref(href);
+  }
+
+  if (!isLabsHost(hostname)) {
+    return href;
+  }
 
   if (isLabsNavigationPath(pathname)) {
     return href;
