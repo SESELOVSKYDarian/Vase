@@ -42,6 +42,7 @@ export function LabsOwnerNav() {
           <Link
             key={item.href}
             href={item.href as never}
+            aria-current={active ? "page" : undefined}
             className={[
               "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-[var(--muted)] transition-colors duration-200",
               active
@@ -71,6 +72,7 @@ export function LabsOwnerMobileNav() {
             <Link
               key={item.href}
               href={item.href as never}
+              aria-current={active ? "page" : undefined}
               className={[
                 "inline-flex min-h-10 shrink-0 items-center rounded-lg px-3 text-xs font-bold transition-colors",
                 active ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]",

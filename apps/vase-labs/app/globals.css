@@ -2078,3 +2078,18 @@ a:focus-visible {
   border-radius: 0.625rem;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
+
+.labs-sidebar nav a,
+.labs-scrollbar a {
+  text-decoration: none;
+}
+
+.labs-sidebar nav a {
+  border-radius: 0.5rem;
+}
+
+.labs-sidebar nav a[aria-current="page"],
+.labs-sidebar nav a[class*="bg-[var(--foreground)]"],
+.labs-scrollbar a[class*="bg-[var(--foreground)]"] {
+  border-radius: 0.5rem;
+}
