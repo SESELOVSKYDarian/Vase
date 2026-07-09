@@ -42,7 +42,7 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
   const plan = resolved.context.entitlement.plan;
 
   return (
-    <div className="labs-shell overflow-x-hidden">
+    <div className="labs-owner-shell">
       <aside className="labs-sidebar fixed left-0 top-0 z-40 hidden h-screen w-72 flex-col px-4 py-5 lg:flex">
         <div className="mb-7 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
           <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-strong)] text-[var(--accent-contrast)]">

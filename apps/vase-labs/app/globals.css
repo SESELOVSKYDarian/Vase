@@ -1420,8 +1420,13 @@ a:focus-visible {
 
 /* ─── Design-system component classes (ported from vase-app) ─── */
 
-.labs-shell {
+.labs-owner-shell {
+  position: relative;
+  display: block;
   min-height: 100vh;
+  padding: 0;
+  gap: 0;
+  overflow-x: hidden;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--background) 96%, transparent), var(--background-elevated)),
     var(--background);
