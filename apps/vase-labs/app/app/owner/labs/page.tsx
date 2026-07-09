@@ -79,8 +79,22 @@ async function getOwnerLabsData(): Promise<OwnerLabsData> {
 
   try {
     resolved = await resolveLabsRequestContext(requestHeaders.get("cookie"));
-  } catch {
-    redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs");
+  } catch (error) {
+    if (error instanceof Error) {
+      const authErrors = [
+        "LABS_SESSION_REQUIRED",
+        "LABS_SESSION_INVALID",
+        "LABS_SESSION_EXPIRED",
+        "LABS_AUTH_SECRET_MISSING",
+      ];
+      if (authErrors.includes(error.message)) {
+        redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs");
+      }
+      if (error.message === "LABS_TENANT_FORBIDDEN") {
+        redirect("https://app.vase.ar/app?labs=required");
+      }
+    }
+    redirect("https://app.vase.ar/app");
   }
 
   const [entitlement, channels, conversations, knowledgeItems, tokenUsage] = await Promise.all([
