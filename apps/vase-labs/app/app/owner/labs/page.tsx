@@ -1,56 +1,79 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { Bot, Cable, Database, Flame, MessageSquare, Route, UserRoundCheck } from "lucide-react";
 import { labsPrisma } from "../../../lib/db";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
-import {
-  LabsActionLink,
-  LabsEmptyState,
-  LabsMetricCard,
-  LabsPageHeader,
-  LabsSection,
-  LabsStatusPill,
-} from "./labs-ui";
-import { LabsConversationTrendChart, LabsIntentDistributionChart } from "./labs-analytics-charts";
-import { buildLabsConversationAnalytics } from "./labs-analytics";
 
 export const dynamic = "force-dynamic";
 
-function trainingTone(status: string): "neutral" | "success" | "warning" | "danger" | "info" {
-  switch (status) {
-    case "READY":
-      return "success";
-    case "FAILED":
-      return "danger";
-    case "PROCESSING":
-    case "QUEUED":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
-
-function conversationTone(status: string): "neutral" | "success" | "warning" | "danger" | "info" {
-  switch (status) {
-    case "ESCALATED":
-      return "warning";
-    case "CLOSED":
-      return "neutral";
-    default:
-      return "info";
-  }
-}
+type OwnerLabsData = {
+  tenantName: string;
+  plan: string;
+  serviceStatus: string;
+  openConversations: number;
+  escalatedConversations: number;
+  connectedChannels: number;
+  knowledgeItems: number;
+  trainingItems: number;
+  tokensUsed: number;
+  tokensAvailable: number;
+  setup: Array<{ label: string; ready: boolean }>;
+  criticalConversations: Array<{
+    id: string;
+    customer: string;
+    channel: string;
+    summary: string;
+    status: string;
+    lastMessageAt: Date | null;
+    escalatedToHuman: boolean;
+  }>;
+  recentTraining: Array<{
+    id: string;
+    title: string;
+    status: string;
+    createdAt: Date;
+  }>;
+};
 
 function formatDate(value: Date | null) {
-  if (!value) return "Sin fecha";
+  if (!value) return "Sin actividad";
   return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "medium",
-    timeStyle: "short",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(value);
 }
 
-async function getOwnerLabsData() {
+function statusTone(value: string, escalated = false) {
+  const normalized = value.toLowerCase();
+  if (escalated || normalized.includes("pending") || normalized.includes("open")) return "warning";
+  if (normalized.includes("ready") || normalized.includes("connected") || normalized.includes("closed")) return "success";
+  return "neutral";
+}
+
+function StatusPill({ label, tone = "neutral" }: { label: string; tone?: "success" | "warning" | "neutral" }) {
+  return <span className={`owner-labs-pill is-${tone}`}>{label}</span>;
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+}) {
+  return (
+    <article className="owner-labs-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {detail ? <p>{detail}</p> : null}
+    </article>
+  );
+}
+
+async function getOwnerLabsData(): Promise<OwnerLabsData> {
   const requestHeaders = await headers();
   let resolved: Awaited<ReturnType<typeof resolveLabsRequestContext>>;
 
@@ -85,12 +108,12 @@ async function getOwnerLabsData() {
     labsPrisma.conversation.findMany({
       where: { assistantId: resolved.assistant.id },
       orderBy: [{ escalatedToHuman: "desc" }, { lastMessageAt: "desc" }],
-      take: 30,
+      take: 8,
     }),
     labsPrisma.knowledgeItem.findMany({
       where: { assistantId: resolved.assistant.id },
       orderBy: { updatedAt: "desc" },
-      take: 20,
+      take: 4,
     }),
     labsPrisma.tokenUsage.aggregate({
       where: { globalTenantId: resolved.context.globalTenantId },
@@ -98,26 +121,16 @@ async function getOwnerLabsData() {
     }),
   ]);
 
-  const openConversations = conversations.filter((c) => c.status === "OPEN").length;
+  const openConversations = conversations.filter((conversation) => conversation.status === "OPEN").length;
   const escalatedConversations = conversations.filter(
-    (c) => c.status === "ESCALATED" || c.escalatedToHuman,
+    (conversation) => conversation.status === "ESCALATED" || conversation.escalatedToHuman,
   ).length;
-  const connectedChannels = channels.filter((c) => c.status === "CONNECTED").length;
+  const connectedChannels = channels.filter((channel) => channel.status === "CONNECTED").length;
   const tokensUsed = entitlement?.tokensUsed ?? tokenUsage._sum.totalTokens ?? 0;
-  const tokensIncluded = entitlement?.tokensIncluded ?? 0;
-  const extraTokens = entitlement?.extraTokens ?? 0;
-  const tokensAvailable = Math.max(0, tokensIncluded + extraTokens - tokensUsed);
-  const readyKnowledge = knowledgeItems.filter((item) => item.status === "READY").length;
-
-  const criticalConversations = conversations
-    .filter((c) => c.intentLabel === "HOT_LEAD" || c.escalatedToHuman)
-    .slice(0, 5);
-
-  const setupSteps = {
-    hasKnowledge: knowledgeItems.length > 0,
-    hasChannel: connectedChannels > 0,
-    hasEscalation: escalatedConversations > 0 || conversations.length > 0,
-  };
+  const tokensAvailable = Math.max(
+    0,
+    (entitlement?.tokensIncluded ?? 0) + (entitlement?.extraTokens ?? 0) - tokensUsed,
+  );
 
   return {
     tenantName: resolved.context.tenantName,
@@ -126,177 +139,174 @@ async function getOwnerLabsData() {
     openConversations,
     escalatedConversations,
     connectedChannels,
-    knowledgeItemCount: knowledgeItems.length,
-    readyKnowledge,
-    tokensIncluded,
-    extraTokens,
+    knowledgeItems: knowledgeItems.length,
+    trainingItems: knowledgeItems.filter((item) => item.status === "READY").length,
     tokensUsed,
     tokensAvailable,
-    conversations,
-    knowledgeItems,
-    criticalConversations,
-    setupSteps,
+    setup: [
+      { label: "Conocimiento", ready: knowledgeItems.length > 0 },
+      { label: "Canales", ready: connectedChannels > 0 },
+      { label: "Escalamiento humano", ready: escalatedConversations > 0 || conversations.length > 0 },
+    ],
+    criticalConversations: conversations.slice(0, 5).map((conversation) => ({
+      id: conversation.id,
+      customer: conversation.customerName ?? conversation.customerContact ?? "Cliente",
+      channel: conversation.channel ?? "LABS",
+      summary: conversation.summary ?? "Conversacion lista para seguimiento.",
+      status: conversation.status,
+      lastMessageAt: conversation.lastMessageAt,
+      escalatedToHuman: conversation.escalatedToHuman,
+    })),
+    recentTraining: knowledgeItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      status: item.status,
+      createdAt: item.createdAt,
+    })),
   };
 }
 
-export default async function LabsDashboardPage() {
+export default async function LabsOwnerDashboardPage() {
   const data = await getOwnerLabsData();
-  const analytics = buildLabsConversationAnalytics(
-    data.conversations.map((c) => ({
-      channel: c.channel,
-      intentLabel: c.intentLabel,
-      escalatedToHuman: c.escalatedToHuman,
-      lastMessageAt: c.lastMessageAt,
-    })),
-  );
-  const setupCompleted =
-    data.setupSteps.hasKnowledge && data.setupSteps.hasChannel && data.setupSteps.hasEscalation;
-  const tokenTotal = data.tokensIncluded + data.extraTokens;
-  const tokenUsagePercent = tokenTotal > 0 ? Math.min(100, Math.round((data.tokensUsed / tokenTotal) * 100)) : 0;
+  const setupCompleted = data.setup.every((item) => item.ready);
 
   return (
-    <div className="space-y-6">
-      <LabsPageHeader
-        eyebrow="Operacion IA"
-        title="Panel de control"
-        description="Estado vivo de conversaciones, conocimiento, canales y derivaciones humanas."
-        actions={
-          <>
-            <LabsActionLink href="/app/owner/labs/inbox">Abrir inbox</LabsActionLink>
-            <Link href="/app/owner/labs/activity" className="labs-button labs-button-secondary">
-              Analisis
-            </Link>
-          </>
-        }
-      />
+    <div className="owner-labs-dashboard">
+      <header className="owner-labs-header">
+        <div>
+          <p>Operacion IA</p>
+          <h1>Panel de control</h1>
+          <span>Estado vivo de conversaciones, conocimiento, canales y derivaciones humanas.</span>
+        </div>
+        <div className="owner-labs-actions">
+          <a href="/app/owner/labs/inbox">Abrir inbox</a>
+          <a href="/app/owner/labs/activity">Analisis</a>
+        </div>
+      </header>
 
-      <section className="labs-operations-strip" aria-label="Estado operativo del tenant">
-        <article className="labs-operations-card is-plan">
-          <span>Plan</span>
-          <strong>{data.plan}</strong>
-          <p>{data.tenantName}</p>
-        </article>
-        <article className="labs-operations-card">
-          <span>Servicio</span>
-          <div className="labs-operations-inline">
-            <strong>{data.serviceStatus}</strong>
-            <LabsStatusPill label={setupCompleted ? "Listo" : "Pendiente"} tone={setupCompleted ? "success" : "warning"} />
+      <section className="owner-labs-metrics" aria-label="Metricas principales">
+        <MetricCard label="Conversaciones abiertas" value={data.openConversations} detail="Seguimiento activo" />
+        <MetricCard label="Derivadas a humano" value={data.escalatedConversations} detail="Handoffs pendientes o recientes" />
+        <MetricCard label="Hot leads" value={data.criticalConversations.length} detail="Conversaciones priorizadas" />
+        <MetricCard label="Canales conectados" value={data.connectedChannels} detail="WhatsApp, Instagram o Facebook" />
+        <MetricCard label="Conocimiento cargado" value={data.knowledgeItems} detail="Fuentes disponibles" />
+        <MetricCard label="Training" value={`${data.trainingItems}/${data.knowledgeItems}`} detail="Fuentes listas" />
+      </section>
+
+      <section className="owner-labs-grid">
+        <article className="owner-labs-panel owner-labs-chart-panel" id="actividad">
+          <div className="owner-labs-panel-heading">
+            <div>
+              <p>Ritmo de conversaciones</p>
+              <h2>Actividad reciente del asistente</h2>
+            </div>
+            <StatusPill label={data.serviceStatus} tone="success" />
           </div>
-          <p>{setupCompleted ? "Setup operativo" : "Faltan pasos de configuracion"}</p>
-        </article>
-        <article className="labs-operations-card is-token">
-          <span>Tokens disponibles</span>
-          <strong>{data.tokensAvailable.toLocaleString("es-AR")}</strong>
-          <p>{data.tokensUsed.toLocaleString("es-AR")} usados</p>
-        </article>
-        <article className="labs-operations-card">
-          <span>Uso del periodo</span>
-          <strong>{tokenUsagePercent}%</strong>
-          <div className="labs-token-meter" aria-hidden="true">
-            <span style={{ width: `${tokenUsagePercent}%` }} />
-          </div>
-        </article>
-      </section>
-
-      <section data-labs-tour="metricas" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <LabsMetricCard label="Conversaciones abiertas" value={data.openConversations} icon={MessageSquare} tone="info" />
-        <LabsMetricCard label="Derivadas a humano" value={data.escalatedConversations} icon={UserRoundCheck} tone="warning" />
-        <LabsMetricCard label="Hot leads" value={analytics.hotLeads} icon={Flame} tone="success" />
-        <LabsMetricCard label="Canales conectados" value={data.connectedChannels} icon={Cable} tone="info" />
-        <LabsMetricCard label="Conocimiento cargado" value={data.knowledgeItemCount} icon={Database} tone="neutral" />
-        <LabsMetricCard label="Training" value={`${data.readyKnowledge}/${data.knowledgeItemCount}`} detail="Fuentes listas" icon={Bot} tone="neutral" />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-        <LabsSection title="Ritmo de conversaciones">
-          <LabsConversationTrendChart analytics={analytics} />
-        </LabsSection>
-        <LabsSection title="Distribucion de intencion">
-          <LabsIntentDistributionChart analytics={analytics} />
-        </LabsSection>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-        <LabsSection title="Salud del setup" description={data.plan}>
-          <div className="grid gap-3">
-            {([
-              ["Conocimiento", data.setupSteps.hasKnowledge],
-              ["Canales", data.setupSteps.hasChannel],
-              ["Escalamiento humano", data.setupSteps.hasEscalation],
-            ] as const).map(([label, ok]) => (
-              <div key={label} className="flex items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-4 py-3">
-                <span className="text-sm font-semibold text-[var(--foreground)]">{label}</span>
-                <LabsStatusPill label={ok ? "Listo" : "Pendiente"} tone={ok ? "success" : "warning"} />
+          <div className="owner-labs-bars" aria-label="Resumen visual de actividad">
+            {[
+              ["Abiertas", data.openConversations],
+              ["Handoffs", data.escalatedConversations],
+              ["Canales", data.connectedChannels],
+              ["Tokens", Math.min(100, Math.round(data.tokensUsed / 1000))],
+            ].map(([label, value]) => (
+              <div key={String(label)}>
+                <span>{label}</span>
+                <strong style={{ height: `${Math.max(12, Number(value) * 12)}px` }} />
               </div>
             ))}
           </div>
-          {!setupCompleted ? (
-            <Link href="/app/owner/labs/setup" className="labs-button labs-button-primary mt-4">
-              Completar setup
-              <Route className="size-4" />
-            </Link>
-          ) : null}
-        </LabsSection>
+        </article>
 
-        <LabsSection
-          data-labs-tour="alertas"
-          title="Conversaciones que piden atencion"
-          actions={
-            <Link href="/app/owner/labs/activity" className="labs-button labs-button-secondary">
-              Ver todo
-            </Link>
-          }
-        >
+        <article className="owner-labs-panel" id="canales">
+          <div className="owner-labs-panel-heading">
+            <div>
+              <p>Salud del setup</p>
+              <h2>{data.plan}</h2>
+            </div>
+            <StatusPill label={setupCompleted ? "Listo" : "Pendiente"} tone={setupCompleted ? "success" : "warning"} />
+          </div>
+          <div className="owner-labs-checklist">
+            {data.setup.map((item) => (
+              <div key={item.label}>
+                <span>{item.label}</span>
+                <StatusPill label={item.ready ? "Listo" : "Pendiente"} tone={item.ready ? "success" : "warning"} />
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="owner-labs-panel owner-labs-wide" id="inbox">
+          <div className="owner-labs-panel-heading">
+            <div>
+              <p>Conversaciones que piden atencion</p>
+              <h2>Inbox con contexto antes de responder</h2>
+            </div>
+            <a href="/app/owner/labs/inbox">Ver todo</a>
+          </div>
           {data.criticalConversations.length === 0 ? (
-            <LabsEmptyState title="Sin conversaciones criticas" description="Los hot leads y derivaciones humanas apareceran aca." />
+            <div className="owner-labs-empty">
+              <strong>Sin conversaciones criticas</strong>
+              <span>Los hot leads y derivaciones humanas apareceran aca.</span>
+            </div>
           ) : (
-            <div className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-lg border border-[var(--border-subtle)]">
+            <div className="owner-labs-conversations">
               {data.criticalConversations.map((conversation) => (
-                <div
-                  key={conversation.id}
-                  className="grid gap-2 bg-[var(--surface)] p-4 transition-colors hover:bg-[var(--surface-strong)] md:grid-cols-[1fr_auto]"
-                >
+                <article key={conversation.id}>
                   <div>
-                    <p className="font-semibold text-[var(--foreground)]">
-                      {conversation.customerName ?? conversation.customerContact ?? "Cliente"} · {conversation.channel ?? "LABS"}
-                    </p>
-                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--muted)]">
-                      {conversation.summary ?? "Sin resumen disponible"}
-                    </p>
+                    <strong>{conversation.customer} - {conversation.channel}</strong>
+                    <p>{conversation.summary}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                    <LabsStatusPill
-                      label={conversation.intentLabel ?? conversation.status}
-                      tone={conversation.escalatedToHuman ? "warning" : conversationTone(conversation.status)}
+                  <footer>
+                    <StatusPill
+                      label={conversation.escalatedToHuman ? "Handoff" : conversation.status}
+                      tone={statusTone(conversation.status, conversation.escalatedToHuman)}
                     />
-                    <span className="text-xs text-[var(--muted)]">{formatDate(conversation.lastMessageAt)}</span>
-                  </div>
+                    <small>{formatDate(conversation.lastMessageAt)}</small>
+                  </footer>
+                </article>
+              ))}
+            </div>
+          )}
+        </article>
+
+        <article className="owner-labs-panel" id="conocimiento">
+          <div className="owner-labs-panel-heading">
+            <div>
+              <p>Entrenamiento reciente</p>
+              <h2>Knowledge base</h2>
+            </div>
+          </div>
+          {data.recentTraining.length === 0 ? (
+            <div className="owner-labs-empty">
+              <strong>Sin entrenamientos</strong>
+              <span>Cuando actualices conocimiento vas a ver el progreso aca.</span>
+            </div>
+          ) : (
+            <div className="owner-labs-training">
+              {data.recentTraining.map((item) => (
+                <div key={item.id}>
+                  <strong>{item.title}</strong>
+                  <span>{item.status} - {formatDate(item.createdAt)}</span>
                 </div>
               ))}
             </div>
           )}
-        </LabsSection>
-      </section>
+        </article>
 
-      <LabsSection title="Entrenamiento reciente">
-        {data.knowledgeItems.length === 0 ? (
-          <LabsEmptyState title="Sin entrenamientos" description="Cuando actualices conocimiento vas a ver el progreso aca." />
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {data.knowledgeItems.slice(0, 4).map((item) => (
-              <div key={item.id} className="labs-subpanel p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">{item.title}</p>
-                  <LabsStatusPill label={item.status} tone={trainingTone(item.status)} />
-                </div>
-                <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                  {formatDate(item.createdAt)}
-                </p>
-              </div>
-            ))}
+        <article className="owner-labs-panel" id="ajustes">
+          <div className="owner-labs-panel-heading">
+            <div>
+              <p>Tokens</p>
+              <h2>Consumo del periodo</h2>
+            </div>
           </div>
-        )}
-      </LabsSection>
+          <div className="owner-labs-token-card">
+            <strong>{data.tokensAvailable.toLocaleString("es-AR")}</strong>
+            <span>tokens disponibles</span>
+            <p>{data.tokensUsed.toLocaleString("es-AR")} tokens usados.</p>
+          </div>
+        </article>
+      </section>
     </div>
   );
 }
