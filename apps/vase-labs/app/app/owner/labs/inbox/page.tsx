@@ -1,1 +1,5 @@
-export { default, dynamic } from "../activity/page";
+import ActivityPage from "../activity/page";
+
+export const dynamic = "force-dynamic";
+
+export default ActivityPage;
