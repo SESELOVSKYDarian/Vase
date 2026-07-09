@@ -42,9 +42,9 @@ export function LabsOwnerNav() {
             href={item.href as never}
             data-labs-tour={item.id}
             className={[
-              "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-[var(--muted)] transition-colors duration-200",
+              "labs-owner-nav-link flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-[var(--muted)] transition-colors duration-200",
               active
-                ? "bg-[var(--foreground)] text-[var(--background)] shadow-sm"
+                ? "is-active bg-[var(--foreground)] text-[var(--background)] shadow-sm"
                 : "hover:bg-[var(--surface)] hover:text-[var(--foreground)]",
             ].join(" ")}
           >
@@ -71,9 +71,9 @@ export function LabsOwnerMobileNav() {
               key={item.href}
               href={item.href as never}
               className={[
-                "inline-flex min-h-10 shrink-0 items-center rounded-lg px-3 text-xs font-bold transition-colors",
+                "labs-owner-mobile-nav-link inline-flex min-h-10 shrink-0 items-center rounded-lg px-3 text-xs font-bold transition-colors",
                 active
-                  ? "bg-[var(--foreground)] text-[var(--background)]"
+                  ? "is-active bg-[var(--foreground)] text-[var(--background)]"
                   : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]",
               ].join(" ")}
             >

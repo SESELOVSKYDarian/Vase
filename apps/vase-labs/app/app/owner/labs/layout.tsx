@@ -44,8 +44,8 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
   return (
     <div className="labs-owner-shell">
       <aside className="labs-sidebar fixed left-0 top-0 z-40 hidden h-screen w-72 flex-col px-4 py-5 lg:flex">
-        <div className="mb-7 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
+        <div className="labs-sidebar-brand mb-7 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
+          <div className="labs-sidebar-mark grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
             <Bot className="size-5" />
           </div>
           <div className="min-w-0">
@@ -59,12 +59,12 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
         <div className="mt-auto space-y-4 border-t border-[var(--border-subtle)] px-1 pt-5">
           <a
             href="https://app.vase.ar/app"
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]"
+            className="labs-sidebar-back inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]"
           >
             <ArrowLeft className="size-4" />
             Volver al Panel de Vase
           </a>
-          <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
+          <div className="labs-sidebar-tenant flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent-strong)]">
               <span className="text-xs font-bold">{initials}</span>
             </div>

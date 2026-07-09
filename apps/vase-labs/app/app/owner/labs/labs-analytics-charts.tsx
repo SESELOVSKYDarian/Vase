@@ -29,7 +29,7 @@ const chartColors = ["#0f8f61", "#487aee", "#7d8594", "#e28b45", "#9aa3ad"];
 
 function ChartShell({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
+    <div className="labs-chart-shell rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
       <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted-soft)]">{title}</p>
       <div className="h-64">{children}</div>
     </div>
