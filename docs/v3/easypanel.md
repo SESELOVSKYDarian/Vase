@@ -169,13 +169,31 @@ El bridge de autenticacion entre App y Business esta documentado en
 ### Management
 
 ```env
+NODE_ENV=production
+PORT=3006
 NEXT_PUBLIC_APP_URL=https://management.vase.ar
 DATABASE_URL=postgresql://vase_management_user:PASSWORD@postgres-management:5432/vase_management
+NEXTAUTH_URL=https://management.vase.ar
+NEXTAUTH_SECRET=CHANGE_ME_BASE64_32
+NEXT_PUBLIC_APP_NAME=Vase Management
+AFIP_ENV=sandbox
+CRON_SECRET=CHANGE_ME_BASE64_32
 APP_KEY=management
-PORT=3006
 ```
 
-Management sera el ERP SaaS argentino y debe integrarse con App para identidad, tenants y permisos.
+Management es el ERP SaaS argentino. Esta app se despliega de forma aislada
+desde `apps/vase-management` porque conserva su propio `package-lock.json`,
+Next.js 14, Prisma 5 y dependencias separadas del monorepo V3. En EasyPanel:
+
+- ruta de compilacion: `/apps/vase-management`;
+- Dockerfile: `Dockerfile`;
+- puerto interno: `3006`;
+- dominio: `management.vase.ar`.
+
+La base debe inicializarse con el schema Prisma de
+`apps/vase-management/prisma/schema.prisma` antes de tratar el servicio como
+listo. El contenedor no ejecuta migraciones automaticamente porque esta app aun
+no incluye carpeta `prisma/migrations`.
 
 ### Labs
 
