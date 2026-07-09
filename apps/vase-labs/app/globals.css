@@ -1628,6 +1628,107 @@ a:focus-visible {
   border-radius: 999rem;
 }
 
+.labs-operations-strip {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr 0.85fr;
+  gap: 0.9rem;
+}
+
+.labs-operations-card {
+  position: relative;
+  min-height: 8.75rem;
+  overflow: hidden;
+  padding: 1.1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 1.2rem;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 84%, transparent), color-mix(in srgb, var(--surface) 94%, transparent)),
+    color-mix(in srgb, var(--surface) 90%, transparent);
+  box-shadow: 0 18px 54px color-mix(in srgb, var(--glass-shadow) 48%, transparent);
+  backdrop-filter: blur(20px) saturate(145%);
+}
+
+.labs-operations-card::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  border: 1px solid color-mix(in srgb, var(--glass-highlight) 62%, transparent);
+  border-radius: inherit;
+}
+
+.labs-operations-card::after {
+  position: absolute;
+  right: -2.6rem;
+  bottom: -3rem;
+  width: 8rem;
+  height: 8rem;
+  content: "";
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
+}
+
+.labs-operations-card.is-plan::after {
+  background: color-mix(in srgb, var(--accent-strong) 13%, transparent);
+}
+
+.labs-operations-card.is-token::after {
+  background: rgba(226, 139, 69, 0.16);
+}
+
+.labs-operations-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.labs-operations-card span {
+  display: block;
+  color: var(--muted-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.labs-operations-card strong {
+  display: block;
+  margin-top: 0.7rem;
+  color: var(--foreground);
+  font-size: clamp(1.55rem, 3vw, 2.4rem);
+  font-weight: 650;
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+
+.labs-operations-card p {
+  margin: 0.7rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.labs-operations-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.labs-token-meter {
+  height: 0.55rem;
+  margin-top: 1.1rem;
+  overflow: hidden;
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--border-subtle) 82%, transparent);
+}
+
+.labs-token-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-strong), rgba(226, 139, 69, 0.88));
+}
+
 .labs-section-panel {
   position: relative;
   overflow: hidden;
@@ -1706,4 +1807,24 @@ a:focus-visible {
 .labs-action-primary,
 .labs-button-primary {
   box-shadow: 0 14px 28px color-mix(in srgb, var(--accent-strong) 24%, transparent);
+}
+
+@media (max-width: 1180px) {
+  .labs-operations-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .labs-dashboard-hero {
+    min-height: auto;
+  }
+
+  .labs-operations-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .labs-operations-card {
+    min-height: 7.5rem;
+  }
 }

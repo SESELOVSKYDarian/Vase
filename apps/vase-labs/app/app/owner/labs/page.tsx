@@ -104,6 +104,9 @@ async function getOwnerLabsData() {
   ).length;
   const connectedChannels = channels.filter((c) => c.status === "CONNECTED").length;
   const tokensUsed = entitlement?.tokensUsed ?? tokenUsage._sum.totalTokens ?? 0;
+  const tokensIncluded = entitlement?.tokensIncluded ?? 0;
+  const extraTokens = entitlement?.extraTokens ?? 0;
+  const tokensAvailable = Math.max(0, tokensIncluded + extraTokens - tokensUsed);
   const readyKnowledge = knowledgeItems.filter((item) => item.status === "READY").length;
 
   const criticalConversations = conversations
@@ -125,7 +128,10 @@ async function getOwnerLabsData() {
     connectedChannels,
     knowledgeItemCount: knowledgeItems.length,
     readyKnowledge,
+    tokensIncluded,
+    extraTokens,
     tokensUsed,
+    tokensAvailable,
     conversations,
     knowledgeItems,
     criticalConversations,
@@ -145,6 +151,8 @@ export default async function LabsDashboardPage() {
   );
   const setupCompleted =
     data.setupSteps.hasKnowledge && data.setupSteps.hasChannel && data.setupSteps.hasEscalation;
+  const tokenTotal = data.tokensIncluded + data.extraTokens;
+  const tokenUsagePercent = tokenTotal > 0 ? Math.min(100, Math.round((data.tokensUsed / tokenTotal) * 100)) : 0;
 
   return (
     <div className="space-y-6">
@@ -161,6 +169,34 @@ export default async function LabsDashboardPage() {
           </>
         }
       />
+
+      <section className="labs-operations-strip" aria-label="Estado operativo del tenant">
+        <article className="labs-operations-card is-plan">
+          <span>Plan</span>
+          <strong>{data.plan}</strong>
+          <p>{data.tenantName}</p>
+        </article>
+        <article className="labs-operations-card">
+          <span>Servicio</span>
+          <div className="labs-operations-inline">
+            <strong>{data.serviceStatus}</strong>
+            <LabsStatusPill label={setupCompleted ? "Listo" : "Pendiente"} tone={setupCompleted ? "success" : "warning"} />
+          </div>
+          <p>{setupCompleted ? "Setup operativo" : "Faltan pasos de configuracion"}</p>
+        </article>
+        <article className="labs-operations-card is-token">
+          <span>Tokens disponibles</span>
+          <strong>{data.tokensAvailable.toLocaleString("es-AR")}</strong>
+          <p>{data.tokensUsed.toLocaleString("es-AR")} usados</p>
+        </article>
+        <article className="labs-operations-card">
+          <span>Uso del periodo</span>
+          <strong>{tokenUsagePercent}%</strong>
+          <div className="labs-token-meter" aria-hidden="true">
+            <span style={{ width: `${tokenUsagePercent}%` }} />
+          </div>
+        </article>
+      </section>
 
       <section data-labs-tour="metricas" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <LabsMetricCard label="Conversaciones abiertas" value={data.openConversations} icon={MessageSquare} tone="info" />
