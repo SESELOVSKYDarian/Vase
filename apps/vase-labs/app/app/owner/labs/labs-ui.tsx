@@ -1,9 +1,7 @@
-import type { ReactNode } from "react";
-import type { ComponentPropsWithoutRef, ElementType, PropsWithChildren } from "react";
+import type { ComponentPropsWithoutRef, ElementType, PropsWithChildren, ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-
-// ---- LabsPageHeader ----
+import { clsx } from "clsx";
 
 type LabsPageHeaderProps = {
   eyebrow?: string;
@@ -14,20 +12,18 @@ type LabsPageHeaderProps = {
 
 export function LabsPageHeader({ eyebrow, title, description, actions }: LabsPageHeaderProps) {
   return (
-    <header className="labs-dashboard-hero flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div className="labs-dashboard-hero-copy max-w-3xl">
+    <header className="flex flex-col gap-4 border-b border-[var(--border-subtle)] pb-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="max-w-3xl">
         {eyebrow ? <p className="vase-kicker">{eyebrow}</p> : null}
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)] md:text-4xl">
           {title}
         </h1>
         {description ? <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--muted)]">{description}</p> : null}
       </div>
-      {actions ? <div className="labs-dashboard-actions flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
   );
 }
-
-// ---- LabsSection ----
 
 type LabsSectionProps = PropsWithChildren<{
   title?: string;
@@ -38,33 +34,15 @@ type LabsSectionProps = PropsWithChildren<{
 }> &
   ComponentPropsWithoutRef<"section">;
 
-function clsx(...classes: (string | undefined | null | false)[]) {
-  return classes.filter(Boolean).join(" ");
-}
-
-export function LabsSection({
-  title,
-  eyebrow,
-  description,
-  actions,
-  className,
-  children,
-  ...sectionProps
-}: LabsSectionProps) {
+export function LabsSection({ title, eyebrow, description, actions, className, children, ...sectionProps }: LabsSectionProps) {
   return (
-    <section className={clsx("labs-panel labs-section-panel p-5", className)} {...sectionProps}>
-      {title || eyebrow || description || actions ? (
+    <section className={clsx("labs-panel p-5", className)} {...sectionProps}>
+      {(title || eyebrow || description || actions) ? (
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             {eyebrow ? <p className="vase-kicker">{eyebrow}</p> : null}
-            {title ? (
-              <h2 className="mt-1 text-lg font-semibold tracking-tight text-[var(--foreground)]">
-                {title}
-              </h2>
-            ) : null}
-            {description ? (
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted)]">{description}</p>
-            ) : null}
+            {title ? <h2 className="mt-1 text-lg font-semibold tracking-tight text-[var(--foreground)]">{title}</h2> : null}
+            {description ? <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted)]">{description}</p> : null}
           </div>
           {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
         </div>
@@ -73,8 +51,6 @@ export function LabsSection({
     </section>
   );
 }
-
-// ---- LabsMetricCard ----
 
 type LabsMetricCardProps = {
   label: string;
@@ -94,28 +70,22 @@ const metricTone = {
 
 export function LabsMetricCard({ label, value, detail, icon: Icon, tone = "neutral" }: LabsMetricCardProps) {
   return (
-    <article className={clsx("labs-panel labs-metric-card min-h-[10.75rem] p-5", `labs-metric-${tone}`)}>
-      <div className="flex h-full flex-col justify-between gap-5">
-        <div className="flex items-start justify-between gap-4">
-          <p className="max-w-[9.5rem] text-[11px] font-semibold uppercase leading-5 tracking-[0.16em] text-[var(--muted-soft)]">
-            {label}
-          </p>
-          {Icon ? (
-            <span className={clsx("grid size-12 shrink-0 place-items-center rounded-2xl", metricTone[tone])}>
-              <Icon className="size-5" />
-            </span>
-          ) : null}
-        </div>
+    <article className="labs-panel p-4">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">{value}</p>
-          {detail ? <p className="mt-3 text-sm leading-5 text-[var(--muted)]">{detail}</p> : null}
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-soft)]">{label}</p>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)]">{value}</p>
         </div>
+        {Icon ? (
+          <span className={clsx("grid size-10 place-items-center rounded-lg", metricTone[tone])}>
+            <Icon className="size-4" />
+          </span>
+        ) : null}
       </div>
+      {detail ? <p className="mt-3 text-xs leading-5 text-[var(--muted)]">{detail}</p> : null}
     </article>
   );
 }
-
-// ---- LabsEmptyState ----
 
 export function LabsEmptyState({
   title,
@@ -127,15 +97,13 @@ export function LabsEmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="labs-empty-state rounded-lg border border-dashed border-[var(--border-strong)] bg-[var(--surface)] p-5 text-sm">
+    <div className="rounded-lg border border-dashed border-[var(--border-strong)] bg-[var(--surface)] p-5 text-sm">
       <p className="font-semibold text-[var(--foreground)]">{title}</p>
       {description ? <p className="mt-1 leading-6 text-[var(--muted)]">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }
-
-// ---- LabsStatusPill ----
 
 export function LabsStatusPill({
   label,
@@ -145,24 +113,17 @@ export function LabsStatusPill({
   tone?: "neutral" | "success" | "warning" | "danger" | "info";
 }) {
   return (
-    <span
-      className={clsx(
-        "labs-status-pill inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]",
-        metricTone[tone],
-      )}
-    >
+    <span className={clsx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]", metricTone[tone])}>
       {label}
     </span>
   );
 }
 
-// ---- LabsActionLink ----
-
 export function LabsActionLink({ href, children }: PropsWithChildren<{ href: string }>) {
   return (
     <Link
       href={href as never}
-      className="labs-action-primary inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition-colors hover:bg-[color-mix(in_srgb,var(--accent-strong)_88%,black)]"
+      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition-colors hover:bg-[color-mix(in_srgb,var(--accent-strong)_88%,black)]"
     >
       {children}
       <ArrowRight className="size-4" />

@@ -9,21 +9,23 @@ import {
   MessageSquare,
   LayoutDashboard,
   Settings2,
+  Sparkles,
 } from "lucide-react";
 
 const navItems = [
-  { id: "panel", href: "/app/owner/labs", label: "Panel", icon: LayoutDashboard },
-  { id: "inbox", href: "/app/owner/labs/inbox", label: "Inbox", icon: MessageSquare },
-  { id: "actividad", href: "/app/owner/labs/activity", label: "Actividad", icon: Activity },
-  { id: "conocimiento", href: "/app/owner/labs/knowledge", label: "Conocimiento", icon: Bot },
-  { id: "canales", href: "/app/owner/labs/channels", label: "Canales", icon: Cable },
-  { id: "ajustes", href: "/app/owner/labs/settings", label: "Ajustes", icon: Settings2 },
+  { href: "/app/owner/labs", label: "Panel", icon: LayoutDashboard },
+  { href: "/app/owner/labs/inbox", label: "Inbox", icon: MessageSquare },
+  { href: "/app/owner/labs/activity", label: "Actividad", icon: Activity },
+  { href: "/app/owner/labs/chatbots", label: "Conocimiento", icon: Bot },
+  { href: "/app/owner/labs/integrations", label: "Canales", icon: Cable },
+  { href: "/app/owner/labs/settings", label: "Ajustes", icon: Settings2 },
 ] as const;
 
 function isActive(pathname: string, href: string) {
   if (href === "/app/owner/labs") {
     return pathname === href;
   }
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -40,11 +42,10 @@ export function LabsOwnerNav() {
           <Link
             key={item.href}
             href={item.href as never}
-            data-labs-tour={item.id}
             className={[
-              "labs-owner-nav-link flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-[var(--muted)] transition-colors duration-200",
+              "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-[var(--muted)] transition-colors duration-200",
               active
-                ? "is-active bg-[var(--foreground)] text-[var(--background)] shadow-sm"
+                ? "bg-[var(--foreground)] text-[var(--background)] shadow-sm"
                 : "hover:bg-[var(--surface)] hover:text-[var(--foreground)]",
             ].join(" ")}
           >
@@ -71,10 +72,8 @@ export function LabsOwnerMobileNav() {
               key={item.href}
               href={item.href as never}
               className={[
-                "labs-owner-mobile-nav-link inline-flex min-h-10 shrink-0 items-center rounded-lg px-3 text-xs font-bold transition-colors",
-                active
-                  ? "is-active bg-[var(--foreground)] text-[var(--background)]"
-                  : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]",
+                "inline-flex min-h-10 shrink-0 items-center rounded-lg px-3 text-xs font-bold transition-colors",
+                active ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]",
               ].join(" ")}
             >
               {item.label}
@@ -82,6 +81,15 @@ export function LabsOwnerMobileNav() {
           );
         })}
       </nav>
+      <div className="mt-4 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
+        <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
+          <Sparkles className="size-4" />
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Vase Labs</p>
+          <p className="text-sm font-semibold text-[var(--foreground)]">Gestion avanzada</p>
+        </div>
+      </div>
     </div>
   );
 }

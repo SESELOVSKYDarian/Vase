@@ -2039,3 +2039,42 @@ a:focus-visible {
     min-height: 7.5rem;
   }
 }
+
+/* 05c3cb8 Vase Labs advanced dashboard restoration */
+.labs-shell {
+  display: block;
+  grid-template-columns: none;
+  min-height: 100vh;
+  padding: 0;
+  gap: 0;
+  overflow-x: hidden;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--background) 96%, transparent), var(--background-elevated)),
+    var(--background);
+  color: var(--foreground);
+}
+
+.labs-shell::before {
+  content: none;
+}
+
+.labs-sidebar {
+  border-right: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-strong) 88%, var(--background));
+  box-shadow: 10px 0 34px color-mix(in srgb, var(--glass-shadow) 42%, transparent);
+  backdrop-filter: none;
+}
+
+.labs-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--glass-shadow) 46%, transparent);
+  backdrop-filter: none;
+}
+
+.labs-subpanel {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
