@@ -6,7 +6,7 @@ import { LabsModuleDisabledCard } from "../ui";
 
 export default async function LabsIntegrationsPage() {
   const { dashboard, labsEnabled, membership } = await getLabsOwnerPageData();
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.vase.ar").trim().replace(/\/$/, "");
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://vase.ar").trim().replace(/\/$/, "");
   const webhookPreviewUrl = `${appUrl}/api/v1/channels/whatsapp/${membership.tenant.slug}/webhook`;
   const webhookVerifyToken = resolveMetaWebhookVerifyToken(membership.tenant.slug);
 

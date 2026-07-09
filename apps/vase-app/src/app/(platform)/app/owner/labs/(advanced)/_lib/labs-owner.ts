@@ -1,40 +1,67 @@
-import { redirect } from "next/navigation";
-import type { Route } from "next";
-import {
-  buildLabsRequiredUrl,
-  requireLabsOwnerAccess,
-} from "@/lib/labs/access";
+import { forbidden } from "next/navigation";
+import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
 import { getLabsOwnerDashboard } from "@/server/queries/labs";
+import { getTenantModulesAccess } from "@/server/queries/modules";
 
+type OwnerContext = Awaited<ReturnType<typeof requireTenantRole>>;
+type OwnerMembership = OwnerContext["membership"];
+type OwnerSession = OwnerContext["session"];
 type LabsDashboard = NonNullable<Awaited<ReturnType<typeof getLabsOwnerDashboard>>>;
 
-export async function getLabsOwnerPageData() {
-  const { membership } = await requireLabsOwnerAccess();
-  const dashboard = await getLabsOwnerDashboard(membership.tenantId);
+async function isLabsEnabledForUser(tenantId: string, userId: string) {
+  const modulesPayload = await getTenantModulesAccess(tenantId, userId);
+  return modulesPayload?.modules.some((module) => module.key === "labs" && module.isActive) ?? false;
+}
 
-  if (!dashboard) {
-    redirect(buildLabsRequiredUrl() as Route);
+export async function getLabsOwnerPageData() {
+  let membership: OwnerMembership;
+  let session: OwnerSession;
+
+  try {
+    ({ membership, session } = await requireTenantRole(tenantRoles.OWNER));
+  } catch {
+    forbidden();
+  }
+
+  const [dashboard, labsEnabled] = await Promise.all([
+    getLabsOwnerDashboard(membership.tenantId),
+    isLabsEnabledForUser(membership.tenantId, session.user.id),
+  ]);
+
+  if (!dashboard || !labsEnabled) {
+    forbidden();
   }
 
   return {
     membership,
     dashboard: dashboard as LabsDashboard,
-    labsEnabled: true,
+    labsEnabled,
   };
 }
 
 export async function getLabsOwnerActivityData() {
-  const { membership } = await requireLabsOwnerAccess();
-  const dashboard = await getLabsOwnerDashboard(membership.tenantId);
+  let membership: OwnerMembership;
+  let session: OwnerSession;
 
-  if (!dashboard) {
-    redirect(buildLabsRequiredUrl() as Route);
+  try {
+    ({ membership, session } = await requireTenantRole(tenantRoles.OWNER));
+  } catch {
+    forbidden();
+  }
+
+  const [dashboard, labsEnabled] = await Promise.all([
+    getLabsOwnerDashboard(membership.tenantId),
+    isLabsEnabledForUser(membership.tenantId, session.user.id),
+  ]);
+
+  if (!dashboard || !labsEnabled) {
+    forbidden();
   }
 
   return {
     membership,
     dashboard: dashboard as LabsDashboard,
-    labsEnabled: true,
+    labsEnabled,
   };
 }
 
