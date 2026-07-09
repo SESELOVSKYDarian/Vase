@@ -3,7 +3,6 @@ FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
 ENV PORT=3006
 ENV HOSTNAME=0.0.0.0
 
@@ -23,10 +22,16 @@ ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 ENV AFIP_ENV=$AFIP_ENV
 
+RUN apt-get update -y \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+
+ENV NODE_ENV=production
 
 RUN npx prisma generate
 RUN npm run build
