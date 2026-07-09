@@ -60,6 +60,7 @@ import { BUSINESS_LAUNCH_PATH, BUSINESS_WORKSPACE_PATH } from "@/lib/business/li
 import {
   requiresFullDocumentNavigation,
   resolveAppHomeHref,
+  resolveLabsHomeHref,
   resolveNavigationHrefForHost,
   resolveShortcutHref,
 } from "@/lib/navigation/document-navigation";
@@ -316,7 +317,8 @@ export function AppShell({
   }, [unreadNotifications]);
   const businessModuleActive = modules.some((module) => module.key === "business" && module.isActive);
   const labsModuleActive = modules.some((module) => module.key === "labs" && module.isActive);
-  const projectsHref = businessModuleActive ? BUSINESS_WORKSPACE_PATH : labsModuleActive ? "/app/labs" : "/app";
+  const labsHomeHref = resolveLabsHomeHref();
+  const projectsHref = businessModuleActive ? BUSINESS_WORKSPACE_PATH : labsModuleActive ? labsHomeHref : "/app";
 
   const clientNavItems: NavItem[] = [
     { id: "home", href: resolveAppHomeHref(), label: "Inicio", icon: Home, description: "Sitio público de Vase" },
@@ -328,7 +330,7 @@ export function AppShell({
       description: "Tus proyectos por producto",
       children: [
         businessModuleActive ? { id: "projects-business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business" } : null,
-        labsModuleActive ? { id: "projects-labs", href: "/app/labs", label: "Vase Labs" } : null,
+        labsModuleActive ? { id: "projects-labs", href: labsHomeHref, label: "Vase Labs" } : null,
       ].filter((item): item is { id: string; href: string; label: string } => Boolean(item)),
     },
     { id: "tickets", href: "/app/help", label: "Tickets", icon: MessageSquareWarning, description: "Soporte y seguimiento" },
