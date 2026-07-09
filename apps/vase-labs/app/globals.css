@@ -1,4 +1,8 @@
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
 :root {
+  /* Original labs vars */
   --carbon: #000202;
   --graphite: #2f3030;
   --jade: #3b633d;
@@ -13,9 +17,41 @@
   --facebook: #2563eb;
   --facebook-soft: rgba(37, 99, 235, 0.14);
   --shadow: 0 28px 90px rgba(0, 2, 2, 0.14);
-  --radius-lg: 34px;
-  --radius-md: 24px;
-  --radius-sm: 16px;
+
+  /* Design system tokens */
+  --background: #f8faf8;
+  --background-elevated: #eceeec;
+  --background-spot: rgba(24, 195, 126, 0.1);
+  --foreground: #191c1b;
+  --foreground-soft: #2e3130;
+  --surface: rgba(248, 250, 248, 0.88);
+  --surface-strong: rgba(255, 255, 255, 0.94);
+  --surface-inverse: #0d1117;
+  --muted: #6c7b70;
+  --muted-soft: #94a097;
+  --border-subtle: rgba(108, 123, 112, 0.14);
+  --border-strong: rgba(108, 123, 112, 0.22);
+  --accent: #006d43;
+  --accent-strong: #006d43;
+  --accent-soft: rgba(24, 195, 126, 0.14);
+  --accent-contrast: #ffffff;
+  --success: #006d43;
+  --success-soft: rgba(24, 195, 126, 0.12);
+  --warning: #9e412a;
+  --warning-soft: rgba(255, 180, 162, 0.18);
+  --danger: #ba1a1a;
+  --danger-soft: rgba(255, 218, 214, 0.6);
+  --info: #36684c;
+  --info-soft: rgba(181, 236, 200, 0.45);
+  --glass-highlight: rgba(255, 255, 255, 0.72);
+  --glass-shadow: rgba(25, 28, 27, 0.08);
+  --radius-sm: 1rem;
+  --radius-md: 1.5rem;
+  --radius-lg: 2rem;
+  --shadow-sm: 0 16px 34px rgba(25, 28, 27, 0.06);
+  --shadow-md: 0 24px 70px rgba(25, 28, 27, 0.1);
+  --shadow-lg: 0 34px 110px rgba(25, 28, 27, 0.14);
+  --grid-line: rgba(108, 123, 112, 0.05);
 }
 
 * {
@@ -1380,4 +1416,76 @@ a:focus-visible {
   .owner-labs-bars div {
     min-height: 5rem;
   }
+}
+
+/* ─── Design-system component classes (ported from vase-app) ─── */
+
+.labs-shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--background) 96%, transparent), var(--background-elevated)),
+    var(--background);
+  color: var(--foreground);
+}
+
+.labs-sidebar {
+  border-right: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-strong) 88%, var(--background));
+  box-shadow: 10px 0 34px color-mix(in srgb, var(--glass-shadow) 42%, transparent);
+}
+
+.labs-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--glass-shadow) 46%, transparent);
+}
+
+.labs-subpanel {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.labs-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+  padding-inline: 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  border: none;
+}
+
+.labs-button-primary {
+  background: var(--accent-strong);
+  color: var(--accent-contrast);
+}
+
+.labs-button-secondary {
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-strong) 88%, transparent);
+  color: var(--foreground);
+}
+
+.labs-button-secondary:hover {
+  background: var(--surface);
+}
+
+.labs-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 50%, transparent) transparent;
+}
+
+.vase-kicker {
+  color: color-mix(in srgb, var(--accent) 72%, var(--muted-soft));
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
