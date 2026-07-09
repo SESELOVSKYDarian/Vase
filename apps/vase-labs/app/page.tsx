@@ -1,144 +1,70 @@
-import type { LabsChannel, LabsPlan } from "@vase/contracts";
-import {
-  calculateRemainingMessages,
-  calculateRemainingTokens,
-  canTenantUseChannel,
-  createRuntimeEntitlement,
-  getAiAvailability,
-} from "./lib/billing";
-
-const planChannels: Record<LabsPlan, LabsChannel[]> = {
-  STARTER: ["WHATSAPP"],
-  GROWTH: ["WHATSAPP", "INSTAGRAM"],
-  PRO: ["WHATSAPP", "INSTAGRAM", "FACEBOOK"],
-};
-
-const channelLabels: Record<LabsChannel, { name: string; tag: string; tone: string; description: string }> = {
-  WHATSAPP: {
-    name: "WhatsApp",
-    tag: "wa",
-    tone: "whatsapp",
-    description: "Atencion automatizada para consultas comerciales y soporte inicial.",
-  },
-  INSTAGRAM: {
-    name: "Instagram",
-    tag: "ig",
-    tone: "instagram",
-    description: "DMs y consultas sociales con contexto de IA y derivacion humana.",
-  },
-  FACEBOOK: {
-    name: "Facebook",
-    tag: "fb",
-    tone: "facebook",
-    description: "Mensajes de pagina y leads conectados al inbox omnicanal.",
-  },
-};
-
-const currentEntitlement = createRuntimeEntitlement({
-  globalTenantId: "tenant_demo",
-  plan: "GROWTH",
-  status: "ACTIVE",
-  enabledChannels: planChannels.GROWTH,
-  tokenPack: "BASIC",
-  tokensIncluded: 250000,
-  tokensUsed: 82000,
-  extraTokens: 100000,
-  currentPeriodStart: "2026-06-24T00:00:00.000Z",
-  renewsAt: "2026-07-24T00:00:00.000Z",
-});
-
-const allChannels: LabsChannel[] = ["WHATSAPP", "INSTAGRAM", "FACEBOOK"];
-const remainingTokens = calculateRemainingTokens(currentEntitlement);
-const remainingMessages = calculateRemainingMessages(currentEntitlement);
-const aiAvailability = getAiAvailability(currentEntitlement, new Date("2026-06-24T12:00:00.000Z"));
-const tokenUsagePercent = Math.min(
-  100,
-  Math.round((currentEntitlement.tokensUsed / (currentEntitlement.tokensIncluded + currentEntitlement.extraTokens)) * 100),
-);
-
 const metrics = [
-  { label: "Plan actual", value: "Growth", detail: "WhatsApp + Instagram incluidos" },
-  { label: "Tokens restantes", value: remainingTokens.toLocaleString("es-AR"), detail: `${tokenUsagePercent}% usado del saldo total` },
-  { label: "Mensajes estimados", value: remainingMessages.toLocaleString("es-AR"), detail: "Estimacion basada en 500 tokens por mensaje" },
-  { label: "Proxima renovacion", value: "24 Jul", detail: "Renovacion del periodo actual" },
+  { label: "Canales preparados", value: "4", detail: "Webchat, WhatsApp, Instagram y Facebook" },
+  { label: "Automatización objetivo", value: "82%", detail: "Respuestas desde Help + training" },
+  { label: "Handoffs pendientes", value: "3", detail: "Consultas listas para equipo humano" },
+  { label: "Tiempo de primera respuesta", value: "12s", detail: "Meta operacional para canales activos" },
 ];
 
-const planCards = [
+const channels = [
   {
-    plan: "STARTER" as const,
-    title: "Starter",
-    tokens: "50.000",
-    cta: "Plan inicial",
+    name: "Instagram Business",
+    tag: "ig",
+    status: "Requiere conexión",
+    tone: "instagram",
+    description: "DMs, comentarios y consultas comerciales con IA help-first y derivación a humano.",
+    readiness: ["OAuth Meta pendiente", "Webhook preparado", "Inbox unificado"],
   },
   {
-    plan: "GROWTH" as const,
-    title: "Growth",
-    tokens: "250.000",
-    cta: "Plan actual",
-  },
-  {
-    plan: "PRO" as const,
-    title: "Pro",
-    tokens: "1.000.000",
-    cta: "Subir a Pro",
+    name: "Facebook Page",
+    tag: "fb",
+    status: "Requiere conexión",
+    tone: "facebook",
+    description: "Mensajes de página, leads y soporte inicial con trazabilidad por tenant.",
+    readiness: ["Page token pendiente", "Eventos Messenger", "Handoff a Workplace"],
   },
 ];
 
-type InboxConversation = {
-  customer: string;
-  channel: LabsChannel;
-  message: string;
-  state: string;
-  confidence: string;
-};
-
-const conversationsByChannel: Record<LabsChannel, InboxConversation[]> = {
-  WHATSAPP: [{
+const conversations = [
+  {
+    customer: "Sofía Alvarez",
+    channel: "Instagram",
+    message: "Consulta por automatizar respuestas de ecommerce y derivar ventas.",
+    state: "Pendiente",
+    confidence: "74%",
+  },
+  {
     customer: "Norte Equipos",
-    channel: "WHATSAPP",
-    message: "Consulta por automatizar respuestas frecuentes y derivar ventas al equipo.",
+    channel: "Facebook",
+    message: "Pide integración con catálogo y seguimiento desde un inbox central.",
+    state: "Próximamente",
+    confidence: "Meta",
+  },
+  {
+    customer: "Demo Tenant",
+    channel: "Webchat",
+    message: "La IA encontró respuesta en Help y dejó el resumen listo.",
     state: "Listo",
     confidence: "91%",
-  }],
-  INSTAGRAM: [{
-    customer: "Sofia Alvarez",
-    channel: "INSTAGRAM",
-    message: "Pregunta por entrenamiento de IA con documentacion y catalogo.",
-    state: "Listo",
-    confidence: "84%",
-  }],
-  FACEBOOK: [{
-    customer: "Facebook Leads",
-    channel: "FACEBOOK",
-    message: "Mensajes de pagina y leads quedaran disponibles al subir a Pro.",
-    state: "Upgrade",
-    confidence: "Bloqueado",
-  }],
-};
+  },
+];
 
-function getInboxItems() {
-  return allChannels.flatMap((channel) => {
-    const access = canTenantUseChannel(currentEntitlement, channel, new Date("2026-06-24T12:00:00.000Z"));
-
-    if (access.allowed) {
-      return conversationsByChannel[channel].map((conversation) => ({ conversation, locked: false }));
-    }
-
-    return conversationsByChannel[channel].map((conversation) => ({ conversation, locked: true }));
-  });
-}
+const readiness = [
+  { label: "Help-first retrieval", value: "Listo", detail: "La IA consulta la base oficial antes de responder." },
+  { label: "Tokens Meta", value: "Pendiente", detail: "Falta completar OAuth y almacenamiento seguro." },
+  { label: "Webhook signature", value: "Pendiente", detail: "Debe validar origen antes de procesar eventos." },
+  { label: "Handoff humano", value: "Listo", detail: "Las conversaciones no resueltas quedan listas para tickets." },
+];
 
 function StatusPill({ children }: { children: string }) {
   const normalized = children.toLowerCase();
-  const state = normalized.includes("listo") || normalized.includes("actual") ? "is-ready" : "is-pending";
 
-  return <span className={`status-pill ${state}`}>{children}</span>;
+  return <span className={`status-pill ${normalized.includes("listo") ? "is-ready" : "is-pending"}`}>{children}</span>;
 }
 
 export default function Page() {
   return (
     <main className="labs-shell">
-      <aside className="labs-rail" aria-label="Navegacion principal de Vase Labs">
+      <aside className="labs-rail" aria-label="Navegación principal de Vase Labs">
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true">
             VL
@@ -150,49 +76,47 @@ export default function Page() {
         </div>
 
         <nav className="rail-nav" aria-label="Secciones de Labs">
-          <a href="#plan" aria-current="page">
-            Plan
+          <a href="#channels" aria-current="page">
+            Canales
           </a>
-          <a href="#channels">Canales</a>
-          <a href="#tokens">Tokens</a>
           <a href="#inbox">Inbox IA</a>
+          <a href="#readiness">Readiness</a>
+          <a href="#handoff">Handoff</a>
         </nav>
 
         <div className="rail-card">
-          <p>Estado del servicio</p>
-          <strong>{aiAvailability.aiEnabled ? "IA activa" : "IA pausada"}</strong>
-          <span>
-            {aiAvailability.humanInterventionAllowed
-              ? "La intervencion humana sigue disponible ante limites o upgrades."
-              : "Revisar estado operativo."}
-          </span>
+          <p>Estado operativo</p>
+          <strong>Meta connectors en preparación</strong>
+          <span>La UI ya está lista para conectar OAuth, webhooks y Graph API.</span>
         </div>
       </aside>
 
       <section className="labs-stage">
-        <header className="hero-panel" id="plan">
+        <header className="hero-panel">
           <div className="hero-copy">
-            <p className="eyebrow">Plan y consumo</p>
-            <h1>Tu acceso a Labs, canales y tokens en una sola vista.</h1>
+            <p className="eyebrow">AI operations center</p>
+            <h1>Atención inteligente para canales sociales, sin perder control humano.</h1>
             <p>
-              El tenant esta en Growth: WhatsApp e Instagram estan incluidos, Facebook queda bloqueado hasta subir a Pro.
-              Los tokens muestran saldo disponible, consumo actual y proxima renovacion.
+              Vase Labs centraliza asistentes, knowledge base, inbox y handoffs. Instagram y Facebook quedan visibles como
+              canales preparados, sin prometer conexión real hasta completar la integración Meta.
             </p>
             <div className="hero-actions" aria-label="Acciones principales">
-              <a href="#tokens">Comprar tokens</a>
-              <a href="#plans">Subir de plan</a>
+              <button type="button" disabled>
+                Preparar conexión Meta
+              </button>
+              <a href="#readiness">Ver checklist técnico</a>
             </div>
           </div>
 
-          <div className="signal-card" aria-label="Resumen del plan actual">
+          <div className="signal-card" aria-label="Resumen de señal de IA">
             <span className="signal-orbit" aria-hidden="true" />
-            <p>Plan actual</p>
-            <strong>Growth</strong>
-            <small>Incluye WhatsApp, Instagram, 250.000 tokens mensuales y pack Basic activo.</small>
+            <p>IA transversal</p>
+            <strong>Help primero, humano cuando importa.</strong>
+            <small>Knowledge base, prompts, límites y trazabilidad listos para operar por tenant.</small>
           </div>
         </header>
 
-        <section className="metric-grid" aria-label="Metricas principales">
+        <section className="metric-grid" aria-label="Métricas principales">
           {metrics.map((metric) => (
             <article className="metric-card" key={metric.label}>
               <span>{metric.label}</span>
@@ -205,101 +129,29 @@ export default function Page() {
         <section className="content-grid">
           <div className="panel channels-panel" id="channels">
             <div className="section-heading">
-              <p className="eyebrow">Canales por plan</p>
-              <h2>Solo se muestran activos los canales incluidos.</h2>
+              <p className="eyebrow">Canales sociales</p>
+              <h2>Instagram y Facebook con estética propia de Vase.</h2>
             </div>
 
             <div className="channel-grid">
-              {allChannels.map((channel) => {
-                const access = canTenantUseChannel(currentEntitlement, channel, new Date("2026-06-24T12:00:00.000Z"));
-                const channelMeta = channelLabels[channel];
-
-                return (
-                  <article className={`channel-card ${channelMeta.tone} ${access.allowed ? "" : "is-locked"}`} key={channel}>
-                    <div className="channel-topline">
-                      <span className="channel-badge" aria-hidden="true">
-                        {channelMeta.tag}
-                      </span>
-                      <StatusPill>{access.allowed ? "Incluido" : "Upgrade"}</StatusPill>
-                    </div>
-                    <h3>{channelMeta.name}</h3>
-                    <p>{channelMeta.description}</p>
-                    <ul>
-                      <li>{access.allowed ? "Disponible en Growth" : "Disponible en Pro"}</li>
-                      <li>{access.allowed ? "Puede recibir IA" : "No se marca como activo"}</li>
-                      <li>{access.humanInterventionAllowed ? "Handoff humano disponible" : "Revisar permisos"}</li>
-                    </ul>
-                    <button type="button" disabled>
-                      {access.allowed ? "Canal incluido" : "Requiere upgrade"}
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="panel tokens-panel" id="tokens">
-            <div className="section-heading">
-              <p className="eyebrow">Tokens</p>
-              <h2>Saldo claro antes de automatizar.</h2>
-            </div>
-
-            <div className="token-meter" aria-label="Uso de tokens">
-              <div>
-                <span>Usados</span>
-                <strong>{currentEntitlement.tokensUsed.toLocaleString("es-AR")}</strong>
-              </div>
-              <div>
-                <span>Restantes</span>
-                <strong>{remainingTokens.toLocaleString("es-AR")}</strong>
-              </div>
-              <span className="meter-track">
-                <span style={{ width: `${tokenUsagePercent}%` }} />
-              </span>
-            </div>
-
-            <div className="token-breakdown">
-              <p>
-                <strong>{currentEntitlement.tokensIncluded.toLocaleString("es-AR")}</strong>
-                Tokens incluidos
-              </p>
-              <p>
-                <strong>{currentEntitlement.extraTokens.toLocaleString("es-AR")}</strong>
-                Tokens extra
-              </p>
-              <p>
-                <strong>{remainingMessages.toLocaleString("es-AR")}</strong>
-                Mensajes estimados
-              </p>
-            </div>
-
-            <div className="cta-row">
-              <a href="#tokens">Comprar pack</a>
-              <a href="#plans">Comparar planes</a>
-            </div>
-          </div>
-
-          <div className="panel plans-panel" id="plans">
-            <div className="section-heading">
-              <p className="eyebrow">Planes Labs</p>
-              <h2>Upgrade cuando el canal lo justifica.</h2>
-            </div>
-
-            <div className="plans-grid">
-              {planCards.map((plan) => (
-                <article className={`plan-card ${plan.plan === currentEntitlement.plan ? "is-current" : ""}`} key={plan.plan}>
-                  <div>
-                    <strong>{plan.title}</strong>
-                    <StatusPill>{plan.cta}</StatusPill>
+              {channels.map((channel) => (
+                <article className={`channel-card ${channel.tone}`} key={channel.name}>
+                  <div className="channel-topline">
+                    <span className="channel-badge" aria-hidden="true">
+                      {channel.tag}
+                    </span>
+                    <StatusPill>{channel.status}</StatusPill>
                   </div>
-                  <p>{plan.tokens} tokens mensuales</p>
+                  <h3>{channel.name}</h3>
+                  <p>{channel.description}</p>
                   <ul>
-                    {allChannels.map((channel) => (
-                      <li className={planChannels[plan.plan].includes(channel) ? "is-included" : ""} key={channel}>
-                        {channelLabels[channel].name}
-                      </li>
+                    {channel.readiness.map((item) => (
+                      <li key={item}>{item}</li>
                     ))}
                   </ul>
+                  <button type="button" disabled>
+                    Preparar conexión
+                  </button>
                 </article>
               ))}
             </div>
@@ -307,38 +159,57 @@ export default function Page() {
 
           <div className="panel inbox-panel" id="inbox">
             <div className="section-heading">
-              <p className="eyebrow">Inbox cliente</p>
-              <h2>Vista adaptada al plan actual.</h2>
-            </div>
-
-            <div className="inbox-channel-strip" aria-label="Canales visibles en el inbox">
-              {allChannels.map((channel) => {
-                const access = canTenantUseChannel(currentEntitlement, channel, new Date("2026-06-24T12:00:00.000Z"));
-                const channelMeta = channelLabels[channel];
-
-                return (
-                  <span className={access.allowed ? "is-active" : ""} key={channel}>
-                    {channelMeta.name}
-                    {!access.allowed ? " upgrade" : ""}
-                  </span>
-                );
-              })}
+              <p className="eyebrow">Inbox omnicanal</p>
+              <h2>Conversaciones con contexto antes de responder.</h2>
             </div>
 
             <div className="conversation-list">
-              {getInboxItems().map(({ conversation, locked }) => (
-                <article className={`conversation-card ${locked ? "is-locked" : ""}`} key={conversation.customer}>
+              {conversations.map((conversation) => (
+                <article className="conversation-card" key={conversation.customer}>
                   <div>
                     <strong>{conversation.customer}</strong>
-                    <span>{channelLabels[conversation.channel].name}</span>
+                    <span>{conversation.channel}</span>
                   </div>
                   <p>{conversation.message}</p>
                   <footer>
-                    <StatusPill>{locked ? "Upgrade" : conversation.state}</StatusPill>
-                    <small>{locked ? "Canal bloqueado por plan" : conversation.confidence}</small>
+                    <StatusPill>{conversation.state}</StatusPill>
+                    <small>Confianza {conversation.confidence}</small>
                   </footer>
                 </article>
               ))}
+            </div>
+          </div>
+
+          <div className="panel readiness-panel" id="readiness">
+            <div className="section-heading">
+              <p className="eyebrow">Checklist IA + Meta</p>
+              <h2>Lo visual está listo; la conexión real queda marcada.</h2>
+            </div>
+
+            <div className="readiness-list">
+              {readiness.map((item) => (
+                <article key={item.label}>
+                  <div>
+                    <strong>{item.label}</strong>
+                    <StatusPill>{item.value}</StatusPill>
+                  </div>
+                  <p>{item.detail}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="panel handoff-panel" id="handoff">
+            <p className="eyebrow">Handoff</p>
+            <h2>Cuando la IA no debe improvisar, escala con elegancia.</h2>
+            <p>
+              Las conversaciones sin respuesta oficial se empaquetan con resumen, canal, tenant y prioridad para Workplace o
+              soporte humano.
+            </p>
+            <div className="handoff-stack" aria-hidden="true">
+              <span />
+              <span />
+              <span />
             </div>
           </div>
         </section>
