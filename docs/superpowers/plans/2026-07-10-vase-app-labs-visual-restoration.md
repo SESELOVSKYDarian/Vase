@@ -325,7 +325,7 @@ describe("Vase Labs split-service billing", () => {
 
     expect(calculateRemainingTokens(entitlement)).toBe(268000);
     expect(calculateRemainingMessages(entitlement)).toBeGreaterThan(0);
-    expect(getAiAvailability(entitlement).available).toBe(true);
+    expect(getAiAvailability(entitlement).aiEnabled).toBe(true);
     expect(canTenantUseChannel(entitlement, "WHATSAPP").allowed).toBe(true);
     expect(canTenantUseChannel(entitlement, "FACEBOOK").allowed).toBe(false);
   });
