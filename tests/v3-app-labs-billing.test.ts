@@ -1,56 +1,33 @@
 import { describe, expect, it } from "vitest";
+import { getLabsPlanLimits } from "../packages/contracts/src/index";
 import {
-  createLabsCheckoutPreview,
-  createLabsEntitlementProjection,
-  createLabsTenantProvisioning,
-} from "../apps/vase-app/src/lib/labs/billing-preparation";
+  calculateRemainingMessages,
+  calculateRemainingTokens,
+  canTenantUseChannel,
+  createRuntimeEntitlement,
+  getAiAvailability,
+} from "../apps/vase-labs/app/lib/billing";
 
-describe("Vase App Labs billing preparation", () => {
-  it("previews a future Labs checkout without processing payment", () => {
-    const preview = createLabsCheckoutPreview({
+describe("Vase Labs split-service billing", () => {
+  it("keeps the 63e38a1 Growth limits visible to the current service", () => {
+    const limits = getLabsPlanLimits("GROWTH");
+    const entitlement = createRuntimeEntitlement({
       globalTenantId: "tenant_123",
-      companyName: "Norte Equipos",
       plan: "GROWTH",
-      tokenPack: "BASIC",
-    });
-
-    expect(preview.paymentRequired).toBe(false);
-    expect(preview.productKey).toBe("labs");
-    expect(preview.access.enabledChannels).toEqual(["WHATSAPP", "INSTAGRAM"]);
-    expect(preview.access.tokensIncluded).toBe(250000);
-    expect(preview.access.extraTokens).toBe(500000);
-  });
-
-  it("creates a tenant provisioning payload with company, tenant and owner membership", () => {
-    const provisioning = createLabsTenantProvisioning({
-      globalCompanyId: "company_123",
-      globalTenantId: "tenant_123",
-      globalUserId: "user_123",
-      companyName: "Norte Equipos",
-      tenantSlug: "norte-equipos",
-      plan: "STARTER",
-      tokenPack: null,
-    });
-
-    expect(provisioning.company.name).toBe("Norte Equipos");
-    expect(provisioning.tenant.slug).toBe("norte-equipos");
-    expect(provisioning.membership.role).toBe("OWNER");
-    expect(provisioning.labsAccess.enabledChannels).toEqual(["WHATSAPP"]);
-  });
-
-  it("creates a Labs entitlement projection that Labs can read by contract/API", () => {
-    const projection = createLabsEntitlementProjection({
-      globalTenantId: "tenant_123",
-      plan: "PRO",
-      tokenPack: "MEDIUM",
       status: "ACTIVE",
+      enabledChannels: ["WHATSAPP", "INSTAGRAM"],
+      tokenPack: "BASIC",
+      tokensIncluded: limits.monthlyTokenLimit,
+      tokensUsed: 82000,
+      extraTokens: 100000,
+      currentPeriodStart: "2026-06-24T00:00:00.000Z",
+      renewsAt: "2026-07-24T00:00:00.000Z",
     });
 
-    expect(projection.productKey).toBe("labs");
-    expect(projection.status).toBe("ACTIVE");
-    expect(projection.labs.plan).toBe("PRO");
-    expect(projection.labs.enabledChannels).toEqual(["WHATSAPP", "INSTAGRAM", "FACEBOOK"]);
-    expect(projection.labs.tokensIncluded).toBe(1000000);
-    expect(projection.labs.extraTokens).toBe(1200000);
+    expect(calculateRemainingTokens(entitlement)).toBe(268000);
+    expect(calculateRemainingMessages(entitlement)).toBeGreaterThan(0);
+    expect(getAiAvailability(entitlement).aiEnabled).toBe(true);
+    expect(canTenantUseChannel(entitlement, "WHATSAPP").allowed).toBe(true);
+    expect(canTenantUseChannel(entitlement, "FACEBOOK").allowed).toBe(false);
   });
 });
