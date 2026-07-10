@@ -54,8 +54,8 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
   const appUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://app.vase.ar";
 
   return (
-    <div className="labs-app-shell overflow-x-hidden">
-      <aside className="labs-app-sidebar fixed left-0 top-0 z-40 hidden h-screen w-72 flex-col px-4 py-5 lg:flex" aria-label="Navegacion principal de Vase Labs">
+    <div className="labs-shell overflow-x-hidden">
+      <aside className="labs-sidebar fixed left-0 top-0 z-40 hidden h-screen w-72 flex-col px-4 py-5 lg:flex" aria-label="Navegacion principal de Vase Labs">
         <div className="mb-7 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
           <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
             <Bot className="size-5" />
