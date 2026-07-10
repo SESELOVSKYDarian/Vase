@@ -285,12 +285,54 @@ git commit -m "fix: remove superseded labs visual systems"
 - Verify: `apps/vase-labs/app/app/owner/labs/channels/page.tsx`
 - Verify: `apps/vase-labs/app/lib/billing.ts`
 - Verify: `packages/contracts/src/index.ts`
-- Test: `tests/v3-app-labs-billing.test.ts`
+- Modify: `tests/v3-app-labs-billing.test.ts`
 - Test: `tests/v3-labs-api-routes.test.ts`
 - Test: `tests/v3-labs-services.test.ts`
 - Test: `tests/v3-contracts.test.ts`
 
-- [ ] **Step 1: Verify the approved plan, token, AI, and channel helpers are still wired**
+- [ ] **Step 1: Replace the obsolete pre-split Vase App billing test**
+
+Rewrite `tests/v3-app-labs-billing.test.ts` against the current split-service
+contract instead of the removed
+`apps/vase-app/src/lib/labs/billing-preparation` module:
+
+```ts
+import { describe, expect, it } from "vitest";
+import { getLabsPlanLimits } from "../packages/contracts/src/index";
+import {
+  calculateRemainingMessages,
+  calculateRemainingTokens,
+  canTenantUseChannel,
+  createRuntimeEntitlement,
+  getAiAvailability,
+} from "../apps/vase-labs/app/lib/billing";
+
+describe("Vase Labs split-service billing", () => {
+  it("keeps the 63e38a1 Growth limits visible to the current service", () => {
+    const limits = getLabsPlanLimits("GROWTH");
+    const entitlement = createRuntimeEntitlement({
+      globalTenantId: "tenant_123",
+      plan: "GROWTH",
+      status: "ACTIVE",
+      enabledChannels: ["WHATSAPP", "INSTAGRAM"],
+      tokenPack: "BASIC",
+      tokensIncluded: limits.monthlyTokenLimit,
+      tokensUsed: 82000,
+      extraTokens: 100000,
+      currentPeriodStart: "2026-06-24T00:00:00.000Z",
+      renewsAt: "2026-07-24T00:00:00.000Z",
+    });
+
+    expect(calculateRemainingTokens(entitlement)).toBe(268000);
+    expect(calculateRemainingMessages(entitlement)).toBeGreaterThan(0);
+    expect(getAiAvailability(entitlement).available).toBe(true);
+    expect(canTenantUseChannel(entitlement, "WHATSAPP").allowed).toBe(true);
+    expect(canTenantUseChannel(entitlement, "FACEBOOK").allowed).toBe(false);
+  });
+});
+```
+
+- [ ] **Step 2: Verify the approved plan, token, AI, and channel helpers are still wired**
 
 Run:
 
@@ -301,7 +343,7 @@ rg -n "getLabsPlanLimits|createRuntimeEntitlement|calculateRemainingTokens|calcu
 Expected: every helper is present in its implementation and the dashboard uses
 the derived plan, token, message, AI availability, and channel state.
 
-- [ ] **Step 2: Run the operational Labs regression tests**
+- [ ] **Step 3: Run the operational Labs regression tests**
 
 Run:
 
@@ -311,16 +353,12 @@ npx vitest run tests/v3-app-labs-billing.test.ts tests/v3-labs-api-routes.test.t
 
 Expected: PASS with no route, contract, billing, token, or channel regression.
 
-- [ ] **Step 3: Commit only if operational wiring required a correction**
-
-If a verified failure requires an in-scope correction, stage only the corrected
-files and use:
+- [ ] **Step 4: Commit the migrated split-service billing test**
 
 ```powershell
-git commit -m "fix: preserve labs operational controls"
+git add -- tests/v3-app-labs-billing.test.ts
+git commit -m "test: align labs billing with split service"
 ```
-
-If all tests pass without changes, do not create an empty commit.
 
 ### Task 5: Complete repository and visual verification
 
