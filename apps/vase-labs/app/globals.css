@@ -2041,7 +2041,7 @@ a:focus-visible {
 }
 
 /* Owner routes using the integrated apps/vase-app Labs design */
-.labs-app-shell {
+.labs-shell {
   min-height: 100vh;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--background) 96%, transparent), var(--background-elevated)),
@@ -2055,9 +2055,9 @@ a:focus-visible {
     sans-serif;
 }
 
-.labs-app-shell h1,
-.labs-app-shell h2,
-.labs-app-shell h3 {
+.labs-shell h1,
+.labs-shell h2,
+.labs-shell h3 {
   font-family:
     "Newsreader",
     Georgia,
@@ -2065,7 +2065,7 @@ a:focus-visible {
     serif;
 }
 
-.labs-app-sidebar {
+.labs-sidebar {
   border-right: 1px solid var(--border-subtle);
   background: color-mix(in srgb, var(--surface-strong) 88%, var(--background));
   box-shadow: 10px 0 34px color-mix(in srgb, var(--glass-shadow) 42%, transparent);
