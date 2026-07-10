@@ -191,7 +191,7 @@ export default async function LabsDashboardPage() {
         }
       />
 
-      <section className="metric-grid" aria-label="Metricas principales">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6" aria-label="Metricas principales">
         <LabsMetricCard label="Conversaciones abiertas" value={data.summary.openConversations} icon={MessageSquare} tone="info" />
         <LabsMetricCard label="Derivadas a humano" value={data.summary.escalatedConversations} icon={UserRoundCheck} tone="warning" />
         <LabsMetricCard label="Hot leads" value={data.summary.hotLeads} icon={Flame} tone="success" />
@@ -200,26 +200,26 @@ export default async function LabsDashboardPage() {
         <LabsMetricCard label="Mensajes disponibles" value={data.remainingMessages.toLocaleString("es-AR")} icon={Bot} tone="neutral" />
       </section>
 
-      <section className="content-grid">
+      <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
         <LabsSection title="Salud del setup" description={`${data.tenantName} · ${data.plan}`}>
-          <div className="readiness-list">
+          <div className="grid gap-3">
             {[
               ["Conocimiento", data.setupSteps.hasKnowledge],
               ["Canales", data.setupSteps.hasChannel],
               ["Escalamiento humano", data.setupSteps.hasEscalation],
             ].map(([label, ok]) => (
-              <article key={String(label)}>
-                <div>
+              <article key={String(label)} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
+                <div className="flex items-center justify-between gap-3">
                   <strong>{label}</strong>
                   <LabsStatusPill label={ok ? "Listo" : "Pendiente"} tone={ok ? "success" : "warning"} />
                 </div>
-                <p>{ok ? "Configurado para operar." : "Pendiente de configuracion."}</p>
+                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">{ok ? "Configurado para operar." : "Pendiente de configuracion."}</p>
               </article>
             ))}
           </div>
           {!setupCompleted ? (
-            <div className="cta-row">
-              <a href="/app/owner/labs/settings">
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a href="/app/owner/labs/settings" className="labs-button labs-button-primary">
                 Completar setup
                 <Route className="size-4" />
               </a>
@@ -228,34 +228,46 @@ export default async function LabsDashboardPage() {
         </LabsSection>
 
         <LabsSection title="Capacidad IA" eyebrow="Tokens">
-          <div className="token-meter" aria-label="Uso de tokens">
-            <div>
-              <span>Usados</span>
-              <strong>{data.tokensUsed.toLocaleString("es-AR")}</strong>
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5" aria-label="Uso de tokens">
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-sm text-[var(--muted)]">Usados</span>
+              <strong className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">{data.tokensUsed.toLocaleString("es-AR")}</strong>
             </div>
-            <div>
-              <span>Restantes</span>
-              <strong>{data.remainingTokens.toLocaleString("es-AR")}</strong>
+            <div className="mt-3 flex items-baseline justify-between gap-4">
+              <span className="text-sm text-[var(--muted)]">Restantes</span>
+              <strong className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">{data.remainingTokens.toLocaleString("es-AR")}</strong>
             </div>
-            <span className="meter-track">
-              <span style={{ width: `${data.tokenUsagePercent}%` }} />
+            <span className="mt-5 block h-3 overflow-hidden rounded-full bg-[var(--border-subtle)]">
+              <span className="block h-full rounded-full bg-[linear-gradient(90deg,var(--accent-strong),rgba(226,139,69,0.88))]" style={{ width: `${data.tokenUsagePercent}%` }} />
             </span>
           </div>
-          <div className="cta-row">
-            <a href="/app/owner/labs/settings">Ajustes de IA</a>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a href="/app/owner/labs/settings" className="labs-button labs-button-secondary">Ajustes de IA</a>
           </div>
         </LabsSection>
 
         <LabsSection title="Canales conectados" eyebrow="Canales">
-          <div className="channel-grid">
+          <div className="grid gap-3 md:grid-cols-3">
             {data.channelAccess.map(({ channel, access }) => {
               const channelMeta = channelLabels[channel];
               const connected = data.channels.some((item) => item.type === channel && item.status === "CONNECTED");
 
               return (
-                <article className={`channel-card ${channelMeta.tone} ${access.allowed ? "" : "is-locked"}`} key={channel}>
-                  <div className="channel-topline">
-                    <span className="channel-badge" aria-hidden="true">
+                <article
+                  className={`relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 ${access.allowed ? "" : "opacity-70"}`}
+                  key={channel}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span
+                      className={`grid size-11 place-items-center rounded-xl text-xs font-black uppercase text-white ${
+                        channelMeta.tone === "instagram"
+                          ? "bg-[linear-gradient(145deg,#f08a4b,#d84973_52%,#7c3aed)]"
+                          : channelMeta.tone === "facebook"
+                            ? "bg-[#2563eb]"
+                            : "bg-[linear-gradient(145deg,var(--sage),var(--jade))]"
+                      }`}
+                      aria-hidden="true"
+                    >
                       {channelMeta.tag}
                     </span>
                     <LabsStatusPill
@@ -263,8 +275,8 @@ export default async function LabsDashboardPage() {
                       tone={connected || access.allowed ? "success" : "warning"}
                     />
                   </div>
-                  <h3>{channelMeta.name}</h3>
-                  <p>{channelMeta.description}</p>
+                  <h3 className="mt-5 text-xl font-semibold tracking-tight text-[var(--foreground)]">{channelMeta.name}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{channelMeta.description}</p>
                 </article>
               );
             })}
@@ -274,26 +286,26 @@ export default async function LabsDashboardPage() {
         <LabsSection
           title="Conversaciones que piden atencion"
           eyebrow="Inbox"
-          actions={<a href="/app/owner/labs/activity">Ver todo</a>}
+          actions={<a href="/app/owner/labs/activity" className="labs-button labs-button-secondary">Ver todo</a>}
         >
           {data.criticalConversations.length === 0 ? (
             <LabsEmptyState title="Sin conversaciones criticas" description="Los hot leads y derivaciones humanas apareceran aca." />
           ) : (
-            <div className="conversation-list">
+            <div className="grid gap-3">
               {data.criticalConversations.map((conversation) => (
                 <a
                   key={conversation.id}
                   href={`/app/owner/labs/inbox?conversationId=${encodeURIComponent(conversation.id)}`}
-                  className="conversation-card"
+                  className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 text-[var(--foreground)] no-underline transition hover:bg-[var(--surface-strong)]"
                 >
-                  <div>
+                  <div className="flex items-start justify-between gap-3">
                     <strong>{conversation.customerName ?? conversation.customerContact ?? "Cliente"}</strong>
-                    <span>{conversation.channel ? channelLabels[conversation.channel].name : "Labs"}</span>
+                    <span className="text-xs text-[var(--muted)]">{conversation.channel ? channelLabels[conversation.channel].name : "Labs"}</span>
                   </div>
-                  <p>{conversation.summary ?? "Sin resumen disponible"}</p>
-                  <footer>
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--muted)]">{conversation.summary ?? "Sin resumen disponible"}</p>
+                  <footer className="mt-3 flex flex-wrap items-center gap-2">
                     <LabsStatusPill label={conversation.intentLabel ?? conversation.status} tone={conversation.escalatedToHuman ? "warning" : statusTone(conversation.status)} />
-                    <small>{formatDate(conversation.lastMessageAt)}</small>
+                    <small className="text-xs text-[var(--muted)]">{formatDate(conversation.lastMessageAt)}</small>
                   </footer>
                 </a>
               ))}
