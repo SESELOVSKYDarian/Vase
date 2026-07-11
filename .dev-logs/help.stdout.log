@@ -1,0 +1,19 @@
+
+> vase@0.1.0 dev:v3:help
+> npm run dev --workspace @vase/help
+
+
+> @vase/help@0.1.0 dev
+> next dev --hostname 0.0.0.0 --port 3004
+
+▲ Next.js 16.2.1 (Turbopack)
+- Local:         http://localhost:3004
+- Network:       http://0.0.0.0:3004
+✓ Ready in 1949ms
+Creating turbopack project {
+  dir: 'C:\\Users\\10\\Documents\\Vasev1\\Vase\\apps\\vase-help',
+  testMode: true
+}
+
+○ Compiling / ...
+ GET / 200 in 11.7s (next.js: 11.2s, application-code: 500ms)
