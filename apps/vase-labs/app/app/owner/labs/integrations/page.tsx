@@ -1,1 +1,3 @@
-export { default, dynamic } from "../channels/page";
+export { default } from "../channels/page";
+
+export const dynamic = "force-dynamic";

@@ -48,6 +48,14 @@ describe("Vase Labs standalone owner experience", () => {
   });
 
   it("keeps old channel entrypoints pointed at the owner Labs dashboard", () => {
+    const inboxPage = fs.readFileSync(
+      path.resolve("apps/vase-labs/app/app/owner/labs/inbox/page.tsx"),
+      "utf8",
+    );
+    const integrationsPage = fs.readFileSync(
+      path.resolve("apps/vase-labs/app/app/owner/labs/integrations/page.tsx"),
+      "utf8",
+    );
     const labsChannelsPage = fs.readFileSync(
       path.resolve("apps/vase-labs/app/app/channels/page.tsx"),
       "utf8",
@@ -61,6 +69,10 @@ describe("Vase Labs standalone owner experience", () => {
       "utf8",
     );
 
+    expect(inboxPage).toContain('export const dynamic = "force-dynamic"');
+    expect(integrationsPage).toContain('export const dynamic = "force-dynamic"');
+    expect(inboxPage).not.toContain("{ default, dynamic }");
+    expect(integrationsPage).not.toContain("{ default, dynamic }");
     expect(labsChannelsPage).toContain('redirect("/app/owner/labs/integrations")');
     expect(appChannelsPage).toContain('new URL("/app/owner/labs", productOrigins.labs).toString() as Route');
     expect(oauthCallback).toContain('new URL("/app/owner/labs", url.origin)');
