@@ -1,6 +1,7 @@
 import type { LabsChannel } from "@vase/contracts";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { Cable, CircleAlert, CircleCheck, LockKeyhole } from "lucide-react";
 import { labsPrisma } from "../../../../lib/db";
 import { listRedactedOfficialChannels } from "../../../../lib/channel-queries";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
@@ -91,86 +92,93 @@ export default async function LabsChannelsPage() {
         description="Conecta y monitorea WhatsApp, Instagram y Facebook desde el panel operativo de Vase Labs."
       />
 
-      <section className="metric-grid" aria-label="Resumen de canales">
-        <article className="metric-card">
+      <section className="labs-channel-overview" aria-label="Resumen de canales">
+        <article>
           <span>Plan actual</span>
           <strong>{data.plan}</strong>
           <p>{data.enabledChannels.length} canales habilitados por contrato</p>
         </article>
-        <article className="metric-card">
+        <article>
           <span>Conectados</span>
           <strong>{connectedCount}</strong>
           <p>Canales oficiales Meta activos</p>
         </article>
-        <article className="metric-card">
+        <article>
           <span>Webhook base</span>
           <strong>Meta</strong>
           <p>{data.appUrl}/api/v1/meta/webhooks/[channel]</p>
         </article>
       </section>
 
-      <section className="panel channels-panel">
-        <div className="section-heading">
-          <p className="eyebrow">Canales por plan</p>
-          <h2>Estado de las conexiones oficiales.</h2>
-        </div>
-        <div className="channel-grid">
-          {channelOrder.map((channelType) => {
-            const meta = channelCopy[channelType];
-            const channel = data.channels.find((item) => item.type === channelType);
-            const enabled = data.enabledChannels.includes(channelType);
-            const status = channel?.status ?? "DISCONNECTED";
-            const webhookUrl = `${data.appUrl}/api/v1/meta/webhooks/${channelType.toLowerCase()}`;
+      <section className="labs-channel-grid">
+        {channelOrder.map((channelType) => {
+          const meta = channelCopy[channelType];
+          const channel = data.channels.find((item) => item.type === channelType);
+          const enabled = data.enabledChannels.includes(channelType);
+          const status = channel?.status ?? "DISCONNECTED";
+          const webhookUrl = `${data.appUrl}/api/v1/meta/webhooks/${channelType.toLowerCase()}`;
 
-            return (
-              <article className={`channel-card ${channelType.toLowerCase()} ${enabled ? "" : "is-locked"}`} key={channelType}>
-                <div className="channel-topline">
-                  <span className="channel-badge" aria-hidden="true">{meta.tag}</span>
-                  <LabsStatusPill
-                    label={enabled ? status : "Upgrade"}
-                    tone={enabled ? statusTone(status) : "warning"}
-                  />
+          return (
+            <article className={`labs-channel-card labs-channel-${channelType.toLowerCase()}`} key={channelType}>
+              <div className="labs-channel-card-top">
+                <span className="labs-channel-tag">{meta.tag}</span>
+                <LabsStatusPill
+                  label={enabled ? status : "Upgrade"}
+                  tone={enabled ? statusTone(status) : "warning"}
+                />
+              </div>
+
+              <div className="labs-channel-card-title">
+                {status === "CONNECTED" ? <CircleCheck className="size-5" /> : enabled ? <Cable className="size-5" /> : <LockKeyhole className="size-5" />}
+                <h2>{meta.title}</h2>
+              </div>
+              <p>{meta.description}</p>
+
+              <dl className="labs-channel-facts">
+                <div>
+                  <dt>Cuenta</dt>
+                  <dd>{channel?.accountLabel ?? channel?.externalHandle ?? "Sin cuenta conectada"}</dd>
                 </div>
-
-                <h3>{meta.title}</h3>
-                <p>{meta.description}</p>
-                <ul>
-                  <li>Cuenta: {channel?.accountLabel ?? channel?.externalHandle ?? "Sin cuenta conectada"}</li>
-                  <li>Token: {channel?.secretStatus ?? "MISSING"}</li>
-                  <li>Ultima sincronizacion: {formatDate(channel?.lastSyncedAt ?? null)}</li>
-                </ul>
-
-                <div className="conversation-card">
-                  <strong>Webhook</strong>
-                  <p><code>{webhookUrl}</code></p>
+                <div>
+                  <dt>Token</dt>
+                  <dd>{channel?.secretStatus ?? "MISSING"}</dd>
                 </div>
+                <div>
+                  <dt>Ultima sincronizacion</dt>
+                  <dd>{formatDate(channel?.lastSyncedAt ?? null)}</dd>
+                </div>
+              </dl>
 
-                {channel?.lastError ? (
-                  <div className="conversation-card is-locked">
-                    <strong>Error de conexion</strong>
-                    <p>{channel.lastError}</p>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
+              <div className="labs-channel-webhook">
+                <span>Webhook</span>
+                <code>{webhookUrl}</code>
+              </div>
+
+              {channel?.lastError ? (
+                <div className="labs-channel-error">
+                  <CircleAlert className="size-4" />
+                  <span>{channel.lastError}</span>
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
       </section>
 
       <LabsSection
         title="Conexion oficial Meta"
         description="El inicio OAuth se ejecuta desde el endpoint autenticado de conexiones. Esta vista deja visibles estado, token, webhook y errores para soporte."
       >
-        <div className="plans-grid">
-          <div className="plan-card">
+        <div className="labs-channel-endpoints">
+          <div>
             <span>Inicio de conexion</span>
             <code>POST /api/v1/meta/connections/start</code>
           </div>
-          <div className="plan-card">
+          <div>
             <span>Canales redacted</span>
             <code>GET /api/v1/channels/{data.tenantSlug}</code>
           </div>
-          <div className="plan-card">
+          <div>
             <span>Tenant</span>
             <code>{data.tenantSlug}</code>
           </div>

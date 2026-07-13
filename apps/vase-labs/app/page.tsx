@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default function LabsHomePage() {
+export default function LabsRootPage() {
   redirect("/app/owner/labs");
 }

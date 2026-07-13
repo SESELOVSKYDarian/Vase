@@ -57,7 +57,7 @@ export default async function LabsChatbotsPage() {
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.items.map((item) => (
-              <article key={item.id} className="conversation-card p-4">
+              <article key={item.id} className="labs-subpanel p-4">
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-sm font-semibold text-[var(--foreground)]">{item.title}</p>
                   <LabsStatusPill label={item.status} tone={trainingTone(item.status)} />
