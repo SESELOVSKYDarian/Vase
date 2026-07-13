@@ -77,4 +77,35 @@ describe("Vase Labs standalone owner experience", () => {
     expect(appChannelsPage).toContain('new URL("/app/owner/labs", productOrigins.labs).toString() as Route');
     expect(oauthCallback).toContain('new URL("/app/owner/labs", url.origin)');
   });
+
+  it("keeps chart containers measurable during their first render", () => {
+    const charts = fs.readFileSync(
+      path.resolve("apps/vase-labs/app/app/owner/labs/labs-analytics-charts.tsx"),
+      "utf8",
+    );
+
+    expect(charts).toContain("const chartInitialDimension = { width: 320, height: 256 }");
+    expect(charts.match(/initialDimension=\{chartInitialDimension\}/g)).toHaveLength(3);
+  });
+
+  it("provides a valid setup entrypoint in the standalone Labs service", () => {
+    const setupPath = path.resolve(
+      "apps/vase-labs/app/app/owner/labs/setup/page.tsx",
+    );
+
+    expect(fs.existsSync(setupPath)).toBe(true);
+    if (!fs.existsSync(setupPath)) return;
+
+    const setup = fs.readFileSync(setupPath, "utf8");
+    expect(setup).toContain("resolveLabsRequestContext");
+    expect(setup).toContain('redirect("/app/owner/labs/chatbots")');
+    expect(setup).toContain('redirect("/app/owner/labs/integrations")');
+    expect(setup).toContain('redirect("/app/owner/labs/settings")');
+  });
+
+  it("registers an application icon instead of requesting a missing favicon", () => {
+    const iconPath = path.resolve("apps/vase-labs/app/icon.svg");
+
+    expect(fs.existsSync(iconPath)).toBe(true);
+  });
 });

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Vase Labs">
+  <rect width="64" height="64" rx="16" fill="#0f8f61"/>
+  <path d="M20 16h24v6h-4v8.2l9.2 15.9A5.3 5.3 0 0 1 44.6 54H19.4a5.3 5.3 0 0 1-4.6-7.9L24 30.2V22h-4v-6Zm10 6v9.8L20.6 48h22.8L34 31.8V22h-4Z" fill="#fff"/>
+  <path d="M23.8 43h16.4l3 5H20.8l3-5Z" fill="#bdf5dc"/>
+</svg>

@@ -26,6 +26,7 @@ const intentLabels: Record<string, string> = {
 };
 
 const chartColors = ["#0f8f61", "#487aee", "#7d8594", "#e28b45", "#9aa3ad"];
+const chartInitialDimension = { width: 320, height: 256 };
 
 function ChartShell({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -44,7 +45,7 @@ export function LabsIntentDistributionChart({ analytics }: { analytics: LabsConv
 
   return (
     <ChartShell title="Intencion por etiqueta">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={chartInitialDimension}>
         <PieChart>
           <Pie data={data} dataKey="count" nameKey="label" innerRadius={62} outerRadius={92} paddingAngle={2}>
             {data.map((entry, index) => (
@@ -61,7 +62,7 @@ export function LabsIntentDistributionChart({ analytics }: { analytics: LabsConv
 export function LabsConversationTrendChart({ analytics }: { analytics: LabsConversationAnalytics }) {
   return (
     <ChartShell title="Conversaciones y derivaciones">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={chartInitialDimension}>
         <AreaChart data={analytics.trend} margin={{ left: -20, right: 8, top: 8, bottom: 0 }}>
           <defs>
             <linearGradient id="labsConversations" x1="0" x2="0" y1="0" y2="1">
@@ -88,7 +89,7 @@ export function LabsConversationTrendChart({ analytics }: { analytics: LabsConve
 export function LabsChannelBarChart({ analytics }: { analytics: LabsConversationAnalytics }) {
   return (
     <ChartShell title="Canales por volumen">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={chartInitialDimension}>
         <BarChart data={analytics.byChannel} margin={{ left: -20, right: 8, top: 8, bottom: 0 }}>
           <CartesianGrid stroke="var(--border-subtle)" strokeDasharray="4 4" vertical={false} />
           <XAxis dataKey="channel" tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
