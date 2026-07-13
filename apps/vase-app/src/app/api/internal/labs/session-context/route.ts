@@ -62,7 +62,7 @@ export async function GET(request: Request) {
           tenantModules: {
             some: {
               isActive: true,
-              moduleId: "labs",
+              moduleId: "vase_labs",
             },
           },
         },

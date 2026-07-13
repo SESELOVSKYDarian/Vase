@@ -32,10 +32,10 @@ async function main() {
   const tenant = user.memberships[0].tenant;
 
   const module = await prisma.module.upsert({
-    where: { id: "labs" },
+    where: { id: "vase_labs" },
     update: {},
     create: {
-      id: "labs",
+      id: "vase_labs",
       name: "Vase Labs",
       description: "Vase Labs Module",
       isActive: true,
@@ -48,13 +48,13 @@ async function main() {
     where: {
       tenantId_moduleId: {
         tenantId: tenant.id,
-        moduleId: "labs",
+        moduleId: "vase_labs",
       },
     },
     update: { isActive: true },
     create: {
       tenantId: tenant.id,
-      moduleId: "labs",
+      moduleId: "vase_labs",
       isActive: true,
     },
   });
