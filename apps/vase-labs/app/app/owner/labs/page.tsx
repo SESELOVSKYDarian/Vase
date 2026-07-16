@@ -152,8 +152,8 @@ export default async function LabsDashboardPage() {
         description="Estado vivo de conversaciones, conocimiento, canales y derivaciones humanas."
         actions={
           <>
-            <LabsActionLink href="/app/owner/labs/inbox">Abrir inbox</LabsActionLink>
-            <Link href="/app/owner/labs/activity" className="labs-button labs-button-secondary">
+            <LabsActionLink href="/owner/inbox">Abrir inbox</LabsActionLink>
+            <Link href="/owner/activity" className="labs-button labs-button-secondary">
               Analisis
             </Link>
           </>
@@ -193,7 +193,7 @@ export default async function LabsDashboardPage() {
             ))}
           </div>
           {!setupCompleted ? (
-            <Link href="/app/owner/labs/setup" className="labs-button labs-button-primary mt-4">
+            <Link href="/owner/settings" className="labs-button labs-button-primary mt-4">
               Completar setup
               <Route className="size-4" />
             </Link>
@@ -203,7 +203,7 @@ export default async function LabsDashboardPage() {
         <LabsSection
           title="Conversaciones que piden atencion"
           actions={
-            <Link href="/app/owner/labs/activity" className="labs-button labs-button-secondary">
+            <Link href="/owner/activity" className="labs-button labs-button-secondary">
               Ver todo
             </Link>
           }

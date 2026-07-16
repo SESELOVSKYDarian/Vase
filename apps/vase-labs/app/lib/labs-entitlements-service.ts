@@ -2,6 +2,7 @@ import {
   createTokenUsage,
   getLabsPlanLimits,
   type LabsChannel,
+  type LabsChannelLimits,
   type LabsPlan,
   type TokenPack,
   type TokenUsage,
@@ -21,6 +22,7 @@ export interface LabsEntitlementRecord {
   plan: LabsPlan;
   status: LabsRuntimeStatus;
   enabledChannels: LabsChannel[];
+  channelLimits?: LabsChannelLimits;
   tokenPack: TokenPack | null;
   tokensIncluded: number;
   tokensUsed: number;
@@ -36,6 +38,7 @@ export interface UpsertLabsEntitlementInput {
   plan: LabsPlan;
   status: LabsRuntimeStatus;
   enabledChannels?: LabsChannel[];
+  channelLimits?: LabsChannelLimits;
   tokenPack?: TokenPack | null;
   tokensIncluded?: number;
   tokensUsed?: number;
@@ -66,6 +69,7 @@ export interface LabsEntitlementsRepository {
   findByGlobalTenantId(globalTenantId: string): Promise<LabsEntitlementRecord | null>;
   upsert(input: Required<Pick<UpsertLabsEntitlementInput, "globalTenantId" | "plan" | "status">> & {
     enabledChannels: LabsChannel[];
+    channelLimits: LabsChannelLimits;
     tokenPack: TokenPack | null;
     tokensIncluded: number;
     tokensUsed?: number;
@@ -142,6 +146,7 @@ function toRuntimeEntitlement(record: LabsEntitlementRecord): LabsRuntimeEntitle
     plan: record.plan,
     status: record.status,
     enabledChannels: record.enabledChannels,
+    channelLimits: record.channelLimits,
     tokenPack: record.tokenPack,
     tokensIncluded: record.tokensIncluded,
     tokensUsed: record.tokensUsed,
@@ -165,6 +170,7 @@ export function createLabsEntitlementsService(repository: LabsEntitlementsReposi
         plan: input.plan,
         status: input.status,
         enabledChannels: input.enabledChannels ?? [...defaults.includedChannels],
+        channelLimits: input.channelLimits ?? defaults.channelLimits,
         tokenPack: input.tokenPack ?? null,
         tokensIncluded: input.tokensIncluded ?? defaults.monthlyTokenLimit,
         tokensUsed: input.tokensUsed,
@@ -226,12 +232,14 @@ export const prismaLabsEntitlementsRepository: LabsEntitlementsRepository = {
       create: {
         ...input,
         enabledChannels: input.enabledChannels,
+        channelLimits: input.channelLimits,
         tokensUsed: input.tokensUsed ?? 0,
       },
       update: {
         plan: input.plan,
         status: input.status,
         enabledChannels: input.enabledChannels,
+        channelLimits: input.channelLimits,
         tokenPack: input.tokenPack,
         tokensIncluded: input.tokensIncluded,
         ...(input.tokensUsed === undefined ? {} : { tokensUsed: input.tokensUsed }),

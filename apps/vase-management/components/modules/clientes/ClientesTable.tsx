@@ -62,7 +62,7 @@ export function ClientesTable() {
   const limit = 15
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema as never),
     defaultValues: { documentType: 'DNI', ivaCondition: 'CONSUMIDOR_FINAL' },
   })
 

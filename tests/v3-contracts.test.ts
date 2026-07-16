@@ -11,12 +11,18 @@ import {
   estimateMessagesFromTokens,
   getLabsPlanLimits,
   getLabsTokenBalance,
+  getEffectiveLabsEntitlement,
+  labsCatalogSyncSchema,
   getTokenPackTokens,
   labsAdminTenantControlSchema,
   labsChannelSchema,
   labsChannelProviderSchema,
   labsEntitlementSchema,
   labsPlanSchema,
+  managementIntegrationProviderSchema,
+  managementPricePublicationSchema,
+  managementSsoClaimsSchema,
+  managementSyncEventSchema,
   outboundChannelMessageSchema,
   serviceHealthSchema,
   tokenPackSchema,
@@ -88,6 +94,7 @@ describe("V3 contracts", () => {
   it("creates Labs entitlements from plan defaults", () => {
     const entitlement = createLabsEntitlement({
       globalTenantId: "tenant_123",
+      tenantName: "Norte Equipos",
       plan: "GROWTH",
       status: "ACTIVE",
     });
@@ -216,5 +223,87 @@ describe("V3 contracts", () => {
       messageType: "text",
       text: "Hola",
     })).toBe(true);
+  });
+
+  it("derives per-channel plan limits and applies audited overrides without changing the paid plan", () => {
+    const effective = getEffectiveLabsEntitlement({
+      paidPlan: "STARTER",
+      override: {
+        channelLimits: { WHATSAPP: 2, INSTAGRAM: 1, FACEBOOK: 0 },
+        reason: "Ampliacion comercial aprobada",
+        updatedBy: "admin_123",
+        updatedAt: "2026-07-16T12:00:00.000Z",
+      },
+    });
+
+    expect(effective.paidPlan).toBe("STARTER");
+    expect(effective.channelLimits).toEqual({ WHATSAPP: 2, INSTAGRAM: 1, FACEBOOK: 0 });
+    expect(effective.enabledChannels).toEqual(["WHATSAPP", "INSTAGRAM"]);
+    expect(effective.manualOverride).toBe(true);
+  });
+
+  it("validates idempotent Business catalog sync batches", () => {
+    const batch = labsCatalogSyncSchema.parse({
+      eventId: "catalog_evt_123",
+      globalTenantId: "tenant_123",
+      occurredAt: "2026-07-16T12:00:00.000Z",
+      products: [{
+        externalProductId: "erp_42",
+        sku: "SKU-42",
+        name: "Producto demo",
+        description: "Descripcion",
+        price: 12500,
+        stock: 8,
+        imageUrl: "https://cdn.vase.ar/product.jpg",
+        categories: ["Destacados"],
+        active: true,
+        sourceUpdatedAt: "2026-07-16T11:59:00.000Z",
+      }],
+    });
+
+    expect(batch.products[0].externalProductId).toBe("erp_42");
+    expect(batch.products[0].stock).toBe(8);
+  });
+
+  it("defines Management as an exclusive integration provider with publishable setup and monthly pricing", () => {
+    expect(managementIntegrationProviderSchema.options).toEqual(["EXTERNAL_API", "VASE_MANAGEMENT"]);
+    const pricing = managementPricePublicationSchema.parse({
+      version: 3,
+      currency: "ARS",
+      setupPrice: 350000,
+      monthlyPrice: 95000,
+      status: "PUBLISHED",
+      publishedAt: "2026-07-16T12:00:00.000Z",
+    });
+    expect(pricing.monthlyPrice).toBe(95000);
+  });
+
+  it("validates short-lived Management SSO identity claims", () => {
+    const claims = managementSsoClaimsSchema.parse({
+      nonce: "nonce_123",
+      globalTenantId: "tenant_123",
+      tenantName: "Norte Equipos",
+      globalUserId: "user_123",
+      email: "owner@example.com",
+      name: "Owner",
+      role: "OWNER",
+      issuedAt: 1784203200,
+      expiresAt: 1784203260,
+    });
+    expect(claims.expiresAt - claims.issuedAt).toBe(60);
+  });
+
+  it("validates versioned bidirectional Management sync events", () => {
+    const event = managementSyncEventSchema.parse({
+      eventId: "evt_123",
+      globalTenantId: "tenant_123",
+      entity: "PRODUCT",
+      action: "UPSERT",
+      externalId: "product_123",
+      version: 4,
+      occurredAt: "2026-07-16T12:00:00.000Z",
+      payload: { name: "Producto", price: 1200, stock: 8 },
+    });
+    expect(event.entity).toBe("PRODUCT");
   });
 });

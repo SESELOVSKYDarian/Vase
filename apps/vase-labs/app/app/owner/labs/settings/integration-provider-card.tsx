@@ -1,0 +1,13 @@
+"use client";
+
+import { CheckCircle2, Database, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+
+type State = { provider: "EXTERNAL_API" | "VASE_MANAGEMENT"; managementAvailable: boolean; status: string; lastSyncAt: string | null; lastError: string | null };
+
+export function IntegrationProviderCard() {
+  const [state, setState] = useState<State | null>(null); const [busy, setBusy] = useState(false); const [message, setMessage] = useState("");
+  useEffect(() => { void fetch("/api/labs/integration-provider").then((response) => response.json()).then(setState); }, []);
+  async function choose(provider: State["provider"]) { setBusy(true); const response = await fetch("/api/labs/integration-provider", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider }) }); const payload = await response.json(); if (response.ok) { setState((current) => current ? { ...current, ...payload } : payload); setMessage("Fuente actualizada. Estamos reconciliando el catálogo."); } else setMessage(payload.error === "MANAGEMENT_NOT_CONTRACTED" ? "Tu cuenta todavía no tiene Vase Management contratado." : "No pudimos cambiar la fuente."); setBusy(false); }
+  return <section className="labs-section"><div className="flex items-start justify-between gap-4"><div><p className="labs-eyebrow">Integración de catálogo</p><h2 className="labs-section-title">Una sola fuente de verdad</h2><p className="labs-section-description">Elegí el sistema que publica productos, precios y stock para Business y el conocimiento de Labs.</p></div><Database className="size-5 text-[var(--accent)]" /></div><div className="mt-5 grid gap-3 md:grid-cols-2">{([{ value: "EXTERNAL_API", title: "Sistema externo", body: "Continúa usando la API y el token actuales." }, { value: "VASE_MANAGEMENT", title: "Vase Management", body: "Sincronización continua, bidireccional y sin tokens manuales." }] as const).map((option) => <button disabled={busy} key={option.value} onClick={() => choose(option.value)} className={`labs-provider-option ${state?.provider === option.value ? "is-active" : ""}`}><span><strong>{option.title}</strong><small>{option.body}</small></span>{state?.provider === option.value ? <CheckCircle2 className="size-5" /> : null}</button>)}</div><div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">{!state ? <><RefreshCw className="size-3 animate-spin" /> Consultando integración</> : <>Estado: {state.status}{state.lastSyncAt ? ` · Último sync ${new Date(state.lastSyncAt).toLocaleString("es-AR")}` : ""}</>}{message ? <span>{message}</span> : null}</div></section>;
+}

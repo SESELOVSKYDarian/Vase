@@ -37,7 +37,7 @@ export function ProveedoresTable() {
   const limit = 15
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema as never),
     defaultValues: { documentType: 'CUIT', ivaCondition: 'RESPONSABLE_INSCRIPTO' },
   })
 

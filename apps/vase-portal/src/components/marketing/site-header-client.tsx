@@ -17,6 +17,7 @@ interface SiteHeaderClientProps {
       register: string;
       business: string;
       labs: string;
+      management: string;
       integrations: string;
     };
   };
@@ -103,6 +104,11 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
                   label: copy.nav.labs,
                   ariaLabel: copy.nav.labs,
                   link: "/vaselabs",
+                },
+                {
+                  label: copy.nav.management,
+                  ariaLabel: copy.nav.management,
+                  link: "/vase-management",
                 },
                 {
                   label: copy.nav.integrations,

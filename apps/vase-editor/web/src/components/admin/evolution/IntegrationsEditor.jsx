@@ -107,6 +107,8 @@ const IntegrationsEditor = ({ manager }) => {
         rotatingToken,
         loadManifest,
         rotateToken,
+        providerState,
+        setIntegrationProvider,
     } = manager;
 
     useEffect(() => {
@@ -245,6 +247,13 @@ const IntegrationsEditor = ({ manager }) => {
                     No habia token de integracion para este tenant. El sistema genero uno automaticamente y ya esta listo para usar.
                 </div>
             ) : null}
+
+            <div className={cardClass}>
+                <div><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">Fuente activa del catálogo</p><h3 className="mt-2 text-xl font-bold text-white">Elegí cómo se conecta tu operación</h3><p className="mt-1 text-sm text-zinc-500">Sólo una fuente puede publicar productos, precios y stock. El cambio inicia una reconciliación segura.</p></div>
+                <div className="grid gap-3 md:grid-cols-2">
+                    {[['EXTERNAL_API', 'Sistema de gestión externo', 'Usá el token y los endpoints actuales.'], ['VASE_MANAGEMENT', 'Vase Management', 'Sin tokens manuales. Sincronización bidireccional continua.']].map(([value, title, description]) => <button key={value} type="button" onClick={() => setIntegrationProvider(value)} className={cn('rounded-2xl border p-4 text-left transition', providerState?.provider === value ? 'border-emerald-400/60 bg-emerald-400/10' : 'border-white/10 bg-black/20 hover:border-white/20')}><div className="flex items-center justify-between"><strong className="text-sm text-white">{title}</strong>{providerState?.provider === value ? <CheckCircle size={18} className="text-emerald-300" weight="fill" /> : null}</div><p className="mt-2 text-xs leading-5 text-zinc-500">{description}</p>{value === 'VASE_MANAGEMENT' && !providerState?.managementAvailable ? <span className="mt-3 inline-block text-[10px] font-bold uppercase tracking-wider text-amber-300">Requiere contratación</span> : null}</button>)}
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                 <div className={cardClass}>

@@ -1,6 +1,7 @@
 import { syncProductImagesFromFtp } from '../services/integrationFtpImages.service.js';
 import { buildProductSyncSchemaForRequest, resolveServerBaseUrl } from '../services/integrationManifest.js';
 import { syncIntegrationProducts } from '../services/integration.service.js';
+import { enqueueLabsCatalogSync, processLabsCatalogOutbox } from '../services/labsCatalogOutbox.js';
 import { resolveUploadsPublicBaseUrl } from '../services/uploadPublicUrl.js';
 import {
   buildProductUploadsUsername,
@@ -161,7 +162,15 @@ async function handleSyncProductsRequest(req, res, next, { defaultSourceSystem =
       sourceSystem,
     });
 
-    return res.json(result);
+    let labsReplication = { queued: false };
+    try {
+      labsReplication = { queued: true, ...await enqueueLabsCatalogSync(tenantResolution.tenantId) };
+      void processLabsCatalogOutbox({ limit: 1 });
+    } catch (error) {
+      console.error('labs_catalog_outbox_enqueue_failed', { tenantId: tenantResolution.tenantId, error: error?.message || String(error) });
+    }
+
+    return res.json({ ...result, labs_replication: labsReplication });
   } catch (err) {
     if (err?.status && err?.code) {
       return res.status(err.status).json({ error: err.code });

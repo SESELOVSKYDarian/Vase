@@ -26,6 +26,7 @@ model User {
   isSuperAdmin  Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  globalUserId  String?   @unique
 
   accounts         Account[]
   sessions         Session[]
@@ -79,6 +80,55 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model ManagementSsoNonce {
+  id        String   @id @default(cuid())
+  nonceHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt, usedAt])
+  @@map("management_sso_nonces")
+}
+
+model ManagementSyncOutbox {
+  id            String   @id @default(cuid())
+  eventId       String   @unique
+  companyId     String
+  globalTenantId String
+  destination   String
+  entity        String
+  action        String
+  externalId    String
+  version       Int
+  payload       Json
+  status        String   @default("PENDING")
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime @default(now())
+  lastError     String?
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([globalTenantId, entity, externalId, version])
+  @@map("management_sync_outbox")
+}
+
+model ManagementSyncReceipt {
+  id             String   @id @default(cuid())
+  eventId        String   @unique
+  companyId      String
+  globalTenantId String
+  entity         String
+  externalId     String
+  version        Int
+  processedAt    DateTime @default(now())
+
+  @@index([globalTenantId, entity, externalId, version])
+  @@map("management_sync_receipts")
 }
 
 // =============================================
@@ -145,6 +195,11 @@ model Company {
   settings        Json?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+  globalTenantId  String?      @unique
+  integrationProvider String   @default("EXTERNAL_API")
+  provisioningStatus String    @default("PENDING")
+  lastSyncAt      DateTime?
+  lastSyncError   String?
 
   branches           Branch[]
   companyUsers       CompanyUser[]
@@ -322,6 +377,8 @@ model Customer {
   isActive        Boolean      @default(true)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+  globalExternalId String?
+  sourceVersion    Int          @default(1)
 
   company          Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   group            CustomerGroup?            @relation(fields: [groupId], references: [id])
@@ -332,6 +389,7 @@ model Customer {
   messages         CustomerMessage[]
   accountMovements CustomerAccountMovement[]
 
+  @@unique([companyId, globalExternalId])
   @@map("customers")
 }
 
@@ -479,6 +537,8 @@ model Product {
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  globalExternalId String?
+  sourceVersion    Int      @default(1)
 
   company                  Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   category                 Category?                 @relation(fields: [categoryId], references: [id])
@@ -497,6 +557,7 @@ model Product {
   warehouseTransferItems   WarehouseTransferItem[]
   inventoryAdjustmentItems InventoryAdjustmentItem[]
 
+  @@unique([companyId, globalExternalId])
   @@map("products")
 }
 
@@ -732,6 +793,8 @@ model Sale {
   convertedFromId    String? // ID de presupuesto/pedido origen
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
+  globalExternalId   String?
+  sourceVersion      Int        @default(1)
 
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   branch        Branch?        @relation(fields: [branchId], references: [id])
@@ -742,6 +805,7 @@ model Sale {
   payments      Payment[]
   deliveryStops DeliveryStop[]
 
+  @@unique([companyId, globalExternalId])
   @@map("sales")
 }
 

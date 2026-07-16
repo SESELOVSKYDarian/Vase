@@ -48,7 +48,7 @@ export function ProductosTable() {
   const limit = 15
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema as never),
     defaultValues: { unit: 'UN', ivaRate: 21, minStock: 0, cost: 0, price: 0 },
   })
 

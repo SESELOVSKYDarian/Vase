@@ -6,6 +6,8 @@ import { labsPrisma } from "../../../../lib/db";
 import { listRedactedOfficialChannels } from "../../../../lib/channel-queries";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import { LabsPageHeader, LabsSection, LabsStatusPill } from "../labs-ui";
+import { getChannelCapacity } from "../../../../lib/channel-capacity";
+import { ChannelConnectModal } from "./channel-connect-modal";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +77,9 @@ async function getChannelsPageData() {
     tenantSlug: resolved.context.tenantSlug,
     plan: resolved.context.entitlement.plan,
     enabledChannels: resolved.context.entitlement.enabledChannels,
+    channelLimits: resolved.context.entitlement.channelLimits ?? Object.fromEntries(
+      channelOrder.map((channel) => [channel, resolved.context.entitlement.enabledChannels.includes(channel) ? 1 : 0]),
+    ) as Record<LabsChannel, number>,
     appUrl,
     channels,
   };
@@ -83,20 +88,24 @@ async function getChannelsPageData() {
 export default async function LabsChannelsPage() {
   const data = await getChannelsPageData();
   const connectedCount = data.channels.filter((channel) => channel.status === "CONNECTED").length;
+  const capacity = getChannelCapacity(data.channelLimits, data.channels);
 
   return (
     <div className="space-y-6">
-      <LabsPageHeader
-        eyebrow="Entrada de mensajes"
-        title="Canales"
-        description="Conecta y monitorea WhatsApp, Instagram y Facebook desde el panel operativo de Vase Labs."
-      />
+      <div className="labs-page-heading-row">
+        <LabsPageHeader
+          eyebrow="Entrada de mensajes"
+          title="Canales"
+          description="Conecta y monitorea WhatsApp, Instagram y Facebook desde el panel operativo de Vase Labs."
+        />
+        <ChannelConnectModal capacity={capacity} />
+      </div>
 
       <section className="labs-channel-overview" aria-label="Resumen de canales">
         <article>
           <span>Plan actual</span>
           <strong>{data.plan}</strong>
-          <p>{data.enabledChannels.length} canales habilitados por contrato</p>
+          <p>{Object.values(data.channelLimits).reduce((total, value) => total + value, 0)} conexiones permitidas</p>
         </article>
         <article>
           <span>Conectados</span>
@@ -113,8 +122,9 @@ export default async function LabsChannelsPage() {
       <section className="labs-channel-grid">
         {channelOrder.map((channelType) => {
           const meta = channelCopy[channelType];
-          const channel = data.channels.find((item) => item.type === channelType);
-          const enabled = data.enabledChannels.includes(channelType);
+          const matchingChannels = data.channels.filter((item) => item.type === channelType);
+          const channel = matchingChannels[0];
+          const enabled = capacity[channelType].limit > 0;
           const status = channel?.status ?? "DISCONNECTED";
           const webhookUrl = `${data.appUrl}/api/v1/meta/webhooks/${channelType.toLowerCase()}`;
 
@@ -123,7 +133,7 @@ export default async function LabsChannelsPage() {
               <div className="labs-channel-card-top">
                 <span className="labs-channel-tag">{meta.tag}</span>
                 <LabsStatusPill
-                  label={enabled ? status : "Upgrade"}
+                  label={enabled ? `${capacity[channelType].used}/${capacity[channelType].limit}` : "Sin acceso"}
                   tone={enabled ? statusTone(status) : "warning"}
                 />
               </div>
@@ -137,7 +147,7 @@ export default async function LabsChannelsPage() {
               <dl className="labs-channel-facts">
                 <div>
                   <dt>Cuenta</dt>
-                  <dd>{channel?.accountLabel ?? channel?.externalHandle ?? "Sin cuenta conectada"}</dd>
+                  <dd>{matchingChannels.length ? `${matchingChannels.length} cuenta${matchingChannels.length === 1 ? "" : "s"}` : "Sin cuenta conectada"}</dd>
                 </div>
                 <div>
                   <dt>Token</dt>
@@ -164,6 +174,20 @@ export default async function LabsChannelsPage() {
           );
         })}
       </section>
+
+      {data.channels.length ? (
+        <LabsSection title="Conexiones" description="Todas las cuentas vinculadas, incluso cuando compartan el mismo canal.">
+          <div className="labs-connections-list">
+            {data.channels.map((channel) => (
+              <article key={channel.id}>
+                <span className="labs-channel-tag">{channel.type.slice(0, 2)}</span>
+                <div><strong>{channel.accountLabel ?? channel.externalHandle ?? channel.type}</strong><p>{channel.type} · {formatDate(channel.lastSyncedAt)}</p></div>
+                <LabsStatusPill label={channel.status} tone={statusTone(channel.status)} />
+              </article>
+            ))}
+          </div>
+        </LabsSection>
+      ) : null}
 
       <LabsSection
         title="Conexion oficial Meta"

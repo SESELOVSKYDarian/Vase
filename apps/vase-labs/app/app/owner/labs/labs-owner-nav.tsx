@@ -13,16 +13,16 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { href: "/app/owner/labs", label: "Panel", icon: LayoutDashboard },
-  { href: "/app/owner/labs/inbox", label: "Inbox", icon: MessageSquare },
-  { href: "/app/owner/labs/activity", label: "Actividad", icon: Activity },
-  { href: "/app/owner/labs/chatbots", label: "Conocimiento", icon: Bot },
-  { href: "/app/owner/labs/integrations", label: "Canales", icon: Cable },
-  { href: "/app/owner/labs/settings", label: "Ajustes", icon: Settings2 },
+  { href: "/owner", label: "Panel", icon: LayoutDashboard },
+  { href: "/owner/inbox", label: "Inbox", icon: MessageSquare },
+  { href: "/owner/activity", label: "Actividad", icon: Activity },
+  { href: "/owner/knowledge", label: "Conocimiento", icon: Bot },
+  { href: "/owner/channels", label: "Canales", icon: Cable },
+  { href: "/owner/settings", label: "Ajustes", icon: Settings2 },
 ] as const;
 
 function isActive(pathname: string, href: string) {
-  if (href === "/app/owner/labs") {
+  if (href === "/owner") {
     return pathname === href;
   }
 

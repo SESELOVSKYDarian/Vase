@@ -24,7 +24,7 @@ export const authConfig: NextAuthConfig = {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user
       const { pathname } = request.nextUrl
-      const publicPaths = ['/auth/login', '/auth/register', '/auth/forgot-password']
+      const publicPaths = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/sso']
       const isPublicPath = publicPaths.some((p) => pathname.startsWith(p))
 
       if (pathname === '/') return true // redirect logic se maneja en el middleware

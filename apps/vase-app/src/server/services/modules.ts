@@ -2,7 +2,8 @@ import { ModulePricingType, ModuleProduct, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { platformModules } from "@/config/modules";
 
-function toModuleProduct(product: "BUSINESS" | "LABS") {
+function toModuleProduct(product: "BUSINESS" | "LABS" | "MANAGEMENT") {
+  if (product === "MANAGEMENT") return ModuleProduct.MANAGEMENT;
   return product === "BUSINESS" ? ModuleProduct.BUSINESS : ModuleProduct.LABS;
 }
 

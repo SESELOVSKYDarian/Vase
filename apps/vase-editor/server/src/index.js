@@ -10,6 +10,7 @@ import { ensureUserProfileSchema } from './services/userProfile.js';
 import { ensureProductSyncSchema } from './services/integration.service.js';
 import { ensureVaseBridgeSchema } from './services/vaseBridge.js';
 import { selectTeflonBootstrapTargetTenant } from './services/teflonBootstrapTarget.js';
+import { ensureLabsCatalogOutboxSchema, processLabsCatalogOutbox } from './services/labsCatalogOutbox.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DEFAULT_TEFLON_TENANT_ID = '636736e2-e135-44cd-ac5c-5d4ccb839a73';
@@ -545,6 +546,8 @@ async function bootstrapDb() {
     console.log('Pricing schema ready');
     await ensureUserProfileSchema();
     console.log('User profile schema ready');
+    await ensureLabsCatalogOutboxSchema();
+    console.log('Labs catalog outbox ready');
   } catch (err) {
     console.error('DB bootstrap warning:', err?.message || err);
     throw err;
@@ -570,6 +573,8 @@ async function startServer() {
   });
 
   server.listen(port);
+  const outboxTimer = setInterval(() => void processLabsCatalogOutbox().catch((error) => console.error('labs_catalog_outbox_failed', error?.message || error)), 30_000);
+  outboxTimer.unref();
 }
 
 startServer().catch((err) => {

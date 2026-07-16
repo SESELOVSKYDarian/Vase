@@ -76,8 +76,10 @@ describe("Vase Labs operation services", () => {
     });
     const orchestrator = createAiOrchestrator({
       knowledge,
+      catalog: { async buildAiContext() { return "# Producto estrella\nSKU: A1 | Precio: 1200 | Stock: 3"; } },
       async generateReply(input) {
         expect(input.context).toContain("Atendemos de 9 a 18.");
+        expect(input.context).toContain("Producto estrella");
         return { text: "Atendemos de 9 a 18.", inputTokens: 20, outputTokens: 30 };
       },
       async persistAssistantReply(input) {

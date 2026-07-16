@@ -25,7 +25,7 @@ describe("Vase Labs standalone owner experience", () => {
       "utf8",
     );
 
-    expect(root).toContain('redirect("/app/owner/labs")');
+    expect(root).toContain('redirect("/owner")');
     expect(root).not.toContain("tenant_demo");
     expect(page).toContain("resolveLabsRequestContext");
     expect(page).toContain("labsPrisma");
@@ -37,8 +37,8 @@ describe("Vase Labs standalone owner experience", () => {
     expect(page).toContain("LabsMetricCard");
     expect(page).toContain("LabsConversationTrendChart");
     expect(page).toContain("LabsIntentDistributionChart");
-    for (const destination of ["inbox", "activity", "chatbots", "integrations", "settings"]) {
-      expect(nav).toContain(`/app/owner/labs/${destination}`);
+    for (const destination of ["inbox", "activity", "knowledge", "channels", "settings"]) {
+      expect(nav).toContain(`/owner/${destination}`);
     }
     expect(styles).toContain(".labs-shell");
     expect(styles).toContain(".labs-sidebar");
@@ -73,9 +73,9 @@ describe("Vase Labs standalone owner experience", () => {
     expect(integrationsPage).toContain('export const dynamic = "force-dynamic"');
     expect(inboxPage).not.toContain("{ default, dynamic }");
     expect(integrationsPage).not.toContain("{ default, dynamic }");
-    expect(labsChannelsPage).toContain('redirect("/app/owner/labs/integrations")');
-    expect(appChannelsPage).toContain('new URL("/app/owner/labs", productOrigins.labs).toString() as Route');
-    expect(oauthCallback).toContain('new URL("/app/owner/labs", url.origin)');
+    expect(labsChannelsPage).toContain('redirect("/owner/channels")');
+    expect(appChannelsPage).toContain('new URL("/owner", productOrigins.labs).toString() as Route');
+    expect(oauthCallback).toContain('new URL("/owner", url.origin)');
   });
 
   it("keeps Inbox operationally distinct from Activity", () => {
@@ -118,9 +118,9 @@ describe("Vase Labs standalone owner experience", () => {
 
     const setup = fs.readFileSync(setupPath, "utf8");
     expect(setup).toContain("resolveLabsRequestContext");
-    expect(setup).toContain('redirect("/app/owner/labs/chatbots")');
-    expect(setup).toContain('redirect("/app/owner/labs/integrations")');
-    expect(setup).toContain('redirect("/app/owner/labs/settings")');
+    expect(setup).toContain('redirect("/owner/knowledge")');
+    expect(setup).toContain('redirect("/owner/channels")');
+    expect(setup).toContain('redirect("/owner/settings")');
   });
 
   it("registers an application icon instead of requesting a missing favicon", () => {

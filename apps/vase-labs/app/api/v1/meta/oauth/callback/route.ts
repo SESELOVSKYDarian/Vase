@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const destination = new URL("/app/owner/labs", url.origin);
+  const destination = new URL("/owner", url.origin);
 
   if (!code || !state) {
     destination.searchParams.set("oauth", "cancelled");

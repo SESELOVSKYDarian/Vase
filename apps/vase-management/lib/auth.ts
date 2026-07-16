@@ -6,12 +6,14 @@
 
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
+import { verifyManagementSsoTicket } from '@vase/internal-api'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { authConfig } from '@/lib/auth.config'
 import { unstable_noStore as noStore } from 'next/cache'
+import { provisionPlatformIdentity } from '@/lib/platform-sso'
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -23,6 +25,17 @@ const nextAuth = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: 'jwt' },
   providers: [
+    Credentials({
+      id: 'vase-sso',
+      name: 'Vase SSO',
+      credentials: { ticket: { label: 'Ticket', type: 'text' } },
+      async authorize(credentials) {
+        if (typeof credentials?.ticket !== 'string') return null
+        const claims = verifyManagementSsoTicket(credentials.ticket, process.env.MANAGEMENT_SSO_SECRET ?? '')
+        const user = await provisionPlatformIdentity(claims)
+        return { id: user.id, name: user.name, email: user.email, isSuperAdmin: false, companyId: user.companyId, companyName: user.companyName, roleId: user.roleId, roleName: user.roleName }
+      },
+    }),
     Credentials({
       name: 'credentials',
       credentials: {

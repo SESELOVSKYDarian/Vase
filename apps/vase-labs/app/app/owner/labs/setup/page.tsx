@@ -34,25 +34,25 @@ async function resolveSetupDestination() {
   ]);
 
   if (knowledgeItems === 0) {
-    return "/app/owner/labs/chatbots";
+    return "/owner/knowledge";
   }
   if (connectedChannels === 0) {
-    return "/app/owner/labs/integrations";
+    return "/owner/channels";
   }
-  return "/app/owner/labs/settings";
+  return "/owner/settings";
 }
 
 export default async function LabsSetupPage() {
   const destination = await resolveSetupDestination();
 
-  if (destination === "/app/owner/labs/chatbots") {
-    redirect("/app/owner/labs/chatbots");
+  if (destination === "/owner/knowledge") {
+    redirect("/owner/knowledge");
   }
-  if (destination === "/app/owner/labs/integrations") {
-    redirect("/app/owner/labs/integrations");
+  if (destination === "/owner/channels") {
+    redirect("/owner/channels");
   }
-  if (destination === "/app/owner/labs/settings") {
-    redirect("/app/owner/labs/settings");
+  if (destination === "/owner/settings") {
+    redirect("/owner/settings");
   }
   redirect(destination);
 }

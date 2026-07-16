@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 
 export async function createOrderWithItems(input: {
@@ -17,6 +18,10 @@ export async function createOrderWithItems(input: {
           orderId: order.id,
         })),
       });
+    }
+    const management = await tx.tenantManagementContract.findUnique({ where: { tenantId: order.tenantId }, select: { integrationProvider: true, provisioningStatus: true } });
+    if (management?.integrationProvider === "VASE_MANAGEMENT" && management.provisioningStatus !== "SUSPENDED") {
+      await tx.platformSyncEvent.create({ data: { eventId: randomUUID(), tenantId: order.tenantId, destination: "MANAGEMENT", entity: "ORDER", action: "UPSERT", externalId: order.id, version: Math.max(1, Math.floor(order.updatedAt.getTime() / 1000)), payload: { orderNumber: order.orderNumber, status: order.status, currency: order.currency, subtotalAmount: Number(order.subtotalAmount), shippingAmount: Number(order.shippingAmount), totalAmount: Number(order.totalAmount), customer: { name: order.customerName, email: order.customerEmail, phone: order.customerPhone }, items: input.items.map((item) => ({ sku: item.sku, name: item.name, quantity: item.quantity, unitPrice: Number(item.unitPrice), totalAmount: Number(item.totalAmount) })), occurredAt: order.updatedAt.toISOString() } } });
     }
 
     return tx.order.findUniqueOrThrow({

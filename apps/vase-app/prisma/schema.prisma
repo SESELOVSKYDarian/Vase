@@ -146,12 +146,38 @@ enum OnboardingProduct {
 enum ModuleProduct {
   BUSINESS
   LABS
+  MANAGEMENT
 }
 
 enum ModulePricingType {
   ONE_TIME
   MONTHLY
   YEARLY
+}
+
+enum ManagementIntegrationProvider {
+  EXTERNAL_API
+  VASE_MANAGEMENT
+}
+
+enum ProvisioningStatus {
+  PENDING
+  READY
+  FAILED
+  SUSPENDED
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PlatformSyncStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 enum AuthTokenType {
@@ -463,6 +489,8 @@ model User {
   projectUpdates          ProjectUpdate[]
   projectsCreated         Project[]                   @relation("ProjectCreatedBy")
   projectProcessUpdates   ProjectProcess[]
+  managementIdentityLinks ManagementIdentityLink[]
+  managementSsoNonces     ManagementSsoNonce[]
 }
 
 model AdminAccessPolicy {
@@ -545,6 +573,10 @@ model Tenant {
   meetingAvailabilitySlots MeetingAvailabilitySlot[]
   customProjectMeetingBookings CustomProjectMeetingBooking[]
   tenantSubmodules         TenantSubmodule[]
+  managementContract       TenantManagementContract?
+  managementIdentityLinks ManagementIdentityLink[]
+  managementSsoNonces      ManagementSsoNonce[]
+  platformSyncEvents       PlatformSyncEvent[]
 }
 
 enum SupportAiMessageRole {
@@ -871,6 +903,95 @@ model TenantModule {
 
   @@unique([tenantId, moduleId])
   @@index([tenantId, isActive])
+}
+
+model ManagementPricingVersion {
+  id           String            @id @default(cuid())
+  version      Int               @unique
+  currency     String            @default("ARS")
+  setupPrice   Decimal           @db.Decimal(12, 2)
+  monthlyPrice Decimal           @db.Decimal(12, 2)
+  status       PublicationStatus @default(DRAFT)
+  publishedAt  DateTime?
+  createdById  String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model TenantManagementContract {
+  id                    String                        @id @default(cuid())
+  tenantId              String                        @unique
+  pricingVersionId      String?
+  agreedSetupPrice      Decimal                       @db.Decimal(12, 2)
+  agreedMonthlyPrice    Decimal                       @db.Decimal(12, 2)
+  overrideReason        String?
+  integrationProvider   ManagementIntegrationProvider @default(EXTERNAL_API)
+  provisioningStatus    ProvisioningStatus            @default(PENDING)
+  lastSyncAt            DateTime?
+  lastSyncError         String?
+  activatedAt           DateTime?
+  suspendedAt           DateTime?
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  tenant                Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([integrationProvider, provisioningStatus])
+}
+
+model ManagementIdentityLink {
+  id               String   @id @default(cuid())
+  tenantId         String
+  userId           String
+  managementUserId String?
+  managementRole   String   @default("MEMBER")
+  isActive         Boolean  @default(true)
+  provisionedAt    DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId, isActive])
+}
+
+model ManagementSsoNonce {
+  id        String   @id @default(cuid())
+  nonceHash String   @unique
+  tenantId  String
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt, usedAt])
+}
+
+model PlatformSyncEvent {
+  id             String             @id @default(cuid())
+  eventId        String             @unique
+  tenantId       String
+  destination    String
+  entity         String
+  action         String
+  externalId     String
+  version        Int
+  payload        Json
+  status         PlatformSyncStatus @default(PENDING)
+  attempts       Int                @default(0)
+  nextAttemptAt  DateTime           @default(now())
+  lastError      String?
+  completedAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([tenantId, entity, externalId, version])
 }
 
 model ModuleSubmodule {
@@ -1762,6 +1883,11 @@ model TenantAiWorkspace {
   monthlyConversationLimit Int                   @default(300)
   monthlyKnowledgeItemLimit Int                  @default(25)
   maxChannels             Int                    @default(1)
+  channelLimits           Json?
+  channelOverrideReason   String?
+  channelOverrideBy       String?
+  channelOverrideAt       DateTime?
+  labsSyncStatus          String                 @default("SYNCED")
   maxFiles                Int                    @default(8)
   maxUrls                 Int                    @default(5)
   setupCompletedAt        DateTime?

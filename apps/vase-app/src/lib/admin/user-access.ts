@@ -5,6 +5,7 @@ import { getLabsPlanLimits } from "@/lib/labs/plans";
 export const userAccessModuleIds = {
   business: "vase_business",
   labs: "vase_labs",
+  management: "vase_management",
 } as const;
 
 type TenantModuleAccess = {
@@ -15,7 +16,7 @@ type TenantModuleAccess = {
 const moduleLabels: Map<string, string> = new Map(
   platformModules.map((module) => [
     module.id,
-    module.key === "business" ? "Vase Business" : "Vase Labs",
+    module.key === "business" ? "Vase Business" : module.key === "labs" ? "Vase Labs" : "Vase Management",
   ]),
 );
 

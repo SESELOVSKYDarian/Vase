@@ -9,7 +9,7 @@ import {
 } from "@/server/services/modules";
 
 function resolveProductMatch(
-  moduleProducts: readonly ("BUSINESS" | "LABS" | "BOTH")[],
+  moduleProducts: readonly ("BUSINESS" | "LABS" | "BOTH" | "MANAGEMENT")[],
   onboardingProduct: "BUSINESS" | "LABS" | "BOTH",
 ) {
   return moduleProducts.includes(onboardingProduct) || onboardingProduct === "BOTH";
@@ -99,7 +99,7 @@ export async function getTenantModulesAccess(tenantId: string, userId?: string) 
     const resourceActive =
       definition.key === "business"
         ? tenant.storefrontPages.length > 0 || productActive
-        : Boolean(tenant.aiWorkspace) || productActive;
+        : definition.key === "labs" ? Boolean(tenant.aiWorkspace) || productActive : tenantModuleActive;
     const isActive =
       userCanAccessModule(definition.id) &&
       Boolean(moduleRow?.isActive) &&
@@ -118,7 +118,7 @@ export async function getTenantModulesAccess(tenantId: string, userId?: string) 
     return {
       id: definition.id,
       key: definition.key,
-      name: definition.name === "vase_business" ? "Vase Business" : "Vase Labs",
+      name: definition.name === "vase_business" ? "Vase Business" : definition.name === "vase_labs" ? "Vase Labs" : "Vase Management",
       description: moduleRow?.description ?? definition.description,
       summary: definition.summary,
       route: moduleRow?.route ?? definition.route,

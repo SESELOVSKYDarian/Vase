@@ -1,15 +1,16 @@
 import {
   Building2,
   FlaskConical,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 
-export type PlatformModuleId = "vase_business" | "vase_labs";
-export type PlatformModuleKey = "business" | "labs";
+export type PlatformModuleId = "vase_business" | "vase_labs" | "vase_management";
+export type PlatformModuleKey = "business" | "labs" | "management";
 export type ModuleBillingType = "monthly" | "one_time" | "yearly" | "custom" | "included";
 export type ModuleStatus = "active" | "inactive";
-export type ModuleProduct = "BUSINESS" | "LABS";
+export type ModuleProduct = "BUSINESS" | "LABS" | "MANAGEMENT";
 
 export type PlatformSubmoduleDefinition = {
   key: string;
@@ -35,7 +36,7 @@ export type PlatformModuleDefinition = {
   icon: LucideIcon;
   product: ModuleProduct;
   featureFlagKey: string;
-  supportedProducts: readonly ("BUSINESS" | "LABS" | "BOTH")[];
+  supportedProducts: readonly ("BUSINESS" | "LABS" | "BOTH" | "MANAGEMENT")[];
   recommendedFlagPrefixes: readonly string[];
   activationMode: "automatic" | "manual" | "future";
   defaultPricing: {
@@ -78,6 +79,7 @@ export type PlatformModuleAccess = {
 export const MODULE_ICON_MAP: Record<PlatformModuleKey, LucideIcon> = {
   business: Building2,
   labs: FlaskConical,
+  management: Landmark,
 };
 
 export const platformModules: readonly PlatformModuleDefinition[] = [
@@ -196,6 +198,24 @@ export const platformModules: readonly PlatformModuleDefinition[] = [
       monthlyFrom: 120000,
       currency: "ARS",
     },
+  },
+  {
+    id: "vase_management",
+    key: "management",
+    name: "vase_management",
+    description: "Gestion integral de productos, stock, ventas, clientes, compras, facturacion, tesoreria y reportes.",
+    summary: "Operacion administrativa conectada en tiempo real con Vase Business y Vase Labs.",
+    route: "/app/management",
+    activationRoute: "/precios#management",
+    icon: Landmark,
+    product: "MANAGEMENT",
+    featureFlagKey: "management_enabled",
+    supportedProducts: ["MANAGEMENT"],
+    recommendedFlagPrefixes: ["management_", "erp_", "operations_"],
+    activationMode: "manual",
+    defaultPricing: { price: 95000, currency: "ARS", type: "monthly" },
+    submodules: [],
+    billing: { type: "monthly", monthlyFrom: 95000, setupFrom: 350000, currency: "ARS" },
   },
 ] as const;
 

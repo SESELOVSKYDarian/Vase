@@ -851,6 +851,24 @@ tenantRouter.get('/integrations/product-sync', async (req, res, next) => {
   }
 });
 
+tenantRouter.get('/integrations/provider', async (req, res, next) => {
+  try {
+    const tenantId = req.tenantId || req.tenant?.id;
+    const url = new URL('/api/internal/management/provider', process.env.VASE_APP_INTERNAL_URL || 'http://vase-app:3001');
+    url.searchParams.set('globalTenantId', tenantId);
+    const response = await fetch(url, { headers: { authorization: `Bearer ${process.env.SERVICE_TO_SERVICE_TOKEN || ''}` } });
+    return res.status(response.status).json(await response.json());
+  } catch (error) { return next(error); }
+});
+
+tenantRouter.post('/integrations/provider', async (req, res, next) => {
+  try {
+    const tenantId = req.tenantId || req.tenant?.id;
+    const response = await fetch(new URL('/api/internal/management/provider', process.env.VASE_APP_INTERNAL_URL || 'http://vase-app:3001'), { method: 'POST', headers: { authorization: `Bearer ${process.env.SERVICE_TO_SERVICE_TOKEN || ''}`, 'content-type': 'application/json' }, body: JSON.stringify({ globalTenantId: tenantId, provider: req.body?.provider }) });
+    return res.status(response.status).json(await response.json());
+  } catch (error) { return next(error); }
+});
+
 tenantRouter.post('/integrations/product-sync/token/rotate', async (req, res, next) => {
   const tenantId = getTenantId(req, res);
   if (!tenantId) return;

@@ -16,6 +16,7 @@ export interface LabsRuntimeEntitlement {
   plan: LabsPlan;
   status: LabsRuntimeStatus;
   enabledChannels: LabsChannel[];
+  channelLimits?: Record<LabsChannel, number>;
   tokenPack?: TokenPack | null;
   tokensIncluded: number;
   tokensUsed: number;
@@ -63,6 +64,9 @@ export interface RegisterTokenConsumptionInput {
 export function createRuntimeEntitlement(input: LabsRuntimeEntitlement): LabsRuntimeEntitlement {
   return {
     ...input,
+    channelLimits: input.channelLimits ?? Object.fromEntries(
+      (["WHATSAPP", "INSTAGRAM", "FACEBOOK"] as const).map((channel) => [channel, input.enabledChannels.includes(channel) ? 1 : 0]),
+    ) as Record<LabsChannel, number>,
     tokenPack: input.tokenPack ?? null,
     currentPeriodStart: input.currentPeriodStart ?? null,
     renewsAt: input.renewsAt ?? null,

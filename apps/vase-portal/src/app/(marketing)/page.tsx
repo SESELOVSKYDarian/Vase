@@ -247,6 +247,13 @@ export default async function HomePage() {
         <UnifiedFeatures locale={locale} t={t} />
       </div>
 
+      <ScrollReveal className={sectionShell}>
+        <Link href="/vase-management" className="group grid overflow-hidden rounded-[3rem] bg-[#173d2b] text-white lg:grid-cols-[1.15fr_.85fr]">
+          <div className="p-9 sm:p-14"><p className="text-[11px] font-bold uppercase tracking-[.24em] text-[#91ddb1]">Nuevo · Vase Management</p><h2 className="mt-5 max-w-3xl font-[family-name:var(--font-newsreader)] text-5xl tracking-[-.045em] sm:text-6xl">Tu gestión también puede vivir dentro de Vase.</h2><p className="mt-6 max-w-2xl text-lg leading-8 text-white/68">Productos, stock, ventas y clientes sincronizados continuamente con Business y Labs.</p><span className="mt-9 inline-flex items-center font-semibold text-[#a8ebc2]">Conocer Management <ArrowRight className="ml-2 size-4 transition group-hover:translate-x-1" /></span></div>
+          <div className="grid min-h-72 place-items-center bg-[#e8f1ea] p-8 text-[#173d2b]"><div className="w-full max-w-sm rounded-[2rem] bg-white p-6 shadow-[0_24px_60px_rgba(21,60,40,.12)]"><div className="flex items-center justify-between"><b>Operación conectada</b><span className="size-2 rounded-full bg-emerald-500" /></div><div className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-[#f3f7f3] p-4"><small>Stock</small><strong className="mt-4 block text-2xl">1.248</strong></div><div className="rounded-2xl bg-[#173d2b] p-4 text-white"><small>Pedidos</small><strong className="mt-4 block text-2xl">38</strong></div></div></div></div>
+        </Link>
+      </ScrollReveal>
+
       <section className={`${sectionShell} mt-14 lg:mt-16`}>
         <div className="grid h-full gap-12 rounded-[3rem] border border-[rgba(59,99,61,0.1)] bg-white p-8 shadow-[0_20px_60px_rgba(59,99,61,0.08)] lg:grid-cols-[1fr_1fr] lg:items-center lg:p-16">
           <ScrollReveal>

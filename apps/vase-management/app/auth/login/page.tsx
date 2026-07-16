@@ -29,7 +29,7 @@ function LoginForm() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) })
+  } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema as never) })
 
   async function onSubmit(data: LoginFormData) {
     setIsLoading(true)

@@ -25,6 +25,7 @@ export const useIntegrationManager = () => {
     const [lastCompatibilityPingResult, setLastCompatibilityPingResult] = useState(null);
     const [lastSyncResult, setLastSyncResult] = useState(null);
     const [lastSamplePayload, setLastSamplePayload] = useState(null);
+    const [providerState, setProviderState] = useState({ provider: 'EXTERNAL_API', managementAvailable: false, status: 'PENDING' });
 
     const buildHeaders = useCallback(() => {
         const token = localStorage.getItem('teflon_token');
@@ -45,6 +46,8 @@ export const useIntegrationManager = () => {
             }
             const data = await res.json();
             setManifest(data);
+            const providerResponse = await fetch(`${getApiBase()}/tenant/integrations/provider`, { headers: buildHeaders() });
+            if (providerResponse.ok) setProviderState(await providerResponse.json());
             return data;
         } catch (err) {
             console.error('Failed to load integration manifest', err);
@@ -53,6 +56,13 @@ export const useIntegrationManager = () => {
         } finally {
             setLoading(false);
         }
+    }, [addToast, buildHeaders]);
+
+    const setIntegrationProvider = useCallback(async (provider) => {
+        const response = await fetch(`${getApiBase()}/tenant/integrations/provider`, { method: 'POST', headers: { ...buildHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ provider }) });
+        const payload = await readResponsePayload(response);
+        if (!response.ok) { addToast(payload?.error === 'MANAGEMENT_NOT_CONTRACTED' ? 'Vase Management no está contratado para esta cuenta' : 'No se pudo cambiar la fuente', 'error'); return false; }
+        setProviderState((current) => ({ ...current, ...payload })); addToast('Fuente de datos actualizada. Iniciamos la reconciliación.', 'success'); return true;
     }, [addToast, buildHeaders]);
 
     const ensureManifest = useCallback(async () => {
@@ -251,6 +261,8 @@ export const useIntegrationManager = () => {
         lastCompatibilityPingResult,
         lastSyncResult,
         lastSamplePayload,
+        providerState,
+        setIntegrationProvider,
         loadManifest,
         rotateToken,
         testConnection,

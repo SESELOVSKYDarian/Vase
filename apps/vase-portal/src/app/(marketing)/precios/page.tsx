@@ -26,7 +26,16 @@ const faqItems = [
   },
 ] as const;
 
-export default function PricingPage() {
+async function getManagementPricing() {
+  try {
+    const response = await fetch(new URL("/api/public/management/pricing", process.env.VASE_APP_PUBLIC_URL ?? "http://localhost:3001"), { next: { revalidate: 300 } });
+    if (response.ok) return await response.json() as { currency: string; setupPrice: number; monthlyPrice: number };
+  } catch { /* fallback to the last safe published defaults */ }
+  return { currency: "ARS", setupPrice: 350000, monthlyPrice: 95000 };
+}
+
+export default async function PricingPage() {
+  const managementPricing = await getManagementPricing();
   return (
     <div className="pb-24 text-[#191c1b]">
       <ScrollReveal variant="section">
@@ -36,11 +45,20 @@ export default function PricingPage() {
           </span>
           <h1 className="font-[family-name:var(--font-newsreader)] text-5xl leading-[1.08] tracking-[-0.05em] sm:text-7xl lg:text-8xl">
             Valores vigentes para <br />
-            <span className="italic font-light">Vase Business y Vase Labs.</span>
+            <span className="italic font-light">Business, Labs y Management.</span>
           </h1>
           <p className="mx-auto mt-8 max-w-3xl text-lg leading-relaxed text-[#3c4a40]">
             Vase Business se presenta como base o proyecto personalizado. Vase Labs se presenta por planes mensuales, no por modulos sueltos.
           </p>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal variant="section" delay={0.07}>
+        <section id="management" className="mx-auto mt-16 max-w-[92rem] px-6 lg:px-10">
+          <div className="grid overflow-hidden rounded-[2rem] border border-[#cbd8ce] bg-[#173d2b] text-white lg:grid-cols-[1.05fr_.95fr]">
+            <div className="p-10 sm:p-14"><p className="text-[11px] font-bold uppercase tracking-[.24em] text-[#8fe0b0]">Vase Management</p><h2 className="mt-5 font-[family-name:var(--font-newsreader)] text-5xl tracking-[-.045em]">Gestión conectada, sin doble carga.</h2><p className="mt-5 max-w-xl leading-7 text-white/70">Productos, stock, ventas, clientes, compras, facturación, tesorería y reportes conectados con Business y Labs.</p><ul className="mt-8 grid gap-3 text-sm sm:grid-cols-2">{["Catálogo y stock en tiempo real", "Pedidos web automáticos", "Accesos por usuario", "Reportes operativos"].map((point) => <li key={point} className="flex gap-2"><CheckCircle2 className="size-5 text-[#8fe0b0]" />{point}</li>)}</ul></div>
+            <div className="bg-[#f7faf7] p-10 text-[#17231b] sm:p-14"><p className="text-sm text-[#66736b]">Implementación inicial</p><strong className="mt-2 block font-[family-name:var(--font-newsreader)] text-5xl">{managementPricing.currency} {managementPricing.setupPrice.toLocaleString("es-AR")}</strong><div className="my-8 h-px bg-[#dce5de]" /><p className="text-sm text-[#66736b]">Operación mensual</p><strong className="mt-2 block font-[family-name:var(--font-newsreader)] text-5xl">{managementPricing.currency} {managementPricing.monthlyPrice.toLocaleString("es-AR")}</strong><Link href="/register" className="mt-9 inline-flex min-h-13 w-full items-center justify-center rounded-full bg-[#17633f] font-bold text-white">Quiero Vase Management</Link></div>
+          </div>
         </section>
       </ScrollReveal>
 

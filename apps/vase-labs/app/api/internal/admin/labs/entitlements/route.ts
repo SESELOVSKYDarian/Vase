@@ -1,5 +1,5 @@
 import { assertServiceToken } from "@vase/internal-api";
-import { labsChannelSchema, labsPlanSchema, labsServiceStatusSchema, tokenPackSchema } from "@vase/contracts";
+import { labsChannelLimitsSchema, labsChannelSchema, labsPlanSchema, labsServiceStatusSchema, tokenPackSchema } from "@vase/contracts";
 import { NextResponse } from "next/server";
 import { labsEntitlementsService } from "../../../../../lib/labs-entitlements-service";
 
@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       plan: labsPlanSchema.parse(body.plan),
       status: labsServiceStatusSchema.parse(body.status),
       enabledChannels: parseChannels(body.enabledChannels),
+      channelLimits: body.channelLimits ? labsChannelLimitsSchema.parse(body.channelLimits) : undefined,
       tokenPack: body.tokenPack === null || body.tokenPack === undefined ? null : tokenPackSchema.parse(body.tokenPack),
       tokensIncluded: typeof body.tokensIncluded === "number" ? body.tokensIncluded : undefined,
       tokensUsed: typeof body.tokensUsed === "number" ? body.tokensUsed : undefined,

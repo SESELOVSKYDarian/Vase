@@ -180,6 +180,24 @@ export class PrismaMetaConnectionRepository implements MetaConnectionRepository 
         },
         select: { id: true },
       });
+      if (!existing) {
+        const entitlement = await tx.labsEntitlement.update({
+          where: { globalTenantId: input.channel.globalTenantId },
+          data: { updatedAt: new Date() },
+          select: { channelLimits: true },
+        });
+        const rawLimits = entitlement.channelLimits as Partial<Record<LabsChannel, unknown>>;
+        const limit = Math.max(0, Number(rawLimits?.[input.channel.type]) || 0);
+        const used = await tx.channel.count({
+          where: {
+            assistant: { globalTenantId: input.channel.globalTenantId },
+            type: input.channel.type,
+            status: { not: "DISCONNECTED" },
+          },
+        });
+        if (limit === 0) throw new Error("CHANNEL_NOT_INCLUDED");
+        if (used >= limit) throw new Error("CHANNEL_LIMIT_REACHED");
+      }
       const channelId = existing?.id ?? randomUUID();
       const now = new Date();
 

@@ -52,6 +52,49 @@ export const labsPlanSchema = z.enum(["STARTER", "GROWTH", "PRO"]);
 
 export const labsChannelSchema = z.enum(["WHATSAPP", "INSTAGRAM", "FACEBOOK"]);
 
+export const labsChannelLimitsSchema = z.object({
+  WHATSAPP: z.number().int().nonnegative(),
+  INSTAGRAM: z.number().int().nonnegative(),
+  FACEBOOK: z.number().int().nonnegative(),
+});
+
+export const managementIntegrationProviderSchema = z.enum(["EXTERNAL_API", "VASE_MANAGEMENT"]);
+
+export const managementPricePublicationSchema = z.object({
+  version: z.number().int().positive(),
+  currency: z.string().length(3),
+  setupPrice: z.number().nonnegative(),
+  monthlyPrice: z.number().nonnegative(),
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]),
+  publishedAt: z.iso.datetime().nullable().optional(),
+});
+
+export const managementSsoClaimsSchema = z.object({
+  nonce: z.string().min(8),
+  globalTenantId: z.string().min(1),
+  tenantName: z.string().min(1),
+  globalUserId: z.string().min(1),
+  email: z.email(),
+  name: z.string().min(1),
+  role: z.enum(["OWNER", "MANAGER", "MEMBER"]),
+  issuedAt: z.number().int().nonnegative(),
+  expiresAt: z.number().int().positive(),
+}).refine((claims) => claims.expiresAt > claims.issuedAt && claims.expiresAt - claims.issuedAt <= 300, {
+  message: "SSO ticket must expire within five minutes",
+  path: ["expiresAt"],
+});
+
+export const managementSyncEventSchema = z.object({
+  eventId: z.string().min(1),
+  globalTenantId: z.string().min(1),
+  entity: z.enum(["PRODUCT", "CATEGORY", "PRICE", "STOCK", "CUSTOMER", "ORDER"]),
+  action: z.enum(["UPSERT", "ARCHIVE"]),
+  externalId: z.string().min(1),
+  version: z.number().int().positive(),
+  occurredAt: z.iso.datetime(),
+  payload: z.record(z.string(), z.unknown()),
+});
+
 export const tokenPackSchema = z.enum(["BASIC", "MEDIUM", "PRO"]);
 
 export const labsChannelProviderSchema = z.enum(["META_OFFICIAL", "OPENWA_UNOFFICIAL", "BAILEYS_UNOFFICIAL"]);
@@ -138,6 +181,7 @@ export const labsSessionContextSchema = z.object({
     plan: labsPlanSchema,
     status: z.enum(["ACTIVE", "TRIAL", "PAUSED", "SUSPENDED", "EXPIRED", "CANCELLED"]),
     enabledChannels: z.array(labsChannelSchema),
+    channelLimits: labsChannelLimitsSchema.optional(),
   }),
 });
 
@@ -186,6 +230,42 @@ export const labsPlanLimitsSchema = z.object({
   plan: labsPlanSchema,
   monthlyTokenLimit: z.number().int().positive(),
   includedChannels: z.array(labsChannelSchema).min(1),
+  channelLimits: labsChannelLimitsSchema,
+});
+
+export const labsEntitlementOverrideSchema = z.object({
+  channelLimits: labsChannelLimitsSchema,
+  reason: z.string().trim().min(8),
+  updatedBy: z.string().min(1),
+  updatedAt: z.iso.datetime(),
+});
+
+export const effectiveLabsEntitlementSchema = z.object({
+  paidPlan: labsPlanSchema,
+  channelLimits: labsChannelLimitsSchema,
+  enabledChannels: z.array(labsChannelSchema),
+  manualOverride: z.boolean(),
+  override: labsEntitlementOverrideSchema.nullable(),
+});
+
+export const labsCatalogProductSchema = z.object({
+  externalProductId: z.string().min(1),
+  sku: z.string().nullable().default(null),
+  name: z.string().min(1),
+  description: z.string().nullable().default(null),
+  price: z.number().nonnegative().nullable().default(null),
+  stock: z.number().int(),
+  imageUrl: z.string().url().nullable().default(null),
+  categories: z.array(z.string().min(1)).default([]),
+  active: z.boolean(),
+  sourceUpdatedAt: z.iso.datetime(),
+});
+
+export const labsCatalogSyncSchema = z.object({
+  eventId: z.string().min(1),
+  globalTenantId: z.string().min(1),
+  occurredAt: z.iso.datetime(),
+  products: z.array(labsCatalogProductSchema),
 });
 
 export const labsEntitlementSchema = z.object({
@@ -276,6 +356,12 @@ export const labsAdminTenantControlSchema = z.object({
   extraTokens: z.number().int().nonnegative(),
   serviceStatus: labsServiceStatusSchema,
   manualOverride: z.boolean(),
+  channelLimits: labsChannelLimitsSchema.optional(),
+  planChannelLimits: labsChannelLimitsSchema.optional(),
+  overrideReason: z.string().nullable().optional(),
+  overrideUpdatedBy: z.string().nullable().optional(),
+  overrideUpdatedAt: z.iso.datetime().nullable().optional(),
+  syncStatus: z.enum(["SYNCED", "PENDING", "FAILED"]).optional(),
 });
 
 export type LabsPlanLimits = z.infer<typeof labsPlanLimitsSchema>;
@@ -285,16 +371,19 @@ export const LABS_PLAN_LIMITS = {
     plan: "STARTER",
     monthlyTokenLimit: 50000,
     includedChannels: ["WHATSAPP"],
+    channelLimits: { WHATSAPP: 1, INSTAGRAM: 0, FACEBOOK: 0 },
   },
   GROWTH: {
     plan: "GROWTH",
     monthlyTokenLimit: 250000,
     includedChannels: ["WHATSAPP", "INSTAGRAM"],
+    channelLimits: { WHATSAPP: 1, INSTAGRAM: 1, FACEBOOK: 0 },
   },
   PRO: {
     plan: "PRO",
     monthlyTokenLimit: 1000000,
     includedChannels: ["WHATSAPP", "INSTAGRAM", "FACEBOOK"],
+    channelLimits: { WHATSAPP: 1, INSTAGRAM: 1, FACEBOOK: 1 },
   },
 } as const satisfies Record<z.infer<typeof labsPlanSchema>, LabsPlanLimits>;
 
@@ -328,6 +417,24 @@ export interface CreateTokenUsageInput {
 
 export function getLabsPlanLimits(plan: LabsPlan): LabsPlanLimits {
   return labsPlanLimitsSchema.parse(LABS_PLAN_LIMITS[plan]);
+}
+
+export function getEffectiveLabsEntitlement(input: {
+  paidPlan: LabsPlan;
+  override?: LabsEntitlementOverride | null;
+}): EffectiveLabsEntitlement {
+  const limits = getLabsPlanLimits(input.paidPlan);
+  const override = input.override ? labsEntitlementOverrideSchema.parse(input.override) : null;
+  const channelLimits = override?.channelLimits ?? limits.channelLimits;
+  const enabledChannels = labsChannelSchema.options.filter((channel) => channelLimits[channel] > 0);
+
+  return effectiveLabsEntitlementSchema.parse({
+    paidPlan: input.paidPlan,
+    channelLimits,
+    enabledChannels,
+    manualOverride: Boolean(override),
+    override,
+  });
 }
 
 export function getTokenPackTokens(pack: TokenPack): number {
@@ -385,9 +492,18 @@ export type VaseProductKey = z.infer<typeof vaseProductKeySchema>;
 export type LifecycleStatus = z.infer<typeof lifecycleStatusSchema>;
 export type ServiceHealth = z.infer<typeof serviceHealthSchema>;
 export type Entitlement = z.infer<typeof entitlementSchema>;
+export type ManagementIntegrationProvider = z.infer<typeof managementIntegrationProviderSchema>;
+export type ManagementPricePublication = z.infer<typeof managementPricePublicationSchema>;
+export type ManagementSsoClaims = z.infer<typeof managementSsoClaimsSchema>;
+export type ManagementSyncEvent = z.infer<typeof managementSyncEventSchema>;
 export type AiHandoffRequest = z.infer<typeof aiHandoffRequestSchema>;
 export type LabsPlan = z.infer<typeof labsPlanSchema>;
 export type LabsChannel = z.infer<typeof labsChannelSchema>;
+export type LabsChannelLimits = z.infer<typeof labsChannelLimitsSchema>;
+export type LabsEntitlementOverride = z.infer<typeof labsEntitlementOverrideSchema>;
+export type EffectiveLabsEntitlement = z.infer<typeof effectiveLabsEntitlementSchema>;
+export type LabsCatalogProduct = z.infer<typeof labsCatalogProductSchema>;
+export type LabsCatalogSync = z.infer<typeof labsCatalogSyncSchema>;
 export type TokenPack = z.infer<typeof tokenPackSchema>;
 export type LabsChannelProvider = z.infer<typeof labsChannelProviderSchema>;
 export type ChannelConnectionStatus = z.infer<typeof channelConnectionStatusSchema>;

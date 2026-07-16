@@ -318,7 +318,7 @@ export const createAdminModuleSchema = z.object({
   id: z.string().trim().min(3).max(80).regex(/^[a-z0-9_]+$/),
   name: z.string().trim().min(3).max(80).regex(/^[a-z0-9_]+$/),
   description: z.string().trim().min(5).max(300),
-  product: z.enum(["BUSINESS", "LABS"]),
+  product: z.enum(["BUSINESS", "LABS", "MANAGEMENT"]),
   route: z.string().trim().min(2).max(120),
   isActive: z.boolean(),
 });

@@ -3,6 +3,7 @@ import type { createKnowledgeService } from "./knowledge-service";
 
 interface AiOrchestratorDeps {
   knowledge: ReturnType<typeof createKnowledgeService>;
+  catalog?: { buildAiContext(globalTenantId: string): Promise<string> };
   generateReply(input: { userText: string; context: string }): Promise<{ text: string; inputTokens: number; outputTokens: number }>;
   persistAssistantReply(input: { conversationId: string; channel: LabsChannel; text: string }): Promise<{ messageId: string }>;
   registerTokenUsage(input: { globalTenantId: string; channel: LabsChannel; inputTokens: number; outputTokens: number; messageId: string; conversationId: string; assistantId: string }): Promise<{ totalTokens: number }>;
@@ -23,7 +24,11 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
       if (!input.canRunAi) return { ok: false, reason: "AI_NOT_ALLOWED" };
       if (input.handoffActive) return { ok: false, reason: "HANDOFF_ACTIVE" };
 
-      const context = await deps.knowledge.buildContext(input.assistantId);
+      const [knowledgeContext, catalogContext] = await Promise.all([
+        deps.knowledge.buildContext(input.assistantId),
+        deps.catalog?.buildAiContext(input.globalTenantId) ?? Promise.resolve(""),
+      ]);
+      const context = [knowledgeContext, catalogContext].filter(Boolean).join("\n\n");
       const reply = await deps.generateReply({ userText: input.latestUserText, context });
       const message = await deps.persistAssistantReply({
         conversationId: input.conversationId,

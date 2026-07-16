@@ -200,6 +200,7 @@ model LabsEntitlement {
   plan               LabsPlan
   status             LabsServiceStatus @default(ACTIVE)
   enabledChannels    Json
+  channelLimits      Json
   tokenPack          TokenPack?
   tokensIncluded     Int
   tokensUsed         Int               @default(0)
@@ -211,6 +212,42 @@ model LabsEntitlement {
 
   @@index([globalTenantId, status])
   @@index([renewsAt])
+}
+
+model CatalogProduct {
+  id                  String   @id @default(cuid())
+  globalTenantId      String
+  externalProductId   String
+  sku                 String?
+  name                String
+  description         String?  @db.Text
+  price               Decimal? @db.Decimal(14, 2)
+  stock               Int      @default(0)
+  imageUrl            String?  @db.Text
+  categories          Json
+  active              Boolean  @default(true)
+  sourceUpdatedAt     DateTime
+  offeredByChatbot    Boolean  @default(false)
+  aiAlias             String?
+  aiDescription       String?  @db.Text
+  aiInstructions      String?  @db.Text
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([globalTenantId, externalProductId])
+  @@index([globalTenantId, active, offeredByChatbot])
+  @@index([globalTenantId, stock])
+}
+
+model CatalogSyncEvent {
+  id             String   @id @default(cuid())
+  eventId        String   @unique
+  globalTenantId String
+  productCount   Int
+  occurredAt     DateTime
+  processedAt    DateTime @default(now())
+
+  @@index([globalTenantId, occurredAt])
 }
 
 model KnowledgeItem {

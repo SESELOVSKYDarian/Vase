@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { parsePaginationParams } from '@/utils'
 import { audit } from '@/lib/audit'
 import { requirePlanLimit, handlePlanLimitError } from '@/lib/plan-limits'
+import { enqueueManagementProduct } from '@/lib/integration/outbox'
 
 const productSchema = z.object({
   code: z.string().optional(),
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
       action: 'CREATE', module: 'productos', entityType: 'Product', entityId: product.id,
       newValues: product as any,
     })
+    await enqueueManagementProduct(product.id)
 
     return NextResponse.json({ data: product, success: true }, { status: 201 })
   } catch (err) {

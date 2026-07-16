@@ -4,23 +4,20 @@ import type { AiWorkspacePlan } from "@prisma/client";
 import type { LabsChannel, LabsPlan } from "@vase/contracts";
 import { labsSessionContextSchema } from "@vase/contracts";
 import { prisma } from "@/lib/db/prisma";
+import { getEffectiveLabsEntitlement, type LabsChannelLimits } from "@vase/contracts";
 
 function mapWorkspacePlan(plan: AiWorkspacePlan | null | undefined): LabsPlan {
   return plan === "PREMIUM" ? "PRO" : "STARTER";
 }
 
-function resolveEnabledChannels(maxChannels: number | null | undefined): LabsChannel[] {
-  const limit = Math.max(1, maxChannels ?? 1);
-
-  if (limit >= 3) {
-    return ["WHATSAPP", "INSTAGRAM", "FACEBOOK"];
-  }
-
-  if (limit >= 2) {
-    return ["WHATSAPP", "INSTAGRAM"];
-  }
-
-  return ["WHATSAPP"];
+function parseChannelLimits(value: unknown, fallback: LabsChannelLimits): LabsChannelLimits {
+  if (!value || typeof value !== "object") return fallback;
+  const current = value as Partial<Record<LabsChannel, unknown>>;
+  return {
+    WHATSAPP: Math.max(0, Number(current.WHATSAPP) || 0),
+    INSTAGRAM: Math.max(0, Number(current.INSTAGRAM) || 0),
+    FACEBOOK: Math.max(0, Number(current.FACEBOOK) || 0),
+  };
 }
 
 function mapTenantStatus(status: string) {
@@ -84,6 +81,11 @@ export async function GET(request: Request) {
     }
 
     const workspace = membership.tenant.aiWorkspace;
+    const paidPlan = mapWorkspacePlan(workspace?.plan);
+    const planLimits = getEffectiveLabsEntitlement({ paidPlan }).channelLimits;
+    const channelLimits = parseChannelLimits(workspace?.channelLimits, planLimits);
+    const enabledChannels = (["WHATSAPP", "INSTAGRAM", "FACEBOOK"] as LabsChannel[])
+      .filter((channel) => channelLimits[channel] > 0);
     const payload = labsSessionContextSchema.parse({
       globalUserId: userId,
       globalTenantId: membership.tenant.id,
@@ -91,9 +93,10 @@ export async function GET(request: Request) {
       tenantName: membership.tenant.name,
       role: membership.role,
       entitlement: {
-        plan: mapWorkspacePlan(workspace?.plan),
+        plan: paidPlan,
         status: mapTenantStatus(membership.tenant.status),
-        enabledChannels: resolveEnabledChannels(workspace?.maxChannels),
+        enabledChannels,
+        channelLimits,
       },
     });
 

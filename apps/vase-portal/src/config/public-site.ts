@@ -299,7 +299,7 @@ export const apiDocSections = [
 ] as const;
 
 export const platformStats = [
-  { label: "Productos", value: "2 líneas activas" },
+  { label: "Productos", value: "3 líneas activas" },
   { label: "Modelo", value: "Multi-tenant" },
   { label: "Integración", value: "API-first para negocios" },
   { label: "Experiencia", value: "Premium y accesible" },
@@ -314,6 +314,7 @@ const marketingChromeCopy = {
       pricing: "Planes",
       business: "Vase Business",
       labs: "Vase Labs",
+      management: "Vase Management",
       integrations: "Integraciones",
       login: "Iniciar sesión",
       register: "Registrarse",
@@ -335,6 +336,7 @@ const marketingChromeCopy = {
       pricing: "Pricing",
       business: "Vase Business",
       labs: "Vase Labs",
+      management: "Vase Management",
       integrations: "Integraciones",
       login: "Log in",
       register: "Sign up",

@@ -368,6 +368,7 @@ export function AppShell({
       items: [
         { id: "admin-users", href: "/app/admin/users", label: "Usuarios", icon: UserCog, description: "Roles, modulos y cobros por cliente" },
         { id: "admin-modules", href: "/app/admin/modules", label: "Modulos", icon: Blocks, description: "Catalogo, planes y precios" },
+        { id: "admin-management", href: "/app/admin/management", label: "Management", icon: Building2, description: "Precios, cuentas y sincronizacion" },
       ],
     },
     {
