@@ -91,10 +91,43 @@ describe("ChannelConnectModal interactions", () => {
     expect(host.textContent).toContain("Canal conectado correctamente.");
     expect((button("Copiar Webhook URL") as HTMLButtonElement).disabled).toBe(true);
     expect((button("Copiar Webhook Key") as HTMLButtonElement).disabled).toBe(true);
+    expect((button("Cerrar") as HTMLButtonElement).disabled).toBe(true);
+    expect((button("Volver") as HTMLButtonElement).disabled).toBe(true);
     expect(router.refresh).not.toHaveBeenCalled();
+    const backdrop = host.querySelector(".labs-modal-backdrop")!;
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      backdrop.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    });
+    expect(host.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(host.textContent).toContain("Canal conectado correctamente.");
     await act(async () => { vi.advanceTimersByTime(900); });
     expect(router.refresh).toHaveBeenCalledOnce();
     expect(host.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it("shows pending and error feedback while retaining setup values", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ channelId: "channel_1", webhookUrl: "https://hook", webhookKey: "key" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "PENDING" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "ERROR" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await click(button("Agregar canal")); await click(button("WhatsApp")); await click(button("Continuar"));
+    await click(button("Comprobar conexión"));
+    expect(host.querySelector(".labs-form-pending")?.textContent).toContain("Todavía no detectamos");
+    await click(button("Comprobar conexión"));
+    expect(host.querySelector(".labs-form-error")?.textContent).toContain("No pudimos verificar");
+    expect(host.textContent).toContain("https://hook");
+    expect(host.textContent).toContain("key");
+  });
+
+  it("announces clipboard rejection without losing setup values", async () => {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) } });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ channelId: "channel_1", webhookUrl: "https://hook", webhookKey: "key" }), { status: 200 })));
+    await click(button("Agregar canal")); await click(button("WhatsApp")); await click(button("Continuar"));
+    await click(button("Copiar Webhook URL"));
+    expect(host.textContent).toContain("No pudimos copiar Webhook URL.");
+    expect(host.textContent).toContain("https://hook");
   });
 
   it("Escape and backdrop close and reset the modal", async () => {
