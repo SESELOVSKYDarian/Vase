@@ -7,6 +7,8 @@ import {
   type KnowledgeRepository,
 } from "../apps/vase-labs/app/lib/knowledge-repository";
 import { createKnowledgePostHandler } from "../apps/vase-labs/app/api/labs/knowledge/route";
+import { createExternalManagementCredentialsGetHandler } from "../apps/vase-labs/app/api/labs/external-management-credentials/route";
+import { createProductSyncCredentialsHandler } from "../apps/vase-editor/server/src/services/productSyncCredentials.js";
 
 function record(data: KnowledgeItemCreateData): KnowledgeItemRecord {
   return { id: `knowledge_${data.assistantId}`, ...data };
@@ -136,5 +138,100 @@ describe("POST /api/labs/knowledge", () => {
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "KNOWLEDGE_CREATE_FAILED" });
+  });
+});
+
+describe("GET /api/v1/integrations/internal/tenant/:tenantId/product-sync-credentials", () => {
+  function responseRecorder() {
+    const response = { statusCode: 200, body: undefined as unknown };
+    return {
+      response,
+      res: {
+        status(code: number) { response.statusCode = code; return this; },
+        json(body: unknown) { response.body = body; return this; },
+      },
+    };
+  }
+
+  it.each([undefined, "", "wrong-token"])("fails closed for service token %s", async (supplied) => {
+    const ensureToken = vi.fn();
+    const handler = createProductSyncCredentialsHandler({
+      db: {}, expectedServiceToken: "service-token", ensureToken,
+    });
+    const { res, response } = responseRecorder();
+    await handler({ params: { tenantId: "tenant_123" }, get: () => supplied ? `Bearer ${supplied}` : undefined }, res, vi.fn());
+    expect(response).toEqual({ statusCode: 403, body: { error: "forbidden" } });
+    expect(ensureToken).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when service auth is not configured", async () => {
+    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "", ensureToken: vi.fn() });
+    const { res, response } = responseRecorder();
+    await handler({ params: { tenantId: "tenant_123" }, get: () => "Bearer anything" }, res, vi.fn());
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("returns only the approved three-field allowlist", async () => {
+    const ensureToken = vi.fn(async () => ({
+      tokenRecord: { token_hash: "consumer-key", consumer_secret: "secret", auth: { token: "leak" }, scope: "*" },
+      autoCreated: false,
+    }));
+    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "service-token", ensureToken });
+    const { res, response } = responseRecorder();
+    await handler({ params: { tenantId: "tenant_123" }, get: () => "Bearer service-token" }, res, vi.fn());
+    expect(response.body).toEqual({ domain: "business.vase.ar", tenantUuid: "tenant_123", consumerKey: "consumer-key" });
+    expect(Object.keys(response.body as object)).toEqual(["domain", "tenantUuid", "consumerKey"]);
+    expect(JSON.stringify(response.body)).not.toMatch(/consumer_secret|secret|auth|token|scope/i);
+  });
+
+  it("rejects an empty tenant id", async () => {
+    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "service-token", ensureToken: vi.fn() });
+    const { res, response } = responseRecorder();
+    await handler({ params: { tenantId: "   " }, get: () => "Bearer service-token" }, res, vi.fn());
+    expect(response).toEqual({ statusCode: 400, body: { error: "invalid_tenant_id" } });
+  });
+});
+
+describe("GET /api/labs/external-management-credentials", () => {
+  function handler(fetchResponse: Response | Error, contextTenant = "tenant/resolved") {
+    const fetchUpstream = vi.fn(async () => {
+      if (fetchResponse instanceof Error) throw fetchResponse;
+      return fetchResponse;
+    });
+    return {
+      fetchUpstream,
+      GET: createExternalManagementCredentialsGetHandler({
+        resolveContext: async () => ({ context: { globalTenantId: contextTenant } }),
+        fetchUpstream,
+        teflonApiUrl: "https://teflon.internal///",
+        serviceToken: "service-token",
+      }),
+    };
+  }
+
+  it("scopes upstream lookup only from resolved context and returns three fields", async () => {
+    const upstream = Response.json({
+      domain: "business.vase.ar", tenantUuid: "tenant/resolved", consumerKey: "consumer-key",
+      consumer_secret: "secret", auth: { token: "leak" }, extra: "leak",
+    });
+    const { GET, fetchUpstream } = handler(upstream);
+    const response = await GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials?globalTenantId=tenant_attacker"));
+    expect(fetchUpstream).toHaveBeenCalledWith(
+      "https://teflon.internal/api/v1/integrations/internal/tenant/tenant%2Fresolved/product-sync-credentials",
+      { headers: { authorization: "Bearer service-token" } },
+    );
+    expect(await response.json()).toEqual({ domain: "business.vase.ar", tenantUuid: "tenant/resolved", consumerKey: "consumer-key" });
+  });
+
+  it.each([
+    [new Error("connection secret leaked"), 502],
+    [new Response("database password leaked", { status: 500 }), 502],
+    [Response.json({ domain: "https://business.vase.ar", tenantUuid: "tenant/resolved", consumerKey: "key" }), 502],
+    [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant/other", consumerKey: "key" }), 502],
+    [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant/resolved" }), 502],
+  ])("sanitizes upstream failure %#", async (upstream, status) => {
+    const response = await handler(upstream).GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual({ error: "EXTERNAL_MANAGEMENT_CREDENTIALS_UNAVAILABLE" });
   });
 });
