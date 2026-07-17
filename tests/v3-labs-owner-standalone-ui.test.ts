@@ -3,6 +3,35 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("Vase Labs standalone owner experience", () => {
+  it("offers the guided five-source knowledge flow without leaking credentials", () => {
+    const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"), "utf8");
+    const modalPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-add-modal.tsx");
+    const groupsPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-groups.tsx");
+
+    expect(fs.existsSync(modalPath)).toBe(true);
+    expect(fs.existsSync(groupsPath)).toBe(true);
+    if (!fs.existsSync(modalPath) || !fs.existsSync(groupsPath)) return;
+
+    const modal = fs.readFileSync(modalPath, "utf8");
+    const groups = fs.readFileSync(groupsPath, "utf8");
+    expect(page).toContain("data.items.length === 0");
+    expect(modal).toContain("Agregar conocimiento");
+    expect(page).toContain("groupKnowledgeItems(data.items)");
+    expect(page).toContain("<KnowledgeGroups");
+    expect(page).not.toContain("type shortcuts");
+    for (const label of ["Documento o archivo", "URL", "FAQ manual", "Vase Management", "Sistema de gestión externo"]) {
+      expect(modal).toContain(label);
+    }
+    expect(modal).toContain('accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"');
+    for (const label of ["business.vase.ar", "Tenant UUID", "Consumer Key"]) expect(modal).toContain(label);
+    expect(modal).not.toContain("Consumer Secret");
+    expect(modal).not.toContain("OAuth");
+    expect(modal).toContain('role="dialog"');
+    expect(modal).toContain("router.refresh()");
+    expect(groups).toContain("Vase Management");
+    expect(groups).toContain("Sistema de gestión externo");
+  });
+
   it("serves the authenticated 05c3cb8 owner dashboard from the standalone Labs app", () => {
     const root = fs.readFileSync(
       path.resolve("apps/vase-labs/app/page.tsx"),

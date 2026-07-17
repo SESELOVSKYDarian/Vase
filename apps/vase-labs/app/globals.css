@@ -186,6 +186,32 @@ a:focus-visible {
   background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
 
+.labs-modal-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / .68); backdrop-filter: blur(6px); }
+.labs-knowledge-modal { width: min(36rem, 100%); max-height: min(44rem, calc(100vh - 2rem)); overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 1rem; background: var(--surface-strong); box-shadow: 0 30px 80px rgb(0 0 0 / .45); }
+.labs-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.35rem; border-bottom: 1px solid var(--border-subtle); }
+.labs-modal-header h2 { margin-top: .2rem; font-size: 1.2rem; font-weight: 700; }
+.labs-modal-kicker { color: var(--accent); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.labs-icon-button { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: .55rem; color: var(--muted); }
+.labs-icon-button:hover, .labs-icon-button:focus-visible { background: var(--accent-soft); color: var(--foreground); }
+.labs-source-grid { display: grid; gap: .65rem; padding: 1.35rem; }
+.labs-source-choice { display: flex; align-items: center; gap: .8rem; padding: 1rem; border: 1px solid var(--border-subtle); border-radius: .75rem; text-align: left; font-weight: 650; background: var(--surface); }
+.labs-source-choice:hover, .labs-source-choice:focus-visible { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+.labs-knowledge-form { display: grid; gap: 1rem; padding: 1.35rem; }
+.labs-knowledge-form label { display: grid; gap: .45rem; color: var(--muted); font-size: .78rem; font-weight: 700; }
+.labs-knowledge-form input, .labs-knowledge-form textarea { width: 100%; border: 1px solid var(--border-subtle); border-radius: .65rem; padding: .75rem .85rem; background: var(--surface); color: var(--foreground); font: inherit; }
+.labs-knowledge-form input:focus, .labs-knowledge-form textarea:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.labs-form-note { padding: .9rem; border-radius: .7rem; background: var(--accent-soft); color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.labs-modal-error { padding: .8rem; border-radius: .65rem; color: var(--danger); background: var(--danger-soft); font-size: .84rem; font-weight: 700; }
+.labs-modal-actions { display: flex; justify-content: space-between; gap: .75rem; padding-top: .35rem; }
+.labs-modal-actions button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.6rem; padding: .65rem 1rem; border-radius: .65rem; font-size: .84rem; font-weight: 750; }
+.labs-button-secondary { border: 1px solid var(--border-subtle); background: var(--surface); }
+.labs-credentials { display: grid; gap: .6rem; }
+.labs-credentials > div { display: grid; grid-template-columns: 1fr auto; gap: .25rem .75rem; padding: .8rem; border: 1px solid var(--border-subtle); border-radius: .65rem; background: var(--surface); }
+.labs-credentials span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; font-weight: 700; }
+.labs-credentials code { overflow-wrap: anywhere; color: var(--foreground); font-size: .8rem; }
+.labs-credentials button { color: var(--accent); }
+@media (max-width: 520px) { .labs-modal-actions { flex-direction: column-reverse; } .labs-modal-actions button { width: 100%; } }
+
 .labs-button {
   display: inline-flex;
   min-height: 2.75rem;

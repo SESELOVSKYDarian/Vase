@@ -2,23 +2,12 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
-import { LabsEmptyState, LabsPageHeader, LabsSection, LabsStatusPill } from "../labs-ui";
+import { groupKnowledgeItems } from "../../../../lib/knowledge-source";
+import { LabsPageHeader, LabsSection } from "../labs-ui";
+import { KnowledgeAddModal } from "./knowledge-add-modal";
+import { KnowledgeGroups } from "./knowledge-groups";
 
 export const dynamic = "force-dynamic";
-
-function trainingTone(status: string): "neutral" | "success" | "warning" | "danger" | "info" {
-  if (status === "READY") return "success";
-  if (status === "FAILED") return "danger";
-  if (status === "PROCESSING" || status === "QUEUED") return "warning";
-  return "neutral";
-}
-
-function formatDate(value: Date) {
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(value);
-}
 
 async function getKnowledgeData() {
   const requestHeaders = await headers();
@@ -51,21 +40,11 @@ export default async function LabsChatbotsPage() {
         description="Fuentes, entrenamiento y estado del conocimiento que usa el asistente de Vase Labs."
       />
 
-      <LabsSection title="Knowledge base" description={`${data.items.length} fuentes cargadas`}>
+      <LabsSection title="Base de conocimiento" description={`${data.items.length} fuentes cargadas`}>
         {data.items.length === 0 ? (
-          <LabsEmptyState title="Sin conocimiento cargado" description="Cuando agregues FAQs, archivos o URLs van a aparecer en esta vista." />
+          <div className="labs-empty-state px-6 py-10 text-center"><h2 className="text-lg font-semibold">Todavía no agregaste conocimiento</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--muted)]">Sumá una fuente para que el asistente pueda responder con información de tu negocio.</p><div className="mt-6"><KnowledgeAddModal /></div></div>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {data.items.map((item) => (
-              <article key={item.id} className="labs-subpanel p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">{item.title}</p>
-                  <LabsStatusPill label={item.status} tone={trainingTone(item.status)} />
-                </div>
-                <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{item.sourceType} - {formatDate(item.updatedAt)}</p>
-              </article>
-            ))}
-          </div>
+          <><div className="mb-5 flex justify-end"><KnowledgeAddModal /></div><KnowledgeGroups groups={groupKnowledgeItems(data.items)} /></>
         )}
       </LabsSection>
     </div>
