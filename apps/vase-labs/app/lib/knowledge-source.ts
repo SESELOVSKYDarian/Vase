@@ -2,18 +2,30 @@ export const knowledgeSourceTypes = ["FILE", "URL", "FAQ", "VASE_MANAGEMENT", "E
 
 export type KnowledgeSourceType = (typeof knowledgeSourceTypes)[number];
 
+export type ParsedKnowledgeInput =
+  | { type: "FILE"; title: string; fileName: string }
+  | { type: "URL"; title: string; url: string }
+  | { type: "FAQ"; title: string; question: string; answer: string }
+  | { type: "VASE_MANAGEMENT"; title: string }
+  | { type: "EXTERNAL_MANAGEMENT"; title: string };
+
 const allowedExtensions = new Set(["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt"]);
 
-export function parseKnowledgeInput(input: Record<string, unknown>) {
-  const type = String(input.type || "") as KnowledgeSourceType;
-  const title = String(input.title || "").trim();
+export function parseKnowledgeInput(input: unknown): ParsedKnowledgeInput {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    throw new Error("KNOWLEDGE_INPUT_INVALID");
+  }
+
+  const record = input as Record<string, unknown>;
+  const type = String(record.type || "") as KnowledgeSourceType;
+  const title = String(record.title || "").trim();
 
   if (!knowledgeSourceTypes.includes(type) || !title) {
     throw new Error("KNOWLEDGE_INPUT_INVALID");
   }
 
   if (type === "FILE") {
-    const fileName = String(input.fileName || "").trim();
+    const fileName = String(record.fileName || "").trim();
     const extension = fileName.split(".").pop()?.toLowerCase() || "";
     if (!allowedExtensions.has(extension)) {
       throw new Error("KNOWLEDGE_FILE_TYPE_UNSUPPORTED");
@@ -22,7 +34,7 @@ export function parseKnowledgeInput(input: Record<string, unknown>) {
   }
 
   if (type === "URL") {
-    const url = String(input.url || "").trim();
+    const url = String(record.url || "").trim();
     try {
       new URL(url);
     } catch {
@@ -32,8 +44,8 @@ export function parseKnowledgeInput(input: Record<string, unknown>) {
   }
 
   if (type === "FAQ") {
-    const question = String(input.question || "").trim();
-    const answer = String(input.answer || "").trim();
+    const question = String(record.question || "").trim();
+    const answer = String(record.answer || "").trim();
     if (!question || !answer) {
       throw new Error("KNOWLEDGE_FAQ_INVALID");
     }

@@ -69,6 +69,10 @@ describe("Labs knowledge source rules", () => {
     expect(() => parseKnowledgeInput({ type: "OTHER", title: "Fuente" })).toThrow("KNOWLEDGE_INPUT_INVALID");
   });
 
+  it.each([null, [], "payload", 42, true])("rejects non-record payload %j", (input) => {
+    expect(() => parseKnowledgeInput(input)).toThrow("KNOWLEDGE_INPUT_INVALID");
+  });
+
   it.each(["VASE_MANAGEMENT", "EXTERNAL_MANAGEMENT"] as const)("returns the %s type and title", (type) => {
     expect(parseKnowledgeInput({ type, title: " Catálogo " })).toEqual({ type, title: "Catálogo" });
   });
