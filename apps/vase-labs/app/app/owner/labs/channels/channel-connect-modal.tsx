@@ -3,7 +3,7 @@
 import type { LabsChannel } from "@vase/contracts";
 import { ArrowLeft, ArrowRight, Check, Copy, LockKeyhole, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { buildChannelSetupRequest, buildChannelVerifyRequest, createChannelUiFlow } from "./channel-ui-flow";
 
 type Capacity = Record<LabsChannel, { limit: number; used: number; remaining: number }>;
@@ -30,17 +30,17 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
   const terminalLocked = useRef(false);
   const requests = useRef(createChannelUiFlow()).current;
 
-  function reset() {
+  const reset = useCallback(() => {
     terminalLocked.current = false;
     setStep(1); setSelected(null); setSetup(null); setNotice(null); setLoading(false);
-  }
+  }, []);
 
-  function close(force = false) {
+  const close = useCallback((force = false) => {
     if (terminalLocked.current && !force) return;
     requests.invalidate();
     setOpen(false); reset();
     requestAnimationFrame(() => openButton.current?.focus());
-  }
+  }, [requests, reset]);
 
   useEffect(() => () => requests.invalidate(), [requests]);
   useEffect(() => { if (open) requestAnimationFrame(() => stepHeading.current?.focus()); }, [open, step]);
@@ -49,7 +49,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, [close, open]);
 
   async function beginSetup() {
     if (!selected) return;

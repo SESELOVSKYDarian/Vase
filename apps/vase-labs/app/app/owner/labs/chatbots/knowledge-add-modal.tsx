@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Check, Copy, FileText, HelpCircle, Link2, Plus, Store, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KnowledgeSourceType } from "../../../../lib/knowledge-source";
 import { createKnowledgeRequestGuard } from "./knowledge-request-guard";
 
@@ -32,16 +32,16 @@ export function KnowledgeAddModal() {
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const requests = useRef(createKnowledgeRequestGuard()).current;
 
-  function close() {
+  const close = useCallback(() => {
     requests.invalidate();
     setOpen(false); setStep(1); setType(undefined);
     setTitle(""); setFileName(""); setUrl(""); setQuestion(""); setAnswer("");
     setCredentials(undefined); setError(""); setCredentialLoading(false); setSubmitting(false); setCopyMessage("");
     requestAnimationFrame(() => openButton.current?.focus());
-  }
+  }, [requests]);
   useEffect(() => () => requests.invalidate(), [requests]);
   useEffect(() => { if (open) requestAnimationFrame(() => stepHeading.current?.focus()); }, [open, step, type]);
-  useEffect(() => { if (!open) return; const escape = (event: KeyboardEvent) => { if (event.key === "Escape") close(); }; document.addEventListener("keydown", escape); return () => document.removeEventListener("keydown", escape); }, [open]);
+  useEffect(() => { if (!open) return; const escape = (event: KeyboardEvent) => { if (event.key === "Escape") close(); }; document.addEventListener("keydown", escape); return () => document.removeEventListener("keydown", escape); }, [close, open]);
 
   async function select(nextType: KnowledgeSourceType) {
     if (nextType === "EXTERNAL_MANAGEMENT" && requests.isActive("credentials")) return;

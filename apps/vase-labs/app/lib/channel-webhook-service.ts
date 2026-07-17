@@ -115,7 +115,6 @@ type EntitlementRow = {
 };
 
 type ConversationRow = { id: string; metadata: unknown };
-type IdRow = { id: string };
 
 const allowedChannels: LabsChannel[] = ["WHATSAPP", "INSTAGRAM", "FACEBOOK"];
 
