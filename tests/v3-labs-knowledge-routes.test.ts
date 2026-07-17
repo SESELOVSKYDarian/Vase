@@ -52,9 +52,11 @@ describe("Labs knowledge repository", () => {
 });
 
 describe("POST /api/labs/knowledge", () => {
-  function handler(options?: { resolveError?: Error }) {
-    const create = vi.fn(async (assistantId: string, input: Parameters<typeof mapKnowledgeInputToCreateData>[1]) =>
-      record(mapKnowledgeInputToCreateData(assistantId, input)));
+  function handler(options?: { resolveError?: Error; createError?: Error }) {
+    const create = vi.fn(async (assistantId: string, input: Parameters<typeof mapKnowledgeInputToCreateData>[1]) => {
+      if (options?.createError) throw options.createError;
+      return record(mapKnowledgeInputToCreateData(assistantId, input));
+    });
     const resolveContext = vi.fn(async () => {
       if (options?.resolveError) throw options.resolveError;
       return { assistant: { id: "assistant_resolved" } };
@@ -119,6 +121,19 @@ describe("POST /api/labs/knowledge", () => {
     const response = await handler({ resolveError: new Error(error) }).POST(
       new Request("https://labs.vase.ar/api/labs/knowledge", { method: "POST", body: "{}" }),
     );
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "KNOWLEDGE_CREATE_FAILED" });
+  });
+
+  it("hides persistence errors from the knowledge repository", async () => {
+    const response = await handler({ createError: new Error("Prisma unique constraint details") }).POST(
+      new Request("https://labs.vase.ar/api/labs/knowledge", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "URL", title: "Docs", url: "https://vase.ar/docs" }),
+      }),
+    );
+
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "KNOWLEDGE_CREATE_FAILED" });
   });
