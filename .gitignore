@@ -72,3 +72,6 @@ next-env.d.ts
 # workspace-local generated database clients
 **/app/generated/prisma/
 
+# isolated implementation worktrees
+.worktrees/
+
