@@ -36,7 +36,8 @@ export function parseKnowledgeInput(input: unknown): ParsedKnowledgeInput {
   if (type === "URL") {
     const url = String(record.url || "").trim();
     try {
-      new URL(url);
+      const parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("unsupported protocol");
     } catch {
       throw new Error("KNOWLEDGE_URL_INVALID");
     }

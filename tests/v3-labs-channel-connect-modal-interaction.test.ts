@@ -62,6 +62,19 @@ describe("ChannelConnectModal interactions", () => {
     expect(host.textContent).toContain("secret-key");
   });
 
+  it("disables only the exhausted manual type and shows one of one used", async () => {
+    await act(async () => { root.render(React.createElement(ChannelConnectModal, { capacity: {
+      WHATSAPP: { limit: 1, used: 1, remaining: 0 },
+      INSTAGRAM: { limit: 1, used: 0, remaining: 1 },
+      FACEBOOK: { limit: 1, used: 0, remaining: 1 },
+    } })); });
+    await click(button("Agregar canal"));
+    expect((button("WhatsApp") as HTMLButtonElement).disabled).toBe(true);
+    expect(button("WhatsApp").textContent).toContain("1 de 1 usados");
+    expect((button("Instagram") as HTMLButtonElement).disabled).toBe(false);
+    expect((button("Facebook") as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("aborts pending setup on Back and immediately allows reselection", async () => {
     const signals: AbortSignal[] = [];
     const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
@@ -128,6 +141,12 @@ describe("ChannelConnectModal interactions", () => {
     await click(button("Copiar Webhook URL"));
     expect(host.textContent).toContain("No pudimos copiar Webhook URL.");
     expect(host.textContent).toContain("https://hook");
+  });
+
+  it("shows a clear manual connection conflict", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: "CHANNEL_MANUAL_CONNECTION_EXISTS" }, { status: 409 })));
+    await click(button("Agregar canal")); await click(button("WhatsApp")); await click(button("Continuar"));
+    expect(host.textContent).toContain("Este canal manual ya esta conectado.");
   });
 
   it("Escape and backdrop close and reset the modal", async () => {

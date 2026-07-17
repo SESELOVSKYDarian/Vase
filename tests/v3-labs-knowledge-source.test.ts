@@ -40,6 +40,11 @@ describe("Labs knowledge source rules", () => {
     );
   });
 
+  it.each(["ftp://vase.ar/file", "mailto:hola@vase.ar", "javascript:alert(1)", "data:text/plain,hola", "//vase.ar/docs"])(
+    "rejects non-web URL %s",
+    (url) => expect(() => parseKnowledgeInput({ type: "URL", title: "Docs", url })).toThrow("KNOWLEDGE_URL_INVALID"),
+  );
+
   it("requires nonempty FAQ questions and answers", () => {
     expect(
       parseKnowledgeInput({

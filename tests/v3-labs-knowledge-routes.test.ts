@@ -88,6 +88,7 @@ describe("POST /api/labs/knowledge", () => {
   it.each([
     ["malformed JSON", "{", "KNOWLEDGE_INPUT_INVALID"],
     ["invalid URL", JSON.stringify({ type: "URL", title: "Docs", url: "not-a-url" }), "KNOWLEDGE_URL_INVALID"],
+    ["non-web URL protocol", JSON.stringify({ type: "URL", title: "Docs", url: "ftp://vase.ar/docs" }), "KNOWLEDGE_URL_INVALID"],
   ])("returns a useful 400 for %s", async (_case, body, error) => {
     const response = await handler().POST(new Request("https://labs.vase.ar/api/labs/knowledge", {
       method: "POST", headers: { "content-type": "application/json" }, body,

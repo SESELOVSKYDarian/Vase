@@ -36,6 +36,7 @@ export function createChannelSetupPostHandler(dependencies: {
       if (message === "LABS_TENANT_FORBIDDEN" || message === "CHANNEL_NOT_INCLUDED" || message === "CHANNEL_LIMIT_REACHED") {
         return NextResponse.json({ error: message }, { status: 403 });
       }
+      if (message === "CHANNEL_MANUAL_CONNECTION_EXISTS") return NextResponse.json({ error: message }, { status: 409 });
       if (message.startsWith("[") || message.includes("Invalid input")) {
         return NextResponse.json({ error: "CHANNEL_INPUT_INVALID" }, { status: 400 });
       }

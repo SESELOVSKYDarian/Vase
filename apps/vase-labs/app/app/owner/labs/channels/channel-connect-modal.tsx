@@ -61,10 +61,11 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
         ...buildChannelSetupRequest(selected), signal: ticket.signal,
       });
       const payload = await response.json().catch(() => ({}));
+      if (response.status === 409 && payload.error === "CHANNEL_MANUAL_CONNECTION_EXISTS") throw new Error("manual-exists");
       if (!response.ok || typeof payload.channelId !== "string" || typeof payload.webhookUrl !== "string" || typeof payload.webhookKey !== "string") throw new Error();
       if (requests.isCurrent(ticket)) setSetup(payload as Setup);
-    } catch {
-      if (requests.isCurrent(ticket)) setNotice({ kind: "error", message: "No pudimos preparar el canal. Revisá el cupo e intentá nuevamente." });
+    } catch (error) {
+      if (requests.isCurrent(ticket)) setNotice({ kind: "error", message: error instanceof Error && error.message === "manual-exists" ? "Este canal manual ya esta conectado." : "No pudimos preparar el canal. Revisá el cupo e intentá nuevamente." });
     } finally {
       if (requests.isCurrent(ticket)) setLoading(false);
       requests.finish(ticket);

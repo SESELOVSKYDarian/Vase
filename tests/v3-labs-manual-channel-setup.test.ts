@@ -88,6 +88,42 @@ describe("manual channel setup", () => {
     await expect(service.setup({ ...context(), origin: "https://labs.vase.ar", channelType: "FACEBOOK" })).rejects.toThrow("CHANNEL_LIMIT_REACHED");
   });
 
+  it("returns a stable conflict for its connected deterministic row even when plan capacity is two", async () => {
+    const connectedId = getManualChannelId("assistant_1", "WHATSAPP");
+    const service = createManualChannelSetupService({
+      list: async () => [{ id: connectedId, type: "WHATSAPP", provider: "META_OFFICIAL", status: "CONNECTED" }],
+      create: vi.fn(),
+      findByIdForAssistant: async () => null,
+    });
+    const input = {
+      ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" as const,
+      context: { ...context().context, entitlement: { ...entitlement, channelLimits: { ...entitlement.channelLimits, WHATSAPP: 2 } } },
+    };
+    await expect(service.setup(input)).rejects.toThrow("CHANNEL_MANUAL_CONNECTION_EXISTS");
+  });
+
+  it("returns the same stable conflict for a connected legacy marked manual row", async () => {
+    const service = createManualChannelSetupService({
+      list: async () => [{ id: "legacy", type: "INSTAGRAM", provider: "META_OFFICIAL", status: "CONNECTED", config: { manualWebhook: true } }],
+      create: vi.fn(), findByIdForAssistant: async () => null,
+    });
+    const input = {
+      ...context(), origin: "https://labs.vase.ar", channelType: "INSTAGRAM" as const,
+      context: { ...context().context, entitlement: { ...entitlement, channelLimits: { ...entitlement.channelLimits, INSTAGRAM: 2 } } },
+    };
+    await expect(service.setup(input)).rejects.toThrow("CHANNEL_MANUAL_CONNECTION_EXISTS");
+  });
+
+  it("maps an existing manual connection to a safe 409 response", async () => {
+    const handler = createChannelSetupPostHandler({
+      resolveContext: async () => context(),
+      setup: async () => { throw new Error("CHANNEL_MANUAL_CONNECTION_EXISTS"); },
+    });
+    const response = await handler(request("/api/labs/channels/setup", { channelType: "WHATSAPP" }));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "CHANNEL_MANUAL_CONNECTION_EXISTS" });
+  });
+
   it("reuses an existing pending channel even when the public origin changes", async () => {
     const create = vi.fn();
     const service = createManualChannelSetupService({
@@ -224,6 +260,17 @@ describe("manual channel setup", () => {
     expect(first).toEqual(second);
     expect(records).toHaveLength(1);
     expect(createCalls).toBe(2);
+  });
+
+  it("maps a create race with an already connected deterministic row to the stable conflict", async () => {
+    const connectedId = getManualChannelId("assistant_1", "WHATSAPP");
+    const service = createManualChannelSetupService({
+      list: async () => [],
+      create: async () => { throw Object.assign(new Error("unique"), { code: "P2002" }); },
+      findByIdForAssistant: async () => ({ id: connectedId, type: "WHATSAPP", provider: "META_OFFICIAL", status: "CONNECTED" }),
+    });
+    await expect(service.setup({ ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" }))
+      .rejects.toThrow("CHANNEL_MANUAL_CONNECTION_EXISTS");
   });
 
   it("uses exact auth mappings and sanitizes setup internals", async () => {

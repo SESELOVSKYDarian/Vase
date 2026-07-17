@@ -1,6 +1,7 @@
-import { createHash } from "node:crypto";
 import type { LabsChannel, LabsChannelLimits } from "@vase/contracts";
 import { getChannelCapacity } from "./channel-capacity";
+export { getManualChannelId } from "./channel-manual-id";
+import { getManualChannelId } from "./channel-manual-id";
 import { resolveMetaWebhookVerifyToken } from "./meta-webhook";
 
 export type ManualChannelRecord = {
@@ -35,11 +36,6 @@ export type ManualChannelVerifyResult =
   | { status: "CONNECTED" }
   | { status: "PENDING"; message: string }
   | { status: "ERROR"; message: string };
-
-export function getManualChannelId(assistantId: string, channelType: LabsChannel) {
-  const digest = createHash("sha256").update(`${assistantId}\0${channelType}`).digest("hex").slice(0, 32);
-  return `manual_${digest}`;
-}
 
 export function resolveCanonicalLabsOrigin(configuredOrigin: string | undefined) {
   try {
@@ -118,6 +114,14 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
       if (!input.context.entitlement.enabledChannels.includes(input.channelType) || limits[input.channelType] === 0) {
         throw new Error("CHANNEL_NOT_INCLUDED");
       }
+      const existingManual = channels.find((channel) =>
+        channel.id === manualChannelId || (
+          channel.type === input.channelType &&
+          channel.provider === "META_OFFICIAL" &&
+          isSafeLegacyManualChannel(channel, manual.webhookUrl)
+        ),
+      );
+      if (existingManual && existingManual.status !== "PENDING") throw new Error("CHANNEL_MANUAL_CONNECTION_EXISTS");
       const channelStates = channels.map((channel) => ({
         type: channel.type ?? input.channelType,
         status: channel.status,
@@ -152,6 +156,9 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
         } catch (error) {
           if (!isUniqueConflict(error)) throw error;
           const conflicted = await repository.findByIdForAssistant(input.assistant.id, manualChannelId);
+          if (conflicted?.type === input.channelType && conflicted.provider === "META_OFFICIAL" && conflicted.status !== "PENDING") {
+            throw new Error("CHANNEL_MANUAL_CONNECTION_EXISTS");
+          }
           if (!isReusableManualChannel(conflicted, input.channelType)) throw error;
           return { channelId: conflicted!.id, ...manual };
         }
@@ -170,6 +177,9 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
       } catch (error) {
         if (!isUniqueConflict(error)) throw error;
         const conflicted = await repository.findByIdForAssistant(input.assistant.id, manualChannelId);
+        if (conflicted?.type === input.channelType && conflicted.provider === "META_OFFICIAL" && conflicted.status !== "PENDING") {
+          throw new Error("CHANNEL_MANUAL_CONNECTION_EXISTS");
+        }
         if (!isReusableManualChannel(conflicted, input.channelType)) throw error;
         created = conflicted!;
       }

@@ -2,8 +2,8 @@ import type { LabsChannel } from "@vase/contracts";
 import { CircleAlert } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getChannelCapacity } from "../../../../lib/channel-capacity";
-import { listRedactedOfficialChannels } from "../../../../lib/channel-queries";
+import { getManualChannelCapacity } from "../../../../lib/channel-capacity";
+import { listManualChannelStates, listRedactedOfficialChannels } from "../../../../lib/channel-queries";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import { LabsPageHeader, LabsStatusPill } from "../labs-ui";
@@ -34,16 +34,21 @@ async function getChannelsPageData() {
     if (error instanceof Error && error.message === "LABS_TENANT_FORBIDDEN") redirect("https://app.vase.ar/app?labs=required");
     redirect("https://app.vase.ar/app");
   }
-  const channels = await listRedactedOfficialChannels(labsPrisma, resolved.assistant.id);
+  const [channels, manualChannelStates] = await Promise.all([
+    listRedactedOfficialChannels(labsPrisma, resolved.assistant.id),
+    listManualChannelStates(labsPrisma, resolved.assistant.id),
+  ]);
   return {
     channelLimits: resolved.context.entitlement.channelLimits ?? Object.fromEntries(channelOrder.map((channel) => [channel, resolved.context.entitlement.enabledChannels.includes(channel) ? 1 : 0])) as Record<LabsChannel, number>,
     channels,
+    manualChannelStates,
+    assistantId: resolved.assistant.id,
   };
 }
 
 export default async function LabsChannelsPage() {
   const data = await getChannelsPageData();
-  const capacity = getChannelCapacity(data.channelLimits, data.channels);
+  const capacity = getManualChannelCapacity(data.channelLimits, data.manualChannelStates, data.assistantId);
   return <div className="space-y-6">
     <LabsPageHeader eyebrow="Entrada de mensajes" title="Canales" description="Conectá y monitoreá WhatsApp, Instagram y Facebook desde Vase Labs." />
     {data.channels.length === 0 ? (

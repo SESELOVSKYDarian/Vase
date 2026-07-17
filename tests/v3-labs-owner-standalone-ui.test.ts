@@ -3,6 +3,13 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("Vase Labs standalone owner experience", () => {
+  it("describes Vase Management as active with background catalog sync", () => {
+    const modal = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-add-modal.tsx"), "utf8");
+    expect(modal).toContain("La conexión con Vase Management queda activa");
+    expect(modal).toContain("sincronización del catálogo se gestiona en segundo plano");
+    expect(modal).not.toContain("fuente quedará en cola");
+  });
+
   it("renders only real channel records and uses the manual connection flow", () => {
     const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/page.tsx"), "utf8");
     const modal = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-connect-modal.tsx"), "utf8");
