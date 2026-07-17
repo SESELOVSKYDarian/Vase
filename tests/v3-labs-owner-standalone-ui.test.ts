@@ -15,6 +15,12 @@ describe("Vase Labs standalone owner experience", () => {
     const modal = fs.readFileSync(modalPath, "utf8");
     const groups = fs.readFileSync(groupsPath, "utf8");
     expect(page).toContain("data.items.length === 0");
+    const emptyBranch = page.split("data.items.length === 0 ? (")[1]?.split(") : (")[0] ?? "";
+    expect(emptyBranch).toContain("Todavía no agregaste conocimiento");
+    expect(emptyBranch).toContain("<KnowledgeAddModal />");
+    expect(emptyBranch).not.toContain("fuentes cargadas");
+    expect(emptyBranch).not.toContain("KnowledgeGroups");
+    expect(emptyBranch).not.toContain("LabsSection");
     expect(modal).toContain("Agregar conocimiento");
     expect(page).toContain("groupKnowledgeItems(data.items)");
     expect(page).toContain("<KnowledgeGroups");

@@ -4,6 +4,7 @@ import { ArrowLeft, Check, Copy, FileText, HelpCircle, Link2, Plus, Store, X } f
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { KnowledgeSourceType } from "../../../../lib/knowledge-source";
+import { createKnowledgeRequestGuard } from "./knowledge-request-guard";
 
 const choices: { type: KnowledgeSourceType; label: string; icon: typeof FileText }[] = [
   { type: "FILE", label: "Documento o archivo", icon: FileText },
@@ -24,32 +25,42 @@ export function KnowledgeAddModal() {
   const closeButton = useRef<HTMLButtonElement>(null);
   const openButton = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
+  const requests = useRef(createKnowledgeRequestGuard()).current;
 
-  function close() { setOpen(false); setStep(1); setType(undefined); setTitle(""); setFileName(""); setUrl(""); setQuestion(""); setAnswer(""); setCredentials(undefined); setError(""); setBusy(false); setCopyMessage(""); requestAnimationFrame(() => openButton.current?.focus()); }
+  function close() { requests.invalidate(); setOpen(false); setStep(1); setType(undefined); setTitle(""); setFileName(""); setUrl(""); setQuestion(""); setAnswer(""); setCredentials(undefined); setError(""); setBusy(false); setCopyMessage(""); requestAnimationFrame(() => openButton.current?.focus()); }
+  useEffect(() => () => requests.invalidate(), [requests]);
   useEffect(() => { if (!open) return; closeButton.current?.focus(); const escape = (event: KeyboardEvent) => { if (event.key === "Escape") close(); }; document.addEventListener("keydown", escape); return () => document.removeEventListener("keydown", escape); }, [open]);
 
   async function select(nextType: KnowledgeSourceType) {
-    setType(nextType); setStep(2); setError("");
-    if (nextType !== "EXTERNAL_MANAGEMENT" || credentials) return;
+    if (nextType === "EXTERNAL_MANAGEMENT" && requests.isActive("credentials")) return;
+    requests.invalidate();
+    setType(nextType); setStep(2); setError(""); setCredentials(undefined); setBusy(false);
+    if (nextType !== "EXTERNAL_MANAGEMENT") return;
+    const ticket = requests.start("credentials");
+    if (!ticket) return;
     setBusy(true);
-    try { const response = await fetch("/api/labs/external-management-credentials"); const payload = await response.json(); if (!response.ok) throw new Error(); setCredentials(payload); }
-    catch { setError("No pudimos obtener las credenciales. Intentá nuevamente."); }
-    finally { setBusy(false); }
+    try { const response = await fetch("/api/labs/external-management-credentials", { signal: ticket.signal }); const payload = await response.json(); if (!response.ok) throw new Error(); if (requests.isCurrent(ticket)) setCredentials(payload); }
+    catch { if (requests.isCurrent(ticket)) setError("No pudimos obtener las credenciales. Intentá nuevamente."); }
+    finally { if (requests.isCurrent(ticket)) setBusy(false); requests.finish(ticket); }
   }
 
   async function submit(event: React.FormEvent) {
-    event.preventDefault(); if (!type || busy) return; setBusy(true); setError("");
+    event.preventDefault(); if (!type) return;
+    const ticket = requests.start("submit");
+    if (!ticket) return;
+    setBusy(true); setError("");
     try {
       if (type === "VASE_MANAGEMENT") {
-        const provider = await fetch("/api/labs/integration-provider", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "VASE_MANAGEMENT" }) });
+        const provider = await fetch("/api/labs/integration-provider", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "VASE_MANAGEMENT" }), signal: ticket.signal });
         if (!provider.ok) throw new Error("provider");
       }
+      if (!requests.isCurrent(ticket)) return;
       const body = type === "FILE" ? { type, title: title || fileName, fileName } : type === "URL" ? { type, title, url } : type === "FAQ" ? { type, title, question, answer } : { type, title: type === "VASE_MANAGEMENT" ? "Vase Management" : "Sistema de gestión externo" };
-      const response = await fetch("/api/labs/knowledge", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const response = await fetch("/api/labs/knowledge", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: ticket.signal });
       if (!response.ok) throw new Error("knowledge");
-      router.refresh(); close();
-    } catch (cause) { setError(cause instanceof Error && cause.message === "provider" ? "No pudimos conectar Vase Management. No se guardó ninguna fuente." : "No pudimos guardar la fuente. Revisá los datos e intentá nuevamente."); }
-    finally { setBusy(false); }
+      if (requests.isCurrent(ticket)) { router.refresh(); close(); }
+    } catch (cause) { if (requests.isCurrent(ticket)) setError(cause instanceof Error && cause.message === "provider" ? "No pudimos conectar Vase Management. No se guardó ninguna fuente." : "No pudimos guardar la fuente. Revisá los datos e intentá nuevamente."); }
+    finally { if (requests.isCurrent(ticket)) setBusy(false); requests.finish(ticket); }
   }
 
   async function copy(value: string, label: string) { try { await navigator.clipboard.writeText(value); setCopyMessage(`${label} copiado`); } catch { setCopyMessage(`No pudimos copiar ${label}`); } }
