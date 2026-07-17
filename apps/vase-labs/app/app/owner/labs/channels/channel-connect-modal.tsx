@@ -141,14 +141,14 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
         })}</div> : <div className="labs-manual-setup">
           {loading && !setup ? <p>Preparando los datos del canal…</p> : setup ? <>
             {([["Webhook URL", setup.webhookUrl], ["Webhook Key", setup.webhookKey]] as const).map(([label, value]) => <div key={label}>
-              <span>{label}</span><code>{value}</code><button type="button" aria-label={`Copiar ${label}`} onClick={() => void copy(value, label)}><Copy className="size-4" /></button>
+              <span>{label}</span><code>{value}</code><button type="button" disabled={notice.startsWith("Canal conectado")} aria-label={`Copiar ${label}`} onClick={() => void copy(value, label)}><Copy className="size-4" /></button>
             </div>)}
           </> : <button className="labs-button labs-button-secondary" type="button" onClick={() => void beginSetup()}>Reintentar</button>}
         </div>}
 
         {error ? <p className="labs-form-error" role="alert">{error}</p> : null}
         <p className={notice.startsWith("Canal conectado") ? "labs-form-success" : "sr-only"} aria-live="polite">{notice}</p>
-        <footer>{step === 2 ? <button className="labs-button labs-button-secondary" type="button" onClick={backToChannels} disabled={loading}><ArrowLeft className="size-4" /> Volver</button> : <span />}
+        <footer>{step === 2 ? <button className="labs-button labs-button-secondary" type="button" onClick={backToChannels}><ArrowLeft className="size-4" /> Volver</button> : <span />}
           {step === 1 ? <button className="labs-button labs-button-primary" type="button" disabled={!selected} onClick={() => void beginSetup()}>Continuar <ArrowRight className="size-4" /></button> :
             notice.startsWith("Canal conectado") ? <button className="labs-button labs-button-primary" type="button" onClick={close}>Cerrar</button> :
             <button className="labs-button labs-button-primary" type="button" disabled={loading || !setup} onClick={() => void verify()}>{loading && setup ? "Comprobando…" : "Comprobar conexión"}</button>}

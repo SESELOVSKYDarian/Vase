@@ -21,17 +21,20 @@ export function createChannelUiFlow() {
   const requests = createKnowledgeRequestGuard();
   let terminalTimer: ReturnType<typeof setTimeout> | undefined;
   let latestCopy: KnowledgeRequestTicket | null = null;
+  let terminalLocked = false;
 
   function invalidate() {
     if (terminalTimer !== undefined) clearTimeout(terminalTimer);
     terminalTimer = undefined;
     latestCopy = null;
+    terminalLocked = false;
     requests.invalidate();
   }
 
   return {
     start(scope: string) { return requests.start(scope); },
     startLatestCopy() {
+      if (terminalLocked) return null;
       if (latestCopy) {
         latestCopy.controller.abort();
         requests.finish(latestCopy);
@@ -55,6 +58,7 @@ export function createChannelUiFlow() {
     invalidate,
     scheduleConnected(announce: () => void, complete: () => void, delayMs = 900) {
       invalidate();
+      terminalLocked = true;
       const terminal = requests.start("terminal");
       if (!terminal) return;
       announce();
@@ -62,6 +66,7 @@ export function createChannelUiFlow() {
         terminalTimer = undefined;
         if (!requests.isCurrent(terminal)) return;
         requests.finish(terminal);
+        terminalLocked = false;
         complete();
       }, delayMs);
     },

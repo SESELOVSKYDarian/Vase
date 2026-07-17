@@ -63,6 +63,7 @@ describe("Labs channel UI flow", () => {
     const copy = flow.startLatestCopy();
     flow.scheduleConnected(() => undefined, () => undefined, 900);
     expect(copy && flow.isCurrent(copy)).toBe(false);
+    expect(flow.startLatestCopy()).toBeNull();
     vi.useRealTimers();
   });
 });
