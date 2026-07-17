@@ -3,6 +3,40 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("Vase Labs standalone owner experience", () => {
+  it("renders only real channel records and uses the manual connection flow", () => {
+    const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/page.tsx"), "utf8");
+    const modal = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-connect-modal.tsx"), "utf8");
+
+    expect(page).toContain("data.channels.length === 0 ? (");
+    const emptyBranch = page.split("data.channels.length === 0 ? (")[1]?.split(") : (")[0] ?? "";
+    expect(emptyBranch).toContain("Todavía no agregaste ningún canal");
+    expect(emptyBranch).toContain("<ChannelConnectModal capacity={capacity} />");
+    for (const hidden of ["labs-channel-overview", "Webhook base", "labs-channel-grid", "LabsSection", "labs-channel-endpoints"]) {
+      expect(emptyBranch).not.toContain(hidden);
+    }
+
+    expect(page).toContain("data.channels.map((channel)");
+    expect(page).not.toContain("channelOrder.map((channelType)");
+    expect(page).not.toContain("labs-channel-webhook");
+    expect(page).not.toContain("labs-channel-endpoints");
+    expect(page).toContain("channel.accountLabel ?? channel.externalHandle ?? \"Cuenta sin nombre\"");
+    expect(page).toContain("channel.lastError");
+
+    for (const label of ["WhatsApp", "Instagram", "Facebook", "Webhook URL", "Webhook Key", "Comprobar conexión"]) {
+      expect(modal).toContain(label);
+    }
+    expect(modal).toContain('fetch("/api/labs/channels/setup"');
+    expect(modal).toContain("body: JSON.stringify({ channelType: selected })");
+    expect(modal).toContain('fetch("/api/labs/channels/verify"');
+    expect(modal).toContain("body: JSON.stringify({ channelId: setup.channelId })");
+    expect(modal).toContain("createKnowledgeRequestGuard");
+    expect(modal).toContain("data-step-focus");
+    expect(modal).toContain("aria-live=\"polite\"");
+    for (const removed of ["/api/v1/meta/connections/start", "authorizationUrl", "window.location", "Continuar con Meta"]) {
+      expect(modal).not.toContain(removed);
+    }
+  });
+
   it("offers the guided five-source knowledge flow without leaking credentials", () => {
     const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"), "utf8");
     const modalPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-add-modal.tsx");
