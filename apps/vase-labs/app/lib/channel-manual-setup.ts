@@ -9,6 +9,7 @@ export type ManualChannelRecord = {
   provider?: string | null;
   status: string;
   webhookUrl?: string | null;
+  config?: unknown;
   lastError?: string | null;
 };
 
@@ -16,6 +17,7 @@ export interface ManualChannelRepository {
   list(assistantId: string): Promise<ManualChannelRecord[]>;
   create(input: { id: string; assistantId: string; channelType: LabsChannel; webhookUrl: string }): Promise<ManualChannelRecord>;
   findByIdForAssistant(assistantId: string, channelId: string): Promise<ManualChannelRecord | null>;
+  adoptPending?(input: { currentId: string; id: string; assistantId: string; channelType: LabsChannel }): Promise<ManualChannelRecord>;
 }
 
 export type ManualChannelSetupInput = {
@@ -39,12 +41,33 @@ export function getManualChannelId(assistantId: string, channelType: LabsChannel
   return `manual_${digest}`;
 }
 
+export function resolveCanonicalLabsOrigin(configuredOrigin: string | undefined) {
+  try {
+    const url = new URL(configuredOrigin ?? "");
+    if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("invalid protocol");
+    return url.origin;
+  } catch {
+    return "https://labs.vase.ar";
+  }
+}
+
 function isUniqueConflict(error: unknown): error is { code: "P2002" } {
   return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
 }
 
 function isReusableManualChannel(record: ManualChannelRecord | null, channelType: LabsChannel) {
   return Boolean(record && record.type === channelType && record.provider === "META_OFFICIAL" && record.status === "PENDING");
+}
+
+function isSafeLegacyManualChannel(record: ManualChannelRecord, expectedWebhookUrl: string) {
+  if (record.config && typeof record.config === "object" && !Array.isArray(record.config) &&
+      (record.config as Record<string, unknown>).manualWebhook === true) return true;
+  if (!record.webhookUrl) return false;
+  try {
+    return new URL(record.webhookUrl).pathname === new URL(expectedWebhookUrl).pathname;
+  } catch {
+    return false;
+  }
 }
 
 export function buildManualChannelSetup(input: {
@@ -70,10 +93,19 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
         channelType: input.channelType,
       });
       const channels = await repository.list(input.assistant.id);
+      const manualChannelId = getManualChannelId(input.assistant.id, input.channelType);
       const pending = channels.find((channel) =>
+        channel.id === manualChannelId &&
         channel.type === input.channelType &&
         channel.provider === "META_OFFICIAL" &&
         channel.status === "PENDING",
+      );
+      const legacyPending = channels.filter((channel) =>
+        channel.id !== manualChannelId &&
+        channel.type === input.channelType &&
+        channel.provider === "META_OFFICIAL" &&
+        channel.status === "PENDING" &&
+        isSafeLegacyManualChannel(channel, manual.webhookUrl),
       );
 
       const fallback = Object.fromEntries(
@@ -99,10 +131,34 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
         if (reuseCapacity.remaining === 0) throw new Error("CHANNEL_LIMIT_REACHED");
         return { channelId: pending.id, ...manual };
       }
+      if (legacyPending.length === 1 && repository.adoptPending) {
+        const candidate = legacyPending[0]!;
+        const adoptionCapacity = getChannelCapacity(
+          limits,
+          channelStates.filter((channel) => channel.id !== candidate.id),
+        )[input.channelType];
+        if (adoptionCapacity.remaining === 0) throw new Error("CHANNEL_LIMIT_REACHED");
+        try {
+          const adopted = await repository.adoptPending({
+            currentId: candidate.id,
+            id: manualChannelId,
+            assistantId: input.assistant.id,
+            channelType: input.channelType,
+          });
+          if (!isReusableManualChannel(adopted, input.channelType) || adopted.id !== manualChannelId) {
+            throw new Error("CHANNEL_LEGACY_ADOPTION_FAILED");
+          }
+          return { channelId: adopted.id, ...manual };
+        } catch (error) {
+          if (!isUniqueConflict(error)) throw error;
+          const conflicted = await repository.findByIdForAssistant(input.assistant.id, manualChannelId);
+          if (!isReusableManualChannel(conflicted, input.channelType)) throw error;
+          return { channelId: conflicted!.id, ...manual };
+        }
+      }
       const capacity = getChannelCapacity(limits, channelStates)[input.channelType];
       if (capacity.remaining === 0) throw new Error("CHANNEL_LIMIT_REACHED");
 
-      const manualChannelId = getManualChannelId(input.assistant.id, input.channelType);
       let created: ManualChannelRecord;
       try {
         created = await repository.create({

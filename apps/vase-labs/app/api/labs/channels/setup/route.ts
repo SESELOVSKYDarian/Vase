@@ -2,6 +2,7 @@ import { labsChannelSchema } from "@vase/contracts";
 import { NextResponse } from "next/server";
 import {
   createManualChannelSetupService,
+  resolveCanonicalLabsOrigin,
   type ManualChannelSetupInput,
 } from "../../../../lib/channel-manual-setup";
 import { labsPrisma } from "../../../../lib/db";
@@ -12,6 +13,7 @@ const authErrors = new Set(["LABS_SESSION_REQUIRED", "LABS_SESSION_INVALID", "LA
 export function createChannelSetupPostHandler(dependencies: {
   resolveContext(cookie: string | null): Promise<Omit<ManualChannelSetupInput, "origin" | "channelType">>;
   setup(input: ManualChannelSetupInput): Promise<{ channelId: string; webhookUrl: string; webhookKey: string }>;
+  resolvePublicOrigin?(): string;
 }) {
   return async function POST(request: Request) {
     try {
@@ -22,7 +24,7 @@ export function createChannelSetupPostHandler(dependencies: {
       }
       const channelType = labsChannelSchema.parse(body?.channelType);
       const result = await dependencies.setup({
-        origin: new URL(request.url).origin,
+        origin: dependencies.resolvePublicOrigin?.() ?? resolveCanonicalLabsOrigin(undefined),
         channelType,
         assistant: resolved.assistant,
         context: resolved.context,
@@ -62,6 +64,28 @@ const service = createManualChannelSetupService({
   async findByIdForAssistant(assistantId, channelId) {
     return labsPrisma.channel.findFirst({ where: { id: channelId, assistantId } });
   },
+  async adoptPending(input) {
+    return labsPrisma.$transaction(async (transaction) => {
+      const result = await transaction.channel.updateMany({
+        where: {
+          id: input.currentId,
+          assistantId: input.assistantId,
+          type: input.channelType,
+          provider: "META_OFFICIAL",
+          status: "PENDING",
+        },
+        data: { id: input.id },
+      });
+      if (result.count !== 1) throw new Error("CHANNEL_LEGACY_ADOPTION_FAILED");
+      const adopted = await transaction.channel.findFirst({ where: { id: input.id, assistantId: input.assistantId } });
+      if (!adopted) throw new Error("CHANNEL_LEGACY_ADOPTION_FAILED");
+      return adopted;
+    });
+  },
 });
 
-export const POST = createChannelSetupPostHandler({ resolveContext: resolveLabsRequestContext, setup: service.setup });
+export const POST = createChannelSetupPostHandler({
+  resolveContext: resolveLabsRequestContext,
+  setup: service.setup,
+  resolvePublicOrigin: () => resolveCanonicalLabsOrigin(process.env.NEXT_PUBLIC_APP_URL),
+});

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { InboundChannelMessage, LabsChannel, LabsChannelProvider } from "@vase/contracts";
 import { canTenantUseChannel, createRuntimeEntitlement, type LabsRuntimeEntitlement } from "./billing";
 import { resolveMetaWebhookVerifyToken } from "./meta-webhook";
+import { getManualChannelId } from "./channel-manual-setup";
 import { verifyMetaSignature } from "./meta-signature";
 
 export type ChannelWebhookContext = {
@@ -33,6 +34,7 @@ export type PersistChannelInboundMessageResult = {
 
 export interface ChannelWebhookRepository {
   findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
+  findManualSubscriptionContext?(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
   markSubscriptionVerified?(context: ChannelWebhookContext): Promise<void>;
   findContextByProviderAccountId?(
     channelType: LabsChannel,
@@ -333,6 +335,31 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     };
   }
 
+  async findManualSubscriptionContext(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null> {
+    const context = await this.findContextByTenantSlug(tenantSlug, channelType);
+    if (!context) return null;
+    const manualId = getManualChannelId(context.assistantId, channelType);
+    const channel = await this.prisma.channel.findFirst({
+      where: {
+        id: manualId,
+        assistantId: context.assistantId,
+        type: channelType,
+        provider: "META_OFFICIAL",
+        status: { in: ["PENDING", "CONNECTED"] },
+      },
+    });
+    if (!channel) return null;
+    return {
+      ...context,
+      channel: {
+        id: channel.id,
+        provider: channel.provider,
+        status: channel.status,
+        config: normalizeRecord(channel.config),
+      },
+    };
+  }
+
   async markSubscriptionVerified(context: ChannelWebhookContext): Promise<void> {
     if (!context.channel?.id) return;
     await this.prisma.channel.updateMany({
@@ -556,7 +583,9 @@ export async function verifyMetaChannelWebhookSubscription(input: {
   tenantSlug: string;
   url: string;
 }): Promise<ChannelWebhookVerifyResult> {
-  const context = await input.repository.findContextByTenantSlug(input.tenantSlug, input.channelType);
+  const context = input.repository.findManualSubscriptionContext
+    ? await input.repository.findManualSubscriptionContext(input.tenantSlug, input.channelType)
+    : await input.repository.findContextByTenantSlug(input.tenantSlug, input.channelType);
   if (context?.channelType !== input.channelType) return { status: 403, body: "Forbidden" };
   const result = getChannelWebhookVerifyResult({ context, url: input.url });
   if (result.status === 200 && context && input.repository.markSubscriptionVerified) {

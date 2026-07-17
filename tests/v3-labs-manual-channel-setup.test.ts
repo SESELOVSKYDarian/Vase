@@ -3,6 +3,8 @@ import { generateMetaWebhookVerifyToken } from "../apps/vase-labs/app/lib/meta-w
 import {
   buildManualChannelSetup,
   createManualChannelSetupService,
+  getManualChannelId,
+  resolveCanonicalLabsOrigin,
   type ManualChannelRecord,
 } from "../apps/vase-labs/app/lib/channel-manual-setup";
 import { createChannelSetupPostHandler } from "../apps/vase-labs/app/api/labs/channels/setup/route";
@@ -50,12 +52,18 @@ describe("manual channel setup", () => {
     });
   });
 
+  it("uses only a validated configured Labs origin with a fixed safe fallback", () => {
+    expect(resolveCanonicalLabsOrigin("https://canonical.vase.ar/path")).toBe("https://canonical.vase.ar");
+    expect(resolveCanonicalLabsOrigin("not a url")).toBe("https://labs.vase.ar");
+    expect(resolveCanonicalLabsOrigin("javascript:alert(1)")).toBe("https://labs.vase.ar");
+  });
+
   it("creates once and reuses the pending channel on retry without consuming extra capacity", async () => {
     const channels: ManualChannelRecord[] = [];
     const service = createManualChannelSetupService({
       list: async () => channels,
       create: async (input) => {
-        const channel = { id: "channel_1", type: input.channelType, provider: "META_OFFICIAL", status: "PENDING", webhookUrl: input.webhookUrl };
+        const channel = { id: input.id, type: input.channelType, provider: "META_OFFICIAL", status: "PENDING", webhookUrl: input.webhookUrl };
         channels.push(channel);
         return channel;
       },
@@ -83,14 +91,27 @@ describe("manual channel setup", () => {
   it("reuses an existing pending channel even when the public origin changes", async () => {
     const create = vi.fn();
     const service = createManualChannelSetupService({
-      list: async () => [{ id: "pending", type: "WHATSAPP", provider: "META_OFFICIAL", status: "PENDING", webhookUrl: "https://old.example/hook" }],
+      list: async () => [{ id: "pending", type: "WHATSAPP", provider: "META_OFFICIAL", status: "PENDING", webhookUrl: "https://old.example/hook", config: { manualWebhook: true } }],
       create,
       findByIdForAssistant: async () => null,
+      adoptPending: async (input) => ({ id: input.id, type: input.channelType, provider: "META_OFFICIAL", status: "PENDING" }),
     });
     const result = await service.setup({ ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" });
-    expect(result.channelId).toBe("pending");
+    expect(result.channelId).toBe(getManualChannelId("assistant_1", "WHATSAPP"));
     expect(result.webhookUrl).toBe("https://labs.vase.ar/api/v1/channels/whatsapp/acme%20team/webhook");
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("does not adopt an unrelated pending provider row as a manual channel", async () => {
+    const adoptPending = vi.fn();
+    const service = createManualChannelSetupService({
+      list: async () => [{ id: "oauth", type: "WHATSAPP", provider: "META_OFFICIAL", status: "PENDING", webhookUrl: null }],
+      create: vi.fn(),
+      findByIdForAssistant: async () => null,
+      adoptPending,
+    });
+    await expect(service.setup({ ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" })).rejects.toThrow("CHANNEL_LIMIT_REACHED");
+    expect(adoptPending).not.toHaveBeenCalled();
   });
 
   it("setup route accepts exactly channelType and returns the redacted contract", async () => {
@@ -104,6 +125,18 @@ describe("manual channel setup", () => {
       assistant: { id: "assistant_1" },
       context: expect.objectContaining({ globalTenantId: "tenant_global_1", tenantSlug: "acme team" }),
     }));
+  });
+
+  it("ignores a hostile request host and uses the configured canonical origin", async () => {
+    const setup = vi.fn().mockResolvedValue({ channelId: "channel_1", webhookUrl: "https://canonical.vase.ar/hook", webhookKey: "key" });
+    const handler = createChannelSetupPostHandler({
+      resolveContext: async () => context(), setup,
+      resolvePublicOrigin: () => "https://canonical.vase.ar",
+    });
+    await handler(new Request("https://attacker.example/api/labs/channels/setup", {
+      method: "POST", headers: { "content-type": "application/json", cookie: "labs_session=valid" }, body: JSON.stringify({ channelType: "WHATSAPP" }),
+    }));
+    expect(setup).toHaveBeenCalledWith(expect.objectContaining({ origin: "https://canonical.vase.ar" }));
   });
 
   it.each([
@@ -136,19 +169,21 @@ describe("manual channel setup", () => {
 
   it("allows retry of its own pending row when that row consumes the only slot", async () => {
     const create = vi.fn();
+    const pendingId = getManualChannelId("assistant_1", "WHATSAPP");
     const service = createManualChannelSetupService({
-      list: async () => [{ id: "pending", type: "WHATSAPP", provider: "META_OFFICIAL", status: "PENDING" }],
+      list: async () => [{ id: pendingId, type: "WHATSAPP", provider: "META_OFFICIAL", status: "PENDING" }],
       create,
       findByIdForAssistant: async () => null,
     });
-    expect((await service.setup({ ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" })).channelId).toBe("pending");
+    expect((await service.setup({ ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" })).channelId).toBe(pendingId);
     expect(create).not.toHaveBeenCalled();
   });
 
   it("denies pending reuse when another channel now consumes the only slot", async () => {
+    const pendingId = getManualChannelId("assistant_1", "WHATSAPP");
     const service = createManualChannelSetupService({
       list: async () => [
-        { id: "pending", type: "WHATSAPP", provider: "META_OFFICIAL", status: "PENDING" },
+        { id: pendingId, type: "WHATSAPP", provider: "META_OFFICIAL", status: "PENDING" },
         { id: "connected", type: "WHATSAPP", provider: "META_OFFICIAL", status: "CONNECTED" },
       ],
       create: vi.fn(),
@@ -253,5 +288,40 @@ describe("attributable webhook verification", () => {
     const result = await verifyMetaChannelWebhookSubscription({ channelType: "INSTAGRAM", repository, tenantSlug: "acme", url: "https://x?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=no" });
     expect(result.status).toBe(403);
     expect(mark).not.toHaveBeenCalled();
+  });
+
+  it("transitions exactly the deterministic manual row returned by setup", async () => {
+    const manualId = getManualChannelId("assistant_1", "INSTAGRAM");
+    const rows = [
+      { id: "oauth_channel", type: "INSTAGRAM" as const, provider: "META_OFFICIAL", status: "PENDING", webhookUrl: "https://oauth" },
+      { id: manualId, type: "INSTAGRAM" as const, provider: "META_OFFICIAL", status: "PENDING", webhookUrl: "https://manual" },
+    ];
+    const setupService = createManualChannelSetupService({
+      list: async () => rows,
+      create: vi.fn(),
+      findByIdForAssistant: async (_assistantId, id) => rows.find((row) => row.id === id) ?? null,
+    });
+    const setupContext = context();
+    const setup = await setupService.setup({
+      ...setupContext,
+      context: { ...setupContext.context, entitlement: { ...setupContext.context.entitlement, channelLimits: { ...setupContext.context.entitlement.channelLimits, INSTAGRAM: 2 } } },
+      origin: "https://labs.vase.ar",
+      channelType: "INSTAGRAM",
+    });
+    expect(setup.channelId).toBe(manualId);
+
+    const repository: ChannelWebhookRepository = {
+      findContextByTenantSlug: async () => ({ ...webhookContext, channel: { ...webhookContext.channel!, id: "oauth_channel" } }),
+      findManualSubscriptionContext: async () => ({ ...webhookContext, channel: { ...webhookContext.channel!, id: manualId } }),
+      persistInboundMessage: vi.fn(),
+      markSubscriptionVerified: async (target) => {
+        const row = rows.find((candidate) => candidate.id === target.channel?.id);
+        if (row) row.status = "CONNECTED";
+      },
+    };
+    const key = generateMetaWebhookVerifyToken("tenant_global_1");
+    await verifyMetaChannelWebhookSubscription({ channelType: "INSTAGRAM", repository, tenantSlug: "acme", url: `https://x?hub.mode=subscribe&hub.verify_token=${key}&hub.challenge=ok` });
+    expect(rows.find((row) => row.id === manualId)?.status).toBe("CONNECTED");
+    expect(rows.find((row) => row.id === "oauth_channel")?.status).toBe("PENDING");
   });
 });
