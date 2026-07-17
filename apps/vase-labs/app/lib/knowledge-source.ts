@@ -11,6 +11,15 @@ export type ParsedKnowledgeInput =
 
 const allowedExtensions = new Set(["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt"]);
 
+export function isHttpUrl(value: string) {
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function parseKnowledgeInput(input: unknown): ParsedKnowledgeInput {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new Error("KNOWLEDGE_INPUT_INVALID");
@@ -35,12 +44,7 @@ export function parseKnowledgeInput(input: unknown): ParsedKnowledgeInput {
 
   if (type === "URL") {
     const url = String(record.url || "").trim();
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("unsupported protocol");
-    } catch {
-      throw new Error("KNOWLEDGE_URL_INVALID");
-    }
+    if (!isHttpUrl(url)) throw new Error("KNOWLEDGE_URL_INVALID");
     return { type, title, url };
   }
 

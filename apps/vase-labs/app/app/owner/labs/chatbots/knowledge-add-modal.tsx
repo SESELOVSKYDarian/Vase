@@ -3,7 +3,7 @@
 import { ArrowLeft, Check, Copy, FileText, HelpCircle, Link2, Plus, Store, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { KnowledgeSourceType } from "../../../../lib/knowledge-source";
+import { isHttpUrl, type KnowledgeSourceType } from "../../../../lib/knowledge-source";
 import { createKnowledgeRequestGuard } from "./knowledge-request-guard";
 
 const choices: { type: KnowledgeSourceType; label: string; icon: typeof FileText }[] = [
@@ -21,6 +21,7 @@ export function KnowledgeAddModal() {
   const [open, setOpen] = useState(false), [step, setStep] = useState(1), [type, setType] = useState<KnowledgeSourceType>();
   const [title, setTitle] = useState(""), [fileName, setFileName] = useState(""), [url, setUrl] = useState("");
   const [question, setQuestion] = useState(""), [answer, setAnswer] = useState("");
+  const [urlError, setUrlError] = useState("");
   const [credentials, setCredentials] = useState<Credentials>();
   const [error, setError] = useState("");
   const [credentialLoading, setCredentialLoading] = useState(false);
@@ -35,7 +36,7 @@ export function KnowledgeAddModal() {
   const close = useCallback(() => {
     requests.invalidate();
     setOpen(false); setStep(1); setType(undefined);
-    setTitle(""); setFileName(""); setUrl(""); setQuestion(""); setAnswer("");
+    setTitle(""); setFileName(""); setUrl(""); setQuestion(""); setAnswer(""); setUrlError("");
     setCredentials(undefined); setError(""); setCredentialLoading(false); setSubmitting(false); setCopyMessage("");
     requestAnimationFrame(() => openButton.current?.focus());
   }, [requests]);
@@ -58,6 +59,11 @@ export function KnowledgeAddModal() {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault(); if (!type) return;
+    if (type === "URL" && !isHttpUrl(url)) {
+      setUrlError("Ingresá una URL que comience con http:// o https://.");
+      return;
+    }
+    setUrlError("");
     const ticket = requests.start("submit");
     if (!ticket) return;
     setSubmitting(true); setError("");
@@ -122,7 +128,7 @@ export function KnowledgeAddModal() {
         {step === 1 ? <div className="labs-source-grid">{choices.map(({ type: choiceType, label, icon: Icon }) => <button key={choiceType} className="labs-source-choice" onClick={() => void select(choiceType)}><Icon size={20} /><span>{label}</span></button>)}</div> :
           <form onSubmit={submit} className="labs-knowledge-form">
             {type === "FILE" && <><label>Título<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Opcional; usaremos el nombre del archivo" /></label><label>Archivo<input required type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")} /></label><p className="labs-form-note">Al guardar, el archivo quedará en cola para procesamiento.</p></>}
-            {type === "URL" && <><label>Título<input required value={title} onChange={(e) => setTitle(e.target.value)} /></label><label>URL<input required type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" /></label></>}
+            {type === "URL" && <><label>Título<input required value={title} onChange={(e) => setTitle(e.target.value)} /></label><label>URL<input required type="url" value={url} onChange={(e) => { setUrl(e.target.value); setUrlError(""); }} placeholder="https://" aria-invalid={Boolean(urlError)} aria-describedby={urlError ? "knowledge-url-error" : undefined} /></label>{urlError ? <p id="knowledge-url-error" className="labs-modal-error">{urlError}</p> : null}</>}
             {type === "FAQ" && <><label>Título<input required value={title} onChange={(e) => setTitle(e.target.value)} /></label><label>Pregunta<input required value={question} onChange={(e) => setQuestion(e.target.value)} /></label><label>Respuesta<textarea required value={answer} onChange={(e) => setAnswer(e.target.value)} rows={4} /></label></>}
             {type === "VASE_MANAGEMENT" && <p className="labs-form-note">La conexión con Vase Management queda activa y la sincronización del catálogo se gestiona en segundo plano.</p>}
             {type === "EXTERNAL_MANAGEMENT" && <div className="labs-credentials">

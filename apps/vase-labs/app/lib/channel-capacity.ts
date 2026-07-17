@@ -18,7 +18,7 @@ export function getManualChannelCapacity(limits: LabsChannelLimits, channels: Ch
     (["WHATSAPP", "INSTAGRAM", "FACEBOOK"] as const).map((type) => {
       const included = limits[type] > 0;
       const used = included && channels.some((channel) =>
-        (channel.id === getManualChannelId(assistantId, type) || channel.id === undefined) && channel.type === type && channel.status !== "DISCONNECTED",
+        (channel.id === getManualChannelId(assistantId, type) || channel.id === undefined) && channel.type === type,
       ) ? 1 : 0;
       const limit = included ? 1 : 0;
       return [type, { limit, used, remaining: Math.max(0, limit - used) }];

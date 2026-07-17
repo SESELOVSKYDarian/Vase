@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getChannelCapacity, getManualChannelCapacity } from "../apps/vase-labs/app/lib/channel-capacity";
 import { getManualChannelId } from "../apps/vase-labs/app/lib/channel-manual-id";
+import { deriveManualChannelStates } from "../apps/vase-labs/app/lib/channel-queries";
 
 describe("Labs channel capacity", () => {
   it("reports remaining capacity independently for each channel type", () => {
@@ -34,5 +35,15 @@ describe("Labs channel capacity", () => {
     );
     expect(result.INSTAGRAM).toEqual({ limit: 1, used: 1, remaining: 0 });
     expect(result.FACEBOOK).toEqual({ limit: 1, used: 0, remaining: 1 });
+  });
+
+  it.each(["PENDING", "CONNECTED", "DISCONNECTED", "ERROR"])("treats an extant %s manual row as occupying the slot", (status) => {
+    const [manual] = deriveManualChannelStates([
+      { id: "legacy", type: "WHATSAPP", status, config: { manualWebhook: true } },
+      { id: "oauth", type: "INSTAGRAM", status: "CONNECTED", config: {} },
+    ]);
+    const result = getManualChannelCapacity({ WHATSAPP: 2, INSTAGRAM: 2, FACEBOOK: 2 }, [manual!], "assistant_1");
+    expect(result.WHATSAPP).toEqual({ limit: 1, used: 1, remaining: 0 });
+    expect(result.INSTAGRAM).toEqual({ limit: 1, used: 0, remaining: 1 });
   });
 });

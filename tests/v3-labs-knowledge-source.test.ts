@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   groupKnowledgeItems,
+  isHttpUrl,
   parseKnowledgeInput,
 } from "../apps/vase-labs/app/lib/knowledge-source";
 
 describe("Labs knowledge source rules", () => {
+  it.each([
+    ["https://vase.ar/docs", true], ["http://localhost:3000/docs", true],
+    ["ftp://vase.ar/file", false], ["mailto:hola@vase.ar", false], ["javascript:alert(1)", false],
+  ])("identifies HTTP(S) URL %s as %s", (url, expected) => expect(isHttpUrl(url)).toBe(expected));
+
   it.each([
     "manual.pdf",
     "manual.doc",

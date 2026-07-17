@@ -39,14 +39,20 @@ export async function listRedactedOfficialChannels(
   );
 }
 
+type ManualStateSource = { id: string; type: RedactedChannelSummary["type"]; status: string; config: unknown };
+
+export function deriveManualChannelStates(channels: ManualStateSource[]) {
+  return channels.map((channel) => {
+    const marked = channel.config && typeof channel.config === "object" && !Array.isArray(channel.config) &&
+      (channel.config as Record<string, unknown>).manualWebhook === true;
+    return marked ? { type: channel.type, status: channel.status } : { id: channel.id, type: channel.type, status: channel.status };
+  });
+}
+
 export async function listManualChannelStates(prisma: PrismaClient, assistantId: string) {
   const channels = await prisma.channel.findMany({
     where: { assistantId, provider: "META_OFFICIAL" },
     select: { id: true, type: true, status: true, config: true },
   });
-  return channels.flatMap((channel) => {
-    const marked = channel.config && typeof channel.config === "object" && !Array.isArray(channel.config) &&
-      (channel.config as Record<string, unknown>).manualWebhook === true;
-    return marked ? [{ type: channel.type, status: channel.status }] : [{ id: channel.id, type: channel.type, status: channel.status }];
-  });
+  return deriveManualChannelStates(channels);
 }
