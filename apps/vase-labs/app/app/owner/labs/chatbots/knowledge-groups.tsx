@@ -2,14 +2,16 @@ import type { KnowledgeSourceType } from "../../../../lib/knowledge-source";
 import { LabsStatusPill } from "../labs-ui";
 
 type Item = { id: string; title: string; status: string; updatedAt: Date };
-type Group = { type: KnowledgeSourceType; items: Item[] };
+type KnowledgeGroupType = KnowledgeSourceType | "OTROS";
+type Group = { type: KnowledgeGroupType; items: Item[] };
 
-const labels: Record<KnowledgeSourceType, string> = {
+const labels: Record<KnowledgeGroupType, string> = {
   FILE: "Documentos y archivos",
   URL: "URLs",
   FAQ: "Preguntas frecuentes",
   VASE_MANAGEMENT: "Vase Management",
   EXTERNAL_MANAGEMENT: "Sistema de gestión externo",
+  OTROS: "Otros",
 };
 
 function tone(status: string): "neutral" | "success" | "warning" | "danger" {

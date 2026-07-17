@@ -90,4 +90,15 @@ describe("Labs knowledge source rules", () => {
     expect(groups[0]?.items).toEqual([fileItem]);
     expect(groups[1]?.items).toEqual(faqItems);
   });
+
+  it("keeps unknown legacy source types in an Otros group after canonical groups", () => {
+    const groups = groupKnowledgeItems([
+      { id: "legacy-1", sourceType: "LEGACY_CRM" },
+      { id: "url-1", sourceType: "URL" },
+      { id: "legacy-2", sourceType: "OLD_IMPORT" },
+    ]);
+
+    expect(groups.map((group) => group.type)).toEqual(["URL", "OTROS"]);
+    expect(groups[1]?.items.map((item) => item.id)).toEqual(["legacy-1", "legacy-2"]);
+  });
 });

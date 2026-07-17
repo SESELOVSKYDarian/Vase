@@ -56,8 +56,10 @@ export function parseKnowledgeInput(input: unknown): ParsedKnowledgeInput {
 }
 
 export function groupKnowledgeItems<T extends { sourceType: string }>(items: T[]) {
-  return knowledgeSourceTypes.flatMap((type) => {
+  const canonicalGroups: Array<{ type: KnowledgeSourceType | "OTROS"; items: T[] }> = knowledgeSourceTypes.flatMap((type) => {
     const groupedItems = items.filter((item) => item.sourceType === type);
     return groupedItems.length ? [{ type, items: groupedItems }] : [];
   });
+  const legacyItems = items.filter((item) => !knowledgeSourceTypes.includes(item.sourceType as KnowledgeSourceType));
+  return legacyItems.length ? [...canonicalGroups, { type: "OTROS" as const, items: legacyItems }] : canonicalGroups;
 }

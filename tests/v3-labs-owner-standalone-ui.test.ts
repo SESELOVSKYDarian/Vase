@@ -33,6 +33,8 @@ describe("Vase Labs standalone owner experience", () => {
     expect(modal).not.toContain("Consumer Secret");
     expect(modal).not.toContain("OAuth");
     expect(modal).toContain('role="dialog"');
+    expect(modal).toContain("data-step-focus");
+    expect(modal).toContain("stepHeading.current?.focus()");
     expect(modal).toContain("router.refresh()");
     expect(groups).toContain("Vase Management");
     expect(groups).toContain("Sistema de gestión externo");
