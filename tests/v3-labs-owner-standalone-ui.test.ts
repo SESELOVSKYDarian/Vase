@@ -35,6 +35,8 @@ describe("Vase Labs standalone owner experience", () => {
     expect(modal).toContain('role="dialog"');
     expect(modal).toContain("data-step-focus");
     expect(modal).toContain("stepHeading.current?.focus()");
+    expect(modal).toContain("function backToSources()");
+    expect(modal).toContain("onClick={backToSources}");
     expect(modal).toContain("router.refresh()");
     expect(groups).toContain("Vase Management");
     expect(groups).toContain("Sistema de gestión externo");

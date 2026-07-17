@@ -37,4 +37,17 @@ describe("knowledge modal request guard", () => {
     guard.finish(current);
     expect(guard.start("credentials")).not.toBeNull();
   });
+
+  it("allows an immediate fresh credential request after Back invalidates loading", () => {
+    const guard = createKnowledgeRequestGuard();
+    const beforeBack = guard.start("credentials");
+    if (!beforeBack) throw new Error("expected loading request");
+
+    guard.invalidate();
+    const afterReselect = guard.start("credentials");
+
+    expect(beforeBack.signal.aborted).toBe(true);
+    expect(afterReselect).not.toBeNull();
+    expect(afterReselect?.generation).toBeGreaterThan(beforeBack.generation);
+  });
 });

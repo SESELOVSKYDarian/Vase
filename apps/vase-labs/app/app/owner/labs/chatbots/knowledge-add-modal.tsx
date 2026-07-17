@@ -88,6 +88,15 @@ export function KnowledgeAddModal() {
     }
   }
 
+  function backToSources() {
+    requests.invalidate();
+    setCredentialLoading(false);
+    setCredentials(undefined);
+    setError("");
+    setCopyMessage("");
+    setStep(1);
+  }
+
   function trapFocus(event: React.KeyboardEvent) {
     if (event.key !== "Tab") return;
     const controls = dialog.current?.querySelectorAll<HTMLElement>('[data-step-focus], button:not([disabled]), input:not([disabled]), textarea:not([disabled])');
@@ -126,7 +135,7 @@ export function KnowledgeAddModal() {
             </div>}
             {error && <p className="labs-modal-error" role="alert">{error}</p>}<p className="sr-only" aria-live="polite">{copyMessage}</p>
             <footer className="labs-modal-actions">
-              <button type="button" className="labs-button-secondary" onClick={() => setStep(1)} disabled={submitting}><ArrowLeft size={16} />Volver</button>
+              <button type="button" className="labs-button-secondary" onClick={backToSources} disabled={submitting}><ArrowLeft size={16} />Volver</button>
               <button className="labs-button-primary" disabled={submitting || credentialLoading || (type === "EXTERNAL_MANAGEMENT" && !credentials)}>
                 {submitting ? "Guardando…" : <><Check size={16} />Agregar fuente</>}
               </button>
