@@ -17,6 +17,9 @@ export function createChannelSetupPostHandler(dependencies: {
     try {
       const resolved = await dependencies.resolveContext(request.headers.get("cookie"));
       const body = await request.json().catch(() => null);
+      if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).length !== 1 || !("channelType" in body)) {
+        return NextResponse.json({ error: "CHANNEL_INPUT_INVALID" }, { status: 400 });
+      }
       const channelType = labsChannelSchema.parse(body?.channelType);
       const result = await dependencies.setup({
         origin: new URL(request.url).origin,
@@ -46,6 +49,7 @@ const service = createManualChannelSetupService({
   async create(input) {
     return labsPrisma.channel.create({
       data: {
+        id: input.id,
         assistantId: input.assistantId,
         type: input.channelType,
         provider: "META_OFFICIAL",

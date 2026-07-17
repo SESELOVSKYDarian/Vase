@@ -93,12 +93,10 @@ describe("manual channel setup", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("setup route trusts only resolved tenant fields and returns the redacted contract", async () => {
+  it("setup route accepts exactly channelType and returns the redacted contract", async () => {
     const setup = vi.fn().mockResolvedValue({ channelId: "channel_1", webhookUrl: "https://hook", webhookKey: "server-key" });
     const handler = createChannelSetupPostHandler({ resolveContext: async () => context(), setup });
-    const response = await handler(request("/api/labs/channels/setup", {
-      channelType: "WHATSAPP", assistantId: "evil", globalTenantId: "evil", tenantSlug: "evil", webhookKey: "evil",
-    }));
+    const response = await handler(request("/api/labs/channels/setup", { channelType: "WHATSAPP" }));
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ channelId: "channel_1", webhookUrl: "https://hook", webhookKey: "server-key" });
@@ -106,6 +104,91 @@ describe("manual channel setup", () => {
       assistant: { id: "assistant_1" },
       context: expect.objectContaining({ globalTenantId: "tenant_global_1", tenantSlug: "acme team" }),
     }));
+  });
+
+  it.each([
+    null,
+    [],
+    { channelType: "WHATSAPP", tenantSlug: "evil" },
+    { channelType: "WHATSAPP", assistantId: "evil" },
+    { channelType: "WHATSAPP", webhookKey: "evil" },
+    { channelType: "WHATSAPP", webhookUrl: "https://evil" },
+  ])("rejects setup bodies other than exactly channelType: %j", async (body) => {
+    const setup = vi.fn();
+    const handler = createChannelSetupPostHandler({ resolveContext: async () => context(), setup });
+    const response = await handler(request("/api/labs/channels/setup", body));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "CHANNEL_INPUT_INVALID" });
+    expect(setup).not.toHaveBeenCalled();
+  });
+
+  it("denies reuse when the channel entitlement has been revoked", async () => {
+    const service = createManualChannelSetupService({
+      list: async () => [{ id: "pending", type: "WHATSAPP", provider: "META_OFFICIAL", status: "PENDING" }],
+      create: vi.fn(),
+      findByIdForAssistant: async () => null,
+    });
+    await expect(service.setup({
+      ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP",
+      context: { ...context().context, entitlement: { enabledChannels: [] as const, channelLimits: { WHATSAPP: 0, INSTAGRAM: 1, FACEBOOK: 1 } } },
+    })).rejects.toThrow("CHANNEL_NOT_INCLUDED");
+  });
+
+  it("allows retry of its own pending row when that row consumes the only slot", async () => {
+    const create = vi.fn();
+    const service = createManualChannelSetupService({
+      list: async () => [{ id: "pending", type: "WHATSAPP", provider: "META_OFFICIAL", status: "PENDING" }],
+      create,
+      findByIdForAssistant: async () => null,
+    });
+    expect((await service.setup({ ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" })).channelId).toBe("pending");
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("denies pending reuse when another channel now consumes the only slot", async () => {
+    const service = createManualChannelSetupService({
+      list: async () => [
+        { id: "pending", type: "WHATSAPP", provider: "META_OFFICIAL", status: "PENDING" },
+        { id: "connected", type: "WHATSAPP", provider: "META_OFFICIAL", status: "CONNECTED" },
+      ],
+      create: vi.fn(),
+      findByIdForAssistant: async () => null,
+    });
+    await expect(service.setup({ ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" })).rejects.toThrow("CHANNEL_LIMIT_REACHED");
+  });
+
+  it("does not mistake unrelated create failures for idempotency conflicts", async () => {
+    const service = createManualChannelSetupService({
+      list: async () => [],
+      create: async () => { throw Object.assign(new Error("database unavailable"), { code: "P1001" }); },
+      findByIdForAssistant: vi.fn(),
+    });
+    await expect(service.setup({ ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" })).rejects.toThrow("database unavailable");
+  });
+
+  it("concurrent setup calls converge on one deterministic manual channel", async () => {
+    const records: ManualChannelRecord[] = [];
+    let createCalls = 0;
+    const repository = {
+      list: async () => [],
+      async create(input: { id: string; assistantId: string; channelType: "WHATSAPP"; webhookUrl: string }) {
+        createCalls += 1;
+        await Promise.resolve();
+        if (records.some((record) => record.id === input.id)) throw Object.assign(new Error("unique"), { code: "P2002" });
+        const record = { id: input.id, type: input.channelType, provider: "META_OFFICIAL", status: "PENDING", webhookUrl: input.webhookUrl };
+        records.push(record);
+        return record;
+      },
+      async findByIdForAssistant(_assistantId: string, channelId: string) {
+        return records.find((record) => record.id === channelId) ?? null;
+      },
+    };
+    const service = createManualChannelSetupService(repository);
+    const input = { ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" as const };
+    const [first, second] = await Promise.all([service.setup(input), service.setup(input)]);
+    expect(first).toEqual(second);
+    expect(records).toHaveLength(1);
+    expect(createCalls).toBe(2);
   });
 
   it("uses exact auth mappings and sanitizes setup internals", async () => {

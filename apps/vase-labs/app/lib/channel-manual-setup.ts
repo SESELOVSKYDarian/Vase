@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { LabsChannel, LabsChannelLimits } from "@vase/contracts";
 import { getChannelCapacity } from "./channel-capacity";
 import { resolveMetaWebhookVerifyToken } from "./meta-webhook";
@@ -13,7 +14,7 @@ export type ManualChannelRecord = {
 
 export interface ManualChannelRepository {
   list(assistantId: string): Promise<ManualChannelRecord[]>;
-  create(input: { assistantId: string; channelType: LabsChannel; webhookUrl: string }): Promise<ManualChannelRecord>;
+  create(input: { id: string; assistantId: string; channelType: LabsChannel; webhookUrl: string }): Promise<ManualChannelRecord>;
   findByIdForAssistant(assistantId: string, channelId: string): Promise<ManualChannelRecord | null>;
 }
 
@@ -32,6 +33,19 @@ export type ManualChannelVerifyResult =
   | { status: "CONNECTED" }
   | { status: "PENDING"; message: string }
   | { status: "ERROR"; message: string };
+
+export function getManualChannelId(assistantId: string, channelType: LabsChannel) {
+  const digest = createHash("sha256").update(`${assistantId}\0${channelType}`).digest("hex").slice(0, 32);
+  return `manual_${digest}`;
+}
+
+function isUniqueConflict(error: unknown): error is { code: "P2002" } {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
+}
+
+function isReusableManualChannel(record: ManualChannelRecord | null, channelType: LabsChannel) {
+  return Boolean(record && record.type === channelType && record.provider === "META_OFFICIAL" && record.status === "PENDING");
+}
 
 export function buildManualChannelSetup(input: {
   origin: string;
@@ -61,7 +75,6 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
         channel.provider === "META_OFFICIAL" &&
         channel.status === "PENDING",
       );
-      if (pending) return { channelId: pending.id, ...manual };
 
       const fallback = Object.fromEntries(
         (["WHATSAPP", "INSTAGRAM", "FACEBOOK"] as const).map((type) => [
@@ -69,18 +82,41 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
           input.context.entitlement.enabledChannels.includes(type) ? 1 : 0,
         ]),
       ) as LabsChannelLimits;
-      const capacity = getChannelCapacity(input.context.entitlement.channelLimits ?? fallback, channels.map((channel) => ({
+      const limits = input.context.entitlement.channelLimits ?? fallback;
+      if (!input.context.entitlement.enabledChannels.includes(input.channelType) || limits[input.channelType] === 0) {
+        throw new Error("CHANNEL_NOT_INCLUDED");
+      }
+      const channelStates = channels.map((channel) => ({
         type: channel.type ?? input.channelType,
         status: channel.status,
-      })))[input.channelType];
-      if (capacity.limit === 0) throw new Error("CHANNEL_NOT_INCLUDED");
+        id: channel.id,
+      }));
+      if (pending) {
+        const reuseCapacity = getChannelCapacity(
+          limits,
+          channelStates.filter((channel) => channel.id !== pending.id),
+        )[input.channelType];
+        if (reuseCapacity.remaining === 0) throw new Error("CHANNEL_LIMIT_REACHED");
+        return { channelId: pending.id, ...manual };
+      }
+      const capacity = getChannelCapacity(limits, channelStates)[input.channelType];
       if (capacity.remaining === 0) throw new Error("CHANNEL_LIMIT_REACHED");
 
-      const created = await repository.create({
-        assistantId: input.assistant.id,
-        channelType: input.channelType,
-        webhookUrl: manual.webhookUrl,
-      });
+      const manualChannelId = getManualChannelId(input.assistant.id, input.channelType);
+      let created: ManualChannelRecord;
+      try {
+        created = await repository.create({
+          id: manualChannelId,
+          assistantId: input.assistant.id,
+          channelType: input.channelType,
+          webhookUrl: manual.webhookUrl,
+        });
+      } catch (error) {
+        if (!isUniqueConflict(error)) throw error;
+        const conflicted = await repository.findByIdForAssistant(input.assistant.id, manualChannelId);
+        if (!isReusableManualChannel(conflicted, input.channelType)) throw error;
+        created = conflicted!;
+      }
       return { channelId: created.id, ...manual };
     },
 
