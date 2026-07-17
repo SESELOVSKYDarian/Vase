@@ -218,7 +218,7 @@ describe("GET /api/labs/external-management-credentials", () => {
     const response = await GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials?globalTenantId=tenant_attacker"));
     expect(fetchUpstream).toHaveBeenCalledWith(
       "https://teflon.internal/api/v1/integrations/internal/tenant/tenant%2Fresolved/product-sync-credentials",
-      { headers: { authorization: "Bearer service-token" } },
+      { headers: { authorization: "Bearer service-token" }, signal: expect.any(AbortSignal) },
     );
     expect(await response.json()).toEqual({ domain: "business.vase.ar", tenantUuid: "tenant/resolved", consumerKey: "consumer-key" });
   });
@@ -233,5 +233,48 @@ describe("GET /api/labs/external-management-credentials", () => {
     const response = await handler(upstream).GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
     expect(response.status).toBe(status);
     expect(await response.json()).toEqual({ error: "EXTERNAL_MANAGEMENT_CREDENTIALS_UNAVAILABLE" });
+  });
+
+  it.each([
+    ["LABS_SESSION_REQUIRED", 401],
+    ["LABS_SESSION_INVALID", 401],
+    ["LABS_SESSION_EXPIRED", 401],
+    ["LABS_TENANT_FORBIDDEN", 403],
+  ])("maps context error %s without calling upstream", async (error, status) => {
+    const fetchUpstream = vi.fn();
+    const GET = createExternalManagementCredentialsGetHandler({
+      resolveContext: async () => { throw new Error(error); },
+      fetchUpstream,
+      teflonApiUrl: "https://teflon.internal",
+      serviceToken: "service-token",
+    });
+    const response = await GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual({ error });
+    expect(fetchUpstream).not.toHaveBeenCalled();
+  });
+
+  it("aborts a stalled upstream request and returns a sanitized error", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchUpstream = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("timed out with secret", "AbortError")));
+      }));
+      const GET = createExternalManagementCredentialsGetHandler({
+        resolveContext: async () => ({ context: { globalTenantId: "tenant_123" } }),
+        fetchUpstream: fetchUpstream as typeof fetch,
+        teflonApiUrl: "https://teflon.internal",
+        serviceToken: "service-token",
+        upstreamTimeoutMs: 25,
+      });
+      const pending = GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
+      await vi.advanceTimersByTimeAsync(25);
+      const response = await pending;
+      expect(response.status).toBe(502);
+      expect(await response.json()).toEqual({ error: "EXTERNAL_MANAGEMENT_CREDENTIALS_UNAVAILABLE" });
+      expect(fetchUpstream.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -6,6 +6,7 @@ type Dependencies = {
   fetchUpstream: typeof fetch;
   teflonApiUrl: string | undefined;
   serviceToken: string | undefined;
+  upstreamTimeoutMs?: number;
 };
 
 const unavailable = () => NextResponse.json(
@@ -15,8 +16,21 @@ const unavailable = () => NextResponse.json(
 
 export function createExternalManagementCredentialsGetHandler(dependencies: Dependencies) {
   return async function GET(request: Request) {
+    let resolved: { context: { globalTenantId: string } };
     try {
-      const resolved = await dependencies.resolveContext(request.headers.get("cookie"));
+      resolved = await dependencies.resolveContext(request.headers.get("cookie"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (["LABS_SESSION_REQUIRED", "LABS_SESSION_INVALID", "LABS_SESSION_EXPIRED"].includes(message)) {
+        return NextResponse.json({ error: message }, { status: 401 });
+      }
+      if (message === "LABS_TENANT_FORBIDDEN") {
+        return NextResponse.json({ error: message }, { status: 403 });
+      }
+      return unavailable();
+    }
+
+    try {
       const tenantId = resolved.context.globalTenantId?.trim();
       const baseUrl = dependencies.teflonApiUrl?.trim();
       const serviceToken = dependencies.serviceToken?.trim();
@@ -28,9 +42,20 @@ export function createExternalManagementCredentialsGetHandler(dependencies: Depe
       );
       if (url.protocol !== "http:" && url.protocol !== "https:") return unavailable();
 
-      const upstream = await dependencies.fetchUpstream(url.toString(), {
-        headers: { authorization: `Bearer ${serviceToken}` },
-      });
+      const abortController = new AbortController();
+      const timeout = setTimeout(
+        () => abortController.abort(),
+        dependencies.upstreamTimeoutMs ?? 5_000,
+      );
+      let upstream: Response;
+      try {
+        upstream = await dependencies.fetchUpstream(url.toString(), {
+          headers: { authorization: `Bearer ${serviceToken}` },
+          signal: abortController.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
       if (!upstream.ok) return unavailable();
 
       const payload: unknown = await upstream.json();
