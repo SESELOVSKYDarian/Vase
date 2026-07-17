@@ -93,17 +93,33 @@ describe("POST /api/labs/knowledge", () => {
     expect(await response.json()).toEqual({ error });
   });
 
-  it("maps session failures consistently and hides unexpected internals", async () => {
-    const sessionResponse = await handler({ resolveError: new Error("LABS_SESSION_REQUIRED") }).POST(
-      new Request("https://labs.vase.ar/api/labs/knowledge", { method: "POST", body: "{}" }),
-    );
-    expect(sessionResponse.status).toBe(401);
-    expect(await sessionResponse.json()).toEqual({ error: "LABS_SESSION_REQUIRED" });
+  it.each(["LABS_SESSION_REQUIRED", "LABS_SESSION_INVALID", "LABS_SESSION_EXPIRED"])(
+    "maps the exact known auth code %s to 401",
+    async (error) => {
+      const response = await handler({ resolveError: new Error(error) }).POST(
+        new Request("https://labs.vase.ar/api/labs/knowledge", { method: "POST", body: "{}" }),
+      );
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error });
+    },
+  );
 
-    const internalResponse = await handler({ resolveError: new Error("database password leaked") }).POST(
+  it("maps the exact tenant authorization code to 403", async () => {
+    const response = await handler({ resolveError: new Error("LABS_TENANT_FORBIDDEN") }).POST(
       new Request("https://labs.vase.ar/api/labs/knowledge", { method: "POST", body: "{}" }),
     );
-    expect(internalResponse.status).toBe(500);
-    expect(await internalResponse.json()).toEqual({ error: "KNOWLEDGE_CREATE_FAILED" });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "LABS_TENANT_FORBIDDEN" });
+  });
+
+  it.each([
+    "database SESSION password leaked",
+    "internal TENANT_FORBIDDEN diagnostic leaked",
+  ])("hides deceptive internal message: %s", async (error) => {
+    const response = await handler({ resolveError: new Error(error) }).POST(
+      new Request("https://labs.vase.ar/api/labs/knowledge", { method: "POST", body: "{}" }),
+    );
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "KNOWLEDGE_CREATE_FAILED" });
   });
 });

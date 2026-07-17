@@ -14,6 +14,12 @@ const validationErrors = new Set([
   "KNOWLEDGE_URL_INVALID",
   "KNOWLEDGE_FAQ_INVALID",
 ]);
+const authenticationErrors = new Set([
+  "LABS_SESSION_REQUIRED",
+  "LABS_SESSION_INVALID",
+  "LABS_SESSION_EXPIRED",
+]);
+const authorizationErrors = new Set(["LABS_TENANT_FORBIDDEN"]);
 
 export function createKnowledgePostHandler(dependencies: KnowledgePostDependencies) {
   return async function POST(request: Request) {
@@ -33,10 +39,10 @@ export function createKnowledgePostHandler(dependencies: KnowledgePostDependenci
       if (validationErrors.has(message)) {
         return NextResponse.json({ error: message }, { status: 400 });
       }
-      if (message.includes("SESSION")) {
+      if (authenticationErrors.has(message)) {
         return NextResponse.json({ error: message }, { status: 401 });
       }
-      if (message === "FORBIDDEN" || message.includes("TENANT_FORBIDDEN")) {
+      if (authorizationErrors.has(message)) {
         return NextResponse.json({ error: message }, { status: 403 });
       }
       return NextResponse.json({ error: "KNOWLEDGE_CREATE_FAILED" }, { status: 500 });
