@@ -4,7 +4,7 @@ import type { LabsChannel } from "@vase/contracts";
 import { ArrowLeft, ArrowRight, Check, Copy, LockKeyhole, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { createKnowledgeRequestGuard } from "../chatbots/knowledge-request-guard";
+import { buildChannelSetupRequest, buildChannelVerifyRequest, createChannelUiFlow } from "./channel-ui-flow";
 
 type Capacity = Record<LabsChannel, { limit: number; used: number; remaining: number }>;
 type Setup = { channelId: string; webhookUrl: string; webhookKey: string };
@@ -27,7 +27,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
   const openButton = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLElement>(null);
   const stepHeading = useRef<HTMLHeadingElement>(null);
-  const requests = useRef(createKnowledgeRequestGuard()).current;
+  const requests = useRef(createChannelUiFlow()).current;
 
   function reset() {
     setStep(1); setSelected(null); setSetup(null); setError(""); setNotice(""); setLoading(false);
@@ -55,8 +55,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
     setStep(2); setSetup(null); setError(""); setNotice(""); setLoading(true);
     try {
       const response = await fetch("/api/labs/channels/setup", {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ channelType: selected }), signal: ticket.signal,
+        ...buildChannelSetupRequest(selected), signal: ticket.signal,
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || typeof payload.channelId !== "string" || typeof payload.webhookUrl !== "string" || typeof payload.webhookKey !== "string") throw new Error();
@@ -71,20 +70,21 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
 
   async function verify() {
     if (!setup) return;
-    const ticket = requests.start("verify");
+    const ticket = requests.startVerify();
     if (!ticket) return;
     setLoading(true); setError(""); setNotice("");
     try {
       const response = await fetch("/api/labs/channels/verify", {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ channelId: setup.channelId }), signal: ticket.signal,
+        ...buildChannelVerifyRequest(setup.channelId), signal: ticket.signal,
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error();
       if (!requests.isCurrent(ticket)) return;
       if (payload.status === "CONNECTED") {
-        setNotice("Canal conectado correctamente.");
-        router.refresh();
+        requests.scheduleConnected(
+          () => setNotice("Canal conectado correctamente."),
+          () => { router.refresh(); close(); },
+        );
       } else if (payload.status === "PENDING") {
         setNotice("Todavía no detectamos la conexión. Configurá el webhook en Meta y volvé a comprobar.");
       } else {
@@ -98,8 +98,8 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
     }
   }
 
-  async function copy(value: string, label: string, scope: string) {
-    const ticket = requests.start(scope);
+  async function copy(value: string, label: string) {
+    const ticket = requests.startLatestCopy();
     if (!ticket) return;
     try {
       await navigator.clipboard.writeText(value);
@@ -140,8 +140,8 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
           </button>;
         })}</div> : <div className="labs-manual-setup">
           {loading && !setup ? <p>Preparando los datos del canal…</p> : setup ? <>
-            {([["Webhook URL", setup.webhookUrl, "copy-url"], ["Webhook Key", setup.webhookKey, "copy-key"]] as const).map(([label, value, scope]) => <div key={label}>
-              <span>{label}</span><code>{value}</code><button type="button" aria-label={`Copiar ${label}`} onClick={() => void copy(value, label, scope)}><Copy className="size-4" /></button>
+            {([["Webhook URL", setup.webhookUrl], ["Webhook Key", setup.webhookKey]] as const).map(([label, value]) => <div key={label}>
+              <span>{label}</span><code>{value}</code><button type="button" aria-label={`Copiar ${label}`} onClick={() => void copy(value, label)}><Copy className="size-4" /></button>
             </div>)}
           </> : <button className="labs-button labs-button-secondary" type="button" onClick={() => void beginSetup()}>Reintentar</button>}
         </div>}

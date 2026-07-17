@@ -26,10 +26,10 @@ describe("Vase Labs standalone owner experience", () => {
       expect(modal).toContain(label);
     }
     expect(modal).toContain('fetch("/api/labs/channels/setup"');
-    expect(modal).toContain("body: JSON.stringify({ channelType: selected })");
+    expect(modal).toContain("buildChannelSetupRequest(selected)");
     expect(modal).toContain('fetch("/api/labs/channels/verify"');
-    expect(modal).toContain("body: JSON.stringify({ channelId: setup.channelId })");
-    expect(modal).toContain("createKnowledgeRequestGuard");
+    expect(modal).toContain("buildChannelVerifyRequest(setup.channelId)");
+    expect(modal).toContain("createChannelUiFlow");
     expect(modal).toContain("data-step-focus");
     expect(modal).toContain("aria-live=\"polite\"");
     for (const removed of ["/api/v1/meta/connections/start", "authorizationUrl", "window.location", "Continuar con Meta"]) {
