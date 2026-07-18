@@ -143,7 +143,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
       } else setNotice({ kind: "pending", message: "Credenciales y activo validados. Falta que Meta compruebe el webhook." });
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
-      setNotice({ kind: "error", message: code === "META_PERMISSIONS_MISSING" ? "El token no tiene todos los permisos necesarios." : code === "META_ASSET_NOT_AUTHORIZED" ? "Los identificadores no pertenecen a la cuenta autorizada por el token." : "No pudimos validar las credenciales con Meta." });
+      setNotice({ kind: "error", message: code === "META_TOKEN_INVALID" ? "El Access Token es inválido, venció o fue generado para otra aplicación de Meta." : code === "META_PERMISSIONS_MISSING" ? "El token no tiene todos los permisos necesarios." : code === "META_ASSET_NOT_AUTHORIZED" ? "El Phone Number ID, WABA o página no pertenecen a la cuenta autorizada por el token." : "Meta rechazó la consulta del activo. Revisá que el usuario del sistema tenga asignados el WABA, número o página." });
     } finally { setLoading(false); }
   }
 

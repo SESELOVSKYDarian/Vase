@@ -30,6 +30,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
       encrypt: (value) => encryptChannelSecret(value, secret),
       repository: {
         find: (assistantId, id) => labsPrisma.channel.findFirst({ where: { id, assistantId }, select: { id: true, type: true, webhookVerifiedAt: true } }),
+        async stage(data) {
+          const current = await labsPrisma.channel.findUnique({ where: { id: data.channelId }, select: { type: true } });
+          if (!current) throw new Error("CHANNEL_NOT_FOUND");
+          await labsPrisma.$transaction([
+            labsPrisma.channel.update({
+              where: { id: data.channelId },
+              data: {
+                providerAccountId: data.providerAccountId,
+                phoneNumberId: current.type === "WHATSAPP" ? data.providerAccountId : null,
+                wabaId: current.type === "WHATSAPP" ? data.parentId : null,
+                config: { manualWebhook: true, parentId: data.parentId, validationPending: true },
+                status: "PENDING", connectedAt: null, lastError: null,
+              },
+            }),
+            labsPrisma.channelSecret.upsert({
+              where: { channelId_kind: { channelId: data.channelId, kind: "META_ACCESS_TOKEN" } },
+              create: { id: randomUUID(), channelId: data.channelId, kind: "META_ACCESS_TOKEN", encryptedValue: data.encryptedAccessToken },
+              update: { encryptedValue: data.encryptedAccessToken, rotatedAt: new Date() },
+            }),
+          ]);
+        },
+        async fail(id, errorCode) {
+          await labsPrisma.channel.update({ where: { id }, data: { status: "ERROR", lastError: errorCode.slice(0, 160) } });
+        },
         async save(data) {
           const now = new Date();
           await labsPrisma.$transaction([

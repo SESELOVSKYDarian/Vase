@@ -55,7 +55,7 @@ export function ChannelEditModal({ channel }: { channel: Summary }) {
       const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
       setToast(payload.status === "PENDING" ? "Credenciales válidas; falta verificar el webhook" : "Conexión comprobada correctamente");
       await load(); router.refresh();
-    } catch (reason) { setError(reason instanceof Error && reason.message === "META_PERMISSIONS_MISSING" ? "El token no tiene todos los permisos requeridos." : "No pudimos validar la conexión y los activos de Meta."); }
+    } catch (reason) { const code = reason instanceof Error ? reason.message : ""; setError(code === "META_TOKEN_INVALID" ? "El Access Token es inválido, venció o pertenece a otra aplicación de Meta." : code === "META_PERMISSIONS_MISSING" ? "El token no tiene todos los permisos requeridos." : code === "META_ASSET_NOT_AUTHORIZED" ? "Los identificadores no pertenecen al activo autorizado por el token." : "Meta rechazó el acceso al activo. Revisá las asignaciones del usuario del sistema."); }
     finally { setBusy(false); }
   }
   async function disconnect() {

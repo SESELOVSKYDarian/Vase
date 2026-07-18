@@ -53,6 +53,9 @@ export function createMetaGraphClient(input: {
     });
     const payload = asRecord(await response.json().catch(() => ({})));
     if (!response.ok || payload.error) {
+      const providerError = asRecord(payload.error);
+      if (providerError.code === 190) throw new Error("META_TOKEN_INVALID");
+      if (providerError.code === 10 || providerError.code === 200) throw new Error("META_PERMISSIONS_MISSING");
       throw new Error("META_GRAPH_REQUEST_FAILED");
     }
     return payload;
@@ -169,6 +172,55 @@ export function createMetaGraphClient(input: {
   }
 
   return {
+    async resolveManualAsset(params: {
+      channelType: LabsChannel;
+      accessToken: string;
+      providerAccountId: string;
+      parentId: string | null;
+    }): Promise<DiscoveredMetaAsset> {
+      if (params.channelType === "WHATSAPP") {
+        if (!params.parentId) throw new Error("META_ASSET_PARENT_MISSING");
+        const payload = await graphRequest(
+          `/${encodeURIComponent(params.parentId)}/phone_numbers?fields=id,display_phone_number,verified_name`,
+          params.accessToken,
+        );
+        const phone = asArray(payload.data).map(asRecord).find((item) => stringValue(item.id) === params.providerAccountId);
+        if (!phone) throw new Error("META_ASSET_NOT_AUTHORIZED");
+        const displayPhone = stringValue(phone.display_phone_number);
+        return {
+          candidate: {
+            id: params.providerAccountId,
+            kind: "WHATSAPP_PHONE",
+            name: stringValue(phone.verified_name) ?? displayPhone ?? "WhatsApp Business",
+            ...(displayPhone ? { handle: displayPhone } : {}),
+            parentId: params.parentId,
+          },
+          parentId: params.parentId,
+        };
+      }
+
+      const pageId = params.channelType === "FACEBOOK" ? params.providerAccountId : params.parentId;
+      if (!pageId) throw new Error("META_ASSET_PARENT_MISSING");
+      const page = await graphRequest(
+        `/${encodeURIComponent(pageId)}?fields=id,name,username,instagram_business_account{id,name,username}`,
+        params.accessToken,
+      );
+      if (stringValue(page.id) !== pageId) throw new Error("META_ASSET_NOT_AUTHORIZED");
+      const pageName = stringValue(page.name) ?? "Facebook Page";
+      if (params.channelType === "FACEBOOK") {
+        const username = stringValue(page.username);
+        return { candidate: { id: pageId, kind: "FACEBOOK_PAGE", name: pageName, ...(username ? { handle: `@${username}` } : {}) }, accessToken: params.accessToken };
+      }
+      const instagram = asRecord(page.instagram_business_account);
+      if (stringValue(instagram.id) !== params.providerAccountId) throw new Error("META_ASSET_NOT_AUTHORIZED");
+      const username = stringValue(instagram.username);
+      return {
+        candidate: { id: params.providerAccountId, kind: "INSTAGRAM_ACCOUNT", name: stringValue(instagram.name) ?? pageName, ...(username ? { handle: `@${username}` } : {}), parentId: pageId },
+        parentId: pageId,
+        accessToken: params.accessToken,
+      };
+    },
+
     async testConnection(params: {
       channelType: LabsChannel;
       accessToken: string;

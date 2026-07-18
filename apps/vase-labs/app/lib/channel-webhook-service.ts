@@ -345,7 +345,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         assistantId: context.assistantId,
         type: channelType,
         provider: "META_OFFICIAL",
-        status: { in: ["PENDING", "CONNECTED"] },
+        status: { in: ["PENDING", "CONNECTED", "ERROR"] },
       },
     });
     if (!channel) return null;
