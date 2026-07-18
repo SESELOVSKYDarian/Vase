@@ -116,6 +116,18 @@ describe("Meta Graph official channel adapter", () => {
     expect(calls.some((call) => call.url.includes("/page_123/subscribed_apps") && call.method === "POST")).toBe(true);
   });
 
+  it("subscribes a WhatsApp WABA without page subscribed_fields", async () => {
+    const calls: string[] = [];
+    const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"app_123", appSecret:"secret", fetcher: async (url, init) => {
+      calls.push(String(url));
+      if (String(url).includes("/debug_token")) return Response.json({ data:{ is_valid:true, app_id:"app_123", scopes:["whatsapp_business_management","whatsapp_business_messaging"] } });
+      expect(init?.method).toBe("POST"); return Response.json({ success:true });
+    }});
+    await client.verifyAndSubscribe({ channelType:"WHATSAPP", userAccessToken:"token", asset:{ candidate:{ id:"1244514615401381", kind:"WHATSAPP_PHONE", name:"Ventas", parentId:"956541757411319" }, parentId:"956541757411319" } });
+    const subscription = calls.find((url) => url.includes("/956541757411319/subscribed_apps"));
+    expect(subscription).toBe("https://graph.facebook.com/v99.0/956541757411319/subscribed_apps");
+  });
+
   it("tests token health without sending an unsolicited message", async () => {
     const client = createMetaGraphClient({
       graphVersion: "v99.0",

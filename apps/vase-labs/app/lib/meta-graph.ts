@@ -255,8 +255,11 @@ export function createMetaGraphClient(input: {
       }
 
       const fields = SUBSCRIBED_FIELDS[params.channelType].join(",");
+      const subscriptionPath = params.channelType === "WHATSAPP"
+        ? `/${encodeURIComponent(subscriptionTarget)}/subscribed_apps`
+        : `/${encodeURIComponent(subscriptionTarget)}/subscribed_apps?subscribed_fields=${encodeURIComponent(fields)}`;
       await graphRequest(
-        `/${encodeURIComponent(subscriptionTarget)}/subscribed_apps?subscribed_fields=${encodeURIComponent(fields)}`,
+        subscriptionPath,
         accessToken,
         { method: "POST" },
       );
