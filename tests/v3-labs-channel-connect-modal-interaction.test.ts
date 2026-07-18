@@ -60,6 +60,26 @@ describe("ChannelConnectModal interactions", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ channelType: "WHATSAPP" });
     expect(host.textContent).toContain("https://hook");
     expect(host.textContent).toContain("secret-key");
+    await click(button("Configuración avanzada"));
+    expect(host.textContent).toContain("Phone Number ID");
+    expect(host.textContent).toContain("WABA ID");
+    expect(host.textContent).toContain("Access Token");
+  });
+
+  it("submits the required WhatsApp account data from the add flow", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ channelId: "channel_1", webhookUrl: "https://hook", webhookKey: "key" }))
+      .mockResolvedValueOnce(Response.json({ status: "PENDING" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await click(button("Agregar canal")); await click(button("WhatsApp")); await click(button("Continuar"));
+    await click(button("Configuración avanzada"));
+    const inputs = [...host.querySelectorAll("input")];
+    for (const [input, value] of inputs.map((input, index) => [input, ["phone_1", "waba_1", "token_1"][index]!] as const)) {
+      await act(async () => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set; setter?.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); });
+    }
+    await click(button("Guardar y comprobar"));
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/labs/channels/channel_1/connect");
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ channelType:"WHATSAPP", accessToken:"token_1", providerAccountId:"phone_1", parentId:"waba_1" });
   });
 
   it("disables only the exhausted manual type and shows one of one used", async () => {

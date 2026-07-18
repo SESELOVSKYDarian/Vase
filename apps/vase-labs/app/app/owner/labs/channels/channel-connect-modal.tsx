@@ -1,7 +1,7 @@
 "use client";
 
 import type { LabsChannel } from "@vase/contracts";
-import { ArrowLeft, ArrowRight, Check, Copy, LockKeyhole, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy, Eye, LockKeyhole, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildChannelSetupRequest, buildChannelVerifyRequest, createChannelUiFlow } from "./channel-ui-flow";
@@ -15,6 +15,11 @@ const channelMeta: Record<LabsChannel, { label: string; detail: string }> = {
   INSTAGRAM: { label: "Instagram", detail: "Mensajes directos y consultas sociales." },
   FACEBOOK: { label: "Facebook", detail: "Leads y mensajes de tus páginas." },
 };
+const credentialLabels: Record<LabsChannel, { account: string; parent?: string }> = {
+  WHATSAPP: { account: "Phone Number ID", parent: "WABA ID" },
+  INSTAGRAM: { account: "Instagram Professional Account ID", parent: "Facebook Page ID" },
+  FACEBOOK: { account: "Facebook Page ID" },
+};
 
 export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
   const router = useRouter();
@@ -24,6 +29,10 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
   const [setup, setSetup] = useState<Setup | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
+  const [providerAccountId, setProviderAccountId] = useState("");
+  const [parentId, setParentId] = useState("");
+  const [accessToken, setAccessToken] = useState("");
   const openButton = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLElement>(null);
   const stepHeading = useRef<HTMLHeadingElement>(null);
@@ -32,7 +41,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
 
   const reset = useCallback(() => {
     terminalLocked.current = false;
-    setStep(1); setSelected(null); setSetup(null); setNotice(null); setLoading(false);
+    setStep(1); setSelected(null); setSetup(null); setNotice(null); setLoading(false); setAdvanced(false); setProviderAccountId(""); setParentId(""); setAccessToken("");
   }, []);
 
   const close = useCallback((force = false) => {
@@ -115,6 +124,29 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
     } catch { setNotice({ kind: "error", message: "No pudimos iniciar la conexión segura con Meta." }); setLoading(false); }
   }
 
+  async function saveAdvancedConnection() {
+    if (!selected || !setup || !providerAccountId.trim() || !accessToken.trim() || (credentialLabels[selected].parent && !parentId.trim())) return;
+    setLoading(true); setNotice(null);
+    try {
+      const response = await fetch(`/api/labs/channels/${setup.channelId}/connect`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ channelType: selected, accessToken: accessToken.trim(), providerAccountId: providerAccountId.trim(), parentId: credentialLabels[selected].parent ? parentId.trim() : null }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error);
+      setAccessToken("");
+      if (payload.status === "CONNECTED") {
+        requests.scheduleConnected(
+          () => { terminalLocked.current = true; setNotice({ kind: "connected", message: "Canal conectado correctamente." }); },
+          () => { router.refresh(); close(true); },
+        );
+      } else setNotice({ kind: "pending", message: "Credenciales y activo validados. Falta que Meta compruebe el webhook." });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      setNotice({ kind: "error", message: code === "META_PERMISSIONS_MISSING" ? "El token no tiene todos los permisos necesarios." : code === "META_ASSET_NOT_AUTHORIZED" ? "Los identificadores no pertenecen a la cuenta autorizada por el token." : "No pudimos validar las credenciales con Meta." });
+    } finally { setLoading(false); }
+  }
+
   async function copy(value: string, label: string) {
     const ticket = requests.startLatestCopy();
     if (!ticket) return;
@@ -162,6 +194,8 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
             {([["Webhook URL", setup.webhookUrl], ["Webhook Key", setup.webhookKey]] as const).map(([label, value]) => <div key={label}>
               <span>{label}</span><code>{value}</code><button type="button" disabled={notice?.kind === "connected"} aria-label={`Copiar ${label}`} onClick={() => void copy(value, label)}><Copy className="size-4" /></button>
             </div>)}
+            <button className="labs-advanced-toggle" type="button" onClick={() => setAdvanced(!advanced)}><Eye className="size-4" /> {advanced ? "Ocultar configuración avanzada" : "Configuración avanzada"}</button>
+            {advanced && selected ? <div className="labs-advanced-fields"><label>{credentialLabels[selected].account}<input value={providerAccountId} onChange={(event) => setProviderAccountId(event.target.value)} /></label>{credentialLabels[selected].parent ? <label>{credentialLabels[selected].parent}<input value={parentId} onChange={(event) => setParentId(event.target.value)} /></label> : null}<label>Access Token<input type="password" autoComplete="off" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} /></label><button className="labs-button labs-button-secondary" type="button" disabled={loading || !providerAccountId.trim() || !accessToken.trim() || Boolean(credentialLabels[selected].parent && !parentId.trim())} onClick={() => void saveAdvancedConnection()}>Guardar y comprobar</button></div> : null}
           </> : <button className="labs-button labs-button-secondary" type="button" onClick={() => void beginSetup()}>Reintentar</button>}
         </div>}
 
