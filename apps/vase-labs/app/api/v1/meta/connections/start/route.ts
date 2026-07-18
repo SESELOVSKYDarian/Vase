@@ -6,6 +6,7 @@ import { resolveLabsRequestContext } from "../../../../../lib/request-context";
 import { listRedactedOfficialChannels } from "../../../../../lib/channel-queries";
 import { assertChannelCapacity } from "../../../../../lib/channel-capacity";
 import { labsPrisma } from "../../../../../lib/db";
+import { getManualChannelId } from "../../../../../lib/channel-manual-setup";
 
 export async function POST(request: Request) {
   try {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     assertChannelCapacity({
       channelType,
       limits: context.entitlement.channelLimits ?? fallbackLimits,
-      channels,
+      channels: channels.filter((channel) => channel.id !== getManualChannelId(assistant.id, channelType)),
     });
 
     if (channelType === "WHATSAPP" && !process.env.META_WHATSAPP_CONFIG_ID?.trim()) {

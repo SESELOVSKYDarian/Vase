@@ -304,6 +304,17 @@ describe("manual channel setup", () => {
     }
   });
 
+  it("does not report connected when credentials are missing", async () => {
+    const service = createManualChannelSetupService({
+      list: async () => [], create: vi.fn(),
+      findByIdForAssistant: async () => ({ id: "c", status: "CONNECTED", lastError: null, credentialsPresent: false }),
+    });
+    expect(await service.verify("assistant_1", "c")).toEqual({
+      status: "ERROR",
+      message: "Faltan las credenciales de Meta.",
+    });
+  });
+
   it("verify route validates body, isolates tenants, and maps auth safely", async () => {
     const verify = vi.fn().mockRejectedValue(new Error("CHANNEL_NOT_FOUND"));
     const handler = createChannelVerifyPostHandler({ resolveContext: async () => context(), verify });
@@ -320,9 +331,9 @@ describe("attributable webhook verification", () => {
     channelType: "INSTAGRAM", channel: { id: "channel_1", provider: "META_OFFICIAL", status: "PENDING", config: { manualWebhook: true } }, entitlement: null,
   };
 
-  it("marks the matching pending channel connected only after a valid challenge", async () => {
+  it("marks only the webhook as verified after a valid challenge", async () => {
     const mark = vi.fn();
-    const repository: ChannelWebhookRepository = { findContextByTenantSlug: async () => webhookContext, persistInboundMessage: vi.fn(), markSubscriptionVerified: mark };
+    const repository: ChannelWebhookRepository = { findContextByTenantSlug: async () => webhookContext, persistInboundMessage: vi.fn(), markWebhookVerified: mark };
     const key = generateMetaWebhookVerifyToken("tenant_global_1");
     const result = await verifyMetaChannelWebhookSubscription({ channelType: "INSTAGRAM", repository, tenantSlug: "acme", url: `https://x?hub.mode=subscribe&hub.verify_token=${key}&hub.challenge=ok` });
     expect(result).toEqual({ status: 200, body: "ok" });
@@ -331,7 +342,7 @@ describe("attributable webhook verification", () => {
 
   it("does not mutate on an invalid challenge or mismatched channel type", async () => {
     const mark = vi.fn();
-    const repository: ChannelWebhookRepository = { findContextByTenantSlug: async () => ({ ...webhookContext, channelType: "FACEBOOK" }), persistInboundMessage: vi.fn(), markSubscriptionVerified: mark };
+    const repository: ChannelWebhookRepository = { findContextByTenantSlug: async () => ({ ...webhookContext, channelType: "FACEBOOK" }), persistInboundMessage: vi.fn(), markWebhookVerified: mark };
     const result = await verifyMetaChannelWebhookSubscription({ channelType: "INSTAGRAM", repository, tenantSlug: "acme", url: "https://x?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=no" });
     expect(result.status).toBe(403);
     expect(mark).not.toHaveBeenCalled();
@@ -361,14 +372,14 @@ describe("attributable webhook verification", () => {
       findContextByTenantSlug: async () => ({ ...webhookContext, channel: { ...webhookContext.channel!, id: "oauth_channel" } }),
       findManualSubscriptionContext: async () => ({ ...webhookContext, channel: { ...webhookContext.channel!, id: manualId } }),
       persistInboundMessage: vi.fn(),
-      markSubscriptionVerified: async (target) => {
+      markWebhookVerified: async (target) => {
         const row = rows.find((candidate) => candidate.id === target.channel?.id);
-        if (row) row.status = "CONNECTED";
+        if (row) row.status = "PENDING";
       },
     };
     const key = generateMetaWebhookVerifyToken("tenant_global_1");
     await verifyMetaChannelWebhookSubscription({ channelType: "INSTAGRAM", repository, tenantSlug: "acme", url: `https://x?hub.mode=subscribe&hub.verify_token=${key}&hub.challenge=ok` });
-    expect(rows.find((row) => row.id === manualId)?.status).toBe("CONNECTED");
+    expect(rows.find((row) => row.id === manualId)?.status).toBe("PENDING");
     expect(rows.find((row) => row.id === "oauth_channel")?.status).toBe("PENDING");
   });
 });

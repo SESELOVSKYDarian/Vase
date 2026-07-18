@@ -1,0 +1,43 @@
+// @vitest-environment jsdom
+import React, { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+import { ChannelEditModal } from "../apps/vase-labs/app/app/owner/labs/channels/channel-edit-modal";
+
+async function click(label: string) {
+  const target = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes(label) || item.getAttribute("aria-label")?.includes(label));
+  if (!target) throw new Error(`Missing ${label}`);
+  await act(async () => target.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+}
+
+describe("ChannelEditModal", () => {
+  let root: Root; let host: HTMLDivElement;
+  beforeEach(async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    host = document.createElement("div"); document.body.append(host); root = createRoot(host);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      channelId: "c", channelType: "WHATSAPP", webhookUrl: "https://hook", webhookKey: "key",
+      providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", accountLabel: "Ventas",
+      health: { webhookVerified: true, credentialsPresent: true, assetVerified: true, subscriptionActive: true },
+    })));
+    await act(async () => root.render(React.createElement(ChannelEditModal, { channel: { id: "c", type: "WHATSAPP", accountLabel: "Ventas" } })));
+  });
+  afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
+
+  it("shows health, webhook values and editable WhatsApp identifiers", async () => {
+    await click("Editar");
+    expect(host.textContent).toContain("Webhook verificado");
+    await click("Configuración avanzada");
+    expect(host.textContent).toContain("Phone Number ID");
+    expect(host.textContent).toContain("WABA ID");
+    expect(host.textContent).toContain("https://hook");
+  });
+
+  it("animates successful copy and exposes an accessible toast", async () => {
+    await click("Editar"); await click("Copiar Webhook URL");
+    expect(host.querySelector('[role="status"]')?.textContent).toContain("Copiado correctamente");
+    expect(host.querySelector(".is-copied")).not.toBeNull();
+  });
+});

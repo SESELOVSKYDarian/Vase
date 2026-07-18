@@ -8,6 +8,8 @@ import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import { LabsPageHeader, LabsStatusPill } from "../labs-ui";
 import { ChannelConnectModal } from "./channel-connect-modal";
+import { ChannelEditModal } from "./channel-edit-modal";
+import { MetaOAuthResume } from "./meta-oauth-resume";
 
 export const dynamic = "force-dynamic";
 const channelOrder: LabsChannel[] = ["WHATSAPP", "INSTAGRAM", "FACEBOOK"];
@@ -46,10 +48,11 @@ async function getChannelsPageData() {
   };
 }
 
-export default async function LabsChannelsPage() {
+export default async function LabsChannelsPage({ searchParams }: { searchParams: Promise<{ attempt?: string }> }) {
   const data = await getChannelsPageData();
+  const query = await searchParams;
   const capacity = getManualChannelCapacity(data.channelLimits, data.manualChannelStates, data.assistantId);
-  return <div className="space-y-6">
+  return <div className="space-y-6"><MetaOAuthResume attemptId={query.attempt} />
     <LabsPageHeader eyebrow="Entrada de mensajes" title="Canales" description="Conectá y monitoreá WhatsApp, Instagram y Facebook desde Vase Labs." />
     {data.channels.length === 0 ? (
       <section className="labs-empty-state labs-channels-empty">
@@ -67,7 +70,7 @@ export default async function LabsChannelsPage() {
               <dl className="labs-channel-record-facts"><div><dt>Estado</dt><dd>{channel.status}</dd></div><div><dt>Credencial</dt><dd>{channel.secretStatus}</dd></div></dl>
               {channel.lastError ? <p className="labs-channel-error"><CircleAlert className="size-4" /><span>{channel.lastError}</span></p> : null}
             </div>
-            <LabsStatusPill label={channel.status} tone={statusTone(channel.status)} />
+            <div className="labs-channel-record-actions"><LabsStatusPill label={channel.status} tone={statusTone(channel.status)} /><ChannelEditModal channel={{ id: channel.id, type: channel.type, accountLabel: channel.accountLabel }} /></div>
           </article>)}
         </section>
       </>

@@ -43,9 +43,14 @@ describe("official Meta channel contracts", () => {
       lastSyncedAt: null,
       lastError: null,
       secretStatus: "CONFIGURED",
+      webhookVerified: true,
+      credentialsPresent: true,
+      assetVerified: true,
+      subscriptionActive: true,
     });
 
     expect(summary.secretStatus).toBe("CONFIGURED");
     expect(summary).not.toHaveProperty("config");
+    expect(summary.webhookVerified).toBe(true);
   });
 });

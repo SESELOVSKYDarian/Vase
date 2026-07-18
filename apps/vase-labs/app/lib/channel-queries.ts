@@ -12,6 +12,7 @@ export async function listRedactedOfficialChannels(
     where: {
       assistantId,
       provider: "META_OFFICIAL",
+      status: { not: "DISCONNECTED" },
     },
     include: {
       secrets: {
@@ -22,8 +23,13 @@ export async function listRedactedOfficialChannels(
     orderBy: { createdAt: "desc" },
   });
 
-  return channels.map((channel) =>
-    redactedChannelSummarySchema.parse({
+  return channels.map((channel) => {
+    const config = channel.config && typeof channel.config === "object" && !Array.isArray(channel.config)
+      ? channel.config as Record<string, unknown> : {};
+    const credentialsPresent = channel.secrets.length > 0;
+    const assetVerified = Boolean(channel.providerAccountId);
+    const subscriptionActive = Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0;
+    return redactedChannelSummarySchema.parse({
       id: channel.id,
       type: channel.type,
       provider: "META_OFFICIAL",
@@ -35,8 +41,12 @@ export async function listRedactedOfficialChannels(
       lastSyncedAt: channel.lastSyncedAt?.toISOString() ?? null,
       lastError: channel.lastError,
       secretStatus: channel.secrets.length ? "CONFIGURED" : "MISSING",
-    }),
-  );
+      webhookVerified: Boolean(channel.webhookVerifiedAt),
+      credentialsPresent,
+      assetVerified,
+      subscriptionActive,
+    });
+  });
 }
 
 type ManualStateSource = { id: string; type: RedactedChannelSummary["type"]; status: string; config: unknown };

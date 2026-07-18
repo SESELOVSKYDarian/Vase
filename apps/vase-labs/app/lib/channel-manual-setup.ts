@@ -12,6 +12,7 @@ export type ManualChannelRecord = {
   webhookUrl?: string | null;
   config?: unknown;
   lastError?: string | null;
+  credentialsPresent?: boolean;
 };
 
 export interface ManualChannelRepository {
@@ -189,6 +190,9 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
     async verify(assistantId: string, channelId: string): Promise<ManualChannelVerifyResult> {
       const channel = await repository.findByIdForAssistant(assistantId, channelId);
       if (!channel) throw new Error("CHANNEL_NOT_FOUND");
+      if (channel.status === "CONNECTED" && channel.credentialsPresent === false) {
+        return { status: "ERROR" as const, message: "Faltan las credenciales de Meta." };
+      }
       if (channel.status === "CONNECTED") return { status: "CONNECTED" as const };
       if (channel.status === "PENDING") {
         return { status: "PENDING" as const, message: "Meta todavia no verifico este webhook." };

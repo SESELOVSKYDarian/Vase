@@ -5,6 +5,7 @@ import { canTenantUseChannel, createRuntimeEntitlement, type LabsRuntimeEntitlem
 import { resolveMetaWebhookVerifyToken } from "./meta-webhook";
 import { getManualChannelId } from "./channel-manual-setup";
 import { verifyMetaSignature } from "./meta-signature";
+import { resolveChannelConnectionStatus } from "./channel-health";
 
 export type ChannelWebhookContext = {
   assistantId: string;
@@ -35,7 +36,7 @@ export type PersistChannelInboundMessageResult = {
 export interface ChannelWebhookRepository {
   findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
   findManualSubscriptionContext?(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
-  markSubscriptionVerified?(context: ChannelWebhookContext): Promise<void>;
+  markWebhookVerified?(context: ChannelWebhookContext): Promise<void>;
   findContextByProviderAccountId?(
     channelType: LabsChannel,
     providerAccountId: string,
@@ -359,16 +360,26 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     };
   }
 
-  async markSubscriptionVerified(context: ChannelWebhookContext): Promise<void> {
+  async markWebhookVerified(context: ChannelWebhookContext): Promise<void> {
     if (!context.channel?.id) return;
-    await this.prisma.channel.updateMany({
-      where: {
-        id: context.channel.id,
-        assistantId: context.assistantId,
-        type: context.channelType,
-        status: "PENDING",
-      },
-      data: { status: "CONNECTED", lastSyncedAt: new Date(), lastError: null },
+    await this.prisma.$transaction(async (tx) => {
+      const channel = await tx.channel.findFirst({
+        where: { id: context.channel!.id, assistantId: context.assistantId, type: context.channelType },
+        include: { secrets: { where: { kind: "META_ACCESS_TOKEN" }, select: { id: true } } },
+      });
+      if (!channel) return;
+      const config = normalizeRecord(channel.config) ?? {};
+      const now = new Date();
+      const status = resolveChannelConnectionStatus({
+        webhookVerified: true,
+        credentialsPresent: channel.secrets.length > 0,
+        assetVerified: Boolean(channel.providerAccountId),
+        subscriptionActive: Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0,
+      });
+      await tx.channel.update({
+        where: { id: channel.id },
+        data: { webhookVerifiedAt: now, status, connectedAt: status === "CONNECTED" ? now : null, lastSyncedAt: now, lastError: null },
+      });
     });
   }
 
@@ -587,8 +598,8 @@ export async function verifyMetaChannelWebhookSubscription(input: {
     : await input.repository.findContextByTenantSlug(input.tenantSlug, input.channelType);
   if (context?.channelType !== input.channelType) return { status: 403, body: "Forbidden" };
   const result = getChannelWebhookVerifyResult({ context, url: input.url });
-  if (result.status === 200 && context && input.repository.markSubscriptionVerified) {
-    await input.repository.markSubscriptionVerified(context);
+  if (result.status === 200 && context && input.repository.markWebhookVerified) {
+    await input.repository.markWebhookVerified(context);
   }
   return result;
 }

@@ -10,7 +10,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(modal).not.toContain("fuente quedará en cola");
   });
 
-  it("renders only real channel records and uses the manual connection flow", () => {
+  it("renders only real channel records and uses the hybrid Meta connection flow", () => {
     const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/page.tsx"), "utf8");
     const modal = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-connect-modal.tsx"), "utf8");
 
@@ -39,9 +39,10 @@ describe("Vase Labs standalone owner experience", () => {
     expect(modal).toContain("createChannelUiFlow");
     expect(modal).toContain("data-step-focus");
     expect(modal).toContain("aria-live=\"polite\"");
-    for (const removed of ["/api/v1/meta/connections/start", "authorizationUrl", "window.location", "Continuar con Meta"]) {
-      expect(modal).not.toContain(removed);
-    }
+    expect(modal).toContain("/api/v1/meta/connections/start");
+    expect(modal).toContain("authorizationUrl");
+    expect(modal).toContain("window.location.assign");
+    expect(modal).toContain("Conectar con Meta");
   });
 
   it("offers the guided five-source knowledge flow without leaking credentials", () => {
@@ -155,7 +156,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(integrationsPage).not.toContain("{ default, dynamic }");
     expect(labsChannelsPage).toContain('redirect("/owner/channels")');
     expect(appChannelsPage).toContain('new URL("/owner", productOrigins.labs).toString() as Route');
-    expect(oauthCallback).toContain('new URL("/owner", url.origin)');
+    expect(oauthCallback).toContain('new URL("/owner/channels", url.origin)');
   });
 
   it("keeps Inbox operationally distinct from Activity", () => {

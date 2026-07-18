@@ -68,6 +68,7 @@ describe("official Meta connection service", () => {
     const service = createMetaConnectionService({
       repository,
       encryptionSecret,
+      now: () => new Date("2026-07-06T19:00:00.000Z"),
       oauth: {
         createAuthorizationUrl: () => {
           throw new Error("must not run");
@@ -104,6 +105,7 @@ describe("official Meta connection service", () => {
     const service = createMetaConnectionService({
       repository,
       encryptionSecret,
+      now: () => new Date("2026-07-06T19:00:00.000Z"),
       oauth: {
         createAuthorizationUrl: ({ attemptId }) => ({
           authorizationUrl: "https://www.facebook.com/dialog/oauth",

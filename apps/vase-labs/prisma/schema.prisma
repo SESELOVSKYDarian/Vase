@@ -113,6 +113,7 @@ model Channel {
   config            Json?
   status            ChannelConnectionStatus @default(DISCONNECTED)
   connectedAt       DateTime?
+  webhookVerifiedAt DateTime?
   lastSyncedAt      DateTime?
   lastError         String?                 @db.Text
   assistant         Assistant               @relation(fields: [assistantId], references: [id], onDelete: Cascade)

@@ -176,7 +176,11 @@ export class PrismaMetaConnectionRepository implements MetaConnectionRepository 
         where: {
           assistantId: assistant.id,
           type: input.channel.type,
-          providerAccountId: input.channel.providerAccountId,
+          OR: [
+            { providerAccountId: input.channel.providerAccountId },
+            { status: "PENDING", config: { path: "$.manualWebhook", equals: true } },
+            { status: "DISCONNECTED" },
+          ],
         },
         select: { id: true },
       });
@@ -206,11 +210,15 @@ export class PrismaMetaConnectionRepository implements MetaConnectionRepository 
             where: { id: channelId },
             data: {
               provider: "META_OFFICIAL",
+              providerAccountId: input.channel.providerAccountId,
+              phoneNumberId: input.channel.type === "WHATSAPP" ? input.channel.providerAccountId : null,
+              wabaId: input.channel.type === "WHATSAPP" && typeof input.channel.config.parentId === "string" ? input.channel.config.parentId : null,
               status: "CONNECTED",
               accountLabel: input.channel.accountLabel,
               externalHandle: input.channel.externalHandle,
               config: input.channel.config,
               connectedAt: now,
+              webhookVerifiedAt: now,
               lastSyncedAt: now,
               lastError: null,
             },
@@ -227,6 +235,7 @@ export class PrismaMetaConnectionRepository implements MetaConnectionRepository 
               externalHandle: input.channel.externalHandle,
               config: input.channel.config,
               connectedAt: now,
+              webhookVerifiedAt: now,
               lastSyncedAt: now,
             },
           });

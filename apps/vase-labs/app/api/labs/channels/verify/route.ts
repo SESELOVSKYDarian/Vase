@@ -34,7 +34,11 @@ const service = createManualChannelSetupService({
   async list(assistantId) { return labsPrisma.channel.findMany({ where: { assistantId } }); },
   async create() { throw new Error("CHANNEL_CREATE_UNAVAILABLE"); },
   async findByIdForAssistant(assistantId, channelId) {
-    return labsPrisma.channel.findFirst({ where: { id: channelId, assistantId } });
+    const channel = await labsPrisma.channel.findFirst({
+      where: { id: channelId, assistantId },
+      include: { secrets: { where: { kind: "META_ACCESS_TOKEN" }, select: { id: true } } },
+    });
+    return channel ? { ...channel, credentialsPresent: channel.secrets.length > 0 } : null;
   },
 });
 

@@ -468,6 +468,35 @@ a:focus-visible {
 .labs-channel-record-facts { display:flex; flex-wrap:wrap; gap:.8rem 1.4rem; margin-top:.65rem; }
 .labs-channel-record-facts dt { color:var(--muted-soft); font-size:.64rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .labs-channel-record-facts dd { margin-top:.12rem; color:var(--foreground); font-size:.74rem; }
+.labs-channel-record-actions { display:flex; align-items:flex-end; gap:.65rem; flex-direction:column; }
+.labs-channel-editor { width:min(48rem,100%); }
+.labs-channel-editor-body { display:grid; gap:1.15rem; max-height:62vh; overflow:auto; padding:1.4rem 1.75rem; }
+.labs-health-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; }
+.labs-health-grid span { display:flex; align-items:center; gap:.5rem; border:1px solid var(--border-subtle); border-radius:.75rem; padding:.7rem .8rem; font-size:.76rem; font-weight:700; }
+.labs-health-grid .is-ok { color:var(--success); background:var(--success-soft); }
+.labs-health-grid .is-pending { color:var(--warning); background:var(--warning-soft); }
+.labs-webhook-values { display:grid; gap:.6rem; }
+.labs-webhook-values > div { display:grid; grid-template-columns:7rem minmax(0,1fr) 2.4rem; align-items:center; gap:.7rem; padding:.65rem; border:1px solid var(--border-subtle); border-radius:.75rem; }
+.labs-webhook-values span { color:var(--muted); font-size:.72rem; font-weight:800; text-transform:uppercase; }
+.labs-webhook-values code { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.76rem; }
+.labs-webhook-values button { display:grid; place-items:center; height:2.2rem; border-radius:.6rem; color:var(--accent-strong); transition:transform .18s ease,background .18s ease; }
+.labs-webhook-values button.is-copied { transform:scale(1.08); background:var(--success-soft); color:var(--success); }
+.labs-advanced-toggle { display:flex; align-items:center; gap:.5rem; width:max-content; color:var(--accent-strong); font-size:.8rem; font-weight:800; }
+.labs-advanced-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; }
+.labs-advanced-fields label { display:grid; gap:.4rem; color:var(--muted); font-size:.72rem; font-weight:800; }
+.labs-advanced-fields input { min-height:2.7rem; border:1px solid var(--border-subtle); border-radius:.7rem; background:var(--surface); padding:.65rem .75rem; color:var(--foreground); font-weight:500; }
+.labs-reauth-shade { position:absolute; inset:0; z-index:4; display:grid; place-items:center; padding:1.25rem; background:rgba(17,30,22,.48); backdrop-filter:blur(3px); }
+.labs-reauth-panel { width:min(26rem,100%); display:grid; gap:1rem; border:1px solid var(--border-subtle); border-radius:1rem; background:var(--background); padding:1.25rem; box-shadow:0 24px 70px rgba(17,30,22,.24); }
+.labs-reauth-panel h3 { font-size:1.15rem; font-weight:800; }
+.labs-reauth-panel p,.labs-reauth-panel label { color:var(--muted); font-size:.78rem; }
+.labs-reauth-panel label { display:grid; gap:.45rem; font-weight:800; }
+.labs-reauth-panel input { min-height:2.7rem; border:1px solid var(--border-subtle); border-radius:.7rem; padding:.65rem .75rem; color:var(--foreground); }
+.labs-reauth-panel > div:last-child { display:flex; justify-content:flex-end; gap:.65rem; }
+.labs-revealed-token { display:grid!important; grid-template-columns:minmax(0,1fr) 2.5rem; align-items:center; gap:.5rem; border:1px solid var(--border-subtle); border-radius:.7rem; padding:.65rem; }
+.labs-revealed-token code { overflow-wrap:anywhere; font-size:.72rem; }
+.labs-toast { position:fixed; z-index:100; top:1.5rem; right:1.5rem; display:flex; align-items:center; gap:.55rem; border:1px solid color-mix(in srgb,var(--success) 28%,transparent); border-radius:.8rem; background:var(--background); padding:.8rem 1rem; color:var(--success); box-shadow:0 18px 50px rgba(17,30,22,.18); font-size:.8rem; font-weight:800; animation:labs-toast-in .22s ease-out; }
+@keyframes labs-toast-in { from { opacity:0; transform:translateY(-8px) scale(.97); } }
+@media (prefers-reduced-motion:reduce) { .labs-toast,.labs-webhook-values button { animation:none; transition:none; } }
 .labs-connections-list { display:grid; gap:.65rem; }
 .labs-connections-list article { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:1rem; padding:1rem; border:1px solid var(--border-subtle); border-radius:1rem; background:var(--surface); }
 .labs-connections-list strong { color:var(--foreground); font-size:.9rem; }

@@ -102,6 +102,19 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
     }
   }
 
+  async function connectWithMeta() {
+    if (!selected) return;
+    setLoading(true); setNotice(null);
+    try {
+      const response = await fetch("/api/v1/meta/connections/start", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channelType: selected }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || typeof payload.authorizationUrl !== "string") throw new Error();
+      window.location.assign(payload.authorizationUrl);
+    } catch { setNotice({ kind: "error", message: "No pudimos iniciar la conexión segura con Meta." }); setLoading(false); }
+  }
+
   async function copy(value: string, label: string) {
     const ticket = requests.startLatestCopy();
     if (!ticket) return;
@@ -145,6 +158,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
           </button>;
         })}</div> : <div className="labs-manual-setup">
           {loading && !setup ? <p>Preparando los datos del canal…</p> : setup ? <>
+            <div className="labs-oauth-primary"><strong>Conexión recomendada</strong><p>Ingresá con Meta para descubrir y validar automáticamente tus cuentas.</p><button className="labs-button labs-button-primary" type="button" onClick={() => void connectWithMeta()} disabled={loading}>Conectar con Meta</button></div>
             {([["Webhook URL", setup.webhookUrl], ["Webhook Key", setup.webhookKey]] as const).map(([label, value]) => <div key={label}>
               <span>{label}</span><code>{value}</code><button type="button" disabled={notice?.kind === "connected"} aria-label={`Copiar ${label}`} onClick={() => void copy(value, label)}><Copy className="size-4" /></button>
             </div>)}

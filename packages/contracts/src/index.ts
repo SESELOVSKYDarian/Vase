@@ -169,6 +169,10 @@ export const redactedChannelSummarySchema = z.object({
   lastSyncedAt: z.iso.datetime().nullable(),
   lastError: z.string().nullable(),
   secretStatus: z.enum(["CONFIGURED", "MISSING"]),
+  webhookVerified: z.boolean(),
+  credentialsPresent: z.boolean(),
+  assetVerified: z.boolean(),
+  subscriptionActive: z.boolean(),
 });
 
 export const labsSessionContextSchema = z.object({
