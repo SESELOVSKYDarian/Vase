@@ -28,6 +28,14 @@ const healthLabels: Array<[keyof ChannelHealth, string]> = [
   ["subscriptionActive", "Suscripcion activa"],
 ];
 
+function metaConnectionErrorMessage(code: string) {
+  if (code === "META_TOKEN_INVALID") return "El Access Token es inválido, venció o fue generado para otra aplicación de Meta.";
+  if (code === "META_PERMISSIONS_MISSING") return "El token no tiene todos los permisos necesarios.";
+  if (code === "META_ASSET_NOT_AUTHORIZED") return "El Phone Number ID, WABA o página no pertenecen a la cuenta autorizada por el token.";
+  if (code === "META_SUBSCRIPTION_FAILED") return "Meta validó el activo, pero no pudo activar la suscripción de eventos. Revisá que el usuario del sistema tenga control total del WABA, número o página y permiso para administrar webhooks.";
+  return "Meta rechazó la consulta del activo. Revisá que el usuario del sistema tenga asignados el WABA, número o página.";
+}
+
 export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -151,7 +159,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
       } else setNotice({ kind: "pending", message: "Credenciales y activo validados. Falta que Meta compruebe el webhook." });
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
-      setNotice({ kind: "error", message: code === "META_TOKEN_INVALID" ? "El Access Token es inválido, venció o fue generado para otra aplicación de Meta." : code === "META_PERMISSIONS_MISSING" ? "El token no tiene todos los permisos necesarios." : code === "META_ASSET_NOT_AUTHORIZED" ? "El Phone Number ID, WABA o página no pertenecen a la cuenta autorizada por el token." : "Meta rechazó la consulta del activo. Revisá que el usuario del sistema tenga asignados el WABA, número o página." });
+      setNotice({ kind: "error", message: metaConnectionErrorMessage(code) });
     } finally { setLoading(false); }
   }
 

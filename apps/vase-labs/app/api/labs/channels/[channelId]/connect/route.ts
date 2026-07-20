@@ -15,7 +15,7 @@ const bodySchema = z.object({
   parentId: z.string().trim().min(1).max(160).nullable(),
 }).strict();
 
-const safeErrors = new Set(["CHANNEL_NOT_FOUND", "CHANNEL_CREDENTIAL_MISSING", "META_ASSET_NOT_AUTHORIZED", "META_TOKEN_INVALID", "META_PERMISSIONS_MISSING", "META_GRAPH_REQUEST_FAILED", "META_ASSET_PARENT_MISSING"]);
+const safeErrors = new Set(["CHANNEL_NOT_FOUND", "CHANNEL_CREDENTIAL_MISSING", "META_ASSET_NOT_AUTHORIZED", "META_TOKEN_INVALID", "META_PERMISSIONS_MISSING", "META_GRAPH_REQUEST_FAILED", "META_ASSET_PARENT_MISSING", "META_SUBSCRIPTION_FAILED"]);
 
 export async function POST(request: Request, { params }: { params: Promise<{ channelId: string }> }) {
   try {

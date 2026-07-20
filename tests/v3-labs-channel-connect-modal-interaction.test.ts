@@ -82,6 +82,23 @@ describe("ChannelConnectModal interactions", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ channelType:"WHATSAPP", accessToken:"token_1", providerAccountId:"phone_1", parentId:"waba_1" });
   });
 
+  it("explains when Meta rejects the event subscription step", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ channelId: "channel_1", webhookUrl: "https://hook", webhookKey: "key" }))
+      .mockResolvedValueOnce(Response.json({ error: "META_SUBSCRIPTION_FAILED" }, { status: 400 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await click(button("Agregar canal")); await click(button("WhatsApp")); await click(button("Continuar"));
+    await click(button("Configuración avanzada"));
+    const inputs = [...host.querySelectorAll("input")];
+    for (const [input, value] of inputs.map((input, index) => [input, ["phone_1", "waba_1", "token_1"][index]!] as const)) {
+      await act(async () => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set; setter?.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); });
+    }
+
+    await click(button("Guardar y comprobar"));
+
+    expect(host.textContent).toContain("Meta validó el activo, pero no pudo activar la suscripción de eventos");
+  });
+
   it("disables only the exhausted manual type and shows one of one used", async () => {
     await act(async () => { root.render(React.createElement(ChannelConnectModal, { capacity: {
       WHATSAPP: { limit: 1, used: 1, remaining: 0 },

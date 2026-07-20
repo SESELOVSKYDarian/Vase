@@ -6,6 +6,17 @@ describe("Meta Graph official channel adapter", () => {
     const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"app", appSecret:"secret", fetcher: async () => Response.json({ error:{ code, message:"provider detail" } }, { status:400 }) });
     await expect(client.resolveManualAsset({ channelType:"WHATSAPP", accessToken:"token", providerAccountId:"phone", parentId:"waba" })).rejects.toThrow(expected);
   });
+  it("maps Meta read failures during manual asset lookup to an asset assignment error", async () => {
+    const client = createMetaGraphClient({
+      graphVersion:"v99.0",
+      appId:"app",
+      appSecret:"secret",
+      fetcher: async () => Response.json({ error:{ code:100, message:"Unsupported get request" } }, { status:400 }),
+    });
+
+    await expect(client.resolveManualAsset({ channelType:"WHATSAPP", accessToken:"token", providerAccountId:"phone", parentId:"waba" }))
+      .rejects.toThrow("META_ASSET_NOT_AUTHORIZED");
+  });
   it("validates a manually entered WhatsApp phone directly under its WABA", async () => {
     const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"app_123", appSecret:"secret", fetcher: async (url) => {
       expect(String(url)).toContain("/waba_1/phone_numbers");
@@ -126,6 +137,16 @@ describe("Meta Graph official channel adapter", () => {
     await client.verifyAndSubscribe({ channelType:"WHATSAPP", userAccessToken:"token", asset:{ candidate:{ id:"1244514615401381", kind:"WHATSAPP_PHONE", name:"Ventas", parentId:"956541757411319" }, parentId:"956541757411319" } });
     const subscription = calls.find((url) => url.includes("/956541757411319/subscribed_apps"));
     expect(subscription).toBe("https://graph.facebook.com/v99.0/956541757411319/subscribed_apps");
+  });
+
+  it("maps Meta subscribed_apps failures to a subscription assignment error", async () => {
+    const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"app_123", appSecret:"secret", fetcher: async (url) => {
+      if (String(url).includes("/debug_token")) return Response.json({ data:{ is_valid:true, app_id:"app_123", scopes:["whatsapp_business_management","whatsapp_business_messaging"] } });
+      return Response.json({ error:{ code:200, message:"Requires business management" } }, { status:400 });
+    }});
+
+    await expect(client.verifyAndSubscribe({ channelType:"WHATSAPP", userAccessToken:"token", asset:{ candidate:{ id:"phone_1", kind:"WHATSAPP_PHONE", name:"Ventas", parentId:"waba_1" }, parentId:"waba_1" } }))
+      .rejects.toThrow("META_SUBSCRIPTION_FAILED");
   });
 
   it("tests token health without sending an unsolicited message", async () => {

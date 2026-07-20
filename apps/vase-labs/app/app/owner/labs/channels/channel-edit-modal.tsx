@@ -19,6 +19,14 @@ const labels: Record<LabsChannel, { account: string; parent?: string }> = {
   FACEBOOK: { account: "Facebook Page ID" },
 };
 
+function metaConnectionErrorMessage(code: string) {
+  if (code === "META_TOKEN_INVALID") return "El Access Token es inválido, venció o pertenece a otra aplicación de Meta.";
+  if (code === "META_PERMISSIONS_MISSING") return "El token no tiene todos los permisos requeridos.";
+  if (code === "META_ASSET_NOT_AUTHORIZED") return "Los identificadores no pertenecen al activo autorizado por el token.";
+  if (code === "META_SUBSCRIPTION_FAILED") return "Meta validó el activo, pero no pudo activar la suscripción de eventos. Revisá que el usuario del sistema tenga control total del WABA, número o página y permiso para administrar webhooks.";
+  return "Meta rechazó el acceso al activo. Revisá las asignaciones del usuario del sistema.";
+}
+
 export function ChannelEditModal({ channel }: { channel: Summary }) {
   const router = useRouter();
   const [open, setOpen] = useState(false), [advanced, setAdvanced] = useState(false), [confirming, setConfirming] = useState(false);
@@ -57,7 +65,7 @@ export function ChannelEditModal({ channel }: { channel: Summary }) {
       const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
       setToast(payload.status === "PENDING" ? "Credenciales válidas; falta verificar el webhook" : "Conexión comprobada correctamente");
       await load(); router.refresh();
-    } catch (reason) { const code = reason instanceof Error ? reason.message : ""; setError(code === "META_TOKEN_INVALID" ? "El Access Token es inválido, venció o pertenece a otra aplicación de Meta." : code === "META_PERMISSIONS_MISSING" ? "El token no tiene todos los permisos requeridos." : code === "META_ASSET_NOT_AUTHORIZED" ? "Los identificadores no pertenecen al activo autorizado por el token." : "Meta rechazó el acceso al activo. Revisá las asignaciones del usuario del sistema."); }
+    } catch (reason) { const code = reason instanceof Error ? reason.message : ""; setError(metaConnectionErrorMessage(code)); }
     finally { setBusy(false); }
   }
   async function disconnect() {

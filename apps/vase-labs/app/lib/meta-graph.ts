@@ -42,6 +42,7 @@ export function createMetaGraphClient(input: {
     path: string,
     accessToken: string,
     init?: RequestInit,
+    fallbackError = "META_GRAPH_REQUEST_FAILED",
   ): Promise<GraphPayload> {
     const response = await fetcher(`${graphBase}${path}`, {
       ...init,
@@ -55,8 +56,9 @@ export function createMetaGraphClient(input: {
     if (!response.ok || payload.error) {
       const providerError = asRecord(payload.error);
       if (providerError.code === 190) throw new Error("META_TOKEN_INVALID");
+      if (fallbackError === "META_SUBSCRIPTION_FAILED") throw new Error(fallbackError);
       if (providerError.code === 10 || providerError.code === 200) throw new Error("META_PERMISSIONS_MISSING");
-      throw new Error("META_GRAPH_REQUEST_FAILED");
+      throw new Error(fallbackError);
     }
     return payload;
   }
@@ -183,6 +185,8 @@ export function createMetaGraphClient(input: {
         const payload = await graphRequest(
           `/${encodeURIComponent(params.parentId)}/phone_numbers?fields=id,display_phone_number,verified_name`,
           params.accessToken,
+          undefined,
+          "META_ASSET_NOT_AUTHORIZED",
         );
         const phone = asArray(payload.data).map(asRecord).find((item) => stringValue(item.id) === params.providerAccountId);
         if (!phone) throw new Error("META_ASSET_NOT_AUTHORIZED");
@@ -204,6 +208,8 @@ export function createMetaGraphClient(input: {
       const page = await graphRequest(
         `/${encodeURIComponent(pageId)}?fields=id,name,username,instagram_business_account{id,name,username}`,
         params.accessToken,
+        undefined,
+        "META_ASSET_NOT_AUTHORIZED",
       );
       if (stringValue(page.id) !== pageId) throw new Error("META_ASSET_NOT_AUTHORIZED");
       const pageName = stringValue(page.name) ?? "Facebook Page";
@@ -262,6 +268,7 @@ export function createMetaGraphClient(input: {
         subscriptionPath,
         accessToken,
         { method: "POST" },
+        "META_SUBSCRIPTION_FAILED",
       );
 
       return {
