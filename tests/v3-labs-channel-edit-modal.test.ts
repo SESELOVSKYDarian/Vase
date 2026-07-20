@@ -40,4 +40,28 @@ describe("ChannelEditModal", () => {
     expect(host.querySelector('[role="status"]')?.textContent).toContain("Copiado correctamente");
     expect(host.querySelector(".is-copied")).not.toBeNull();
   });
+
+  it("persists edited identifiers using the stored server-side token", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "WHATSAPP", webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", accountLabel: "Ventas",
+        health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }))
+      .mockResolvedValueOnce(Response.json({ status:"CONNECTED" }))
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "WHATSAPP", webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "phone-new", parentId: "waba-new", accessTokenMasked: "••••", accountLabel: "Ventas",
+        health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+    await click("Editar"); await click("Configuración avanzada");
+    const inputs = [...host.querySelectorAll("input")];
+    for (const [input, value] of [[inputs[0],"phone-new"],[inputs[1],"waba-new"]] as const) {
+      await act(async () => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set; setter?.call(input,value); input?.dispatchEvent(new Event("input",{bubbles:true})); });
+    }
+    await click("Comprobar conexión");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/labs/channels/c/connect");
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ channelType:"WHATSAPP", providerAccountId:"phone-new", parentId:"waba-new" });
+  });
 });

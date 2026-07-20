@@ -83,6 +83,16 @@ const service = createManualChannelSetupService({
       return adopted;
     });
   },
+  async reconnect(input) {
+    const result = await labsPrisma.channel.updateMany({
+      where: { id: input.id, assistantId: input.assistantId, type: input.channelType, provider: "META_OFFICIAL", status: "DISCONNECTED" },
+      data: { status: "PENDING", webhookUrl: input.webhookUrl, config: { manualWebhook: true }, lastError: null },
+    });
+    if (result.count !== 1) throw new Error("CHANNEL_RECONNECT_FAILED");
+    const channel = await labsPrisma.channel.findFirst({ where: { id: input.id, assistantId: input.assistantId } });
+    if (!channel) throw new Error("CHANNEL_RECONNECT_FAILED");
+    return channel;
+  },
 });
 
 export const POST = createChannelSetupPostHandler({

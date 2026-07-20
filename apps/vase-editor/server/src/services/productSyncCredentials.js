@@ -21,25 +21,40 @@ function createProductSyncTokenValue() {
 }
 
 export async function ensureProductSyncToken(db, tenantId, tokenName = 'ERP Sync') {
-  const existing = await findLatestProductSyncToken(db, tenantId);
-  if (existing) {
-    return { tokenRecord: existing, autoCreated: false };
+  const client = await db.connect();
+  let transactionStarted = false;
+  try {
+    await client.query('BEGIN');
+    transactionStarted = true;
+    await client.query('select pg_advisory_xact_lock(hashtext($1))', [`product-sync:${tenantId}`]);
+
+    const existing = await findLatestProductSyncToken(client, tenantId);
+    if (existing) {
+      await client.query('COMMIT');
+      return { tokenRecord: existing, autoCreated: false };
+    }
+
+    const tokenValue = createProductSyncTokenValue();
+    const insertRes = await client.query(
+      [
+        'insert into api_tokens (tenant_id, name, token_hash, scope)',
+        'values ($1, $2, $3, $4)',
+        'returning id, name, token_hash, scope, created_at',
+      ].join(' '),
+      [tenantId, tokenName, tokenValue, 'products:sync']
+    );
+    await client.query('COMMIT');
+
+    return {
+      tokenRecord: insertRes.rows[0],
+      autoCreated: true,
+    };
+  } catch (error) {
+    if (transactionStarted) await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
-
-  const tokenValue = createProductSyncTokenValue();
-  const insertRes = await db.query(
-    [
-      'insert into api_tokens (tenant_id, name, token_hash, scope)',
-      'values ($1, $2, $3, $4)',
-      'returning id, name, token_hash, scope, created_at',
-    ].join(' '),
-    [tenantId, tokenName, tokenValue, 'products:sync']
-  );
-
-  return {
-    tokenRecord: insertRes.rows[0],
-    autoCreated: true,
-  };
 }
 
 export function createProductSyncCredentialsHandler({ db, expectedServiceToken, ensureToken = ensureProductSyncToken }) {

@@ -225,15 +225,33 @@ describe("GET /api/labs/external-management-credentials", () => {
   });
 
   it.each([
-    [new Error("connection secret leaked"), 502],
-    [new Response("database password leaked", { status: 500 }), 502],
-    [Response.json({ domain: "https://business.vase.ar", tenantUuid: "tenant/resolved", consumerKey: "key" }), 502],
-    [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant/other", consumerKey: "key" }), 502],
-    [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant/resolved" }), 502],
-  ])("sanitizes upstream failure %#", async (upstream, status) => {
+    [new Error("connection secret leaked"), "UPSTREAM_UNAVAILABLE"],
+    [new Response("authorization detail leaked", { status: 403 }), "UPSTREAM_FORBIDDEN"],
+    [new Response("database password leaked", { status: 500 }), "UPSTREAM_UNAVAILABLE"],
+    [Response.json({ domain: "https://business.vase.ar", tenantUuid: "tenant/resolved", consumerKey: "key" }), "UPSTREAM_RESPONSE_INVALID"],
+    [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant/other", consumerKey: "key" }), "UPSTREAM_RESPONSE_INVALID"],
+    [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant/resolved" }), "UPSTREAM_RESPONSE_INVALID"],
+  ])("sanitizes and classifies upstream failure %#", async (upstream, reason) => {
     const response = await handler(upstream).GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
-    expect(response.status).toBe(status);
-    expect(await response.json()).toEqual({ error: "EXTERNAL_MANAGEMENT_CREDENTIALS_UNAVAILABLE" });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "EXTERNAL_MANAGEMENT_CREDENTIALS_UNAVAILABLE", reason });
+  });
+
+  it("identifies missing internal integration configuration without calling upstream", async () => {
+    const fetchUpstream = vi.fn();
+    const GET = createExternalManagementCredentialsGetHandler({
+      resolveContext: async () => ({ context: { globalTenantId: "tenant_123" } }),
+      fetchUpstream,
+      teflonApiUrl: undefined,
+      serviceToken: undefined,
+    });
+    const response = await GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      error: "EXTERNAL_MANAGEMENT_CREDENTIALS_UNAVAILABLE",
+      reason: "CONFIGURATION_MISSING",
+    });
+    expect(fetchUpstream).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -272,7 +290,10 @@ describe("GET /api/labs/external-management-credentials", () => {
       await vi.advanceTimersByTimeAsync(25);
       const response = await pending;
       expect(response.status).toBe(502);
-      expect(await response.json()).toEqual({ error: "EXTERNAL_MANAGEMENT_CREDENTIALS_UNAVAILABLE" });
+      expect(await response.json()).toEqual({
+        error: "EXTERNAL_MANAGEMENT_CREDENTIALS_UNAVAILABLE",
+        reason: "UPSTREAM_UNAVAILABLE",
+      });
       expect(fetchUpstream.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
     } finally {
       vi.useRealTimers();

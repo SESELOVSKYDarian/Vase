@@ -2,7 +2,7 @@ import { labsChannelSchema } from "@vase/contracts";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { encryptChannelSecret } from "../../../../../lib/channel-secrets";
+import { decryptChannelSecret, encryptChannelSecret } from "../../../../../lib/channel-secrets";
 import { labsPrisma, Prisma } from "../../../../../lib/db";
 import { createManualMetaConnectionService } from "../../../../../lib/manual-meta-connection";
 import { createMetaRuntime } from "../../../../../lib/meta-runtime";
@@ -10,12 +10,12 @@ import { resolveLabsRequestContext } from "../../../../../lib/request-context";
 
 const bodySchema = z.object({
   channelType: labsChannelSchema,
-  accessToken: z.string().trim().min(1).max(4096),
+  accessToken: z.string().trim().min(1).max(4096).optional(),
   providerAccountId: z.string().trim().min(1).max(160),
   parentId: z.string().trim().min(1).max(160).nullable(),
 }).strict();
 
-const safeErrors = new Set(["CHANNEL_NOT_FOUND", "META_ASSET_NOT_AUTHORIZED", "META_TOKEN_INVALID", "META_PERMISSIONS_MISSING", "META_GRAPH_REQUEST_FAILED", "META_ASSET_PARENT_MISSING"]);
+const safeErrors = new Set(["CHANNEL_NOT_FOUND", "CHANNEL_CREDENTIAL_MISSING", "META_ASSET_NOT_AUTHORIZED", "META_TOKEN_INVALID", "META_PERMISSIONS_MISSING", "META_GRAPH_REQUEST_FAILED", "META_ASSET_PARENT_MISSING"]);
 
 export async function POST(request: Request, { params }: { params: Promise<{ channelId: string }> }) {
   try {
@@ -25,6 +25,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
     const runtime = createMetaRuntime();
     const secret = process.env.TOKEN_ENCRYPTION_SECRET?.trim();
     if (!secret) throw new Error("TOKEN_ENCRYPTION_SECRET_MISSING");
+    let accessToken = body.accessToken;
+    if (!accessToken) {
+      const stored = await labsPrisma.channelSecret.findFirst({
+        where: { channelId, kind: "META_ACCESS_TOKEN", channel: { assistantId: assistant.id } },
+        select: { encryptedValue: true },
+      });
+      if (!stored) throw new Error("CHANNEL_CREDENTIAL_MISSING");
+      accessToken = decryptChannelSecret(stored.encryptedValue, secret);
+    }
     const service = createManualMetaConnectionService({
       graph: runtime.graph,
       encrypt: (value) => encryptChannelSecret(value, secret),
@@ -77,7 +86,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
         },
       },
     });
-    return NextResponse.json(await service.connect({ assistantId: assistant.id, channelId, ...body }));
+    return NextResponse.json(await service.connect({ assistantId: assistant.id, channelId, ...body, accessToken }));
   } catch (error) {
     const code = error instanceof Error && safeErrors.has(error.message) ? error.message : "CHANNEL_CONNECTION_FAILED";
     const status = code === "CHANNEL_NOT_FOUND" ? 404 : code === "CHANNEL_CONNECTION_FAILED" ? 500 : 400;

@@ -37,7 +37,7 @@ describe("Labs channel capacity", () => {
     expect(result.FACEBOOK).toEqual({ limit: 1, used: 0, remaining: 1 });
   });
 
-  it.each(["PENDING", "CONNECTED", "DISCONNECTED", "ERROR"])("treats an extant %s manual row as occupying the slot", (status) => {
+  it.each(["PENDING", "CONNECTED", "ERROR"])("treats an extant %s manual row as occupying the slot", (status) => {
     const [manual] = deriveManualChannelStates([
       { id: "legacy", type: "WHATSAPP", status, config: { manualWebhook: true } },
       { id: "oauth", type: "INSTAGRAM", status: "CONNECTED", config: {} },
@@ -45,5 +45,14 @@ describe("Labs channel capacity", () => {
     const result = getManualChannelCapacity({ WHATSAPP: 2, INSTAGRAM: 2, FACEBOOK: 2 }, [manual!], "assistant_1");
     expect(result.WHATSAPP).toEqual({ limit: 1, used: 1, remaining: 0 });
     expect(result.INSTAGRAM).toEqual({ limit: 1, used: 0, remaining: 1 });
+  });
+
+  it("releases the manual slot after disconnecting", () => {
+    const [manual] = deriveManualChannelStates([
+      { id: getManualChannelId("assistant_1", "WHATSAPP"), type: "WHATSAPP", status: "DISCONNECTED", config: null },
+    ]);
+    expect(getManualChannelCapacity(
+      { WHATSAPP: 1, INSTAGRAM: 1, FACEBOOK: 1 }, [manual!], "assistant_1",
+    ).WHATSAPP).toEqual({ limit: 1, used: 0, remaining: 1 });
   });
 });

@@ -215,6 +215,18 @@ describe("manual channel setup", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("reuses a disconnected deterministic row for reconnection", async () => {
+    const disconnectedId = getManualChannelId("assistant_1", "WHATSAPP");
+    const reconnect = vi.fn(async () => ({ id: disconnectedId, type: "WHATSAPP" as const, provider: "META_OFFICIAL", status: "PENDING", webhookUrl: "https://hook" }));
+    const service = createManualChannelSetupService({
+      list: async () => [{ id: disconnectedId, type: "WHATSAPP", provider: "META_OFFICIAL", status: "DISCONNECTED" }],
+      create: vi.fn(), findByIdForAssistant: vi.fn(), reconnect,
+    });
+    const result = await service.setup({ ...context(), origin: "https://labs.vase.ar", channelType: "WHATSAPP" });
+    expect(result.channelId).toBe(disconnectedId);
+    expect(reconnect).toHaveBeenCalledWith(expect.objectContaining({ id: disconnectedId, assistantId: "assistant_1", channelType: "WHATSAPP" }));
+  });
+
   it("denies pending reuse when another channel now consumes the only slot", async () => {
     const pendingId = getManualChannelId("assistant_1", "WHATSAPP");
     const service = createManualChannelSetupService({

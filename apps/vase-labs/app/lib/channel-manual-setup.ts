@@ -20,6 +20,7 @@ export interface ManualChannelRepository {
   create(input: { id: string; assistantId: string; channelType: LabsChannel; webhookUrl: string }): Promise<ManualChannelRecord>;
   findByIdForAssistant(assistantId: string, channelId: string): Promise<ManualChannelRecord | null>;
   adoptPending?(input: { currentId: string; id: string; assistantId: string; channelType: LabsChannel }): Promise<ManualChannelRecord>;
+  reconnect?(input: { id: string; assistantId: string; channelType: LabsChannel; webhookUrl: string }): Promise<ManualChannelRecord>;
 }
 
 export type ManualChannelSetupInput = {
@@ -122,6 +123,16 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
           isSafeLegacyManualChannel(channel, manual.webhookUrl)
         ),
       );
+      if (existingManual?.status === "DISCONNECTED" && existingManual.id === manualChannelId && repository.reconnect) {
+        const reconnected = await repository.reconnect({
+          id: manualChannelId,
+          assistantId: input.assistant.id,
+          channelType: input.channelType,
+          webhookUrl: manual.webhookUrl,
+        });
+        if (!isReusableManualChannel(reconnected, input.channelType)) throw new Error("CHANNEL_RECONNECT_FAILED");
+        return { channelId: reconnected.id, ...manual };
+      }
       if (existingManual && existingManual.status !== "PENDING") throw new Error("CHANNEL_MANUAL_CONNECTION_EXISTS");
       const channelStates = channels.map((channel) => ({
         type: channel.type ?? input.channelType,

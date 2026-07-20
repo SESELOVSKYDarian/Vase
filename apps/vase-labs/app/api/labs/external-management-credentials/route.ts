@@ -9,8 +9,14 @@ type Dependencies = {
   upstreamTimeoutMs?: number;
 };
 
-const unavailable = () => NextResponse.json(
-  { error: "EXTERNAL_MANAGEMENT_CREDENTIALS_UNAVAILABLE" },
+type UnavailableReason =
+  | "CONFIGURATION_MISSING"
+  | "UPSTREAM_FORBIDDEN"
+  | "UPSTREAM_UNAVAILABLE"
+  | "UPSTREAM_RESPONSE_INVALID";
+
+const unavailable = (reason: UnavailableReason = "UPSTREAM_UNAVAILABLE") => NextResponse.json(
+  { error: "EXTERNAL_MANAGEMENT_CREDENTIALS_UNAVAILABLE", reason },
   { status: 502 },
 );
 
@@ -34,13 +40,13 @@ export function createExternalManagementCredentialsGetHandler(dependencies: Depe
       const tenantId = resolved.context.globalTenantId?.trim();
       const baseUrl = dependencies.teflonApiUrl?.trim();
       const serviceToken = dependencies.serviceToken?.trim();
-      if (!tenantId || !baseUrl || !serviceToken) return unavailable();
+      if (!tenantId || !baseUrl || !serviceToken) return unavailable("CONFIGURATION_MISSING");
 
       const url = new URL(
         `/api/v1/integrations/internal/tenant/${encodeURIComponent(tenantId)}/product-sync-credentials`,
         baseUrl,
       );
-      if (url.protocol !== "http:" && url.protocol !== "https:") return unavailable();
+      if (url.protocol !== "http:" && url.protocol !== "https:") return unavailable("CONFIGURATION_MISSING");
 
       const abortController = new AbortController();
       const timeout = setTimeout(
@@ -56,17 +62,18 @@ export function createExternalManagementCredentialsGetHandler(dependencies: Depe
       } finally {
         clearTimeout(timeout);
       }
-      if (!upstream.ok) return unavailable();
+      if (upstream.status === 401 || upstream.status === 403) return unavailable("UPSTREAM_FORBIDDEN");
+      if (!upstream.ok) return unavailable("UPSTREAM_UNAVAILABLE");
 
       const payload: unknown = await upstream.json();
-      if (!payload || typeof payload !== "object") return unavailable();
+      if (!payload || typeof payload !== "object") return unavailable("UPSTREAM_RESPONSE_INVALID");
       const record = payload as Record<string, unknown>;
       if (
         record.domain !== "business.vase.ar" ||
         record.tenantUuid !== tenantId ||
         typeof record.consumerKey !== "string" ||
         !record.consumerKey.trim()
-      ) return unavailable();
+      ) return unavailable("UPSTREAM_RESPONSE_INVALID");
 
       return NextResponse.json({
         domain: "business.vase.ar",

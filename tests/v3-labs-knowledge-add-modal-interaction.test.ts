@@ -5,7 +5,19 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-import { KnowledgeAddModal } from "../apps/vase-labs/app/app/owner/labs/chatbots/knowledge-add-modal";
+import { externalCredentialsErrorMessage, KnowledgeAddModal } from "../apps/vase-labs/app/app/owner/labs/chatbots/knowledge-add-modal";
+
+describe("external credentials diagnostics", () => {
+  it.each([
+    ["CONFIGURATION_MISSING", "Falta configurar"],
+    ["UPSTREAM_FORBIDDEN", "token interno"],
+    ["UPSTREAM_UNAVAILABLE", "no está disponible"],
+    ["UPSTREAM_RESPONSE_INVALID", "credenciales incompletas"],
+    [undefined, "No pudimos obtener"],
+  ])("maps %s to an actionable safe message", (reason, expected) => {
+    expect(externalCredentialsErrorMessage(reason)).toContain(expected);
+  });
+});
 
 function button(label: string) {
   const match = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes(label));

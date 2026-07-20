@@ -16,6 +16,14 @@ const choices: { type: KnowledgeSourceType; label: string; icon: typeof FileText
 type Credentials = { domain: string; tenantUuid: string; consumerKey: string };
 const externalManagementDomain = "business.vase.ar";
 
+export function externalCredentialsErrorMessage(reason: unknown) {
+  if (reason === "CONFIGURATION_MISSING") return "Falta configurar la conexión interna entre Vase Labs y Vase Business.";
+  if (reason === "UPSTREAM_FORBIDDEN") return "El token interno de Vase Labs y Vase Business no coincide.";
+  if (reason === "UPSTREAM_UNAVAILABLE") return "Vase Business no está disponible en este momento. Intentá nuevamente.";
+  if (reason === "UPSTREAM_RESPONSE_INVALID") return "Vase Business devolvió credenciales incompletas. Revisá la configuración del tenant.";
+  return "No pudimos obtener las credenciales. Intentá nuevamente.";
+}
+
 export function KnowledgeAddModal() {
   const router = useRouter();
   const [open, setOpen] = useState(false), [step, setStep] = useState(1), [type, setType] = useState<KnowledgeSourceType>();
@@ -52,8 +60,16 @@ export function KnowledgeAddModal() {
     const ticket = requests.start("credentials");
     if (!ticket) return;
     setCredentialLoading(true);
-    try { const response = await fetch("/api/labs/external-management-credentials", { signal: ticket.signal }); const payload = await response.json(); if (!response.ok) throw new Error(); if (requests.isCurrent(ticket)) setCredentials(payload); }
-    catch { if (requests.isCurrent(ticket)) setError("No pudimos obtener las credenciales. Intentá nuevamente."); }
+    try {
+      const response = await fetch("/api/labs/external-management-credentials", { signal: ticket.signal });
+      const payload = await response.json() as Credentials & { reason?: unknown };
+      if (!response.ok) {
+        if (requests.isCurrent(ticket)) setError(externalCredentialsErrorMessage(payload.reason));
+        return;
+      }
+      if (requests.isCurrent(ticket)) setCredentials(payload);
+    }
+    catch { if (requests.isCurrent(ticket)) setError(externalCredentialsErrorMessage(undefined)); }
     finally { if (requests.isCurrent(ticket)) setCredentialLoading(false); requests.finish(ticket); }
   }
 
