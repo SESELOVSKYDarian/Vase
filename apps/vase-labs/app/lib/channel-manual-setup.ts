@@ -13,6 +13,8 @@ export type ManualChannelRecord = {
   config?: unknown;
   lastError?: string | null;
   credentialsPresent?: boolean;
+  webhookVerifiedAt?: Date | string | null;
+  providerAccountId?: string | null;
 };
 
 export interface ManualChannelRepository {
@@ -36,8 +38,15 @@ export type ManualChannelSetupInput = {
 
 export type ManualChannelVerifyResult =
   | { status: "CONNECTED" }
-  | { status: "PENDING"; message: string }
+  | { status: "PENDING"; message: string; health?: ManualChannelHealth }
   | { status: "ERROR"; message: string };
+
+export type ManualChannelHealth = {
+  webhookVerified: boolean;
+  credentialsPresent: boolean;
+  assetVerified: boolean;
+  subscriptionActive: boolean;
+};
 
 export function resolveCanonicalLabsOrigin(configuredOrigin: string | undefined) {
   try {
@@ -66,6 +75,34 @@ function isSafeLegacyManualChannel(record: ManualChannelRecord, expectedWebhookU
   } catch {
     return false;
   }
+}
+
+function resolveManualChannelHealth(channel: ManualChannelRecord): ManualChannelHealth {
+  const config = channel.config && typeof channel.config === "object" && !Array.isArray(channel.config)
+    ? channel.config as Record<string, unknown>
+    : {};
+  return {
+    webhookVerified: Boolean(channel.webhookVerifiedAt),
+    credentialsPresent: channel.credentialsPresent !== false,
+    assetVerified: Boolean(channel.providerAccountId),
+    subscriptionActive: Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0,
+  };
+}
+
+function describePendingConnection(health: ManualChannelHealth) {
+  if (!health.webhookVerified) {
+    return "Meta todavia no verifico este webhook.";
+  }
+  const missing: string[] = [];
+  if (!health.credentialsPresent) missing.push("guardar credenciales");
+  if (!health.assetVerified) missing.push("validar el activo de Meta");
+  if (!health.subscriptionActive) missing.push("activar la suscripcion de eventos");
+  const readableMissing = missing.length > 2
+    ? `${missing.slice(0, -1).join(", ")} y ${missing[missing.length - 1]}`
+    : missing.join(" y ");
+  return missing.length
+    ? `Meta ya verifico el webhook. Falta ${readableMissing}.`
+    : "Meta ya verifico el webhook. Falta completar la validacion final del canal.";
 }
 
 export function buildManualChannelSetup(input: {
@@ -206,7 +243,10 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
       }
       if (channel.status === "CONNECTED") return { status: "CONNECTED" as const };
       if (channel.status === "PENDING") {
-        return { status: "PENDING" as const, message: "Meta todavia no verifico este webhook." };
+        const health = resolveManualChannelHealth(channel);
+        return health.webhookVerified
+          ? { status: "PENDING" as const, message: describePendingConnection(health), health }
+          : { status: "PENDING" as const, message: describePendingConnection(health) };
       }
       return { status: "ERROR" as const, message: "No pudimos verificar este webhook." };
     },

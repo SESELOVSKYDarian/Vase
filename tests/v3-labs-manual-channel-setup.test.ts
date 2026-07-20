@@ -316,6 +316,33 @@ describe("manual channel setup", () => {
     }
   });
 
+  it("explains which Meta connection requirement is still missing after webhook verification", async () => {
+    const service = createManualChannelSetupService({
+      list: async () => [],
+      create: vi.fn(),
+      findByIdForAssistant: async () => ({
+        id: "c",
+        status: "PENDING",
+        lastError: null,
+        webhookVerifiedAt: new Date("2026-07-20T12:00:00.000Z"),
+        credentialsPresent: false,
+        providerAccountId: null,
+        config: { manualWebhook: true },
+      }),
+    });
+
+    expect(await service.verify("assistant_1", "c")).toEqual({
+      status: "PENDING",
+      message: "Meta ya verifico el webhook. Falta guardar credenciales, validar el activo de Meta y activar la suscripcion de eventos.",
+      health: {
+        webhookVerified: true,
+        credentialsPresent: false,
+        assetVerified: false,
+        subscriptionActive: false,
+      },
+    });
+  });
+
   it("does not report connected when credentials are missing", async () => {
     const service = createManualChannelSetupService({
       list: async () => [], create: vi.fn(),

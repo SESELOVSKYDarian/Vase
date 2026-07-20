@@ -1,14 +1,15 @@
 "use client";
 
 import type { LabsChannel } from "@vase/contracts";
-import { ArrowLeft, ArrowRight, Check, Copy, Eye, LockKeyhole, Plus, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Copy, Eye, LockKeyhole, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildChannelSetupRequest, buildChannelVerifyRequest, createChannelUiFlow } from "./channel-ui-flow";
 
 type Capacity = Record<LabsChannel, { limit: number; used: number; remaining: number }>;
 type Setup = { channelId: string; webhookUrl: string; webhookKey: string };
-type Notice = { kind: "copy" | "pending" | "connected" | "error"; message: string };
+type ChannelHealth = { webhookVerified: boolean; credentialsPresent: boolean; assetVerified: boolean; subscriptionActive: boolean };
+type Notice = { kind: "copy" | "pending" | "connected" | "error"; message: string; health?: ChannelHealth };
 
 const channelMeta: Record<LabsChannel, { label: string; detail: string }> = {
   WHATSAPP: { label: "WhatsApp", detail: "Conversaciones y soporte desde WhatsApp Business." },
@@ -20,6 +21,12 @@ const credentialLabels: Record<LabsChannel, { account: string; parent?: string }
   INSTAGRAM: { account: "Instagram Professional Account ID", parent: "Facebook Page ID" },
   FACEBOOK: { account: "Facebook Page ID" },
 };
+const healthLabels: Array<[keyof ChannelHealth, string]> = [
+  ["webhookVerified", "Webhook verificado"],
+  ["credentialsPresent", "Credencial guardada"],
+  ["assetVerified", "Activo Meta validado"],
+  ["subscriptionActive", "Suscripcion activa"],
+];
 
 export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
   const router = useRouter();
@@ -99,7 +106,8 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
           () => { router.refresh(); close(true); },
         );
       } else if (payload.status === "PENDING") {
-        setNotice({ kind: "pending", message: "Todavía no detectamos la conexión. Configurá el webhook en Meta y volvé a comprobar." });
+        const health = payload.health && typeof payload.health === "object" ? payload.health as ChannelHealth : undefined;
+        setNotice({ kind: "pending", message: typeof payload.message === "string" ? payload.message : "Todavía no detectamos la conexión. Configurá el webhook en Meta y volvé a comprobar.", health });
       } else {
         setNotice({ kind: "error", message: "No pudimos verificar la conexión. Revisá la configuración e intentá nuevamente." });
       }
@@ -190,7 +198,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
           </button>;
         })}</div> : <div className="labs-manual-setup">
           {loading && !setup ? <p>Preparando los datos del canal…</p> : setup ? <>
-            <div className="labs-oauth-primary"><strong>Conexión recomendada</strong><p>Ingresá con Meta para descubrir y validar automáticamente tus cuentas.</p><button className="labs-button labs-button-primary" type="button" onClick={() => void connectWithMeta()} disabled={loading}>Conectar con Meta</button></div>
+            <div className="labs-oauth-primary"><strong>Conexión recomendada</strong><p>Ingresá con Meta para descubrir la cuenta, guardar credenciales y activar la suscripción sin copiar datos manuales.</p><button className="labs-button labs-button-primary" type="button" onClick={() => void connectWithMeta()} disabled={loading}>Conectar con Meta</button></div>
             {([["Webhook URL", setup.webhookUrl], ["Webhook Key", setup.webhookKey]] as const).map(([label, value]) => <div key={label}>
               <span>{label}</span><code>{value}</code><button type="button" disabled={notice?.kind === "connected"} aria-label={`Copiar ${label}`} onClick={() => void copy(value, label)}><Copy className="size-4" /></button>
             </div>)}
@@ -199,7 +207,13 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
           </> : <button className="labs-button labs-button-secondary" type="button" onClick={() => void beginSetup()}>Reintentar</button>}
         </div>}
 
-        {notice ? <p className={notice.kind === "connected" ? "labs-form-success" : notice.kind === "pending" ? "labs-form-pending" : notice.kind === "error" ? "labs-form-error" : "sr-only"} role={notice.kind === "error" ? "alert" : undefined} aria-live="polite">{notice.message}</p> : null}
+        {notice ? <div className={notice.kind === "connected" ? "labs-form-success" : notice.kind === "pending" ? "labs-form-pending" : notice.kind === "error" ? "labs-form-error" : "sr-only"} role={notice.kind === "error" ? "alert" : undefined} aria-live="polite">
+          {notice.kind === "pending" ? <AlertTriangle className="size-4" /> : null}
+          <span>{notice.message}</span>
+          {notice.kind === "pending" && notice.health ? <div className="labs-connection-health">
+            {healthLabels.map(([key, label]) => <span className={notice.health?.[key] ? "is-ok" : "is-pending"} key={key}><Check className="size-4" />{label}</span>)}
+          </div> : null}
+        </div> : null}
         <footer>{step === 2 ? <button className="labs-button labs-button-secondary" type="button" disabled={notice?.kind === "connected"} onClick={backToChannels}><ArrowLeft className="size-4" /> Volver</button> : <span />}
           {step === 1 ? <button className="labs-button labs-button-primary" type="button" disabled={!selected} onClick={() => void beginSetup()}>Continuar <ArrowRight className="size-4" /></button> :
             notice?.kind === "connected" ? <button className="labs-button labs-button-primary" type="button" disabled>Cerrar</button> :
