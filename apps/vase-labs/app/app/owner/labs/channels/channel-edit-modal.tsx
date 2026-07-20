@@ -60,7 +60,7 @@ export function ChannelEditModal({ channel }: { channel: Summary }) {
     setBusy(true); setError(null);
     try {
       const hasConfigurationChanges = Boolean(token.trim()) || accountId !== (details?.providerAccountId ?? "") || parentId !== (details?.parentId ?? "");
-      const shouldPersistConfiguration = advanced || hasConfigurationChanges;
+      const shouldPersistConfiguration = hasConfigurationChanges;
       const response = shouldPersistConfiguration ? await fetch(`/api/labs/channels/${channel.id}/connect`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channelType: channel.type, ...(token.trim() ? { accessToken: token.trim() } : {}), providerAccountId: accountId, parentId: labels[channel.type].parent ? parentId : null }) }) : await fetch(`/api/v1/channels/${channel.id}/test`, { method: "POST" });
       const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
       setToast(payload.status === "PENDING" ? "Credenciales válidas; falta verificar el webhook" : "Conexión comprobada correctamente");

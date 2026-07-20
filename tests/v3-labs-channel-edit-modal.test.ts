@@ -64,4 +64,25 @@ describe("ChannelEditModal", () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/labs/channels/c/connect");
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ channelType:"WHATSAPP", providerAccountId:"phone-new", parentId:"waba-new" });
   });
+
+  it("checks an already configured channel without resubscribing when advanced fields are unchanged", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "WHATSAPP", webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", accountLabel: "Ventas",
+        health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }))
+      .mockResolvedValueOnce(Response.json({ ok:true, status:"CONNECTED" }))
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "WHATSAPP", webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", accountLabel: "Ventas",
+        health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await click("Editar"); await click("Configuración avanzada");
+    await click("Comprobar conexión");
+
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/v1/channels/c/test");
+  });
 });
