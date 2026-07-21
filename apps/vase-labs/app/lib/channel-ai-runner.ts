@@ -13,6 +13,7 @@ import { labsEntitlementsService } from "./labs-entitlements-service";
 import { createKnowledgeService } from "./knowledge-service";
 import { createOpenAiReplyGenerator, getDefaultOpenAiModel, type AiReplyResult } from "./openai-reply-generator";
 import { labsPrisma, type PrismaClient } from "./db";
+import { decryptChannelSecret } from "./channel-secrets";
 
 type RunnerInput = Parameters<RunChannelAiReply>[0];
 
@@ -22,6 +23,7 @@ type ReplyGenerator = {
 
 type ChannelAiReplyRunnerDeps = {
   env?: NodeJS.ProcessEnv;
+  resolveOpenAiApiKey?(assistantId: string): Promise<string | null>;
   knowledge: { buildContext(assistantId: string): Promise<string> };
   catalog?: { buildAiContext(globalTenantId: string): Promise<string> };
   createReplyGenerator(input: { apiKey?: string; model: string }): ReplyGenerator;
@@ -58,8 +60,9 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
     }
 
     const model = input.context.assistantModel ?? getDefaultOpenAiModel(deps.env);
+    const assistantApiKey = await deps.resolveOpenAiApiKey?.(input.context.assistantId);
     const generator = deps.createReplyGenerator({
-      apiKey: deps.env?.OPENAI_API_KEY,
+      apiKey: assistantApiKey ?? deps.env?.OPENAI_API_KEY,
       model,
     });
     const orchestrator = createAiOrchestrator({
@@ -117,6 +120,20 @@ export function createPrismaChannelAiReplyRunner(input: {
       },
     }),
     catalog: labsCatalogService,
+    async resolveOpenAiApiKey(assistantId) {
+      const secret = await (prisma as any).assistantSecret.findUnique({
+        where: { assistantId_kind: { assistantId, kind: "OPENAI_API_KEY" } },
+        select: { encryptedValue: true },
+      });
+      if (!secret?.encryptedValue) return null;
+
+      const encryptionSecret = env.TOKEN_ENCRYPTION_SECRET?.trim();
+      if (!encryptionSecret) {
+        throw new Error("TOKEN_ENCRYPTION_SECRET_MISSING");
+      }
+
+      return decryptChannelSecret(secret.encryptedValue, encryptionSecret);
+    },
     createReplyGenerator({ apiKey, model }) {
       return createOpenAiReplyGenerator({
         apiKey,

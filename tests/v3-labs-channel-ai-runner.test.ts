@@ -73,4 +73,51 @@ describe("channel AI reply runner", () => {
     });
     expect(result).toEqual({ ok: true, messageId: "ai_message_123", totalTokens: 15 });
   });
+
+  it("prefers the assistant OpenAI key over the global environment key", async () => {
+    const generatorInputs: unknown[] = [];
+    const runner = createChannelAiReplyRunner({
+      env: { OPENAI_API_KEY: "sk-env" } as NodeJS.ProcessEnv,
+      async resolveOpenAiApiKey(assistantId) {
+        expect(assistantId).toBe("assistant_123");
+        return "sk-assistant";
+      },
+      knowledge: { async buildContext() { return ""; } },
+      createReplyGenerator(input) {
+        generatorInputs.push(input);
+        return {
+          generateReply: async () => ({ text: "Respuesta", inputTokens: 1, outputTokens: 1, provider: "openai", model: input.model, profile: "balanced" }),
+        };
+      },
+      persistAssistantReply: vi.fn(async () => ({ messageId: "ai_message_123" })),
+      registerTokenUsage: vi.fn(async () => ({ totalTokens: 2 })),
+      sendReply: vi.fn(async () => ({ ok: true })),
+    });
+
+    await runner({
+      context: {
+        assistantId: "assistant_123",
+        assistantModel: "gpt-selected",
+        globalTenantId: "tenant_123",
+        tenantSlug: "tenant-demo",
+        channelType: "WHATSAPP",
+        channel: { id: "channel_123", provider: "META_OFFICIAL", status: "CONNECTED", config: {} },
+        entitlement: null,
+      },
+      message: {
+        id: "inbound_123",
+        globalTenantId: "tenant_123",
+        channelType: "WHATSAPP",
+        provider: "META_OFFICIAL",
+        externalThreadKey: "549223",
+        customerContact: "549223",
+        messageType: "text",
+        text: "Hola",
+        rawPayload: null,
+      },
+      persisted: { conversationId: "conversation_123", messageId: "message_123", aiBlockedReason: null },
+    });
+
+    expect(generatorInputs).toEqual([{ apiKey: "sk-assistant", model: "gpt-selected" }]);
+  });
 });

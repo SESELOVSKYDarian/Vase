@@ -48,20 +48,24 @@ describe("Vase Labs standalone owner experience", () => {
   it("offers the guided five-source knowledge flow without leaking credentials", () => {
     const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"), "utf8");
     const selectorPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/model-selector.tsx");
+    const keyCardPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/openai-key-card.tsx");
     const modalPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-add-modal.tsx");
     const groupsPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-groups.tsx");
 
     expect(fs.existsSync(selectorPath)).toBe(true);
+    expect(fs.existsSync(keyCardPath)).toBe(true);
     expect(fs.existsSync(modalPath)).toBe(true);
     expect(fs.existsSync(groupsPath)).toBe(true);
-    if (!fs.existsSync(selectorPath) || !fs.existsSync(modalPath) || !fs.existsSync(groupsPath)) return;
+    if (!fs.existsSync(selectorPath) || !fs.existsSync(keyCardPath) || !fs.existsSync(modalPath) || !fs.existsSync(groupsPath)) return;
 
     const selector = fs.readFileSync(selectorPath, "utf8");
+    const keyCard = fs.readFileSync(keyCardPath, "utf8");
     const modal = fs.readFileSync(modalPath, "utf8");
     const groups = fs.readFileSync(groupsPath, "utf8");
     expect(page).toContain("getOpenAiModelProfiles");
     expect(page).toContain("<ModelSelector");
     expect(page).toContain("currentModel={data.assistant.model}");
+    expect(page).toContain("<OpenAiKeyCard configured={data.openAiKeyConfigured} />");
     expect(page).toContain("data.items.length === 0");
     const emptyBranch = page.split("data.items.length === 0 ? (")[1]?.split(") : (")[0] ?? "";
     expect(emptyBranch).toContain("Todavía no agregaste conocimiento");
@@ -90,6 +94,12 @@ describe("Vase Labs standalone owner experience", () => {
     expect(selector).toContain('fetch("/api/labs/assistant/model"');
     expect(selector).toContain("profileId");
     expect(selector).toContain("router.refresh()");
+    expect(keyCard).toContain('"use client"');
+    expect(keyCard).toContain('fetch("/api/labs/assistant/openai-key"');
+    expect(keyCard).toContain("apiKey");
+    expect(keyCard).toContain("router.refresh()");
+    expect(keyCard).not.toContain("Ver o copiar");
+    expect(keyCard).not.toContain("reveal");
     expect(groups).toContain("Vase Management");
     expect(groups).toContain("Sistema de gestión externo");
   });

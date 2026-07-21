@@ -8,6 +8,7 @@ import { LabsPageHeader, LabsSection } from "../labs-ui";
 import { KnowledgeAddModal } from "./knowledge-add-modal";
 import { KnowledgeGroups } from "./knowledge-groups";
 import { ModelSelector } from "./model-selector";
+import { OpenAiKeyCard } from "./openai-key-card";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,19 @@ async function getKnowledgeData() {
 
   try {
     const resolved = await resolveLabsRequestContext(requestHeaders.get("cookie"));
-    const items = await labsPrisma.knowledgeItem.findMany({
-      where: { assistantId: resolved.assistant.id },
-      orderBy: { updatedAt: "desc" },
-      take: 24,
-    });
+    const [items, openAiKey] = await Promise.all([
+      labsPrisma.knowledgeItem.findMany({
+        where: { assistantId: resolved.assistant.id },
+        orderBy: { updatedAt: "desc" },
+        take: 24,
+      }),
+      (labsPrisma as any).assistantSecret.findUnique({
+        where: { assistantId_kind: { assistantId: resolved.assistant.id, kind: "OPENAI_API_KEY" } },
+        select: { id: true },
+      }),
+    ]);
 
-    return { assistant: resolved.assistant, items };
+    return { assistant: resolved.assistant, items, openAiKeyConfigured: Boolean(openAiKey) };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("LABS_SESSION")) {
       redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs%2Fchatbots");
@@ -43,6 +50,7 @@ export default async function LabsChatbotsPage() {
       />
 
       <ModelSelector profiles={getOpenAiModelProfiles()} currentModel={data.assistant.model} />
+      <OpenAiKeyCard configured={data.openAiKeyConfigured} />
 
       {data.items.length === 0 ? (
         <div className="labs-empty-state px-6 py-10 text-center"><p className="mx-auto max-w-lg text-sm leading-6 text-[var(--muted)]">Todavía no agregaste conocimiento. Sumá una fuente para que el asistente responda con información de tu negocio.</p><div className="mt-6"><KnowledgeAddModal /></div></div>
