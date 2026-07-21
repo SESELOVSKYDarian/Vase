@@ -17,7 +17,7 @@ describe("channel AI reply runner", () => {
           generateReply: async ({ context }) => {
             expect(context).toContain("Horario: 9 a 18");
             expect(context).toContain("Producto A");
-            return { text: "Respuesta IA", inputTokens: 10, outputTokens: 5, provider: "openai", model: input.model, profile: "balanced" };
+            return { text: "Respuesta IA", inputTokens: 10, outputTokens: 5, provider: "openai", model: input.model, profile: "everyday" };
           },
         };
       },
@@ -62,7 +62,7 @@ describe("channel AI reply runner", () => {
       inputTokens: 10,
       outputTokens: 5,
       messageId: "ai_message_123",
-      source: "openai:gpt-selected:balanced",
+      source: "openai:gpt-selected:everyday",
     }));
     expect(sendReply).toHaveBeenCalledWith({
       globalTenantId: "tenant_123",
@@ -86,7 +86,7 @@ describe("channel AI reply runner", () => {
       createReplyGenerator(input) {
         generatorInputs.push(input);
         return {
-          generateReply: async () => ({ text: "Respuesta", inputTokens: 1, outputTokens: 1, provider: "openai", model: input.model, profile: "balanced" }),
+          generateReply: async () => ({ text: "Respuesta", inputTokens: 1, outputTokens: 1, provider: "openai", model: input.model, profile: "everyday" }),
         };
       },
       persistAssistantReply: vi.fn(async () => ({ messageId: "ai_message_123" })),

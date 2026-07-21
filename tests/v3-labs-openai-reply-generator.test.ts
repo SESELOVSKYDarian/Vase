@@ -7,32 +7,34 @@ import {
 } from "../apps/vase-labs/app/lib/openai-reply-generator";
 
 describe("Labs OpenAI reply generator", () => {
-  it("uses the current GPT-5.6 family for customer support profiles", () => {
+  it("uses the approved customer support model catalog", () => {
     expect(getOpenAiModelProfiles({} as NodeJS.ProcessEnv).map(({ id, model }) => ({ id, model }))).toEqual([
-      { id: "fast", model: "gpt-5.6-luna" },
-      { id: "balanced", model: "gpt-5.6-terra" },
+      { id: "fast", model: "gpt-5-mini" },
+      { id: "everyday", model: "gpt-4o" },
+      { id: "tools", model: "gpt-4.1" },
       { id: "premium", model: "gpt-5.6-sol" },
     ]);
   });
 
-  it("resolves configurable model profiles with a balanced default", () => {
+  it("resolves configurable model profiles with a fast default", () => {
     const env = {
       OPENAI_MODEL_FAST: "gpt-fast",
-      OPENAI_MODEL_BALANCED: "gpt-balanced",
+      OPENAI_MODEL_EVERYDAY: "gpt-everyday",
+      OPENAI_MODEL_TOOLS: "gpt-tools",
       OPENAI_MODEL_PREMIUM: "gpt-premium",
     } as NodeJS.ProcessEnv;
 
-    expect(resolveOpenAiModelProfile({ env })).toMatchObject({ id: "balanced", model: "gpt-balanced" });
+    expect(resolveOpenAiModelProfile({ env })).toMatchObject({ id: "fast", model: "gpt-fast" });
     expect(resolveOpenAiModelProfile({ profileId: "premium", env })).toMatchObject({ id: "premium", model: "gpt-premium" });
-    expect(resolveOpenAiModelProfile({ profileId: "unknown", env })).toMatchObject({ id: "balanced", model: "gpt-balanced" });
-    expect(getDefaultOpenAiModel(env)).toBe("gpt-balanced");
-    expect(getOpenAiModelProfiles(env).map((profile) => profile.id)).toEqual(["fast", "balanced", "premium"]);
+    expect(resolveOpenAiModelProfile({ profileId: "unknown", env })).toMatchObject({ id: "fast", model: "gpt-fast" });
+    expect(getDefaultOpenAiModel(env)).toBe("gpt-fast");
+    expect(getOpenAiModelProfiles(env).map((profile) => profile.id)).toEqual(["fast", "everyday", "tools", "premium"]);
   });
 
   it("allows one default model to back every profile", () => {
     const env = { OPENAI_DEFAULT_MODEL: "gpt-shared" } as NodeJS.ProcessEnv;
 
-    expect(getOpenAiModelProfiles(env).map((profile) => profile.model)).toEqual(["gpt-shared", "gpt-shared", "gpt-shared"]);
+    expect(getOpenAiModelProfiles(env).map((profile) => profile.model)).toEqual(["gpt-shared", "gpt-shared", "gpt-shared", "gpt-shared"]);
   });
 
   it("uses an explicit assistant model over profile defaults", async () => {
@@ -40,7 +42,7 @@ describe("Labs OpenAI reply generator", () => {
     const generator = createOpenAiReplyGenerator({
       apiKey: "sk-test",
       model: "gpt-selected",
-      env: { OPENAI_MODEL_BALANCED: "gpt-balanced" } as NodeJS.ProcessEnv,
+      env: { OPENAI_MODEL_FAST: "gpt-fast" } as NodeJS.ProcessEnv,
       fetcher: (async (url: string | URL | Request, init?: RequestInit) => {
         calls.push({ url: String(url), init: init ?? {} });
         return new Response(JSON.stringify({ output_text: "Listo", usage: { input_tokens: 1, output_tokens: 2 } }));
@@ -96,7 +98,7 @@ describe("Labs OpenAI reply generator", () => {
   it("fails before calling OpenAI when the API key is missing", async () => {
     let called = false;
     const generator = createOpenAiReplyGenerator({
-      env: { OPENAI_MODEL_PROFILE: "balanced" } as NodeJS.ProcessEnv,
+      env: { OPENAI_MODEL_PROFILE: "fast" } as NodeJS.ProcessEnv,
       fetcher: (async () => {
         called = true;
         return new Response("{}");

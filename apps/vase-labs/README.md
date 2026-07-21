@@ -76,11 +76,11 @@ Labs resuelve los modelos de ChatGPT/OpenAI desde `openai-reply-generator.ts`. C
 
 Variables soportadas:
 
-- `OPENAI_MODEL_PROFILE`: `fast`, `balanced` o `premium`.
+- `OPENAI_MODEL_PROFILE`: `fast`, `everyday`, `tools` o `premium`.
 - `OPENAI_DEFAULT_MODEL`: override global opcional para todos los perfiles sin modelo especifico.
-- `OPENAI_MODEL_FAST`, `OPENAI_MODEL_BALANCED`, `OPENAI_MODEL_PREMIUM`: modelos concretos por perfil.
+- `OPENAI_MODEL_FAST`, `OPENAI_MODEL_EVERYDAY`, `OPENAI_MODEL_TOOLS`, `OPENAI_MODEL_PREMIUM`: modelos concretos por perfil.
 
-Los valores por defecto son `gpt-5.6-luna`, `gpt-5.6-terra` y `gpt-5.6-sol`. Al guardar una key, Labs comprueba que tenga acceso al modelo seleccionado antes de cifrarla. La prueba de la pantalla `Conocimiento` usa la misma key, modelo y fuentes `READY` que el flujo de canales.
+Los valores por defecto son `gpt-5-mini` para baja latencia, `gpt-4o` para uso cotidiano, `gpt-4.1` para herramientas y `gpt-5.6-sol` para razonamiento avanzado. Al guardar una key, Labs comprueba que tenga acceso al modelo seleccionado antes de cifrarla. La prueba de la pantalla `Conocimiento` usa la misma key, modelo y fuentes `READY` que el flujo de canales.
 
 Referencias oficiales: [modelos de OpenAI](https://developers.openai.com/api/docs/models), [guia de seleccion de modelos](https://developers.openai.com/api/docs/guides/latest-model) y [Responses API](https://developers.openai.com/api/reference/responses).
 

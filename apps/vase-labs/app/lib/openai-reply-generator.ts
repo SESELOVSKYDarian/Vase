@@ -1,4 +1,4 @@
-export type OpenAiModelProfileId = "fast" | "balanced" | "premium";
+export type OpenAiModelProfileId = "fast" | "everyday" | "tools" | "premium";
 
 export interface OpenAiModelProfile {
   id: OpenAiModelProfileId;
@@ -27,39 +27,45 @@ interface CreateOpenAiReplyGeneratorInput {
 }
 
 const fallbackModels: Record<OpenAiModelProfileId, string> = {
-  fast: "gpt-5.6-luna",
-  balanced: "gpt-5.6-terra",
+  fast: "gpt-5-mini",
+  everyday: "gpt-4o",
+  tools: "gpt-4.1",
   premium: "gpt-5.6-sol",
 };
 
 const profileCopy: Record<OpenAiModelProfileId, Pick<OpenAiModelProfile, "label" | "description">> = {
   fast: {
     label: "Rápido",
-    description: "Menor costo para consultas frecuentes y alto volumen.",
+    description: "Baja latencia y costo para consultas frecuentes y alto volumen.",
   },
-  balanced: {
-    label: "Balanceado",
-    description: "Equilibrio recomendado entre calidad, velocidad y costo.",
+  everyday: {
+    label: "Uso cotidiano",
+    description: "Modelo versátil para atención general y automatizaciones habituales.",
+  },
+  tools: {
+    label: "Herramientas",
+    description: "Seguimiento preciso de instrucciones extensas y llamadas a APIs.",
   },
   premium: {
     label: "Premium",
-    description: "Máxima calidad para conversaciones complejas y casos sensibles.",
+    description: "Razonamiento avanzado para conversaciones y casos complejos.",
   },
 };
 
 export function isOpenAiModelProfileId(value: string | null | undefined): value is OpenAiModelProfileId {
-  return value === "fast" || value === "balanced" || value === "premium";
+  return value === "fast" || value === "everyday" || value === "tools" || value === "premium";
 }
 
 export function getOpenAiModelProfiles(env: NodeJS.ProcessEnv = process.env): OpenAiModelProfile[] {
   const defaultModel = env.OPENAI_DEFAULT_MODEL ?? env.OPENAI_MODEL;
   const configured: Record<OpenAiModelProfileId, string> = {
     fast: env.OPENAI_MODEL_FAST ?? defaultModel ?? fallbackModels.fast,
-    balanced: env.OPENAI_MODEL_BALANCED ?? defaultModel ?? fallbackModels.balanced,
+    everyday: env.OPENAI_MODEL_EVERYDAY ?? env.OPENAI_MODEL_BALANCED ?? defaultModel ?? fallbackModels.everyday,
+    tools: env.OPENAI_MODEL_TOOLS ?? defaultModel ?? fallbackModels.tools,
     premium: env.OPENAI_MODEL_PREMIUM ?? defaultModel ?? fallbackModels.premium,
   };
 
-  return (["fast", "balanced", "premium"] as const).map((id) => ({
+  return (["fast", "everyday", "tools", "premium"] as const).map((id) => ({
     id,
     model: configured[id],
     ...profileCopy[id],
@@ -71,8 +77,8 @@ export function resolveOpenAiModelProfile(input: {
   env?: NodeJS.ProcessEnv;
 } = {}): OpenAiModelProfile {
   const env = input.env ?? process.env;
-  const requested = input.profileId ?? env.OPENAI_MODEL_PROFILE ?? "balanced";
-  const profileId = isOpenAiModelProfileId(requested) ? requested : "balanced";
+  const requested = input.profileId ?? env.OPENAI_MODEL_PROFILE ?? "fast";
+  const profileId = isOpenAiModelProfileId(requested) ? requested : "fast";
   const profile = getOpenAiModelProfiles(env).find((item) => item.id === profileId);
 
   if (!profile) {

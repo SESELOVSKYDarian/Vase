@@ -48,13 +48,15 @@ describe("Labs OpenAI model profile metadata", () => {
   it("exposes serializable ChatGPT profile options for the selector", () => {
     const profiles = getOpenAiModelProfiles({
       OPENAI_MODEL_FAST: "gpt-fast",
-      OPENAI_MODEL_BALANCED: "gpt-balanced",
+      OPENAI_MODEL_EVERYDAY: "gpt-everyday",
+      OPENAI_MODEL_TOOLS: "gpt-tools",
       OPENAI_MODEL_PREMIUM: "gpt-premium",
     } as NodeJS.ProcessEnv);
 
     expect(profiles).toEqual([
       expect.objectContaining({ id: "fast", label: "Rápido", model: "gpt-fast" }),
-      expect.objectContaining({ id: "balanced", label: "Balanceado", model: "gpt-balanced" }),
+      expect.objectContaining({ id: "everyday", label: "Uso cotidiano", model: "gpt-everyday" }),
+      expect.objectContaining({ id: "tools", label: "Herramientas", model: "gpt-tools" }),
       expect.objectContaining({ id: "premium", label: "Premium", model: "gpt-premium" }),
     ]);
     expect(resolveOpenAiModelProfile({ profileId: "fast", env: { OPENAI_MODEL_FAST: "gpt-fast" } as NodeJS.ProcessEnv }).model).toBe("gpt-fast");

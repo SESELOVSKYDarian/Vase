@@ -81,13 +81,13 @@ describe("Vase Labs operation services", () => {
       async generateReply(input) {
         expect(input.context).toContain("Atendemos de 9 a 18.");
         expect(input.context).toContain("Producto estrella");
-        return { text: "Atendemos de 9 a 18.", inputTokens: 20, outputTokens: 30, provider: "openai", model: "gpt-test", profile: "balanced" };
+        return { text: "Atendemos de 9 a 18.", inputTokens: 20, outputTokens: 30, provider: "openai", model: "gpt-test", profile: "everyday" };
       },
       async persistAssistantReply(input) {
         return { messageId: "msg_ai", ...input };
       },
       async registerTokenUsage(input) {
-        expect(input.source).toBe("openai:gpt-test:balanced");
+        expect(input.source).toBe("openai:gpt-test:everyday");
         return { totalTokens: input.inputTokens + input.outputTokens };
       },
       async sendReply() {
