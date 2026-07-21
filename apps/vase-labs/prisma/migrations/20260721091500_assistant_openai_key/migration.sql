@@ -7,7 +7,7 @@ CREATE TABLE `AssistantSecret` (
   `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updatedAt` DATETIME(3) NOT NULL,
   PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+);
 
 CREATE UNIQUE INDEX `AssistantSecret_assistantId_kind_key` ON `AssistantSecret`(`assistantId`, `kind`);
 CREATE INDEX `AssistantSecret_assistantId_idx` ON `AssistantSecret`(`assistantId`);
