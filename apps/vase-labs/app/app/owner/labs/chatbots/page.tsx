@@ -35,8 +35,8 @@ export default async function LabsChatbotsPage() {
   return (
     <div className="space-y-6">
       <LabsPageHeader
-        eyebrow="Conocimiento"
-        title="Chatbots"
+        eyebrow="Conocimiento / Chatbots"
+        title="Base de conocimiento"
         description={data.items.length === 0 ? "Agregá información de tu negocio para empezar." : "Fuentes y estado del conocimiento que usa el asistente de Vase Labs."}
       />
 

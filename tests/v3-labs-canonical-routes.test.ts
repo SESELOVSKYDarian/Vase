@@ -21,4 +21,14 @@ describe("Labs canonical owner routes", () => {
     expect(nav).toContain('href: "/owner/knowledge"');
     expect(nav).not.toContain('href: "/app/owner/labs');
   });
+
+  it("places Chatbots inside the Conocimiento section tabs", () => {
+    const layout = fs.readFileSync(path.join(labs, "app/owner/knowledge/layout.tsx"), "utf8");
+    const page = fs.readFileSync(path.join(labs, "app/app/owner/labs/chatbots/page.tsx"), "utf8");
+
+    expect(layout).toContain('<Link href="/owner/knowledge">Chatbots</Link>');
+    expect(layout).toContain('aria-label="Secciones de conocimiento"');
+    expect(page).toContain('eyebrow="Conocimiento / Chatbots"');
+    expect(page).toContain('title="Base de conocimiento"');
+  });
 });
