@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import { groupKnowledgeItems } from "../../../../lib/knowledge-source";
+import { getOpenAiModelProfiles } from "../../../../lib/openai-reply-generator";
 import { LabsPageHeader, LabsSection } from "../labs-ui";
 import { KnowledgeAddModal } from "./knowledge-add-modal";
 import { KnowledgeGroups } from "./knowledge-groups";
+import { ModelSelector } from "./model-selector";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +22,7 @@ async function getKnowledgeData() {
       take: 24,
     });
 
-    return { items };
+    return { assistant: resolved.assistant, items };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("LABS_SESSION")) {
       redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs%2Fchatbots");
@@ -39,6 +41,8 @@ export default async function LabsChatbotsPage() {
         title="Base de conocimiento"
         description={data.items.length === 0 ? "Agregá información de tu negocio para empezar." : "Fuentes y estado del conocimiento que usa el asistente de Vase Labs."}
       />
+
+      <ModelSelector profiles={getOpenAiModelProfiles()} currentModel={data.assistant.model} />
 
       {data.items.length === 0 ? (
         <div className="labs-empty-state px-6 py-10 text-center"><p className="mx-auto max-w-lg text-sm leading-6 text-[var(--muted)]">Todavía no agregaste conocimiento. Sumá una fuente para que el asistente responda con información de tu negocio.</p><div className="mt-6"><KnowledgeAddModal /></div></div>
