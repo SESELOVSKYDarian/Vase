@@ -1,5 +1,6 @@
 import { labsPrisma } from "./db";
 import { createLabsContextClient } from "./app-session-context";
+import { syncLabsEntitlementFromContext } from "./labs-entitlement-sync";
 import { getDefaultOpenAiModel } from "./openai-reply-generator";
 import { readSharedLabsSession } from "./shared-session";
 
@@ -18,6 +19,7 @@ export async function resolveLabsRequestContext(cookieHeader: string | null) {
   }).resolve({
     globalUserId: session.globalUserId,
   });
+  await syncLabsEntitlementFromContext({ context });
 
   const assistant = await labsPrisma.assistant.upsert({
     where: { tenantSlug: context.tenantSlug },
