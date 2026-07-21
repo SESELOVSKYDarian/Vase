@@ -31,8 +31,8 @@ function stringValue(value: unknown) {
 
 export function createMetaGraphClient(input: {
   graphVersion: string;
-  appId: string;
-  appSecret: string;
+  appId?: string;
+  appSecret?: string;
   fetcher?: typeof fetch;
 }) {
   const fetcher = input.fetcher ?? fetch;
@@ -157,6 +157,7 @@ export function createMetaGraphClient(input: {
   }
 
   async function debugToken(accessToken: string, channelType: LabsChannel) {
+    if (!input.appId || !input.appSecret) return;
     const url = new URL(`${graphBase}/debug_token`);
     url.searchParams.set("input_token", accessToken);
     url.searchParams.set("access_token", `${input.appId}|${input.appSecret}`);

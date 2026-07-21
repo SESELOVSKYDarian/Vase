@@ -5,7 +5,7 @@ import { z } from "zod";
 import { decryptChannelSecret, encryptChannelSecret } from "../../../../../lib/channel-secrets";
 import { labsPrisma, Prisma } from "../../../../../lib/db";
 import { createManualMetaConnectionService } from "../../../../../lib/manual-meta-connection";
-import { createMetaRuntime } from "../../../../../lib/meta-runtime";
+import { createMetaGraphClient } from "../../../../../lib/meta-graph";
 import { resolveLabsRequestContext } from "../../../../../lib/request-context";
 
 const bodySchema = z.object({
@@ -15,14 +15,17 @@ const bodySchema = z.object({
   parentId: z.string().trim().min(1).max(160).nullable(),
 }).strict();
 
-const safeErrors = new Set(["CHANNEL_NOT_FOUND", "CHANNEL_CREDENTIAL_MISSING", "META_ASSET_NOT_AUTHORIZED", "META_TOKEN_INVALID", "META_PERMISSIONS_MISSING", "META_GRAPH_REQUEST_FAILED", "META_ASSET_PARENT_MISSING", "META_SUBSCRIPTION_FAILED"]);
+const safeErrors = new Set([
+  "CHANNEL_NOT_FOUND", "CHANNEL_CREDENTIAL_MISSING",
+  "META_ASSET_NOT_AUTHORIZED", "META_TOKEN_INVALID", "META_PERMISSIONS_MISSING", "META_GRAPH_REQUEST_FAILED", "META_ASSET_PARENT_MISSING", "META_SUBSCRIPTION_FAILED",
+  "TOKEN_ENCRYPTION_SECRET_MISSING",
+]);
 
 export async function POST(request: Request, { params }: { params: Promise<{ channelId: string }> }) {
   try {
     const { channelId } = await params;
     const { assistant } = await resolveLabsRequestContext(request.headers.get("cookie"));
     const body = bodySchema.parse(await request.json());
-    const runtime = createMetaRuntime();
     const secret = process.env.TOKEN_ENCRYPTION_SECRET?.trim();
     if (!secret) throw new Error("TOKEN_ENCRYPTION_SECRET_MISSING");
     let accessToken = body.accessToken;
@@ -34,8 +37,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
       if (!stored) throw new Error("CHANNEL_CREDENTIAL_MISSING");
       accessToken = decryptChannelSecret(stored.encryptedValue, secret);
     }
+    const graph = createMetaGraphClient({
+      graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v24.0",
+    });
     const service = createManualMetaConnectionService({
-      graph: runtime.graph,
+      graph,
       encrypt: (value) => encryptChannelSecret(value, secret),
       repository: {
         find: (assistantId, id) => labsPrisma.channel.findFirst({ where: { id, assistantId }, select: { id: true, type: true, webhookVerifiedAt: true } }),

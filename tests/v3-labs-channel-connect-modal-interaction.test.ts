@@ -113,7 +113,7 @@ describe("ChannelConnectModal interactions", () => {
 
     await click(button("Guardar y comprobar"));
 
-    expect(host.textContent).toContain("Vase no pudo completar la validación interna");
+    expect(host.textContent).toContain("Vase no pudo validar el canal con las credenciales cargadas");
     expect(host.textContent).not.toContain("Meta rechazó");
   });
 
