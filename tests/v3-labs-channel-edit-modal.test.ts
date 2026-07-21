@@ -130,4 +130,26 @@ describe("ChannelEditModal", () => {
 
     expect(host.textContent).toContain("Falta configurar el secreto interno de cifrado de Labs");
   });
+
+  it("asks to paste the access token again when the stored token is unreadable", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "WHATSAPP", webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", accountLabel: "Ventas",
+        health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }))
+      .mockResolvedValueOnce(Response.json({ error:"CHANNEL_CREDENTIAL_REENTER_REQUIRED" }, { status:400 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await click("Editar"); await click("Configuración avanzada");
+    const input = host.querySelector("input")!;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set;
+      setter?.call(input,"phone-new");
+      input.dispatchEvent(new Event("input",{bubbles:true}));
+    });
+    await click("Comprobar conexión");
+
+    expect(host.textContent).toContain("Volvé a pegar el Access Token");
+  });
 });

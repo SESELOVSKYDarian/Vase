@@ -69,4 +69,20 @@ describe("Labs channel connect route", () => {
     expect(payload.status).toBe("PENDING");
     expect(graph.resolveManualAsset).toHaveBeenCalledWith(expect.objectContaining({ accessToken: "token", providerAccountId: "phone_1", parentId: "waba_1" }));
   });
+
+  it("asks for the access token again when the stored token cannot be decrypted", async () => {
+    process.env.TOKEN_ENCRYPTION_SECRET = "new-encryption-secret";
+    const { labsPrisma } = await import("../apps/vase-labs/app/lib/db");
+    vi.mocked(labsPrisma.channelSecret.findFirst).mockResolvedValueOnce({ encryptedValue: "encrypted-with-old-secret" });
+    const route = await import("../apps/vase-labs/app/api/labs/channels/[channelId]/connect/route");
+
+    const response = await route.POST(
+      request({ channelType: "WHATSAPP", providerAccountId: "phone_1", parentId: "waba_1" }),
+      { params: Promise.resolve({ channelId: "channel_1" }) },
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("CHANNEL_CREDENTIAL_REENTER_REQUIRED");
+  });
 });

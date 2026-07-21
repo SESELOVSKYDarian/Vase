@@ -18,7 +18,7 @@ const bodySchema = z.object({
 const safeErrors = new Set([
   "CHANNEL_NOT_FOUND", "CHANNEL_CREDENTIAL_MISSING",
   "META_ASSET_NOT_AUTHORIZED", "META_TOKEN_INVALID", "META_PERMISSIONS_MISSING", "META_GRAPH_REQUEST_FAILED", "META_ASSET_PARENT_MISSING", "META_SUBSCRIPTION_FAILED",
-  "TOKEN_ENCRYPTION_SECRET_MISSING",
+  "TOKEN_ENCRYPTION_SECRET_MISSING", "CHANNEL_CREDENTIAL_REENTER_REQUIRED",
 ]);
 
 export async function POST(request: Request, { params }: { params: Promise<{ channelId: string }> }) {
@@ -35,7 +35,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
         select: { encryptedValue: true },
       });
       if (!stored) throw new Error("CHANNEL_CREDENTIAL_MISSING");
-      accessToken = decryptChannelSecret(stored.encryptedValue, secret);
+      try {
+        accessToken = decryptChannelSecret(stored.encryptedValue, secret);
+      } catch {
+        throw new Error("CHANNEL_CREDENTIAL_REENTER_REQUIRED");
+      }
     }
     const graph = createMetaGraphClient({
       graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v24.0",
