@@ -1,0 +1,87 @@
+"use client";
+
+import { Bot, Loader2, Send, Sparkles } from "lucide-react";
+import { type FormEvent, useState } from "react";
+
+export function AssistantTestPanel({ configured, hasKnowledge }: { configured: boolean; hasKnowledge: boolean }) {
+  const [message, setMessage] = useState("");
+  const [reply, setReply] = useState("");
+  const [meta, setMeta] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!message.trim() || busy || !configured) return;
+    setBusy(true);
+    setReply("");
+    setMeta("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/labs/assistant/test", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "ASSISTANT_TEST_FAILED");
+      setReply(payload.reply);
+      setMeta(`${payload.model} · ${Number(payload.usage?.inputTokens ?? 0) + Number(payload.usage?.outputTokens ?? 0)} tokens`);
+    } catch (reason) {
+      const code = reason instanceof Error ? reason.message : "";
+      setError(code === "OPENAI_API_KEY_MISSING"
+        ? "Agregá una OpenAI API Key antes de probar el chatbot."
+        : "No pudimos generar la respuesta. Revisá la key y el modelo seleccionado.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="labs-panel labs-assistant-test" aria-labelledby="assistant-test-title">
+      <header>
+        <div>
+          <p className="vase-kicker">Vista previa</p>
+          <h2 id="assistant-test-title">Probar chatbot</h2>
+          <p>Consultá como lo haría un cliente antes de activar el flujo en tus canales.</p>
+        </div>
+        <span className={configured ? "is-ready" : ""}>
+          <Sparkles aria-hidden="true" />
+          {configured ? "Disponible" : "Sin configurar"}
+        </span>
+      </header>
+
+      <div className="labs-assistant-test-thread" aria-live="polite">
+        {!reply && !busy ? (
+          <div className="labs-assistant-test-placeholder">
+            <Bot aria-hidden="true" />
+            <strong>{hasKnowledge ? "Tu conocimiento está listo" : "Todavía no hay fuentes listas"}</strong>
+            <p>{hasKnowledge ? "Escribí una consulta para comprobar la respuesta." : "Podés probar el modelo, pero responderá sin información propia del negocio."}</p>
+          </div>
+        ) : null}
+        {busy ? <div className="labs-assistant-test-loading"><Loader2 className="animate-spin" aria-hidden="true" /> Generando respuesta...</div> : null}
+        {reply ? <div className="labs-assistant-message"><Bot aria-hidden="true" /><div><p>{reply}</p><small>{meta}</small></div></div> : null}
+        {error ? <p className="labs-assistant-test-error" role="alert">{error}</p> : null}
+      </div>
+
+      <form onSubmit={submit}>
+        <label htmlFor="assistant-test-message">Mensaje de prueba</label>
+        <div>
+          <textarea
+            id="assistant-test-message"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            maxLength={2000}
+            rows={3}
+            placeholder="Ej.: ¿En qué horario atienden?"
+            disabled={!configured || busy}
+          />
+          <button type="submit" disabled={!configured || busy || !message.trim()} aria-label="Enviar mensaje de prueba">
+            {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}

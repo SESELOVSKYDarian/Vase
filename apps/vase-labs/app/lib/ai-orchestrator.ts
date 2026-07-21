@@ -9,6 +9,12 @@ interface AiOrchestratorDeps {
   persistAssistantReply(input: { conversationId: string; channel: LabsChannel; text: string }): Promise<{ messageId: string }>;
   registerTokenUsage(input: { globalTenantId: string; channel: LabsChannel; inputTokens: number; outputTokens: number; messageId: string; conversationId: string; assistantId: string; source?: string }): Promise<{ totalTokens: number }>;
   sendReply(input: { channel: LabsChannel; text: string; conversationId: string }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
+  markAssistantReplyDelivery?(input: {
+    messageId: string;
+    status: "SENT" | "FAILED";
+    providerMessageId?: string | null;
+    error?: string | null;
+  }): Promise<void>;
 }
 
 export function createAiOrchestrator(deps: AiOrchestratorDeps) {
@@ -46,7 +52,22 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         assistantId: input.assistantId,
         source: buildTokenUsageSource(reply),
       });
-      await deps.sendReply({ channel: input.channel, text: reply.text, conversationId: input.conversationId });
+      try {
+        const delivery = await deps.sendReply({ channel: input.channel, text: reply.text, conversationId: input.conversationId });
+        if (!delivery.ok) throw new Error("CHANNEL_DELIVERY_FAILED");
+        await deps.markAssistantReplyDelivery?.({
+          messageId: message.messageId,
+          status: "SENT",
+          providerMessageId: delivery.providerMessageId,
+        });
+      } catch (error) {
+        await deps.markAssistantReplyDelivery?.({
+          messageId: message.messageId,
+          status: "FAILED",
+          error: error instanceof Error ? error.message : "CHANNEL_DELIVERY_FAILED",
+        });
+        throw error;
+      }
 
       return { ok: true, messageId: message.messageId, totalTokens: usage.totalTokens };
     },

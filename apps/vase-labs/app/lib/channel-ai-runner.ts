@@ -49,7 +49,69 @@ type ChannelAiReplyRunnerDeps = {
     recipientId: string;
     text: string;
   }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
+  markAssistantReplyDelivery?(input: {
+    messageId: string;
+    status: "SENT" | "FAILED";
+    providerMessageId?: string | null;
+    error?: string | null;
+  }): Promise<void>;
 };
+
+type PrismaTransactionLike = {
+  message: { create(input: unknown): Promise<{ id: string }> };
+  conversation: { update(input: unknown): Promise<unknown> };
+};
+
+export async function persistPrismaAssistantReply(
+  prisma: { $transaction<T>(callback: (client: PrismaTransactionLike) => Promise<T>): Promise<T> },
+  reply: { conversationId: string; channel: LabsChannel; text: string },
+): Promise<{ messageId: string }> {
+  return prisma.$transaction(async (transaction) => {
+    const now = new Date();
+    const message = await transaction.message.create({
+      data: {
+        id: randomUUID(),
+        conversationId: reply.conversationId,
+        role: "assistant",
+        direction: "OUTBOUND",
+        content: reply.text,
+        deliveries: { create: { channel: reply.channel, status: "PENDING" } },
+      },
+      select: { id: true },
+    });
+    await transaction.conversation.update({
+      where: { id: reply.conversationId },
+      data: {
+        messageCount: { increment: 1 },
+        lastMessageAt: now,
+        lastOutboundAt: now,
+      },
+    });
+    return { messageId: message.id };
+  });
+}
+
+export async function markPrismaAssistantReplyDelivery(
+  prisma: { messageDelivery: { updateMany(input: unknown): Promise<unknown> } },
+  input: {
+    messageId: string;
+    status: "SENT" | "FAILED";
+    providerMessageId?: string | null;
+    error?: string | null;
+  },
+): Promise<void> {
+  const completedAt = new Date();
+  await prisma.messageDelivery.updateMany({
+    where: { messageId: input.messageId, status: "PENDING" },
+    data: {
+      status: input.status,
+      providerMessageId: input.providerMessageId ?? null,
+      error: input.error ?? null,
+      sentAt: input.status === "SENT" ? completedAt : null,
+      failedAt: input.status === "FAILED" ? completedAt : null,
+    },
+  });
+}
 
 export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunChannelAiReply {
   return async function runAiReply(input: RunnerInput) {
@@ -80,6 +142,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
           text: reply.text,
         });
       },
+      markAssistantReplyDelivery: deps.markAssistantReplyDelivery,
     });
 
     return orchestrator.processConversation({
@@ -143,21 +206,14 @@ export function createPrismaChannelAiReplyRunner(input: {
       });
     },
     async persistAssistantReply(reply) {
-      const messageId = randomUUID();
-      await (prisma as any).message.create({
-        data: {
-          id: messageId,
-          conversationId: reply.conversationId,
-          role: "assistant",
-          direction: "OUTBOUND",
-          content: reply.text,
-        },
-      });
-      return { messageId };
+      return persistPrismaAssistantReply(prisma as any, reply);
     },
     async registerTokenUsage(usage) {
       const result = await labsEntitlementsService.registerTokenUsage(usage.globalTenantId, usage);
       return { totalTokens: result.usage.totalTokens };
+    },
+    markAssistantReplyDelivery(delivery) {
+      return markPrismaAssistantReplyDelivery(prisma as any, delivery);
     },
     sendReply(reply) {
       return sender.send({

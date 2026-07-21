@@ -16,4 +16,4 @@ ENV HOSTNAME=$HOSTNAME
 ENV PORT=$PORT
 
 EXPOSE 3000
-CMD ["sh", "-c", "node apps/vase-labs/scripts/validate-runtime-env.js && cd apps/vase-labs && npx prisma migrate deploy && npx next start -H \"${HOSTNAME:-0.0.0.0}\" -p \"${PORT:-3000}\""]
+CMD ["sh", "-c", "node apps/vase-labs/scripts/validate-runtime-env.js && node apps/vase-labs/scripts/repair-assistant-secret-migration.js && cd apps/vase-labs && npx prisma migrate deploy && npx next start -H \"${HOSTNAME:-0.0.0.0}\" -p \"${PORT:-3000}\""]

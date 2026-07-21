@@ -27,23 +27,23 @@ interface CreateOpenAiReplyGeneratorInput {
 }
 
 const fallbackModels: Record<OpenAiModelProfileId, string> = {
-  fast: "gpt-4.1-mini",
-  balanced: "gpt-4.1",
-  premium: "gpt-5.6",
+  fast: "gpt-5.6-luna",
+  balanced: "gpt-5.6-terra",
+  premium: "gpt-5.6-sol",
 };
 
 const profileCopy: Record<OpenAiModelProfileId, Pick<OpenAiModelProfile, "label" | "description">> = {
   fast: {
-    label: "Rapido",
-    description: "Respuestas de bajo costo y baja latencia para atencion operativa.",
+    label: "Rápido",
+    description: "Menor costo para consultas frecuentes y alto volumen.",
   },
   balanced: {
     label: "Balanceado",
-    description: "Mejor equilibrio entre calidad, velocidad y costo para ventas y soporte.",
+    description: "Equilibrio recomendado entre calidad, velocidad y costo.",
   },
   premium: {
     label: "Premium",
-    description: "Mayor calidad para conversaciones complejas o marcas con asistencia avanzada.",
+    description: "Máxima calidad para conversaciones complejas y casos sensibles.",
   },
 };
 
@@ -134,6 +134,30 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
       };
     },
   };
+}
+
+export async function validateOpenAiCredential(input: {
+  apiKey: string;
+  model: string;
+  fetcher?: FetchLike;
+}): Promise<{ ok: true; model: string }> {
+  const fetcher = input.fetcher ?? fetch;
+  const response = await fetcher(
+    `https://api.openai.com/v1/models/${encodeURIComponent(input.model)}`,
+    { headers: { Authorization: `Bearer ${input.apiKey}` } },
+  );
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("OPENAI_CREDENTIAL_REJECTED");
+  }
+  if (response.status === 404) {
+    throw new Error("OPENAI_MODEL_UNAVAILABLE");
+  }
+  if (!response.ok) {
+    throw new Error("OPENAI_VALIDATION_UNAVAILABLE");
+  }
+
+  return { ok: true, model: input.model };
 }
 
 function buildSystemInstructions(context: string): string {

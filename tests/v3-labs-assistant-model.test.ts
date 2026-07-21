@@ -53,7 +53,7 @@ describe("Labs OpenAI model profile metadata", () => {
     } as NodeJS.ProcessEnv);
 
     expect(profiles).toEqual([
-      expect.objectContaining({ id: "fast", label: "Rapido", model: "gpt-fast" }),
+      expect.objectContaining({ id: "fast", label: "Rápido", model: "gpt-fast" }),
       expect.objectContaining({ id: "balanced", label: "Balanceado", model: "gpt-balanced" }),
       expect.objectContaining({ id: "premium", label: "Premium", model: "gpt-premium" }),
     ]);

@@ -1,3 +1,4 @@
+import { FileText, HelpCircle, Link2, Store } from "lucide-react";
 import type { KnowledgeSourceType } from "../../../../lib/knowledge-source";
 import { LabsStatusPill } from "../labs-ui";
 
@@ -12,6 +13,15 @@ const labels: Record<KnowledgeGroupType, string> = {
   VASE_MANAGEMENT: "Vase Management",
   EXTERNAL_MANAGEMENT: "Sistema de gestión externo",
   OTROS: "Otros",
+};
+
+const icons: Record<KnowledgeGroupType, typeof FileText> = {
+  FILE: FileText,
+  URL: Link2,
+  FAQ: HelpCircle,
+  VASE_MANAGEMENT: Store,
+  EXTERNAL_MANAGEMENT: Store,
+  OTROS: FileText,
 };
 
 function tone(status: string): "neutral" | "success" | "warning" | "danger" {
@@ -30,15 +40,19 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
         <h3 id={`knowledge-${group.type}`} className="text-sm font-semibold text-[var(--foreground)]">{labels[group.type]}</h3>
         <span className="text-xs text-[var(--muted)]">{group.items.length} {group.items.length === 1 ? "fuente" : "fuentes"}</span>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{group.items.map((item) => (
-        <article key={item.id} className="labs-subpanel p-4">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-sm font-semibold text-[var(--foreground)]">{item.title}</p>
+      <div className="labs-knowledge-source-list">{group.items.map((item) => {
+        const Icon = icons[group.type];
+        return (
+          <article key={item.id} className="labs-knowledge-source-row">
+            <span><Icon aria-hidden="true" /></span>
+            <div>
+              <p>{item.title}</p>
+              <small>Actualizado {dateFormatter.format(item.updatedAt)}</small>
+            </div>
             <LabsStatusPill label={item.status} tone={tone(item.status)} />
-          </div>
-          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">Actualizado {dateFormatter.format(item.updatedAt)}</p>
-        </article>
-      ))}</div>
+          </article>
+        );
+      })}</div>
     </section>
   ))}</div>;
 }

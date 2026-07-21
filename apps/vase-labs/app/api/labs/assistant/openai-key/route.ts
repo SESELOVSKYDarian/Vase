@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { encryptChannelSecret } from "../../../../lib/channel-secrets";
 import { labsPrisma } from "../../../../lib/db";
+import { getDefaultOpenAiModel, validateOpenAiCredential } from "../../../../lib/openai-reply-generator";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 
 const OPENAI_KEY_KIND = "OPENAI_API_KEY";
@@ -22,8 +23,10 @@ type AssistantOpenAiKeyRepository = {
 
 type AssistantOpenAiKeyDependencies = {
   env?: NodeJS.ProcessEnv;
-  resolveContext(cookieHeader: string | null): Promise<{ assistant: { id: string } }>;
+  resolveContext(cookieHeader: string | null): Promise<{ assistant: { id: string; model?: string | null } }>;
   repository: AssistantOpenAiKeyRepository;
+  validateCredential?(input: { apiKey: string; model: string }): Promise<{ ok: true; model: string }>;
+  resolveModel?(): string;
 };
 
 const authenticationErrors = new Set([
@@ -75,6 +78,9 @@ export function createAssistantOpenAiKeyHandlers(dependencies: AssistantOpenAiKe
           return noStore(NextResponse.json({ error: "TOKEN_ENCRYPTION_SECRET_MISSING" }, { status: 500 }));
         }
 
+        const model = resolved.assistant.model?.trim() || dependencies.resolveModel?.() || getDefaultOpenAiModel(dependencies.env);
+        await (dependencies.validateCredential ?? validateOpenAiCredential)({ apiKey, model });
+
         await dependencies.repository.upsertOpenAiKey({
           assistantId: resolved.assistant.id,
           kind: OPENAI_KEY_KIND,
@@ -82,11 +88,17 @@ export function createAssistantOpenAiKeyHandlers(dependencies: AssistantOpenAiKe
           rotatedAt: new Date(),
         });
 
-        return noStore(NextResponse.json({ configured: true }));
+        return noStore(NextResponse.json({ configured: true, model }));
       } catch (error) {
         const message = error instanceof Error ? error.message : "";
         if (authenticationErrors.has(message)) {
           return noStore(NextResponse.json({ error: message }, { status: 401 }));
+        }
+        if (message === "OPENAI_CREDENTIAL_REJECTED" || message === "OPENAI_MODEL_UNAVAILABLE") {
+          return noStore(NextResponse.json({ error: message }, { status: 422 }));
+        }
+        if (message === "OPENAI_VALIDATION_UNAVAILABLE") {
+          return noStore(NextResponse.json({ error: message }, { status: 503 }));
         }
         return noStore(NextResponse.json({ error: "ASSISTANT_OPENAI_KEY_SAVE_FAILED" }, { status: 500 }));
       }
@@ -97,6 +109,8 @@ export function createAssistantOpenAiKeyHandlers(dependencies: AssistantOpenAiKe
 const handlers = createAssistantOpenAiKeyHandlers({
   env: process.env,
   resolveContext: resolveLabsRequestContext,
+  validateCredential: validateOpenAiCredential,
+  resolveModel: getDefaultOpenAiModel,
   repository: {
     findOpenAiKey(assistantId) {
       return (labsPrisma as any).assistantSecret.findUnique({

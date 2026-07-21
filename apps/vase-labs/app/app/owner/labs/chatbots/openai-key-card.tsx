@@ -1,24 +1,20 @@
 "use client";
 
-import { CheckCircle2, KeyRound, Loader2 } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-type OpenAiKeyCardProps = {
-  configured: boolean;
-};
-
-export function OpenAiKeyCard({ configured }: OpenAiKeyCardProps) {
+export function OpenAiKeyCard({ configured }: { configured: boolean }) {
   const router = useRouter();
   const [apiKey, setApiKey] = useState("");
   const [isConfigured, setIsConfigured] = useState(configured);
+  const [showKey, setShowKey] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   async function saveKey() {
     setBusy(true);
     setMessage("");
-
     try {
       const response = await fetch("/api/labs/assistant/openai-key", {
         method: "POST",
@@ -26,20 +22,21 @@ export function OpenAiKeyCard({ configured }: OpenAiKeyCardProps) {
         body: JSON.stringify({ apiKey }),
       });
       const payload = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "ASSISTANT_OPENAI_KEY_SAVE_FAILED");
-      }
-
+      if (!response.ok) throw new Error(payload.error ?? "ASSISTANT_OPENAI_KEY_SAVE_FAILED");
       setApiKey("");
+      setShowKey(false);
       setIsConfigured(true);
-      setMessage("Key guardada. El chatbot ya puede responder con OpenAI.");
+      setMessage(`Key validada y guardada para ${payload.model}.`);
       router.refresh();
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
-      setMessage(code === "TOKEN_ENCRYPTION_SECRET_MISSING"
-        ? "Falta TOKEN_ENCRYPTION_SECRET en Labs para guardar la key cifrada."
-        : "No pudimos guardar la key. Revisá que empiece con sk-.");
+      const messages: Record<string, string> = {
+        TOKEN_ENCRYPTION_SECRET_MISSING: "Labs no tiene disponible el cifrado interno. Revisá el despliegue.",
+        OPENAI_CREDENTIAL_REJECTED: "OpenAI rechazó la key. Revisá que esté activa y pertenezca al proyecto correcto.",
+        OPENAI_MODEL_UNAVAILABLE: "La key no tiene acceso al modelo seleccionado.",
+        OPENAI_VALIDATION_UNAVAILABLE: "OpenAI no respondió a la validación. Intentá nuevamente.",
+      };
+      setMessage(messages[code] ?? "No pudimos guardar la key. Revisá que empiece con sk-.");
     } finally {
       setBusy(false);
     }
@@ -49,39 +46,40 @@ export function OpenAiKeyCard({ configured }: OpenAiKeyCardProps) {
     <section className="labs-panel p-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="vase-kicker">Credencial IA</p>
-          <h2 className="mt-1 text-lg font-semibold tracking-tight text-[var(--foreground)]">OpenAI API Key</h2>
+          <p className="vase-kicker">Acceso seguro</p>
+          <h2 className="mt-1 text-lg font-semibold text-[var(--foreground)]">OpenAI API Key</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-            Guardá la key de OpenAI para este chatbot. Labs la cifra y la usa cuando llega un mensaje por los canales conectados.
+            La key pertenece a este chatbot. Vase la valida, la cifra y nunca vuelve a mostrarla.
           </p>
         </div>
-        <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${isConfigured ? "bg-[var(--success-soft)] text-[var(--success)]" : "bg-[var(--warning-soft)] text-[var(--warning)]"}`}>
-          {isConfigured ? <CheckCircle2 className="size-4" /> : <KeyRound className="size-4" />}
+        <span className={`labs-openai-key-state ${isConfigured ? "is-ready" : ""}`}>
+          {isConfigured ? <CheckCircle2 aria-hidden="true" /> : <KeyRound aria-hidden="true" />}
           {isConfigured ? "Configurada" : "Pendiente"}
         </span>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto]">
-        <input
-          value={apiKey}
-          onChange={(event) => setApiKey(event.target.value)}
-          type="password"
-          autoComplete="off"
-          placeholder={isConfigured ? "Pegá una nueva key para rotarla" : "sk-..."}
-          className="min-h-11 rounded-lg border border-[var(--border-strong)] bg-white px-3 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent-strong)] focus:ring-4 focus:ring-[var(--accent-soft)]"
-        />
-        <button
-          type="button"
-          onClick={() => void saveKey()}
-          disabled={busy || apiKey.trim().length === 0}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition-colors hover:bg-[color-mix(in_srgb,var(--accent-strong)_88%,black)] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
-          Guardar key
+      <label className="labs-openai-key-label" htmlFor="openai-api-key">OpenAI API Key</label>
+      <div className="labs-openai-key-row">
+        <div className="labs-openai-key-input">
+          <input
+            id="openai-api-key"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            type={showKey ? "text" : "password"}
+            autoComplete="new-password"
+            spellCheck={false}
+            placeholder={isConfigured ? "Pegá una nueva key para reemplazarla" : "sk-proj-..."}
+          />
+          <button type="button" onClick={() => setShowKey((value) => !value)} aria-label={showKey ? "Ocultar key" : "Mostrar key"}>
+            {showKey ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+          </button>
+        </div>
+        <button type="button" onClick={() => void saveKey()} disabled={busy || apiKey.trim().length === 0} className="labs-button labs-button-primary">
+          {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <KeyRound aria-hidden="true" />}
+          Validar y guardar
         </button>
       </div>
-
-      {message ? <p className="mt-4 text-xs font-bold text-[var(--muted)]">{message}</p> : null}
+      {message ? <p className="labs-openai-key-feedback" aria-live="polite">{message}</p> : null}
     </section>
   );
 }

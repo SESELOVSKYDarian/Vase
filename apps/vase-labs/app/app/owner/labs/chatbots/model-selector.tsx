@@ -73,12 +73,13 @@ export function ModelSelector({ profiles, currentModel }: ModelSelectorProps) {
               type="button"
               disabled={Boolean(busy)}
               onClick={() => void choose(profile.id)}
+              aria-pressed={isSelected}
               className={`labs-provider-option ${isSelected ? "is-active" : ""}`}
             >
               <span>
                 <strong>{profile.label}</strong>
                 <small>{profile.description}</small>
-                <code>{profile.model}</code>
+                <code className="labs-model-id">{profile.model}</code>
               </span>
               {isBusy ? <Loader2 className="size-5 animate-spin" /> : isSelected ? <CheckCircle2 className="size-5" /> : null}
             </button>
@@ -86,7 +87,7 @@ export function ModelSelector({ profiles, currentModel }: ModelSelectorProps) {
         })}
       </div>
 
-      {message ? <p className="mt-4 text-xs font-bold text-[var(--muted)]">{message}</p> : null}
+      {message ? <p className="mt-4 text-xs font-bold text-[var(--muted)]" aria-live="polite">{message}</p> : null}
     </section>
   );
 }

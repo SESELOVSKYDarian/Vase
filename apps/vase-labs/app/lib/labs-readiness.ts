@@ -16,7 +16,7 @@ export async function getLabsReadinessPayload(input: LabsReadinessInput = {}) {
     database: "mysql-labs",
     redis: process.env.REDIS_URL ? "redis-platform" : "not_configured",
     meta: process.env.META_APP_ID && process.env.META_APP_SECRET ? "configured" : "not_configured",
-    openai: process.env.OPENAI_API_KEY ? "configured" : "not_configured",
+    openai: "configured_per_assistant",
   };
 
   try {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createAiOrchestrator } from "../apps/vase-labs/app/lib/ai-orchestrator";
 import { summarizeLabsAnalytics } from "../apps/vase-labs/app/lib/analytics-service";
 import { createHandoffService } from "../apps/vase-labs/app/lib/handoff-service";
@@ -74,6 +74,7 @@ describe("Vase Labs operation services", () => {
         return [{ id: "k_1", title: "Horario", content: "Atendemos de 9 a 18.", sourceType: "manual", status: "READY" }];
       },
     });
+    const markAssistantReplyDelivery = vi.fn(async () => undefined);
     const orchestrator = createAiOrchestrator({
       knowledge,
       catalog: { async buildAiContext() { return "# Producto estrella\nSKU: A1 | Precio: 1200 | Stock: 3"; } },
@@ -92,6 +93,7 @@ describe("Vase Labs operation services", () => {
       async sendReply() {
         return { ok: true, providerMessageId: "mid_ai" };
       },
+      markAssistantReplyDelivery,
     });
 
     const result = await orchestrator.processConversation({
@@ -105,6 +107,38 @@ describe("Vase Labs operation services", () => {
     });
 
     expect(result).toMatchObject({ ok: true, messageId: "msg_ai", totalTokens: 50 });
+    expect(markAssistantReplyDelivery).toHaveBeenCalledWith({
+      messageId: "msg_ai",
+      status: "SENT",
+      providerMessageId: "mid_ai",
+    });
+  });
+
+  it("marks a persisted assistant reply as failed when Meta rejects delivery", async () => {
+    const markAssistantReplyDelivery = vi.fn(async () => undefined);
+    const orchestrator = createAiOrchestrator({
+      knowledge: createKnowledgeService({ async listReadyKnowledge() { return []; } }),
+      async generateReply() { return { text: "Respuesta", inputTokens: 1, outputTokens: 1 }; },
+      async persistAssistantReply() { return { messageId: "msg_failed" }; },
+      async registerTokenUsage() { return { totalTokens: 2 }; },
+      async sendReply() { throw new Error("META_SEND_FAILED"); },
+      markAssistantReplyDelivery,
+    });
+
+    await expect(orchestrator.processConversation({
+      assistantId: "assistant_123",
+      conversationId: "conv_123",
+      globalTenantId: "tenant_123",
+      channel: "WHATSAPP",
+      latestUserText: "Hola",
+      canRunAi: true,
+      handoffActive: false,
+    })).rejects.toThrow("META_SEND_FAILED");
+    expect(markAssistantReplyDelivery).toHaveBeenCalledWith({
+      messageId: "msg_failed",
+      status: "FAILED",
+      error: "META_SEND_FAILED",
+    });
   });
 
   it("summarizes analytics from conversations, messages, token usage and channels", () => {

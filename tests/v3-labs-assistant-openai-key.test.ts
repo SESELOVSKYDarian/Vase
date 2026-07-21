@@ -15,6 +15,7 @@ function request(method: string, body?: unknown) {
 describe("assistant OpenAI key settings", () => {
   it("stores the OpenAI key encrypted for the resolved assistant only", async () => {
     const writes: unknown[] = [];
+    const validations: unknown[] = [];
     const handlers = createAssistantOpenAiKeyHandlers({
       env: { TOKEN_ENCRYPTION_SECRET: "secret-for-tests" } as NodeJS.ProcessEnv,
       async resolveContext() {
@@ -29,6 +30,13 @@ describe("assistant OpenAI key settings", () => {
           return { id: "secret_123" };
         },
       },
+      async validateCredential(input) {
+        validations.push(input);
+        return { ok: true, model: input.model };
+      },
+      resolveModel() {
+        return "gpt-5.6-terra";
+      },
     });
 
     const response = await handlers.POST(request("POST", {
@@ -37,13 +45,40 @@ describe("assistant OpenAI key settings", () => {
     }));
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ configured: true });
+    await expect(response.json()).resolves.toEqual({ configured: true, model: "gpt-5.6-terra" });
     expect(writes).toHaveLength(1);
+    expect(validations).toEqual([{ apiKey: "sk-proj-valid-openai-key-for-client", model: "gpt-5.6-terra" }]);
     expect(writes[0]).toMatchObject({ assistantId: "assistant_trusted", kind: "OPENAI_API_KEY" });
     expect((writes[0] as { encryptedValue: string }).encryptedValue).not.toContain("sk-proj-valid");
     expect(decryptChannelSecret((writes[0] as { encryptedValue: string }).encryptedValue, "secret-for-tests")).toBe(
       "sk-proj-valid-openai-key-for-client",
     );
+  });
+
+  it("does not store a key that OpenAI rejects", async () => {
+    const writes: unknown[] = [];
+    const handlers = createAssistantOpenAiKeyHandlers({
+      env: { TOKEN_ENCRYPTION_SECRET: "secret-for-tests" } as NodeJS.ProcessEnv,
+      async resolveContext() {
+        return { assistant: { id: "assistant_123" } };
+      },
+      repository: {
+        async findOpenAiKey() { return null; },
+        async upsertOpenAiKey(input) { writes.push(input); return { id: "secret_123" }; },
+      },
+      async validateCredential() {
+        throw new Error("OPENAI_CREDENTIAL_REJECTED");
+      },
+      resolveModel() {
+        return "gpt-5.6-terra";
+      },
+    });
+
+    const response = await handlers.POST(request("POST", { apiKey: "sk-proj-valid-openai-key-for-client" }));
+
+    expect(response.status).toBe(422);
+    expect(writes).toHaveLength(0);
+    await expect(response.json()).resolves.toEqual({ error: "OPENAI_CREDENTIAL_REJECTED" });
   });
 
   it("reports only whether a key is configured", async () => {
@@ -82,6 +117,8 @@ describe("assistant OpenAI key settings", () => {
           throw new Error("unexpected write");
         },
       },
+      async validateCredential() { return { ok: true, model: "gpt-5.6-terra" }; },
+      resolveModel() { return "gpt-5.6-terra"; },
     };
 
     const invalid = createAssistantOpenAiKeyHandlers(base);

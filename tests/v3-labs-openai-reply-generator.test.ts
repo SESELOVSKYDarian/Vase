@@ -7,6 +7,14 @@ import {
 } from "../apps/vase-labs/app/lib/openai-reply-generator";
 
 describe("Labs OpenAI reply generator", () => {
+  it("uses the current GPT-5.6 family for customer support profiles", () => {
+    expect(getOpenAiModelProfiles({} as NodeJS.ProcessEnv).map(({ id, model }) => ({ id, model }))).toEqual([
+      { id: "fast", model: "gpt-5.6-luna" },
+      { id: "balanced", model: "gpt-5.6-terra" },
+      { id: "premium", model: "gpt-5.6-sol" },
+    ]);
+  });
+
   it("resolves configurable model profiles with a balanced default", () => {
     const env = {
       OPENAI_MODEL_FAST: "gpt-fast",

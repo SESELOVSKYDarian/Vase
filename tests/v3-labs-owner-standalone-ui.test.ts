@@ -104,6 +104,30 @@ describe("Vase Labs standalone owner experience", () => {
     expect(groups).toContain("Sistema de gestión externo");
   });
 
+  it("presents knowledge as a complete operational workspace", () => {
+    const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"), "utf8");
+    const keyCard = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/openai-key-card.tsx"), "utf8");
+    const testPanelPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/assistant-test-panel.tsx");
+    const styles = fs.readFileSync(path.resolve("apps/vase-labs/app/globals.css"), "utf8");
+
+    expect(fs.existsSync(testPanelPath)).toBe(true);
+    if (!fs.existsSync(testPanelPath)) return;
+    const testPanel = fs.readFileSync(testPanelPath, "utf8");
+
+    expect(page).toContain("labs-knowledge-status");
+    expect(page).toContain("<AssistantTestPanel");
+    expect(page).toContain("Fuentes listas");
+    expect(page).toContain("Canales activos");
+    expect(testPanel).toContain('fetch("/api/labs/assistant/test"');
+    expect(testPanel).toContain('aria-live="polite"');
+    expect(testPanel).toContain("Probar chatbot");
+    expect(keyCard).toContain("aria-label={showKey");
+    expect(keyCard).toContain('autoComplete="new-password"');
+    expect(styles).toContain(".labs-knowledge-workspace");
+    expect(styles).toContain(".labs-knowledge-status");
+    expect(styles).toContain("@media (max-width: 760px)");
+  });
+
   it("serves the authenticated 05c3cb8 owner dashboard from the standalone Labs app", () => {
     const root = fs.readFileSync(
       path.resolve("apps/vase-labs/app/page.tsx"),

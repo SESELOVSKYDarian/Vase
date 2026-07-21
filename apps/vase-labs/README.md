@@ -68,7 +68,7 @@ La primera version de IA usa `ai-orchestrator.ts` como orquestador inyectable: v
 
 ## Modelos OpenAI
 
-Labs resuelve los modelos de ChatGPT/OpenAI desde `openai-reply-generator.ts`, separado de las credenciales de cada canal. El servicio necesita `OPENAI_API_KEY` como variable interna de Labs y permite tres perfiles:
+Labs resuelve los modelos de ChatGPT/OpenAI desde `openai-reply-generator.ts`. Cada cliente carga su propia key cifrada desde `Conocimiento > Chatbots`; `OPENAI_API_KEY` no es una variable requerida del servicio.
 
 - `fast`: bajo costo y baja latencia.
 - `balanced`: valor por defecto para atencion comercial.
@@ -79,6 +79,16 @@ Variables soportadas:
 - `OPENAI_MODEL_PROFILE`: `fast`, `balanced` o `premium`.
 - `OPENAI_DEFAULT_MODEL`: override global opcional para todos los perfiles sin modelo especifico.
 - `OPENAI_MODEL_FAST`, `OPENAI_MODEL_BALANCED`, `OPENAI_MODEL_PREMIUM`: modelos concretos por perfil.
+
+Los valores por defecto son `gpt-5.6-luna`, `gpt-5.6-terra` y `gpt-5.6-sol`. Al guardar una key, Labs comprueba que tenga acceso al modelo seleccionado antes de cifrarla. La prueba de la pantalla `Conocimiento` usa la misma key, modelo y fuentes `READY` que el flujo de canales.
+
+Referencias oficiales: [modelos de OpenAI](https://developers.openai.com/api/docs/models), [guia de seleccion de modelos](https://developers.openai.com/api/docs/guides/latest-model) y [Responses API](https://developers.openai.com/api/reference/responses).
+
+## Recuperacion de la migracion AssistantSecret
+
+El arranque ejecuta `scripts/repair-assistant-secret-migration.js` antes de `prisma migrate deploy`. Este script actua solo cuando Prisma registra como fallida la migracion `20260721091500_assistant_openai_key`: si encuentra la tabla parcial vacia, la elimina, marca la migracion como revertida mediante `prisma migrate resolve --rolled-back` y permite que Prisma la aplique nuevamente heredando la collation de la base.
+
+Si la tabla parcial contiene filas, el arranque se detiene con `ASSISTANT_SECRET_RECOVERY_REFUSED_NON_EMPTY_TABLE` para no borrar credenciales. En ese caso hay que respaldar y revisar esos registros antes de reintentar el despliegue.
 
 El modelo usado queda registrado en `TokenUsage.source` con el formato `openai:<modelo>:<perfil>` para auditar consumo sin agregar migraciones.
 
