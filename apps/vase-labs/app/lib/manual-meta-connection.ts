@@ -12,22 +12,23 @@ export function createManualMetaConnectionService(input: {
   };
   repository: {
     find(assistantId: string, channelId: string): Promise<ChannelRecord | null>;
-    stage(data: { channelId: string; providerAccountId: string; parentId: string | null; encryptedAccessToken: string }): Promise<void>;
+    stage(data: { channelId: string; providerAccountId: string; parentId: string | null; encryptedAccessToken: string; encryptedAppSecret: string }): Promise<void>;
     fail(channelId: string, errorCode: string): Promise<void>;
     save(data: {
       channelId: string; providerAccountId: string; phoneNumberId: string | null; wabaId: string | null;
       accountLabel: string; externalHandle: string | null; config: Record<string, unknown>;
-      encryptedAccessToken: string; status: "CONNECTED" | "PENDING";
+      encryptedAccessToken: string; encryptedAppSecret: string; status: "CONNECTED" | "PENDING";
     }): Promise<void>;
   };
   encrypt(value: string): string;
 }) {
   return {
-    async connect(params: { assistantId: string; channelId: string; channelType: LabsChannel; accessToken: string; providerAccountId: string; parentId: string | null }) {
+    async connect(params: { assistantId: string; channelId: string; channelType: LabsChannel; accessToken: string; appSecret: string; providerAccountId: string; parentId: string | null }) {
       const channel = await input.repository.find(params.assistantId, params.channelId);
       if (!channel || channel.type !== params.channelType) throw new Error("CHANNEL_NOT_FOUND");
       const encryptedAccessToken = input.encrypt(params.accessToken);
-      await input.repository.stage({ channelId: channel.id, providerAccountId: params.providerAccountId, parentId: params.parentId, encryptedAccessToken });
+      const encryptedAppSecret = input.encrypt(params.appSecret);
+      await input.repository.stage({ channelId: channel.id, providerAccountId: params.providerAccountId, parentId: params.parentId, encryptedAccessToken, encryptedAppSecret });
       let verified: Awaited<ReturnType<typeof input.graph.verifyAndSubscribe>>;
       try {
         const asset = await input.graph.resolveManualAsset({ channelType: params.channelType, accessToken: params.accessToken, providerAccountId: params.providerAccountId, parentId: params.parentId });
@@ -47,6 +48,7 @@ export function createManualMetaConnectionService(input: {
         externalHandle: verified.externalHandle,
         config: { ...verified.config, manualWebhook: true },
         encryptedAccessToken: input.encrypt(verified.accessToken),
+        encryptedAppSecret,
         status,
       });
       return { status };

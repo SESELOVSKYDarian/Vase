@@ -51,7 +51,7 @@ describe("Labs channel connect route", () => {
     vi.resetModules();
   });
 
-  it("connects manual channel credentials without requiring global Meta app variables", async () => {
+  it("connects manual channel credentials with the client Meta app secret", async () => {
     delete process.env.META_APP_ID;
     delete process.env.META_APP_SECRET;
     delete process.env.META_OAUTH_REDIRECT_URI;
@@ -60,7 +60,7 @@ describe("Labs channel connect route", () => {
     const route = await import("../apps/vase-labs/app/api/labs/channels/[channelId]/connect/route");
 
     const response = await route.POST(
-      request({ channelType: "WHATSAPP", accessToken: "token", providerAccountId: "phone_1", parentId: "waba_1" }),
+      request({ channelType: "WHATSAPP", accessToken: "token", appSecret: "client-app-secret", providerAccountId: "phone_1", parentId: "waba_1" }),
       { params: Promise.resolve({ channelId: "channel_1" }) },
     );
     const payload = await response.json();
@@ -68,6 +68,10 @@ describe("Labs channel connect route", () => {
     expect(response.status).toBe(200);
     expect(payload.status).toBe("PENDING");
     expect(graph.resolveManualAsset).toHaveBeenCalledWith(expect.objectContaining({ accessToken: "token", providerAccountId: "phone_1", parentId: "waba_1" }));
+    const { labsPrisma } = await import("../apps/vase-labs/app/lib/db");
+    expect(labsPrisma.channelSecret.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { channelId_kind: { channelId: "channel_1", kind: "META_APP_SECRET" } },
+    }));
   });
 
   it("asks for the access token again when the stored token cannot be decrypted", async () => {

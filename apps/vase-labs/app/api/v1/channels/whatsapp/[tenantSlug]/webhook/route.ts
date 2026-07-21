@@ -6,6 +6,7 @@ import {
   verifyWhatsAppWebhookSubscription,
 } from "../../../../../../lib/whatsapp-webhook-service";
 import { createPrismaChannelAiReplyRunner } from "../../../../../../lib/channel-ai-runner";
+import { resolveMetaWebhookAppSecret } from "../../../../../../lib/meta-webhook-channel-secret";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +33,13 @@ export async function POST(
 ) {
   const { tenantSlug } = await params;
   const rawBody = await request.text();
+  const appSecret = await resolveMetaWebhookAppSecret({ prisma: labsPrisma, tenantSlug, channelType: "WHATSAPP" });
   const result = await handleWhatsAppMetaWebhook({
     repository,
     tenantSlug,
     rawBody,
     signatureHeader: request.headers.get("x-hub-signature-256"),
-    appSecret: process.env.META_APP_SECRET,
+    appSecret,
     runAiReply,
   });
 

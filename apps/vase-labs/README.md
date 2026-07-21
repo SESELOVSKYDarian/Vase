@@ -32,7 +32,7 @@ La base migrada desde `main` queda preparada como adapters puros en `apps/vase-l
 - sender aislado para Meta WhatsApp;
 - helper aislado para descarga de media.
 
-El webhook productivo de WhatsApp vive en `app/api/v1/channels/whatsapp/[tenantSlug]/webhook/route.ts` y usa el servicio generico `channel-webhook-service.ts` para validar firma, resolver tenant local, validar entitlement, persistir `Conversation`/`Message` y dejar bloqueada la IA/outbound cuando el canal no esta habilitado.
+El webhook productivo de WhatsApp vive en `app/api/v1/channels/whatsapp/[tenantSlug]/webhook/route.ts` y usa el servicio generico `channel-webhook-service.ts` para validar firma, resolver tenant local, validar entitlement, persistir `Conversation`/`Message` y dejar bloqueada la IA/outbound cuando el canal no esta habilitado. En conexiones manuales, el cliente carga `Access Token` y `Meta App Secret` dentro del canal; ambos se guardan cifrados y la firma entrante se valida con el secreto de ese canal.
 
 ## Instagram y Facebook
 
@@ -48,7 +48,7 @@ La base de OAuth Meta vive en:
 - `GET /api/v1/meta/oauth/start`
 - `GET /api/v1/meta/oauth/callback`
 
-Los secretos de canal se cifran con `TOKEN_ENCRYPTION_SECRET` usando `channel-secrets.ts`; no deben devolverse a UI ni logs.
+Los secretos de canal se cifran con `TOKEN_ENCRYPTION_SECRET` usando `channel-secrets.ts`; no deben devolverse a UI ni logs. `TOKEN_ENCRYPTION_SECRET` pertenece a la infraestructura de Labs, mientras que `META_ACCESS_TOKEN` y `META_APP_SECRET` pertenecen al canal del cliente.
 
 ## Inbox, handoff, IA y analytics
 

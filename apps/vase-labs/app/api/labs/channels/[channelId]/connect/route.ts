@@ -11,6 +11,7 @@ import { resolveLabsRequestContext } from "../../../../../lib/request-context";
 const bodySchema = z.object({
   channelType: labsChannelSchema,
   accessToken: z.string().trim().min(1).max(4096).optional(),
+  appSecret: z.string().trim().min(1).max(4096).optional(),
   providerAccountId: z.string().trim().min(1).max(160),
   parentId: z.string().trim().min(1).max(160).nullable(),
 }).strict();
@@ -18,7 +19,7 @@ const bodySchema = z.object({
 const safeErrors = new Set([
   "CHANNEL_NOT_FOUND", "CHANNEL_CREDENTIAL_MISSING",
   "META_ASSET_NOT_AUTHORIZED", "META_TOKEN_INVALID", "META_PERMISSIONS_MISSING", "META_GRAPH_REQUEST_FAILED", "META_ASSET_PARENT_MISSING", "META_SUBSCRIPTION_FAILED",
-  "TOKEN_ENCRYPTION_SECRET_MISSING", "CHANNEL_CREDENTIAL_REENTER_REQUIRED",
+  "META_APP_SECRET_MISSING", "TOKEN_ENCRYPTION_SECRET_MISSING", "CHANNEL_CREDENTIAL_REENTER_REQUIRED",
 ]);
 
 export async function POST(request: Request, { params }: { params: Promise<{ channelId: string }> }) {
@@ -41,8 +42,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
         throw new Error("CHANNEL_CREDENTIAL_REENTER_REQUIRED");
       }
     }
+    let appSecret = body.appSecret;
+    if (!appSecret) {
+      const stored = await labsPrisma.channelSecret.findFirst({
+        where: { channelId, kind: "META_APP_SECRET", channel: { assistantId: assistant.id } },
+        select: { encryptedValue: true },
+      });
+      if (stored?.encryptedValue) {
+        try {
+          appSecret = decryptChannelSecret(stored.encryptedValue, secret);
+        } catch {
+          throw new Error("CHANNEL_CREDENTIAL_REENTER_REQUIRED");
+        }
+      }
+    }
+    appSecret ??= process.env.META_APP_SECRET?.trim();
+    if (!appSecret) throw new Error("META_APP_SECRET_MISSING");
     const graph = createMetaGraphClient({
-      graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v24.0",
+      graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v25.0",
     });
     const service = createManualMetaConnectionService({
       graph,
@@ -68,6 +85,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
               create: { id: randomUUID(), channelId: data.channelId, kind: "META_ACCESS_TOKEN", encryptedValue: data.encryptedAccessToken },
               update: { encryptedValue: data.encryptedAccessToken, rotatedAt: new Date() },
             }),
+            labsPrisma.channelSecret.upsert({
+              where: { channelId_kind: { channelId: data.channelId, kind: "META_APP_SECRET" } },
+              create: { id: randomUUID(), channelId: data.channelId, kind: "META_APP_SECRET", encryptedValue: data.encryptedAppSecret },
+              update: { encryptedValue: data.encryptedAppSecret, rotatedAt: new Date() },
+            }),
           ]);
         },
         async fail(id, errorCode) {
@@ -92,11 +114,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
               create: { id: randomUUID(), channelId: data.channelId, kind: "META_ACCESS_TOKEN", encryptedValue: data.encryptedAccessToken },
               update: { encryptedValue: data.encryptedAccessToken, rotatedAt: now },
             }),
+            labsPrisma.channelSecret.upsert({
+              where: { channelId_kind: { channelId: data.channelId, kind: "META_APP_SECRET" } },
+              create: { id: randomUUID(), channelId: data.channelId, kind: "META_APP_SECRET", encryptedValue: data.encryptedAppSecret },
+              update: { encryptedValue: data.encryptedAppSecret, rotatedAt: now },
+            }),
           ]);
         },
       },
     });
-    return NextResponse.json(await service.connect({ assistantId: assistant.id, channelId, ...body, accessToken }));
+    return NextResponse.json(await service.connect({ assistantId: assistant.id, channelId, ...body, accessToken, appSecret }));
   } catch (error) {
     const code = error instanceof Error && safeErrors.has(error.message) ? error.message : "CHANNEL_CONNECTION_FAILED";
     const status = code === "CHANNEL_NOT_FOUND" ? 404 : code === "CHANNEL_CONNECTION_FAILED" ? 500 : 400;

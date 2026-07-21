@@ -167,7 +167,7 @@ export function createPrismaChannelAiReplyRunner(input: {
   const sender = createOfficialChannelSender({
     repository: new PrismaOfficialChannelSenderRepository(prisma),
     encryptionSecret: env.TOKEN_ENCRYPTION_SECRET ?? "",
-    graphVersion: env.META_GRAPH_VERSION?.trim() || "v24.0",
+    graphVersion: env.META_GRAPH_VERSION?.trim() || "v25.0",
     fetcher: input.fetcher,
   });
 

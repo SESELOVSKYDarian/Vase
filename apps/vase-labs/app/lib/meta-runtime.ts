@@ -26,7 +26,7 @@ export function createMetaRuntime() {
     "TOKEN_ENCRYPTION_SECRET",
     process.env.TOKEN_ENCRYPTION_SECRET,
   );
-  const graphVersion = process.env.META_GRAPH_VERSION?.trim() || "v24.0";
+  const graphVersion = process.env.META_GRAPH_VERSION?.trim() || "v25.0";
 
   const repository = new PrismaMetaConnectionRepository(labsPrisma);
   const oauth = createMetaOAuthService({

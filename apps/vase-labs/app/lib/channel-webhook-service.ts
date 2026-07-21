@@ -377,14 +377,14 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     await this.prisma.$transaction(async (tx) => {
       const channel = await tx.channel.findFirst({
         where: { id: context.channel!.id, assistantId: context.assistantId, type: context.channelType },
-        include: { secrets: { where: { kind: "META_ACCESS_TOKEN" }, select: { id: true } } },
+        include: { secrets: { where: { kind: { in: ["META_ACCESS_TOKEN", "META_APP_SECRET"] } }, select: { kind: true } } },
       });
       if (!channel) return;
       const config = normalizeRecord(channel.config) ?? {};
       const now = new Date();
       const status = resolveChannelConnectionStatus({
         webhookVerified: true,
-        credentialsPresent: channel.secrets.length > 0,
+        credentialsPresent: channel.secrets.some((item) => item.kind === "META_ACCESS_TOKEN") && (channel.secrets.some((item) => item.kind === "META_APP_SECRET") || Boolean(process.env.META_APP_SECRET?.trim())),
         assetVerified: Boolean(channel.providerAccountId),
         subscriptionActive: Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0,
       });

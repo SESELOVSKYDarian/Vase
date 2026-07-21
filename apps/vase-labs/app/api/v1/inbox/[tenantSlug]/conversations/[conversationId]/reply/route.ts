@@ -41,7 +41,7 @@ export async function POST(
     const sender = createOfficialChannelSender({
       repository: new PrismaOfficialChannelSenderRepository(labsPrisma),
       encryptionSecret: process.env.TOKEN_ENCRYPTION_SECRET ?? "",
-      graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v24.0",
+      graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v25.0",
     });
     const delivery = await sender.send({
       globalTenantId: context.globalTenantId,

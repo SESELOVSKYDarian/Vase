@@ -68,7 +68,7 @@ describe("ChannelEditModal", () => {
   it("checks an already configured channel without resubscribing when advanced fields are unchanged", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(Response.json({
-        channelId: "c", channelType: "WHATSAPP", webhookUrl: "https://hook", webhookKey: "key",
+        channelId: "c", channelType: "WHATSAPP", status: "CONNECTED", webhookUrl: "https://hook", webhookKey: "key",
         providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", accountLabel: "Ventas",
         health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
       }))
@@ -84,6 +84,64 @@ describe("ChannelEditModal", () => {
     await click("Comprobar conexión");
 
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/v1/channels/c/test");
+  });
+
+  it("checks pending channel health without treating it as a failed credential test", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "WHATSAPP", status: "PENDING",
+        webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", accountLabel: "Ventas",
+        health: { webhookVerified:false, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }))
+      .mockResolvedValueOnce(Response.json({
+        status: "PENDING",
+        message: "Meta todavia no verifico este webhook.",
+        health: { webhookVerified:false, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }))
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "WHATSAPP", status: "PENDING",
+        webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", accountLabel: "Ventas",
+        health: { webhookVerified:false, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await click("Editar");
+    await click("Comprobar conexión");
+
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/labs/channels/verify");
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ channelId: "c" });
+    expect(host.textContent).toContain("Meta todavia no verifico este webhook.");
+    expect(host.textContent).not.toContain("Vase no pudo validar el canal con las credenciales cargadas");
+  });
+
+  it("retries an errored channel with the stored channel secrets", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "WHATSAPP", status: "ERROR",
+        webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", appSecretMasked: "••••", accountLabel: "Ventas",
+        health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:false },
+      }))
+      .mockResolvedValueOnce(Response.json({ status: "CONNECTED" }))
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "WHATSAPP", status: "CONNECTED",
+        webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", appSecretMasked: "••••", accountLabel: "Ventas",
+        health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await click("Editar");
+    await click("Comprobar conexión");
+
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/labs/channels/c/connect");
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      channelType: "WHATSAPP",
+      providerAccountId: "phone",
+      parentId: "waba",
+    });
   });
 
   it("does not blame Meta asset assignment for internal connection failures", async () => {

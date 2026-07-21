@@ -33,6 +33,7 @@ function metaConnectionErrorMessage(code: string) {
   if (code === "META_PERMISSIONS_MISSING") return "El token no tiene todos los permisos necesarios.";
   if (code === "META_ASSET_NOT_AUTHORIZED") return "El Phone Number ID, WABA o página no pertenecen a la cuenta autorizada por el token.";
   if (code === "META_SUBSCRIPTION_FAILED") return "Meta validó el activo, pero no pudo activar la suscripción de eventos. Revisá que el usuario del sistema tenga control total del WABA, número o página y permiso para administrar webhooks.";
+  if (code === "META_APP_SECRET_MISSING") return "Ingresá el Meta App Secret de la aplicación que recibe los webhooks. Vase lo guarda cifrado dentro de este canal.";
   if (code === "TOKEN_ENCRYPTION_SECRET_MISSING") return "Falta configurar el secreto interno de cifrado de Labs. El canal del cliente está completo, pero Vase no puede guardar el token cifrado.";
   if (code === "CHANNEL_CREDENTIAL_REENTER_REQUIRED") return "Volvé a pegar el Access Token de este canal. El token guardado fue cifrado con una clave anterior y Vase no puede reutilizarlo.";
   return "Vase no pudo validar el canal con las credenciales cargadas. Revisá el Phone Number ID, WABA ID y Access Token de este canal.";
@@ -50,6 +51,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
   const [providerAccountId, setProviderAccountId] = useState("");
   const [parentId, setParentId] = useState("");
   const [accessToken, setAccessToken] = useState("");
+  const [appSecret, setAppSecret] = useState("");
   const openButton = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLElement>(null);
   const stepHeading = useRef<HTMLHeadingElement>(null);
@@ -58,7 +60,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
 
   const reset = useCallback(() => {
     terminalLocked.current = false;
-    setStep(1); setSelected(null); setSetup(null); setNotice(null); setLoading(false); setAdvanced(false); setProviderAccountId(""); setParentId(""); setAccessToken("");
+    setStep(1); setSelected(null); setSetup(null); setNotice(null); setLoading(false); setAdvanced(false); setProviderAccountId(""); setParentId(""); setAccessToken(""); setAppSecret("");
   }, []);
 
   const close = useCallback((force = false) => {
@@ -143,16 +145,17 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
   }
 
   async function saveAdvancedConnection() {
-    if (!selected || !setup || !providerAccountId.trim() || !accessToken.trim() || (credentialLabels[selected].parent && !parentId.trim())) return;
+    if (!selected || !setup || !providerAccountId.trim() || !accessToken.trim() || !appSecret.trim() || (credentialLabels[selected].parent && !parentId.trim())) return;
     setLoading(true); setNotice(null);
     try {
       const response = await fetch(`/api/labs/channels/${setup.channelId}/connect`, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ channelType: selected, accessToken: accessToken.trim(), providerAccountId: providerAccountId.trim(), parentId: credentialLabels[selected].parent ? parentId.trim() : null }),
+        body: JSON.stringify({ channelType: selected, accessToken: accessToken.trim(), appSecret: appSecret.trim(), providerAccountId: providerAccountId.trim(), parentId: credentialLabels[selected].parent ? parentId.trim() : null }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error);
       setAccessToken("");
+      setAppSecret("");
       if (payload.status === "CONNECTED") {
         requests.scheduleConnected(
           () => { terminalLocked.current = true; setNotice({ kind: "connected", message: "Canal conectado correctamente." }); },
@@ -213,7 +216,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
               <span>{label}</span><code>{value}</code><button type="button" disabled={notice?.kind === "connected"} aria-label={`Copiar ${label}`} onClick={() => void copy(value, label)}><Copy className="size-4" /></button>
             </div>)}
             <button className="labs-advanced-toggle" type="button" onClick={() => setAdvanced(!advanced)}><Eye className="size-4" /> {advanced ? "Ocultar configuración avanzada" : "Configuración avanzada"}</button>
-            {advanced && selected ? <div className="labs-advanced-fields"><label>{credentialLabels[selected].account}<input value={providerAccountId} onChange={(event) => setProviderAccountId(event.target.value)} /></label>{credentialLabels[selected].parent ? <label>{credentialLabels[selected].parent}<input value={parentId} onChange={(event) => setParentId(event.target.value)} /></label> : null}<label>Access Token<input type="password" autoComplete="off" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} /></label><button className="labs-button labs-button-secondary" type="button" disabled={loading || !providerAccountId.trim() || !accessToken.trim() || Boolean(credentialLabels[selected].parent && !parentId.trim())} onClick={() => void saveAdvancedConnection()}>Guardar y comprobar</button></div> : null}
+            {advanced && selected ? <div className="labs-advanced-fields"><label>{credentialLabels[selected].account}<input value={providerAccountId} onChange={(event) => setProviderAccountId(event.target.value)} /></label>{credentialLabels[selected].parent ? <label>{credentialLabels[selected].parent}<input value={parentId} onChange={(event) => setParentId(event.target.value)} /></label> : null}<label>Access Token<input type="password" autoComplete="off" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} /></label><label>Meta App Secret<input type="password" autoComplete="new-password" value={appSecret} onChange={(event) => setAppSecret(event.target.value)} /></label><button className="labs-button labs-button-secondary" type="button" disabled={loading || !providerAccountId.trim() || !accessToken.trim() || !appSecret.trim() || Boolean(credentialLabels[selected].parent && !parentId.trim())} onClick={() => void saveAdvancedConnection()}>Guardar y comprobar</button></div> : null}
           </> : <button className="labs-button labs-button-secondary" type="button" onClick={() => void beginSetup()}>Reintentar</button>}
         </div>}
 
