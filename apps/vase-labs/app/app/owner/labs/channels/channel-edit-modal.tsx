@@ -24,7 +24,7 @@ function metaConnectionErrorMessage(code: string) {
   if (code === "META_PERMISSIONS_MISSING") return "El token no tiene todos los permisos requeridos.";
   if (code === "META_ASSET_NOT_AUTHORIZED") return "Los identificadores no pertenecen al activo autorizado por el token.";
   if (code === "META_SUBSCRIPTION_FAILED") return "Meta validó el activo, pero no pudo activar la suscripción de eventos. Revisá que el usuario del sistema tenga control total del WABA, número o página y permiso para administrar webhooks.";
-  return "Meta rechazó el acceso al activo. Revisá las asignaciones del usuario del sistema.";
+  return "Vase no pudo completar la validación interna del canal. Revisá que Labs esté redeployado y que las variables META_* y TOKEN_ENCRYPTION_SECRET estén configuradas.";
 }
 
 export function ChannelEditModal({ channel }: { channel: Summary }) {

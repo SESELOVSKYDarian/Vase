@@ -85,4 +85,27 @@ describe("ChannelEditModal", () => {
 
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/v1/channels/c/test");
   });
+
+  it("does not blame Meta asset assignment for internal connection failures", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "WHATSAPP", webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "phone", parentId: "waba", accessTokenMasked: "••••", accountLabel: "Ventas",
+        health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }))
+      .mockResolvedValueOnce(Response.json({ error:"CHANNEL_CONNECTION_FAILED" }, { status:500 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await click("Editar"); await click("Configuración avanzada");
+    const input = host.querySelector("input")!;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set;
+      setter?.call(input,"phone-new");
+      input.dispatchEvent(new Event("input",{bubbles:true}));
+    });
+    await click("Comprobar conexión");
+
+    expect(host.textContent).toContain("Vase no pudo completar la validación interna");
+    expect(host.textContent).not.toContain("Meta rechazó el acceso al activo");
+  });
 });

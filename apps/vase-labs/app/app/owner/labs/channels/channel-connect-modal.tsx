@@ -33,7 +33,7 @@ function metaConnectionErrorMessage(code: string) {
   if (code === "META_PERMISSIONS_MISSING") return "El token no tiene todos los permisos necesarios.";
   if (code === "META_ASSET_NOT_AUTHORIZED") return "El Phone Number ID, WABA o página no pertenecen a la cuenta autorizada por el token.";
   if (code === "META_SUBSCRIPTION_FAILED") return "Meta validó el activo, pero no pudo activar la suscripción de eventos. Revisá que el usuario del sistema tenga control total del WABA, número o página y permiso para administrar webhooks.";
-  return "Meta rechazó la consulta del activo. Revisá que el usuario del sistema tenga asignados el WABA, número o página.";
+  return "Vase no pudo completar la validación interna del canal. Revisá que Labs esté redeployado y que las variables META_* y TOKEN_ENCRYPTION_SECRET estén configuradas.";
 }
 
 export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
