@@ -14,7 +14,8 @@ describe("channel AI reply runner", () => {
       createReplyGenerator(input) {
         generatorInputs.push(input);
         return {
-          generateReply: async ({ context }) => {
+          generateReply: async ({ context, systemPrompt }) => {
+            expect(systemPrompt).toBe("Responde como vendedor experto.");
             expect(context).toContain("Horario: 9 a 18");
             expect(context).toContain("Producto A");
             return { text: "Respuesta IA", inputTokens: 10, outputTokens: 5, provider: "openai", model: input.model, profile: "everyday" };
@@ -30,6 +31,7 @@ describe("channel AI reply runner", () => {
       context: {
         assistantId: "assistant_123",
         assistantModel: "gpt-selected",
+        assistantSystemPrompt: "Responde como vendedor experto.",
         globalTenantId: "tenant_123",
         tenantSlug: "tenant-demo",
         channelType: "FACEBOOK",

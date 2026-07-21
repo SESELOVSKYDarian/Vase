@@ -5,7 +5,7 @@ import type { createKnowledgeService } from "./knowledge-service";
 interface AiOrchestratorDeps {
   knowledge: ReturnType<typeof createKnowledgeService>;
   catalog?: { buildAiContext(globalTenantId: string): Promise<string> };
-  generateReply(input: { userText: string; context: string }): Promise<AiReplyResult>;
+  generateReply(input: { userText: string; context: string; systemPrompt?: string | null }): Promise<AiReplyResult>;
   persistAssistantReply(input: { conversationId: string; channel: LabsChannel; text: string }): Promise<{ messageId: string }>;
   registerTokenUsage(input: { globalTenantId: string; channel: LabsChannel; inputTokens: number; outputTokens: number; messageId: string; conversationId: string; assistantId: string; source?: string }): Promise<{ totalTokens: number }>;
   sendReply(input: { channel: LabsChannel; text: string; conversationId: string }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
@@ -25,6 +25,7 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
       globalTenantId: string;
       channel: LabsChannel;
       latestUserText: string;
+      systemPrompt?: string | null;
       canRunAi: boolean;
       handoffActive: boolean;
     }) {
@@ -36,7 +37,11 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         deps.catalog?.buildAiContext(input.globalTenantId) ?? Promise.resolve(""),
       ]);
       const context = [knowledgeContext, catalogContext].filter(Boolean).join("\n\n");
-      const reply = await deps.generateReply({ userText: input.latestUserText, context });
+      const reply = await deps.generateReply({
+        userText: input.latestUserText,
+        context,
+        systemPrompt: input.systemPrompt,
+      });
       const message = await deps.persistAssistantReply({
         conversationId: input.conversationId,
         channel: input.channel,

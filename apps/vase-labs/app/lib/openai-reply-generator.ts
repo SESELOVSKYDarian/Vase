@@ -101,7 +101,7 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
 
   return {
     profile,
-    async generateReply(request: { userText: string; context: string }): Promise<AiReplyResult> {
+    async generateReply(request: { userText: string; context: string; systemPrompt?: string | null }): Promise<AiReplyResult> {
       if (!apiKey) {
         throw new Error("OPENAI_API_KEY_MISSING");
       }
@@ -114,7 +114,10 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
         },
         body: JSON.stringify({
           model,
-          instructions: buildSystemInstructions(request.context),
+          instructions: buildSystemInstructions({
+            context: request.context,
+            systemPrompt: request.systemPrompt,
+          }),
           input: request.userText,
         }),
       });
@@ -166,14 +169,16 @@ export async function validateOpenAiCredential(input: {
   return { ok: true, model: input.model };
 }
 
-function buildSystemInstructions(context: string): string {
+function buildSystemInstructions(input: { context: string; systemPrompt?: string | null }): string {
+  const customerPrompt = input.systemPrompt?.trim();
   return [
     "Sos el asistente comercial de Vase Labs para un negocio conectado por canales oficiales.",
+    customerPrompt ? `Instrucciones del negocio:\n${customerPrompt}` : null,
     "Responde en el mismo idioma del cliente, con tono claro, breve y orientado a resolver.",
     "Usa solamente el contexto disponible cuando menciones politicas, horarios, precios, stock o datos del negocio.",
     "Si falta informacion, pedila de forma concreta o deriva a un humano.",
-    context ? `Contexto disponible:\n${context}` : "Contexto disponible: sin informacion cargada.",
-  ].join("\n\n");
+    input.context ? `Contexto disponible:\n${input.context}` : "Contexto disponible: sin informacion cargada.",
+  ].filter(Boolean).join("\n\n");
 }
 
 function extractOutputText(payload: unknown): string {

@@ -64,6 +64,7 @@ function createInstagramPayload() {
 
 class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
   persisted: PersistChannelInboundMessageInput[] = [];
+  aiFailures: Array<{ conversationId: string; messageId: string; reason: string }> = [];
 
   constructor(private readonly context: ChannelWebhookContext | null) {}
 
@@ -78,6 +79,10 @@ class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
       messageId: "message_123",
       aiBlockedReason: input.aiBlockedReason,
     };
+  }
+
+  async markAiReplyFailed(input: { conversationId: string; messageId: string; reason: string }) {
+    this.aiFailures.push(input);
   }
 }
 
@@ -193,5 +198,34 @@ describe("Vase Labs generic Meta channel webhook service", () => {
     });
 
     expect(ranAi).toBe(false);
+  });
+
+  it("keeps the webhook acknowledged and records the AI failure when reply generation fails", async () => {
+    const repository = new MemoryChannelWebhookRepository(createContext());
+    const body = JSON.stringify(createInstagramPayload());
+
+    const result = await handleMetaChannelWebhook({
+      channelType: "INSTAGRAM",
+      repository,
+      tenantSlug: "tenant-demo",
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
+      parseMessage: parseInstagramWebhookMessage,
+      runAiReply: async () => {
+        throw new Error("OPENAI_API_KEY_MISSING");
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      ok: true,
+      processed: true,
+      aiReplyError: "OPENAI_API_KEY_MISSING",
+    });
+    expect(repository.aiFailures).toMatchObject([{
+      conversationId: "conversation_123",
+      messageId: "message_123",
+      reason: "OPENAI_API_KEY_MISSING",
+    }]);
   });
 });

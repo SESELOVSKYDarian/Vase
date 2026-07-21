@@ -6,11 +6,11 @@ import { createOpenAiReplyGenerator } from "../../../../lib/openai-reply-generat
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 
 type TestHandlerDependencies = {
-  resolveContext(cookieHeader: string | null): Promise<{ assistant: { id: string; model: string } }>;
+  resolveContext(cookieHeader: string | null): Promise<{ assistant: { id: string; model: string; systemPrompt?: string | null } }>;
   resolveApiKey(assistantId: string): Promise<string | null>;
   buildContext(assistantId: string): Promise<string>;
   createReplyGenerator(input: { apiKey: string; model: string }): {
-    generateReply(input: { userText: string; context: string }): Promise<{
+    generateReply(input: { userText: string; context: string; systemPrompt?: string | null }): Promise<{
       text: string;
       inputTokens: number;
       outputTokens: number;
@@ -39,7 +39,11 @@ export function createAssistantTestHandler(dependencies: TestHandlerDependencies
       const context = await dependencies.buildContext(resolved.assistant.id);
       const reply = await dependencies
         .createReplyGenerator({ apiKey, model: resolved.assistant.model })
-        .generateReply({ userText: message, context });
+        .generateReply({
+          userText: message,
+          context,
+          systemPrompt: resolved.assistant.systemPrompt,
+        });
 
       return NextResponse.json({
         reply: reply.text,

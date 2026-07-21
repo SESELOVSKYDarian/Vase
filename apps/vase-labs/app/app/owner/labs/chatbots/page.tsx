@@ -6,6 +6,7 @@ import { groupKnowledgeItems } from "../../../../lib/knowledge-source";
 import { getOpenAiModelProfiles } from "../../../../lib/openai-reply-generator";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import { LabsPageHeader, LabsSection } from "../labs-ui";
+import { AssistantPromptCard } from "./assistant-prompt-card";
 import { AssistantTestPanel } from "./assistant-test-panel";
 import { KnowledgeAddModal } from "./knowledge-add-modal";
 import { KnowledgeGroups } from "./knowledge-groups";
@@ -83,6 +84,7 @@ export default async function LabsChatbotsPage() {
 
       <div className="labs-knowledge-workspace">
         <div className="space-y-4">
+          <AssistantPromptCard initialPrompt={data.assistant.systemPrompt} />
           <ModelSelector profiles={getOpenAiModelProfiles()} currentModel={data.assistant.model} />
           <OpenAiKeyCard configured={data.openAiKeyConfigured} />
         </div>

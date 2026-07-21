@@ -95,6 +95,28 @@ describe("Labs OpenAI reply generator", () => {
     expect(JSON.parse(String(calls[0]?.init.body)).instructions).toContain("Horario: 9 a 18");
   });
 
+  it("includes the assistant prompt before knowledge context", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      model: "gpt-selected",
+      fetcher: (async (url: string | URL | Request, init?: RequestInit) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return new Response(JSON.stringify({ output_text: "Listo", usage: { input_tokens: 1, output_tokens: 1 } }));
+      }) as typeof fetch,
+    });
+
+    await generator.generateReply({
+      userText: "Hola",
+      systemPrompt: "Sos el vendedor de Sanitarios El Teflon. Usa tono cercano.",
+      context: "Horario: 9 a 18",
+    });
+
+    const instructions = JSON.parse(String(calls[0]?.init.body)).instructions;
+    expect(instructions).toContain("Sos el vendedor de Sanitarios El Teflon. Usa tono cercano.");
+    expect(instructions.indexOf("Sos el vendedor")).toBeLessThan(instructions.indexOf("Horario: 9 a 18"));
+  });
+
   it("fails before calling OpenAI when the API key is missing", async () => {
     let called = false;
     const generator = createOpenAiReplyGenerator({

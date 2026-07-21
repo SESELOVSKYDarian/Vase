@@ -20,6 +20,30 @@ function formatDate(value: Date | null) {
   }).format(value);
 }
 
+function readConversationContext(metadata: unknown): Record<string, unknown> {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return {};
+  const context = (metadata as Record<string, unknown>).context;
+  return context && typeof context === "object" && !Array.isArray(context)
+    ? context as Record<string, unknown>
+    : {};
+}
+
+function aiStatusLabel(conversation: {
+  metadata: unknown;
+  messages?: Array<{ role: string; direction: string | null }>;
+}) {
+  const context = readConversationContext(conversation.metadata);
+  if (typeof context.aiReplyError === "string" && context.aiReplyError) {
+    return `IA fallida: ${context.aiReplyError}`;
+  }
+  if (typeof context.aiBlockedReason === "string" && context.aiBlockedReason) {
+    return `IA bloqueada: ${context.aiBlockedReason}`;
+  }
+  return conversation.messages?.some((message) => message.role === "assistant" || message.direction === "OUTBOUND")
+    ? "IA respondio"
+    : "Esperando respuesta IA";
+}
+
 async function getActivityData() {
   const requestHeaders = await headers();
 
@@ -29,6 +53,19 @@ async function getActivityData() {
       where: { assistantId: resolved.assistant.id },
       orderBy: { lastMessageAt: "desc" },
       take: 40,
+      include: {
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 2,
+          select: {
+            id: true,
+            role: true,
+            direction: true,
+            content: true,
+            createdAt: true,
+          },
+        },
+      },
     });
 
     return { conversations };
@@ -63,7 +100,10 @@ export default async function LabsActivityPage() {
                     {conversation.customerName ?? conversation.customerContact ?? "Cliente"} - {conversation.channel ?? "LABS"}
                   </p>
                   <p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--muted)]">
-                    {conversation.summary ?? "Sin resumen disponible"}
+                    {conversation.messages[0]?.content ?? conversation.summary ?? "Sin mensajes visibles"}
+                  </p>
+                  <p className="mt-2 text-xs font-bold text-[var(--muted-soft)]">
+                    {aiStatusLabel(conversation)}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 md:justify-end">

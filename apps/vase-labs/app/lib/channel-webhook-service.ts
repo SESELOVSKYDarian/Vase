@@ -10,6 +10,7 @@ import { resolveChannelConnectionStatus } from "./channel-health";
 export type ChannelWebhookContext = {
   assistantId: string;
   assistantModel?: string | null;
+  assistantSystemPrompt?: string | null;
   globalTenantId: string;
   tenantSlug: string;
   channelType: LabsChannel;
@@ -59,6 +60,12 @@ export interface ChannelWebhookRepository {
     providerMessageId?: string | null;
     reason: string;
   }): Promise<void>;
+  markAiReplyFailed?(input: {
+    context: ChannelWebhookContext;
+    conversationId: string;
+    messageId: string;
+    reason: string;
+  }): Promise<void>;
   persistInboundMessage(input: PersistChannelInboundMessageInput): Promise<PersistChannelInboundMessageResult>;
 }
 
@@ -76,6 +83,7 @@ export type ChannelWebhookPostResult = {
     conversationId?: string;
     messageId?: string;
     aiBlockedReason?: string | null;
+    aiReplyError?: string | null;
   };
 };
 
@@ -93,6 +101,7 @@ export type RunChannelAiReply = (input: {
 type AssistantRow = {
   id: string;
   model?: string | null;
+  systemPrompt?: string | null;
   globalTenantId: string;
   tenantSlug: string | null;
 };
@@ -107,6 +116,7 @@ type ChannelRow = {
 type ProviderChannelRow = ChannelRow & {
   assistantId: string;
   model?: string | null;
+  systemPrompt?: string | null;
   globalTenantId: string;
   tenantSlug: string | null;
 };
@@ -240,7 +250,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
 
   async findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null> {
     const assistants = await this.prisma.$queryRaw<AssistantRow[]>`
-      SELECT id, globalTenantId, tenantSlug, model
+      SELECT id, globalTenantId, tenantSlug, model, systemPrompt
       FROM Assistant
       WHERE tenantSlug = ${tenantSlug}
       LIMIT 1
@@ -279,6 +289,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     return {
       assistantId: assistant.id,
       assistantModel: assistant.model ?? null,
+      assistantSystemPrompt: assistant.systemPrompt ?? null,
       globalTenantId: assistant.globalTenantId,
       tenantSlug: assistant.tenantSlug,
       channelType,
@@ -306,6 +317,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         c.config,
         a.id AS assistantId,
         a.model,
+        a.systemPrompt,
         a.globalTenantId,
         a.tenantSlug
       FROM Channel c
@@ -334,6 +346,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     return {
       assistantId: row.assistantId,
       assistantModel: row.model ?? null,
+      assistantSystemPrompt: row.systemPrompt ?? null,
       globalTenantId: row.globalTenantId,
       tenantSlug: row.tenantSlug,
       channelType,
@@ -574,6 +587,43 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         AND providerMessageId = ${input.providerMessageId}
     `;
   }
+
+  async markAiReplyFailed(input: {
+    context: ChannelWebhookContext;
+    conversationId: string;
+    messageId: string;
+    reason: string;
+  }): Promise<void> {
+    const rows = await this.prisma.$queryRaw<ConversationRow[]>`
+      SELECT id, metadata
+      FROM Conversation
+      WHERE id = ${input.conversationId}
+        AND assistantId = ${input.context.assistantId}
+      LIMIT 1
+    `;
+    const conversation = rows[0];
+    if (!conversation) return;
+
+    const current = normalizeRecord(conversation.metadata) ?? {};
+    const context = normalizeRecord(current.context) ?? {};
+    await this.prisma.$executeRaw`
+      UPDATE Conversation
+      SET
+        metadata = ${metadataJson({
+          ...current,
+          state: "AI_FAILED",
+          context: {
+            ...context,
+            aiReplyError: input.reason,
+            aiReplyFailedAt: new Date().toISOString(),
+            aiReplyFailedMessageId: input.messageId,
+          },
+        })},
+        updatedAt = ${new Date()}
+      WHERE id = ${input.conversationId}
+        AND assistantId = ${input.context.assistantId}
+    `;
+  }
 }
 
 export function getChannelWebhookVerifyResult(input: {
@@ -689,6 +739,7 @@ export async function handleMetaChannelWebhook(input: {
   }
 
   const aiBlockedReason = resolveAiBlockedReason(context.entitlement, input.channelType);
+  let aiReplyError: string | null = null;
   let persisted: PersistChannelInboundMessageResult;
   try {
     persisted = await input.repository.persistInboundMessage({
@@ -705,7 +756,14 @@ export async function handleMetaChannelWebhook(input: {
     if (!aiBlockedReason && input.runAiReply) {
       try {
         await input.runAiReply({ context, message, persisted });
-      } catch {
+      } catch (error) {
+        aiReplyError = error instanceof Error ? error.message : "AI_REPLY_FAILED";
+        await input.repository.markAiReplyFailed?.({
+          context,
+          conversationId: persisted.conversationId,
+          messageId: persisted.messageId,
+          reason: aiReplyError,
+        });
         // Keep webhook acknowledgement stable after the inbound message is persisted.
       }
     }
@@ -726,6 +784,7 @@ export async function handleMetaChannelWebhook(input: {
       conversationId: persisted.conversationId,
       messageId: persisted.messageId,
       aiBlockedReason,
+      aiReplyError,
     },
   };
 }

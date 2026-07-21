@@ -18,7 +18,7 @@ import { decryptChannelSecret } from "./channel-secrets";
 type RunnerInput = Parameters<RunChannelAiReply>[0];
 
 type ReplyGenerator = {
-  generateReply(input: { userText: string; context: string }): Promise<AiReplyResult>;
+  generateReply(input: { userText: string; context: string; systemPrompt?: string | null }): Promise<AiReplyResult>;
 };
 
 type ChannelAiReplyRunnerDeps = {
@@ -151,6 +151,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
       globalTenantId: input.context.globalTenantId,
       channel: input.context.channelType,
       latestUserText,
+      systemPrompt: input.context.assistantSystemPrompt,
       canRunAi: true,
       handoffActive: false,
     });
