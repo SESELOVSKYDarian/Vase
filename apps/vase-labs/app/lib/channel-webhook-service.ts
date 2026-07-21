@@ -33,6 +33,7 @@ export type PersistChannelInboundMessageResult = {
   conversationId: string;
   messageId: string;
   aiBlockedReason: string | null;
+  handoffActive?: boolean;
 };
 
 export interface ChannelWebhookRepository {
@@ -96,7 +97,7 @@ export type RunChannelAiReply = (input: {
   context: ChannelWebhookContext;
   message: InboundChannelMessage;
   persisted: PersistChannelInboundMessageResult;
-}) => Promise<{ ok: boolean; messageId?: string; totalTokens?: number }>;
+}) => Promise<{ ok: boolean; messageId?: string; totalTokens?: number; reason?: string }>;
 
 type AssistantRow = {
   id: string;
@@ -134,7 +135,12 @@ type EntitlementRow = {
   renewsAt: Date | null;
 };
 
-type ConversationRow = { id: string; metadata: unknown };
+type ConversationRow = {
+  id: string;
+  metadata: unknown;
+  escalatedToHuman?: boolean | null;
+  status?: string | null;
+};
 
 const allowedChannels: LabsChannel[] = ["WHATSAPP", "INSTAGRAM", "FACEBOOK"];
 
@@ -412,7 +418,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     const now = new Date();
     const channelType = input.message.channelType;
     const existing = await this.prisma.$queryRaw<ConversationRow[]>`
-      SELECT id, metadata
+      SELECT id, metadata, escalatedToHuman, status
       FROM Conversation
       WHERE assistantId = ${input.context.assistantId}
         AND channel = ${enumValue(channelType)}
@@ -461,6 +467,8 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
       conversation = {
         id: conversationId,
         metadata: mergeConversationMetadata(null, input),
+        escalatedToHuman: false,
+        status: "OPEN",
       };
     }
 
@@ -507,6 +515,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
       conversationId: conversation.id,
       messageId,
       aiBlockedReason: input.aiBlockedReason,
+      handoffActive: Boolean(conversation.escalatedToHuman) || conversation.status === "ESCALATED",
     };
   }
 

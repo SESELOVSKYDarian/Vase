@@ -215,17 +215,29 @@ describe("Vase Labs standalone owner experience", () => {
       path.resolve("apps/vase-labs/app/app/owner/labs/inbox/page.tsx"),
       "utf8",
     );
+    const workstationPath = path.resolve("apps/vase-labs/app/app/owner/labs/inbox/inbox-workstation.tsx");
     const activity = fs.readFileSync(
       path.resolve("apps/vase-labs/app/app/owner/labs/activity/page.tsx"),
       "utf8",
     );
 
+    expect(fs.existsSync(workstationPath)).toBe(true);
+    if (!fs.existsSync(workstationPath)) return;
+    const workstation = fs.readFileSync(workstationPath, "utf8");
+
     expect(inbox).not.toContain('export { default } from "../activity/page"');
     expect(inbox).toContain('title="Inbox"');
     expect(inbox).toContain('status: { in: ["OPEN", "ESCALATED"] }');
-    expect(inbox).toContain('messages: { orderBy: { createdAt: "desc" }, take: 1 }');
+    expect(inbox).toContain('messages: { orderBy: { createdAt: "asc" }, take: 80 }');
     expect(inbox).toContain("handoffs: {");
     expect(inbox).toContain('status: { in: ["PENDING", "ASSIGNED"] }');
+    expect(inbox).toContain("<InboxWorkstation");
+    expect(workstation).toContain('"use client"');
+    expect(workstation).toContain("setInterval");
+    expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}`");
+    expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}/reply`");
+    expect(workstation).toContain("Intervenir como humano");
+    expect(workstation).toContain("labs-inbox-workstation");
     expect(activity).toContain('title="Analisis"');
     expect(activity).toContain("aiReplyError");
     expect(activity).toContain("Esperando respuesta IA");

@@ -153,7 +153,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
       latestUserText,
       systemPrompt: input.context.assistantSystemPrompt,
       canRunAi: true,
-      handoffActive: false,
+      handoffActive: Boolean(input.persisted.handoffActive),
     });
   };
 }

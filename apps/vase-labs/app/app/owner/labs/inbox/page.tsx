@@ -3,15 +3,16 @@ import { redirect } from "next/navigation";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import { LabsEmptyState, LabsPageHeader, LabsSection, LabsStatusPill } from "../labs-ui";
+import { InboxWorkstation, type InboxConversationItem } from "./inbox-workstation";
 
 export const dynamic = "force-dynamic";
 
-function formatDate(value: Date | null) {
+function formatDate(value: string | null) {
   if (!value) return "Sin fecha";
   return new Intl.DateTimeFormat("es-AR", {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(value);
+  }).format(new Date(value));
 }
 
 async function getInboxData() {
@@ -25,7 +26,7 @@ async function getInboxData() {
         status: { in: ["OPEN", "ESCALATED"] },
       },
       include: {
-        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+        messages: { orderBy: { createdAt: "asc" }, take: 80 },
         handoffs: {
           where: { status: { in: ["PENDING", "ASSIGNED"] } },
           orderBy: { createdAt: "desc" },
@@ -36,7 +37,34 @@ async function getInboxData() {
       take: 50,
     });
 
-    return { conversations };
+    return {
+      tenantSlug: resolved.context.tenantSlug,
+      conversations: conversations.map((conversation): InboxConversationItem => ({
+        id: conversation.id,
+        channel: conversation.channel,
+        status: conversation.status,
+        customerName: conversation.customerName,
+        customerContact: conversation.customerContact,
+        messageCount: conversation.messageCount,
+        lastMessageAt: conversation.lastMessageAt?.toISOString() ?? null,
+        escalatedToHuman: conversation.escalatedToHuman,
+        summary: conversation.summary,
+        messages: conversation.messages.map((message) => ({
+          id: message.id,
+          role: message.role,
+          direction: message.direction,
+          content: message.content,
+          createdAt: message.createdAt.toISOString(),
+        })),
+        handoffs: conversation.handoffs.map((handoff) => ({
+          id: handoff.id,
+          status: handoff.status,
+          reason: handoff.reason,
+          priority: handoff.priority,
+          assignedTo: handoff.assignedTo,
+        })),
+      })),
+    };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("LABS_SESSION")) {
       redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs%2Finbox");
@@ -66,9 +94,18 @@ export default async function LabsInboxPage() {
             description="No hay conversaciones abiertas ni derivaciones pendientes en este momento."
           />
         ) : (
+          <InboxWorkstation
+            tenantSlug={data.tenantSlug}
+            initialConversations={data.conversations}
+          />
+        )}
+      </LabsSection>
+
+      {data.conversations.length > 0 ? (
+        <LabsSection title="Resumen rapido" description="Vista compacta para revision y auditoria del equipo.">
           <div className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-lg border border-[var(--border-subtle)]">
             {data.conversations.map((conversation) => {
-              const latestMessage = conversation.messages[0];
+              const latestMessage = conversation.messages.at(-1);
               const activeHandoff = conversation.handoffs[0];
               const messageAuthor = latestMessage?.direction === "OUTBOUND" ? "Equipo" : "Cliente";
 
@@ -116,8 +153,8 @@ export default async function LabsInboxPage() {
               );
             })}
           </div>
-        )}
-      </LabsSection>
+        </LabsSection>
+      ) : null}
     </div>
   );
 }

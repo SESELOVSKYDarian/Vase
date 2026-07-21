@@ -122,4 +122,52 @@ describe("channel AI reply runner", () => {
 
     expect(generatorInputs).toEqual([{ apiKey: "sk-assistant", model: "gpt-selected" }]);
   });
+
+  it("does not generate an automatic answer when a human handoff is active", async () => {
+    const generateReply = vi.fn(async () => ({ text: "Respuesta", inputTokens: 1, outputTokens: 1 }));
+    const sendReply = vi.fn(async () => ({ ok: true }));
+    const runner = createChannelAiReplyRunner({
+      env: { OPENAI_API_KEY: "sk-env" } as NodeJS.ProcessEnv,
+      knowledge: { async buildContext() { return ""; } },
+      createReplyGenerator() {
+        return { generateReply };
+      },
+      persistAssistantReply: vi.fn(async () => ({ messageId: "ai_message_123" })),
+      registerTokenUsage: vi.fn(async () => ({ totalTokens: 2 })),
+      sendReply,
+    });
+
+    const result = await runner({
+      context: {
+        assistantId: "assistant_123",
+        assistantModel: "gpt-selected",
+        globalTenantId: "tenant_123",
+        tenantSlug: "tenant-demo",
+        channelType: "WHATSAPP",
+        channel: { id: "channel_123", provider: "META_OFFICIAL", status: "CONNECTED", config: {} },
+        entitlement: null,
+      },
+      message: {
+        id: "inbound_123",
+        globalTenantId: "tenant_123",
+        channelType: "WHATSAPP",
+        provider: "META_OFFICIAL",
+        externalThreadKey: "549223",
+        customerContact: "549223",
+        messageType: "text",
+        text: "Hola",
+        rawPayload: null,
+      },
+      persisted: {
+        conversationId: "conversation_123",
+        messageId: "message_123",
+        aiBlockedReason: null,
+        handoffActive: true,
+      },
+    });
+
+    expect(result).toEqual({ ok: false, reason: "HANDOFF_ACTIVE" });
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(sendReply).not.toHaveBeenCalled();
+  });
 });

@@ -6,89 +6,178 @@ import { createOfficialChannelSender } from "../../../../../../../lib/official-c
 import { PrismaOfficialChannelSenderRepository } from "../../../../../../../lib/official-channel-sender-repository";
 import { resolveLabsRequestContext } from "../../../../../../../lib/request-context";
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ tenantSlug: string; conversationId: string }> },
-) {
-  try {
-    const { tenantSlug, conversationId } = await params;
-    const { context } = await resolveLabsRequestContext(request.headers.get("cookie"));
-    if (tenantSlug !== context.tenantSlug) {
-      return NextResponse.json({ error: "LABS_TENANT_FORBIDDEN" }, { status: 403 });
-    }
+type InboxReplyConversation = {
+  id: string;
+  channel: LabsChannel | null;
+  customerContact: string | null;
+};
 
-    const body = await request.json().catch(() => ({}));
-    const text = typeof body.text === "string" ? body.text.trim() : "";
-    if (!text) {
-      return NextResponse.json({ error: "TEXT_REQUIRED" }, { status: 400 });
-    }
+type InboxReplyHandlerDependencies = {
+  resolveContext(cookieHeader: string | null): Promise<{
+    context: { tenantSlug: string; globalTenantId: string };
+  }>;
+  findConversation(input: {
+    conversationId: string;
+    globalTenantId: string;
+  }): Promise<InboxReplyConversation | null>;
+  sendReply(input: {
+    globalTenantId: string;
+    channelType: LabsChannel;
+    recipientId: string;
+    text: string;
+  }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
+  persistReply(input: {
+    conversationId: string;
+    channel: LabsChannel;
+    text: string;
+    providerMessageId?: string | null;
+    now?: Date;
+  }): Promise<{ messageId: string; createdAt: Date }>;
+};
 
-    const conversation = await (labsPrisma as any).conversation.findFirst({
+type InboxReplyTransaction = {
+  message: { create(input: unknown): Promise<{ id: string }> };
+  messageDelivery: { create(input: unknown): Promise<unknown> };
+  conversation: { update(input: unknown): Promise<unknown> };
+};
+
+export async function persistHumanInboxReply(
+  prisma: { $transaction<T>(callback: (tx: InboxReplyTransaction) => Promise<T>): Promise<T> },
+  input: {
+    conversationId: string;
+    channel: LabsChannel;
+    text: string;
+    providerMessageId?: string | null;
+    now?: Date;
+  },
+): Promise<{ messageId: string; createdAt: Date }> {
+  const messageId = randomUUID();
+  const now = input.now ?? new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.message.create({
+      data: {
+        id: messageId,
+        conversationId: input.conversationId,
+        role: "human_agent",
+        direction: "OUTBOUND",
+        content: input.text,
+        providerMessageId: input.providerMessageId ?? null,
+        metadata: { source: "human_inbox" },
+        createdAt: now,
+      },
+    });
+    await tx.messageDelivery.create({
+      data: {
+        id: randomUUID(),
+        messageId,
+        channel: input.channel,
+        status: "SENT",
+        providerMessageId: input.providerMessageId ?? null,
+        sentAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await tx.conversation.update({
+      where: { id: input.conversationId },
+      data: {
+        status: "OPEN",
+        escalatedToHuman: true,
+        messageCount: { increment: 1 },
+        lastMessageAt: now,
+        lastOutboundAt: now,
+        updatedAt: now,
+      },
+    });
+  });
+  return { messageId, createdAt: now };
+}
+
+export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependencies) {
+  return async function POST(
+    request: Request,
+    { params }: { params: Promise<{ tenantSlug: string; conversationId: string }> },
+  ) {
+    try {
+      const { tenantSlug, conversationId } = await params;
+      const { context } = await dependencies.resolveContext(request.headers.get("cookie"));
+      if (tenantSlug !== context.tenantSlug) {
+        return NextResponse.json({ error: "LABS_TENANT_FORBIDDEN" }, { status: 403 });
+      }
+
+      const body = await request.json().catch(() => ({}));
+      const text = typeof body.text === "string" ? body.text.trim() : "";
+      if (!text) {
+        return NextResponse.json({ error: "TEXT_REQUIRED" }, { status: 400 });
+      }
+
+      const conversation = await dependencies.findConversation({
+        conversationId,
+        globalTenantId: context.globalTenantId,
+      });
+      if (!conversation?.channel || !conversation.customerContact) {
+        return NextResponse.json({ error: "CONVERSATION_NOT_DELIVERABLE" }, { status: 404 });
+      }
+
+      const delivery = await dependencies.sendReply({
+        globalTenantId: context.globalTenantId,
+        channelType: conversation.channel,
+        recipientId: conversation.customerContact,
+        text,
+      });
+      if (!delivery.ok) {
+        throw new Error("CHANNEL_DELIVERY_FAILED");
+      }
+
+      const persisted = await dependencies.persistReply({
+        conversationId,
+        channel: conversation.channel,
+        text,
+        providerMessageId: delivery.providerMessageId,
+      });
+
+      return NextResponse.json({
+        message: {
+          id: persisted.messageId,
+          role: "human_agent",
+          content: text,
+          direction: "OUTBOUND",
+          providerMessageId: delivery.providerMessageId,
+          createdAt: persisted.createdAt.toISOString(),
+        },
+        delivery: { status: "SENT" },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "CHANNEL_DELIVERY_FAILED";
+      return NextResponse.json({ error: message }, { status: 502 });
+    }
+  };
+}
+
+export const POST = createInboxReplyHandler({
+  resolveContext: resolveLabsRequestContext,
+  async findConversation(input) {
+    return await (labsPrisma as any).conversation.findFirst({
       where: {
-        id: conversationId,
-        assistant: { globalTenantId: context.globalTenantId },
+        id: input.conversationId,
+        assistant: { globalTenantId: input.globalTenantId },
       },
       select: {
         id: true,
         channel: true,
         customerContact: true,
       },
-    }) as { id: string; channel: LabsChannel | null; customerContact: string | null } | null;
-    if (!conversation?.channel || !conversation.customerContact) {
-      return NextResponse.json({ error: "CONVERSATION_NOT_DELIVERABLE" }, { status: 404 });
-    }
-
+    });
+  },
+  sendReply(input) {
     const sender = createOfficialChannelSender({
       repository: new PrismaOfficialChannelSenderRepository(labsPrisma),
       encryptionSecret: process.env.TOKEN_ENCRYPTION_SECRET ?? "",
       graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v25.0",
     });
-    const delivery = await sender.send({
-      globalTenantId: context.globalTenantId,
-      channelType: conversation.channel,
-      recipientId: conversation.customerContact,
-      text,
-    });
-
-    const messageId = randomUUID();
-    const now = new Date();
-    await labsPrisma.$transaction(async (tx) => {
-      await (tx as any).message.create({
-        data: {
-          id: messageId,
-          conversationId,
-          role: "assistant",
-          direction: "OUTBOUND",
-          content: text,
-          providerMessageId: delivery.providerMessageId,
-          createdAt: now,
-        },
-      });
-      await (tx as any).messageDelivery.create({
-        data: {
-          id: randomUUID(),
-          messageId,
-          channel: conversation.channel,
-          status: "SENT",
-          providerMessageId: delivery.providerMessageId,
-          sentAt: now,
-          createdAt: now,
-          updatedAt: now,
-        },
-      });
-    });
-
-    return NextResponse.json({
-      message: {
-        id: messageId,
-        content: text,
-        direction: "OUTBOUND",
-        providerMessageId: delivery.providerMessageId,
-      },
-      delivery: { status: "SENT" },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "CHANNEL_DELIVERY_FAILED";
-    return NextResponse.json({ error: message }, { status: 502 });
-  }
-}
+    return sender.send(input);
+  },
+  persistReply(input) {
+    return persistHumanInboxReply(labsPrisma as any, input);
+  },
+});
