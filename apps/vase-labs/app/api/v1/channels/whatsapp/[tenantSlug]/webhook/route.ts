@@ -5,10 +5,12 @@ import {
   PrismaWhatsAppWebhookRepository,
   verifyWhatsAppWebhookSubscription,
 } from "../../../../../../lib/whatsapp-webhook-service";
+import { createPrismaChannelAiReplyRunner } from "../../../../../../lib/channel-ai-runner";
 
 export const dynamic = "force-dynamic";
 
 const repository = new PrismaWhatsAppWebhookRepository(labsPrisma);
+const runAiReply = createPrismaChannelAiReplyRunner();
 
 export async function GET(
   request: Request,
@@ -36,6 +38,7 @@ export async function POST(
     rawBody,
     signatureHeader: request.headers.get("x-hub-signature-256"),
     appSecret: process.env.META_APP_SECRET,
+    runAiReply,
   });
 
   return NextResponse.json(result.body, { status: result.status });

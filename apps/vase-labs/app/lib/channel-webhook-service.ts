@@ -9,6 +9,7 @@ import { resolveChannelConnectionStatus } from "./channel-health";
 
 export type ChannelWebhookContext = {
   assistantId: string;
+  assistantModel?: string | null;
   globalTenantId: string;
   tenantSlug: string;
   channelType: LabsChannel;
@@ -83,8 +84,15 @@ export type ParseChannelWebhookMessage = (input: {
   payload: unknown;
 }) => InboundChannelMessage | null;
 
+export type RunChannelAiReply = (input: {
+  context: ChannelWebhookContext;
+  message: InboundChannelMessage;
+  persisted: PersistChannelInboundMessageResult;
+}) => Promise<{ ok: boolean; messageId?: string; totalTokens?: number }>;
+
 type AssistantRow = {
   id: string;
+  model?: string | null;
   globalTenantId: string;
   tenantSlug: string | null;
 };
@@ -98,6 +106,7 @@ type ChannelRow = {
 
 type ProviderChannelRow = ChannelRow & {
   assistantId: string;
+  model?: string | null;
   globalTenantId: string;
   tenantSlug: string | null;
 };
@@ -231,7 +240,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
 
   async findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null> {
     const assistants = await this.prisma.$queryRaw<AssistantRow[]>`
-      SELECT id, globalTenantId, tenantSlug
+      SELECT id, globalTenantId, tenantSlug, model
       FROM Assistant
       WHERE tenantSlug = ${tenantSlug}
       LIMIT 1
@@ -269,6 +278,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
 
     return {
       assistantId: assistant.id,
+      assistantModel: assistant.model ?? null,
       globalTenantId: assistant.globalTenantId,
       tenantSlug: assistant.tenantSlug,
       channelType,
@@ -295,6 +305,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         c.status,
         c.config,
         a.id AS assistantId,
+        a.model,
         a.globalTenantId,
         a.tenantSlug
       FROM Channel c
@@ -322,6 +333,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
 
     return {
       assistantId: row.assistantId,
+      assistantModel: row.model ?? null,
       globalTenantId: row.globalTenantId,
       tenantSlug: row.tenantSlug,
       channelType,
@@ -612,6 +624,7 @@ export async function handleMetaChannelWebhook(input: {
   signatureHeader: string | null;
   appSecret?: string;
   parseMessage: ParseChannelWebhookMessage;
+  runAiReply?: RunChannelAiReply;
 }): Promise<ChannelWebhookPostResult> {
   const context = await input.repository.findContextByTenantSlug(input.tenantSlug, input.channelType);
 
@@ -689,6 +702,13 @@ export async function handleMetaChannelWebhook(input: {
       conversationId: persisted.conversationId,
       messageId: persisted.messageId,
     });
+    if (!aiBlockedReason && input.runAiReply) {
+      try {
+        await input.runAiReply({ context, message, persisted });
+      } catch {
+        // Keep webhook acknowledgement stable after the inbound message is persisted.
+      }
+    }
   } catch (error) {
     await input.repository.markWebhookEventFailed?.({
       context,
@@ -717,6 +737,7 @@ export async function handleGlobalMetaChannelWebhook(input: {
   signatureHeader: string | null;
   appSecret: string;
   parseMessage: ParseChannelWebhookMessage;
+  runAiReply?: RunChannelAiReply;
 }): Promise<ChannelWebhookPostResult> {
   if (!verifyMetaSignature(input.appSecret, input.rawBody, input.signatureHeader)) {
     return { status: 401, body: { ok: false, reason: "invalid_signature" } };
@@ -757,5 +778,6 @@ export async function handleGlobalMetaChannelWebhook(input: {
     signatureHeader: input.signatureHeader,
     appSecret: input.appSecret,
     parseMessage: input.parseMessage,
+    runAiReply: input.runAiReply,
   });
 }

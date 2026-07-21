@@ -27,6 +27,23 @@ describe("Labs OpenAI reply generator", () => {
     expect(getOpenAiModelProfiles(env).map((profile) => profile.model)).toEqual(["gpt-shared", "gpt-shared", "gpt-shared"]);
   });
 
+  it("uses an explicit assistant model over profile defaults", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      model: "gpt-selected",
+      env: { OPENAI_MODEL_BALANCED: "gpt-balanced" } as NodeJS.ProcessEnv,
+      fetcher: (async (url: string | URL | Request, init?: RequestInit) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return new Response(JSON.stringify({ output_text: "Listo", usage: { input_tokens: 1, output_tokens: 2 } }));
+      }) as typeof fetch,
+    });
+
+    await generator.generateReply({ userText: "Hola", context: "" });
+
+    expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({ model: "gpt-selected" });
+  });
+
   it("calls the Responses API and returns text, usage and model metadata", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetcher = async (url: string | URL | Request, init?: RequestInit) => {

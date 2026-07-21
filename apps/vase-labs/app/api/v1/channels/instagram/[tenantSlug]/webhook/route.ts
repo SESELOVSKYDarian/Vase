@@ -6,10 +6,12 @@ import {
   verifyMetaChannelWebhookSubscription,
 } from "../../../../../../lib/channel-webhook-service";
 import { parseInstagramWebhookMessage } from "../../../../../../lib/instagram-webhook";
+import { createPrismaChannelAiReplyRunner } from "../../../../../../lib/channel-ai-runner";
 
 export const dynamic = "force-dynamic";
 
 const repository = new PrismaChannelWebhookRepository(labsPrisma);
+const runAiReply = createPrismaChannelAiReplyRunner();
 
 export async function GET(
   request: Request,
@@ -40,6 +42,7 @@ export async function POST(
     signatureHeader: request.headers.get("x-hub-signature-256"),
     appSecret: process.env.META_APP_SECRET,
     parseMessage: parseInstagramWebhookMessage,
+    runAiReply,
   });
 
   return NextResponse.json(result.body, { status: result.status });

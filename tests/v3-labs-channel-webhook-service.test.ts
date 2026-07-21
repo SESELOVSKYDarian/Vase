@@ -93,6 +93,7 @@ describe("Vase Labs generic Meta channel webhook service", () => {
 
   it("normalizes and persists valid inbound messages for the configured channel", async () => {
     const repository = new MemoryChannelWebhookRepository(createContext());
+    const aiRuns: unknown[] = [];
     const body = JSON.stringify(createInstagramPayload());
     const result = await handleMetaChannelWebhook({
       channelType: "INSTAGRAM",
@@ -101,6 +102,10 @@ describe("Vase Labs generic Meta channel webhook service", () => {
       rawBody: body,
       signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
       parseMessage: parseInstagramWebhookMessage,
+      runAiReply: async (input) => {
+        aiRuns.push(input);
+        return { ok: true, messageId: "ai_message_123", totalTokens: 42 };
+      },
     });
 
     expect(result.status).toBe(200);
@@ -118,6 +123,12 @@ describe("Vase Labs generic Meta channel webhook service", () => {
         externalThreadKey: "ig_user_456",
         text: "Hola IG",
       },
+    });
+    expect(aiRuns).toHaveLength(1);
+    expect(aiRuns[0]).toMatchObject({
+      context: { assistantId: "assistant_123", globalTenantId: "tenant_123" },
+      persisted: { conversationId: "conversation_123", messageId: "message_123" },
+      message: { text: "Hola IG" },
     });
   });
 
@@ -149,5 +160,38 @@ describe("Vase Labs generic Meta channel webhook service", () => {
     expect(result.status).toBe(200);
     expect(result.body.aiBlockedReason).toBe("CHANNEL_NOT_ENTITLED");
     expect(repository.persisted[0]?.aiBlockedReason).toBe("CHANNEL_NOT_ENTITLED");
+  });
+
+  it("does not run AI when the channel entitlement blocks the assistant", async () => {
+    const repository = new MemoryChannelWebhookRepository(createContext({
+      entitlement: {
+        globalTenantId: "tenant_123",
+        plan: "STARTER",
+        status: "ACTIVE",
+        enabledChannels: ["WHATSAPP"],
+        tokenPack: null,
+        tokensIncluded: 50000,
+        tokensUsed: 0,
+        extraTokens: 0,
+        currentPeriodStart: null,
+        renewsAt: null,
+      },
+    }));
+    let ranAi = false;
+    const body = JSON.stringify(createInstagramPayload());
+    await handleMetaChannelWebhook({
+      channelType: "INSTAGRAM",
+      repository,
+      tenantSlug: "tenant-demo",
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
+      parseMessage: parseInstagramWebhookMessage,
+      runAiReply: async () => {
+        ranAi = true;
+        return { ok: true, messageId: "ai_message_123", totalTokens: 42 };
+      },
+    });
+
+    expect(ranAi).toBe(false);
   });
 });

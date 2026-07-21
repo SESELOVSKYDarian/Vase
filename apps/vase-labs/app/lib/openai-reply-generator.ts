@@ -20,6 +20,7 @@ type FetchLike = typeof fetch;
 
 interface CreateOpenAiReplyGeneratorInput {
   apiKey?: string;
+  model?: string | null;
   profileId?: string | null;
   env?: NodeJS.ProcessEnv;
   fetcher?: FetchLike;
@@ -90,6 +91,7 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
   const apiKey = input.apiKey ?? env.OPENAI_API_KEY;
   const fetcher = input.fetcher ?? fetch;
   const profile = resolveOpenAiModelProfile({ profileId: input.profileId, env });
+  const model = input.model?.trim() || profile.model;
 
   return {
     profile,
@@ -105,7 +107,7 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: profile.model,
+          model,
           instructions: buildSystemInstructions(request.context),
           input: request.userText,
         }),
@@ -127,7 +129,7 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
         inputTokens: readUsageToken(payload, "input_tokens"),
         outputTokens: readUsageToken(payload, "output_tokens"),
         provider: "openai",
-        model: profile.model,
+        model,
         profile: profile.id,
       };
     },

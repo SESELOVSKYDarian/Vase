@@ -6,6 +6,7 @@ import type {
   ChannelWebhookPostResult,
   PersistChannelInboundMessageInput,
   PersistChannelInboundMessageResult,
+  RunChannelAiReply,
 } from "./channel-webhook-service";
 import {
   getChannelWebhookVerifyResult,
@@ -54,6 +55,7 @@ export async function handleWhatsAppMetaWebhook(input: {
   rawBody: string;
   signatureHeader: string | null;
   appSecret?: string;
+  runAiReply?: RunChannelAiReply;
 }): Promise<WebhookPostResult> {
   return handleMetaChannelWebhook({
     channelType: "WHATSAPP",
@@ -62,6 +64,7 @@ export async function handleWhatsAppMetaWebhook(input: {
     rawBody: input.rawBody,
     signatureHeader: input.signatureHeader,
     appSecret: input.appSecret,
+    runAiReply: input.runAiReply,
     parseMessage: ({ globalTenantId, payload }) =>
       parseWhatsAppWebhookMessage({
         globalTenantId,

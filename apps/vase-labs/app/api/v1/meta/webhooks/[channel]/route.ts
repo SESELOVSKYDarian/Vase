@@ -5,6 +5,7 @@ import {
   PrismaChannelWebhookRepository,
   type ParseChannelWebhookMessage,
 } from "../../../../../lib/channel-webhook-service";
+import { createPrismaChannelAiReplyRunner } from "../../../../../lib/channel-ai-runner";
 import { labsPrisma } from "../../../../../lib/db";
 import { parseFacebookWebhookMessage } from "../../../../../lib/facebook-webhook";
 import { parseInstagramWebhookMessage } from "../../../../../lib/instagram-webhook";
@@ -13,6 +14,7 @@ import { parseWhatsAppWebhookMessage } from "../../../../../lib/whatsapp-webhook
 export const dynamic = "force-dynamic";
 
 const repository = new PrismaChannelWebhookRepository(labsPrisma);
+const runAiReply = createPrismaChannelAiReplyRunner();
 
 function parseChannel(value: string): LabsChannel {
   return labsChannelSchema.parse(value.trim().toUpperCase());
@@ -64,6 +66,7 @@ export async function POST(
       signatureHeader: request.headers.get("x-hub-signature-256"),
       appSecret: process.env.META_APP_SECRET ?? "",
       parseMessage: parserFor(channelType),
+      runAiReply,
     });
     return NextResponse.json(result.body, { status: result.status });
   } catch {
