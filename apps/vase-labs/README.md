@@ -66,6 +66,22 @@ Labs expone rutas base para operar datos reales:
 
 La primera version de IA usa `ai-orchestrator.ts` como orquestador inyectable: verifica si puede correr, arma contexto desde knowledge, persiste respuesta, registra tokens y delega el envio al sender del canal.
 
+## Modelos OpenAI
+
+Labs resuelve los modelos de ChatGPT/OpenAI desde `openai-reply-generator.ts`, separado de las credenciales de cada canal. El servicio necesita `OPENAI_API_KEY` como variable interna de Labs y permite tres perfiles:
+
+- `fast`: bajo costo y baja latencia.
+- `balanced`: valor por defecto para atencion comercial.
+- `premium`: mayor calidad para conversaciones complejas.
+
+Variables soportadas:
+
+- `OPENAI_MODEL_PROFILE`: `fast`, `balanced` o `premium`.
+- `OPENAI_DEFAULT_MODEL`: override global opcional para todos los perfiles sin modelo especifico.
+- `OPENAI_MODEL_FAST`, `OPENAI_MODEL_BALANCED`, `OPENAI_MODEL_PREMIUM`: modelos concretos por perfil.
+
+El modelo usado queda registrado en `TokenUsage.source` con el formato `openai:<modelo>:<perfil>` para auditar consumo sin agregar migraciones.
+
 ## Readiness
 
 `/api/health/ready` reporta DB real mediante ping Prisma. Si la DB falla, devuelve payload `status: "degraded"` con `checks.database: "error"` para que Admin/EasyPanel puedan detectar el problema sin perder la forma estandar del health.

@@ -1,5 +1,6 @@
 import { labsPrisma } from "./db";
 import { createLabsContextClient } from "./app-session-context";
+import { getDefaultOpenAiModel } from "./openai-reply-generator";
 import { readSharedLabsSession } from "./shared-session";
 
 export async function resolveLabsRequestContext(cookieHeader: string | null) {
@@ -24,7 +25,7 @@ export async function resolveLabsRequestContext(cookieHeader: string | null) {
       globalTenantId: context.globalTenantId,
       tenantSlug: context.tenantSlug,
       name: `${context.tenantName} Assistant`,
-      model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
+      model: getDefaultOpenAiModel(),
     },
     update: {
       globalTenantId: context.globalTenantId,

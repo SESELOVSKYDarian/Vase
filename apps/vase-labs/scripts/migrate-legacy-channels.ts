@@ -1,5 +1,6 @@
 import { labsPrisma } from "../app/lib/db";
 import { buildLegacyOfficialChannelImport } from "../app/lib/legacy-channel-migration";
+import { getDefaultOpenAiModel } from "../app/lib/openai-reply-generator";
 
 async function main() {
   const appInternalUrl = process.env.APP_INTERNAL_URL?.trim();
@@ -25,7 +26,7 @@ async function main() {
         globalTenantId: channel.globalTenantId,
         tenantSlug: channel.tenantSlug,
         name: `${channel.tenantSlug} Assistant`,
-        model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
+        model: getDefaultOpenAiModel(),
       },
       update: { globalTenantId: channel.globalTenantId },
     });
