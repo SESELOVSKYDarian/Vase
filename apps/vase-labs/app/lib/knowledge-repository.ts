@@ -1,4 +1,4 @@
-import { labsPrisma } from "./db";
+import { labsPrisma, Prisma } from "./db";
 import type { ParsedKnowledgeInput } from "./knowledge-source";
 
 export type KnowledgeItemCreateData = {
@@ -27,8 +27,12 @@ export interface KnowledgeMutationOperations {
   deleteCatalogSyncEvents(globalTenantId: string): Promise<void>;
 }
 
+export interface KnowledgeTransactionOperations extends KnowledgeMutationOperations, KnowledgeRepository {
+  lockAssistant(assistantId: string): Promise<{ globalTenantId: string } | null>;
+}
+
 export interface KnowledgeMutationRepository extends KnowledgeMutationOperations {
-  transaction<T>(operation: (repository: KnowledgeMutationOperations) => Promise<T>): Promise<T>;
+  transaction<T>(operation: (repository: KnowledgeTransactionOperations) => Promise<T>): Promise<T>;
 }
 
 export function mapKnowledgeInputToCreateData(
@@ -59,6 +63,18 @@ export async function createKnowledgeItem(
   return repository.create(mapKnowledgeInputToCreateData(assistantId, input));
 }
 
+export async function createLockedKnowledgeItem(
+  repository: Pick<KnowledgeMutationRepository, "transaction">,
+  assistantId: string,
+  input: ParsedKnowledgeInput,
+): Promise<KnowledgeItemRecord> {
+  return repository.transaction(async (transaction) => {
+    const assistant = await transaction.lockAssistant(assistantId);
+    if (!assistant) throw knowledgeSourceNotFound();
+    return createKnowledgeItem(transaction, assistantId, input);
+  });
+}
+
 function knowledgeSourceNotFound(): Error {
   return new Error("KNOWLEDGE_SOURCE_NOT_FOUND");
 }
@@ -84,6 +100,11 @@ export async function deleteKnowledgeItem(
   knowledgeId: string,
 ): Promise<KnowledgeItemRecord> {
   return repository.transaction(async (transaction) => {
+    const assistant = await transaction.lockAssistant(assistantId);
+    if (!assistant || assistant.globalTenantId !== globalTenantId) {
+      throw knowledgeSourceNotFound();
+    }
+
     const item = await transaction.findByAssistant(assistantId, knowledgeId);
     if (!item) throw knowledgeSourceNotFound();
 
@@ -107,13 +128,22 @@ export async function deleteKnowledgeItem(
 
 type KnowledgeMutationDbClient = Pick<
   typeof labsPrisma,
-  "knowledgeItem" | "catalogProduct" | "catalogSyncEvent"
+  "$queryRaw" | "knowledgeItem" | "catalogProduct" | "catalogSyncEvent"
 >;
 
 function createPrismaKnowledgeMutationOperations(
   db: KnowledgeMutationDbClient,
-): KnowledgeMutationOperations {
+): KnowledgeTransactionOperations {
   return {
+    async lockAssistant(assistantId) {
+      const assistants = await db.$queryRaw<Array<{ globalTenantId: string }>>(
+        Prisma.sql`SELECT globalTenantId FROM Assistant WHERE id = ${assistantId} FOR UPDATE`,
+      );
+      return assistants[0] ?? null;
+    },
+    create(data) {
+      return db.knowledgeItem.create({ data });
+    },
     findByAssistant(assistantId, knowledgeId) {
       return db.knowledgeItem.findFirst({ where: { id: knowledgeId, assistantId } });
     },
@@ -159,7 +189,7 @@ export const prismaKnowledgeMutationRepository: KnowledgeMutationRepository = {
 
 export const knowledgeRepository = {
   create(assistantId: string, input: ParsedKnowledgeInput) {
-    return createKnowledgeItem(prismaKnowledgeRepository, assistantId, input);
+    return createLockedKnowledgeItem(prismaKnowledgeMutationRepository, assistantId, input);
   },
   rename(assistantId: string, knowledgeId: string, title: string) {
     return renameKnowledgeItem(prismaKnowledgeMutationRepository, assistantId, knowledgeId, title);
