@@ -26,6 +26,14 @@ export const prismaLabsCatalogRepository: LabsCatalogRepository = {
   async hasEvent(eventId) {
     return Boolean(await labsPrisma.catalogSyncEvent.findUnique({ where: { eventId }, select: { id: true } }));
   },
+  async latestEventOccurredAt(globalTenantId) {
+    const latest = await labsPrisma.catalogSyncEvent.findFirst({
+      where: { globalTenantId },
+      orderBy: { occurredAt: "desc" },
+      select: { occurredAt: true },
+    });
+    return latest?.occurredAt.toISOString() ?? null;
+  },
   async recordEvent(eventId, metadata) {
     await labsPrisma.catalogSyncEvent.create({
       data: { eventId, globalTenantId: metadata.globalTenantId, productCount: metadata.productCount, occurredAt: new Date(metadata.occurredAt) },

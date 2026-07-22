@@ -8,9 +8,15 @@ import {
 function memoryRepository(): LabsCatalogRepository {
   const records = new Map<string, LabsCatalogRecord>();
   const events = new Set<string>();
+  const latestEvents = new Map<string, string>();
   return {
     async hasEvent(eventId) { return events.has(eventId); },
-    async recordEvent(eventId) { events.add(eventId); },
+    async latestEventOccurredAt(globalTenantId) { return latestEvents.get(globalTenantId) ?? null; },
+    async recordEvent(eventId, metadata) {
+      events.add(eventId);
+      const current = latestEvents.get(metadata.globalTenantId);
+      if (!current || current < metadata.occurredAt) latestEvents.set(metadata.globalTenantId, metadata.occurredAt);
+    },
     async upsertSource(input) {
       const key = `${input.globalTenantId}:${input.externalProductId}`;
       const current = records.get(key);
@@ -114,5 +120,22 @@ describe("Labs catalog service", () => {
 
     await service.sync({ ...batch, eventId: "tenant-1-restored", occurredAt: "2026-07-22T16:00:00.000Z" });
     expect((await service.list("tenant_1")).every((product) => product.active)).toBe(true);
+  });
+
+  it("ignores a delayed older snapshot without removing newer products", async () => {
+    const service = createLabsCatalogService(memoryRepository());
+    await service.sync({ ...batch, eventId: "newer", occurredAt: "2026-07-22T15:00:00.000Z" });
+
+    await expect(service.sync({
+      ...batch,
+      eventId: "older-retry",
+      occurredAt: "2026-07-22T14:00:00.000Z",
+      products: [batch.products[0]],
+    })).resolves.toEqual({ processed: false, count: 0 });
+
+    expect(await service.list("tenant_1")).toEqual([
+      expect.objectContaining({ externalProductId: "p1", active: true }),
+      expect.objectContaining({ externalProductId: "p2", active: true }),
+    ]);
   });
 });

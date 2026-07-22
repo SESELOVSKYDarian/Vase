@@ -24,6 +24,7 @@ export type CatalogEditorialInput = Pick<LabsCatalogRecord,
 
 export interface LabsCatalogRepository {
   hasEvent(eventId: string): Promise<boolean>;
+  latestEventOccurredAt(globalTenantId: string): Promise<string | null>;
   recordEvent(eventId: string, metadata: { globalTenantId: string; productCount: number; occurredAt: string }): Promise<void>;
   upsertSource(input: Omit<LabsCatalogRecord, "offeredByChatbot" | "aiAlias" | "aiDescription" | "aiInstructions">): Promise<LabsCatalogRecord>;
   deactivateMissing(globalTenantId: string, externalProductIds: string[]): Promise<number>;
@@ -36,6 +37,15 @@ export function createLabsCatalogService(repository: LabsCatalogRepository) {
     async sync(raw: LabsCatalogSync) {
       const batch = labsCatalogSyncSchema.parse(raw);
       if (await repository.hasEvent(batch.eventId)) return { processed: false, count: 0 };
+      const latestOccurredAt = await repository.latestEventOccurredAt(batch.globalTenantId);
+      if (latestOccurredAt && latestOccurredAt >= batch.occurredAt) {
+        await repository.recordEvent(batch.eventId, {
+          globalTenantId: batch.globalTenantId,
+          productCount: batch.products.length,
+          occurredAt: batch.occurredAt,
+        });
+        return { processed: false, count: 0 };
+      }
 
       for (const product of batch.products) {
         await repository.upsertSource({ ...product, globalTenantId: batch.globalTenantId });
