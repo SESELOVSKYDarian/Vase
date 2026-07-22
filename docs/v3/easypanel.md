@@ -153,6 +153,7 @@ PUBLIC_ADMIN_URL=https://business.vase.ar/admin/evolution
 VASE_BUSINESS_SSO_SECRET=CHANGE_ME_SSO_SECRET
 VASE_BUSINESS_SSO_ISSUER=vase-app
 VASE_BUSINESS_SSO_AUDIENCE=vase-business
+SERVICE_TO_SERVICE_TOKEN=CHANGE_ME_BASE64_32
 VITE_VASE_APP_URL=https://app.vase.ar
 VITE_VASE_APP_LAUNCH_URL=https://app.vase.ar/app/business/launch
 VITE_VASE_APP_LOGIN_URL=https://app.vase.ar/signin
@@ -227,6 +228,8 @@ TOKEN_ENCRYPTION_SECRET=CHANGE_ME_BASE64_32
 ```
 
 `APP_INTERNAL_URL` debe apuntar al nombre interno del servicio App en EasyPanel, no al dominio publico. Labs valida la cookie compartida y usa `SERVICE_TO_SERVICE_TOKEN` para resolver tenant/rol sin acceder a la base de App.
+
+Labs también consulta las credenciales existentes del sistema de gestión externo mediante Vase App. Labs envía únicamente el `globalTenantId` resuelto desde su sesión a `APP_INTERNAL_URL`; Vase App valida el tenant y deriva el origen de Business desde `BUSINESS_EDITOR_URL`. Business devuelve una credencial `products:sync` existente o el estado `EXTERNAL_MANAGEMENT_NOT_CONNECTED`, sin crear credenciales durante la consulta. `SERVICE_TO_SERVICE_TOKEN` debe tener exactamente el mismo valor en Labs, Vase App y Business.
 
 La integracion interna App/Admin -> Labs debe usar `SERVICE_TO_SERVICE_TOKEN` contra `https://labs.vase.ar/api/internal/admin/labs/entitlements`. Esa ruta sincroniza la proyeccion local `LabsEntitlement` y evita joins entre bases.
 
