@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-async function findLatestProductSyncToken(db, tenantId) {
+export async function findLatestProductSyncToken(db, tenantId) {
   const result = await db.query(
     [
       'select id, name, token_hash, scope, created_at',
@@ -57,7 +57,7 @@ export async function ensureProductSyncToken(db, tenantId, tokenName = 'ERP Sync
   }
 }
 
-export function createProductSyncCredentialsHandler({ db, expectedServiceToken, ensureToken = ensureProductSyncToken }) {
+export function createProductSyncCredentialsHandler({ db, expectedServiceToken, findToken = findLatestProductSyncToken }) {
   return async function productSyncCredentialsHandler(req, res, next) {
     const expected = String(expectedServiceToken || '').trim();
     if (!expected || req.get('authorization') !== `Bearer ${expected}`) {
@@ -68,7 +68,10 @@ export function createProductSyncCredentialsHandler({ db, expectedServiceToken, 
     if (!tenantId) return res.status(400).json({ error: 'invalid_tenant_id' });
 
     try {
-      const { tokenRecord } = await ensureToken(db, tenantId);
+      const tokenRecord = await findToken(db, tenantId);
+      if (!tokenRecord) {
+        return res.status(404).json({ error: 'EXTERNAL_MANAGEMENT_NOT_CONNECTED' });
+      }
       return res.json({
         domain: 'business.vase.ar',
         tenantUuid: tenantId,

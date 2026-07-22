@@ -4,7 +4,7 @@ import { resolveLabsRequestContext } from "../../../lib/request-context";
 type Dependencies = {
   resolveContext(cookieHeader: string | null): Promise<{ context: { globalTenantId: string } }>;
   fetchUpstream: typeof fetch;
-  teflonApiUrl: string | undefined;
+  appInternalUrl: string | undefined;
   serviceToken: string | undefined;
   upstreamTimeoutMs?: number;
 };
@@ -38,15 +38,13 @@ export function createExternalManagementCredentialsGetHandler(dependencies: Depe
 
     try {
       const tenantId = resolved.context.globalTenantId?.trim();
-      const baseUrl = dependencies.teflonApiUrl?.trim();
+      const baseUrl = dependencies.appInternalUrl?.trim();
       const serviceToken = dependencies.serviceToken?.trim();
       if (!tenantId || !baseUrl || !serviceToken) return unavailable("CONFIGURATION_MISSING");
 
-      const url = new URL(
-        `/api/v1/integrations/internal/tenant/${encodeURIComponent(tenantId)}/product-sync-credentials`,
-        baseUrl,
-      );
+      const url = new URL("/api/internal/business/external-management-credentials", baseUrl);
       if (url.protocol !== "http:" && url.protocol !== "https:") return unavailable("CONFIGURATION_MISSING");
+      url.searchParams.set("globalTenantId", tenantId);
 
       const abortController = new AbortController();
       const timeout = setTimeout(
@@ -62,10 +60,21 @@ export function createExternalManagementCredentialsGetHandler(dependencies: Depe
       } finally {
         clearTimeout(timeout);
       }
+      if (upstream.status === 404) {
+        const body: unknown = await upstream.json().catch(() => null);
+        if (
+          body &&
+          typeof body === "object" &&
+          (body as Record<string, unknown>).error === "EXTERNAL_MANAGEMENT_NOT_CONNECTED"
+        ) {
+          return NextResponse.json({ error: "EXTERNAL_MANAGEMENT_NOT_CONNECTED" }, { status: 404 });
+        }
+        return unavailable("UPSTREAM_RESPONSE_INVALID");
+      }
       if (upstream.status === 401 || upstream.status === 403) return unavailable("UPSTREAM_FORBIDDEN");
       if (!upstream.ok) return unavailable("UPSTREAM_UNAVAILABLE");
 
-      const payload: unknown = await upstream.json();
+      const payload: unknown = await upstream.json().catch(() => null);
       if (!payload || typeof payload !== "object") return unavailable("UPSTREAM_RESPONSE_INVALID");
       const record = payload as Record<string, unknown>;
       if (
@@ -89,6 +98,6 @@ export function createExternalManagementCredentialsGetHandler(dependencies: Depe
 export const GET = createExternalManagementCredentialsGetHandler({
   resolveContext: resolveLabsRequestContext,
   fetchUpstream: fetch,
-  teflonApiUrl: process.env.TEFLON_API_URL,
+  appInternalUrl: process.env.APP_INTERNAL_URL,
   serviceToken: process.env.SERVICE_TO_SERVICE_TOKEN,
 });

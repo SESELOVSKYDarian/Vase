@@ -155,38 +155,50 @@ describe("GET /api/v1/integrations/internal/tenant/:tenantId/product-sync-creden
   }
 
   it.each([undefined, "", "wrong-token"])("fails closed for service token %s", async (supplied) => {
-    const ensureToken = vi.fn();
+    const findToken = vi.fn();
     const handler = createProductSyncCredentialsHandler({
-      db: {}, expectedServiceToken: "service-token", ensureToken,
+      db: {}, expectedServiceToken: "service-token", findToken,
     });
     const { res, response } = responseRecorder();
     await handler({ params: { tenantId: "tenant_123" }, get: () => supplied ? `Bearer ${supplied}` : undefined }, res, vi.fn());
     expect(response).toEqual({ statusCode: 403, body: { error: "forbidden" } });
-    expect(ensureToken).not.toHaveBeenCalled();
+    expect(findToken).not.toHaveBeenCalled();
   });
 
   it("fails closed when service auth is not configured", async () => {
-    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "", ensureToken: vi.fn() });
+    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "", findToken: vi.fn() });
     const { res, response } = responseRecorder();
     await handler({ params: { tenantId: "tenant_123" }, get: () => "Bearer anything" }, res, vi.fn());
     expect(response.statusCode).toBe(403);
   });
 
-  it("returns only the approved three-field allowlist", async () => {
-    const ensureToken = vi.fn(async () => ({
-      tokenRecord: { token_hash: "consumer-key", consumer_secret: "secret", auth: { token: "leak" }, scope: "*" },
-      autoCreated: false,
+  it("returns an existing credential without creating one and allowlists the response", async () => {
+    const findToken = vi.fn(async () => ({
+      token_hash: "consumer-key", consumer_secret: "secret", auth: { token: "leak" }, scope: "*",
     }));
-    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "service-token", ensureToken });
+    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "service-token", findToken });
     const { res, response } = responseRecorder();
     await handler({ params: { tenantId: "tenant_123" }, get: () => "Bearer service-token" }, res, vi.fn());
+    expect(findToken).toHaveBeenCalledWith({}, "tenant_123");
     expect(response.body).toEqual({ domain: "business.vase.ar", tenantUuid: "tenant_123", consumerKey: "consumer-key" });
     expect(Object.keys(response.body as object)).toEqual(["domain", "tenantUuid", "consumerKey"]);
     expect(JSON.stringify(response.body)).not.toMatch(/consumer_secret|secret|auth|token|scope/i);
   });
 
+  it("reports a tenant without an existing external connection", async () => {
+    const handler = createProductSyncCredentialsHandler({
+      db: {}, expectedServiceToken: "service-token", findToken: vi.fn(async () => null),
+    });
+    const { res, response } = responseRecorder();
+    await handler({ params: { tenantId: "tenant_123" }, get: () => "Bearer service-token" }, res, vi.fn());
+    expect(response).toEqual({
+      statusCode: 404,
+      body: { error: "EXTERNAL_MANAGEMENT_NOT_CONNECTED" },
+    });
+  });
+
   it("rejects an empty tenant id", async () => {
-    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "service-token", ensureToken: vi.fn() });
+    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "service-token", findToken: vi.fn() });
     const { res, response } = responseRecorder();
     await handler({ params: { tenantId: "   " }, get: () => "Bearer service-token" }, res, vi.fn());
     expect(response).toEqual({ statusCode: 400, body: { error: "invalid_tenant_id" } });
@@ -204,7 +216,7 @@ describe("GET /api/labs/external-management-credentials", () => {
       GET: createExternalManagementCredentialsGetHandler({
         resolveContext: async () => ({ context: { globalTenantId: contextTenant } }),
         fetchUpstream,
-        teflonApiUrl: "https://teflon.internal///",
+        appInternalUrl: "https://app.internal///",
         serviceToken: "service-token",
       }),
     };
@@ -218,16 +230,25 @@ describe("GET /api/labs/external-management-credentials", () => {
     const { GET, fetchUpstream } = handler(upstream);
     const response = await GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials?globalTenantId=tenant_attacker"));
     expect(fetchUpstream).toHaveBeenCalledWith(
-      "https://teflon.internal/api/v1/integrations/internal/tenant/tenant%2Fresolved/product-sync-credentials",
+      "https://app.internal/api/internal/business/external-management-credentials?globalTenantId=tenant%2Fresolved",
       { headers: { authorization: "Bearer service-token" }, signal: expect.any(AbortSignal) },
     );
     expect(await response.json()).toEqual({ domain: "business.vase.ar", tenantUuid: "tenant/resolved", consumerKey: "consumer-key" });
+  });
+
+  it("preserves the normal not-connected state from the tenant broker", async () => {
+    const response = await handler(
+      Response.json({ error: "EXTERNAL_MANAGEMENT_NOT_CONNECTED" }, { status: 404 }),
+    ).GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "EXTERNAL_MANAGEMENT_NOT_CONNECTED" });
   });
 
   it.each([
     [new Error("connection secret leaked"), "UPSTREAM_UNAVAILABLE"],
     [new Response("authorization detail leaked", { status: 403 }), "UPSTREAM_FORBIDDEN"],
     [new Response("database password leaked", { status: 500 }), "UPSTREAM_UNAVAILABLE"],
+    [new Response("not-json", { status: 200 }), "UPSTREAM_RESPONSE_INVALID"],
     [Response.json({ domain: "https://business.vase.ar", tenantUuid: "tenant/resolved", consumerKey: "key" }), "UPSTREAM_RESPONSE_INVALID"],
     [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant/other", consumerKey: "key" }), "UPSTREAM_RESPONSE_INVALID"],
     [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant/resolved" }), "UPSTREAM_RESPONSE_INVALID"],
@@ -242,7 +263,7 @@ describe("GET /api/labs/external-management-credentials", () => {
     const GET = createExternalManagementCredentialsGetHandler({
       resolveContext: async () => ({ context: { globalTenantId: "tenant_123" } }),
       fetchUpstream,
-      teflonApiUrl: undefined,
+      appInternalUrl: undefined,
       serviceToken: undefined,
     });
     const response = await GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
@@ -264,7 +285,7 @@ describe("GET /api/labs/external-management-credentials", () => {
     const GET = createExternalManagementCredentialsGetHandler({
       resolveContext: async () => { throw new Error(error); },
       fetchUpstream,
-      teflonApiUrl: "https://teflon.internal",
+      appInternalUrl: "https://app.internal",
       serviceToken: "service-token",
     });
     const response = await GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
@@ -282,7 +303,7 @@ describe("GET /api/labs/external-management-credentials", () => {
       const GET = createExternalManagementCredentialsGetHandler({
         resolveContext: async () => ({ context: { globalTenantId: "tenant_123" } }),
         fetchUpstream: fetchUpstream as typeof fetch,
-        teflonApiUrl: "https://teflon.internal",
+        appInternalUrl: "https://app.internal",
         serviceToken: "service-token",
         upstreamTimeoutMs: 25,
       });

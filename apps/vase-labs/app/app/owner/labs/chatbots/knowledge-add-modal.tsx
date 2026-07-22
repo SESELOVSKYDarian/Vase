@@ -17,6 +17,7 @@ type Credentials = { domain: string; tenantUuid: string; consumerKey: string };
 const externalManagementDomain = "business.vase.ar";
 
 export function externalCredentialsErrorMessage(reason: unknown) {
+  if (reason === "EXTERNAL_MANAGEMENT_NOT_CONNECTED") return "No hay un sistema externo conectado en Vase Business.";
   if (reason === "CONFIGURATION_MISSING") return "Falta configurar la conexión interna entre Vase Labs y Vase Business.";
   if (reason === "UPSTREAM_FORBIDDEN") return "El token interno de Vase Labs y Vase Business no coincide.";
   if (reason === "UPSTREAM_UNAVAILABLE") return "Vase Business no está disponible en este momento. Intentá nuevamente.";
@@ -62,9 +63,9 @@ export function KnowledgeAddModal() {
     setCredentialLoading(true);
     try {
       const response = await fetch("/api/labs/external-management-credentials", { signal: ticket.signal });
-      const payload = await response.json() as Credentials & { reason?: unknown };
+      const payload = await response.json() as Credentials & { error?: unknown; reason?: unknown };
       if (!response.ok) {
-        if (requests.isCurrent(ticket)) setError(externalCredentialsErrorMessage(payload.reason));
+        if (requests.isCurrent(ticket)) setError(externalCredentialsErrorMessage(payload.error ?? payload.reason));
         return;
       }
       if (requests.isCurrent(ticket)) setCredentials(payload);
