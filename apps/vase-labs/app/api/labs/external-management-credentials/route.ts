@@ -74,7 +74,7 @@ export function createExternalManagementCredentialsGetHandler(dependencies: Depe
       if (upstream.status === 401 || upstream.status === 403) return unavailable("UPSTREAM_FORBIDDEN");
       if (!upstream.ok) return unavailable("UPSTREAM_UNAVAILABLE");
 
-      const payload: unknown = await upstream.json();
+      const payload: unknown = await upstream.json().catch(() => null);
       if (!payload || typeof payload !== "object") return unavailable("UPSTREAM_RESPONSE_INVALID");
       const record = payload as Record<string, unknown>;
       if (

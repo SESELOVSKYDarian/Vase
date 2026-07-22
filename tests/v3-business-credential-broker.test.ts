@@ -100,6 +100,7 @@ describe("Vase App Business credential broker", () => {
   it.each([
     [new Response("service auth detail", { status: 403 }), "UPSTREAM_FORBIDDEN"],
     [new Response("database detail", { status: 500 }), "UPSTREAM_UNAVAILABLE"],
+    [new Response("not-json", { status: 200 }), "UPSTREAM_RESPONSE_INVALID"],
     [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant_other", consumerKey: "key" }), "UPSTREAM_RESPONSE_INVALID"],
   ])("sanitizes upstream failure %#", async (upstream, reason) => {
     const response = await handler({ upstream }).GET(request());

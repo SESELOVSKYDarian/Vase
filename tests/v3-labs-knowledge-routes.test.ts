@@ -248,6 +248,7 @@ describe("GET /api/labs/external-management-credentials", () => {
     [new Error("connection secret leaked"), "UPSTREAM_UNAVAILABLE"],
     [new Response("authorization detail leaked", { status: 403 }), "UPSTREAM_FORBIDDEN"],
     [new Response("database password leaked", { status: 500 }), "UPSTREAM_UNAVAILABLE"],
+    [new Response("not-json", { status: 200 }), "UPSTREAM_RESPONSE_INVALID"],
     [Response.json({ domain: "https://business.vase.ar", tenantUuid: "tenant/resolved", consumerKey: "key" }), "UPSTREAM_RESPONSE_INVALID"],
     [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant/other", consumerKey: "key" }), "UPSTREAM_RESPONSE_INVALID"],
     [Response.json({ domain: "business.vase.ar", tenantUuid: "tenant/resolved" }), "UPSTREAM_RESPONSE_INVALID"],
