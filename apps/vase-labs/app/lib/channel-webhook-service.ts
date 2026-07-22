@@ -67,6 +67,13 @@ export interface ChannelWebhookRepository {
     messageId: string;
     reason: string;
   }): Promise<void>;
+  requestHumanHandoff?(input: {
+    context: ChannelWebhookContext;
+    conversationId: string;
+    messageId: string;
+    reason: string;
+    source: "customer_intent" | "manual";
+  }): Promise<void>;
   persistInboundMessage(input: PersistChannelInboundMessageInput): Promise<PersistChannelInboundMessageResult>;
 }
 
@@ -85,6 +92,7 @@ export type ChannelWebhookPostResult = {
     messageId?: string;
     aiBlockedReason?: string | null;
     aiReplyError?: string | null;
+    humanHandoffRequested?: boolean;
   };
 };
 
@@ -204,6 +212,27 @@ function resolveAiBlockedReason(entitlement: LabsRuntimeEntitlement | null, chan
   if (access.allowed) return null;
 
   return access.reason === "CHANNEL_NOT_INCLUDED" ? "CHANNEL_NOT_ENTITLED" : access.reason;
+}
+
+export function detectHumanHandoffIntent(text: string | null | undefined) {
+  const normalized = text
+    ?.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  if (!normalized) return false;
+
+  return [
+    /\bhablar\s+con\s+(un|una)?\s*(humano|persona|asesor|operador|representante)\b/,
+    /\bquiero\s+(un|una)?\s*(humano|persona|asesor|operador|representante)\b/,
+    /\bme\s+atiende\s+(un|una)?\s*(humano|persona|asesor|operador|representante)\b/,
+    /\batencion\s+humana\b/,
+    /\bsoporte\s+humano\b/,
+    /\bnecesito\s+(ayuda\s+)?(humana|de\s+una\s+persona|un\s+asesor)\b/,
+    /\btalk\s+to\s+(a\s+)?(human|agent|representative|person)\b/,
+    /\bspeak\s+to\s+(a\s+)?(human|agent|representative|person)\b/,
+    /\bhuman\s+(agent|support)\b/,
+  ].some((phrase) => phrase.test(normalized));
 }
 
 function mergeConversationMetadata(metadata: unknown, input: PersistChannelInboundMessageInput) {
@@ -633,6 +662,60 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         AND assistantId = ${input.context.assistantId}
     `;
   }
+
+  async requestHumanHandoff(input: {
+    context: ChannelWebhookContext;
+    conversationId: string;
+    messageId: string;
+    reason: string;
+    source: "customer_intent" | "manual";
+  }): Promise<void> {
+    const now = new Date();
+    const activeHandoffs = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT h.id
+      FROM Handoff h
+      JOIN Conversation c ON c.id = h.conversationId
+      WHERE h.conversationId = ${input.conversationId}
+        AND c.assistantId = ${input.context.assistantId}
+        AND h.status IN ('PENDING', 'ASSIGNED')
+      LIMIT 1
+    `;
+
+    await this.prisma.$executeRaw`
+      UPDATE Conversation
+      SET
+        status = 'ESCALATED',
+        escalatedToHuman = true,
+        updatedAt = ${now}
+      WHERE id = ${input.conversationId}
+        AND assistantId = ${input.context.assistantId}
+    `;
+
+    if (activeHandoffs[0]) return;
+
+    await this.prisma.$executeRaw`
+      INSERT INTO Handoff (
+        id,
+        conversationId,
+        reason,
+        target,
+        status,
+        priority,
+        notes,
+        createdAt
+      )
+      VALUES (
+        ${randomUUID()},
+        ${input.conversationId},
+        ${input.reason},
+        'labs',
+        'PENDING',
+        'high',
+        ${JSON.stringify({ source: input.source, messageId: input.messageId })},
+        ${now}
+      )
+    `;
+  }
 }
 
 export function getChannelWebhookVerifyResult(input: {
@@ -747,7 +830,10 @@ export async function handleMetaChannelWebhook(input: {
     };
   }
 
-  const aiBlockedReason = resolveAiBlockedReason(context.entitlement, input.channelType);
+  const humanHandoffRequested = detectHumanHandoffIntent(message.text);
+  const aiBlockedReason = humanHandoffRequested
+    ? "HANDOFF_REQUESTED"
+    : resolveAiBlockedReason(context.entitlement, input.channelType);
   let aiReplyError: string | null = null;
   let persisted: PersistChannelInboundMessageResult;
   try {
@@ -762,7 +848,17 @@ export async function handleMetaChannelWebhook(input: {
       conversationId: persisted.conversationId,
       messageId: persisted.messageId,
     });
-    if (!aiBlockedReason && input.runAiReply) {
+    if (humanHandoffRequested) {
+      await input.repository.requestHumanHandoff?.({
+        context,
+        conversationId: persisted.conversationId,
+        messageId: persisted.messageId,
+        reason: "El cliente pidio hablar con un humano.",
+        source: "customer_intent",
+      });
+      persisted = { ...persisted, handoffActive: true };
+    }
+    if (!aiBlockedReason && !persisted.handoffActive && input.runAiReply) {
       try {
         await input.runAiReply({ context, message, persisted });
       } catch (error) {
@@ -794,6 +890,7 @@ export async function handleMetaChannelWebhook(input: {
       messageId: persisted.messageId,
       aiBlockedReason,
       aiReplyError,
+      humanHandoffRequested,
     },
   };
 }

@@ -20,21 +20,41 @@ export async function GET(
         },
         orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }],
         take: 100,
-        select: {
-          id: true,
-          channel: true,
-          status: true,
-          customerName: true,
-          customerContact: true,
-          lastMessageAt: true,
-          messageCount: true,
-          escalatedToHuman: true,
+        include: {
+          messages: { orderBy: { createdAt: "asc" }, take: 80 },
+          handoffs: {
+            where: { status: { in: ["PENDING", "ASSIGNED"] } },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
         },
       })
     : [];
   const conversations = rows.map((conversation: any) => ({
-    ...conversation,
     globalTenantId: assistant?.globalTenantId ?? "",
+    id: conversation.id,
+    channel: conversation.channel,
+    status: conversation.status,
+    customerName: conversation.customerName,
+    customerContact: conversation.customerContact,
+    messageCount: conversation.messageCount,
+    lastMessageAt: conversation.lastMessageAt?.toISOString() ?? null,
+    escalatedToHuman: conversation.escalatedToHuman,
+    summary: conversation.summary,
+    messages: conversation.messages.map((message: any) => ({
+      id: message.id,
+      role: message.role,
+      direction: message.direction,
+      content: message.content,
+      createdAt: message.createdAt.toISOString(),
+    })),
+    handoffs: conversation.handoffs.map((handoff: any) => ({
+      id: handoff.id,
+      status: handoff.status,
+      reason: handoff.reason,
+      priority: handoff.priority,
+      assignedTo: handoff.assignedTo,
+    })),
   }));
 
   return NextResponse.json({ conversations });

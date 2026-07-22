@@ -11,6 +11,13 @@ export async function GET(
       id: conversationId,
       assistant: { tenantSlug },
     },
+    include: {
+      handoffs: {
+        where: { status: { in: ["PENDING", "ASSIGNED"] } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
   });
   const messages = conversation
     ? await (labsPrisma as any).message.findMany({

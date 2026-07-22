@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, RefreshCw, Send, UserRoundCheck } from "lucide-react";
+import { Bell, Clock3, Loader2, MessageCircle, PauseCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LabsStatusPill } from "../labs-ui";
 
@@ -54,6 +54,34 @@ function sortConversations(conversations: InboxConversationItem[]) {
   );
 }
 
+function normalizeConversation(raw: any): InboxConversationItem {
+  return {
+    id: raw.id,
+    channel: raw.channel ?? null,
+    status: raw.status,
+    customerName: raw.customerName ?? null,
+    customerContact: raw.customerContact ?? null,
+    messageCount: raw.messageCount ?? 0,
+    lastMessageAt: typeof raw.lastMessageAt === "string" ? raw.lastMessageAt : raw.lastMessageAt?.toString() ?? null,
+    escalatedToHuman: Boolean(raw.escalatedToHuman),
+    summary: raw.summary ?? null,
+    messages: Array.isArray(raw.messages) ? raw.messages.map((message: any) => ({
+      id: message.id,
+      role: message.role,
+      direction: message.direction,
+      content: message.content,
+      createdAt: typeof message.createdAt === "string" ? message.createdAt : message.createdAt?.toString() ?? new Date().toISOString(),
+    })) : [],
+    handoffs: Array.isArray(raw.handoffs) ? raw.handoffs.map((handoff: any) => ({
+      id: handoff.id,
+      status: handoff.status,
+      reason: handoff.reason,
+      priority: handoff.priority,
+      assignedTo: handoff.assignedTo ?? null,
+    })) : [],
+  };
+}
+
 export function InboxWorkstation({
   tenantSlug,
   initialConversations,
@@ -66,18 +94,38 @@ export function InboxWorkstation({
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [handoffBusy, setHandoffBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const threadRef = useRef<HTMLDivElement>(null);
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeId) ?? conversations[0] ?? null,
     [activeId, conversations],
   );
+  const pendingHumanCount = conversations.filter(
+    (conversation) => conversation.escalatedToHuman || conversation.handoffs.length > 0,
+  ).length;
 
   useEffect(() => {
     if (!activeConversation) return;
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
   }, [activeConversation?.messages.length, activeConversation]);
+
+  async function refreshConversationList(silent = false) {
+    if (!silent) setRefreshing(true);
+    try {
+      const response = await fetch(`/api/v1/inbox/${tenantSlug}/conversations`, {
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !Array.isArray(payload.conversations)) return;
+
+      setConversations(sortConversations(payload.conversations.map(normalizeConversation)));
+    } finally {
+      if (!silent) setRefreshing(false);
+    }
+  }
 
   async function refreshConversation(silent = false) {
     if (!activeId) return;
@@ -94,8 +142,10 @@ export function InboxWorkstation({
           ? {
               ...conversation,
               status: payload.conversation.status,
+              escalatedToHuman: payload.conversation.escalatedToHuman,
               messageCount: payload.conversation.messageCount,
               lastMessageAt: payload.conversation.lastMessageAt,
+              handoffs: payload.conversation.handoffs ?? conversation.handoffs,
               messages: payload.messages ?? conversation.messages,
             }
           : conversation,
@@ -107,9 +157,44 @@ export function InboxWorkstation({
 
   useEffect(() => {
     if (!activeId) return;
-    const interval = window.setInterval(() => void refreshConversation(true), 4000);
+    const interval = window.setInterval(() => {
+      void refreshConversation(true);
+      void refreshConversationList(true);
+    }, 4000);
     return () => window.clearInterval(interval);
   }, [activeId]);
+
+  async function requestHandoff() {
+    if (!activeId || handoffBusy) return;
+    setHandoffBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}/handoff`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason: "Intervencion humana solicitada desde Inbox." }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.handoff) throw new Error("HANDOFF_FAILED");
+
+      setConversations((current) => sortConversations(current.map((conversation) =>
+        conversation.id === activeId
+          ? {
+              ...conversation,
+              status: payload.conversation?.status ?? "ESCALATED",
+              escalatedToHuman: true,
+              handoffs: [payload.handoff],
+            }
+          : conversation,
+      )));
+      setNotice("IA pausada. El equipo puede responder esta conversacion.");
+    } catch {
+      setError("No pudimos pausar la IA para esta conversacion.");
+    } finally {
+      setHandoffBusy(false);
+    }
+  }
 
   async function sendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -154,11 +239,20 @@ export function InboxWorkstation({
   }
 
   return (
-    <section className="labs-inbox-workstation">
+    <section className="labs-inbox-shell">
+      {pendingHumanCount > 0 ? (
+        <div className="labs-inbox-alert" aria-live="polite">
+          <Bell aria-hidden="true" />
+          <span>{pendingHumanCount} conversacion{pendingHumanCount === 1 ? "" : "es"} requiere{pendingHumanCount === 1 ? "" : "n"} atencion humana.</span>
+        </div>
+      ) : null}
+
+      <div className="labs-inbox-workstation">
       <aside className="labs-inbox-queue" aria-label="Pendientes de atencion">
         {conversations.map((conversation) => {
           const latestMessage = conversation.messages.at(-1);
           const active = conversation.id === activeConversation.id;
+          const hasHandoff = conversation.escalatedToHuman || conversation.handoffs.length > 0;
           return (
             <button
               type="button"
@@ -166,16 +260,18 @@ export function InboxWorkstation({
               onClick={() => setActiveId(conversation.id)}
               className={active ? "is-active" : ""}
             >
-              <span>
+              <span className="labs-inbox-queue-title">
                 <strong>{conversation.customerName ?? conversation.customerContact ?? "Cliente"}</strong>
                 <em>{conversation.channel ?? "LABS"}</em>
               </span>
               <small>
                 {latestMessage ? `${messageAuthor(latestMessage)}: ${latestMessage.content}` : conversation.summary ?? "Sin mensajes"}
               </small>
-              <span>
+              <span className="labs-inbox-queue-meta">
                 <LabsStatusPill label={conversation.status} tone={conversation.status === "ESCALATED" ? "warning" : "info"} />
-                <small>{conversation.messageCount} mensajes</small>
+                {hasHandoff ? <LabsStatusPill label="Humano" tone="warning" /> : null}
+                <small><MessageCircle aria-hidden="true" />{conversation.messageCount}</small>
+                <small><Clock3 aria-hidden="true" />{formatDate(conversation.lastMessageAt)}</small>
               </span>
             </button>
           );
@@ -189,11 +285,21 @@ export function InboxWorkstation({
             <h2>{activeConversation.customerName ?? activeConversation.customerContact ?? "Cliente"}</h2>
             <span>{formatDate(activeConversation.lastMessageAt)}</span>
           </div>
-          <div>
+          <div className="labs-inbox-actions">
             <LabsStatusPill label={activeConversation.status} tone={activeConversation.status === "ESCALATED" ? "warning" : "info"} />
             {activeConversation.escalatedToHuman ? (
               <LabsStatusPill label="Humano activo" tone="warning" />
             ) : null}
+            <button
+              type="button"
+              onClick={() => void requestHandoff()}
+              disabled={handoffBusy || activeConversation.escalatedToHuman}
+              aria-label="Pausar IA e intervenir humano"
+              title="Pausar IA"
+            >
+              {handoffBusy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <PauseCircle aria-hidden="true" />}
+              <span>{activeConversation.escalatedToHuman ? "IA pausada" : "Pausar IA"}</span>
+            </button>
             <button type="button" onClick={() => void refreshConversation()} aria-label="Actualizar hilo">
               {refreshing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
             </button>
@@ -221,7 +327,7 @@ export function InboxWorkstation({
         </div>
 
         <form onSubmit={sendReply} className="labs-inbox-composer">
-          <label htmlFor="inbox-human-reply">Intervenir como humano</label>
+          <label htmlFor="inbox-human-reply">Intervenir humano</label>
           <div>
             <textarea
               id="inbox-human-reply"
@@ -237,8 +343,10 @@ export function InboxWorkstation({
             </button>
           </div>
           {error ? <p role="alert">{error}</p> : null}
+          {notice ? <p className="is-success" aria-live="polite">{notice}</p> : null}
         </form>
       </article>
+      </div>
     </section>
   );
 }
