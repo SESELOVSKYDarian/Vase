@@ -102,10 +102,17 @@ function memoryRepository(initialState: MemoryState, options?: { failCatalogEven
     async transaction(operation) {
       let draft = cloneState(state);
       let releaseLock: (() => void) | null = null;
+      let tenantLocked = false;
       const transactionOperations = operationsFor(() => draft);
+      const findAssistantTenant = transactionOperations.findAssistantTenant;
+      transactionOperations.findAssistantTenant = (assistantId) => {
+        if (!tenantLocked) throw new Error("TENANT_LOCK_REQUIRED");
+        return findAssistantTenant(assistantId);
+      };
       transactionOperations.withTenantLock = async (globalTenantId, lockedOperation) => {
         releaseLock = await acquireTenantLock(globalTenantId);
         draft = cloneState(state);
+        tenantLocked = true;
         return lockedOperation();
       };
       try {

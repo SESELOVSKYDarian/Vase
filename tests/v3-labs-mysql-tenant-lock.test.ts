@@ -58,5 +58,7 @@ describe("Labs MySQL tenant lock", () => {
     expect(combinedSource).not.toMatch(/pg_advisory|hashtext/i);
     expect(catalogSource).toContain("withMysqlTenantLock");
     expect(knowledgeSource).toContain("withMysqlTenantLock");
+    expect(catalogSource).toContain('isolationLevel: "ReadCommitted"');
+    expect(knowledgeSource).toContain('isolationLevel: "ReadCommitted"');
   });
 });

@@ -35,7 +35,7 @@ export interface KnowledgeTransactionOperations extends KnowledgeMutationOperati
 
 export interface KnowledgeMutationRepository extends Pick<
   KnowledgeMutationOperations,
-  "findByAssistant" | "updateTitle"
+  "findAssistantTenant" | "findByAssistant" | "updateTitle"
 > {
   transaction<T>(operation: (repository: KnowledgeTransactionOperations) => Promise<T>): Promise<T>;
 }
@@ -69,21 +69,21 @@ export async function createKnowledgeItem(
 }
 
 export async function createLockedKnowledgeItem(
-  repository: Pick<KnowledgeMutationRepository, "transaction">,
+  repository: Pick<KnowledgeMutationRepository, "findAssistantTenant" | "transaction">,
   assistantId: string,
   input: ParsedKnowledgeInput,
 ): Promise<KnowledgeItemRecord> {
-  return repository.transaction(async (transaction) => {
-    const candidate = await transaction.findAssistantTenant(assistantId);
-    if (!candidate) throw knowledgeSourceNotFound();
-    return transaction.withTenantLock(candidate.globalTenantId, async () => {
+  const candidate = await repository.findAssistantTenant(assistantId);
+  if (!candidate) throw knowledgeSourceNotFound();
+  return repository.transaction((transaction) => (
+    transaction.withTenantLock(candidate.globalTenantId, async () => {
       const assistant = await transaction.findAssistantTenant(assistantId);
       if (!assistant || assistant.globalTenantId !== candidate.globalTenantId) {
         throw knowledgeSourceNotFound();
       }
       return createKnowledgeItem(transaction, assistantId, input);
-    });
-  });
+    })
+  ));
 }
 
 function knowledgeSourceNotFound(): Error {
@@ -110,13 +110,13 @@ export async function deleteKnowledgeItem(
   globalTenantId: string,
   knowledgeId: string,
 ): Promise<KnowledgeItemRecord> {
-  return repository.transaction(async (transaction) => {
-    const candidate = await transaction.findAssistantTenant(assistantId);
-    if (!candidate || candidate.globalTenantId !== globalTenantId) {
-      throw knowledgeSourceNotFound();
-    }
+  const candidate = await repository.findAssistantTenant(assistantId);
+  if (!candidate || candidate.globalTenantId !== globalTenantId) {
+    throw knowledgeSourceNotFound();
+  }
 
-    return transaction.withTenantLock(candidate.globalTenantId, async () => {
+  return repository.transaction((transaction) => (
+    transaction.withTenantLock(candidate.globalTenantId, async () => {
       const assistant = await transaction.findAssistantTenant(assistantId);
       if (!assistant || assistant.globalTenantId !== candidate.globalTenantId) {
         throw knowledgeSourceNotFound();
@@ -140,8 +140,8 @@ export async function deleteKnowledgeItem(
       }
 
       return item;
-    });
-  });
+    })
+  ));
 }
 
 type KnowledgeMutationDbClient = Pick<
@@ -201,9 +201,14 @@ export const prismaKnowledgeRepository: KnowledgeRepository = {
 
 const prismaKnowledgeMutationOperations = createPrismaKnowledgeMutationOperations(labsPrisma);
 
-export const knowledgeTransactionOptions = { maxWait: 10_000, timeout: 60_000 } as const;
+export const knowledgeTransactionOptions = {
+  maxWait: 10_000,
+  timeout: 60_000,
+  isolationLevel: "ReadCommitted",
+} as const;
 
 export const prismaKnowledgeMutationRepository: KnowledgeMutationRepository = {
+  findAssistantTenant: prismaKnowledgeMutationOperations.findAssistantTenant,
   findByAssistant: prismaKnowledgeMutationOperations.findByAssistant,
   updateTitle: prismaKnowledgeMutationOperations.updateTitle,
   transaction(operation) {
