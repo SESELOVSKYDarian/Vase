@@ -9,6 +9,7 @@ import { externalCredentialsErrorMessage, KnowledgeAddModal } from "../apps/vase
 
 describe("external credentials diagnostics", () => {
   it.each([
+    ["EXTERNAL_MANAGEMENT_NOT_CONNECTED", "No hay un sistema externo conectado en Vase Business."],
     ["CONFIGURATION_MISSING", "Falta configurar"],
     ["UPSTREAM_FORBIDDEN", "token interno"],
     ["UPSTREAM_UNAVAILABLE", "no está disponible"],

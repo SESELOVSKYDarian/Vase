@@ -216,7 +216,7 @@ describe("GET /api/labs/external-management-credentials", () => {
       GET: createExternalManagementCredentialsGetHandler({
         resolveContext: async () => ({ context: { globalTenantId: contextTenant } }),
         fetchUpstream,
-        teflonApiUrl: "https://teflon.internal///",
+        appInternalUrl: "https://app.internal///",
         serviceToken: "service-token",
       }),
     };
@@ -230,10 +230,18 @@ describe("GET /api/labs/external-management-credentials", () => {
     const { GET, fetchUpstream } = handler(upstream);
     const response = await GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials?globalTenantId=tenant_attacker"));
     expect(fetchUpstream).toHaveBeenCalledWith(
-      "https://teflon.internal/api/v1/integrations/internal/tenant/tenant%2Fresolved/product-sync-credentials",
+      "https://app.internal/api/internal/business/external-management-credentials?globalTenantId=tenant%2Fresolved",
       { headers: { authorization: "Bearer service-token" }, signal: expect.any(AbortSignal) },
     );
     expect(await response.json()).toEqual({ domain: "business.vase.ar", tenantUuid: "tenant/resolved", consumerKey: "consumer-key" });
+  });
+
+  it("preserves the normal not-connected state from the tenant broker", async () => {
+    const response = await handler(
+      Response.json({ error: "EXTERNAL_MANAGEMENT_NOT_CONNECTED" }, { status: 404 }),
+    ).GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "EXTERNAL_MANAGEMENT_NOT_CONNECTED" });
   });
 
   it.each([
@@ -254,7 +262,7 @@ describe("GET /api/labs/external-management-credentials", () => {
     const GET = createExternalManagementCredentialsGetHandler({
       resolveContext: async () => ({ context: { globalTenantId: "tenant_123" } }),
       fetchUpstream,
-      teflonApiUrl: undefined,
+      appInternalUrl: undefined,
       serviceToken: undefined,
     });
     const response = await GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
@@ -276,7 +284,7 @@ describe("GET /api/labs/external-management-credentials", () => {
     const GET = createExternalManagementCredentialsGetHandler({
       resolveContext: async () => { throw new Error(error); },
       fetchUpstream,
-      teflonApiUrl: "https://teflon.internal",
+      appInternalUrl: "https://app.internal",
       serviceToken: "service-token",
     });
     const response = await GET(new Request("https://labs.vase.ar/api/labs/external-management-credentials"));
@@ -294,7 +302,7 @@ describe("GET /api/labs/external-management-credentials", () => {
       const GET = createExternalManagementCredentialsGetHandler({
         resolveContext: async () => ({ context: { globalTenantId: "tenant_123" } }),
         fetchUpstream: fetchUpstream as typeof fetch,
-        teflonApiUrl: "https://teflon.internal",
+        appInternalUrl: "https://app.internal",
         serviceToken: "service-token",
         upstreamTimeoutMs: 25,
       });
