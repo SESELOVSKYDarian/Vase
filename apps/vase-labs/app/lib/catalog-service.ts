@@ -22,7 +22,7 @@ export type CatalogEditorialInput = Pick<LabsCatalogRecord,
   "offeredByChatbot" | "aiAlias" | "aiDescription" | "aiInstructions"
 >;
 
-export interface LabsCatalogRepository {
+export interface LabsCatalogOperations {
   hasEvent(eventId: string): Promise<boolean>;
   latestEventOccurredAt(globalTenantId: string): Promise<string | null>;
   recordEvent(eventId: string, metadata: { globalTenantId: string; productCount: number; occurredAt: string }): Promise<void>;
@@ -32,34 +32,48 @@ export interface LabsCatalogRepository {
   list(globalTenantId: string): Promise<LabsCatalogRecord[]>;
 }
 
+export interface LabsCatalogRepository extends LabsCatalogOperations {
+  withTenantLock<TResult>(
+    globalTenantId: string,
+    operation: (repository: LabsCatalogOperations) => Promise<TResult>,
+  ): Promise<TResult>;
+}
+
+async function syncCatalogBatch(repository: LabsCatalogOperations, batch: LabsCatalogSync) {
+  if (await repository.hasEvent(batch.eventId)) return { processed: false, count: 0 };
+  const latestOccurredAt = await repository.latestEventOccurredAt(batch.globalTenantId);
+  if (latestOccurredAt && latestOccurredAt >= batch.occurredAt) {
+    await repository.recordEvent(batch.eventId, {
+      globalTenantId: batch.globalTenantId,
+      productCount: batch.products.length,
+      occurredAt: batch.occurredAt,
+    });
+    return { processed: false, count: 0 };
+  }
+
+  for (const product of batch.products) {
+    await repository.upsertSource({ ...product, globalTenantId: batch.globalTenantId });
+  }
+  await repository.deactivateMissing(
+    batch.globalTenantId,
+    batch.products.map((product) => product.externalProductId),
+  );
+  await repository.recordEvent(batch.eventId, {
+    globalTenantId: batch.globalTenantId,
+    productCount: batch.products.length,
+    occurredAt: batch.occurredAt,
+  });
+  return { processed: true, count: batch.products.length };
+}
+
 export function createLabsCatalogService(repository: LabsCatalogRepository) {
   return {
     async sync(raw: LabsCatalogSync) {
       const batch = labsCatalogSyncSchema.parse(raw);
-      if (await repository.hasEvent(batch.eventId)) return { processed: false, count: 0 };
-      const latestOccurredAt = await repository.latestEventOccurredAt(batch.globalTenantId);
-      if (latestOccurredAt && latestOccurredAt >= batch.occurredAt) {
-        await repository.recordEvent(batch.eventId, {
-          globalTenantId: batch.globalTenantId,
-          productCount: batch.products.length,
-          occurredAt: batch.occurredAt,
-        });
-        return { processed: false, count: 0 };
-      }
-
-      for (const product of batch.products) {
-        await repository.upsertSource({ ...product, globalTenantId: batch.globalTenantId });
-      }
-      await repository.deactivateMissing(
+      return repository.withTenantLock(
         batch.globalTenantId,
-        batch.products.map((product) => product.externalProductId),
+        (lockedRepository) => syncCatalogBatch(lockedRepository, batch),
       );
-      await repository.recordEvent(batch.eventId, {
-        globalTenantId: batch.globalTenantId,
-        productCount: batch.products.length,
-        occurredAt: batch.occurredAt,
-      });
-      return { processed: true, count: batch.products.length };
     },
     list(globalTenantId: string) {
       return repository.list(globalTenantId);

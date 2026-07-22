@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createLabsCatalogService,
+  type LabsCatalogOperations,
   type LabsCatalogRecord,
   type LabsCatalogRepository,
 } from "../apps/vase-labs/app/lib/catalog-service";
@@ -9,7 +10,7 @@ function memoryRepository(): LabsCatalogRepository {
   const records = new Map<string, LabsCatalogRecord>();
   const events = new Set<string>();
   const latestEvents = new Map<string, string>();
-  return {
+  const operations: LabsCatalogOperations = {
     async hasEvent(eventId) { return events.has(eventId); },
     async latestEventOccurredAt(globalTenantId) { return latestEvents.get(globalTenantId) ?? null; },
     async recordEvent(eventId, metadata) {
@@ -50,6 +51,24 @@ function memoryRepository(): LabsCatalogRepository {
     },
     async list(globalTenantId) {
       return [...records.values()].filter((item) => item.globalTenantId === globalTenantId);
+    },
+  };
+  const lockTails = new Map<string, Promise<void>>();
+  return {
+    ...operations,
+    async withTenantLock(globalTenantId, operation) {
+      const previous = lockTails.get(globalTenantId) ?? Promise.resolve();
+      let release = () => {};
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      const tail = previous.then(() => gate);
+      lockTails.set(globalTenantId, tail);
+      await previous;
+      try {
+        return await operation(operations);
+      } finally {
+        release();
+        if (lockTails.get(globalTenantId) === tail) lockTails.delete(globalTenantId);
+      }
     },
   };
 }
@@ -132,6 +151,24 @@ describe("Labs catalog service", () => {
       occurredAt: "2026-07-22T14:00:00.000Z",
       products: [batch.products[0]],
     })).resolves.toEqual({ processed: false, count: 0 });
+
+    expect(await service.list("tenant_1")).toEqual([
+      expect.objectContaining({ externalProductId: "p1", active: true }),
+      expect.objectContaining({ externalProductId: "p2", active: true }),
+    ]);
+  });
+
+  it("serializes concurrent snapshots for the same tenant", async () => {
+    const service = createLabsCatalogService(memoryRepository());
+    const newer = { ...batch, eventId: "concurrent-newer", occurredAt: "2026-07-22T15:00:00.000Z" };
+    const older = {
+      ...batch,
+      eventId: "concurrent-older",
+      occurredAt: "2026-07-22T14:00:00.000Z",
+      products: [batch.products[0]],
+    };
+
+    await Promise.all([service.sync(newer), service.sync(older)]);
 
     expect(await service.list("tenant_1")).toEqual([
       expect.objectContaining({ externalProductId: "p1", active: true }),
