@@ -18,6 +18,19 @@ export interface KnowledgeRepository {
   create(data: KnowledgeItemCreateData): Promise<KnowledgeItemRecord>;
 }
 
+export interface KnowledgeMutationOperations {
+  findByAssistant(assistantId: string, knowledgeId: string): Promise<KnowledgeItemRecord | null>;
+  updateTitle(assistantId: string, knowledgeId: string, title: string): Promise<number>;
+  deleteByAssistant(assistantId: string, knowledgeId: string): Promise<number>;
+  countByAssistantAndSourceType(assistantId: string, sourceType: string): Promise<number>;
+  deleteCatalogProducts(globalTenantId: string): Promise<void>;
+  deleteCatalogSyncEvents(globalTenantId: string): Promise<void>;
+}
+
+export interface KnowledgeMutationRepository extends KnowledgeMutationOperations {
+  transaction<T>(operation: (repository: KnowledgeMutationOperations) => Promise<T>): Promise<T>;
+}
+
 export function mapKnowledgeInputToCreateData(
   assistantId: string,
   input: ParsedKnowledgeInput,
@@ -46,14 +59,117 @@ export async function createKnowledgeItem(
   return repository.create(mapKnowledgeInputToCreateData(assistantId, input));
 }
 
+function knowledgeSourceNotFound(): Error {
+  return new Error("KNOWLEDGE_SOURCE_NOT_FOUND");
+}
+
+export async function renameKnowledgeItem(
+  repository: KnowledgeMutationOperations,
+  assistantId: string,
+  knowledgeId: string,
+  title: string,
+): Promise<KnowledgeItemRecord> {
+  const item = await repository.findByAssistant(assistantId, knowledgeId);
+  if (!item) throw knowledgeSourceNotFound();
+
+  const updatedCount = await repository.updateTitle(assistantId, knowledgeId, title);
+  if (updatedCount === 0) throw knowledgeSourceNotFound();
+  return { ...item, title };
+}
+
+export async function deleteKnowledgeItem(
+  repository: KnowledgeMutationRepository,
+  assistantId: string,
+  globalTenantId: string,
+  knowledgeId: string,
+): Promise<KnowledgeItemRecord> {
+  return repository.transaction(async (transaction) => {
+    const item = await transaction.findByAssistant(assistantId, knowledgeId);
+    if (!item) throw knowledgeSourceNotFound();
+
+    const deletedCount = await transaction.deleteByAssistant(assistantId, knowledgeId);
+    if (deletedCount === 0) throw knowledgeSourceNotFound();
+
+    if (item.sourceType === "EXTERNAL_MANAGEMENT") {
+      const remainingExternalSources = await transaction.countByAssistantAndSourceType(
+        assistantId,
+        "EXTERNAL_MANAGEMENT",
+      );
+      if (remainingExternalSources === 0) {
+        await transaction.deleteCatalogProducts(globalTenantId);
+        await transaction.deleteCatalogSyncEvents(globalTenantId);
+      }
+    }
+
+    return item;
+  });
+}
+
+type KnowledgeMutationDbClient = Pick<
+  typeof labsPrisma,
+  "knowledgeItem" | "catalogProduct" | "catalogSyncEvent"
+>;
+
+function createPrismaKnowledgeMutationOperations(
+  db: KnowledgeMutationDbClient,
+): KnowledgeMutationOperations {
+  return {
+    findByAssistant(assistantId, knowledgeId) {
+      return db.knowledgeItem.findFirst({ where: { id: knowledgeId, assistantId } });
+    },
+    async updateTitle(assistantId, knowledgeId, title) {
+      const result = await db.knowledgeItem.updateMany({
+        where: { id: knowledgeId, assistantId },
+        data: { title },
+      });
+      return result.count;
+    },
+    async deleteByAssistant(assistantId, knowledgeId) {
+      const result = await db.knowledgeItem.deleteMany({ where: { id: knowledgeId, assistantId } });
+      return result.count;
+    },
+    countByAssistantAndSourceType(assistantId, sourceType) {
+      return db.knowledgeItem.count({ where: { assistantId, sourceType } });
+    },
+    async deleteCatalogProducts(globalTenantId) {
+      await db.catalogProduct.deleteMany({ where: { globalTenantId } });
+    },
+    async deleteCatalogSyncEvents(globalTenantId) {
+      await db.catalogSyncEvent.deleteMany({ where: { globalTenantId } });
+    },
+  };
+}
+
 export const prismaKnowledgeRepository: KnowledgeRepository = {
   create(data) {
     return labsPrisma.knowledgeItem.create({ data });
   },
 };
 
+const prismaKnowledgeMutationOperations = createPrismaKnowledgeMutationOperations(labsPrisma);
+
+export const prismaKnowledgeMutationRepository: KnowledgeMutationRepository = {
+  ...prismaKnowledgeMutationOperations,
+  transaction(operation) {
+    return labsPrisma.$transaction((transaction) => (
+      operation(createPrismaKnowledgeMutationOperations(transaction))
+    ));
+  },
+};
+
 export const knowledgeRepository = {
   create(assistantId: string, input: ParsedKnowledgeInput) {
     return createKnowledgeItem(prismaKnowledgeRepository, assistantId, input);
+  },
+  rename(assistantId: string, knowledgeId: string, title: string) {
+    return renameKnowledgeItem(prismaKnowledgeMutationRepository, assistantId, knowledgeId, title);
+  },
+  delete(assistantId: string, globalTenantId: string, knowledgeId: string) {
+    return deleteKnowledgeItem(
+      prismaKnowledgeMutationRepository,
+      assistantId,
+      globalTenantId,
+      knowledgeId,
+    );
   },
 };
