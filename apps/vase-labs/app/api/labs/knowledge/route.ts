@@ -12,6 +12,12 @@ type KnowledgePostDependencies = {
   }>;
   syncExternalCatalog(globalTenantId: string): Promise<unknown>;
   create(assistantId: string, input: ParsedKnowledgeInput): Promise<KnowledgeItemRecord>;
+  createExternal(
+    assistantId: string,
+    globalTenantId: string,
+    input: Extract<ParsedKnowledgeInput, { type: "EXTERNAL_MANAGEMENT" }>,
+    importSnapshot: (globalTenantId: string) => Promise<unknown>,
+  ): Promise<KnowledgeItemRecord>;
 };
 
 const validationErrors = new Set([
@@ -28,6 +34,10 @@ const authenticationErrors = new Set([
 const authorizationErrors = new Set(["LABS_TENANT_FORBIDDEN"]);
 const notConnectedErrors = new Set(["EXTERNAL_MANAGEMENT_NOT_CONNECTED"]);
 const upstreamErrors = new Set(["EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE"]);
+const conflictErrors = new Set([
+  "KNOWLEDGE_SOURCE_ALREADY_EXISTS",
+  "KNOWLEDGE_SOURCE_RESERVATION_LOST",
+]);
 
 export function createKnowledgePostHandler(dependencies: KnowledgePostDependencies) {
   return async function POST(request: Request) {
@@ -40,10 +50,14 @@ export function createKnowledgePostHandler(dependencies: KnowledgePostDependenci
         throw new Error("KNOWLEDGE_INPUT_INVALID");
       }
       const input = parseKnowledgeInput(body);
-      if (input.type === "EXTERNAL_MANAGEMENT") {
-        await dependencies.syncExternalCatalog(resolved.context.globalTenantId);
-      }
-      const knowledgeItem = await dependencies.create(resolved.assistant.id, input);
+      const knowledgeItem = input.type === "EXTERNAL_MANAGEMENT"
+        ? await dependencies.createExternal(
+          resolved.assistant.id,
+          resolved.context.globalTenantId,
+          input,
+          dependencies.syncExternalCatalog,
+        )
+        : await dependencies.create(resolved.assistant.id, input);
       return NextResponse.json({ knowledgeItem }, { status: 201 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
@@ -62,6 +76,9 @@ export function createKnowledgePostHandler(dependencies: KnowledgePostDependenci
       if (upstreamErrors.has(message)) {
         return NextResponse.json({ error: message }, { status: 502 });
       }
+      if (conflictErrors.has(message)) {
+        return NextResponse.json({ error: message }, { status: 409 });
+      }
       return NextResponse.json({ error: "KNOWLEDGE_CREATE_FAILED" }, { status: 500 });
     }
   };
@@ -76,4 +93,5 @@ export const POST = createKnowledgePostHandler({
     serviceToken: process.env.SERVICE_TO_SERVICE_TOKEN,
   }),
   create: knowledgeRepository.create,
+  createExternal: knowledgeRepository.createExternal,
 });

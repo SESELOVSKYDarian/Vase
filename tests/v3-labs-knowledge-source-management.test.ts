@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createExternalKnowledgeItem,
   createLockedKnowledgeItem,
   deleteKnowledgeItem,
   renameKnowledgeItem,
@@ -75,6 +76,12 @@ function memoryRepository(initialState: MemoryState, options?: { failCatalogEven
         target().items.set(knowledgeId, updated);
         return 1;
       },
+      async updateStatus(assistantId, knowledgeId, expectedStatus, status) {
+        const item = target().items.get(knowledgeId);
+        if (!item || item.assistantId !== assistantId || item.status !== expectedStatus) return 0;
+        target().items.set(knowledgeId, { ...item, status });
+        return 1;
+      },
       async deleteByAssistant(assistantId, knowledgeId) {
         const item = target().items.get(knowledgeId);
         if (!item || item.assistantId !== assistantId) throw new Error("KNOWLEDGE_SOURCE_NOT_FOUND");
@@ -85,6 +92,11 @@ function memoryRepository(initialState: MemoryState, options?: { failCatalogEven
         return [...target().items.values()].filter(
           (item) => target().assistants.get(item.assistantId) === globalTenantId
             && item.sourceType === sourceType,
+        ).length;
+      },
+      async countByAssistantAndSourceType(assistantId, sourceType) {
+        return [...target().items.values()].filter(
+          (item) => item.assistantId === assistantId && item.sourceType === sourceType,
         ).length;
       },
       async deleteCatalogProducts(globalTenantId) {
@@ -151,6 +163,116 @@ describe("Labs knowledge source repository mutations", () => {
       question: "When?",
       answer: "Tomorrow",
     })).resolves.toMatchObject({ assistantId: "assistant-1", title: "Shipping" });
+  });
+
+  it("reserves an external source as processing before import and finalizes it as ready", async () => {
+    const memory = memoryRepository(initialState([]));
+    const observedStatuses: string[] = [];
+
+    const created = await createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "ERP" },
+      async () => {
+        observedStatuses.push(...[...memory.state().items.values()].map((item) => item.status));
+      },
+    );
+
+    expect(observedStatuses).toEqual(["PROCESSING"]);
+    expect(created.status).toBe("READY");
+    expect(memory.state().items.get(created.id)?.status).toBe("READY");
+  });
+
+  it("rejects a duplicate external source before importing", async () => {
+    const memory = memoryRepository(initialState([
+      knowledgeItem("knowledge-1", "assistant-1", "EXTERNAL_MANAGEMENT"),
+    ]));
+    let imports = 0;
+
+    await expect(createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "Second ERP" },
+      async () => { imports += 1; },
+    )).rejects.toThrow("KNOWLEDGE_SOURCE_ALREADY_EXISTS");
+
+    expect(imports).toBe(0);
+    expect(memory.state().items.size).toBe(1);
+  });
+
+  it("serializes concurrent reservations so only one request imports", async () => {
+    const memory = memoryRepository(initialState([]));
+    let imports = 0;
+
+    const attempts = await Promise.allSettled([
+      createExternalKnowledgeItem(
+        memory.repository,
+        "assistant-1",
+        "tenant-1",
+        { type: "EXTERNAL_MANAGEMENT", title: "ERP A" },
+        async () => { imports += 1; },
+      ),
+      createExternalKnowledgeItem(
+        memory.repository,
+        "assistant-1",
+        "tenant-1",
+        { type: "EXTERNAL_MANAGEMENT", title: "ERP B" },
+        async () => { imports += 1; },
+      ),
+    ]);
+
+    expect(attempts.filter((attempt) => attempt.status === "fulfilled")).toHaveLength(1);
+    expect(attempts.filter((attempt) => attempt.status === "rejected")).toHaveLength(1);
+    expect(imports).toBe(1);
+    expect(memory.state().items.size).toBe(1);
+  });
+
+  it("removes the processing reservation when import fails", async () => {
+    const memory = memoryRepository(initialState([]));
+
+    await expect(createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "ERP" },
+      async () => { throw new Error("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE"); },
+    )).rejects.toThrow("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE");
+
+    expect(memory.state().items.size).toBe(0);
+    expect(memory.state().catalogProducts.has("tenant-1")).toBe(false);
+    expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(false);
+  });
+
+  it("cleans catalog rows and fails if the reservation is deleted during import", async () => {
+    const memory = memoryRepository(initialState([]));
+    let importStarted!: () => void;
+    let finishImport!: () => void;
+    const started = new Promise<void>((resolve) => { importStarted = resolve; });
+    const finish = new Promise<void>((resolve) => { finishImport = resolve; });
+
+    const creating = createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "ERP" },
+      async () => {
+        importStarted();
+        await finish;
+        memory.state().catalogProducts.add("tenant-1");
+        memory.state().catalogSyncEvents.add("tenant-1");
+      },
+    );
+    await started;
+    const reservation = [...memory.state().items.values()][0];
+    await deleteKnowledgeItem(memory.repository, "assistant-1", "tenant-1", reservation.id);
+    finishImport();
+
+    await expect(creating).rejects.toThrow("KNOWLEDGE_SOURCE_RESERVATION_LOST");
+    expect(memory.state().items.size).toBe(0);
+    expect(memory.state().catalogProducts.has("tenant-1")).toBe(false);
+    expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(false);
   });
 
   it("renames an item selected under the trusted assistant", async () => {

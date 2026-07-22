@@ -7,6 +7,7 @@ import {
   type KnowledgeRepository,
 } from "../apps/vase-labs/app/lib/knowledge-repository";
 import { createKnowledgePostHandler } from "../apps/vase-labs/app/api/labs/knowledge/route";
+import { createKnowledgeItemHandlers } from "../apps/vase-labs/app/api/labs/knowledge/[knowledgeId]/route";
 import { createExternalManagementCredentialsGetHandler } from "../apps/vase-labs/app/api/labs/external-management-credentials/route";
 import { createProductSyncCredentialsHandler } from "../apps/vase-editor/server/src/services/productSyncCredentials.js";
 
@@ -54,7 +55,12 @@ describe("Labs knowledge repository", () => {
 });
 
 describe("POST /api/labs/knowledge", () => {
-  function handler(options?: { resolveError?: Error; createError?: Error; syncError?: Error }) {
+  function handler(options?: {
+    resolveError?: Error;
+    createError?: Error;
+    syncError?: Error;
+    duplicateExternal?: boolean;
+  }) {
     const create = vi.fn(async (assistantId: string, input: Parameters<typeof mapKnowledgeInputToCreateData>[1]) => {
       if (options?.createError) throw options.createError;
       return record(mapKnowledgeInputToCreateData(assistantId, input));
@@ -67,7 +73,24 @@ describe("POST /api/labs/knowledge", () => {
       if (options?.syncError) throw options.syncError;
       return { processed: true, count: 0 };
     });
-    return { create, resolveContext, syncExternalCatalog, POST: createKnowledgePostHandler({ resolveContext, create, syncExternalCatalog }) };
+    const createExternal = vi.fn(async (
+      assistantId: string,
+      globalTenantId: string,
+      input: Parameters<typeof mapKnowledgeInputToCreateData>[1],
+      importSnapshot: (tenantId: string) => Promise<unknown>,
+    ) => {
+      if (options?.duplicateExternal) throw new Error("KNOWLEDGE_SOURCE_ALREADY_EXISTS");
+      await importSnapshot(globalTenantId);
+      if (options?.createError) throw options.createError;
+      return record(mapKnowledgeInputToCreateData(assistantId, input));
+    });
+    return {
+      create,
+      createExternal,
+      resolveContext,
+      syncExternalCatalog,
+      POST: createKnowledgePostHandler({ resolveContext, create, createExternal, syncExternalCatalog }),
+    };
   }
 
   it("creates under the resolved assistant and ignores caller tenant identifiers", async () => {
@@ -92,14 +115,22 @@ describe("POST /api/labs/knowledge", () => {
   it("imports the resolved tenant catalog before creating an external source", async () => {
     const order: string[] = [];
     const syncExternalCatalog = vi.fn(async (tenantId: string) => { order.push(`sync:${tenantId}`); });
-    const create = vi.fn(async (assistantId: string, input: Parameters<typeof mapKnowledgeInputToCreateData>[1]) => {
-      order.push("create");
+    const createExternal = vi.fn(async (
+      assistantId: string,
+      globalTenantId: string,
+      input: Parameters<typeof mapKnowledgeInputToCreateData>[1],
+      importSnapshot: (tenantId: string) => Promise<unknown>,
+    ) => {
+      order.push("reserve");
+      await importSnapshot(globalTenantId);
+      order.push("finalize");
       return record(mapKnowledgeInputToCreateData(assistantId, input));
     });
     const POST = createKnowledgePostHandler({
       resolveContext: async () => ({ context: { globalTenantId: "tenant_resolved" }, assistant: { id: "assistant_resolved" } }),
       syncExternalCatalog,
-      create,
+      create: vi.fn(),
+      createExternal,
     });
     const response = await POST(new Request("https://labs.vase.ar/api/labs/knowledge", {
       method: "POST",
@@ -108,11 +139,11 @@ describe("POST /api/labs/knowledge", () => {
     }));
 
     expect(response.status).toBe(201);
-    expect(order).toEqual(["sync:tenant_resolved", "create"]);
+    expect(order).toEqual(["reserve", "sync:tenant_resolved", "finalize"]);
   });
 
   it("does not create the source when its initial catalog import fails", async () => {
-    const { POST, create } = handler({ syncError: new Error("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE") });
+    const { POST, create, createExternal } = handler({ syncError: new Error("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE") });
     const response = await POST(new Request("https://labs.vase.ar/api/labs/knowledge", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -122,6 +153,20 @@ describe("POST /api/labs/knowledge", () => {
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: "EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE" });
     expect(create).not.toHaveBeenCalled();
+    expect(createExternal).toHaveBeenCalledOnce();
+  });
+
+  it("returns 409 for a duplicate external source without importing", async () => {
+    const { POST, syncExternalCatalog } = handler({ duplicateExternal: true });
+    const response = await POST(new Request("https://labs.vase.ar/api/labs/knowledge", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "EXTERNAL_MANAGEMENT", title: "ERP" }),
+    }));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "KNOWLEDGE_SOURCE_ALREADY_EXISTS" });
+    expect(syncExternalCatalog).not.toHaveBeenCalled();
   });
 
   it("does not fetch Business for other knowledge source types", async () => {
@@ -189,6 +234,149 @@ describe("POST /api/labs/knowledge", () => {
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "KNOWLEDGE_CREATE_FAILED" });
+  });
+});
+
+describe("PATCH and DELETE /api/labs/knowledge/:knowledgeId", () => {
+  function handler(options?: {
+    resolveError?: Error;
+    renameError?: Error;
+    deleteError?: Error;
+  }) {
+    const resolveContext = vi.fn(async () => {
+      if (options?.resolveError) throw options.resolveError;
+      return {
+        context: { globalTenantId: "tenant_resolved" },
+        assistant: { id: "assistant_resolved" },
+      };
+    });
+    const rename = vi.fn(async (assistantId: string, knowledgeId: string, title: string) => {
+      if (options?.renameError) throw options.renameError;
+      return knowledgeItemRecord(assistantId, knowledgeId, title);
+    });
+    const remove = vi.fn(async (assistantId: string, globalTenantId: string, knowledgeId: string) => {
+      if (options?.deleteError) throw options.deleteError;
+      return knowledgeItemRecord(assistantId, knowledgeId, "Deleted");
+    });
+    const handlers = createKnowledgeItemHandlers({ resolveContext, rename, delete: remove });
+    return { ...handlers, resolveContext, rename, remove };
+  }
+
+  function knowledgeItemRecord(assistantId: string, id: string, title: string): KnowledgeItemRecord {
+    return {
+      id,
+      assistantId,
+      title,
+      sourceType: "FAQ",
+      content: "content",
+      status: "READY",
+    };
+  }
+
+  const context = (knowledgeId = "knowledge-1") => ({
+    params: Promise.resolve({ knowledgeId }),
+  });
+
+  it("trims and renames under the resolved assistant", async () => {
+    const { PATCH, rename, resolveContext } = handler();
+    const response = await PATCH(new Request("https://labs.vase.ar/api/labs/knowledge/knowledge-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json", cookie: "vase_session=signed" },
+      body: JSON.stringify({ title: "  New title  ", assistantId: "assistant_attacker" }),
+    }), context());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ knowledgeItem: { id: "knowledge-1", title: "New title" } });
+    expect(resolveContext).toHaveBeenCalledWith("vase_session=signed");
+    expect(rename).toHaveBeenCalledWith("assistant_resolved", "knowledge-1", "New title");
+  });
+
+  it.each([
+    ["malformed JSON", "{", "knowledge-1"],
+    ["empty title", JSON.stringify({ title: "   " }), "knowledge-1"],
+    ["long title", JSON.stringify({ title: "x".repeat(161) }), "knowledge-1"],
+    ["non-string title", JSON.stringify({ title: 42 }), "knowledge-1"],
+    ["empty knowledge id", JSON.stringify({ title: "Valid" }), "   "],
+  ])("returns 400 for %s", async (_case, body, knowledgeId) => {
+    const { PATCH, rename } = handler();
+    const response = await PATCH(new Request("https://labs.vase.ar/api/labs/knowledge/item", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body,
+    }), context(knowledgeId));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: knowledgeId.trim() ? "KNOWLEDGE_TITLE_INVALID" : "KNOWLEDGE_ID_INVALID",
+    });
+    expect(rename).not.toHaveBeenCalled();
+  });
+
+  it("deletes under the resolved assistant and tenant", async () => {
+    const { DELETE, remove } = handler();
+    const response = await DELETE(new Request("https://labs.vase.ar/api/labs/knowledge/knowledge-1", {
+      method: "DELETE",
+    }), context());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ deleted: true });
+    expect(remove).toHaveBeenCalledWith("assistant_resolved", "tenant_resolved", "knowledge-1");
+  });
+
+  it.each(["missing source", "cross-tenant source"])("returns an opaque 404 for a %s", async () => {
+    const { PATCH } = handler({ renameError: new Error("KNOWLEDGE_SOURCE_NOT_FOUND") });
+    const response = await PATCH(new Request("https://labs.vase.ar/api/labs/knowledge/knowledge-private", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "New title" }),
+    }), context("knowledge-private"));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "KNOWLEDGE_SOURCE_NOT_FOUND" });
+  });
+
+  it.each([
+    ["LABS_SESSION_REQUIRED", 401],
+    ["LABS_SESSION_INVALID", 401],
+    ["LABS_SESSION_EXPIRED", 401],
+    ["LABS_TENANT_FORBIDDEN", 403],
+  ])("maps context error %s for both mutations", async (error, status) => {
+    const { PATCH, DELETE, rename, remove } = handler({ resolveError: new Error(error) });
+    const patchResponse = await PATCH(new Request("https://labs.vase.ar/api/labs/knowledge/knowledge-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "New title" }),
+    }), context());
+    const deleteResponse = await DELETE(
+      new Request("https://labs.vase.ar/api/labs/knowledge/knowledge-1", { method: "DELETE" }),
+      context(),
+    );
+
+    expect(patchResponse.status).toBe(status);
+    expect(await patchResponse.json()).toEqual({ error });
+    expect(deleteResponse.status).toBe(status);
+    expect(await deleteResponse.json()).toEqual({ error });
+    expect(rename).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("sanitizes unexpected repository failures", async () => {
+    const patchHandler = handler({ renameError: new Error("Prisma password leaked") });
+    const deleteHandler = handler({ deleteError: new Error("Prisma connection leaked") });
+    const patchResponse = await patchHandler.PATCH(new Request("https://labs.vase.ar/api/labs/knowledge/knowledge-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "New title" }),
+    }), context());
+    const deleteResponse = await deleteHandler.DELETE(
+      new Request("https://labs.vase.ar/api/labs/knowledge/knowledge-1", { method: "DELETE" }),
+      context(),
+    );
+
+    expect(patchResponse.status).toBe(500);
+    expect(await patchResponse.json()).toEqual({ error: "KNOWLEDGE_UPDATE_FAILED" });
+    expect(deleteResponse.status).toBe(500);
+    expect(await deleteResponse.json()).toEqual({ error: "KNOWLEDGE_DELETE_FAILED" });
   });
 });
 

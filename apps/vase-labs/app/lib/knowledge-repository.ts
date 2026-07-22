@@ -7,7 +7,7 @@ export type KnowledgeItemCreateData = {
   title: string;
   sourceType: string;
   content: string;
-  status: "QUEUED" | "READY";
+  status: "PROCESSING" | "QUEUED" | "READY";
 };
 
 export type KnowledgeItemRecord = Omit<KnowledgeItemCreateData, "status"> & {
@@ -24,7 +24,14 @@ export interface KnowledgeMutationOperations {
   withTenantLock<TResult>(globalTenantId: string, operation: () => Promise<TResult>): Promise<TResult>;
   findByAssistant(assistantId: string, knowledgeId: string): Promise<KnowledgeItemRecord | null>;
   updateTitle(assistantId: string, knowledgeId: string, title: string): Promise<number>;
+  updateStatus(
+    assistantId: string,
+    knowledgeId: string,
+    expectedStatus: string,
+    status: string,
+  ): Promise<number>;
   deleteByAssistant(assistantId: string, knowledgeId: string): Promise<number>;
+  countByAssistantAndSourceType(assistantId: string, sourceType: string): Promise<number>;
   countByTenantAndSourceType(globalTenantId: string, sourceType: string): Promise<number>;
   deleteCatalogProducts(globalTenantId: string): Promise<void>;
   deleteCatalogSyncEvents(globalTenantId: string): Promise<void>;
@@ -88,6 +95,142 @@ export async function createLockedKnowledgeItem(
 
 function knowledgeSourceNotFound(): Error {
   return new Error("KNOWLEDGE_SOURCE_NOT_FOUND");
+}
+
+function assertAssistantTenant(
+  assistant: { globalTenantId: string } | null,
+  globalTenantId: string,
+): asserts assistant is { globalTenantId: string } {
+  if (!assistant || assistant.globalTenantId !== globalTenantId) {
+    throw knowledgeSourceNotFound();
+  }
+}
+
+async function cleanupCatalogWithoutExternalSource(
+  repository: Pick<KnowledgeMutationOperations,
+    "countByTenantAndSourceType" | "deleteCatalogProducts" | "deleteCatalogSyncEvents"
+  >,
+  globalTenantId: string,
+) {
+  if (await repository.countByTenantAndSourceType(globalTenantId, "EXTERNAL_MANAGEMENT") > 0) {
+    return;
+  }
+  await repository.deleteCatalogProducts(globalTenantId);
+  await repository.deleteCatalogSyncEvents(globalTenantId);
+}
+
+type ExternalKnowledgeInput = Extract<ParsedKnowledgeInput, { type: "EXTERNAL_MANAGEMENT" }>;
+
+async function reserveExternalKnowledgeItem(
+  repository: KnowledgeMutationRepository,
+  assistantId: string,
+  globalTenantId: string,
+  input: ExternalKnowledgeInput,
+): Promise<KnowledgeItemRecord> {
+  const candidate = await repository.findAssistantTenant(assistantId);
+  assertAssistantTenant(candidate, globalTenantId);
+
+  return repository.transaction((transaction) => (
+    transaction.withTenantLock(globalTenantId, async () => {
+      const assistant = await transaction.findAssistantTenant(assistantId);
+      assertAssistantTenant(assistant, globalTenantId);
+      const existing = await transaction.countByAssistantAndSourceType(
+        assistantId,
+        "EXTERNAL_MANAGEMENT",
+      );
+      if (existing > 0) throw new Error("KNOWLEDGE_SOURCE_ALREADY_EXISTS");
+      return transaction.create({
+        ...mapKnowledgeInputToCreateData(assistantId, input),
+        status: "PROCESSING",
+      });
+    })
+  ));
+}
+
+async function discardExternalKnowledgeReservation(
+  repository: KnowledgeMutationRepository,
+  assistantId: string,
+  globalTenantId: string,
+  knowledgeId: string,
+): Promise<void> {
+  const candidate = await repository.findAssistantTenant(assistantId);
+  assertAssistantTenant(candidate, globalTenantId);
+
+  await repository.transaction((transaction) => (
+    transaction.withTenantLock(globalTenantId, async () => {
+      const assistant = await transaction.findAssistantTenant(assistantId);
+      assertAssistantTenant(assistant, globalTenantId);
+      const reservation = await transaction.findByAssistant(assistantId, knowledgeId);
+      if (reservation?.sourceType === "EXTERNAL_MANAGEMENT" && reservation.status === "PROCESSING") {
+        await transaction.deleteByAssistant(assistantId, knowledgeId);
+      }
+      await cleanupCatalogWithoutExternalSource(transaction, globalTenantId);
+    })
+  ));
+}
+
+async function finalizeExternalKnowledgeReservation(
+  repository: KnowledgeMutationRepository,
+  assistantId: string,
+  globalTenantId: string,
+  knowledgeId: string,
+): Promise<KnowledgeItemRecord> {
+  const candidate = await repository.findAssistantTenant(assistantId);
+  assertAssistantTenant(candidate, globalTenantId);
+
+  const finalized = await repository.transaction((transaction) => (
+    transaction.withTenantLock(globalTenantId, async () => {
+      const assistant = await transaction.findAssistantTenant(assistantId);
+      assertAssistantTenant(assistant, globalTenantId);
+      const reservation = await transaction.findByAssistant(assistantId, knowledgeId);
+      if (reservation?.sourceType === "EXTERNAL_MANAGEMENT" && reservation.status === "PROCESSING") {
+        const updated = await transaction.updateStatus(
+          assistantId,
+          knowledgeId,
+          "PROCESSING",
+          "READY",
+        );
+        if (updated === 1) return { ...reservation, status: "READY" };
+      }
+
+      await cleanupCatalogWithoutExternalSource(transaction, globalTenantId);
+      return null;
+    })
+  ));
+  if (!finalized) throw new Error("KNOWLEDGE_SOURCE_RESERVATION_LOST");
+  return finalized;
+}
+
+export async function createExternalKnowledgeItem(
+  repository: KnowledgeMutationRepository,
+  assistantId: string,
+  globalTenantId: string,
+  input: ExternalKnowledgeInput,
+  importSnapshot: (globalTenantId: string) => Promise<unknown>,
+): Promise<KnowledgeItemRecord> {
+  const reservation = await reserveExternalKnowledgeItem(
+    repository,
+    assistantId,
+    globalTenantId,
+    input,
+  );
+  try {
+    await importSnapshot(globalTenantId);
+  } catch (error) {
+    await discardExternalKnowledgeReservation(
+      repository,
+      assistantId,
+      globalTenantId,
+      reservation.id,
+    );
+    throw error;
+  }
+  return finalizeExternalKnowledgeReservation(
+    repository,
+    assistantId,
+    globalTenantId,
+    reservation.id,
+  );
 }
 
 export async function renameKnowledgeItem(
@@ -175,6 +318,13 @@ function createPrismaKnowledgeMutationOperations(
       });
       return result.count;
     },
+    async updateStatus(assistantId, knowledgeId, expectedStatus, status) {
+      const result = await db.knowledgeItem.updateMany({
+        where: { id: knowledgeId, assistantId, status: expectedStatus },
+        data: { status },
+      });
+      return result.count;
+    },
     async deleteByAssistant(assistantId, knowledgeId) {
       const result = await db.knowledgeItem.deleteMany({ where: { id: knowledgeId, assistantId } });
       return result.count;
@@ -183,6 +333,9 @@ function createPrismaKnowledgeMutationOperations(
       return db.knowledgeItem.count({
         where: { sourceType, assistant: { globalTenantId } },
       });
+    },
+    countByAssistantAndSourceType(assistantId, sourceType) {
+      return db.knowledgeItem.count({ where: { assistantId, sourceType } });
     },
     async deleteCatalogProducts(globalTenantId) {
       await db.catalogProduct.deleteMany({ where: { globalTenantId } });
@@ -221,6 +374,20 @@ export const prismaKnowledgeMutationRepository: KnowledgeMutationRepository = {
 export const knowledgeRepository = {
   create(assistantId: string, input: ParsedKnowledgeInput) {
     return createLockedKnowledgeItem(prismaKnowledgeMutationRepository, assistantId, input);
+  },
+  createExternal(
+    assistantId: string,
+    globalTenantId: string,
+    input: ExternalKnowledgeInput,
+    importSnapshot: (globalTenantId: string) => Promise<unknown>,
+  ) {
+    return createExternalKnowledgeItem(
+      prismaKnowledgeMutationRepository,
+      assistantId,
+      globalTenantId,
+      input,
+      importSnapshot,
+    );
   },
   rename(assistantId: string, knowledgeId: string, title: string) {
     return renameKnowledgeItem(prismaKnowledgeMutationRepository, assistantId, knowledgeId, title);
