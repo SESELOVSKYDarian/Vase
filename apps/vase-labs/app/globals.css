@@ -616,7 +616,7 @@ a:focus-visible {
 
 .labs-knowledge-source-row {
   display: grid;
-  grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 0.8rem;
   min-height: 4.5rem;
@@ -627,6 +627,41 @@ a:focus-visible {
 
 .labs-knowledge-source-row:last-child {
   border-bottom: 0;
+}
+
+.labs-knowledge-source-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.labs-knowledge-source-actions button {
+  display: inline-flex;
+  min-height: 2.25rem;
+  cursor: pointer;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  padding: 0.45rem 0.65rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.labs-knowledge-source-actions button:hover,
+.labs-knowledge-source-actions button:focus-visible {
+  border-color: var(--border-subtle);
+  background: var(--background-elevated);
+  color: var(--foreground);
+}
+
+.labs-knowledge-source-actions button.is-danger:hover,
+.labs-knowledge-source-actions button.is-danger:focus-visible {
+  border-color: color-mix(in srgb, var(--danger) 22%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .labs-inbox-shell {
@@ -1052,9 +1087,14 @@ a:focus-visible {
     grid-template-columns: 2.25rem minmax(0, 1fr);
   }
 
-  .labs-knowledge-source-row > :last-child {
+  .labs-knowledge-source-status,
+  .labs-knowledge-source-actions {
     grid-column: 2;
     justify-self: start;
+  }
+
+  .labs-knowledge-source-actions {
+    flex-wrap: wrap;
   }
 
   .labs-inbox-thread > header {
@@ -1085,6 +1125,22 @@ a:focus-visible {
 .labs-modal-actions { display: flex; justify-content: space-between; gap: .75rem; padding-top: .35rem; }
 .labs-modal-actions button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.6rem; padding: .65rem 1rem; border-radius: .65rem; font-size: .84rem; font-weight: 750; }
 .labs-button-secondary { border: 1px solid var(--border-subtle); background: var(--surface); }
+.labs-button-danger { border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); background: var(--danger); color: #fff; box-shadow: 0 12px 24px color-mix(in srgb, var(--danger) 20%, transparent); }
+.labs-button-danger:hover:not(:disabled), .labs-button-danger:focus-visible:not(:disabled) { background: color-mix(in srgb, var(--danger) 88%, #000); }
+.labs-modal-actions button:disabled { cursor: not-allowed; opacity: .55; }
+.labs-source-management-modal { width: min(32rem, 100%); }
+.labs-source-management-modal.is-destructive { border-color: color-mix(in srgb, var(--danger) 24%, var(--border-subtle)); }
+.labs-source-management-modal.is-destructive .labs-modal-kicker { color: var(--danger); }
+.labs-source-management-body { display: grid; gap: 1rem; padding: 1.35rem; }
+.labs-source-management-body > p { color: var(--muted); font-size: .84rem; line-height: 1.55; }
+.labs-source-management-body > label { color: var(--foreground); font-size: .78rem; font-weight: 750; }
+.labs-source-management-body > input { width: 100%; border: 1px solid var(--border-subtle); border-radius: .65rem; padding: .75rem .85rem; background: var(--surface); color: var(--foreground); font: inherit; }
+.labs-source-management-body > input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.labs-source-delete-summary { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); gap: .8rem; align-items: center; }
+.labs-source-delete-summary > svg { width: 2.5rem; height: 2.5rem; padding: .65rem; border-radius: .7rem; background: var(--danger-soft); color: var(--danger); }
+.labs-source-delete-summary strong { display: block; overflow-wrap: anywhere; color: var(--foreground); font-size: .92rem; }
+.labs-source-delete-summary p { margin-top: .2rem; color: var(--danger); font-size: .78rem; font-weight: 700; }
+.labs-source-delete-warning { border: 1px solid color-mix(in srgb, var(--danger) 18%, transparent); border-radius: .7rem; padding: .85rem; background: color-mix(in srgb, var(--danger-soft) 62%, transparent); color: var(--foreground) !important; }
 .labs-credentials { display: grid; gap: .6rem; }
 .labs-credentials > div { display: grid; grid-template-columns: 1fr auto; gap: .25rem .75rem; padding: .8rem; border: 1px solid var(--border-subtle); border-radius: .65rem; background: var(--surface); }
 .labs-credentials span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; font-weight: 700; }
