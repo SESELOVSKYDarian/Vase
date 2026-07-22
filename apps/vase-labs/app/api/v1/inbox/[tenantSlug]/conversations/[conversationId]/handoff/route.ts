@@ -9,30 +9,30 @@ export async function POST(
   const { tenantSlug, conversationId } = await params;
   const body = await request.json().catch(() => ({}));
   const reason = typeof body.reason === "string" ? body.reason : "human requested";
-  const handoffId = randomUUID();
   const conversation = await (labsPrisma as any).conversation.findFirst({
     where: { id: conversationId, assistant: { tenantSlug } },
-    select: { id: true },
+    select: { id: true, handoffs: { where: { status: { in: ["PENDING", "ASSIGNED"] } }, take: 1 } },
   });
   if (!conversation) {
     return NextResponse.json({ handoff: null }, { status: 404 });
   }
 
-  const handoff = await (labsPrisma as any).handoff.create({
+  const handoff = conversation.handoffs[0] ?? await (labsPrisma as any).handoff.create({
     data: {
-      id: handoffId,
+      id: randomUUID(),
       conversationId,
       reason,
-      target: "workplace",
+      target: "labs",
       status: "PENDING",
-      priority: "normal",
+      priority: "high",
+      notes: JSON.stringify({ source: "manual_inbox" }),
     },
   });
 
-  await (labsPrisma as any).conversation.update({
+  const updatedConversation = await (labsPrisma as any).conversation.update({
     where: { id: conversationId },
     data: { status: "ESCALATED", escalatedToHuman: true },
   });
 
-  return NextResponse.json({ handoff });
+  return NextResponse.json({ handoff, conversation: updatedConversation });
 }

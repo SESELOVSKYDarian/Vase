@@ -234,9 +234,14 @@ describe("Vase Labs standalone owner experience", () => {
     expect(inbox).toContain("<InboxWorkstation");
     expect(workstation).toContain('"use client"');
     expect(workstation).toContain("setInterval");
+    expect(workstation).toContain("refreshConversationList");
     expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}`");
     expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}/reply`");
-    expect(workstation).toContain("Intervenir como humano");
+    expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}/handoff`");
+    expect(workstation).toContain("Intervenir humano");
+    expect(workstation).toContain("Pausar IA");
+    expect(workstation).toContain("labs-inbox-alert");
+    expect(workstation).toContain("labs-inbox-shell");
     expect(workstation).toContain("labs-inbox-workstation");
     expect(activity).toContain('title="Analisis"');
     expect(activity).toContain("aiReplyError");

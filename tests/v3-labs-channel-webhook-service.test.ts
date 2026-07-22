@@ -6,6 +6,7 @@ import type {
   PersistChannelInboundMessageResult,
 } from "../apps/vase-labs/app/lib/channel-webhook-service";
 import {
+  detectHumanHandoffIntent,
   getChannelWebhookVerifyResult,
   handleMetaChannelWebhook,
 } from "../apps/vase-labs/app/lib/channel-webhook-service";
@@ -65,6 +66,7 @@ function createInstagramPayload() {
 class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
   persisted: PersistChannelInboundMessageInput[] = [];
   aiFailures: Array<{ conversationId: string; messageId: string; reason: string }> = [];
+  handoffs: Array<{ conversationId: string; messageId: string; reason: string; source: string }> = [];
 
   constructor(private readonly context: ChannelWebhookContext | null) {}
 
@@ -84,9 +86,20 @@ class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
   async markAiReplyFailed(input: { conversationId: string; messageId: string; reason: string }) {
     this.aiFailures.push(input);
   }
+
+  async requestHumanHandoff(input: { conversationId: string; messageId: string; reason: string; source: string }) {
+    this.handoffs.push(input);
+  }
 }
 
 describe("Vase Labs generic Meta channel webhook service", () => {
+  it("detects explicit human handoff requests in inbound text", () => {
+    expect(detectHumanHandoffIntent("quiero hablar con un humano")).toBe(true);
+    expect(detectHumanHandoffIntent("me atiende un asesor?")).toBe(true);
+    expect(detectHumanHandoffIntent("can I talk to a human agent")).toBe(true);
+    expect(detectHumanHandoffIntent("hola, tienen stock?")).toBe(false);
+  });
+
   it("verifies Meta hub.challenge with channel config", () => {
     const result = getChannelWebhookVerifyResult({
       context: createContext(),
@@ -199,6 +212,51 @@ describe("Vase Labs generic Meta channel webhook service", () => {
 
     expect(ranAi).toBe(false);
   });
+
+  it("pauses AI and creates a handoff when the customer asks for a human", async () => {
+    const repository = new MemoryChannelWebhookRepository(createContext());
+    let ranAi = false;
+    const body = JSON.stringify({
+      object: "instagram",
+      entry: [{
+        id: "ig_business_123",
+        messaging: [{
+          sender: { id: "ig_user_456" },
+          recipient: { id: "ig_business_123" },
+          message: {
+            mid: "ig_mid_handoff",
+            text: "Quiero hablar con un humano",
+          },
+        }],
+      }],
+    });
+
+    const result = await handleMetaChannelWebhook({
+      channelType: "INSTAGRAM",
+      repository,
+      tenantSlug: "tenant-demo",
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
+      parseMessage: parseInstagramWebhookMessage,
+      runAiReply: async () => {
+        ranAi = true;
+        return { ok: true };
+      },
+    });
+
+    expect(result.body).toMatchObject({
+      aiBlockedReason: "HANDOFF_REQUESTED",
+      humanHandoffRequested: true,
+    });
+    expect(repository.persisted[0]?.aiBlockedReason).toBe("HANDOFF_REQUESTED");
+    expect(repository.handoffs).toMatchObject([{
+      conversationId: "conversation_123",
+      messageId: "message_123",
+      source: "customer_intent",
+    }]);
+    expect(ranAi).toBe(false);
+  });
+
 
   it("keeps the webhook acknowledged and records the AI failure when reply generation fails", async () => {
     const repository = new MemoryChannelWebhookRepository(createContext());
