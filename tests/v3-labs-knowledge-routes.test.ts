@@ -54,16 +54,20 @@ describe("Labs knowledge repository", () => {
 });
 
 describe("POST /api/labs/knowledge", () => {
-  function handler(options?: { resolveError?: Error; createError?: Error }) {
+  function handler(options?: { resolveError?: Error; createError?: Error; syncError?: Error }) {
     const create = vi.fn(async (assistantId: string, input: Parameters<typeof mapKnowledgeInputToCreateData>[1]) => {
       if (options?.createError) throw options.createError;
       return record(mapKnowledgeInputToCreateData(assistantId, input));
     });
     const resolveContext = vi.fn(async () => {
       if (options?.resolveError) throw options.resolveError;
-      return { assistant: { id: "assistant_resolved" } };
+      return { context: { globalTenantId: "tenant_resolved" }, assistant: { id: "assistant_resolved" } };
     });
-    return { create, resolveContext, POST: createKnowledgePostHandler({ resolveContext, create }) };
+    const syncExternalCatalog = vi.fn(async () => {
+      if (options?.syncError) throw options.syncError;
+      return { processed: true, count: 0 };
+    });
+    return { create, resolveContext, syncExternalCatalog, POST: createKnowledgePostHandler({ resolveContext, create, syncExternalCatalog }) };
   }
 
   it("creates under the resolved assistant and ignores caller tenant identifiers", async () => {
@@ -83,6 +87,52 @@ describe("POST /api/labs/knowledge", () => {
     expect(create).toHaveBeenCalledWith("assistant_resolved", {
       type: "FAQ", title: "Pagos", question: "Aceptan tarjeta?", answer: "Si",
     });
+  });
+
+  it("imports the resolved tenant catalog before creating an external source", async () => {
+    const order: string[] = [];
+    const syncExternalCatalog = vi.fn(async (tenantId: string) => { order.push(`sync:${tenantId}`); });
+    const create = vi.fn(async (assistantId: string, input: Parameters<typeof mapKnowledgeInputToCreateData>[1]) => {
+      order.push("create");
+      return record(mapKnowledgeInputToCreateData(assistantId, input));
+    });
+    const POST = createKnowledgePostHandler({
+      resolveContext: async () => ({ context: { globalTenantId: "tenant_resolved" }, assistant: { id: "assistant_resolved" } }),
+      syncExternalCatalog,
+      create,
+    });
+    const response = await POST(new Request("https://labs.vase.ar/api/labs/knowledge", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "EXTERNAL_MANAGEMENT", title: "ERP", globalTenantId: "tenant_attacker" }),
+    }));
+
+    expect(response.status).toBe(201);
+    expect(order).toEqual(["sync:tenant_resolved", "create"]);
+  });
+
+  it("does not create the source when its initial catalog import fails", async () => {
+    const { POST, create } = handler({ syncError: new Error("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE") });
+    const response = await POST(new Request("https://labs.vase.ar/api/labs/knowledge", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "EXTERNAL_MANAGEMENT", title: "ERP" }),
+    }));
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE" });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("does not fetch Business for other knowledge source types", async () => {
+    const { POST, syncExternalCatalog } = handler();
+    const response = await POST(new Request("https://labs.vase.ar/api/labs/knowledge", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "URL", title: "Docs", url: "https://vase.ar/docs" }),
+    }));
+    expect(response.status).toBe(201);
+    expect(syncExternalCatalog).not.toHaveBeenCalled();
   });
 
   it.each([

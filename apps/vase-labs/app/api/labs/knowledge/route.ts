@@ -2,9 +2,15 @@ import { NextResponse } from "next/server";
 import { knowledgeRepository, type KnowledgeItemRecord } from "../../../lib/knowledge-repository";
 import { parseKnowledgeInput, type ParsedKnowledgeInput } from "../../../lib/knowledge-source";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
+import { createBusinessCatalogSnapshotImporter } from "../../../lib/business-catalog-snapshot";
+import { labsCatalogService } from "../../../lib/catalog-repository";
 
 type KnowledgePostDependencies = {
-  resolveContext(cookieHeader: string | null): Promise<{ assistant: { id: string } }>;
+  resolveContext(cookieHeader: string | null): Promise<{
+    context: { globalTenantId: string };
+    assistant: { id: string };
+  }>;
+  syncExternalCatalog(globalTenantId: string): Promise<unknown>;
   create(assistantId: string, input: ParsedKnowledgeInput): Promise<KnowledgeItemRecord>;
 };
 
@@ -20,6 +26,8 @@ const authenticationErrors = new Set([
   "LABS_SESSION_EXPIRED",
 ]);
 const authorizationErrors = new Set(["LABS_TENANT_FORBIDDEN"]);
+const notConnectedErrors = new Set(["EXTERNAL_MANAGEMENT_NOT_CONNECTED"]);
+const upstreamErrors = new Set(["EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE"]);
 
 export function createKnowledgePostHandler(dependencies: KnowledgePostDependencies) {
   return async function POST(request: Request) {
@@ -32,6 +40,9 @@ export function createKnowledgePostHandler(dependencies: KnowledgePostDependenci
         throw new Error("KNOWLEDGE_INPUT_INVALID");
       }
       const input = parseKnowledgeInput(body);
+      if (input.type === "EXTERNAL_MANAGEMENT") {
+        await dependencies.syncExternalCatalog(resolved.context.globalTenantId);
+      }
       const knowledgeItem = await dependencies.create(resolved.assistant.id, input);
       return NextResponse.json({ knowledgeItem }, { status: 201 });
     } catch (error) {
@@ -45,6 +56,12 @@ export function createKnowledgePostHandler(dependencies: KnowledgePostDependenci
       if (authorizationErrors.has(message)) {
         return NextResponse.json({ error: message }, { status: 403 });
       }
+      if (notConnectedErrors.has(message)) {
+        return NextResponse.json({ error: message }, { status: 404 });
+      }
+      if (upstreamErrors.has(message)) {
+        return NextResponse.json({ error: message }, { status: 502 });
+      }
       return NextResponse.json({ error: "KNOWLEDGE_CREATE_FAILED" }, { status: 500 });
     }
   };
@@ -52,5 +69,11 @@ export function createKnowledgePostHandler(dependencies: KnowledgePostDependenci
 
 export const POST = createKnowledgePostHandler({
   resolveContext: resolveLabsRequestContext,
+  syncExternalCatalog: createBusinessCatalogSnapshotImporter({
+    fetchUpstream: fetch,
+    sync: (batch) => labsCatalogService.sync(batch),
+    appInternalUrl: process.env.APP_INTERNAL_URL,
+    serviceToken: process.env.SERVICE_TO_SERVICE_TOKEN,
+  }),
   create: knowledgeRepository.create,
 });
