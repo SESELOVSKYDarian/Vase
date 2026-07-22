@@ -94,6 +94,7 @@ describe("KnowledgeGroups source management", () => {
     expect(dialog?.textContent).toContain("¿Eliminar esta fuente?");
     expect(dialog?.textContent).toContain("Sistema de gestión externo");
     expect(dialog?.textContent).toContain("Esta acción no se puede deshacer");
+    expect(dialog?.textContent).toContain("Si es la última fuente externa");
     expect(dialog?.textContent).toContain("productos y el historial de sincronización del catálogo en Labs");
     expect(button("Cancelar").isConnected).toBe(true);
 
@@ -107,6 +108,7 @@ describe("KnowledgeGroups source management", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/labs/knowledge/source%2Fone", { method: "DELETE" });
     expect(router.refresh).toHaveBeenCalledOnce();
     expect(host.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(host.querySelector("#knowledge-EXTERNAL_MANAGEMENT"));
   });
 
   it("keeps the dialog open with sanitized feedback when a mutation fails", async () => {
@@ -128,6 +130,11 @@ describe("KnowledgeGroups source management", () => {
     expect(button("Eliminando…").disabled).toBe(true);
     expect(button("Cancelar").disabled).toBe(true);
     expect(button("Cerrar").disabled).toBe(true);
+    const status = host.querySelector<HTMLElement>('[role="status"]');
+    expect(status?.textContent).toContain("Eliminando");
+    expect(document.activeElement).toBe(status);
+    await act(async () => { status?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })); });
+    expect(document.activeElement).toBe(status);
     await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
     expect(host.querySelector('[role="dialog"]')).not.toBeNull();
   });
