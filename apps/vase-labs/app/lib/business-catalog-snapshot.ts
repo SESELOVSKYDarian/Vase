@@ -31,7 +31,7 @@ export function createBusinessCatalogSnapshotImporter<TResult>(dependencies: Dep
     }
 
     const abortController = new AbortController();
-    const timeout = setTimeout(() => abortController.abort(), dependencies.upstreamTimeoutMs ?? 8_000);
+    const timeout = setTimeout(() => abortController.abort(), dependencies.upstreamTimeoutMs ?? 20_000);
     let upstream: Response;
     try {
       upstream = await dependencies.fetchUpstream(upstreamUrl.toString(), {

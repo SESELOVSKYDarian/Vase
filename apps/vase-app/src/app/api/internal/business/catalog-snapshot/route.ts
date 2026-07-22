@@ -67,7 +67,7 @@ export function createBusinessCatalogSnapshotBrokerHandler(dependencies: Depende
     }
 
     const abortController = new AbortController();
-    const timeout = setTimeout(() => abortController.abort(), dependencies.upstreamTimeoutMs ?? 5_000);
+    const timeout = setTimeout(() => abortController.abort(), dependencies.upstreamTimeoutMs ?? 15_000);
     try {
       const upstream = await dependencies.fetchUpstream(upstreamUrl.toString(), {
         headers: { authorization: `Bearer ${serviceToken}` },

@@ -39,7 +39,7 @@ async function deliver(row) {
     method: 'POST',
     headers: { authorization: `Bearer ${serviceToken}`, 'content-type': 'application/json' },
     body: JSON.stringify(row.payload),
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(75_000),
   });
   if (!response.ok) throw new Error(`LABS_CATALOG_SYNC_${response.status}`);
 }

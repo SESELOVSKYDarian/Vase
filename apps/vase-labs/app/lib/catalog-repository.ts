@@ -94,6 +94,7 @@ function createCatalogOperations(db: CatalogDbClient): LabsCatalogOperations {
 }
 
 const catalogOperations = createCatalogOperations(labsPrisma);
+export const catalogTransactionOptions = { maxWait: 10_000, timeout: 60_000 } as const;
 
 export const prismaLabsCatalogRepository: LabsCatalogRepository = {
   ...catalogOperations,
@@ -104,7 +105,7 @@ export const prismaLabsCatalogRepository: LabsCatalogRepository = {
         globalTenantId,
       );
       return operation(createCatalogOperations(transaction));
-    });
+    }, catalogTransactionOptions);
   },
 };
 
