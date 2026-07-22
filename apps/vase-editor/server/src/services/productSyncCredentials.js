@@ -1,5 +1,19 @@
 import crypto from 'crypto';
 
+export async function findBusinessTenantByExternalId(db, externalTenantId) {
+  const result = await db.query(
+    [
+      'select id',
+      'from tenants',
+      "where external_source = 'vase' and external_tenant_id = $1",
+      'limit 1',
+    ].join(' '),
+    [externalTenantId]
+  );
+
+  return result.rows[0] || null;
+}
+
 export async function findLatestProductSyncToken(db, tenantId) {
   const result = await db.query(
     [
@@ -57,24 +71,34 @@ export async function ensureProductSyncToken(db, tenantId, tokenName = 'ERP Sync
   }
 }
 
-export function createProductSyncCredentialsHandler({ db, expectedServiceToken, findToken = findLatestProductSyncToken }) {
+export function createProductSyncCredentialsHandler({
+  db,
+  expectedServiceToken,
+  findTenant = findBusinessTenantByExternalId,
+  findToken = findLatestProductSyncToken,
+}) {
   return async function productSyncCredentialsHandler(req, res, next) {
     const expected = String(expectedServiceToken || '').trim();
     if (!expected || req.get('authorization') !== `Bearer ${expected}`) {
       return res.status(403).json({ error: 'forbidden' });
     }
 
-    const tenantId = String(req.params?.tenantId || '').trim();
-    if (!tenantId) return res.status(400).json({ error: 'invalid_tenant_id' });
+    const externalTenantId = String(req.params?.tenantId || '').trim();
+    if (!externalTenantId) return res.status(400).json({ error: 'invalid_tenant_id' });
 
     try {
-      const tokenRecord = await findToken(db, tenantId);
+      const businessTenant = await findTenant(db, externalTenantId);
+      if (!businessTenant) {
+        return res.status(404).json({ error: 'EXTERNAL_MANAGEMENT_NOT_CONNECTED' });
+      }
+
+      const tokenRecord = await findToken(db, businessTenant.id);
       if (!tokenRecord) {
         return res.status(404).json({ error: 'EXTERNAL_MANAGEMENT_NOT_CONNECTED' });
       }
       return res.json({
         domain: 'business.vase.ar',
-        tenantUuid: tenantId,
+        tenantUuid: externalTenantId,
         consumerKey: tokenRecord.token_hash,
       });
     } catch (error) {

@@ -1,5 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
-import { ensureProductSyncToken } from "../apps/vase-editor/server/src/services/productSyncCredentials.js";
+import {
+  ensureProductSyncToken,
+  findBusinessTenantByExternalId,
+} from "../apps/vase-editor/server/src/services/productSyncCredentials.js";
+
+describe("findBusinessTenantByExternalId", () => {
+  it("resolves the Business UUID through the Vase bridge identity", async () => {
+    const query = vi.fn(async () => ({ rows: [{ id: "business-tenant-uuid" }] }));
+    await expect(findBusinessTenantByExternalId({ query }, "global-tenant-cuid")).resolves.toEqual({
+      id: "business-tenant-uuid",
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("external_tenant_id = $1"),
+      ["global-tenant-cuid"],
+    );
+    expect(query.mock.calls[0]?.[0]).toContain("external_source = 'vase'");
+  });
+});
 
 function database(existing?: Record<string, unknown>) {
   const query = vi.fn(async (sql: string, values?: unknown[]) => {
