@@ -52,6 +52,7 @@ export interface KnowledgeMutationOperations {
   deleteByAssistant(assistantId: string, knowledgeId: string): Promise<number>;
   countByAssistantAndSourceType(assistantId: string, sourceType: string): Promise<number>;
   countByTenantAndSourceType(globalTenantId: string, sourceType: string): Promise<number>;
+  countReadyByTenantAndSourceType(globalTenantId: string, sourceType: string): Promise<number>;
   deleteCatalogProducts(globalTenantId: string): Promise<void>;
   deleteCatalogSyncEvents(globalTenantId: string): Promise<void>;
   latestCatalogSyncEvent(globalTenantId: string): Promise<{ eventId: string } | null>;
@@ -130,14 +131,14 @@ export type ExternalCatalogImportResult = { eventId: string; processed: boolean 
 
 async function compensateImportedCatalogIfCurrent(
   repository: Pick<KnowledgeMutationOperations,
-    "countByTenantAndSourceType" | "deleteCatalogProducts" | "deleteCatalogSyncEvents"
+    "countReadyByTenantAndSourceType" | "deleteCatalogProducts" | "deleteCatalogSyncEvents"
     | "latestCatalogSyncEvent"
   >,
   globalTenantId: string,
   importResult: ExternalCatalogImportResult,
 ) {
   if (!importResult.processed) return;
-  if (await repository.countByTenantAndSourceType(globalTenantId, "EXTERNAL_MANAGEMENT") > 0) {
+  if (await repository.countReadyByTenantAndSourceType(globalTenantId, "EXTERNAL_MANAGEMENT") > 0) {
     return;
   }
   const latestEvent = await repository.latestCatalogSyncEvent(globalTenantId);
@@ -247,14 +248,23 @@ async function finalizeExternalKnowledgeReservation(
       if (reservation?.sourceType === "EXTERNAL_MANAGEMENT"
         && reservation.status === "PROCESSING"
         && reservation.updatedAt.getTime() === reservationUpdatedAt.getTime()) {
-        const updated = await transaction.updateStatus(
-          assistantId,
-          knowledgeId,
-          "PROCESSING",
-          reservationUpdatedAt,
-          "READY",
-        );
-        if (updated === 1) return { ...reservation, status: "READY" };
+        const latestEvent = await transaction.latestCatalogSyncEvent(globalTenantId);
+        if (latestEvent?.eventId === importResult.eventId) {
+          const updated = await transaction.updateStatus(
+            assistantId,
+            knowledgeId,
+            "PROCESSING",
+            reservationUpdatedAt,
+            "READY",
+          );
+          if (updated === 1) return { ...reservation, status: "READY" };
+        } else {
+          await transaction.deleteProcessingReservation(
+            assistantId,
+            knowledgeId,
+            reservationUpdatedAt,
+          );
+        }
       }
 
       await compensateImportedCatalogIfCurrent(transaction, globalTenantId, importResult);
@@ -448,6 +458,11 @@ function createPrismaKnowledgeMutationOperations(
     countByTenantAndSourceType(globalTenantId, sourceType) {
       return db.knowledgeItem.count({
         where: { sourceType, assistant: { globalTenantId } },
+      });
+    },
+    countReadyByTenantAndSourceType(globalTenantId, sourceType) {
+      return db.knowledgeItem.count({
+        where: { sourceType, status: "READY", assistant: { globalTenantId } },
       });
     },
     countByAssistantAndSourceType(assistantId, sourceType) {

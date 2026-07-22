@@ -126,6 +126,13 @@ function memoryRepository(initialState: MemoryState, options?: {
             && item.sourceType === sourceType,
         ).length;
       },
+      async countReadyByTenantAndSourceType(globalTenantId, sourceType) {
+        return [...target().items.values()].filter(
+          (item) => target().assistants.get(item.assistantId) === globalTenantId
+            && item.sourceType === sourceType
+            && item.status === "READY",
+        ).length;
+      },
       async countByAssistantAndSourceType(assistantId, sourceType) {
         return [...target().items.values()].filter(
           (item) => item.assistantId === assistantId && item.sourceType === sourceType,
@@ -217,6 +224,8 @@ describe("Labs knowledge source repository mutations", () => {
       { type: "EXTERNAL_MANAGEMENT", title: "ERP" },
       async () => {
         observedStatuses.push(...[...memory.state().items.values()].map((item) => item.status));
+        memory.state().catalogSyncEvents.add("tenant-1");
+        memory.state().latestCatalogEventIds.set("tenant-1", "import-event");
         return { eventId: "import-event", processed: true };
       },
     );
@@ -272,7 +281,11 @@ describe("Labs knowledge source repository mutations", () => {
       "assistant-1",
       "tenant-1",
       { type: "EXTERNAL_MANAGEMENT", title: "Recovered ERP" },
-      async () => ({ eventId: "recovery-event", processed: true }),
+      async () => {
+        memory.state().catalogSyncEvents.add("tenant-1");
+        memory.state().latestCatalogEventIds.set("tenant-1", "recovery-event");
+        return { eventId: "recovery-event", processed: true };
+      },
       { now: () => now, leaseMs: 5 * 60_000 },
     );
 
@@ -313,14 +326,24 @@ describe("Labs knowledge source repository mutations", () => {
         "assistant-1",
         "tenant-1",
         { type: "EXTERNAL_MANAGEMENT", title: "ERP A" },
-        async () => { imports += 1; return { eventId: "event-a", processed: true }; },
+        async () => {
+          imports += 1;
+          memory.state().catalogSyncEvents.add("tenant-1");
+          memory.state().latestCatalogEventIds.set("tenant-1", "event-a");
+          return { eventId: "event-a", processed: true };
+        },
       ),
       createExternalKnowledgeItem(
         memory.repository,
         "assistant-1",
         "tenant-1",
         { type: "EXTERNAL_MANAGEMENT", title: "ERP B" },
-        async () => { imports += 1; return { eventId: "event-b", processed: true }; },
+        async () => {
+          imports += 1;
+          memory.state().catalogSyncEvents.add("tenant-1");
+          memory.state().latestCatalogEventIds.set("tenant-1", "event-b");
+          return { eventId: "event-b", processed: true };
+        },
       ),
     ]);
 
@@ -415,6 +438,149 @@ describe("Labs knowledge source repository mutations", () => {
     expect(memory.state().catalogProducts.has("tenant-1")).toBe(true);
     expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(true);
     expect(memory.state().latestCatalogEventIds.get("tenant-1")).toBe("newer-event");
+  });
+
+  it("compensates A when B takes its stale lease and then fails", async () => {
+    const memory = memoryRepository(initialState([]));
+    let signalAStarted!: () => void;
+    let releaseAImport!: () => void;
+    let signalBStarted!: () => void;
+    let releaseBFailure!: () => void;
+    const aStarted = new Promise<void>((resolve) => { signalAStarted = resolve; });
+    const finishAImport = new Promise<void>((resolve) => { releaseAImport = resolve; });
+    const bStarted = new Promise<void>((resolve) => { signalBStarted = resolve; });
+    const failBImport = new Promise<void>((resolve) => { releaseBFailure = resolve; });
+
+    const attemptA = createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "ERP A" },
+      async () => {
+        signalAStarted();
+        await finishAImport;
+        memory.state().catalogProducts.add("tenant-1");
+        memory.state().catalogSyncEvents.add("tenant-1");
+        memory.state().latestCatalogEventIds.set("tenant-1", "event-a");
+        return { eventId: "event-a", processed: true };
+      },
+      { now: () => new Date("2026-07-22T12:00:00.000Z"), leaseMs: 5 * 60_000 },
+    );
+    await aStarted;
+
+    const attemptB = createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "ERP B" },
+      async () => {
+        signalBStarted();
+        await failBImport;
+        throw new Error("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE");
+      },
+      { now: () => new Date("2026-07-22T12:06:00.000Z"), leaseMs: 5 * 60_000 },
+    );
+    await bStarted;
+
+    releaseAImport();
+    await expect(attemptA).rejects.toThrow("KNOWLEDGE_SOURCE_RESERVATION_LOST");
+    expect(memory.state().catalogProducts.has("tenant-1")).toBe(false);
+    expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(false);
+
+    releaseBFailure();
+    await expect(attemptB).rejects.toThrow("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE");
+    expect(memory.state().items.size).toBe(0);
+    expect(memory.state().catalogProducts.has("tenant-1")).toBe(false);
+    expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(false);
+  });
+
+  it("preserves an attributed catalog when another external source is ready", async () => {
+    const memory = memoryRepository(initialState([
+      knowledgeItem("knowledge-ready", "assistant-3", "EXTERNAL_MANAGEMENT"),
+    ]));
+
+    const creating = createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "ERP" },
+      async () => {
+        const reservation = [...memory.state().items.values()].find(
+          (item) => item.assistantId === "assistant-1",
+        );
+        await deleteKnowledgeItem(memory.repository, "assistant-1", "tenant-1", reservation!.id);
+        memory.state().catalogProducts.add("tenant-1");
+        memory.state().catalogSyncEvents.add("tenant-1");
+        memory.state().latestCatalogEventIds.set("tenant-1", "import-event");
+        return { eventId: "import-event", processed: true };
+      },
+    );
+
+    await expect(creating).rejects.toThrow("KNOWLEDGE_SOURCE_RESERVATION_LOST");
+    expect(memory.state().items.has("knowledge-ready")).toBe(true);
+    expect(memory.state().catalogProducts.has("tenant-1")).toBe(true);
+    expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(true);
+  });
+
+  it("does not finalize a taken-over generation after its idempotent event was compensated", async () => {
+    const memory = memoryRepository(initialState([]));
+    let signalAStarted!: () => void;
+    let releaseASync!: () => void;
+    let signalASynced!: () => void;
+    let releaseAFinalize!: () => void;
+    let signalBStarted!: () => void;
+    let releaseBResult!: () => void;
+    const aStarted = new Promise<void>((resolve) => { signalAStarted = resolve; });
+    const syncA = new Promise<void>((resolve) => { releaseASync = resolve; });
+    const aSynced = new Promise<void>((resolve) => { signalASynced = resolve; });
+    const finalizeA = new Promise<void>((resolve) => { releaseAFinalize = resolve; });
+    const bStarted = new Promise<void>((resolve) => { signalBStarted = resolve; });
+    const finishB = new Promise<void>((resolve) => { releaseBResult = resolve; });
+
+    const attemptA = createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "ERP A" },
+      async () => {
+        signalAStarted();
+        await syncA;
+        memory.state().catalogProducts.add("tenant-1");
+        memory.state().catalogSyncEvents.add("tenant-1");
+        memory.state().latestCatalogEventIds.set("tenant-1", "shared-event");
+        signalASynced();
+        await finalizeA;
+        return { eventId: "shared-event", processed: true };
+      },
+      { now: () => new Date("2026-07-22T12:00:00.000Z"), leaseMs: 5 * 60_000 },
+    );
+    await aStarted;
+
+    const attemptB = createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "ERP B" },
+      async () => {
+        signalBStarted();
+        await aSynced;
+        await finishB;
+        return { eventId: "shared-event", processed: false };
+      },
+      { now: () => new Date("2026-07-22T12:06:00.000Z"), leaseMs: 5 * 60_000 },
+    );
+    await bStarted;
+
+    releaseASync();
+    await aSynced;
+    releaseAFinalize();
+    await expect(attemptA).rejects.toThrow("KNOWLEDGE_SOURCE_RESERVATION_LOST");
+    expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(false);
+
+    releaseBResult();
+    await expect(attemptB).rejects.toThrow("KNOWLEDGE_SOURCE_RESERVATION_LOST");
+    expect(memory.state().items.size).toBe(0);
+    expect(memory.state().catalogProducts.has("tenant-1")).toBe(false);
   });
 
   it("renames an item selected under the trusted assistant", async () => {
