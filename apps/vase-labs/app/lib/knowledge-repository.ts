@@ -8,11 +8,13 @@ export type KnowledgeItemCreateData = {
   sourceType: string;
   content: string;
   status: "PROCESSING" | "QUEUED" | "READY";
+  updatedAt?: Date;
 };
 
-export type KnowledgeItemRecord = Omit<KnowledgeItemCreateData, "status"> & {
+export type KnowledgeItemRecord = Omit<KnowledgeItemCreateData, "status" | "updatedAt"> & {
   id: string;
   status: string;
+  updatedAt: Date;
 };
 
 export interface KnowledgeRepository {
@@ -23,18 +25,36 @@ export interface KnowledgeMutationOperations {
   findAssistantTenant(assistantId: string): Promise<{ globalTenantId: string } | null>;
   withTenantLock<TResult>(globalTenantId: string, operation: () => Promise<TResult>): Promise<TResult>;
   findByAssistant(assistantId: string, knowledgeId: string): Promise<KnowledgeItemRecord | null>;
+  findByAssistantAndSourceType(
+    assistantId: string,
+    sourceType: string,
+  ): Promise<KnowledgeItemRecord | null>;
   updateTitle(assistantId: string, knowledgeId: string, title: string): Promise<number>;
   updateStatus(
     assistantId: string,
     knowledgeId: string,
     expectedStatus: string,
+    expectedUpdatedAt: Date,
     status: string,
+  ): Promise<number>;
+  refreshProcessingReservation(
+    assistantId: string,
+    knowledgeId: string,
+    expectedUpdatedAt: Date,
+    data: KnowledgeItemCreateData,
+    updatedAt: Date,
+  ): Promise<number>;
+  deleteProcessingReservation(
+    assistantId: string,
+    knowledgeId: string,
+    expectedUpdatedAt: Date,
   ): Promise<number>;
   deleteByAssistant(assistantId: string, knowledgeId: string): Promise<number>;
   countByAssistantAndSourceType(assistantId: string, sourceType: string): Promise<number>;
   countByTenantAndSourceType(globalTenantId: string, sourceType: string): Promise<number>;
   deleteCatalogProducts(globalTenantId: string): Promise<void>;
   deleteCatalogSyncEvents(globalTenantId: string): Promise<void>;
+  latestCatalogSyncEvent(globalTenantId: string): Promise<{ eventId: string } | null>;
 }
 
 export interface KnowledgeTransactionOperations extends KnowledgeMutationOperations, KnowledgeRepository {
@@ -106,26 +126,41 @@ function assertAssistantTenant(
   }
 }
 
-async function cleanupCatalogWithoutExternalSource(
+export type ExternalCatalogImportResult = { eventId: string; processed: boolean };
+
+async function compensateImportedCatalogIfCurrent(
   repository: Pick<KnowledgeMutationOperations,
     "countByTenantAndSourceType" | "deleteCatalogProducts" | "deleteCatalogSyncEvents"
+    | "latestCatalogSyncEvent"
   >,
   globalTenantId: string,
+  importResult: ExternalCatalogImportResult,
 ) {
+  if (!importResult.processed) return;
   if (await repository.countByTenantAndSourceType(globalTenantId, "EXTERNAL_MANAGEMENT") > 0) {
     return;
   }
+  const latestEvent = await repository.latestCatalogSyncEvent(globalTenantId);
+  if (latestEvent?.eventId !== importResult.eventId) return;
   await repository.deleteCatalogProducts(globalTenantId);
   await repository.deleteCatalogSyncEvents(globalTenantId);
 }
 
 type ExternalKnowledgeInput = Extract<ParsedKnowledgeInput, { type: "EXTERNAL_MANAGEMENT" }>;
+type ExternalKnowledgeCreationOptions = {
+  now?: () => Date;
+  leaseMs?: number;
+};
+
+const externalReservationLeaseMs = 5 * 60_000;
 
 async function reserveExternalKnowledgeItem(
   repository: KnowledgeMutationRepository,
   assistantId: string,
   globalTenantId: string,
   input: ExternalKnowledgeInput,
+  now: Date,
+  leaseMs: number,
 ): Promise<KnowledgeItemRecord> {
   const candidate = await repository.findAssistantTenant(assistantId);
   assertAssistantTenant(candidate, globalTenantId);
@@ -134,14 +169,34 @@ async function reserveExternalKnowledgeItem(
     transaction.withTenantLock(globalTenantId, async () => {
       const assistant = await transaction.findAssistantTenant(assistantId);
       assertAssistantTenant(assistant, globalTenantId);
-      const existing = await transaction.countByAssistantAndSourceType(
+      const existing = await transaction.findByAssistantAndSourceType(
         assistantId,
         "EXTERNAL_MANAGEMENT",
       );
-      if (existing > 0) throw new Error("KNOWLEDGE_SOURCE_ALREADY_EXISTS");
+      if (existing) {
+        const leaseIsFresh = existing.status !== "PROCESSING"
+          || !(existing.updatedAt instanceof Date)
+          || existing.updatedAt.getTime() > now.getTime() - leaseMs;
+        if (leaseIsFresh) throw new Error("KNOWLEDGE_SOURCE_ALREADY_EXISTS");
+        const refreshedData = {
+          ...mapKnowledgeInputToCreateData(assistantId, input),
+          status: "PROCESSING" as const,
+          updatedAt: now,
+        };
+        const refreshed = await transaction.refreshProcessingReservation(
+          assistantId,
+          existing.id,
+          existing.updatedAt,
+          refreshedData,
+          now,
+        );
+        if (refreshed !== 1) throw new Error("KNOWLEDGE_SOURCE_ALREADY_EXISTS");
+        return { ...existing, ...refreshedData, updatedAt: now };
+      }
       return transaction.create({
         ...mapKnowledgeInputToCreateData(assistantId, input),
         status: "PROCESSING",
+        updatedAt: now,
       });
     })
   ));
@@ -152,6 +207,7 @@ async function discardExternalKnowledgeReservation(
   assistantId: string,
   globalTenantId: string,
   knowledgeId: string,
+  reservationUpdatedAt: Date,
 ): Promise<void> {
   const candidate = await repository.findAssistantTenant(assistantId);
   assertAssistantTenant(candidate, globalTenantId);
@@ -162,9 +218,12 @@ async function discardExternalKnowledgeReservation(
       assertAssistantTenant(assistant, globalTenantId);
       const reservation = await transaction.findByAssistant(assistantId, knowledgeId);
       if (reservation?.sourceType === "EXTERNAL_MANAGEMENT" && reservation.status === "PROCESSING") {
-        await transaction.deleteByAssistant(assistantId, knowledgeId);
+        await transaction.deleteProcessingReservation(
+          assistantId,
+          knowledgeId,
+          reservationUpdatedAt,
+        );
       }
-      await cleanupCatalogWithoutExternalSource(transaction, globalTenantId);
     })
   ));
 }
@@ -174,6 +233,8 @@ async function finalizeExternalKnowledgeReservation(
   assistantId: string,
   globalTenantId: string,
   knowledgeId: string,
+  reservationUpdatedAt: Date,
+  importResult: ExternalCatalogImportResult,
 ): Promise<KnowledgeItemRecord> {
   const candidate = await repository.findAssistantTenant(assistantId);
   assertAssistantTenant(candidate, globalTenantId);
@@ -183,17 +244,20 @@ async function finalizeExternalKnowledgeReservation(
       const assistant = await transaction.findAssistantTenant(assistantId);
       assertAssistantTenant(assistant, globalTenantId);
       const reservation = await transaction.findByAssistant(assistantId, knowledgeId);
-      if (reservation?.sourceType === "EXTERNAL_MANAGEMENT" && reservation.status === "PROCESSING") {
+      if (reservation?.sourceType === "EXTERNAL_MANAGEMENT"
+        && reservation.status === "PROCESSING"
+        && reservation.updatedAt.getTime() === reservationUpdatedAt.getTime()) {
         const updated = await transaction.updateStatus(
           assistantId,
           knowledgeId,
           "PROCESSING",
+          reservationUpdatedAt,
           "READY",
         );
         if (updated === 1) return { ...reservation, status: "READY" };
       }
 
-      await cleanupCatalogWithoutExternalSource(transaction, globalTenantId);
+      await compensateImportedCatalogIfCurrent(transaction, globalTenantId, importResult);
       return null;
     })
   ));
@@ -206,23 +270,33 @@ export async function createExternalKnowledgeItem(
   assistantId: string,
   globalTenantId: string,
   input: ExternalKnowledgeInput,
-  importSnapshot: (globalTenantId: string) => Promise<unknown>,
+  importSnapshot: (globalTenantId: string) => Promise<ExternalCatalogImportResult>,
+  options: ExternalKnowledgeCreationOptions = {},
 ): Promise<KnowledgeItemRecord> {
+  const now = options.now?.() ?? new Date();
   const reservation = await reserveExternalKnowledgeItem(
     repository,
     assistantId,
     globalTenantId,
     input,
+    now,
+    options.leaseMs ?? externalReservationLeaseMs,
   );
+  let importResult: ExternalCatalogImportResult;
   try {
-    await importSnapshot(globalTenantId);
+    importResult = await importSnapshot(globalTenantId);
   } catch (error) {
-    await discardExternalKnowledgeReservation(
-      repository,
-      assistantId,
-      globalTenantId,
-      reservation.id,
-    );
+    try {
+      await discardExternalKnowledgeReservation(
+        repository,
+        assistantId,
+        globalTenantId,
+        reservation.id,
+        reservation.updatedAt,
+      );
+    } catch {
+      // Preserve the classified upstream error; the durable lease permits a later takeover.
+    }
     throw error;
   }
   return finalizeExternalKnowledgeReservation(
@@ -230,6 +304,8 @@ export async function createExternalKnowledgeItem(
     assistantId,
     globalTenantId,
     reservation.id,
+    reservation.updatedAt,
+    importResult,
   );
 }
 
@@ -311,6 +387,12 @@ function createPrismaKnowledgeMutationOperations(
     findByAssistant(assistantId, knowledgeId) {
       return db.knowledgeItem.findFirst({ where: { id: knowledgeId, assistantId } });
     },
+    findByAssistantAndSourceType(assistantId, sourceType) {
+      return db.knowledgeItem.findFirst({
+        where: { assistantId, sourceType },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      });
+    },
     async updateTitle(assistantId, knowledgeId, title) {
       const result = await db.knowledgeItem.updateMany({
         where: { id: knowledgeId, assistantId },
@@ -318,10 +400,44 @@ function createPrismaKnowledgeMutationOperations(
       });
       return result.count;
     },
-    async updateStatus(assistantId, knowledgeId, expectedStatus, status) {
+    async updateStatus(assistantId, knowledgeId, expectedStatus, expectedUpdatedAt, status) {
       const result = await db.knowledgeItem.updateMany({
-        where: { id: knowledgeId, assistantId, status: expectedStatus },
+        where: { id: knowledgeId, assistantId, status: expectedStatus, updatedAt: expectedUpdatedAt },
         data: { status },
+      });
+      return result.count;
+    },
+    async refreshProcessingReservation(
+      assistantId,
+      knowledgeId,
+      expectedUpdatedAt,
+      data,
+      updatedAt,
+    ) {
+      const result = await db.knowledgeItem.updateMany({
+        where: {
+          id: knowledgeId,
+          assistantId,
+          status: "PROCESSING",
+          updatedAt: expectedUpdatedAt,
+        },
+        data: {
+          title: data.title,
+          content: data.content,
+          status: "PROCESSING",
+          updatedAt,
+        },
+      });
+      return result.count;
+    },
+    async deleteProcessingReservation(assistantId, knowledgeId, expectedUpdatedAt) {
+      const result = await db.knowledgeItem.deleteMany({
+        where: {
+          id: knowledgeId,
+          assistantId,
+          status: "PROCESSING",
+          updatedAt: expectedUpdatedAt,
+        },
       });
       return result.count;
     },
@@ -342,6 +458,13 @@ function createPrismaKnowledgeMutationOperations(
     },
     async deleteCatalogSyncEvents(globalTenantId) {
       await db.catalogSyncEvent.deleteMany({ where: { globalTenantId } });
+    },
+    latestCatalogSyncEvent(globalTenantId) {
+      return db.catalogSyncEvent.findFirst({
+        where: { globalTenantId },
+        orderBy: [{ occurredAt: "desc" }, { processedAt: "desc" }],
+        select: { eventId: true },
+      });
     },
   };
 }
@@ -379,7 +502,7 @@ export const knowledgeRepository = {
     assistantId: string,
     globalTenantId: string,
     input: ExternalKnowledgeInput,
-    importSnapshot: (globalTenantId: string) => Promise<unknown>,
+    importSnapshot: (globalTenantId: string) => Promise<ExternalCatalogImportResult>,
   ) {
     return createExternalKnowledgeItem(
       prismaKnowledgeMutationRepository,

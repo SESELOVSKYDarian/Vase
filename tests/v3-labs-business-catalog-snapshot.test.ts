@@ -29,7 +29,11 @@ function setup(response: Response | Error, overrides?: { appInternalUrl?: string
 describe("Labs Business catalog snapshot importer", () => {
   it("fetches through Vase App and imports an empty valid catalog", async () => {
     const { importSnapshot, fetchUpstream, sync } = setup(Response.json(snapshot()));
-    await expect(importSnapshot("tenant/resolved")).resolves.toEqual({ processed: true, count: 0 });
+    await expect(importSnapshot("tenant/resolved")).resolves.toEqual({
+      eventId: "event-1",
+      processed: true,
+      count: 0,
+    });
     expect(fetchUpstream).toHaveBeenCalledWith(
       "http://app-vase:3002/api/internal/business/catalog-snapshot?globalTenantId=tenant%2Fresolved",
       { headers: { authorization: "Bearer service-token" }, signal: expect.any(AbortSignal) },

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { knowledgeRepository, type KnowledgeItemRecord } from "../../../lib/knowledge-repository";
+import {
+  knowledgeRepository,
+  type ExternalCatalogImportResult,
+  type KnowledgeItemRecord,
+} from "../../../lib/knowledge-repository";
 import { parseKnowledgeInput, type ParsedKnowledgeInput } from "../../../lib/knowledge-source";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
 import { createBusinessCatalogSnapshotImporter } from "../../../lib/business-catalog-snapshot";
@@ -10,13 +14,13 @@ type KnowledgePostDependencies = {
     context: { globalTenantId: string };
     assistant: { id: string };
   }>;
-  syncExternalCatalog(globalTenantId: string): Promise<unknown>;
+  syncExternalCatalog(globalTenantId: string): Promise<ExternalCatalogImportResult>;
   create(assistantId: string, input: ParsedKnowledgeInput): Promise<KnowledgeItemRecord>;
   createExternal(
     assistantId: string,
     globalTenantId: string,
     input: Extract<ParsedKnowledgeInput, { type: "EXTERNAL_MANAGEMENT" }>,
-    importSnapshot: (globalTenantId: string) => Promise<unknown>,
+    importSnapshot: (globalTenantId: string) => Promise<ExternalCatalogImportResult>,
   ): Promise<KnowledgeItemRecord>;
 };
 

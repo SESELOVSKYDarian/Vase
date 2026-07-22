@@ -1,6 +1,6 @@
 import { labsCatalogSyncSchema, type LabsCatalogSync } from "@vase/contracts";
 
-type Dependencies<TResult> = {
+type Dependencies<TResult extends { processed: boolean }> = {
   fetchUpstream: typeof fetch;
   sync(batch: LabsCatalogSync): Promise<TResult>;
   appInternalUrl: string | undefined;
@@ -12,8 +12,12 @@ function catalogError(code: string) {
   return new Error(code);
 }
 
-export function createBusinessCatalogSnapshotImporter<TResult>(dependencies: Dependencies<TResult>) {
-  return async function importBusinessCatalogSnapshot(globalTenantId: string): Promise<TResult> {
+export function createBusinessCatalogSnapshotImporter<TResult extends { processed: boolean }>(
+  dependencies: Dependencies<TResult>,
+) {
+  return async function importBusinessCatalogSnapshot(
+    globalTenantId: string,
+  ): Promise<TResult & { eventId: string }> {
     const configuredAppUrl = dependencies.appInternalUrl?.trim();
     const serviceToken = dependencies.serviceToken?.trim();
     if (!configuredAppUrl || !serviceToken) {
@@ -59,6 +63,7 @@ export function createBusinessCatalogSnapshotImporter<TResult>(dependencies: Dep
     if (!parsed.success || parsed.data.globalTenantId !== globalTenantId) {
       throw catalogError("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE");
     }
-    return dependencies.sync(parsed.data);
+    const result = await dependencies.sync(parsed.data);
+    return { ...result, eventId: parsed.data.eventId };
   };
 }

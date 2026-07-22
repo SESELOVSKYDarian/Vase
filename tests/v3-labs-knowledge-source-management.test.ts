@@ -14,6 +14,7 @@ type MemoryState = {
   items: Map<string, KnowledgeItemRecord>;
   catalogProducts: Set<string>;
   catalogSyncEvents: Set<string>;
+  latestCatalogEventIds: Map<string, string>;
 };
 
 function cloneState(state: MemoryState): MemoryState {
@@ -22,6 +23,7 @@ function cloneState(state: MemoryState): MemoryState {
     items: new Map([...state.items].map(([id, item]) => [id, { ...item }])),
     catalogProducts: new Set(state.catalogProducts),
     catalogSyncEvents: new Set(state.catalogSyncEvents),
+    latestCatalogEventIds: new Map(state.latestCatalogEventIds),
   };
 }
 
@@ -30,11 +32,16 @@ function knowledgeItem(
   assistantId: string,
   sourceType: string,
   title = id,
+  status = "READY",
+  updatedAt = new Date("2026-07-22T12:00:00.000Z"),
 ): KnowledgeItemRecord {
-  return { id, assistantId, sourceType, title, content: "content", status: "READY" };
+  return { id, assistantId, sourceType, title, content: "content", status, updatedAt };
 }
 
-function memoryRepository(initialState: MemoryState, options?: { failCatalogEventDelete?: boolean }) {
+function memoryRepository(initialState: MemoryState, options?: {
+  failCatalogEventDelete?: boolean;
+  failReservationDelete?: boolean;
+}) {
   let state = cloneState(initialState);
   const lockTails = new Map<string, Promise<void>>();
 
@@ -61,7 +68,11 @@ function memoryRepository(initialState: MemoryState, options?: { failCatalogEven
         return operation();
       },
       async create(data) {
-        const record = { ...data, id: `created-${target().items.size + 1}` };
+        const record = {
+          ...data,
+          id: `created-${target().items.size + 1}`,
+          updatedAt: data.updatedAt ?? new Date("2026-07-22T12:00:00.000Z"),
+        };
         target().items.set(record.id, record);
         return record;
       },
@@ -76,10 +87,31 @@ function memoryRepository(initialState: MemoryState, options?: { failCatalogEven
         target().items.set(knowledgeId, updated);
         return 1;
       },
-      async updateStatus(assistantId, knowledgeId, expectedStatus, status) {
+      async updateStatus(assistantId, knowledgeId, expectedStatus, expectedUpdatedAt, status) {
         const item = target().items.get(knowledgeId);
-        if (!item || item.assistantId !== assistantId || item.status !== expectedStatus) return 0;
+        if (!item || item.assistantId !== assistantId || item.status !== expectedStatus
+          || item.updatedAt.getTime() !== expectedUpdatedAt.getTime()) return 0;
         target().items.set(knowledgeId, { ...item, status });
+        return 1;
+      },
+      async findByAssistantAndSourceType(assistantId, sourceType) {
+        return [...target().items.values()].find(
+          (item) => item.assistantId === assistantId && item.sourceType === sourceType,
+        ) ?? null;
+      },
+      async refreshProcessingReservation(assistantId, knowledgeId, expectedUpdatedAt, data, updatedAt) {
+        const item = target().items.get(knowledgeId);
+        if (!item || item.assistantId !== assistantId || item.status !== "PROCESSING"
+          || item.updatedAt.getTime() !== expectedUpdatedAt.getTime()) return 0;
+        target().items.set(knowledgeId, { ...item, ...data, status: "PROCESSING", updatedAt });
+        return 1;
+      },
+      async deleteProcessingReservation(assistantId, knowledgeId, expectedUpdatedAt) {
+        const item = target().items.get(knowledgeId);
+        if (!item || item.assistantId !== assistantId || item.status !== "PROCESSING"
+          || item.updatedAt.getTime() !== expectedUpdatedAt.getTime()) return 0;
+        if (options?.failReservationDelete) throw new Error("RESERVATION_DELETE_FAILED");
+        target().items.delete(knowledgeId);
         return 1;
       },
       async deleteByAssistant(assistantId, knowledgeId) {
@@ -105,6 +137,11 @@ function memoryRepository(initialState: MemoryState, options?: { failCatalogEven
       async deleteCatalogSyncEvents(globalTenantId) {
         if (options?.failCatalogEventDelete) throw new Error("SYNC_EVENT_DELETE_FAILED");
         target().catalogSyncEvents.delete(globalTenantId);
+        target().latestCatalogEventIds.delete(globalTenantId);
+      },
+      async latestCatalogSyncEvent(globalTenantId) {
+        const eventId = target().latestCatalogEventIds.get(globalTenantId);
+        return eventId ? { eventId } : null;
       },
     };
   }
@@ -150,6 +187,10 @@ function initialState(items: KnowledgeItemRecord[]): MemoryState {
     items: new Map(items.map((item) => [item.id, item])),
     catalogProducts: new Set(["tenant-1", "tenant-2"]),
     catalogSyncEvents: new Set(["tenant-1", "tenant-2"]),
+    latestCatalogEventIds: new Map([
+      ["tenant-1", "existing-tenant-1"],
+      ["tenant-2", "existing-tenant-2"],
+    ]),
   };
 }
 
@@ -176,12 +217,72 @@ describe("Labs knowledge source repository mutations", () => {
       { type: "EXTERNAL_MANAGEMENT", title: "ERP" },
       async () => {
         observedStatuses.push(...[...memory.state().items.values()].map((item) => item.status));
+        return { eventId: "import-event", processed: true };
       },
     );
 
     expect(observedStatuses).toEqual(["PROCESSING"]);
     expect(created.status).toBe("READY");
     expect(memory.state().items.get(created.id)?.status).toBe("READY");
+  });
+
+  it("keeps a fresh processing reservation leased and rejects a second import", async () => {
+    const now = new Date("2026-07-22T13:00:00.000Z");
+    const reservation = knowledgeItem(
+      "knowledge-processing",
+      "assistant-1",
+      "EXTERNAL_MANAGEMENT",
+      "ERP",
+      "PROCESSING",
+      new Date("2026-07-22T12:59:00.000Z"),
+    );
+    const memory = memoryRepository(initialState([reservation]));
+    let imports = 0;
+
+    await expect(createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "Retry" },
+      async () => {
+        imports += 1;
+        return { eventId: "retry-event", processed: true };
+      },
+      { now: () => now, leaseMs: 5 * 60_000 },
+    )).rejects.toThrow("KNOWLEDGE_SOURCE_ALREADY_EXISTS");
+
+    expect(imports).toBe(0);
+    expect(memory.state().items.get(reservation.id)?.updatedAt).toEqual(reservation.updatedAt);
+  });
+
+  it("reclaims a stale processing reservation and reuses its durable id", async () => {
+    const now = new Date("2026-07-22T13:00:00.000Z");
+    const reservation = knowledgeItem(
+      "knowledge-processing",
+      "assistant-1",
+      "EXTERNAL_MANAGEMENT",
+      "Old ERP",
+      "PROCESSING",
+      new Date("2026-07-22T12:54:59.999Z"),
+    );
+    const memory = memoryRepository(initialState([reservation]));
+
+    const result = await createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "Recovered ERP" },
+      async () => ({ eventId: "recovery-event", processed: true }),
+      { now: () => now, leaseMs: 5 * 60_000 },
+    );
+
+    expect(result).toMatchObject({
+      id: "knowledge-processing",
+      title: "Recovered ERP",
+      status: "READY",
+      updatedAt: now,
+    });
+    expect(memory.state().items.size).toBe(1);
   });
 
   it("rejects a duplicate external source before importing", async () => {
@@ -212,14 +313,14 @@ describe("Labs knowledge source repository mutations", () => {
         "assistant-1",
         "tenant-1",
         { type: "EXTERNAL_MANAGEMENT", title: "ERP A" },
-        async () => { imports += 1; },
+        async () => { imports += 1; return { eventId: "event-a", processed: true }; },
       ),
       createExternalKnowledgeItem(
         memory.repository,
         "assistant-1",
         "tenant-1",
         { type: "EXTERNAL_MANAGEMENT", title: "ERP B" },
-        async () => { imports += 1; },
+        async () => { imports += 1; return { eventId: "event-b", processed: true }; },
       ),
     ]);
 
@@ -229,7 +330,7 @@ describe("Labs knowledge source repository mutations", () => {
     expect(memory.state().items.size).toBe(1);
   });
 
-  it("removes the processing reservation when import fails", async () => {
+  it("removes only the processing reservation when import fails", async () => {
     const memory = memoryRepository(initialState([]));
 
     await expect(createExternalKnowledgeItem(
@@ -241,8 +342,23 @@ describe("Labs knowledge source repository mutations", () => {
     )).rejects.toThrow("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE");
 
     expect(memory.state().items.size).toBe(0);
-    expect(memory.state().catalogProducts.has("tenant-1")).toBe(false);
-    expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(false);
+    expect(memory.state().catalogProducts.has("tenant-1")).toBe(true);
+    expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(true);
+    expect(memory.state().latestCatalogEventIds.get("tenant-1")).toBe("existing-tenant-1");
+  });
+
+  it("preserves the primary upstream error when reservation discard fails", async () => {
+    const memory = memoryRepository(initialState([]), { failReservationDelete: true });
+
+    await expect(createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "ERP" },
+      async () => { throw new Error("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE"); },
+    )).rejects.toThrow("EXTERNAL_MANAGEMENT_CATALOG_UNAVAILABLE");
+
+    expect([...memory.state().items.values()][0]?.status).toBe("PROCESSING");
   });
 
   it("cleans catalog rows and fails if the reservation is deleted during import", async () => {
@@ -262,6 +378,8 @@ describe("Labs knowledge source repository mutations", () => {
         await finish;
         memory.state().catalogProducts.add("tenant-1");
         memory.state().catalogSyncEvents.add("tenant-1");
+        memory.state().latestCatalogEventIds.set("tenant-1", "import-event");
+        return { eventId: "import-event", processed: true };
       },
     );
     await started;
@@ -273,6 +391,30 @@ describe("Labs knowledge source repository mutations", () => {
     expect(memory.state().items.size).toBe(0);
     expect(memory.state().catalogProducts.has("tenant-1")).toBe(false);
     expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(false);
+  });
+
+  it("preserves catalog rows when a newer event follows a lost reservation import", async () => {
+    const memory = memoryRepository(initialState([]));
+
+    const creating = createExternalKnowledgeItem(
+      memory.repository,
+      "assistant-1",
+      "tenant-1",
+      { type: "EXTERNAL_MANAGEMENT", title: "ERP" },
+      async () => {
+        const reservation = [...memory.state().items.values()][0];
+        await deleteKnowledgeItem(memory.repository, "assistant-1", "tenant-1", reservation.id);
+        memory.state().catalogProducts.add("tenant-1");
+        memory.state().catalogSyncEvents.add("tenant-1");
+        memory.state().latestCatalogEventIds.set("tenant-1", "newer-event");
+        return { eventId: "import-event", processed: true };
+      },
+    );
+
+    await expect(creating).rejects.toThrow("KNOWLEDGE_SOURCE_RESERVATION_LOST");
+    expect(memory.state().catalogProducts.has("tenant-1")).toBe(true);
+    expect(memory.state().catalogSyncEvents.has("tenant-1")).toBe(true);
+    expect(memory.state().latestCatalogEventIds.get("tenant-1")).toBe("newer-event");
   });
 
   it("renames an item selected under the trusted assistant", async () => {

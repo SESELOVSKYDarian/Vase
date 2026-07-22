@@ -12,7 +12,11 @@ import { createExternalManagementCredentialsGetHandler } from "../apps/vase-labs
 import { createProductSyncCredentialsHandler } from "../apps/vase-editor/server/src/services/productSyncCredentials.js";
 
 function record(data: KnowledgeItemCreateData): KnowledgeItemRecord {
-  return { id: `knowledge_${data.assistantId}`, ...data };
+  return {
+    id: `knowledge_${data.assistantId}`,
+    ...data,
+    updatedAt: data.updatedAt ?? new Date("2026-07-22T12:00:00.000Z"),
+  };
 }
 
 describe("Labs knowledge repository", () => {
@@ -71,13 +75,13 @@ describe("POST /api/labs/knowledge", () => {
     });
     const syncExternalCatalog = vi.fn(async () => {
       if (options?.syncError) throw options.syncError;
-      return { processed: true, count: 0 };
+      return { eventId: "import-event", processed: true, count: 0 };
     });
     const createExternal = vi.fn(async (
       assistantId: string,
       globalTenantId: string,
       input: Parameters<typeof mapKnowledgeInputToCreateData>[1],
-      importSnapshot: (tenantId: string) => Promise<unknown>,
+      importSnapshot: (tenantId: string) => Promise<{ eventId: string; processed: boolean }>,
     ) => {
       if (options?.duplicateExternal) throw new Error("KNOWLEDGE_SOURCE_ALREADY_EXISTS");
       await importSnapshot(globalTenantId);
@@ -114,12 +118,15 @@ describe("POST /api/labs/knowledge", () => {
 
   it("imports the resolved tenant catalog before creating an external source", async () => {
     const order: string[] = [];
-    const syncExternalCatalog = vi.fn(async (tenantId: string) => { order.push(`sync:${tenantId}`); });
+    const syncExternalCatalog = vi.fn(async (tenantId: string) => {
+      order.push(`sync:${tenantId}`);
+      return { eventId: "import-event", processed: true };
+    });
     const createExternal = vi.fn(async (
       assistantId: string,
       globalTenantId: string,
       input: Parameters<typeof mapKnowledgeInputToCreateData>[1],
-      importSnapshot: (tenantId: string) => Promise<unknown>,
+      importSnapshot: (tenantId: string) => Promise<{ eventId: string; processed: boolean }>,
     ) => {
       order.push("reserve");
       await importSnapshot(globalTenantId);
@@ -270,6 +277,7 @@ describe("PATCH and DELETE /api/labs/knowledge/:knowledgeId", () => {
       sourceType: "FAQ",
       content: "content",
       status: "READY",
+      updatedAt: new Date("2026-07-22T12:00:00.000Z"),
     };
   }
 
