@@ -15,6 +15,7 @@ import { syncIntegrationProducts } from '../services/integration.service.js';
 import { pool } from '../db.js';
 import { enqueueLabsCatalogSync, processLabsCatalogOutbox } from '../services/labsCatalogOutbox.js';
 import { createProductSyncCredentialsHandler } from '../services/productSyncCredentials.js';
+import { createBusinessCatalogSnapshotHandler } from '../services/businessCatalogSnapshot.js';
 
 export const integrationsRouter = Router();
 
@@ -68,6 +69,14 @@ const handleMulterError = (err, req, res, next) => {
 integrationsRouter.get(
   '/internal/tenant/:tenantId/product-sync-credentials',
   (req, res, next) => createProductSyncCredentialsHandler({
+    db: pool,
+    expectedServiceToken: process.env.SERVICE_TO_SERVICE_TOKEN,
+  })(req, res, next)
+);
+
+integrationsRouter.get(
+  '/internal/tenant/:tenantId/catalog-snapshot',
+  (req, res, next) => createBusinessCatalogSnapshotHandler({
     db: pool,
     expectedServiceToken: process.env.SERVICE_TO_SERVICE_TOKEN,
   })(req, res, next)

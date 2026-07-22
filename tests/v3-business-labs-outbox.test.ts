@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("../apps/vase-editor/server/src/db.js", () => ({ pool: { query: vi.fn() } }));
 import { mapBusinessProductForLabs, nextCatalogRetryDelayMs } from "../apps/vase-editor/server/src/services/labsCatalogOutboxCore.js";
+import { enqueueLabsCatalogSync } from "../apps/vase-editor/server/src/services/labsCatalogOutbox.js";
 
 describe("Business to Labs catalog outbox", () => {
   it("maps Business products to the shared Labs payload", () => {
@@ -22,5 +24,33 @@ describe("Business to Labs catalog outbox", () => {
     expect(nextCatalogRetryDelayMs(1)).toBe(5_000);
     expect(nextCatalogRetryDelayMs(4)).toBe(40_000);
     expect(nextCatalogRetryDelayMs(20)).toBe(900_000);
+  });
+
+  it("stores with the Business UUID but sends the Vase global tenant ID", async () => {
+    const query = vi.fn(async (sql: string, values?: unknown[]) => {
+      if (sql.startsWith("create table") || sql.startsWith("create index")) return { rows: [] };
+      if (sql.includes("from tenants")) {
+        return { rows: [{ id: "business-uuid", external_tenant_id: "global-tenant" }] };
+      }
+      if (sql.includes("from product_cache")) {
+        expect(values).toEqual(["business-uuid"]);
+        return { rows: [] };
+      }
+      if (sql.startsWith("insert into labs_catalog_outbox")) return { rows: [] };
+      throw new Error(`Unexpected SQL: ${sql}`);
+    });
+
+    await enqueueLabsCatalogSync("business-uuid", {
+      db: { query },
+      createId: () => "fixed-id",
+      now: () => new Date("2026-07-22T13:00:00.000Z"),
+    });
+
+    const insert = query.mock.calls.find(([sql]) => sql.startsWith("insert into labs_catalog_outbox"));
+    expect(insert?.[1]?.[2]).toBe("business-uuid");
+    expect(JSON.parse(String(insert?.[1]?.[3]))).toMatchObject({
+      globalTenantId: "global-tenant",
+      occurredAt: "2026-07-22T13:00:00.000Z",
+    });
   });
 });
