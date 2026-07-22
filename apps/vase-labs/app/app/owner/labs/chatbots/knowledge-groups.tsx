@@ -48,19 +48,20 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
   const editInputRef = useRef<HTMLInputElement>(null);
   const deleteHeadingRef = useRef<HTMLHeadingElement>(null);
   const busyStatusRef = useRef<HTMLParagraphElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const groupsRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
 
-  const close = useCallback((force = false, focusTarget: "opener" | "group" = "opener") => {
+  const close = useCallback((force = false, focusTarget: "opener" | "list" = "opener") => {
     if (submitting && !force) return;
-    const groupHeading = selection ? document.getElementById(`knowledge-${selection.groupType}`) : null;
     setSelection(undefined);
     setTitle("");
     setError("");
     requestAnimationFrame(() => {
-      if (focusTarget === "group") groupHeading?.focus();
+      if (focusTarget === "list") groupsRef.current?.focus();
       else openerRef.current?.focus();
     });
-  }, [selection, submitting]);
+  }, [submitting]);
 
   useEffect(() => {
     if (!selection) return;
@@ -73,6 +74,10 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
   useEffect(() => {
     if (submitting) requestAnimationFrame(() => busyStatusRef.current?.focus());
   }, [submitting]);
+
+  useEffect(() => {
+    if (error && !submitting) requestAnimationFrame(() => errorRef.current?.focus());
+  }, [error, submitting]);
 
   useEffect(() => {
     if (!selection) return;
@@ -145,7 +150,7 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
       const response = await fetch(`/api/labs/knowledge/${encodeURIComponent(selection.item.id)}`, { method: "DELETE" });
       if (!response.ok) throw new Error("delete");
       router.refresh();
-      close(true, "group");
+      close(true, "list");
     } catch {
       setError("No pudimos eliminar la fuente. Intentá nuevamente.");
     } finally {
@@ -154,10 +159,10 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
   }
 
   return <>
-    <div className="space-y-6">{groups.map((group) => (
+    <div ref={groupsRef} role="region" aria-label="Fuentes de conocimiento" tabIndex={-1} className="labs-knowledge-groups space-y-6">{groups.map((group) => (
       <section key={group.type} aria-labelledby={`knowledge-${group.type}`}>
         <div className="mb-3 flex items-baseline justify-between gap-4">
-          <h3 id={`knowledge-${group.type}`} tabIndex={-1} className="text-sm font-semibold text-[var(--foreground)]">{labels[group.type]}</h3>
+          <h3 id={`knowledge-${group.type}`} className="text-sm font-semibold text-[var(--foreground)]">{labels[group.type]}</h3>
           <span className="text-xs text-[var(--muted)]">{group.items.length} {group.items.length === 1 ? "fuente" : "fuentes"}</span>
         </div>
         <div className="labs-knowledge-source-list">{group.items.map((item) => {
@@ -204,7 +209,7 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
           <p id="knowledge-source-dialog-description">Cambiá el nombre con el que identificás esta fuente en Labs.</p>
           <label htmlFor="knowledge-source-title">Nombre de la fuente</label>
           <input ref={editInputRef} id="knowledge-source-title" required maxLength={160} value={title} onChange={(event) => { setTitle(event.target.value); setError(""); }} aria-invalid={Boolean(error)} aria-describedby={error ? "knowledge-source-error" : undefined} disabled={submitting} />
-          {error ? <p id="knowledge-source-error" className="labs-modal-error" role="alert">{error}</p> : null}
+          {error ? <p ref={errorRef} id="knowledge-source-error" className="labs-modal-error" role="alert" tabIndex={-1}>{error}</p> : null}
           <footer className="labs-modal-actions">
             <button type="button" className="labs-button-secondary" onClick={() => close()} disabled={submitting}>Cancelar</button>
             <button type="submit" className="labs-button-primary" disabled={submitting}>{submitting ? "Guardando…" : "Guardar cambios"}</button>
@@ -218,7 +223,7 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
             </div>
           </div>
           {selection.groupType === "EXTERNAL_MANAGEMENT" ? <p className="labs-source-delete-warning">Si es la última fuente externa del tenant, también se eliminarán los productos y el historial de sincronización del catálogo en Labs. Tus productos en Vase Business no se modificarán.</p> : null}
-          {error ? <p id="knowledge-source-error" className="labs-modal-error" role="alert">{error}</p> : null}
+          {error ? <p ref={errorRef} id="knowledge-source-error" className="labs-modal-error" role="alert" tabIndex={-1}>{error}</p> : null}
           <footer className="labs-modal-actions">
             <button type="button" className="labs-button-secondary" onClick={() => close()} disabled={submitting}>Cancelar</button>
             <button type="button" className="labs-button-danger" onClick={() => void remove()} disabled={submitting}>{submitting ? "Eliminando…" : "Sí, eliminar fuente"}</button>

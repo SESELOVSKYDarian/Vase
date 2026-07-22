@@ -614,6 +614,12 @@ a:focus-visible {
   border-radius: 0.5rem;
 }
 
+.labs-knowledge-groups:focus {
+  border-radius: 0.65rem;
+  outline: 2px solid var(--accent);
+  outline-offset: 0.4rem;
+}
+
 .labs-knowledge-source-row {
   display: grid;
   grid-template-columns: 2.25rem minmax(0, 1fr) auto auto;

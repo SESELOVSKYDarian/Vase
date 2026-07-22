@@ -108,7 +108,11 @@ describe("KnowledgeGroups source management", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/labs/knowledge/source%2Fone", { method: "DELETE" });
     expect(router.refresh).toHaveBeenCalledOnce();
     expect(host.querySelector('[role="dialog"]')).toBeNull();
-    expect(document.activeElement).toBe(host.querySelector("#knowledge-EXTERNAL_MANAGEMENT"));
+    const stableList = host.querySelector(".labs-knowledge-groups");
+    expect(document.activeElement).toBe(stableList);
+    await act(async () => { root.render(React.createElement(KnowledgeGroups, { groups: [] })); });
+    expect(host.querySelector(".labs-knowledge-groups")).toBe(stableList);
+    expect(document.activeElement).toBe(stableList);
   });
 
   it("keeps the dialog open with sanitized feedback when a mutation fails", async () => {
@@ -116,10 +120,29 @@ describe("KnowledgeGroups source management", () => {
     await click(button("Eliminar Sistema de gestión externo"));
     await click(button("Sí, eliminar fuente"));
 
-    expect(host.querySelector('[role="alert"]')?.textContent).toContain("No pudimos eliminar la fuente");
+    const alert = host.querySelector<HTMLElement>('[role="alert"]');
+    expect(alert?.textContent).toContain("No pudimos eliminar la fuente");
     expect(host.textContent).not.toContain("DATABASE_PASSWORD");
     expect(host.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.activeElement).toBe(alert);
+    await act(async () => { alert?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })); });
+    expect(host.querySelector('[role="dialog"]')?.contains(document.activeElement)).toBe(true);
     expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("returns focus to the edit error after a failed PATCH and keeps Tab scoped", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: "INTERNAL_DETAIL" }, { status: 500 })));
+    await click(button("Editar Sistema de gestión externo"));
+    await type(host.querySelector<HTMLInputElement>("#knowledge-source-title")!, "Catálogo Business");
+    await click(button("Guardar cambios"));
+
+    const dialog = host.querySelector('[role="dialog"]');
+    const alert = host.querySelector<HTMLElement>('[role="alert"]');
+    expect(alert?.textContent).toContain("No pudimos guardar los cambios");
+    expect(document.activeElement).toBe(alert);
+    await act(async () => { alert?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })); });
+    expect(dialog?.contains(document.activeElement)).toBe(true);
+    expect(host.textContent).not.toContain("INTERNAL_DETAIL");
   });
 
   it("locks destructive dismissal while the request is pending", async () => {
