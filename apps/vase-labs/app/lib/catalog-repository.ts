@@ -1,6 +1,7 @@
 import { labsPrisma } from "./db";
 import type { CatalogProduct } from "../generated/prisma";
 import { createLabsCatalogService, type CatalogEditorialInput, type LabsCatalogOperations, type LabsCatalogRecord, type LabsCatalogRepository } from "./catalog-service";
+import { withMysqlTenantLock } from "./mysql-tenant-lock";
 
 type CatalogDbClient = Pick<typeof labsPrisma, "catalogProduct" | "catalogSyncEvent">;
 
@@ -99,13 +100,14 @@ export const catalogTransactionOptions = { maxWait: 10_000, timeout: 60_000 } as
 export const prismaLabsCatalogRepository: LabsCatalogRepository = {
   ...catalogOperations,
   async withTenantLock(globalTenantId, operation) {
-    return labsPrisma.$transaction(async (transaction) => {
-      await transaction.$queryRawUnsafe(
-        "select pg_advisory_xact_lock(hashtext($1))",
+    return labsPrisma.$transaction(
+      (transaction) => withMysqlTenantLock(
+        transaction,
         globalTenantId,
-      );
-      return operation(createCatalogOperations(transaction));
-    }, catalogTransactionOptions);
+        () => operation(createCatalogOperations(transaction)),
+      ),
+      catalogTransactionOptions,
+    );
   },
 };
 

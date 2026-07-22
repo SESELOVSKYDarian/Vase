@@ -1,4 +1,5 @@
-import { labsPrisma, Prisma } from "./db";
+import { labsPrisma } from "./db";
+import { withMysqlTenantLock } from "./mysql-tenant-lock";
 import type { ParsedKnowledgeInput } from "./knowledge-source";
 
 export type KnowledgeItemCreateData = {
@@ -19,19 +20,23 @@ export interface KnowledgeRepository {
 }
 
 export interface KnowledgeMutationOperations {
+  findAssistantTenant(assistantId: string): Promise<{ globalTenantId: string } | null>;
+  withTenantLock<TResult>(globalTenantId: string, operation: () => Promise<TResult>): Promise<TResult>;
   findByAssistant(assistantId: string, knowledgeId: string): Promise<KnowledgeItemRecord | null>;
   updateTitle(assistantId: string, knowledgeId: string, title: string): Promise<number>;
   deleteByAssistant(assistantId: string, knowledgeId: string): Promise<number>;
-  countByAssistantAndSourceType(assistantId: string, sourceType: string): Promise<number>;
+  countByTenantAndSourceType(globalTenantId: string, sourceType: string): Promise<number>;
   deleteCatalogProducts(globalTenantId: string): Promise<void>;
   deleteCatalogSyncEvents(globalTenantId: string): Promise<void>;
 }
 
 export interface KnowledgeTransactionOperations extends KnowledgeMutationOperations, KnowledgeRepository {
-  lockAssistant(assistantId: string): Promise<{ globalTenantId: string } | null>;
 }
 
-export interface KnowledgeMutationRepository extends KnowledgeMutationOperations {
+export interface KnowledgeMutationRepository extends Pick<
+  KnowledgeMutationOperations,
+  "findByAssistant" | "updateTitle"
+> {
   transaction<T>(operation: (repository: KnowledgeTransactionOperations) => Promise<T>): Promise<T>;
 }
 
@@ -69,9 +74,15 @@ export async function createLockedKnowledgeItem(
   input: ParsedKnowledgeInput,
 ): Promise<KnowledgeItemRecord> {
   return repository.transaction(async (transaction) => {
-    const assistant = await transaction.lockAssistant(assistantId);
-    if (!assistant) throw knowledgeSourceNotFound();
-    return createKnowledgeItem(transaction, assistantId, input);
+    const candidate = await transaction.findAssistantTenant(assistantId);
+    if (!candidate) throw knowledgeSourceNotFound();
+    return transaction.withTenantLock(candidate.globalTenantId, async () => {
+      const assistant = await transaction.findAssistantTenant(assistantId);
+      if (!assistant || assistant.globalTenantId !== candidate.globalTenantId) {
+        throw knowledgeSourceNotFound();
+      }
+      return createKnowledgeItem(transaction, assistantId, input);
+    });
   });
 }
 
@@ -80,7 +91,7 @@ function knowledgeSourceNotFound(): Error {
 }
 
 export async function renameKnowledgeItem(
-  repository: KnowledgeMutationOperations,
+  repository: Pick<KnowledgeMutationOperations, "findByAssistant" | "updateTitle">,
   assistantId: string,
   knowledgeId: string,
   title: string,
@@ -100,46 +111,56 @@ export async function deleteKnowledgeItem(
   knowledgeId: string,
 ): Promise<KnowledgeItemRecord> {
   return repository.transaction(async (transaction) => {
-    const assistant = await transaction.lockAssistant(assistantId);
-    if (!assistant || assistant.globalTenantId !== globalTenantId) {
+    const candidate = await transaction.findAssistantTenant(assistantId);
+    if (!candidate || candidate.globalTenantId !== globalTenantId) {
       throw knowledgeSourceNotFound();
     }
 
-    const item = await transaction.findByAssistant(assistantId, knowledgeId);
-    if (!item) throw knowledgeSourceNotFound();
-
-    const deletedCount = await transaction.deleteByAssistant(assistantId, knowledgeId);
-    if (deletedCount === 0) throw knowledgeSourceNotFound();
-
-    if (item.sourceType === "EXTERNAL_MANAGEMENT") {
-      const remainingExternalSources = await transaction.countByAssistantAndSourceType(
-        assistantId,
-        "EXTERNAL_MANAGEMENT",
-      );
-      if (remainingExternalSources === 0) {
-        await transaction.deleteCatalogProducts(globalTenantId);
-        await transaction.deleteCatalogSyncEvents(globalTenantId);
+    return transaction.withTenantLock(candidate.globalTenantId, async () => {
+      const assistant = await transaction.findAssistantTenant(assistantId);
+      if (!assistant || assistant.globalTenantId !== candidate.globalTenantId) {
+        throw knowledgeSourceNotFound();
       }
-    }
 
-    return item;
+      const item = await transaction.findByAssistant(assistantId, knowledgeId);
+      if (!item) throw knowledgeSourceNotFound();
+
+      const deletedCount = await transaction.deleteByAssistant(assistantId, knowledgeId);
+      if (deletedCount === 0) throw knowledgeSourceNotFound();
+
+      if (item.sourceType === "EXTERNAL_MANAGEMENT") {
+        const remainingExternalSources = await transaction.countByTenantAndSourceType(
+          assistant.globalTenantId,
+          "EXTERNAL_MANAGEMENT",
+        );
+        if (remainingExternalSources === 0) {
+          await transaction.deleteCatalogProducts(assistant.globalTenantId);
+          await transaction.deleteCatalogSyncEvents(assistant.globalTenantId);
+        }
+      }
+
+      return item;
+    });
   });
 }
 
 type KnowledgeMutationDbClient = Pick<
   typeof labsPrisma,
-  "$queryRaw" | "knowledgeItem" | "catalogProduct" | "catalogSyncEvent"
+  "$queryRawUnsafe" | "assistant" | "knowledgeItem" | "catalogProduct" | "catalogSyncEvent"
 >;
 
 function createPrismaKnowledgeMutationOperations(
   db: KnowledgeMutationDbClient,
 ): KnowledgeTransactionOperations {
   return {
-    async lockAssistant(assistantId) {
-      const assistants = await db.$queryRaw<Array<{ globalTenantId: string }>>(
-        Prisma.sql`SELECT globalTenantId FROM Assistant WHERE id = ${assistantId} FOR UPDATE`,
-      );
-      return assistants[0] ?? null;
+    findAssistantTenant(assistantId) {
+      return db.assistant.findUnique({
+        where: { id: assistantId },
+        select: { globalTenantId: true },
+      });
+    },
+    withTenantLock(globalTenantId, operation) {
+      return withMysqlTenantLock(db, globalTenantId, operation);
     },
     create(data) {
       return db.knowledgeItem.create({ data });
@@ -158,8 +179,10 @@ function createPrismaKnowledgeMutationOperations(
       const result = await db.knowledgeItem.deleteMany({ where: { id: knowledgeId, assistantId } });
       return result.count;
     },
-    countByAssistantAndSourceType(assistantId, sourceType) {
-      return db.knowledgeItem.count({ where: { assistantId, sourceType } });
+    countByTenantAndSourceType(globalTenantId, sourceType) {
+      return db.knowledgeItem.count({
+        where: { sourceType, assistant: { globalTenantId } },
+      });
     },
     async deleteCatalogProducts(globalTenantId) {
       await db.catalogProduct.deleteMany({ where: { globalTenantId } });
@@ -178,12 +201,15 @@ export const prismaKnowledgeRepository: KnowledgeRepository = {
 
 const prismaKnowledgeMutationOperations = createPrismaKnowledgeMutationOperations(labsPrisma);
 
+export const knowledgeTransactionOptions = { maxWait: 10_000, timeout: 60_000 } as const;
+
 export const prismaKnowledgeMutationRepository: KnowledgeMutationRepository = {
-  ...prismaKnowledgeMutationOperations,
+  findByAssistant: prismaKnowledgeMutationOperations.findByAssistant,
+  updateTitle: prismaKnowledgeMutationOperations.updateTitle,
   transaction(operation) {
     return labsPrisma.$transaction((transaction) => (
       operation(createPrismaKnowledgeMutationOperations(transaction))
-    ));
+    ), knowledgeTransactionOptions);
   },
 };
 

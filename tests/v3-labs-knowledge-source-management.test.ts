@@ -37,24 +37,27 @@ function memoryRepository(initialState: MemoryState, options?: { failCatalogEven
   let state = cloneState(initialState);
   const lockTails = new Map<string, Promise<void>>();
 
-  async function acquireAssistantLock(assistantId: string) {
-    const previous = lockTails.get(assistantId) ?? Promise.resolve();
+  async function acquireTenantLock(globalTenantId: string) {
+    const previous = lockTails.get(globalTenantId) ?? Promise.resolve();
     let release = () => {};
     const gate = new Promise<void>((resolve) => { release = resolve; });
     const tail = previous.then(() => gate);
-    lockTails.set(assistantId, tail);
+    lockTails.set(globalTenantId, tail);
     await previous;
     return () => {
       release();
-      if (lockTails.get(assistantId) === tail) lockTails.delete(assistantId);
+      if (lockTails.get(globalTenantId) === tail) lockTails.delete(globalTenantId);
     };
   }
 
   function operationsFor(target: () => MemoryState): KnowledgeTransactionOperations {
     return {
-      async lockAssistant(assistantId) {
+      async findAssistantTenant(assistantId) {
         const globalTenantId = target().assistants.get(assistantId);
         return globalTenantId ? { globalTenantId } : null;
+      },
+      async withTenantLock(_globalTenantId, operation) {
+        return operation();
       },
       async create(data) {
         const record = { ...data, id: `created-${target().items.size + 1}` };
@@ -78,9 +81,10 @@ function memoryRepository(initialState: MemoryState, options?: { failCatalogEven
         target().items.delete(knowledgeId);
         return 1;
       },
-      async countByAssistantAndSourceType(assistantId, sourceType) {
+      async countByTenantAndSourceType(globalTenantId, sourceType) {
         return [...target().items.values()].filter(
-          (item) => item.assistantId === assistantId && item.sourceType === sourceType,
+          (item) => target().assistants.get(item.assistantId) === globalTenantId
+            && item.sourceType === sourceType,
         ).length;
       },
       async deleteCatalogProducts(globalTenantId) {
@@ -96,21 +100,16 @@ function memoryRepository(initialState: MemoryState, options?: { failCatalogEven
   const repository: KnowledgeMutationRepository = {
     ...operationsFor(() => state),
     async transaction(operation) {
-      let draft: MemoryState | null = null;
+      let draft = cloneState(state);
       let releaseLock: (() => void) | null = null;
-      const transactionOperations = operationsFor(() => {
-        if (!draft) throw new Error("ASSISTANT_LOCK_REQUIRED");
-        return draft;
-      });
-      transactionOperations.lockAssistant = async (assistantId) => {
-        releaseLock = await acquireAssistantLock(assistantId);
+      const transactionOperations = operationsFor(() => draft);
+      transactionOperations.withTenantLock = async (globalTenantId, lockedOperation) => {
+        releaseLock = await acquireTenantLock(globalTenantId);
         draft = cloneState(state);
-        const globalTenantId = draft.assistants.get(assistantId);
-        return globalTenantId ? { globalTenantId } : null;
+        return lockedOperation();
       };
       try {
         const result = await operation(transactionOperations);
-        if (!draft) throw new Error("ASSISTANT_LOCK_REQUIRED");
         state = draft;
         return result;
       } finally {
@@ -127,6 +126,7 @@ function initialState(items: KnowledgeItemRecord[]): MemoryState {
     assistants: new Map([
       ["assistant-1", "tenant-1"],
       ["assistant-2", "tenant-2"],
+      ["assistant-3", "tenant-1"],
     ]),
     items: new Map(items.map((item) => [item.id, item])),
     catalogProducts: new Set(["tenant-1", "tenant-2"]),
@@ -222,15 +222,29 @@ describe("Labs knowledge source repository mutations", () => {
     expect(memory.state().catalogSyncEvents).toEqual(new Set(["tenant-1", "tenant-2"]));
   });
 
+  it("preserves catalog rows while another assistant in the tenant has an external source", async () => {
+    const memory = memoryRepository(initialState([
+      knowledgeItem("knowledge-1", "assistant-1", "EXTERNAL_MANAGEMENT"),
+      knowledgeItem("knowledge-3", "assistant-3", "EXTERNAL_MANAGEMENT"),
+    ]));
+
+    await deleteKnowledgeItem(memory.repository, "assistant-1", "tenant-1", "knowledge-1");
+
+    expect(memory.state().items.has("knowledge-1")).toBe(false);
+    expect(memory.state().items.has("knowledge-3")).toBe(true);
+    expect(memory.state().catalogProducts).toEqual(new Set(["tenant-1", "tenant-2"]));
+    expect(memory.state().catalogSyncEvents).toEqual(new Set(["tenant-1", "tenant-2"]));
+  });
+
   it("serializes concurrent external deletions so the final deletion cleans the catalog", async () => {
     const memory = memoryRepository(initialState([
       knowledgeItem("knowledge-1", "assistant-1", "EXTERNAL_MANAGEMENT"),
-      knowledgeItem("knowledge-2", "assistant-1", "EXTERNAL_MANAGEMENT"),
+      knowledgeItem("knowledge-3", "assistant-3", "EXTERNAL_MANAGEMENT"),
     ]));
 
     await Promise.all([
       deleteKnowledgeItem(memory.repository, "assistant-1", "tenant-1", "knowledge-1"),
-      deleteKnowledgeItem(memory.repository, "assistant-1", "tenant-1", "knowledge-2"),
+      deleteKnowledgeItem(memory.repository, "assistant-3", "tenant-1", "knowledge-3"),
     ]);
 
     expect(memory.state().items.size).toBe(0);
