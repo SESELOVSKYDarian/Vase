@@ -155,38 +155,50 @@ describe("GET /api/v1/integrations/internal/tenant/:tenantId/product-sync-creden
   }
 
   it.each([undefined, "", "wrong-token"])("fails closed for service token %s", async (supplied) => {
-    const ensureToken = vi.fn();
+    const findToken = vi.fn();
     const handler = createProductSyncCredentialsHandler({
-      db: {}, expectedServiceToken: "service-token", ensureToken,
+      db: {}, expectedServiceToken: "service-token", findToken,
     });
     const { res, response } = responseRecorder();
     await handler({ params: { tenantId: "tenant_123" }, get: () => supplied ? `Bearer ${supplied}` : undefined }, res, vi.fn());
     expect(response).toEqual({ statusCode: 403, body: { error: "forbidden" } });
-    expect(ensureToken).not.toHaveBeenCalled();
+    expect(findToken).not.toHaveBeenCalled();
   });
 
   it("fails closed when service auth is not configured", async () => {
-    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "", ensureToken: vi.fn() });
+    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "", findToken: vi.fn() });
     const { res, response } = responseRecorder();
     await handler({ params: { tenantId: "tenant_123" }, get: () => "Bearer anything" }, res, vi.fn());
     expect(response.statusCode).toBe(403);
   });
 
-  it("returns only the approved three-field allowlist", async () => {
-    const ensureToken = vi.fn(async () => ({
-      tokenRecord: { token_hash: "consumer-key", consumer_secret: "secret", auth: { token: "leak" }, scope: "*" },
-      autoCreated: false,
+  it("returns an existing credential without creating one and allowlists the response", async () => {
+    const findToken = vi.fn(async () => ({
+      token_hash: "consumer-key", consumer_secret: "secret", auth: { token: "leak" }, scope: "*",
     }));
-    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "service-token", ensureToken });
+    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "service-token", findToken });
     const { res, response } = responseRecorder();
     await handler({ params: { tenantId: "tenant_123" }, get: () => "Bearer service-token" }, res, vi.fn());
+    expect(findToken).toHaveBeenCalledWith({}, "tenant_123");
     expect(response.body).toEqual({ domain: "business.vase.ar", tenantUuid: "tenant_123", consumerKey: "consumer-key" });
     expect(Object.keys(response.body as object)).toEqual(["domain", "tenantUuid", "consumerKey"]);
     expect(JSON.stringify(response.body)).not.toMatch(/consumer_secret|secret|auth|token|scope/i);
   });
 
+  it("reports a tenant without an existing external connection", async () => {
+    const handler = createProductSyncCredentialsHandler({
+      db: {}, expectedServiceToken: "service-token", findToken: vi.fn(async () => null),
+    });
+    const { res, response } = responseRecorder();
+    await handler({ params: { tenantId: "tenant_123" }, get: () => "Bearer service-token" }, res, vi.fn());
+    expect(response).toEqual({
+      statusCode: 404,
+      body: { error: "EXTERNAL_MANAGEMENT_NOT_CONNECTED" },
+    });
+  });
+
   it("rejects an empty tenant id", async () => {
-    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "service-token", ensureToken: vi.fn() });
+    const handler = createProductSyncCredentialsHandler({ db: {}, expectedServiceToken: "service-token", findToken: vi.fn() });
     const { res, response } = responseRecorder();
     await handler({ params: { tenantId: "   " }, get: () => "Bearer service-token" }, res, vi.fn());
     expect(response).toEqual({ statusCode: 400, body: { error: "invalid_tenant_id" } });
