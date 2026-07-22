@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mapBusinessProductForLabs } from './labsCatalogOutboxCore.js';
+import { findLatestProductSyncToken } from './productSyncCredentials.js';
 
 export async function resolveBusinessCatalogTenant(db, tenantReference) {
   const result = await db.query(
@@ -33,9 +34,16 @@ export async function buildBusinessCatalogSnapshot({
   tenantReference,
   createEventId = randomUUID,
   now = () => new Date(),
+  requireCredential = false,
+  findCredential = findLatestProductSyncToken,
 }) {
   const tenant = await resolveBusinessCatalogTenant(db, tenantReference);
   if (!tenant) {
+    const error = new Error('EXTERNAL_MANAGEMENT_NOT_CONNECTED');
+    error.code = 'EXTERNAL_MANAGEMENT_NOT_CONNECTED';
+    throw error;
+  }
+  if (requireCredential && !await findCredential(db, tenant.businessTenantId)) {
     const error = new Error('EXTERNAL_MANAGEMENT_NOT_CONNECTED');
     error.code = 'EXTERNAL_MANAGEMENT_NOT_CONNECTED';
     throw error;
@@ -52,7 +60,11 @@ export async function buildBusinessCatalogSnapshot({
   };
 }
 
-export function createBusinessCatalogSnapshotHandler({ db, expectedServiceToken }) {
+export function createBusinessCatalogSnapshotHandler({
+  db,
+  expectedServiceToken,
+  findCredential = findLatestProductSyncToken,
+}) {
   return async function businessCatalogSnapshotHandler(req, res, next) {
     const expected = String(expectedServiceToken || '').trim();
     if (!expected || req.get('authorization') !== `Bearer ${expected}`) {
@@ -61,7 +73,12 @@ export function createBusinessCatalogSnapshotHandler({ db, expectedServiceToken 
     const tenantReference = String(req.params?.tenantId || '').trim();
     if (!tenantReference) return res.status(400).json({ error: 'invalid_tenant_id' });
     try {
-      const snapshot = await buildBusinessCatalogSnapshot({ db, tenantReference });
+      const snapshot = await buildBusinessCatalogSnapshot({
+        db,
+        tenantReference,
+        requireCredential: true,
+        findCredential,
+      });
       return res.json(snapshot.payload);
     } catch (error) {
       if (error?.code === 'EXTERNAL_MANAGEMENT_NOT_CONNECTED') {

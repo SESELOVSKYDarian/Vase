@@ -62,6 +62,27 @@ describe("Business internal catalog snapshot", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "EXTERNAL_MANAGEMENT_NOT_CONNECTED" });
   });
 
+  it("returns not connected when the bridged tenant has no product sync credential", async () => {
+    const query = vi.fn(async () => ({
+      rows: [{ id: "business-uuid", external_tenant_id: "global-tenant" }],
+    }));
+    const findCredential = vi.fn(async () => null);
+    const handler = createBusinessCatalogSnapshotHandler({
+      db: { query },
+      expectedServiceToken: "service-token",
+      findCredential,
+    });
+    const req = { get: vi.fn(() => "Bearer service-token"), params: { tenantId: "global-tenant" } };
+    const res = responseRecorder();
+
+    await handler(req, res, vi.fn());
+
+    expect(findCredential).toHaveBeenCalledWith({ query }, "business-uuid");
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: "EXTERNAL_MANAGEMENT_NOT_CONNECTED" });
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
   it("requires service authentication before reading the tenant", async () => {
     const query = vi.fn();
     const handler = createBusinessCatalogSnapshotHandler({ db: { query }, expectedServiceToken: "service-token" });

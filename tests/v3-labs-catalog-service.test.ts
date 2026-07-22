@@ -14,7 +14,7 @@ function memoryRepository(): LabsCatalogRepository {
     async upsertSource(input) {
       const key = `${input.globalTenantId}:${input.externalProductId}`;
       const current = records.get(key);
-      if (current && current.sourceUpdatedAt >= input.sourceUpdatedAt) return current;
+      if (current && current.sourceUpdatedAt > input.sourceUpdatedAt) return current;
       const next: LabsCatalogRecord = {
         ...input,
         offeredByChatbot: current?.offeredByChatbot ?? (input.active && input.stock > 0),
@@ -24,6 +24,15 @@ function memoryRepository(): LabsCatalogRepository {
       };
       records.set(key, next);
       return next;
+    },
+    async deactivateMissing(globalTenantId, externalProductIds) {
+      let count = 0;
+      for (const [key, current] of records) {
+        if (current.globalTenantId !== globalTenantId || externalProductIds.includes(current.externalProductId) || !current.active) continue;
+        records.set(key, { ...current, active: false });
+        count += 1;
+      }
+      return count;
     },
     async updateEditorial(globalTenantId, externalProductId, editorial) {
       const key = `${globalTenantId}:${externalProductId}`;
@@ -78,5 +87,32 @@ describe("Labs catalog service", () => {
 
     expect((await service.list("tenant_1"))[0].aiAlias).toBe("Producto estrella");
     expect(await service.buildAiContext("tenant_1")).toBe("");
+  });
+
+  it("deactivates products missing from a full snapshot without touching another tenant", async () => {
+    const service = createLabsCatalogService(memoryRepository());
+    await service.sync(batch);
+    await service.sync({
+      ...batch,
+      eventId: "tenant-2-event",
+      globalTenantId: "tenant_2",
+      products: [{ ...batch.products[0], externalProductId: "other-product" }],
+    });
+
+    await service.sync({
+      eventId: "tenant-1-empty",
+      globalTenantId: "tenant_1",
+      occurredAt: "2026-07-22T15:00:00.000Z",
+      products: [],
+    });
+
+    expect((await service.list("tenant_1")).every((product) => !product.active)).toBe(true);
+    expect((await service.list("tenant_2"))[0]).toMatchObject({
+      externalProductId: "other-product",
+      active: true,
+    });
+
+    await service.sync({ ...batch, eventId: "tenant-1-restored", occurredAt: "2026-07-22T16:00:00.000Z" });
+    expect((await service.list("tenant_1")).every((product) => product.active)).toBe(true);
   });
 });

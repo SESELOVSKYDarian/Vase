@@ -26,6 +26,7 @@ export interface LabsCatalogRepository {
   hasEvent(eventId: string): Promise<boolean>;
   recordEvent(eventId: string, metadata: { globalTenantId: string; productCount: number; occurredAt: string }): Promise<void>;
   upsertSource(input: Omit<LabsCatalogRecord, "offeredByChatbot" | "aiAlias" | "aiDescription" | "aiInstructions">): Promise<LabsCatalogRecord>;
+  deactivateMissing(globalTenantId: string, externalProductIds: string[]): Promise<number>;
   updateEditorial(globalTenantId: string, externalProductId: string, input: CatalogEditorialInput): Promise<LabsCatalogRecord>;
   list(globalTenantId: string): Promise<LabsCatalogRecord[]>;
 }
@@ -39,6 +40,10 @@ export function createLabsCatalogService(repository: LabsCatalogRepository) {
       for (const product of batch.products) {
         await repository.upsertSource({ ...product, globalTenantId: batch.globalTenantId });
       }
+      await repository.deactivateMissing(
+        batch.globalTenantId,
+        batch.products.map((product) => product.externalProductId),
+      );
       await repository.recordEvent(batch.eventId, {
         globalTenantId: batch.globalTenantId,
         productCount: batch.products.length,

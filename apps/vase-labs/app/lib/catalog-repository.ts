@@ -36,7 +36,7 @@ export const prismaLabsCatalogRepository: LabsCatalogRepository = {
     const existing = await labsPrisma.catalogProduct.findUnique({
       where: { globalTenantId_externalProductId: { globalTenantId: input.globalTenantId, externalProductId: input.externalProductId } },
     });
-    if (existing && existing.sourceUpdatedAt.getTime() >= sourceUpdatedAt.getTime()) return mapRecord(existing);
+    if (existing && existing.sourceUpdatedAt.getTime() > sourceUpdatedAt.getTime()) return mapRecord(existing);
     const source = {
       sku: input.sku,
       name: input.name,
@@ -54,6 +54,19 @@ export const prismaLabsCatalogRepository: LabsCatalogRepository = {
       update: source,
     });
     return mapRecord(record);
+  },
+  async deactivateMissing(globalTenantId, externalProductIds) {
+    const result = await labsPrisma.catalogProduct.updateMany({
+      where: {
+        globalTenantId,
+        active: true,
+        ...(externalProductIds.length > 0
+          ? { externalProductId: { notIn: externalProductIds } }
+          : {}),
+      },
+      data: { active: false },
+    });
+    return result.count;
   },
   async updateEditorial(globalTenantId: string, externalProductId: string, input: CatalogEditorialInput) {
     const record = await labsPrisma.catalogProduct.update({
