@@ -103,6 +103,6 @@ Las pruebas cubrirán:
 
 ## Despliegue
 
-El cambio requiere desplegar `vase-business` (editor/server), `vase-app` y
-`vase-labs`. Vase App no cambia el formato, pero debe desplegarse si sus pruebas
-o validaciones internas requieren el nuevo flujo integrado.
+El cambio requiere desplegar `vase-business` (editor/server) y `vase-labs`.
+Vase App conserva y valida el mismo contrato interno `imageUrl`, por lo que no
+requiere despliegue si su implementación no cambia.
