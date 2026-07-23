@@ -80,6 +80,21 @@ enum MessageDeliveryStatus {
   FAILED
 }
 
+enum ConversationIntentLabel {
+  HOT_LEAD
+  RESEARCHING
+  LOW_INTENT
+  HUMAN_REQUESTED
+  UNCLASSIFIED
+}
+
+enum ConversationAnalysisJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model Assistant {
   id             String   @id @default(cuid())
   globalTenantId String
@@ -92,6 +107,7 @@ model Assistant {
   secrets        AssistantSecret[]
   knowledgeItems KnowledgeItem[]
   conversations  Conversation[]
+  conversationInsightSettings ConversationInsightSettings?
   metaConnectionAttempts MetaConnectionAttempt[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -299,12 +315,76 @@ model Conversation {
   assistant         Assistant          @relation(fields: [assistantId], references: [id], onDelete: Cascade)
   messages          Message[]
   handoffs          Handoff[]
+  insight           ConversationInsight?
+  analysisJob       ConversationAnalysisJob?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   @@index([assistantId, status, lastMessageAt])
   @@index([externalThreadKey])
   @@unique([assistantId, channel, externalThreadKey])
+}
+
+model ConversationInsight {
+  id                       String                  @id @default(cuid())
+  conversationId           String                  @unique
+  analysisVersion          Int
+  summary                  String                  @db.Text
+  currentNeed              String                  @db.Text
+  productInterests         Json
+  preferences              Json
+  objections               Json
+  budgetSignals            Json
+  urgencySignals           Json
+  recommendations          Json
+  nextBestAction           String                  @db.Text
+  scoreReasons             Json
+  leadScore                Int
+  intentLabel              ConversationIntentLabel
+  identitySignals          Json
+  analyzedThroughMessageId String
+  analyzedAt               DateTime
+  conversation             Conversation            @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+
+  @@index([intentLabel, leadScore])
+  @@index([analyzedAt])
+}
+
+model ConversationInsightSettings {
+  id                       String    @id @default(cuid())
+  assistantId              String    @unique
+  version                  Int       @default(1)
+  hotLeadThreshold         Int       @default(75)
+  purchaseIntentWeight     Int       @default(25)
+  productDefinedWeight     Int       @default(15)
+  budgetAcceptanceWeight   Int       @default(15)
+  urgencyWeight            Int       @default(15)
+  contactFulfillmentWeight Int       @default(10)
+  interactionDepthWeight   Int       @default(10)
+  negativeSignalsWeight    Int       @default(-10)
+  assistant                Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+}
+
+model ConversationAnalysisJob {
+  id                               String                        @id @default(cuid())
+  conversationId                   String                        @unique
+  requestedThroughMessageId        String
+  requestedThroughMessageCreatedAt DateTime
+  status                           ConversationAnalysisJobStatus @default(QUEUED)
+  attempts                         Int                           @default(0)
+  leaseToken                       String?
+  leaseExpiresAt                   DateTime?
+  lastError                        String?                       @db.Text
+  conversation                     Conversation                  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt                        DateTime                      @default(now())
+  updatedAt                        DateTime                      @updatedAt
+
+  @@index([status, leaseExpiresAt])
+  @@index([status, attempts, updatedAt])
 }
 
 model Message {
