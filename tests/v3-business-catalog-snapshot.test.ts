@@ -67,6 +67,14 @@ describe("Business internal catalog snapshot", () => {
     [{ imageUrl: "not a URL" }],
     [{ image: "ftp://cdn.vase.ar/file.jpg" }],
     [{ images: [null, {}, 42] }],
+    [{ image: "https://localhost/product.jpg" }],
+    [{ image: "https://assets.localhost/product.jpg" }],
+    [{ image: "https://catalog.local/product.jpg" }],
+    [{ image: "https://127.0.0.1/product.jpg" }],
+    [{ image: "https://2130706433/product.jpg" }],
+    [{ image: "https://192.168.1.10/product.jpg" }],
+    [{ image: "https://[::1]/product.jpg" }],
+    [{ image: "https://user:pass@cdn.vase.ar/product.jpg" }],
   ])("drops invalid Business image data %j without dropping the product", async (data) => {
     const snapshot = await buildSnapshotWithProductData(data);
 
@@ -129,7 +137,9 @@ async function buildSnapshotWithProductData(data: unknown) {
       return { rows: [{ id: "business-uuid", external_tenant_id: "global-tenant" }] };
     }
     if (sql.includes("from product_cache")) {
-      expect(sql).toContain("data");
+      expect(sql).toContain("jsonb_build_object");
+      expect(sql).toContain("'images', data->'images'");
+      expect(sql).not.toContain("updated_at, data\n");
       return {
         rows: [{
           id: "p1",

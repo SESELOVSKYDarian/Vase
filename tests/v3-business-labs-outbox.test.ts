@@ -32,10 +32,66 @@ describe("Business to Labs catalog outbox", () => {
     expect(mapBusinessProductForLabs(businessProduct({ data })).imageUrl).toBe(expected);
   });
 
+  it("uses the highest-priority valid image candidate", () => {
+    expect(mapBusinessProductForLabs(businessProduct({
+      image_url: "https://cdn.vase.ar/legacy.jpg",
+      data: {
+        image_url: "https://cdn.vase.ar/snake-case.jpg",
+        imageUrl: "https://cdn.vase.ar/camel-case.jpg",
+        image: "https://cdn.vase.ar/singular.jpg",
+        images: ["https://cdn.vase.ar/collection.jpg"],
+      },
+    })).imageUrl).toBe("https://cdn.vase.ar/legacy.jpg");
+  });
+
+  it.each([
+    [
+      {
+        image_url: "http://cdn.vase.ar/insecure.jpg",
+        data: { image_url: "https://cdn.vase.ar/snake-case.jpg" },
+      },
+      "https://cdn.vase.ar/snake-case.jpg",
+    ],
+    [
+      {
+        data: {
+          image_url: "https://localhost/private.jpg",
+          imageUrl: "not a URL",
+          image: "https://cdn.vase.ar/singular.jpg",
+        },
+      },
+      "https://cdn.vase.ar/singular.jpg",
+    ],
+    [
+      {
+        data: {
+          images: [
+            "https://127.0.0.1/private.jpg",
+            { url: "ftp://cdn.vase.ar/file.jpg" },
+            { src: "https://cdn.vase.ar/collection.jpg" },
+          ],
+        },
+      },
+      "https://cdn.vase.ar/collection.jpg",
+    ],
+  ])("falls back from invalid higher-priority candidates in %j", (imageData, expected) => {
+    expect(mapBusinessProductForLabs(businessProduct(imageData)).imageUrl).toBe(expected);
+  });
+
   it.each([
     { image_url: "http://cdn.vase.ar/insecure.jpg" },
     { data: { image: "not a URL" } },
     { data: { images: ["ftp://cdn.vase.ar/file.jpg", null, {}] } },
+    { data: { image: "https://localhost/product.jpg" } },
+    { data: { image: "https://assets.localhost/product.jpg" } },
+    { data: { image: "https://catalog.local/product.jpg" } },
+    { data: { image: "https://127.0.0.1/product.jpg" } },
+    { data: { image: "https://2130706433/product.jpg" } },
+    { data: { image: "https://10.0.0.1/product.jpg" } },
+    { data: { image: "https://172.16.0.1/product.jpg" } },
+    { data: { image: "https://192.168.1.10/product.jpg" } },
+    { data: { image: "https://[::1]/product.jpg" } },
+    { data: { image: "https://user:pass@cdn.vase.ar/product.jpg" } },
   ])("keeps the product and sets imageUrl to null for invalid image data %j", (imageData) => {
     expect(mapBusinessProductForLabs(businessProduct(imageData))).toMatchObject({
       externalProductId: "erp_1",

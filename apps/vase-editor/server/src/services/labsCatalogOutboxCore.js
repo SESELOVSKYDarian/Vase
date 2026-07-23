@@ -1,10 +1,26 @@
+import { isIP } from 'node:net';
+
 export const nextCatalogRetryDelayMs = (attempt) => Math.min(900_000, 5_000 * (2 ** Math.max(0, attempt - 1)));
 
 const asPublicHttpsUrl = (value) => {
   if (typeof value !== 'string' || !value.trim()) return null;
   try {
     const url = new URL(value.trim());
-    return url.protocol === 'https:' ? url.toString() : null;
+    const hostname = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
+    const isLocalHostname = hostname === 'localhost'
+      || hostname.endsWith('.localhost')
+      || hostname === 'local'
+      || hostname.endsWith('.local');
+    if (
+      url.protocol !== 'https:'
+      || url.username
+      || url.password
+      || isLocalHostname
+      || isIP(hostname)
+    ) {
+      return null;
+    }
+    return url.toString();
   } catch {
     return null;
   }

@@ -23,7 +23,13 @@ export async function resolveBusinessCatalogTenant(db, tenantReference) {
 
 export async function loadBusinessTenantCatalog(db, businessTenantId) {
   const result = await db.query(`select id, erp_id, external_id, sku, name, description, price, stock,
-    is_active_source, deleted_at, last_sync_at, updated_at, data
+    is_active_source, deleted_at, last_sync_at, updated_at,
+    jsonb_build_object(
+      'image_url', data->'image_url',
+      'imageUrl', data->'imageUrl',
+      'image', data->'image',
+      'images', data->'images'
+    ) as data
     from product_cache where tenant_id = $1 and status = 'active' order by name asc`, [businessTenantId]);
   return result.rows.map(mapBusinessProductForLabs);
 }
