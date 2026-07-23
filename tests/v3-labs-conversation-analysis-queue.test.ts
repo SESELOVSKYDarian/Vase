@@ -235,6 +235,80 @@ describe("Labs durable conversation analysis queue", () => {
     });
   });
 
+  it("coalesces an ordinary same-boundary enqueue without stealing a valid processing lease", async () => {
+    const { queue, repository, setNow } = queueHarness();
+    repository.seed(job({
+      status: "PROCESSING",
+      attempts: 2,
+      leaseToken: "valid_token",
+      leaseExpiresAt: new Date("2026-07-23T12:06:00.000Z"),
+    }));
+    setNow(new Date("2026-07-23T12:05:30.000Z"));
+
+    await queue.enqueue(enqueueRequest("message_1"));
+
+    expect(repository.get("conversation_1")).toMatchObject({
+      status: "PROCESSING",
+      attempts: 2,
+      leaseToken: "valid_token",
+      leaseExpiresAt: new Date("2026-07-23T12:06:00.000Z"),
+      requestedAt: new Date("2026-07-23T12:00:00.000Z"),
+    });
+    await expect(queue.renewLease({
+      conversationId: "conversation_1",
+      leaseToken: "valid_token",
+    })).resolves.toBe("RENEWED");
+  });
+
+  it("force requeues the same boundary and invalidates the in-flight worker lease", async () => {
+    const { queue, repository, setNow } = queueHarness();
+    await queue.enqueue(enqueueRequest("message_1"));
+    const oldClaim = await queue.claimNext();
+    setNow(new Date("2026-07-23T12:05:30.000Z"));
+
+    await queue.enqueue({
+      ...enqueueRequest("message_1"),
+      force: true,
+    });
+
+    expect(repository.get("conversation_1")).toMatchObject({
+      status: "QUEUED",
+      attempts: 0,
+      leaseToken: null,
+      leaseExpiresAt: null,
+      requestedAt: new Date("2026-07-23T12:05:30.000Z"),
+      updatedAt: new Date("2026-07-23T12:05:30.000Z"),
+    });
+    await expect(queue.renewLease({
+      conversationId: "conversation_1",
+      leaseToken: oldClaim!.leaseToken!,
+    })).resolves.toBe("LEASE_LOST");
+    await expect(queue.fail({
+      conversationId: "conversation_1",
+      leaseToken: oldClaim!.leaseToken!,
+      error: new Error("stale worker"),
+    })).resolves.toBe("LEASE_LOST");
+    let stalePublishCount = 0;
+    await expect(queue.complete({
+      conversationId: "conversation_1",
+      leaseToken: oldClaim!.leaseToken!,
+      analyzedThroughMessageId: "message_1",
+      publish: async () => {
+        stalePublishCount += 1;
+      },
+    })).resolves.toBe("LEASE_LOST");
+    expect(stalePublishCount).toBe(0);
+
+    const newClaim = await queue.claimNext();
+    expect(newClaim).toMatchObject({
+      status: "PROCESSING",
+      requestedThroughMessageId: "message_1",
+      attempts: 1,
+      leaseToken: "lease_2",
+    });
+    expect(newClaim?.leaseToken).not.toBe(oldClaim?.leaseToken);
+  });
+
   it("allows only one parallel worker to claim a queued conversation", async () => {
     const { queue } = queueHarness();
     await queue.enqueue(enqueueRequest("message_1"));

@@ -423,17 +423,17 @@ describe("conversation insight settings route", () => {
     });
   });
 
-  it("coalesces repeated recalculation requests through the durable queue contract", async () => {
+  it("invalidates a processing lease when recalculation force-enqueues the same boundary", async () => {
     const jobs = new Map<string, ConversationAnalysisJob>();
     jobs.set("conversation_1", {
       conversationId: "conversation_1",
       requestedThroughMessageId: "message_latest",
       requestedThroughMessageCreatedAt: new Date("2026-07-23T12:00:00.000Z"),
       requestedAt: new Date("2026-07-23T12:00:00.000Z"),
-      status: "COMPLETED",
-      attempts: 1,
-      leaseToken: null,
-      leaseExpiresAt: null,
+      status: "PROCESSING",
+      attempts: 2,
+      leaseToken: "active_lease",
+      leaseExpiresAt: new Date("2026-07-23T13:30:00.000Z"),
       lastError: null,
       createdAt: new Date("2026-07-23T12:00:00.000Z"),
       updatedAt: new Date("2026-07-23T12:00:00.000Z"),
@@ -493,6 +493,8 @@ describe("conversation insight settings route", () => {
       status: "QUEUED",
       requestedThroughMessageId: "message_latest",
       attempts: 0,
+      leaseToken: null,
+      leaseExpiresAt: null,
       requestedAt: new Date("2026-07-23T13:00:00.000Z"),
     });
   });

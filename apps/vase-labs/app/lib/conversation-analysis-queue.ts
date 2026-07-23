@@ -123,11 +123,7 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
           return { job: created, result: created };
         }
         if (current.requestedThroughMessageId === input.requestedThroughMessageId) {
-          if (
-            input.force
-            && current.status !== "QUEUED"
-            && current.status !== "PROCESSING"
-          ) {
+          if (input.force && current.status !== "QUEUED") {
             const requeued: ConversationAnalysisJob = {
               ...current,
               requestedAt: now,
