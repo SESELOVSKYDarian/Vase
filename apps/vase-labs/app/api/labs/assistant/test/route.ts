@@ -1,17 +1,35 @@
 import { NextResponse } from "next/server";
 import { decryptChannelSecret } from "../../../../lib/channel-secrets";
+import { labsCatalogService } from "../../../../lib/catalog-repository";
 import { labsPrisma } from "../../../../lib/db";
-import { createKnowledgeService } from "../../../../lib/knowledge-service";
+import { createKnowledgeService, type KnowledgeRecord } from "../../../../lib/knowledge-service";
 import { createOpenAiReplyGenerator } from "../../../../lib/openai-reply-generator";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 
 type TestHandlerDependencies = {
-  resolveContext(cookieHeader: string | null): Promise<{ assistant: { id: string; model: string; systemPrompt?: string | null } }>;
+  resolveContext(cookieHeader: string | null): Promise<{
+    assistant: {
+      id: string;
+      globalTenantId: string;
+      model: string;
+      systemPrompt?: string | null;
+    };
+  }>;
   resolveApiKey(assistantId: string): Promise<string | null>;
   buildContext(assistantId: string): Promise<string>;
+  buildCatalogResources(globalTenantId: string): Promise<{
+    context: string;
+    allowedImageUrls: string[];
+  }>;
   createReplyGenerator(input: { apiKey: string; model: string }): {
-    generateReply(input: { userText: string; context: string; systemPrompt?: string | null }): Promise<{
+    generateReply(input: {
+      userText: string;
+      context: string;
+      systemPrompt?: string | null;
+      allowedImageUrls: string[];
+    }): Promise<{
       text: string;
+      imageUrls: string[];
       inputTokens: number;
       outputTokens: number;
       model?: string;
@@ -36,17 +54,23 @@ export function createAssistantTestHandler(dependencies: TestHandlerDependencies
         return NextResponse.json({ error: "OPENAI_API_KEY_MISSING" }, { status: 409 });
       }
 
-      const context = await dependencies.buildContext(resolved.assistant.id);
+      const [knowledgeContext, catalogResources] = await Promise.all([
+        dependencies.buildContext(resolved.assistant.id),
+        dependencies.buildCatalogResources(resolved.assistant.globalTenantId),
+      ]);
+      const context = [knowledgeContext, catalogResources.context].filter(Boolean).join("\n\n");
       const reply = await dependencies
         .createReplyGenerator({ apiKey, model: resolved.assistant.model })
         .generateReply({
           userText: message,
           context,
           systemPrompt: resolved.assistant.systemPrompt,
+          allowedImageUrls: catalogResources.allowedImageUrls,
         });
 
       return NextResponse.json({
         reply: reply.text,
+        imageUrls: reply.imageUrls,
         model: reply.model ?? resolved.assistant.model,
         usage: { inputTokens: reply.inputTokens, outputTokens: reply.outputTokens },
       });
@@ -64,19 +88,20 @@ export function createAssistantTestHandler(dependencies: TestHandlerDependencies
 }
 
 const knowledge = createKnowledgeService({
-  listReadyKnowledge(assistantId) {
-    return (labsPrisma as any).knowledgeItem.findMany({
+  async listReadyKnowledge(assistantId): Promise<KnowledgeRecord[]> {
+    const items = await labsPrisma.knowledgeItem.findMany({
       where: { assistantId, status: "READY" },
       orderBy: { updatedAt: "desc" },
       take: 24,
     });
+    return items.map((item) => ({ ...item, status: "READY" }));
   },
 });
 
 export const POST = createAssistantTestHandler({
   resolveContext: resolveLabsRequestContext,
   async resolveApiKey(assistantId) {
-    const secret = await (labsPrisma as any).assistantSecret.findUnique({
+    const secret = await labsPrisma.assistantSecret.findUnique({
       where: { assistantId_kind: { assistantId, kind: "OPENAI_API_KEY" } },
       select: { encryptedValue: true },
     });
@@ -86,6 +111,7 @@ export const POST = createAssistantTestHandler({
     return decryptChannelSecret(secret.encryptedValue, encryptionSecret);
   },
   buildContext: knowledge.buildContext,
+  buildCatalogResources: labsCatalogService.buildAiResources,
   createReplyGenerator({ apiKey, model }) {
     return createOpenAiReplyGenerator({ apiKey, model });
   },
