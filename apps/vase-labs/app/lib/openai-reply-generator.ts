@@ -1,3 +1,5 @@
+import { normalizePublicHttpsImageUrl } from "./public-image-url";
+
 export type OpenAiModelProfileId = "fast" | "everyday" | "tools" | "premium";
 
 export interface OpenAiModelProfile {
@@ -9,6 +11,7 @@ export interface OpenAiModelProfile {
 
 export interface AiReplyResult {
   text: string;
+  imageUrls: string[];
   inputTokens: number;
   outputTokens: number;
   provider?: "openai";
@@ -101,11 +104,24 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
 
   return {
     profile,
-    async generateReply(request: { userText: string; context: string; systemPrompt?: string | null }): Promise<AiReplyResult> {
+    async generateReply(request: {
+      userText: string;
+      context: string;
+      systemPrompt?: string | null;
+      allowedImageUrls?: string[];
+    }): Promise<AiReplyResult> {
       if (!apiKey) {
         throw new Error("OPENAI_API_KEY_MISSING");
       }
 
+      const baseRequestBody = {
+        model,
+        instructions: buildSystemInstructions({
+          context: request.context,
+          systemPrompt: request.systemPrompt,
+        }),
+        input: request.userText,
+      };
       const response = await fetcher("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
@@ -113,28 +129,55 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model,
-          instructions: buildSystemInstructions({
-            context: request.context,
-            systemPrompt: request.systemPrompt,
-          }),
-          input: request.userText,
+          ...baseRequestBody,
+          text: {
+            format: {
+              type: "json_schema",
+              name: "vase_catalog_reply",
+              strict: true,
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  text: { type: "string" },
+                  imageUrls: {
+                    type: "array",
+                    items: { type: "string" },
+                    maxItems: 3,
+                  },
+                },
+                required: ["text", "imageUrls"],
+              },
+            },
+          },
         }),
       });
-
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
         throw new Error(readOpenAiError(payload) ?? `OPENAI_RESPONSE_FAILED_${response.status}`);
       }
 
-      const text = extractOutputText(payload);
-      if (!text) {
+      if (hasRefusal(payload)) {
+        throw new Error("OPENAI_RESPONSE_REFUSED");
+      }
+      const outputText = extractOutputText(payload);
+      if (!outputText) {
         throw new Error("OPENAI_RESPONSE_EMPTY");
       }
+      const structuredReply = parseStructuredReply(outputText);
+      const allowedImageUrls = new Set(
+        (request.allowedImageUrls ?? [])
+          .map(normalizePublicHttpsImageUrl)
+          .filter((url): url is string => Boolean(url)),
+      );
+      const imageUrls = [...new Set(
+        structuredReply.imageUrls.filter((url) => allowedImageUrls.has(url)),
+      )].slice(0, 3);
 
       return {
-        text,
+        text: structuredReply.text,
+        imageUrls,
         inputTokens: readUsageToken(payload, "input_tokens"),
         outputTokens: readUsageToken(payload, "output_tokens"),
         provider: "openai",
@@ -176,9 +219,27 @@ function buildSystemInstructions(input: { context: string; systemPrompt?: string
     customerPrompt ? `Instrucciones del negocio:\n${customerPrompt}` : null,
     "Responde en el mismo idioma del cliente, con tono claro, breve y orientado a resolver.",
     "Usa solamente el contexto disponible cuando menciones politicas, horarios, precios, stock o datos del negocio.",
+    "Selecciona imagenes solo cuando el cliente las pida o cuando sean necesarias para identificar productos.",
+    "Para imageUrls usa exclusivamente URLs del catalogo incluidas en el contexto disponible; si no corresponde una imagen, devolve una lista vacia.",
     "Si falta informacion, pedila de forma concreta o deriva a un humano.",
     input.context ? `Contexto disponible:\n${input.context}` : "Contexto disponible: sin informacion cargada.",
   ].filter(Boolean).join("\n\n");
+}
+
+function parseStructuredReply(value: string): { text: string; imageUrls: string[] } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error("OPENAI_RESPONSE_INVALID");
+  }
+
+  const candidate = parsed as { text?: unknown; imageUrls?: unknown } | null;
+  const text = typeof candidate?.text === "string" ? candidate.text.trim() : "";
+  if (!text || !Array.isArray(candidate?.imageUrls) || !candidate.imageUrls.every((url) => typeof url === "string")) {
+    throw new Error("OPENAI_RESPONSE_INVALID");
+  }
+  return { text, imageUrls: candidate.imageUrls };
 }
 
 function extractOutputText(payload: unknown): string {
@@ -194,6 +255,19 @@ function extractOutputText(payload: unknown): string {
     .filter((text): text is string => typeof text === "string")
     .join("\n")
     .trim();
+}
+
+function hasRefusal(payload: unknown): boolean {
+  const source = payload as {
+    refusal?: unknown;
+    output?: Array<{ content?: Array<{ type?: unknown; refusal?: unknown }> }>;
+  } | null;
+  if (typeof source?.refusal === "string" && source.refusal.trim()) return true;
+  return (source?.output ?? []).some((item) =>
+    (item.content ?? []).some((content) =>
+      content.type === "refusal" || (typeof content.refusal === "string" && Boolean(content.refusal.trim())),
+    ),
+  );
 }
 
 function readUsageToken(payload: unknown, key: "input_tokens" | "output_tokens"): number {

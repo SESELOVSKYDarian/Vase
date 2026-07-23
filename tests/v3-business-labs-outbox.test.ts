@@ -20,6 +20,93 @@ describe("Business to Labs catalog outbox", () => {
     })).toMatchObject({ externalProductId: "erp_1", price: 1200.5, stock: 3, active: true });
   });
 
+  it.each([
+    [{ image_url: "https://cdn.vase.ar/a.jpg" }, "https://cdn.vase.ar/a.jpg"],
+    [{ imageUrl: "https://cdn.vase.ar/b.jpg" }, "https://cdn.vase.ar/b.jpg"],
+    [{ image: "https://cdn.vase.ar/c.jpg" }, "https://cdn.vase.ar/c.jpg"],
+    [{ images: ["https://cdn.vase.ar/d.jpg"] }, "https://cdn.vase.ar/d.jpg"],
+    [{ images: [{ url: "https://cdn.vase.ar/e.jpg" }] }, "https://cdn.vase.ar/e.jpg"],
+    [{ images: [{ src: "https://cdn.vase.ar/f.jpg" }] }, "https://cdn.vase.ar/f.jpg"],
+    [{ images: [{ image_url: "https://cdn.vase.ar/g.jpg" }] }, "https://cdn.vase.ar/g.jpg"],
+  ])("maps image data %j to the shared imageUrl contract", (data, expected) => {
+    expect(mapBusinessProductForLabs(businessProduct({ data })).imageUrl).toBe(expected);
+  });
+
+  it("uses the highest-priority valid image candidate", () => {
+    expect(mapBusinessProductForLabs(businessProduct({
+      image_url: "https://cdn.vase.ar/legacy.jpg",
+      data: {
+        image_url: "https://cdn.vase.ar/snake-case.jpg",
+        imageUrl: "https://cdn.vase.ar/camel-case.jpg",
+        image: "https://cdn.vase.ar/singular.jpg",
+        images: ["https://cdn.vase.ar/collection.jpg"],
+      },
+    })).imageUrl).toBe("https://cdn.vase.ar/legacy.jpg");
+  });
+
+  it.each([
+    [
+      {
+        image_url: "http://cdn.vase.ar/insecure.jpg",
+        data: { image_url: "https://cdn.vase.ar/snake-case.jpg" },
+      },
+      "https://cdn.vase.ar/snake-case.jpg",
+    ],
+    [
+      {
+        data: {
+          image_url: "https://localhost/private.jpg",
+          imageUrl: "not a URL",
+          image: "https://cdn.vase.ar/singular.jpg",
+        },
+      },
+      "https://cdn.vase.ar/singular.jpg",
+    ],
+    [
+      {
+        data: {
+          images: [
+            "https://127.0.0.1/private.jpg",
+            { url: "ftp://cdn.vase.ar/file.jpg" },
+            { src: "https://cdn.vase.ar/collection.jpg" },
+          ],
+        },
+      },
+      "https://cdn.vase.ar/collection.jpg",
+    ],
+  ])("falls back from invalid higher-priority candidates in %j", (imageData, expected) => {
+    expect(mapBusinessProductForLabs(businessProduct(imageData)).imageUrl).toBe(expected);
+  });
+
+  it.each([
+    { image_url: "http://cdn.vase.ar/insecure.jpg" },
+    { data: { image: "not a URL" } },
+    { data: { images: ["ftp://cdn.vase.ar/file.jpg", null, {}] } },
+    { data: { image: "https://localhost/product.jpg" } },
+    { data: { image: "https://assets.localhost/product.jpg" } },
+    { data: { image: "https://catalog.local/product.jpg" } },
+    { data: { image: "https://catalog/product.jpg" } },
+    { data: { image: "https://catalog.example/product.jpg" } },
+    { data: { image: "https://catalog.invalid/product.jpg" } },
+    { data: { image: "https://catalog.test/product.jpg" } },
+    { data: { image: "https://catalog.internal/product.jpg" } },
+    { data: { image: "https://catalog.home/product.jpg" } },
+    { data: { image: "https://catalog.lan/product.jpg" } },
+    { data: { image: "https://127.0.0.1/product.jpg" } },
+    { data: { image: "https://2130706433/product.jpg" } },
+    { data: { image: "https://10.0.0.1/product.jpg" } },
+    { data: { image: "https://172.16.0.1/product.jpg" } },
+    { data: { image: "https://192.168.1.10/product.jpg" } },
+    { data: { image: "https://[::1]/product.jpg" } },
+    { data: { image: "https://user:pass@cdn.vase.ar/product.jpg" } },
+  ])("keeps the product and sets imageUrl to null for invalid image data %j", (imageData) => {
+    expect(mapBusinessProductForLabs(businessProduct(imageData))).toMatchObject({
+      externalProductId: "erp_1",
+      name: "Producto",
+      imageUrl: null,
+    });
+  });
+
   it("uses capped exponential retry delays", () => {
     expect(nextCatalogRetryDelayMs(1)).toBe(5_000);
     expect(nextCatalogRetryDelayMs(4)).toBe(40_000);
@@ -54,3 +141,14 @@ describe("Business to Labs catalog outbox", () => {
     });
   });
 });
+
+function businessProduct(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "product_1",
+    external_id: "erp_1",
+    name: "Producto",
+    stock: 3,
+    updated_at: "2026-07-16T12:00:00.000Z",
+    ...overrides,
+  };
+}
