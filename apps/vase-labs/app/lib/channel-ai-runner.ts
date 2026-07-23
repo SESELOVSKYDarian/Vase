@@ -35,6 +35,7 @@ type ChannelAiReplyRunnerDeps = {
   };
   createReplyGenerator(input: { apiKey?: string; model: string }): ReplyGenerator;
   persistAssistantReply(input: {
+    assistantId: string;
     conversationId: string;
     channel: LabsChannel;
     text: string;
@@ -66,16 +67,62 @@ type ChannelAiReplyRunnerDeps = {
 };
 
 type PrismaTransactionLike = {
+  $queryRaw<T>(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<T>;
   message: { create(input: unknown): Promise<{ id: string }> };
-  conversation: { update(input: unknown): Promise<unknown> };
+  conversation: {
+    findUnique(input: unknown): Promise<{ metadata: unknown } | null>;
+    update(input: unknown): Promise<unknown>;
+  };
 };
+
+function metadataAfterSuccessfulAiReply(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const metadata = { ...(value as Record<string, unknown>) };
+  const rawContext = metadata.context;
+  const context = rawContext && typeof rawContext === "object" && !Array.isArray(rawContext)
+    ? { ...(rawContext as Record<string, unknown>) }
+    : {};
+  const hasFailure = metadata.state === "AI_FAILED"
+    || "aiReplyError" in context
+    || "aiReplyFailedAt" in context
+    || "aiReplyFailedMessageId" in context;
+  if (!hasFailure) return null;
+
+  delete context.aiReplyError;
+  delete context.aiReplyFailedAt;
+  delete context.aiReplyFailedMessageId;
+  if (metadata.state === "AI_FAILED") metadata.state = "IDLE";
+  metadata.context = context;
+  return metadata;
+}
 
 export async function persistPrismaAssistantReply(
   prisma: { $transaction<T>(callback: (client: PrismaTransactionLike) => Promise<T>): Promise<T> },
-  reply: { conversationId: string; channel: LabsChannel; text: string },
+  reply: {
+    assistantId: string;
+    conversationId: string;
+    channel: LabsChannel;
+    text: string;
+  },
 ): Promise<{ messageId: string }> {
   return prisma.$transaction(async (transaction) => {
     const now = new Date();
+    const locked = await transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM Conversation
+      WHERE id = ${reply.conversationId}
+        AND assistantId = ${reply.assistantId}
+      FOR UPDATE
+    `;
+    if (locked.length === 0) throw new Error("ASSISTANT_CONVERSATION_NOT_FOUND");
+    const conversation = await transaction.conversation.findUnique({
+      where: { id: reply.conversationId },
+      select: { metadata: true },
+    });
+    const nextMetadata = metadataAfterSuccessfulAiReply(conversation?.metadata);
     const message = await transaction.message.create({
       data: {
         id: randomUUID(),
@@ -93,6 +140,7 @@ export async function persistPrismaAssistantReply(
         messageCount: { increment: 1 },
         lastMessageAt: now,
         lastOutboundAt: now,
+        ...(nextMetadata ? { metadata: nextMetadata } : {}),
       },
     });
     return { messageId: message.id };

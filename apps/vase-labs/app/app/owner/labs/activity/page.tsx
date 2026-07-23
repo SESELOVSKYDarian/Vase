@@ -21,6 +21,8 @@ type ActivityControls = {
   sort: ActivitySort;
 };
 
+const ACTIVE_HANDOFF_FILTER = { status: { in: ["PENDING", "ASSIGNED"] } };
+
 function firstSearchParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -51,6 +53,11 @@ export function buildActivityConversationQuery(
           updatedAt: true,
         },
       },
+      handoffs: {
+        where: ACTIVE_HANDOFF_FILTER,
+        select: { id: true },
+        take: 1,
+      },
       messages: {
         orderBy: { createdAt: "desc" as const },
         take: 2,
@@ -74,16 +81,40 @@ export function buildActivityConversationQuery(
 
   if (controls.intent === "all") return { ...baseQuery, orderBy };
 
+  const classificationFilter = {
+    OR: [
+      { insight: { is: { intentLabel: controls.intent } } },
+      {
+        insight: { is: null },
+        intentLabel: controls.intent,
+      },
+    ],
+  };
+  if (controls.intent === "HUMAN_REQUESTED") {
+    return {
+      ...baseQuery,
+      where: {
+        assistantId,
+        OR: [
+          { escalatedToHuman: true },
+          { status: "ESCALATED" as const },
+          { handoffs: { some: ACTIVE_HANDOFF_FILTER } },
+          ...classificationFilter.OR,
+        ],
+      },
+      orderBy,
+    };
+  }
+
   return {
     ...baseQuery,
     where: {
       assistantId,
-      OR: [
-        { insight: { is: { intentLabel: controls.intent } } },
-        {
-          insight: { is: null },
-          intentLabel: controls.intent,
-        },
+      AND: [
+        { escalatedToHuman: false },
+        { status: { not: "ESCALATED" as const } },
+        { handoffs: { none: ACTIVE_HANDOFF_FILTER } },
+        classificationFilter,
       ],
     },
     orderBy,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, SlidersHorizontal } from "lucide-react";
+import { CheckCircle2, RefreshCcw, SlidersHorizontal } from "lucide-react";
 
 const WEIGHT_FIELDS = [
   {
@@ -64,12 +64,15 @@ type Settings = {
 };
 
 type RequestState = "loading" | "ready" | "saving" | "success" | "error";
+type RecalculationState = "idle" | "confirming" | "running" | "success" | "error";
 
 export function ConversationInsightSettingsCard() {
   const router = useRouter();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("loading");
   const [message, setMessage] = useState("Cargando configuración…");
+  const [recalculationState, setRecalculationState] = useState<RecalculationState>("idle");
+  const [recalculationMessage, setRecalculationMessage] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -132,6 +135,32 @@ export function ConversationInsightSettingsCard() {
     } catch {
       setRequestState("error");
       setMessage("No pudimos conectarnos para guardar. Intentá nuevamente.");
+    }
+  }
+
+  async function recalculateOpenConversations() {
+    if (recalculationState === "running") return;
+    setRecalculationState("running");
+    setRecalculationMessage("Encolando conversaciones abiertas…");
+    try {
+      const response = await fetch("/api/labs/settings/conversation-insights", {
+        method: "POST",
+        headers: { accept: "application/json" },
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        setRecalculationState("error");
+        setRecalculationMessage(body.error ?? "No pudimos iniciar el reanálisis.");
+        return;
+      }
+      setRecalculationState("success");
+      setRecalculationMessage(
+        `${body.message} ${body.queued} encoladas; ${body.skipped} omitidas sin mensajes entrantes.`,
+      );
+      router.refresh();
+    } catch {
+      setRecalculationState("error");
+      setRecalculationMessage("No pudimos conectarnos para iniciar el reanálisis.");
     }
   }
 
@@ -232,6 +261,64 @@ export function ConversationInsightSettingsCard() {
           <span />
         </div>
       )}
+
+      {settings ? (
+        <aside className="labs-insight-recalculation" aria-labelledby="insight-recalculation-title">
+          <div>
+            <h3 id="insight-recalculation-title">Recalcular conversaciones abiertas</h3>
+            <p>
+              Encolá un nuevo análisis para cada conversación abierta o escalada que tenga
+              mensajes entrantes. El procesamiento continúa en segundo plano.
+            </p>
+          </div>
+          {recalculationState === "confirming" ? (
+            <div className="labs-insight-recalculation-confirm" role="group" aria-label="Confirmar reanálisis">
+              <strong>¿Recalcular todas las conversaciones abiertas?</strong>
+              <span>
+                <button
+                  className="labs-button labs-button-secondary"
+                  type="button"
+                  onClick={() => {
+                    setRecalculationState("idle");
+                    setRecalculationMessage("");
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="labs-button labs-button-primary"
+                  type="button"
+                  onClick={() => void recalculateOpenConversations()}
+                >
+                  Confirmar reanálisis
+                </button>
+              </span>
+            </div>
+          ) : (
+            <button
+              className="labs-button labs-button-secondary"
+              type="button"
+              disabled={recalculationState === "running"}
+              onClick={() => {
+                setRecalculationState("confirming");
+                setRecalculationMessage("");
+              }}
+            >
+              <RefreshCcw aria-hidden="true" />
+              {recalculationState === "running"
+                ? "Encolando…"
+                : "Recalcular conversaciones abiertas"}
+            </button>
+          )}
+          <p
+            className={`labs-insight-recalculation-message is-${recalculationState}`}
+            aria-live="polite"
+            role={recalculationState === "error" ? "alert" : "status"}
+          >
+            {recalculationMessage}
+          </p>
+        </aside>
+      ) : null}
 
       <p
         className={`labs-insight-settings-message is-${requestState}`}

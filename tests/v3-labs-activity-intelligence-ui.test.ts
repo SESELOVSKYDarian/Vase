@@ -50,6 +50,7 @@ function conversation(
       content: "Te paso las opciones disponibles.",
       createdAt: new Date("2026-07-23T16:05:00.000Z"),
     }],
+    handoffs: [],
     insight,
     analysisJob: {
       status: "COMPLETED",
@@ -84,11 +85,13 @@ describe("Labs Activity commercial intelligence", () => {
     expect(query.where).toEqual({
       assistantId: "assistant_resolved",
       OR: [
-        { insight: { is: { intentLabel: "HUMAN_REQUESTED" } } },
+        { escalatedToHuman: true },
+        { status: "ESCALATED" },
+        { handoffs: { some: { status: { in: ["PENDING", "ASSIGNED"] } } } },
         {
-          insight: { is: null },
-          intentLabel: "HUMAN_REQUESTED",
+          insight: { is: { intentLabel: "HUMAN_REQUESTED" } },
         },
+        { insight: { is: null }, intentLabel: "HUMAN_REQUESTED" },
       ],
     });
     expect(query.orderBy).toEqual([
@@ -104,6 +107,11 @@ describe("Labs Activity commercial intelligence", () => {
           updatedAt: true,
         },
       },
+      handoffs: {
+        where: { status: { in: ["PENDING", "ASSIGNED"] } },
+        select: { id: true },
+        take: 1,
+      },
       messages: {
         orderBy: { createdAt: "desc" },
         take: 2,
@@ -115,6 +123,28 @@ describe("Labs Activity commercial intelligence", () => {
           createdAt: true,
         },
       },
+    });
+  });
+
+  it("excludes authoritative handoffs from non-human label filters", () => {
+    const query = buildActivityConversationQuery("assistant_resolved", {
+      intent: "HOT_LEAD",
+      sort: "latest",
+    });
+
+    expect(query.where).toEqual({
+      assistantId: "assistant_resolved",
+      AND: [
+        { escalatedToHuman: false },
+        { status: { not: "ESCALATED" } },
+        { handoffs: { none: { status: { in: ["PENDING", "ASSIGNED"] } } } },
+        {
+          OR: [
+            { insight: { is: { intentLabel: "HOT_LEAD" } } },
+            { insight: { is: null }, intentLabel: "HOT_LEAD" },
+          ],
+        },
+      ],
     });
   });
 
@@ -186,6 +216,70 @@ describe("Labs Activity commercial intelligence", () => {
     expect(html).not.toContain("provider");
   });
 
+  it("renders explicit queued, processing, completed, and failed analysis states", () => {
+    const states = [
+      ["QUEUED", "Análisis pendiente"],
+      ["PROCESSING", "Analizando conversación"],
+      ["COMPLETED", "Análisis actualizado"],
+      ["FAILED", "No pudimos actualizar el análisis"],
+    ] as const;
+    const html = renderToStaticMarkup(React.createElement(ActivityWorkspace, {
+      conversations: states.map(([status], index) => conversation({
+        id: `state_${index}`,
+        analysisJob: {
+          status,
+          updatedAt: new Date("2026-07-23T16:06:00.000Z"),
+        },
+      })),
+      activeIntent: "all",
+      activeSort: "latest",
+    }));
+
+    for (const [, copy] of states) expect(html).toContain(copy);
+  });
+
+  it("renders authoritative escalation over a stale non-human insight", () => {
+    const html = renderToStaticMarkup(React.createElement(ActivityWorkspace, {
+      conversations: [conversation({
+        insight: { ...insight, intentLabel: "HOT_LEAD" },
+        status: "OPEN",
+        escalatedToHuman: false,
+        handoffs: [{ id: "handoff_active" }],
+      })],
+      activeIntent: "HUMAN_REQUESTED",
+      activeSort: "latest",
+    }));
+
+    expect(html).toContain("Solicitó humano");
+    expect(html).not.toContain('labs-intent-label is-hot');
+  });
+
+  it("does not show a stale AI error after a newer outbound reply", () => {
+    const html = renderToStaticMarkup(React.createElement(ActivityWorkspace, {
+      conversations: [conversation({
+        metadata: {
+          context: {
+            aiReplyError: "provider failure",
+            aiReplyFailedAt: "2026-07-23T15:00:00.000Z",
+          },
+        },
+        messages: [{
+          id: "reply_new",
+          role: "assistant",
+          direction: "OUTBOUND",
+          content: "Respuesta recuperada",
+          createdAt: new Date("2026-07-23T16:00:00.000Z"),
+        }],
+      })],
+      activeIntent: "all",
+      activeSort: "latest",
+    }));
+
+    expect(html).toContain("IA respondió");
+    expect(html).not.toContain("Respuesta IA con error");
+    expect(html).not.toContain("provider failure");
+  });
+
   it("falls back to the legacy Conversation summary, score, and intent", () => {
     const html = renderToStaticMarkup(React.createElement(ActivityWorkspace, {
       conversations: [conversation({
@@ -232,7 +326,7 @@ describe("Labs Activity commercial intelligence", () => {
     expect(styles).toContain("@media (max-width: 760px)");
   });
 
-  it("provides accessible qualification settings without a fake recalculation action", () => {
+  it("provides accessible qualification settings and confirmed durable recalculation", () => {
     const settingsPage = fs.readFileSync(
       path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"),
       "utf8",
@@ -260,6 +354,10 @@ describe("Labs Activity commercial intelligence", () => {
     expect(settingsCard).toContain("Profundidad de interacción");
     expect(settingsCard).toContain("Objeciones o señales negativas");
     expect(settingsCard).toContain("próximos análisis");
-    expect(settingsCard).not.toContain("recalcular");
+    expect(settingsCard).toContain("Recalcular conversaciones abiertas");
+    expect(settingsCard).toContain("¿Recalcular todas las conversaciones abiertas?");
+    expect(settingsCard).toContain('method: "POST"');
+    expect(settingsCard).toContain("Confirmar reanálisis");
+    expect(settingsCard).toContain("recalculationState");
   });
 });

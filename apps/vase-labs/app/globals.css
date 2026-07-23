@@ -353,6 +353,30 @@ a:focus-visible {
 
 .labs-insight-settings footer button { flex: none; }
 
+.labs-insight-recalculation { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem 1.5rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--info-soft) 38%, var(--surface)); }
+
+.labs-insight-recalculation h3 { margin: 0; color: var(--foreground); font-size: 0.78rem; font-weight: 800; }
+
+.labs-insight-recalculation p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.68rem; line-height: 1.5; }
+
+.labs-insight-recalculation > button { display: inline-flex; align-items: center; gap: 0.45rem; }
+
+.labs-insight-recalculation > button svg { width: 0.9rem; height: 0.9rem; }
+
+.labs-insight-recalculation-confirm { display: grid; justify-items: end; gap: 0.55rem; }
+
+.labs-insight-recalculation-confirm strong { color: var(--foreground); font-size: 0.7rem; }
+
+.labs-insight-recalculation-confirm span { display: flex; gap: 0.45rem; }
+
+.labs-insight-recalculation .labs-insight-recalculation-message { grid-column: 1 / -1; margin: 0; font-weight: 720; }
+
+.labs-insight-recalculation-message:empty { display: none; }
+
+.labs-insight-recalculation-message.is-success { color: var(--success); }
+
+.labs-insight-recalculation-message.is-error { color: var(--danger); }
+
 .labs-insight-settings-message { display: flex; min-height: 2.6rem; align-items: center; gap: 0.4rem; margin: 0; padding: 0.65rem 1.5rem; color: var(--muted); font-size: 0.7rem; font-weight: 720; }
 
 .labs-insight-settings-message:empty { display: none; }
@@ -404,6 +428,15 @@ a:focus-visible {
 
 .labs-insight-threshold,
   .labs-insight-settings footer { align-items: stretch; flex-direction: column; }
+
+.labs-insight-recalculation { grid-template-columns: 1fr; }
+
+.labs-insight-recalculation-confirm { justify-items: stretch; }
+
+.labs-insight-recalculation-confirm span { flex-direction: column-reverse; }
+
+.labs-insight-recalculation > button,
+  .labs-insight-recalculation-confirm button { width: 100%; justify-content: center; }
 
 .labs-insight-threshold > span:last-child { justify-content: flex-start; }
 

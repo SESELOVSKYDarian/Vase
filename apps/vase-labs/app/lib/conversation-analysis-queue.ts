@@ -102,6 +102,7 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
       conversationId: string;
       requestedThroughMessageId: string;
       requestedThroughMessageCreatedAt: Date;
+      force?: boolean;
     }) {
       return dependencies.repository.withJob(input.conversationId, (current) => {
         const now = dependencies.clock();
@@ -122,6 +123,23 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
           return { job: created, result: created };
         }
         if (current.requestedThroughMessageId === input.requestedThroughMessageId) {
+          if (
+            input.force
+            && current.status !== "QUEUED"
+            && current.status !== "PROCESSING"
+          ) {
+            const requeued: ConversationAnalysisJob = {
+              ...current,
+              requestedAt: now,
+              status: "QUEUED",
+              attempts: 0,
+              leaseToken: null,
+              leaseExpiresAt: null,
+              lastError: null,
+              updatedAt: now,
+            };
+            return { job: requeued, result: requeued };
+          }
           return { job: current, result: current };
         }
         if (!isNewerRequest({

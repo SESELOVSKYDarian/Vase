@@ -57,6 +57,7 @@ export type ActivityConversation = {
     content: string;
     createdAt: Date;
   }>;
+  handoffs: Array<{ id: string }>;
   insight: ActivityInsight | null;
   analysisJob: {
     status: string;
@@ -88,7 +89,15 @@ function readContext(metadata: unknown): Record<string, unknown> {
 function resolveAiStatus(conversation: ActivityConversation) {
   const context = readContext(conversation.metadata);
   if (typeof context.aiReplyError === "string" && context.aiReplyError) {
-    return "Respuesta IA con error";
+    const failedAt = typeof context.aiReplyFailedAt === "string"
+      ? Date.parse(context.aiReplyFailedAt)
+      : Number.NaN;
+    const latestOutboundAt = conversation.messages
+      .filter((message) => message.role === "assistant" || message.direction === "OUTBOUND")
+      .reduce((latest, message) => Math.max(latest, message.createdAt.getTime()), 0);
+    if (!Number.isFinite(failedAt) || latestOutboundAt <= failedAt) {
+      return "Respuesta IA con error";
+    }
   }
   if (typeof context.aiBlockedReason === "string" && context.aiBlockedReason) {
     return "IA pausada";
@@ -101,7 +110,13 @@ function resolveAiStatus(conversation: ActivityConversation) {
 }
 
 function resolveIntent(conversation: ActivityConversation) {
-  if (conversation.escalatedToHuman) return "HUMAN_REQUESTED";
+  if (
+    conversation.escalatedToHuman
+    || conversation.status === "ESCALATED"
+    || conversation.handoffs.length > 0
+  ) {
+    return "HUMAN_REQUESTED";
+  }
   const label = conversation.insight?.intentLabel ?? conversation.intentLabel ?? "UNCLASSIFIED";
   return label in ACTIVITY_INTENT_LABELS ? label : "UNCLASSIFIED";
 }

@@ -20,7 +20,12 @@ interface AiOrchestratorDeps {
     systemPrompt?: string | null;
     allowedImageUrls?: string[];
   }): Promise<OrchestratedAiReply>;
-  persistAssistantReply(input: { conversationId: string; channel: LabsChannel; text: string }): Promise<{ messageId: string }>;
+  persistAssistantReply(input: {
+    assistantId: string;
+    conversationId: string;
+    channel: LabsChannel;
+    text: string;
+  }): Promise<{ messageId: string }>;
   registerTokenUsage(input: { globalTenantId: string; channel: LabsChannel; inputTokens: number; outputTokens: number; messageId: string; conversationId: string; assistantId: string; source?: string }): Promise<{ totalTokens: number }>;
   sendReply(input: {
     channel: LabsChannel;
@@ -63,6 +68,7 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         allowedImageUrls: catalogResources.allowedImageUrls,
       });
       const message = await deps.persistAssistantReply({
+        assistantId: input.assistantId,
         conversationId: input.conversationId,
         channel: input.channel,
         text: reply.text,
