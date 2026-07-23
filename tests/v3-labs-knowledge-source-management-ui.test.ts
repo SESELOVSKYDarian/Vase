@@ -2,6 +2,8 @@
 
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const router = { refresh: vi.fn() };
@@ -34,11 +36,16 @@ async function type(input: HTMLInputElement, value: string) {
 describe("KnowledgeGroups source management", () => {
   let root: Root;
   let host: HTMLDivElement;
+  let pageFocusTarget: HTMLDivElement;
 
   beforeEach(async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
     router.refresh.mockReset();
+    pageFocusTarget = document.createElement("div");
+    pageFocusTarget.id = "knowledge-sources-focus-target";
+    pageFocusTarget.tabIndex = -1;
+    document.body.append(pageFocusTarget);
     host = document.createElement("div");
     document.body.append(host);
     root = createRoot(host);
@@ -48,6 +55,7 @@ describe("KnowledgeGroups source management", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     host.remove();
+    pageFocusTarget.remove();
     vi.unstubAllGlobals();
   });
 
@@ -108,11 +116,28 @@ describe("KnowledgeGroups source management", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/labs/knowledge/source%2Fone", { method: "DELETE" });
     expect(router.refresh).toHaveBeenCalledOnce();
     expect(host.querySelector('[role="dialog"]')).toBeNull();
-    const stableList = host.querySelector(".labs-knowledge-groups");
-    expect(document.activeElement).toBe(stableList);
+    expect(document.activeElement).toBe(pageFocusTarget);
     await act(async () => { root.render(React.createElement(KnowledgeGroups, { groups: [] })); });
-    expect(host.querySelector(".labs-knowledge-groups")).toBe(stableList);
-    expect(document.activeElement).toBe(stableList);
+    expect(document.activeElement).toBe(pageFocusTarget);
+  });
+
+  it("wraps Shift+Tab from the first tabbable delete control to the last one", async () => {
+    await click(button("Eliminar Sistema de gestión externo"));
+    const closeButton = button("Cerrar");
+    closeButton.focus();
+
+    await act(async () => { closeButton.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true })); });
+
+    expect(document.activeElement).toBe(button("Sí, eliminar fuente"));
+  });
+
+  it("declares the post-delete focus target outside the empty/list branch", () => {
+    const page = readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"), "utf8");
+    const targetIndex = page.indexOf('id="knowledge-sources-focus-target"');
+    const branchIndex = page.indexOf("data.items.length === 0 ? (");
+    expect(targetIndex).toBeGreaterThan(-1);
+    expect(targetIndex).toBeLessThan(branchIndex);
+    expect(page.slice(targetIndex, branchIndex)).toContain('tabIndex={-1}');
   });
 
   it("keeps the dialog open with sanitized feedback when a mutation fails", async () => {

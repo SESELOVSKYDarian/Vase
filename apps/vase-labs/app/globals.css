@@ -614,7 +614,7 @@ a:focus-visible {
   border-radius: 0.5rem;
 }
 
-.labs-knowledge-groups:focus {
+.labs-knowledge-focus-target:focus {
   border-radius: 0.65rem;
   outline: 2px solid var(--accent);
   outline-offset: 0.4rem;

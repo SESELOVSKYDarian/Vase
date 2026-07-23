@@ -49,17 +49,17 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
   const deleteHeadingRef = useRef<HTMLHeadingElement>(null);
   const busyStatusRef = useRef<HTMLParagraphElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
-  const groupsRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
 
-  const close = useCallback((force = false, focusTarget: "opener" | "list" = "opener") => {
+  const close = useCallback((force = false, focusTarget: "opener" | "page" = "opener") => {
     if (submitting && !force) return;
     setSelection(undefined);
     setTitle("");
     setError("");
     requestAnimationFrame(() => {
-      if (focusTarget === "list") groupsRef.current?.focus();
-      else openerRef.current?.focus();
+      if (focusTarget === "page") {
+        requestAnimationFrame(() => document.getElementById("knowledge-sources-focus-target")?.focus());
+      } else openerRef.current?.focus();
     });
   }, [submitting]);
 
@@ -102,7 +102,7 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
       busyStatusRef.current?.focus();
       return;
     }
-    const controls = dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex="-1"]');
+    const controls = dialogRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
     if (!controls?.length) return;
     const first = controls[0];
     const last = controls[controls.length - 1];
@@ -150,7 +150,7 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
       const response = await fetch(`/api/labs/knowledge/${encodeURIComponent(selection.item.id)}`, { method: "DELETE" });
       if (!response.ok) throw new Error("delete");
       router.refresh();
-      close(true, "list");
+      close(true, "page");
     } catch {
       setError("No pudimos eliminar la fuente. Intentá nuevamente.");
     } finally {
@@ -159,7 +159,7 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
   }
 
   return <>
-    <div ref={groupsRef} role="region" aria-label="Fuentes de conocimiento" tabIndex={-1} className="labs-knowledge-groups space-y-6">{groups.map((group) => (
+    <div className="labs-knowledge-groups space-y-6">{groups.map((group) => (
       <section key={group.type} aria-labelledby={`knowledge-${group.type}`}>
         <div className="mb-3 flex items-baseline justify-between gap-4">
           <h3 id={`knowledge-${group.type}`} className="text-sm font-semibold text-[var(--foreground)]">{labels[group.type]}</h3>

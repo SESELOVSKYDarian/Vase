@@ -26,7 +26,7 @@ async function getKnowledgeData() {
         orderBy: { updatedAt: "desc" },
         take: 24,
       }),
-      (labsPrisma as any).assistantSecret.findUnique({
+      labsPrisma.assistantSecret.findUnique({
         where: { assistantId_kind: { assistantId: resolved.assistant.id, kind: "OPENAI_API_KEY" } },
         select: { id: true },
       }),
@@ -91,11 +91,13 @@ export default async function LabsChatbotsPage() {
         <AssistantTestPanel configured={data.openAiKeyConfigured} hasKnowledge={readySources > 0} />
       </div>
 
-      {data.items.length === 0 ? (
-        <div className="labs-empty-state px-6 py-10 text-center"><p className="mx-auto max-w-lg text-sm leading-6 text-[var(--muted)]">Todavía no agregaste conocimiento. Sumá una fuente para que el asistente responda con información de tu negocio.</p><div className="mt-6"><KnowledgeAddModal /></div></div>
-      ) : (
-        <LabsSection title="Fuentes de conocimiento" description={`${readySources} de ${data.items.length} listas para responder`}><KnowledgeGroups groups={groupKnowledgeItems(data.items)} /></LabsSection>
-      )}
+      <div id="knowledge-sources-focus-target" role="region" aria-label="Fuentes de conocimiento" tabIndex={-1} className="labs-knowledge-focus-target">
+        {data.items.length === 0 ? (
+          <div className="labs-empty-state px-6 py-10 text-center"><p className="mx-auto max-w-lg text-sm leading-6 text-[var(--muted)]">Todavía no agregaste conocimiento. Sumá una fuente para que el asistente responda con información de tu negocio.</p><div className="mt-6"><KnowledgeAddModal /></div></div>
+        ) : (
+          <LabsSection title="Fuentes de conocimiento" description={`${readySources} de ${data.items.length} listas para responder`}><KnowledgeGroups groups={groupKnowledgeItems(data.items)} /></LabsSection>
+        )}
+      </div>
     </div>
   );
 }
