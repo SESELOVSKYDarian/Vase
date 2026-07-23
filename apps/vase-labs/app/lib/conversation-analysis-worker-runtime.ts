@@ -4,6 +4,7 @@ export type ConversationAnalysisBatchLog = ConversationAnalysisBatchMetrics & {
   event: "conversation_analysis_batch";
   recovered: number;
   recoveryFailed: number;
+  recoveryErrorCode?: "CONVERSATION_ANALYSIS_RECOVERY_FAILED";
   latencyMs: number;
 };
 
@@ -24,6 +25,7 @@ export function calculateConversationAnalysisPollDelay(input: {
 
 export function createConversationAnalysisWorkerRuntime(dependencies: {
   recover(): Promise<{ recovered: number; failed: number }>;
+  recoveryEveryPolls?: number;
   runBatch(input: { shouldStop: () => boolean }): Promise<ConversationAnalysisBatchMetrics>;
   clock(): number;
   random(): number;
@@ -31,13 +33,29 @@ export function createConversationAnalysisWorkerRuntime(dependencies: {
   info(entry: ConversationAnalysisBatchLog): void;
   error(entry: ErrorLog): void;
 }) {
+  const recoveryEveryPolls = Math.max(
+    1,
+    Math.min(1_000, Math.floor(dependencies.recoveryEveryPolls ?? 30)),
+  );
+  let pollCount = 0;
   return {
     async pollOnce(input: {
       shouldStop: () => boolean;
     }): Promise<ConversationAnalysisBatchLog | ErrorLog> {
       const startedAt = dependencies.clock();
+      const runRecovery = pollCount % recoveryEveryPolls === 0;
+      pollCount += 1;
       try {
-        const recovery = await dependencies.recover();
+        let recovery = { recovered: 0, failed: 0 };
+        let recoveryErrorCode: ConversationAnalysisBatchLog["recoveryErrorCode"];
+        if (runRecovery) {
+          try {
+            recovery = await dependencies.recover();
+          } catch {
+            recovery = { recovered: 0, failed: 1 };
+            recoveryErrorCode = "CONVERSATION_ANALYSIS_RECOVERY_FAILED";
+          }
+        }
         const batch = await dependencies.runBatch({
           shouldStop: input.shouldStop,
         });
@@ -45,6 +63,7 @@ export function createConversationAnalysisWorkerRuntime(dependencies: {
           event: "conversation_analysis_batch",
           recovered: recovery.recovered,
           recoveryFailed: recovery.failed,
+          ...(recoveryErrorCode ? { recoveryErrorCode } : {}),
           ...batch,
           latencyMs: Math.max(0, dependencies.clock() - startedAt),
         };

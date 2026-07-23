@@ -3,6 +3,7 @@ import type {
   ConversationAnalysisCompletion,
   ConversationAnalysisFailure,
   ConversationAnalysisJob,
+  ConversationAnalysisLeaseRenewal,
 } from "./conversation-analysis-queue";
 import {
   resolveConversationIntentLabel,
@@ -50,6 +51,10 @@ type Queue = {
     leaseToken: string;
     error: unknown;
   }): Promise<ConversationAnalysisFailure>;
+  renewLease?(input: {
+    conversationId: string;
+    leaseToken: string;
+  }): Promise<ConversationAnalysisLeaseRenewal>;
 };
 
 type Repository = {
@@ -64,7 +69,14 @@ type Generator = {
   generate(input: {
     messages: ConversationInsightMessage[];
     settings: ConversationInsightSettings;
+    signal?: AbortSignal;
   }): Promise<GeneratedConversationInsight>;
+};
+
+type Heartbeat = {
+  intervalMs: number;
+  start(callback: () => void, intervalMs: number): unknown;
+  stop(handle: unknown): void;
 };
 
 export type ConversationAnalysisJobMetrics = {
@@ -98,9 +110,12 @@ export function createConversationAnalysisWorker(dependencies: {
     source: "conversation_analysis";
   }): Promise<{ totalTokens: number }>;
   clock: () => Date;
+  heartbeat?: Heartbeat;
 }) {
   return {
-    async processNext(): Promise<ConversationAnalysisProcessResult> {
+    async processNext(input: {
+      signal?: AbortSignal;
+    } = {}): Promise<ConversationAnalysisProcessResult> {
       const job = await dependencies.queue.claimNext();
       if (!job) return { status: "IDLE" };
       const leaseToken = job.leaseToken;
@@ -115,6 +130,27 @@ export function createConversationAnalysisWorker(dependencies: {
       let inputTokens = 0;
       let outputTokens = 0;
       let analysisVersion = 0;
+      const inferenceController = new AbortController();
+      const abortInference = () => inferenceController.abort();
+      input.signal?.addEventListener("abort", abortInference, { once: true });
+      if (input.signal?.aborted) abortInference();
+      let heartbeatBusy = false;
+      const heartbeatHandle = dependencies.heartbeat && dependencies.queue.renewLease
+        ? dependencies.heartbeat.start(() => {
+            if (heartbeatBusy) return;
+            heartbeatBusy = true;
+            void dependencies.queue.renewLease!({
+              conversationId: job.conversationId,
+              leaseToken,
+            }).then((renewal) => {
+              if (renewal === "LEASE_LOST") abortInference();
+            }).catch(() => {
+              abortInference();
+            }).finally(() => {
+              heartbeatBusy = false;
+            });
+          }, dependencies.heartbeat.intervalMs)
+        : null;
       const metrics = (): ConversationAnalysisJobMetrics => ({
         inputTokens,
         outputTokens,
@@ -139,7 +175,11 @@ export function createConversationAnalysisWorker(dependencies: {
         );
         const generated = await dependencies.createGenerator({
           apiKey: context.openAiApiKey ?? undefined,
-        }).generate({ messages, settings: context.settings });
+        }).generate({
+          messages,
+          settings: context.settings,
+          signal: inferenceController.signal,
+        });
         inputTokens = generated.inputTokens;
         outputTokens = generated.outputTokens;
 
@@ -193,8 +233,49 @@ export function createConversationAnalysisWorker(dependencies: {
           errorCode,
           ...metrics(),
         };
+      } finally {
+        input.signal?.removeEventListener("abort", abortInference);
+        if (heartbeatHandle !== null && dependencies.heartbeat) {
+          dependencies.heartbeat.stop(heartbeatHandle);
+        }
       }
     },
+  };
+}
+
+export type ConversationAnalysisTimingConfig = {
+  leaseDurationMs: number;
+  requestTimeoutMs: number;
+  heartbeatIntervalMs: number;
+};
+
+export function resolveConversationAnalysisTimingConfig(input: {
+  leaseDurationMs?: string | number;
+  requestTimeoutMs?: string | number;
+  heartbeatIntervalMs?: string | number;
+}): ConversationAnalysisTimingConfig {
+  const parse = (value: string | number | undefined, fallback: number) =>
+    value === undefined ? fallback : Number(value);
+  const leaseDurationMs = parse(input.leaseDurationMs, 60_000);
+  const requestTimeoutMs = parse(input.requestTimeoutMs, 45_000);
+  const heartbeatIntervalMs = parse(input.heartbeatIntervalMs, 15_000);
+  if (
+    !Number.isFinite(leaseDurationMs)
+    || !Number.isFinite(requestTimeoutMs)
+    || !Number.isFinite(heartbeatIntervalMs)
+    || leaseDurationMs < 10_000
+    || leaseDurationMs > 600_000
+    || requestTimeoutMs < 1_000
+    || requestTimeoutMs > leaseDurationMs - 5_000
+    || heartbeatIntervalMs < 1_000
+    || heartbeatIntervalMs >= leaseDurationMs / 2
+  ) {
+    throw new Error("INVALID_CONVERSATION_ANALYSIS_TIMING_CONFIG");
+  }
+  return {
+    leaseDurationMs: Math.floor(leaseDurationMs),
+    requestTimeoutMs: Math.floor(requestTimeoutMs),
+    heartbeatIntervalMs: Math.floor(heartbeatIntervalMs),
   };
 }
 
@@ -230,9 +311,10 @@ export type ConversationAnalysisBatchMetrics = {
 };
 
 export async function runConversationAnalysisBatch(input: {
-  worker: { processNext(): Promise<ConversationAnalysisProcessResult> };
+  worker: { processNext(input?: { signal?: AbortSignal }): Promise<ConversationAnalysisProcessResult> };
   maxJobs: number;
   shouldStop?: () => boolean;
+  signal?: AbortSignal;
 }): Promise<ConversationAnalysisBatchMetrics> {
   const counts: ConversationAnalysisBatchMetrics = {
     claimed: 0,
@@ -251,7 +333,7 @@ export async function runConversationAnalysisBatch(input: {
   const maxJobs = resolveConversationAnalysisBatchSize(input.maxJobs, 10);
   for (let index = 0; index < maxJobs; index += 1) {
     if (input.shouldStop?.()) break;
-    const result = await input.worker.processNext();
+    const result = await input.worker.processNext({ signal: input.signal });
     if (result.status === "IDLE") break;
     counts.claimed += 1;
     if (result.status === "COMPLETED") counts.completed += 1;

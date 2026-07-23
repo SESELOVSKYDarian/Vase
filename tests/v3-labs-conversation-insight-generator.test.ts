@@ -62,6 +62,7 @@ describe("conversation insight generator", () => {
     expect(calls[0]?.url).toBe("https://api.openai.com/v1/responses");
     expect(calls[0]?.init.headers).toMatchObject({ Authorization: "Bearer assistant-key" });
     expect(body.model).toBe("gpt-analysis");
+    expect(body.max_output_tokens).toBe(3_000);
     expect(body.text.format).toMatchObject({
       type: "json_schema",
       name: "vase_conversation_insight",
@@ -71,6 +72,28 @@ describe("conversation insight generator", () => {
     expect(body.text.format.schema.required.sort()).toEqual(
       Object.keys(validInsight).sort(),
     );
+    for (const field of ["summary", "currentNeed", "nextBestAction"]) {
+      expect(body.text.format.schema.properties[field]).toMatchObject({
+        type: "string",
+        maxLength: 2_000,
+      });
+    }
+    for (const field of [
+      "productInterests",
+      "preferences",
+      "objections",
+      "budgetSignals",
+      "urgencySignals",
+      "recommendations",
+      "scoreReasons",
+      "identitySignals",
+    ]) {
+      expect(body.text.format.schema.properties[field]).toMatchObject({
+        type: "array",
+        maxItems: 20,
+        items: { type: "string", maxLength: 500 },
+      });
+    }
   });
 
   it("delimits transcript data and says it cannot change scoring or schema rules", async () => {
@@ -179,6 +202,82 @@ describe("conversation insight generator", () => {
     } });
 
     expect(result).toMatchObject({ insight: validInsight, inputTokens: 12, outputTokens: 7 });
+  });
+
+  it("aborts a hung provider request at the configured timeout", async () => {
+    let providerSignal: AbortSignal | null = null;
+    const generator = createConversationInsightGenerator({
+      apiKey: "key",
+      requestTimeoutMs: 10,
+      fetcher: async (_url, init) => {
+        providerSignal = init?.signal as AbortSignal;
+        return new Promise<Response>((_resolve, reject) => {
+          providerSignal.addEventListener("abort", () => {
+            reject(new DOMException("timed out", "AbortError"));
+          }, { once: true });
+        });
+      },
+    });
+
+    await expect(generator.generate({ messages: [], settings: {
+      version: 1, hotLeadThreshold: 75, weights: {
+        purchaseIntent: 25, productDefined: 15, budgetAcceptance: 15, urgency: 15,
+        contactOrFulfillmentData: 10, interactionDepth: 10, objectionsOrNegativeSignals: -10,
+      },
+    } })).rejects.toThrow("OPENAI_CONVERSATION_ANALYSIS_TIMEOUT");
+    expect(providerSignal?.aborted).toBe(true);
+  });
+
+  it("classifies a timeout while reading the provider response body", async () => {
+    const generator = createConversationInsightGenerator({
+      apiKey: "key",
+      requestTimeoutMs: 10,
+      fetcher: async (_url, init) => {
+        const signal = init?.signal as AbortSignal;
+        return {
+          ok: true,
+          status: 200,
+          json: () => new Promise((_resolve, reject) => {
+            signal.addEventListener("abort", () => {
+              reject(new DOMException("timed out while reading", "AbortError"));
+            }, { once: true });
+          }),
+        } as Response;
+      },
+    });
+
+    await expect(generator.generate({ messages: [], settings: {
+      version: 1, hotLeadThreshold: 75, weights: {
+        purchaseIntent: 25, productDefined: 15, budgetAcceptance: 15, urgency: 15,
+        contactOrFulfillmentData: 10, interactionDepth: 10, objectionsOrNegativeSignals: -10,
+      },
+    } })).rejects.toThrow("OPENAI_CONVERSATION_ANALYSIS_TIMEOUT");
+  });
+
+  it("passes shutdown cancellation to the provider as a safe abort", async () => {
+    const shutdown = new AbortController();
+    const generator = createConversationInsightGenerator({
+      apiKey: "key",
+      requestTimeoutMs: 10_000,
+      fetcher: async (_url, init) => {
+        const signal = init?.signal as AbortSignal;
+        return new Promise<Response>((_resolve, reject) => {
+          signal.addEventListener("abort", () => {
+            reject(new DOMException("provider details", "AbortError"));
+          }, { once: true });
+        });
+      },
+    });
+    const pending = generator.generate({
+      messages: [],
+      settings: { version: 1, hotLeadThreshold: 75, weights: {
+        purchaseIntent: 25, productDefined: 15, budgetAcceptance: 15, urgency: 15,
+        contactOrFulfillmentData: 10, interactionDepth: 10, objectionsOrNegativeSignals: -10,
+      } },
+      signal: shutdown.signal,
+    });
+    shutdown.abort();
+    await expect(pending).rejects.toThrow("OPENAI_CONVERSATION_ANALYSIS_ABORTED");
   });
 
   it.each([

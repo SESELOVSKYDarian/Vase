@@ -168,6 +168,22 @@ describe("Labs durable conversation analysis queue", () => {
     });
   });
 
+  it("renews a live lease so another worker cannot reclaim legitimate work", async () => {
+    const { queue, setNow } = queueHarness();
+    await queue.enqueue(enqueueRequest("message_1"));
+    const claimed = await queue.claimNext();
+
+    setNow(new Date("2026-07-23T12:05:50.000Z"));
+    await expect(queue.renewLease({
+      conversationId: "conversation_1",
+      leaseToken: claimed!.leaseToken!,
+    })).resolves.toBe("RENEWED");
+
+    setNow(new Date("2026-07-23T12:06:01.000Z"));
+    await expect(queue.claimNext()).resolves.toBeNull();
+    expect(claimed?.leaseExpiresAt).toEqual(new Date("2026-07-23T12:06:00.000Z"));
+  });
+
   it("marks an exhausted expired lease failed instead of leaving it processing forever", async () => {
     const { queue, repository } = queueHarness({ maxAttempts: 3 });
     repository.seed(job({

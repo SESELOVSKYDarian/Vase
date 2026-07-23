@@ -398,11 +398,13 @@ model Message {
   tokens            Int?
   costCents         Int?
   metadata          Json?
+  analysisPendingAt DateTime?
   conversation      Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   deliveries        MessageDelivery[]
   createdAt         DateTime         @default(now())
 
   @@index([providerMessageId])
+  @@index([analysisPendingAt, id])
 }
 
 model MessageDelivery {

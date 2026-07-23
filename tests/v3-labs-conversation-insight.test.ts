@@ -71,6 +71,95 @@ describe("Labs conversation insight domain", () => {
     }).preferences).toEqual(["azul"]);
   });
 
+  it.each(["summary", "currentNeed", "nextBestAction"] as const)(
+    "rejects an overlong %s without exposing its content",
+    (field) => {
+      const secret = `private-${"x".repeat(2_000)}`;
+      const error = (() => {
+        try {
+          parseConversationInsight({ ...validInsight, [field]: secret });
+        } catch (caught) {
+          return caught as Error;
+        }
+        throw new Error("EXPECTED_INVALID_CONVERSATION_INSIGHT");
+      })();
+
+      expect(error.message).toBe("INVALID_CONVERSATION_INSIGHT");
+      expect(error.message).not.toContain(secret);
+    },
+  );
+
+  it.each([
+    "productInterests",
+    "preferences",
+    "objections",
+    "budgetSignals",
+    "urgencySignals",
+    "recommendations",
+    "scoreReasons",
+    "identitySignals",
+  ] as const)("rejects too many %s entries", (field) => {
+    expect(() => parseConversationInsight({
+      ...validInsight,
+      [field]: Array.from({ length: 21 }, (_, index) => `item-${index}`),
+    })).toThrow("INVALID_CONVERSATION_INSIGHT");
+  });
+
+  it.each([
+    "productInterests",
+    "preferences",
+    "objections",
+    "budgetSignals",
+    "urgencySignals",
+    "recommendations",
+    "scoreReasons",
+    "identitySignals",
+  ] as const)("rejects an overlong %s item", (field) => {
+    expect(() => parseConversationInsight({
+      ...validInsight,
+      [field]: ["x".repeat(501)],
+    })).toThrow("INVALID_CONVERSATION_INSIGHT");
+  });
+
+  it("accepts insight values at every output boundary", () => {
+    const boundedItems = Array.from(
+      { length: 20 },
+      (_, index) => `${index}`.padEnd(500, "x"),
+    );
+
+    expect(parseConversationInsight({
+      ...validInsight,
+      summary: "s".repeat(2_000),
+      currentNeed: "n".repeat(2_000),
+      nextBestAction: "a".repeat(2_000),
+      productInterests: boundedItems,
+      preferences: boundedItems,
+      objections: boundedItems,
+      budgetSignals: boundedItems,
+      urgencySignals: boundedItems,
+      recommendations: boundedItems,
+      scoreReasons: boundedItems,
+      identitySignals: boundedItems,
+    })).toMatchObject({
+      summary: "s".repeat(2_000),
+      productInterests: boundedItems,
+    });
+  });
+
+  it("measures output limits in Unicode characters like JSON Schema", () => {
+    const boundedNarrative = "🌷".repeat(2_000);
+    const boundedItem = "🌷".repeat(500);
+
+    expect(parseConversationInsight({
+      ...validInsight,
+      summary: boundedNarrative,
+      productInterests: [boundedItem],
+    })).toMatchObject({
+      summary: boundedNarrative,
+      productInterests: [boundedItem],
+    });
+  });
+
   it("provides versioned defaults with a hot lead threshold of 75", () => {
     expect(DEFAULT_CONVERSATION_INSIGHT_SETTINGS).toEqual({
       version: 1,

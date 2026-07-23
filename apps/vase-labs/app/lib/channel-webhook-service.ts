@@ -279,7 +279,6 @@ function buildMessageMetadata(input: PersistChannelInboundMessageInput) {
     mediaId: input.message.mediaId ?? null,
     aiBlockedReason: input.aiBlockedReason,
     rawPayload: input.message.rawPayload ?? null,
-    conversationAnalysisPending: true,
   };
 }
 
@@ -546,6 +545,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         content,
         providerMessageId,
         metadata,
+        analysisPendingAt,
         createdAt
       )
       VALUES (
@@ -556,6 +556,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         ${messageContent(input.message)},
         ${input.message.externalMessageId ?? null},
         ${metadataJson(buildMessageMetadata(input))},
+        ${now},
         ${now}
       )
     `;

@@ -92,30 +92,70 @@ describe("conversation analysis worker runtime", () => {
     expect(wait).not.toHaveBeenCalled();
   });
 
-  it("reduces runtime failures to a safe structured error log", async () => {
-    const errors: unknown[] = [];
+  it("isolates recovery failures so analysis batches still run", async () => {
+    const logs: unknown[] = [];
+    const runBatch = vi.fn(async () => ({
+      claimed: 0,
+      completed: 0,
+      requeued: 0,
+      failed: 0,
+      leaseLost: 0,
+      errorCodes: [],
+      inputTokens: 0,
+      outputTokens: 0,
+      analysisVersions: [],
+      maxQueueAgeMs: 0,
+      maxAttempt: 0,
+      jobLatencyMs: 0,
+    }));
     const runtime = createConversationAnalysisWorkerRuntime({
       recover: async () => {
         throw new Error("transcript and apiKey provider body");
       },
-      runBatch: vi.fn(),
+      runBatch,
       clock: () => 100,
       random: () => 0,
       wait: async () => undefined,
-      info: vi.fn(),
-      error: (entry) => errors.push(entry),
+      info: (entry) => logs.push(entry),
+      error: vi.fn(),
     });
 
     await runtime.pollOnce({ shouldStop: () => true });
 
-    expect(errors).toEqual([{
-      event: "conversation_analysis_worker_error",
-      errorCode: "CONVERSATION_ANALYSIS_WORKER_FAILED",
+    expect(runBatch).toHaveBeenCalledOnce();
+    expect(logs).toEqual([expect.objectContaining({
+      event: "conversation_analysis_batch",
+      recovered: 0,
+      recoveryFailed: 1,
+      recoveryErrorCode: "CONVERSATION_ANALYSIS_RECOVERY_FAILED",
       latencyMs: 0,
-    }]);
-    expect(JSON.stringify(errors)).not.toContain("transcript");
-    expect(JSON.stringify(errors)).not.toContain("apiKey");
-    expect(JSON.stringify(errors)).not.toContain("provider body");
+    })]);
+    expect(JSON.stringify(logs)).not.toContain("transcript");
+    expect(JSON.stringify(logs)).not.toContain("apiKey");
+    expect(JSON.stringify(logs)).not.toContain("provider body");
+  });
+
+  it("runs the indexed recovery sweep at a lower configured cadence", async () => {
+    const recover = vi.fn(async () => ({ recovered: 0, failed: 0 }));
+    const runtime = createConversationAnalysisWorkerRuntime({
+      recover,
+      recoveryEveryPolls: 3,
+      runBatch: async () => ({
+        claimed: 0, completed: 0, requeued: 0, failed: 0, leaseLost: 0,
+        errorCodes: [], inputTokens: 0, outputTokens: 0, analysisVersions: [],
+        maxQueueAgeMs: 0, maxAttempt: 0, jobLatencyMs: 0,
+      }),
+      clock: () => 0,
+      random: () => 0,
+      wait: async () => undefined,
+      info: vi.fn(),
+      error: vi.fn(),
+    });
+
+    for (let index = 0; index < 4; index += 1) {
+      await runtime.pollOnce({ shouldStop: () => true });
+    }
+    expect(recover).toHaveBeenCalledTimes(2);
   });
 
   it("uses longer jittered polling delays for idle queues", () => {

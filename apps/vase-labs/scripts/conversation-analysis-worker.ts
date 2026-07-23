@@ -5,6 +5,7 @@ import {
   createConversationAnalysisWorker,
   recoverConversationAnalysisEnqueues,
   resolveConversationAnalysisBatchSize,
+  resolveConversationAnalysisTimingConfig,
   runConversationAnalysisBatch,
 } from "../app/lib/conversation-analysis-worker";
 import { createConversationAnalysisWorkerRuntime } from "../app/lib/conversation-analysis-worker-runtime";
@@ -13,10 +14,11 @@ import { labsPrisma } from "../app/lib/db";
 import { labsEntitlementsService } from "../app/lib/labs-entitlements-service";
 
 const maxAttempts = positiveInteger(process.env.CONVERSATION_ANALYSIS_MAX_ATTEMPTS, 3);
-const leaseDurationMs = positiveInteger(
-  process.env.CONVERSATION_ANALYSIS_LEASE_DURATION_MS,
-  60_000,
-);
+const timing = resolveConversationAnalysisTimingConfig({
+  leaseDurationMs: process.env.CONVERSATION_ANALYSIS_LEASE_DURATION_MS,
+  requestTimeoutMs: process.env.CONVERSATION_ANALYSIS_REQUEST_TIMEOUT_MS,
+  heartbeatIntervalMs: process.env.CONVERSATION_ANALYSIS_HEARTBEAT_INTERVAL_MS,
+});
 const batchSize = resolveConversationAnalysisBatchSize(
   process.env.CONVERSATION_ANALYSIS_BATCH_SIZE,
   10,
@@ -27,7 +29,7 @@ const queue = createConversationAnalysisQueue({
   clock: () => new Date(),
   tokenFactory: randomUUID,
   maxAttempts,
-  leaseDurationMs,
+  leaseDurationMs: timing.leaseDurationMs,
   claimBatchSize: batchSize,
 });
 const worker = createConversationAnalysisWorker({
@@ -37,6 +39,7 @@ const worker = createConversationAnalysisWorker({
     return createConversationInsightGenerator({
       apiKey,
       env: process.env,
+      requestTimeoutMs: timing.requestTimeoutMs,
     });
   },
   async registerTokenUsage(usage) {
@@ -47,12 +50,23 @@ const worker = createConversationAnalysisWorker({
     return { totalTokens: registered.usage.totalTokens };
   },
   clock: () => new Date(),
+  heartbeat: {
+    intervalMs: timing.heartbeatIntervalMs,
+    start(callback, intervalMs) {
+      return setInterval(callback, intervalMs);
+    },
+    stop(handle) {
+      clearInterval(handle as NodeJS.Timeout);
+    },
+  },
 });
 
 let stopping = false;
+const shutdownController = new AbortController();
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.once(signal, () => {
     stopping = true;
+    shutdownController.abort();
   });
 }
 
@@ -69,6 +83,7 @@ const runtime = createConversationAnalysisWorkerRuntime({
       worker,
       maxJobs: batchSize,
       shouldStop,
+      signal: shutdownController.signal,
     });
   },
   clock: Date.now,

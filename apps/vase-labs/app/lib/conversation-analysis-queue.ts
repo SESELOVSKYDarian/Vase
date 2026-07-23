@@ -58,6 +58,7 @@ export interface ConversationAnalysisQueueDependencies {
 
 export type ConversationAnalysisCompletion = "COMPLETED" | "REQUEUED" | "LEASE_LOST";
 export type ConversationAnalysisFailure = "RETRY_QUEUED" | "FAILED" | "LEASE_LOST";
+export type ConversationAnalysisLeaseRenewal = "RENEWED" | "LEASE_LOST";
 
 function isClaimable(job: ConversationAnalysisJob, now: Date, maxAttempts: number) {
   if (job.attempts >= maxAttempts) return false;
@@ -199,6 +200,25 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
         if (claimed) return claimed;
       }
       return null;
+    },
+
+    renewLease(input: {
+      conversationId: string;
+      leaseToken: string;
+    }): Promise<ConversationAnalysisLeaseRenewal> {
+      return dependencies.repository.withJob(input.conversationId, (current) => {
+        if (!current) throw new Error("CONVERSATION_ANALYSIS_JOB_NOT_FOUND");
+        if (current.status !== "PROCESSING" || current.leaseToken !== input.leaseToken) {
+          return { job: current, result: "LEASE_LOST" as const };
+        }
+        const now = dependencies.clock();
+        const renewed: ConversationAnalysisJob = {
+          ...current,
+          leaseExpiresAt: new Date(now.getTime() + leaseDurationMs),
+          updatedAt: now,
+        };
+        return { job: renewed, result: "RENEWED" as const };
+      });
     },
 
     fail(input: {

@@ -21,6 +21,11 @@ export const CONVERSATION_SCORING_WEIGHT_KEYS = [
 export type ConversationScoringWeightKey = (typeof CONVERSATION_SCORING_WEIGHT_KEYS)[number];
 export type ConversationScoringWeights = Record<ConversationScoringWeightKey, number>;
 
+export const CONVERSATION_INSIGHT_NARRATIVE_MAX_LENGTH = 2_000;
+export const CONVERSATION_INSIGHT_ARRAY_MAX_ITEMS = 20;
+export const CONVERSATION_INSIGHT_ARRAY_ITEM_MAX_LENGTH = 500;
+export const CONVERSATION_INSIGHT_MAX_OUTPUT_TOKENS = 3_000;
+
 export interface ConversationInsightSettings {
   version: number;
   hotLeadThreshold: number;
@@ -94,6 +99,19 @@ function invalidInsight(): never {
   throw new Error("INVALID_CONVERSATION_INSIGHT");
 }
 
+function exceedsMaxLength(value: string, maxLength: number): boolean {
+  if (value.length <= maxLength) return false;
+  let length = 0;
+  let index = 0;
+  while (index < value.length) {
+    const codePoint = value.codePointAt(index);
+    index += codePoint !== undefined && codePoint > 0xFFFF ? 2 : 1;
+    length += 1;
+    if (length > maxLength) return true;
+  }
+  return false;
+}
+
 export function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   const normalized: string[] = [];
@@ -115,11 +133,31 @@ export function parseConversationInsight(value: unknown): ParsedConversationInsi
   const summary = value.summary;
   const currentNeed = value.currentNeed;
   const nextBestAction = value.nextBestAction;
-  if (typeof summary !== "string" || !summary.trim()) return invalidInsight();
-  if (typeof currentNeed !== "string" || !currentNeed.trim()) return invalidInsight();
-  if (typeof nextBestAction !== "string" || !nextBestAction.trim()) return invalidInsight();
+  if (
+    typeof summary !== "string"
+    || !summary.trim()
+    || exceedsMaxLength(summary, CONVERSATION_INSIGHT_NARRATIVE_MAX_LENGTH)
+  ) return invalidInsight();
+  if (
+    typeof currentNeed !== "string"
+    || !currentNeed.trim()
+    || exceedsMaxLength(currentNeed, CONVERSATION_INSIGHT_NARRATIVE_MAX_LENGTH)
+  ) return invalidInsight();
+  if (
+    typeof nextBestAction !== "string"
+    || !nextBestAction.trim()
+    || exceedsMaxLength(nextBestAction, CONVERSATION_INSIGHT_NARRATIVE_MAX_LENGTH)
+  ) return invalidInsight();
   for (const field of INSIGHT_ARRAY_FIELDS) {
-    if (!Array.isArray(value[field])) return invalidInsight();
+    const items = value[field];
+    if (
+      !Array.isArray(items)
+      || items.length > CONVERSATION_INSIGHT_ARRAY_MAX_ITEMS
+      || items.some((item) =>
+        typeof item === "string"
+        && exceedsMaxLength(item, CONVERSATION_INSIGHT_ARRAY_ITEM_MAX_LENGTH)
+      )
+    ) return invalidInsight();
   }
   if (!Number.isFinite(value.leadScore) || typeof value.leadScore !== "number") {
     return invalidInsight();

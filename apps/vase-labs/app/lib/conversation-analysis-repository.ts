@@ -202,8 +202,8 @@ implements ConversationAnalysisQueueRepository {
       FROM Conversation c
       JOIN Assistant a ON a.id = c.assistantId
       JOIN Message m ON m.conversationId = c.id
-      WHERE JSON_EXTRACT(m.metadata, '$.conversationAnalysisPending') = true
-      ORDER BY m.createdAt ASC, m.id ASC
+      WHERE m.analysisPendingAt IS NOT NULL
+      ORDER BY m.analysisPendingAt ASC, m.id ASC
       LIMIT ${boundedLimit}
     `;
   }
@@ -216,7 +216,7 @@ implements ConversationAnalysisQueueRepository {
     await this.prisma.$executeRaw`
       UPDATE Message m
       JOIN Conversation c ON c.id = m.conversationId
-      SET m.metadata = JSON_REMOVE(m.metadata, '$.conversationAnalysisPending')
+      SET m.analysisPendingAt = NULL
       WHERE m.id = ${input.messageId}
         AND m.conversationId = ${input.conversationId}
         AND c.assistantId = ${input.assistantId}
@@ -341,15 +341,35 @@ async function publishWithTransaction(
   transaction: TransactionClient,
   input: ConversationInsightPublication,
 ) {
+  await transaction.$queryRaw`
+    SELECT c.id
+    FROM Conversation c
+    JOIN Assistant a ON a.id = c.assistantId
+    WHERE c.id = ${input.conversationId}
+      AND c.assistantId = ${input.assistantId}
+      AND a.globalTenantId = ${input.globalTenantId}
+    FOR UPDATE
+  `;
   const conversation = await transaction.conversation.findFirst({
     where: {
       id: input.conversationId,
       assistantId: input.assistantId,
       assistant: { globalTenantId: input.globalTenantId },
     },
-    select: { id: true },
+    select: { id: true, status: true, escalatedToHuman: true },
   });
   if (!conversation) throw new Error("CONVERSATION_ANALYSIS_CONTEXT_NOT_FOUND");
+  const activeHandoff = await transaction.handoff.findFirst({
+    where: {
+      conversationId: input.conversationId,
+      status: { in: ["PENDING", "ASSIGNED"] },
+      conversation: {
+        assistantId: input.assistantId,
+        assistant: { globalTenantId: input.globalTenantId },
+      },
+    },
+    select: { id: true },
+  });
   const latestInbound = await transaction.message.findFirst({
     where: {
       conversationId: input.conversationId,
@@ -366,6 +386,11 @@ async function publishWithTransaction(
     throw new Error("CONVERSATION_ANALYSIS_STALE");
   }
 
+  const intentLabel = conversation.escalatedToHuman
+    || conversation.status === "ESCALATED"
+    || Boolean(activeHandoff)
+    ? "HUMAN_REQUESTED" as const
+    : input.insight.intentLabel;
   const data = {
     analysisVersion: input.analysisVersion,
     summary: input.insight.summary,
@@ -379,7 +404,7 @@ async function publishWithTransaction(
     nextBestAction: input.insight.nextBestAction,
     scoreReasons: input.insight.scoreReasons,
     leadScore: input.insight.leadScore,
-    intentLabel: input.insight.intentLabel,
+    intentLabel,
     identitySignals: input.insight.identitySignals,
     analyzedThroughMessageId: input.analyzedThroughMessageId,
     analyzedAt: input.analyzedAt,
@@ -397,7 +422,7 @@ async function publishWithTransaction(
     where: { id: input.conversationId, assistantId: input.assistantId },
     data: {
       summary: input.insight.summary,
-      intentLabel: input.insight.intentLabel,
+      intentLabel,
       intentScore: input.insight.leadScore,
     },
   });

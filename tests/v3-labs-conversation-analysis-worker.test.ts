@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import type { ConversationAnalysisJob } from "../apps/vase-labs/app/lib/conversation-analysis-queue";
 import {
@@ -5,6 +6,7 @@ import {
   MAX_CONVERSATION_ANALYSIS_BATCH_SIZE,
   recoverConversationAnalysisEnqueues,
   resolveConversationAnalysisBatchSize,
+  resolveConversationAnalysisTimingConfig,
   runConversationAnalysisBatch,
   type ConversationAnalysisContext,
 } from "../apps/vase-labs/app/lib/conversation-analysis-worker";
@@ -204,6 +206,25 @@ describe("conversation analysis worker", () => {
     expect(processNext).toHaveBeenCalledTimes(100);
   });
 
+  it("validates timeout and heartbeat strictly inside the lease", () => {
+    expect(resolveConversationAnalysisTimingConfig({})).toEqual({
+      leaseDurationMs: 60_000,
+      requestTimeoutMs: 45_000,
+      heartbeatIntervalMs: 15_000,
+    });
+    expect(() => resolveConversationAnalysisTimingConfig({
+      leaseDurationMs: "60000",
+      requestTimeoutMs: "59000",
+      heartbeatIntervalMs: "15000",
+    })).toThrow("INVALID_CONVERSATION_ANALYSIS_TIMING_CONFIG");
+    expect(() => resolveConversationAnalysisTimingConfig({
+      leaseDurationMs: "Infinity",
+    })).toThrow("INVALID_CONVERSATION_ANALYSIS_TIMING_CONFIG");
+    expect(() => resolveConversationAnalysisTimingConfig({
+      heartbeatIntervalMs: "40000",
+    })).toThrow("INVALID_CONVERSATION_ANALYSIS_TIMING_CONFIG");
+  });
+
   it("recovers durable enqueue-failure markers in bounded batches", async () => {
     const enqueue = vi.fn(async () => undefined);
     const clear = vi.fn(async () => undefined);
@@ -263,6 +284,78 @@ describe("conversation analysis worker", () => {
       queueAgeMs: 30_000,
       attempt: 1,
       latencyMs: 0,
+    });
+  });
+
+  it("aborts in-flight inference on termination and safely requeues persisted work", async () => {
+    const controller = new AbortController();
+    let observedSignal: AbortSignal | undefined;
+    const test = harness({
+      generate: async (...args: unknown[]) => {
+        observedSignal = (args[0] as { signal?: AbortSignal }).signal;
+        return new Promise<typeof generated>((_resolve, reject) => {
+          observedSignal?.addEventListener("abort", () => reject(new Error("aborted")), {
+            once: true,
+          });
+        });
+      },
+    });
+
+    const pending = test.worker.processNext({ signal: controller.signal });
+    await vi.waitFor(() => expect(observedSignal).toBeDefined());
+    controller.abort();
+
+    await expect(pending).resolves.toMatchObject({
+      status: "RETRY_QUEUED",
+      errorCode: "CONVERSATION_ANALYSIS_FAILED",
+    });
+    expect(test.fail).toHaveBeenCalledOnce();
+  });
+
+  it("renews the lease while model inference remains in flight", async () => {
+    let heartbeat: (() => void) | undefined;
+    let resolveGeneration: ((value: typeof generated) => void) | undefined;
+    const renewLease = vi.fn(async () => "RENEWED" as const);
+    const generate = vi.fn(async () => new Promise<typeof generated>((resolve) => {
+      resolveGeneration = resolve;
+    }));
+    const worker = createConversationAnalysisWorker({
+      queue: {
+        claimNext: async () => job,
+        complete: async ({ publish }) => {
+          await publish();
+          return "COMPLETED";
+        },
+        fail: async () => "RETRY_QUEUED",
+        renewLease,
+      },
+      repository: {
+        loadAnalysisContext: async () => context(),
+        publishInsight: async () => undefined,
+      },
+      createGenerator: () => ({ generate }),
+      registerTokenUsage: async () => ({ totalTokens: 20 }),
+      clock: () => new Date("2026-07-23T12:00:30.000Z"),
+      heartbeat: {
+        intervalMs: 15_000,
+        start(callback) {
+          heartbeat = callback;
+          return "timer";
+        },
+        stop: vi.fn(),
+      },
+    });
+
+    const pending = worker.processNext();
+    await vi.waitFor(() => expect(heartbeat).toBeDefined());
+    heartbeat?.();
+    await vi.waitFor(() => expect(renewLease).toHaveBeenCalledOnce());
+    resolveGeneration?.(generated);
+
+    await expect(pending).resolves.toMatchObject({ status: "COMPLETED" });
+    expect(renewLease).toHaveBeenCalledWith({
+      conversationId: "conversation_a",
+      leaseToken: "lease_a",
     });
   });
 
@@ -357,6 +450,79 @@ describe("conversation analysis worker", () => {
 });
 
 describe("Prisma conversation analysis repository boundaries", () => {
+  it("locks the parent row before loading and persisting a job in one short transaction", async () => {
+    const events: string[] = [];
+    let lockSql = "";
+    let transactionOptions: unknown;
+    const transaction = {
+      $queryRaw: vi.fn(async (strings: TemplateStringsArray) => {
+        events.push("lock");
+        lockSql = strings.join("?");
+        return [{ id: "conversation_a" }];
+      }),
+      conversationAnalysisJob: {
+        findUnique: vi.fn(async () => {
+          events.push("load");
+          return job;
+        }),
+        upsert: vi.fn(async () => {
+          events.push("persist");
+          return job;
+        }),
+      },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (
+        operation: (tx: typeof transaction) => Promise<unknown>,
+        options: unknown,
+      ) => {
+        transactionOptions = options;
+        return operation(transaction);
+      }),
+    };
+    const repository = new PrismaConversationAnalysisRepository(prisma as never);
+
+    await expect(repository.withJob("conversation_a", (current) => ({
+      job: current!,
+      result: "ok",
+    }))).resolves.toBe("ok");
+
+    expect(events).toEqual(["lock", "load", "persist"]);
+    expect(lockSql).toContain("FROM Conversation");
+    expect(lockSql).toContain("FOR UPDATE");
+    expect(transactionOptions).toEqual({ maxWait: 5_000, timeout: 10_000 });
+  });
+
+  it("uses an indexed durable analysisPendingAt field for recovery", async () => {
+    let recoverySql = "";
+    const prisma = {
+      $queryRaw: vi.fn(async (strings: TemplateStringsArray) => {
+        recoverySql = strings.join("?");
+        return [];
+      }),
+    };
+    const repository = new PrismaConversationAnalysisRepository(prisma as never);
+    await repository.listFailedEnqueueCandidates(10);
+
+    expect(recoverySql).toContain("m.analysisPendingAt IS NOT NULL");
+    expect(recoverySql).toContain("ORDER BY m.analysisPendingAt ASC, m.id ASC");
+    expect(recoverySql).not.toContain("JSON_EXTRACT");
+
+    const schema = readFileSync("apps/vase-labs/prisma/schema.prisma", "utf8");
+    const migration = readFileSync(
+      "apps/vase-labs/prisma/migrations/20260723200000_analysis_pending_index/migration.sql",
+      "utf8",
+    );
+    expect(schema).toContain("analysisPendingAt DateTime?");
+    expect(schema).toContain("@@index([analysisPendingAt, id])");
+    expect(migration).toContain("ADD COLUMN `analysisPendingAt`");
+    expect(migration).toContain("Message_analysisPendingAt_id_idx");
+    expect(migration).toContain(
+      "WHERE JSON_EXTRACT(`metadata`, '$.conversationAnalysisPending') = true",
+    );
+    expect(migration).toContain("SET `analysisPendingAt` = `createdAt`");
+  });
+
   it("prefers and decrypts the assistant-specific OpenAI secret", () => {
     const encryptedValue = encryptChannelSecret("assistant-key", "encryption-key");
     expect(resolveAssistantOpenAiApiKey({
@@ -395,11 +561,13 @@ describe("Prisma conversation analysis repository boundaries", () => {
 
   it("rejects publication when assistant and tenant do not match the conversation", async () => {
     const transaction = {
+      $queryRaw: vi.fn(async () => []),
       conversation: {
         findFirst: vi.fn(async () => null),
         updateMany: vi.fn(),
       },
       message: { findFirst: vi.fn() },
+      handoff: { findFirst: vi.fn(async () => null) },
       conversationInsight: { upsert: vi.fn() },
     };
     const prisma = {
@@ -429,6 +597,7 @@ describe("Prisma conversation analysis repository boundaries", () => {
 
   it("writes the insight and conversation projection in the same transaction", async () => {
     const transaction = {
+      $queryRaw: vi.fn(async () => []),
       conversation: {
         findFirst: vi.fn(async () => ({ id: "conversation_a" })),
         updateMany: vi.fn(async () => ({ count: 1 })),
@@ -436,6 +605,7 @@ describe("Prisma conversation analysis repository boundaries", () => {
       message: {
         findFirst: vi.fn(async () => ({ id: "message_2", createdAt: requestedAt })),
       },
+      handoff: { findFirst: vi.fn(async () => null) },
       conversationInsight: { upsert: vi.fn(async () => ({})) },
     };
     const prisma = {
@@ -468,6 +638,7 @@ describe("Prisma conversation analysis repository boundaries", () => {
 
   it("rejects publication when a newer durable inbound exists before its queue upsert", async () => {
     const transaction = {
+      $queryRaw: vi.fn(async () => []),
       conversation: {
         findFirst: vi.fn(async () => ({ id: "conversation_a" })),
         updateMany: vi.fn(),
@@ -478,6 +649,7 @@ describe("Prisma conversation analysis repository boundaries", () => {
           createdAt: new Date("2026-07-23T12:01:00.000Z"),
         })),
       },
+      handoff: { findFirst: vi.fn(async () => null) },
       conversationInsight: { upsert: vi.fn() },
     };
     const prisma = {
@@ -508,6 +680,52 @@ describe("Prisma conversation analysis repository boundaries", () => {
       select: { id: true },
     });
     expect(transaction.conversationInsight.upsert).not.toHaveBeenCalled();
+  });
+
+  it("re-reads handoff state in the publish transaction and keeps both labels aligned", async () => {
+    const transaction = {
+      $queryRaw: vi.fn(async () => []),
+      conversation: {
+        findFirst: vi.fn(async () => ({
+          id: "conversation_a",
+          status: "OPEN",
+          escalatedToHuman: false,
+        })),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      handoff: {
+        findFirst: vi.fn(async () => ({ id: "handoff_new" })),
+      },
+      message: {
+        findFirst: vi.fn(async () => ({ id: "message_2" })),
+      },
+      conversationInsight: { upsert: vi.fn(async () => ({})) },
+    };
+    const prisma = {
+      $transaction: async (operation: (tx: typeof transaction) => Promise<unknown>) =>
+        operation(transaction),
+    };
+    const repository = new PrismaConversationAnalysisRepository(prisma as never);
+
+    await repository.publishInsight({
+      conversationId: "conversation_a",
+      assistantId: "assistant_a",
+      globalTenantId: "tenant_a",
+      analysisVersion: 3,
+      analyzedThroughMessageId: "message_2",
+      analyzedAt: requestedAt,
+      insight: generated.insight,
+    });
+
+    expect(String(transaction.$queryRaw.mock.calls[0]?.[0]))
+      .toContain("FOR UPDATE");
+    expect(transaction.conversationInsight.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ intentLabel: "HUMAN_REQUESTED" }),
+      update: expect.objectContaining({ intentLabel: "HUMAN_REQUESTED" }),
+    }));
+    expect(transaction.conversation.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ intentLabel: "HUMAN_REQUESTED" }),
+    }));
   });
 
   it("loads a bounded latest window and returns it chronologically", async () => {

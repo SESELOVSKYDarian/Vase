@@ -1,5 +1,9 @@
 import {
+  CONVERSATION_INSIGHT_ARRAY_ITEM_MAX_LENGTH,
+  CONVERSATION_INSIGHT_ARRAY_MAX_ITEMS,
   CONVERSATION_INTENT_LABELS,
+  CONVERSATION_INSIGHT_MAX_OUTPUT_TOKENS,
+  CONVERSATION_INSIGHT_NARRATIVE_MAX_LENGTH,
   parseConversationInsight,
   type ConversationInsightSettings,
   type ParsedConversationInsight,
@@ -8,23 +12,37 @@ import { resolveOpenAiModelProfile } from "./openai-reply-generator";
 
 type FetchLike = typeof fetch;
 
+const NARRATIVE_STRING_SCHEMA = {
+  type: "string",
+  maxLength: CONVERSATION_INSIGHT_NARRATIVE_MAX_LENGTH,
+} as const;
+
+const STRING_ARRAY_SCHEMA = {
+  type: "array",
+  maxItems: CONVERSATION_INSIGHT_ARRAY_MAX_ITEMS,
+  items: {
+    type: "string",
+    maxLength: CONVERSATION_INSIGHT_ARRAY_ITEM_MAX_LENGTH,
+  },
+} as const;
+
 export const CONVERSATION_INSIGHT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
-    summary: { type: "string" },
-    currentNeed: { type: "string" },
-    productInterests: { type: "array", items: { type: "string" } },
-    preferences: { type: "array", items: { type: "string" } },
-    objections: { type: "array", items: { type: "string" } },
-    budgetSignals: { type: "array", items: { type: "string" } },
-    urgencySignals: { type: "array", items: { type: "string" } },
-    recommendations: { type: "array", items: { type: "string" } },
-    nextBestAction: { type: "string" },
-    scoreReasons: { type: "array", items: { type: "string" } },
+    summary: NARRATIVE_STRING_SCHEMA,
+    currentNeed: NARRATIVE_STRING_SCHEMA,
+    productInterests: STRING_ARRAY_SCHEMA,
+    preferences: STRING_ARRAY_SCHEMA,
+    objections: STRING_ARRAY_SCHEMA,
+    budgetSignals: STRING_ARRAY_SCHEMA,
+    urgencySignals: STRING_ARRAY_SCHEMA,
+    recommendations: STRING_ARRAY_SCHEMA,
+    nextBestAction: NARRATIVE_STRING_SCHEMA,
+    scoreReasons: STRING_ARRAY_SCHEMA,
     leadScore: { type: "integer", minimum: 1, maximum: 100 },
     intentLabel: { type: "string", enum: [...CONVERSATION_INTENT_LABELS] },
-    identitySignals: { type: "array", items: { type: "string" } },
+    identitySignals: STRING_ARRAY_SCHEMA,
   },
   required: [
     "summary",
@@ -61,41 +79,78 @@ export function createConversationInsightGenerator(input: {
   apiKey?: string;
   env?: NodeJS.ProcessEnv;
   fetcher?: FetchLike;
+  requestTimeoutMs?: number;
 } = {}) {
   const env = input.env ?? process.env;
   const apiKey = input.apiKey ?? env.OPENAI_API_KEY;
   const model = env.OPENAI_CONVERSATION_ANALYSIS_MODEL?.trim()
     || resolveOpenAiModelProfile({ profileId: "fast", env }).model;
   const fetcher = input.fetcher ?? fetch;
+  const requestTimeoutMs = input.requestTimeoutMs ?? 45_000;
+  if (!Number.isFinite(requestTimeoutMs) || requestTimeoutMs < 1) {
+    throw new Error("INVALID_CONVERSATION_ANALYSIS_REQUEST_TIMEOUT");
+  }
 
   return {
     async generate(request: {
       messages: ConversationInsightMessage[];
       settings: ConversationInsightSettings;
+      signal?: AbortSignal;
     }): Promise<GeneratedConversationInsight> {
       if (!apiKey) throw new Error("OPENAI_API_KEY_MISSING");
 
-      const response = await fetcher("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          instructions: buildInstructions(request.settings),
-          input: buildTranscript(request.messages),
-          text: {
-            format: {
-              type: "json_schema",
-              name: "vase_conversation_insight",
-              strict: true,
-              schema: CONVERSATION_INSIGHT_JSON_SCHEMA,
-            },
+      const requestController = new AbortController();
+      let timedOut = false;
+      let externallyAborted = false;
+      const forwardAbort = () => {
+        externallyAborted = true;
+        requestController.abort();
+      };
+      request.signal?.addEventListener("abort", forwardAbort, { once: true });
+      if (request.signal?.aborted) forwardAbort();
+      const timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        requestController.abort();
+      }, Math.floor(requestTimeoutMs));
+      let response: Response;
+      let payload: unknown;
+      try {
+        response = await fetcher("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
           },
-        }),
-      });
-      const payload = await response.json().catch(() => null);
+          signal: requestController.signal,
+          body: JSON.stringify({
+            model,
+            max_output_tokens: CONVERSATION_INSIGHT_MAX_OUTPUT_TOKENS,
+            instructions: buildInstructions(request.settings),
+            input: buildTranscript(request.messages),
+            text: {
+              format: {
+                type: "json_schema",
+                name: "vase_conversation_insight",
+                strict: true,
+                schema: CONVERSATION_INSIGHT_JSON_SCHEMA,
+              },
+            },
+          }),
+        });
+        try {
+          payload = await response.json();
+        } catch (error) {
+          if (requestController.signal.aborted) throw error;
+          payload = null;
+        }
+      } catch {
+        if (timedOut) throw new Error("OPENAI_CONVERSATION_ANALYSIS_TIMEOUT");
+        if (externallyAborted) throw new Error("OPENAI_CONVERSATION_ANALYSIS_ABORTED");
+        throw new Error("OPENAI_CONVERSATION_ANALYSIS_REQUEST_FAILED");
+      } finally {
+        clearTimeout(timeoutHandle);
+        request.signal?.removeEventListener("abort", forwardAbort);
+      }
       if (!response.ok) {
         throw new Error(`OPENAI_CONVERSATION_ANALYSIS_FAILED_${response.status}`);
       }
