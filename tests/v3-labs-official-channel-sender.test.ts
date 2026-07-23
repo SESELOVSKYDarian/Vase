@@ -106,54 +106,95 @@ describe("official Meta outbound sender", () => {
     ]);
   });
 
-  it.each(["INSTAGRAM", "FACEBOOK"] as const)(
-    "sends %s image attachments after the text",
-    async (channelType) => {
-      const requests: Array<{ url: string; init?: RequestInit }> = [];
-      const sender = createOfficialChannelSender({
-        encryptionSecret,
-        graphVersion: "v99.0",
-        repository: {
-          async findDeliveryContext() {
-            return {
-              channelType,
-              providerAccountId: "account_123",
-              encryptedAccessToken: encryptChannelSecret("page-token", encryptionSecret),
-            };
-          },
+  it("sends Instagram image attachments with URL-only payloads after the text", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const sender = createOfficialChannelSender({
+      encryptionSecret,
+      graphVersion: "v99.0",
+      repository: {
+        async findDeliveryContext() {
+          return {
+            channelType: "INSTAGRAM",
+            providerAccountId: "account_123",
+            encryptedAccessToken: encryptChannelSecret("page-token", encryptionSecret),
+          };
         },
-        fetcher: async (url, init) => {
-          requests.push({ url: String(url), init });
-          return Response.json({ message_id: requests.length === 1 ? "mid_text" : "mid_image" });
-        },
-      });
+      },
+      fetcher: async (url, init) => {
+        requests.push({ url: String(url), init });
+        return Response.json({ message_id: requests.length === 1 ? "mid_text" : "mid_image" });
+      },
+    });
 
-      await expect(sender.send({
-        globalTenantId: "tenant_123",
-        channelType,
-        recipientId: "customer_123",
-        text: "Te lo muestro.",
-        imageUrls: ["https://cdn.vase.ar/p1.jpg"],
-      })).resolves.toEqual({ ok: true, providerMessageId: "mid_text" });
+    await expect(sender.send({
+      globalTenantId: "tenant_123",
+      channelType: "INSTAGRAM",
+      recipientId: "customer_123",
+      text: "Te lo muestro.",
+      imageUrls: ["https://cdn.vase.ar/p1.jpg"],
+    })).resolves.toEqual({ ok: true, providerMessageId: "mid_text" });
 
-      const payloads = requests.map((request) => JSON.parse(request.init?.body as string));
-      expect(payloads[0]).toEqual({
-        recipient: { id: "customer_123" },
-        ...(channelType === "FACEBOOK" ? { messaging_type: "RESPONSE" } : {}),
-        message: { text: "Te lo muestro." },
-      });
-      expect(payloads[1]).toEqual({
-        recipient: { id: "customer_123" },
-        ...(channelType === "FACEBOOK" ? { messaging_type: "RESPONSE" } : {}),
-        message: {
-          attachment: {
-            type: "image",
-            payload: { url: "https://cdn.vase.ar/p1.jpg", is_reusable: true },
-          },
+    const payloads = requests.map((request) => JSON.parse(request.init?.body as string));
+    expect(payloads[0]).toEqual({
+      recipient: { id: "customer_123" },
+      message: { text: "Te lo muestro." },
+    });
+    expect(payloads[1]).toEqual({
+      recipient: { id: "customer_123" },
+      message: {
+        attachment: {
+          type: "image",
+          payload: { url: "https://cdn.vase.ar/p1.jpg" },
         },
-      });
-    },
-  );
+      },
+    });
+  });
+
+  it("sends Facebook reusable image attachments after the text", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const sender = createOfficialChannelSender({
+      encryptionSecret,
+      graphVersion: "v99.0",
+      repository: {
+        async findDeliveryContext() {
+          return {
+            channelType: "FACEBOOK",
+            providerAccountId: "account_123",
+            encryptedAccessToken: encryptChannelSecret("page-token", encryptionSecret),
+          };
+        },
+      },
+      fetcher: async (url, init) => {
+        requests.push({ url: String(url), init });
+        return Response.json({ message_id: requests.length === 1 ? "mid_text" : "mid_image" });
+      },
+    });
+
+    await expect(sender.send({
+      globalTenantId: "tenant_123",
+      channelType: "FACEBOOK",
+      recipientId: "customer_123",
+      text: "Te lo muestro.",
+      imageUrls: ["https://cdn.vase.ar/p1.jpg"],
+    })).resolves.toEqual({ ok: true, providerMessageId: "mid_text" });
+
+    const payloads = requests.map((request) => JSON.parse(request.init?.body as string));
+    expect(payloads[0]).toEqual({
+      recipient: { id: "customer_123" },
+      messaging_type: "RESPONSE",
+      message: { text: "Te lo muestro." },
+    });
+    expect(payloads[1]).toEqual({
+      recipient: { id: "customer_123" },
+      messaging_type: "RESPONSE",
+      message: {
+        attachment: {
+          type: "image",
+          payload: { url: "https://cdn.vase.ar/p1.jpg", is_reusable: true },
+        },
+      },
+    });
+  });
 
   it("stops after a failed image and throws META_SEND_FAILED", async () => {
     const requests: RequestInit[] = [];

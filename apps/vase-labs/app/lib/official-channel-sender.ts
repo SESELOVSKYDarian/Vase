@@ -107,7 +107,12 @@ export function createOfficialChannelSender(input: {
                 message: {
                   attachment: {
                     type: "image",
-                    payload: { url: imageUrl, is_reusable: true },
+                    payload: {
+                      url: imageUrl,
+                      ...(params.channelType === "FACEBOOK"
+                        ? { is_reusable: true }
+                        : {}),
+                    },
                   },
                 },
               },

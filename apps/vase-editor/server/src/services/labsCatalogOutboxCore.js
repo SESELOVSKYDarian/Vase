@@ -2,20 +2,29 @@ import { isIP } from 'node:net';
 
 export const nextCatalogRetryDelayMs = (attempt) => Math.min(900_000, 5_000 * (2 ** Math.max(0, attempt - 1)));
 
+const nonPublicHostSuffixes = [
+  '.example',
+  '.invalid',
+  '.test',
+  '.internal',
+  '.home',
+  '.lan',
+  '.localhost',
+  '.local',
+];
+
 const asPublicHttpsUrl = (value) => {
   if (typeof value !== 'string' || !value.trim()) return null;
   try {
     const url = new URL(value.trim());
     const hostname = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
-    const isLocalHostname = hostname === 'localhost'
-      || hostname.endsWith('.localhost')
-      || hostname === 'local'
-      || hostname.endsWith('.local');
     if (
       url.protocol !== 'https:'
       || url.username
       || url.password
-      || isLocalHostname
+      || !hostname.includes('.')
+      || hostname === 'localhost'
+      || nonPublicHostSuffixes.some((suffix) => hostname.endsWith(suffix))
       || isIP(hostname)
     ) {
       return null;

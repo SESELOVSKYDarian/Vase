@@ -213,51 +213,31 @@ describe("Labs OpenAI reply generator", () => {
     });
   });
 
-  it.each(["text.format", "response_format"])(
-    "retries once without structured output when OpenAI reports unsupported %s",
-    async (param) => {
-      const calls: Array<{ url: string; init: RequestInit }> = [];
-      const generator = createOpenAiReplyGenerator({
-        apiKey: "sk-test",
-        model: "gpt-compatible",
-        fetcher: (async (url: string | URL | Request, init?: RequestInit) => {
-          calls.push({ url: String(url), init: init ?? {} });
-          if (calls.length === 1) {
-            return new Response(JSON.stringify({
-              error: {
-                message: `Unsupported parameter: '${param}'.`,
-                type: "invalid_request_error",
-                param,
-                code: "unsupported_parameter",
-              },
-            }), { status: 400 });
-          }
-          return new Response(JSON.stringify({
-            output: [{
-              type: "message",
-              content: [{ type: "output_text", text: "Respuesta compatible." }],
-            }],
-            usage: { input_tokens: 5, output_tokens: 3 },
-          }));
-        }) as typeof fetch,
-      });
+  it("does not retry or parse free-form output when OpenAI rejects text.format", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const error = {
+      message: "Unsupported parameter: 'text.format'.",
+      type: "invalid_request_error",
+      param: "text.format",
+      code: "unsupported_parameter",
+    };
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      model: "gpt-compatible",
+      fetcher: (async (url: string | URL | Request, init?: RequestInit) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return new Response(JSON.stringify({ error }), { status: 400 });
+      }) as typeof fetch,
+    });
 
-      await expect(generator.generateReply({
-        userText: "Hola",
-        context: "Contexto",
-        allowedImageUrls: ["https://cdn.vase.ar/p1.jpg"],
-      })).resolves.toMatchObject({
-        text: "Respuesta compatible.",
-        imageUrls: [],
-        inputTokens: 5,
-        outputTokens: 3,
-        model: "gpt-compatible",
-      });
-      expect(calls).toHaveLength(2);
-      expect(JSON.parse(String(calls[0]?.init.body))).toHaveProperty("text.format");
-      expect(JSON.parse(String(calls[1]?.init.body))).not.toHaveProperty("text");
-    },
-  );
+    await expect(generator.generateReply({
+      userText: "Hola",
+      context: "Contexto",
+      allowedImageUrls: ["https://cdn.vase.ar/p1.jpg"],
+    })).rejects.toThrow(error.message);
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(String(calls[0]?.init.body))).toHaveProperty("text.format");
+  });
 
   it.each([
     {
