@@ -118,6 +118,30 @@ describe("Labs conversation insight domain", () => {
     expect(normalizeConversationInsightSettings(raw)).toEqual(normalizeConversationInsightSettings(raw));
   });
 
+  it("normalizes maximum finite weights without overflowing", () => {
+    expect(normalizeConversationInsightSettings({
+      version: 2,
+      hotLeadThreshold: 75,
+      weights: {
+        purchaseIntent: Number.MAX_VALUE,
+        productDefined: Number.MAX_VALUE,
+        budgetAcceptance: Number.MAX_VALUE,
+        urgency: Number.MAX_VALUE,
+        contactOrFulfillmentData: Number.MAX_VALUE,
+        interactionDepth: Number.MAX_VALUE,
+        objectionsOrNegativeSignals: -Number.MAX_VALUE,
+      },
+    }).weights).toEqual({
+      purchaseIntent: 15,
+      productDefined: 15,
+      budgetAcceptance: 14,
+      urgency: 14,
+      contactOrFulfillmentData: 14,
+      interactionDepth: 14,
+      objectionsOrNegativeSignals: -14,
+    });
+  });
+
   it("falls back safely when settings are malformed", () => {
     expect(normalizeConversationInsightSettings({
       version: 0,

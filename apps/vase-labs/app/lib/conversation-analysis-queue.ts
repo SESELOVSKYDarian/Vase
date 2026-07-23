@@ -21,11 +21,22 @@ export interface ConversationAnalysisJob {
 }
 
 export interface ConversationAnalysisQueueRepository {
+  /**
+   * Returns queued jobs below the retry limit and every expired PROCESSING job.
+   * Exhausted expired jobs must remain candidates so claimNext can finalize them
+   * as FAILED while holding the per-conversation lock.
+   */
   listClaimableConversationIds(input: {
     now: Date;
     maxAttempts: number;
     limit: number;
   }): Promise<string[]>;
+  /**
+   * Executes the operation under an exclusive per-conversation transaction or lock.
+   * The current job must be the latest committed value, and the returned job must be
+   * committed atomically before the lock is released. Implementations must therefore
+   * make concurrent operations for the same conversation linearizable.
+   */
   withJob<TResult>(
     conversationId: string,
     operation: (
@@ -55,9 +66,8 @@ function isClaimable(job: ConversationAnalysisJob, now: Date, maxAttempts: numbe
     && job.leaseExpiresAt.getTime() <= now.getTime();
 }
 
-function errorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  return (message.trim() || "Conversation analysis failed").slice(0, 2_000);
+function safeFailureCode() {
+  return "CONVERSATION_ANALYSIS_FAILED";
 }
 
 function isNewerRequest(input: {
@@ -91,8 +101,8 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
       requestedThroughMessageId: string;
       requestedThroughMessageCreatedAt: Date;
     }) {
-      const now = dependencies.clock();
       return dependencies.repository.withJob(input.conversationId, (current) => {
+        const now = dependencies.clock();
         if (!current) {
           const created: ConversationAnalysisJob = {
             conversationId: input.conversationId,
@@ -141,9 +151,9 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
     },
 
     async claimNext(): Promise<ConversationAnalysisJob | null> {
-      const now = dependencies.clock();
+      const listedAt = dependencies.clock();
       const conversationIds = await dependencies.repository.listClaimableConversationIds({
-        now,
+        now: listedAt,
         maxAttempts,
         limit: claimBatchSize,
       });
@@ -152,6 +162,21 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
           conversationId,
           (current) => {
             if (!current) throw new Error("CONVERSATION_ANALYSIS_JOB_NOT_FOUND");
+            const now = dependencies.clock();
+            const expiredProcessingLease = current.status === "PROCESSING"
+              && current.leaseExpiresAt !== null
+              && current.leaseExpiresAt.getTime() <= now.getTime();
+            if (expiredProcessingLease && current.attempts >= maxAttempts) {
+              const failed: ConversationAnalysisJob = {
+                ...current,
+                status: "FAILED",
+                leaseToken: null,
+                leaseExpiresAt: null,
+                lastError: "LEASE_EXPIRED_MAX_ATTEMPTS",
+                updatedAt: now,
+              };
+              return { job: failed, result: null };
+            }
             if (!isClaimable(current, now, maxAttempts)) {
               return { job: current, result: null };
             }
@@ -177,8 +202,8 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
       leaseToken: string;
       error: unknown;
     }): Promise<ConversationAnalysisFailure> {
-      const now = dependencies.clock();
       return dependencies.repository.withJob(input.conversationId, (current) => {
+        const now = dependencies.clock();
         if (!current) throw new Error("CONVERSATION_ANALYSIS_JOB_NOT_FOUND");
         if (current.status !== "PROCESSING" || current.leaseToken !== input.leaseToken) {
           return { job: current, result: "LEASE_LOST" as const };
@@ -189,7 +214,7 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
           status: exhausted ? "FAILED" : "QUEUED",
           leaseToken: null,
           leaseExpiresAt: null,
-          lastError: errorMessage(input.error),
+          lastError: safeFailureCode(),
           updatedAt: now,
         };
         return {
@@ -205,8 +230,8 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
       analyzedThroughMessageId: string;
       publish: () => Promise<void>;
     }): Promise<ConversationAnalysisCompletion> {
-      const now = dependencies.clock();
       return dependencies.repository.withJob(input.conversationId, async (current) => {
+        const now = dependencies.clock();
         if (!current) throw new Error("CONVERSATION_ANALYSIS_JOB_NOT_FOUND");
         if (current.status !== "PROCESSING" || current.leaseToken !== input.leaseToken) {
           return { job: current, result: "LEASE_LOST" as const };

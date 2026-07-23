@@ -164,16 +164,27 @@ function normalizeWeightSigns(weights: ConversationScoringWeights): Conversation
 
 function normalizeWeights(weights: ConversationScoringWeights): ConversationScoringWeights | null {
   const signedWeights = normalizeWeightSigns(weights);
-  const total = CONVERSATION_SCORING_WEIGHT_KEYS.reduce(
-    (sum, key) => sum + Math.abs(signedWeights[key]),
+  const maximumMagnitude = Math.max(
+    ...CONVERSATION_SCORING_WEIGHT_KEYS.map((key) => Math.abs(signedWeights[key])),
+  );
+  if (!Number.isFinite(maximumMagnitude) || maximumMagnitude <= 0) return null;
+  const scaledMagnitudes = Object.fromEntries(
+    CONVERSATION_SCORING_WEIGHT_KEYS.map((key) => [
+      key,
+      Math.abs(signedWeights[key]) / maximumMagnitude,
+    ]),
+  ) as ConversationScoringWeights;
+  const scaledTotal = CONVERSATION_SCORING_WEIGHT_KEYS.reduce(
+    (sum, key) => sum + scaledMagnitudes[key],
     0,
   );
-  if (!Number.isFinite(total) || total <= 0) return null;
+  if (!Number.isFinite(scaledTotal) || scaledTotal <= 0) return null;
 
   const exact = CONVERSATION_SCORING_WEIGHT_KEYS.map((key) => ({
     key,
-    value: Math.abs(signedWeights[key]) * 100 / total,
+    value: scaledMagnitudes[key] / scaledTotal * 100,
   }));
+  if (exact.some(({ value }) => !Number.isFinite(value))) return null;
   const allocated = Object.fromEntries(
     exact.map(({ key, value }) => [key, Math.floor(value)]),
   ) as ConversationScoringWeights;
@@ -188,6 +199,7 @@ function normalizeWeights(weights: ConversationScoringWeights): ConversationScor
     allocated[remainderOrder[index].key] += 1;
   }
   allocated.objectionsOrNegativeSignals = -allocated.objectionsOrNegativeSignals;
+  if (CONVERSATION_SCORING_WEIGHT_KEYS.some((key) => !Number.isFinite(allocated[key]))) return null;
   return allocated;
 }
 

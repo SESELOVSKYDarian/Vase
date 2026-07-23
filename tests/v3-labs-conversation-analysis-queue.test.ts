@@ -8,6 +8,8 @@ import {
 
 class MemoryConversationAnalysisQueueRepository implements ConversationAnalysisQueueRepository {
   private readonly jobs = new Map<string, ConversationAnalysisJob>();
+  private readonly lockTails = new Map<string, Promise<void>>();
+  private nextOperationHook: (() => void) | null = null;
 
   seed(job: ConversationAnalysisJob) {
     this.jobs.set(job.conversationId, structuredClone(job));
@@ -18,6 +20,10 @@ class MemoryConversationAnalysisQueueRepository implements ConversationAnalysisQ
     return job ? structuredClone(job) : null;
   }
 
+  beforeNextJobOperation(hook: () => void) {
+    this.nextOperationHook = hook;
+  }
+
   async listClaimableConversationIds(input: {
     now: Date;
     maxAttempts: number;
@@ -25,8 +31,7 @@ class MemoryConversationAnalysisQueueRepository implements ConversationAnalysisQ
   }) {
     return [...this.jobs.values()]
       .filter((job) => {
-        if (job.attempts >= input.maxAttempts) return false;
-        if (job.status === "QUEUED") return true;
+        if (job.status === "QUEUED") return job.attempts < input.maxAttempts;
         return job.status === "PROCESSING"
           && job.leaseExpiresAt !== null
           && job.leaseExpiresAt.getTime() <= input.now.getTime();
@@ -42,10 +47,28 @@ class MemoryConversationAnalysisQueueRepository implements ConversationAnalysisQ
       current: ConversationAnalysisJob | null,
     ) => Promise<{ job: ConversationAnalysisJob; result: TResult }> | { job: ConversationAnalysisJob; result: TResult },
   ): Promise<TResult> {
-    const current = this.get(conversationId);
-    const { job, result } = await operation(current);
-    this.jobs.set(conversationId, structuredClone(job));
-    return result;
+    const previous = this.lockTails.get(conversationId) ?? Promise.resolve();
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const tail = previous.then(() => gate);
+    this.lockTails.set(conversationId, tail);
+    await previous;
+    try {
+      const current = this.get(conversationId);
+      const hook = this.nextOperationHook;
+      this.nextOperationHook = null;
+      hook?.();
+      const { job, result } = await operation(current);
+      this.jobs.set(conversationId, structuredClone(job));
+      return result;
+    } finally {
+      release();
+      if (this.lockTails.get(conversationId) === tail) {
+        this.lockTails.delete(conversationId);
+      }
+    }
   }
 }
 
@@ -142,6 +165,40 @@ describe("Labs durable conversation analysis queue", () => {
     });
   });
 
+  it("marks an exhausted expired lease failed instead of leaving it processing forever", async () => {
+    const { queue, repository } = queueHarness({ maxAttempts: 3 });
+    repository.seed(job({
+      status: "PROCESSING",
+      attempts: 3,
+      leaseToken: "crashed_final_attempt",
+      leaseExpiresAt: new Date("2026-07-23T12:04:59.000Z"),
+    }));
+
+    await expect(queue.claimNext()).resolves.toBeNull();
+    expect(repository.get("conversation_1")).toMatchObject({
+      status: "FAILED",
+      attempts: 3,
+      leaseToken: null,
+      leaseExpiresAt: null,
+      lastError: "LEASE_EXPIRED_MAX_ATTEMPTS",
+    });
+  });
+
+  it("starts a claimed lease from the clock observed inside the job lock", async () => {
+    const { queue, repository, setNow } = queueHarness();
+    repository.seed(job());
+    repository.beforeNextJobOperation(() => {
+      setNow(new Date("2026-07-23T12:10:00.000Z"));
+    });
+
+    const claimed = await queue.claimNext();
+
+    expect(claimed).toMatchObject({
+      updatedAt: new Date("2026-07-23T12:10:00.000Z"),
+      leaseExpiresAt: new Date("2026-07-23T12:11:00.000Z"),
+    });
+  });
+
   it("does not steal an unexpired processing lease", async () => {
     const { queue, repository } = queueHarness();
     repository.seed(job({
@@ -157,6 +214,16 @@ describe("Labs durable conversation analysis queue", () => {
       attempts: 1,
       leaseToken: "valid_token",
     });
+  });
+
+  it("allows only one parallel worker to claim a queued conversation", async () => {
+    const { queue } = queueHarness();
+    await queue.enqueue(enqueueRequest("message_1"));
+
+    const claims = await Promise.all([queue.claimNext(), queue.claimNext()]);
+
+    expect(claims.filter((claim) => claim !== null)).toHaveLength(1);
+    expect(claims.filter((claim) => claim === null)).toHaveLength(1);
   });
 
   it("retries failures only through the configured maximum attempt", async () => {
@@ -179,7 +246,7 @@ describe("Labs durable conversation analysis queue", () => {
     expect(repository.get("conversation_1")).toMatchObject({
       status: "FAILED",
       attempts: 3,
-      lastError: "provider unavailable",
+      lastError: "CONVERSATION_ANALYSIS_FAILED",
       leaseToken: null,
       leaseExpiresAt: null,
     });
@@ -267,6 +334,24 @@ describe("Labs durable conversation analysis queue", () => {
 
     expect(published).toBe(false);
     expect(repository.get("conversation_1")?.leaseToken).toBe("current_token");
+  });
+
+  it("stores a bounded safe failure code instead of provider exception details", async () => {
+    const { queue, repository } = queueHarness({ maxAttempts: 1 });
+    await queue.enqueue(enqueueRequest("message_1"));
+    const claimed = await queue.claimNext();
+    const sensitiveError = `sk-live-secret customer transcript ${"x".repeat(5_000)}`;
+
+    await queue.fail({
+      conversationId: "conversation_1",
+      leaseToken: claimed!.leaseToken!,
+      error: new Error(sensitiveError),
+    });
+
+    const storedError = repository.get("conversation_1")?.lastError;
+    expect(storedError).toBe("CONVERSATION_ANALYSIS_FAILED");
+    expect(storedError).not.toContain("sk-live-secret");
+    expect(storedError!.length).toBeLessThanOrEqual(64);
   });
 
   it("rejects non-finite queue configuration", () => {
