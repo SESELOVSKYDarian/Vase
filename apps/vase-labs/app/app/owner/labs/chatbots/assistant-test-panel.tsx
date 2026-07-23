@@ -6,6 +6,7 @@ import { type FormEvent, useState } from "react";
 export function AssistantTestPanel({ configured, hasKnowledge }: { configured: boolean; hasKnowledge: boolean }) {
   const [message, setMessage] = useState("");
   const [reply, setReply] = useState("");
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [meta, setMeta] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -15,6 +16,7 @@ export function AssistantTestPanel({ configured, hasKnowledge }: { configured: b
     if (!message.trim() || busy || !configured) return;
     setBusy(true);
     setReply("");
+    setImageUrls([]);
     setMeta("");
     setError("");
 
@@ -27,8 +29,10 @@ export function AssistantTestPanel({ configured, hasKnowledge }: { configured: b
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error ?? "ASSISTANT_TEST_FAILED");
       setReply(payload.reply);
+      setImageUrls(Array.isArray(payload.imageUrls) ? payload.imageUrls : []);
       setMeta(`${payload.model} · ${Number(payload.usage?.inputTokens ?? 0) + Number(payload.usage?.outputTokens ?? 0)} tokens`);
     } catch (reason) {
+      setImageUrls([]);
       const code = reason instanceof Error ? reason.message : "";
       setError(code === "OPENAI_API_KEY_MISSING"
         ? "Agregá una OpenAI API Key antes de probar el chatbot."
@@ -61,7 +65,23 @@ export function AssistantTestPanel({ configured, hasKnowledge }: { configured: b
           </div>
         ) : null}
         {busy ? <div className="labs-assistant-test-loading"><Loader2 className="animate-spin" aria-hidden="true" /> Generando respuesta...</div> : null}
-        {reply ? <div className="labs-assistant-message"><Bot aria-hidden="true" /><div><p>{reply}</p><small>{meta}</small></div></div> : null}
+        {reply ? (
+          <div className="labs-assistant-message">
+            <Bot aria-hidden="true" />
+            <div>
+              <p>{reply}</p>
+              {imageUrls.length ? (
+                <div className="labs-assistant-message-images">
+                  {imageUrls.map((url, index) => (
+                    // eslint-disable-next-line @next/next/no-img-element -- Catalog URLs are tenant-scoped and already validated by the API.
+                    <img key={url} src={url} alt={`Imagen de producto ${index + 1}`} />
+                  ))}
+                </div>
+              ) : null}
+              <small>{meta}</small>
+            </div>
+          </div>
+        ) : null}
         {error ? <p className="labs-assistant-test-error" role="alert">{error}</p> : null}
       </div>
 

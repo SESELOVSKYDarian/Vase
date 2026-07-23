@@ -10,15 +10,31 @@ describe("channel AI reply runner", () => {
     const runner = createChannelAiReplyRunner({
       env: { OPENAI_API_KEY: "sk-labs" } as NodeJS.ProcessEnv,
       knowledge: { async buildContext() { return "Horario: 9 a 18"; } },
-      catalog: { async buildAiContext() { return "Producto A"; } },
+      catalog: {
+        async buildAiResources() {
+          return {
+            context: "Producto A",
+            allowedImageUrls: ["https://cdn.vase.ar/p1.jpg"],
+          };
+        },
+      },
       createReplyGenerator(input) {
         generatorInputs.push(input);
         return {
-          generateReply: async ({ context, systemPrompt }) => {
+          generateReply: async ({ context, systemPrompt, allowedImageUrls }) => {
             expect(systemPrompt).toBe("Responde como vendedor experto.");
             expect(context).toContain("Horario: 9 a 18");
             expect(context).toContain("Producto A");
-            return { text: "Respuesta IA", inputTokens: 10, outputTokens: 5, provider: "openai", model: input.model, profile: "everyday" };
+            expect(allowedImageUrls).toEqual(["https://cdn.vase.ar/p1.jpg"]);
+            return {
+              text: "Respuesta IA",
+              imageUrls: ["https://cdn.vase.ar/p1.jpg"],
+              inputTokens: 10,
+              outputTokens: 5,
+              provider: "openai",
+              model: input.model,
+              profile: "everyday",
+            };
           },
         };
       },
@@ -72,6 +88,7 @@ describe("channel AI reply runner", () => {
       conversationId: "conversation_123",
       recipientId: "customer_123",
       text: "Respuesta IA",
+      imageUrls: ["https://cdn.vase.ar/p1.jpg"],
     });
     expect(result).toEqual({ ok: true, messageId: "ai_message_123", totalTokens: 15 });
   });

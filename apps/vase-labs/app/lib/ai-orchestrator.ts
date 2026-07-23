@@ -1,14 +1,33 @@
 import type { LabsChannel } from "@vase/contracts";
 import type { AiReplyResult } from "./openai-reply-generator";
-import type { createKnowledgeService } from "./knowledge-service";
+
+export type OrchestratedAiReply = Omit<AiReplyResult, "imageUrls"> & {
+  imageUrls?: string[];
+};
 
 interface AiOrchestratorDeps {
-  knowledge: ReturnType<typeof createKnowledgeService>;
-  catalog?: { buildAiContext(globalTenantId: string): Promise<string> };
-  generateReply(input: { userText: string; context: string; systemPrompt?: string | null }): Promise<AiReplyResult>;
+  knowledge: { buildContext(assistantId: string): Promise<string> };
+  catalog?: {
+    buildAiResources?(globalTenantId: string): Promise<{
+      context: string;
+      allowedImageUrls: string[];
+    }>;
+    buildAiContext?(globalTenantId: string): Promise<string>;
+  };
+  generateReply(input: {
+    userText: string;
+    context: string;
+    systemPrompt?: string | null;
+    allowedImageUrls?: string[];
+  }): Promise<OrchestratedAiReply>;
   persistAssistantReply(input: { conversationId: string; channel: LabsChannel; text: string }): Promise<{ messageId: string }>;
   registerTokenUsage(input: { globalTenantId: string; channel: LabsChannel; inputTokens: number; outputTokens: number; messageId: string; conversationId: string; assistantId: string; source?: string }): Promise<{ totalTokens: number }>;
-  sendReply(input: { channel: LabsChannel; text: string; conversationId: string }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
+  sendReply(input: {
+    channel: LabsChannel;
+    text: string;
+    imageUrls?: string[];
+    conversationId: string;
+  }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
   markAssistantReplyDelivery?(input: {
     messageId: string;
     status: "SENT" | "FAILED";
@@ -32,15 +51,16 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
       if (!input.canRunAi) return { ok: false, reason: "AI_NOT_ALLOWED" };
       if (input.handoffActive) return { ok: false, reason: "HANDOFF_ACTIVE" };
 
-      const [knowledgeContext, catalogContext] = await Promise.all([
+      const [knowledgeContext, catalogResources] = await Promise.all([
         deps.knowledge.buildContext(input.assistantId),
-        deps.catalog?.buildAiContext(input.globalTenantId) ?? Promise.resolve(""),
+        buildCatalogResources(deps.catalog, input.globalTenantId),
       ]);
-      const context = [knowledgeContext, catalogContext].filter(Boolean).join("\n\n");
+      const context = [knowledgeContext, catalogResources.context].filter(Boolean).join("\n\n");
       const reply = await deps.generateReply({
         userText: input.latestUserText,
         context,
         systemPrompt: input.systemPrompt,
+        allowedImageUrls: catalogResources.allowedImageUrls,
       });
       const message = await deps.persistAssistantReply({
         conversationId: input.conversationId,
@@ -58,7 +78,12 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         source: buildTokenUsageSource(reply),
       });
       try {
-        const delivery = await deps.sendReply({ channel: input.channel, text: reply.text, conversationId: input.conversationId });
+        const delivery = await deps.sendReply({
+          channel: input.channel,
+          text: reply.text,
+          imageUrls: reply.imageUrls ?? [],
+          conversationId: input.conversationId,
+        });
         if (!delivery.ok) throw new Error("CHANNEL_DELIVERY_FAILED");
         await deps.markAssistantReplyDelivery?.({
           messageId: message.messageId,
@@ -79,7 +104,20 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
   };
 }
 
-function buildTokenUsageSource(reply: AiReplyResult): string | undefined {
+async function buildCatalogResources(
+  catalog: AiOrchestratorDeps["catalog"],
+  globalTenantId: string,
+): Promise<{ context: string; allowedImageUrls: string[] }> {
+  if (catalog?.buildAiResources) {
+    return catalog.buildAiResources(globalTenantId);
+  }
+  return {
+    context: await catalog?.buildAiContext?.(globalTenantId) ?? "",
+    allowedImageUrls: [],
+  };
+}
+
+function buildTokenUsageSource(reply: OrchestratedAiReply): string | undefined {
   if (!reply.provider && !reply.model) return undefined;
   return [reply.provider ?? "assistant", reply.model, reply.profile].filter(Boolean).join(":");
 }

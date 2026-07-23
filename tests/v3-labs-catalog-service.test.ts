@@ -114,6 +114,77 @@ describe("Labs catalog service", () => {
     expect(await service.buildAiContext("tenant_1")).toBe("");
   });
 
+  it("builds tenant-scoped AI resources from offered, active, in-stock products and public HTTPS images", async () => {
+    const service = createLabsCatalogService(memoryRepository());
+    const product = {
+      sku: "SKU",
+      description: null,
+      price: 100,
+      stock: 2,
+      categories: [],
+      active: true,
+      sourceUpdatedAt: "2026-07-23T10:00:00.000Z",
+    };
+
+    await service.sync({
+      eventId: "tenant-1-images",
+      globalTenantId: "tenant_1",
+      occurredAt: "2026-07-23T11:00:00.000Z",
+      products: [
+        { ...product, externalProductId: "valid-1", name: "Válido 1", imageUrl: "https://cdn.vase.ar/p1.jpg" },
+        { ...product, externalProductId: "duplicate", name: "Duplicado", imageUrl: "https://cdn.vase.ar/p1.jpg" },
+        { ...product, externalProductId: "valid-2", name: "Válido 2", imageUrl: "https://images.vase.ar/p2.jpg?size=large" },
+        { ...product, externalProductId: "http", name: "HTTP", imageUrl: "http://cdn.vase.ar/insecure.jpg" },
+        { ...product, externalProductId: "localhost", name: "Local", imageUrl: "https://localhost/local.jpg" },
+        { ...product, externalProductId: "localhost-dot", name: "Local con punto", imageUrl: "https://localhost./local-dot.jpg" },
+        { ...product, externalProductId: "local-dot", name: "Dominio local con punto", imageUrl: "https://store.local./local-domain-dot.jpg" },
+        { ...product, externalProductId: "reserved", name: "Reservado", imageUrl: "https://cdn.example/reserved.jpg" },
+        { ...product, externalProductId: "reserved-dot", name: "Reservado con punto", imageUrl: "https://cdn.example./reserved-dot.jpg" },
+        { ...product, externalProductId: "userinfo", name: "Credenciales", imageUrl: "https://user:pass@cdn.vase.ar/secret.jpg" },
+        { ...product, externalProductId: "ip", name: "IP", imageUrl: "https://203.0.113.1/image.jpg" },
+        { ...product, externalProductId: "inactive", name: "Inactivo", imageUrl: "https://cdn.vase.ar/inactive.jpg", active: false },
+        { ...product, externalProductId: "empty", name: "Agotado", imageUrl: "https://cdn.vase.ar/empty.jpg", stock: 0 },
+        { ...product, externalProductId: "not-offered", name: "No ofrecido", imageUrl: "https://cdn.vase.ar/hidden.jpg" },
+      ],
+    });
+    await service.updateEditorial("tenant_1", "not-offered", {
+      offeredByChatbot: false,
+      aiAlias: null,
+      aiDescription: null,
+      aiInstructions: null,
+    });
+    await service.sync({
+      eventId: "tenant-2-images",
+      globalTenantId: "tenant_2",
+      occurredAt: "2026-07-23T11:00:00.000Z",
+      products: [
+        { ...product, externalProductId: "other-tenant", name: "Otro tenant", imageUrl: "https://cdn.vase.ar/other.jpg" },
+      ],
+    });
+
+    const resources = await service.buildAiResources("tenant_1");
+
+    expect(resources.allowedImageUrls).toEqual([
+      "https://cdn.vase.ar/p1.jpg",
+      "https://images.vase.ar/p2.jpg?size=large",
+    ]);
+    expect(resources.context).toContain("Imagen disponible: https://cdn.vase.ar/p1.jpg");
+    expect(resources.context).toContain("Imagen disponible: https://images.vase.ar/p2.jpg?size=large");
+    expect(resources.context).not.toContain("insecure.jpg");
+    expect(resources.context).not.toContain("local.jpg");
+    expect(resources.context).not.toContain("local-dot.jpg");
+    expect(resources.context).not.toContain("local-domain-dot.jpg");
+    expect(resources.context).not.toContain("reserved.jpg");
+    expect(resources.context).not.toContain("reserved-dot.jpg");
+    expect(resources.context).not.toContain("secret.jpg");
+    expect(resources.context).not.toContain("203.0.113.1");
+    expect(resources.context).not.toContain("Inactivo");
+    expect(resources.context).not.toContain("Agotado");
+    expect(resources.context).not.toContain("No ofrecido");
+    expect(resources.context).not.toContain("other.jpg");
+    expect(await service.buildAiContext("tenant_1")).toBe(resources.context);
+  });
+
   it("deactivates products missing from a full snapshot without touching another tenant", async () => {
     const service = createLabsCatalogService(memoryRepository());
     await service.sync(batch);

@@ -1,31 +1,38 @@
 import { randomUUID } from "node:crypto";
 import type { LabsChannel } from "@vase/contracts";
-import { createAiOrchestrator } from "./ai-orchestrator";
-import type {
-  ChannelWebhookContext,
-  PersistChannelInboundMessageResult,
-  RunChannelAiReply,
-} from "./channel-webhook-service";
+import { createAiOrchestrator, type OrchestratedAiReply } from "./ai-orchestrator";
+import type { RunChannelAiReply } from "./channel-webhook-service";
 import { createOfficialChannelSender } from "./official-channel-sender";
 import { PrismaOfficialChannelSenderRepository } from "./official-channel-sender-repository";
 import { labsCatalogService } from "./catalog-repository";
 import { labsEntitlementsService } from "./labs-entitlements-service";
 import { createKnowledgeService } from "./knowledge-service";
-import { createOpenAiReplyGenerator, getDefaultOpenAiModel, type AiReplyResult } from "./openai-reply-generator";
+import { createOpenAiReplyGenerator, getDefaultOpenAiModel } from "./openai-reply-generator";
 import { labsPrisma, type PrismaClient } from "./db";
 import { decryptChannelSecret } from "./channel-secrets";
 
 type RunnerInput = Parameters<RunChannelAiReply>[0];
 
 type ReplyGenerator = {
-  generateReply(input: { userText: string; context: string; systemPrompt?: string | null }): Promise<AiReplyResult>;
+  generateReply(input: {
+    userText: string;
+    context: string;
+    systemPrompt?: string | null;
+    allowedImageUrls?: string[];
+  }): Promise<OrchestratedAiReply>;
 };
 
 type ChannelAiReplyRunnerDeps = {
   env?: NodeJS.ProcessEnv;
   resolveOpenAiApiKey?(assistantId: string): Promise<string | null>;
   knowledge: { buildContext(assistantId: string): Promise<string> };
-  catalog?: { buildAiContext(globalTenantId: string): Promise<string> };
+  catalog?: {
+    buildAiResources?(globalTenantId: string): Promise<{
+      context: string;
+      allowedImageUrls: string[];
+    }>;
+    buildAiContext?(globalTenantId: string): Promise<string>;
+  };
   createReplyGenerator(input: { apiKey?: string; model: string }): ReplyGenerator;
   persistAssistantReply(input: {
     conversationId: string;
@@ -48,6 +55,7 @@ type ChannelAiReplyRunnerDeps = {
     conversationId: string;
     recipientId: string;
     text: string;
+    imageUrls?: string[];
   }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
   markAssistantReplyDelivery?(input: {
     messageId: string;
@@ -128,7 +136,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
       model,
     });
     const orchestrator = createAiOrchestrator({
-      knowledge: deps.knowledge as any,
+      knowledge: deps.knowledge,
       catalog: deps.catalog,
       generateReply: generator.generateReply,
       persistAssistantReply: deps.persistAssistantReply,
@@ -140,6 +148,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
           conversationId: reply.conversationId,
           recipientId,
           text: reply.text,
+          imageUrls: reply.imageUrls,
         });
       },
       markAssistantReplyDelivery: deps.markAssistantReplyDelivery,
@@ -175,17 +184,18 @@ export function createPrismaChannelAiReplyRunner(input: {
   return createChannelAiReplyRunner({
     env,
     knowledge: createKnowledgeService({
-      listReadyKnowledge(assistantId) {
-        return (prisma as any).knowledgeItem.findMany({
+      async listReadyKnowledge(assistantId) {
+        const items = await prisma.knowledgeItem.findMany({
           where: { assistantId, status: "READY" },
           orderBy: { updatedAt: "desc" },
           take: 24,
         });
+        return items.map((item) => ({ ...item, status: "READY" as const }));
       },
     }),
     catalog: labsCatalogService,
     async resolveOpenAiApiKey(assistantId) {
-      const secret = await (prisma as any).assistantSecret.findUnique({
+      const secret = await prisma.assistantSecret.findUnique({
         where: { assistantId_kind: { assistantId, kind: "OPENAI_API_KEY" } },
         select: { encryptedValue: true },
       });
@@ -207,14 +217,14 @@ export function createPrismaChannelAiReplyRunner(input: {
       });
     },
     async persistAssistantReply(reply) {
-      return persistPrismaAssistantReply(prisma as any, reply);
+      return persistPrismaAssistantReply(prisma, reply);
     },
     async registerTokenUsage(usage) {
       const result = await labsEntitlementsService.registerTokenUsage(usage.globalTenantId, usage);
       return { totalTokens: result.usage.totalTokens };
     },
     markAssistantReplyDelivery(delivery) {
-      return markPrismaAssistantReplyDelivery(prisma as any, delivery);
+      return markPrismaAssistantReplyDelivery(prisma, delivery);
     },
     sendReply(reply) {
       return sender.send({
@@ -222,6 +232,7 @@ export function createPrismaChannelAiReplyRunner(input: {
         channelType: reply.channel,
         recipientId: reply.recipientId,
         text: reply.text,
+        imageUrls: reply.imageUrls,
       });
     },
   });

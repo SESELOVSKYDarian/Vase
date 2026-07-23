@@ -530,6 +530,22 @@ a:focus-visible {
   white-space: pre-wrap;
 }
 
+.labs-assistant-message-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+  gap: 0.55rem;
+  margin-top: 0.8rem;
+}
+
+.labs-assistant-message-images img {
+  width: 100%;
+  height: min(11rem, 30vw);
+  min-height: 7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.65rem;
+  object-fit: cover;
+}
+
 .labs-assistant-message small {
   display: block;
   margin-top: 0.65rem;
@@ -1087,6 +1103,10 @@ a:focus-visible {
 
   .labs-assistant-test > header {
     flex-direction: column;
+  }
+
+  .labs-assistant-message-images {
+    grid-template-columns: 1fr;
   }
 
   .labs-knowledge-source-row {
