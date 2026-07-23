@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { performance } from "node:perf_hooks";
 import { createConversationAnalysisQueue } from "../app/lib/conversation-analysis-queue";
 import { PrismaConversationAnalysisRepository } from "../app/lib/conversation-analysis-repository";
 import {
@@ -71,6 +72,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 }
 
 const runtime = createConversationAnalysisWorkerRuntime({
+  recoveryIntervalMs: process.env.CONVERSATION_ANALYSIS_RECOVERY_INTERVAL_MS,
   recover() {
     return recoverConversationAnalysisEnqueues({
       repository,
@@ -86,7 +88,7 @@ const runtime = createConversationAnalysisWorkerRuntime({
       signal: shutdownController.signal,
     });
   },
-  clock: Date.now,
+  clock: () => performance.now(),
   random: Math.random,
   wait(delayMs) {
     return new Promise((resolve) => setTimeout(resolve, delayMs));

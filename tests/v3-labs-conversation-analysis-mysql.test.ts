@@ -69,4 +69,72 @@ describe.skipIf(!databaseUrl)("conversation analysis MySQL locking", () => {
     expect(claims.filter(Boolean)).toHaveLength(1);
     expect(claims.find(Boolean)?.requestedThroughMessageId).toBe("message_new");
   });
+
+  it("bridges legacy pending markers throughout a rolling deployment", async () => {
+    const insertedId = `message_${randomUUID()}`;
+    const updatedId = `message_${randomUUID()}`;
+    const timestampId = `message_${randomUUID()}`;
+    const createdAt = new Date("2026-07-23T20:10:00.123Z");
+
+    await prisma.$executeRaw`
+      INSERT INTO Message (
+        id, conversationId, role, direction, content, metadata, createdAt
+      ) VALUES (
+        ${insertedId}, ${conversationId}, 'user', 'INBOUND', 'legacy insert',
+        JSON_OBJECT('conversationAnalysisPending', true), ${createdAt}
+      )
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO Message (
+        id, conversationId, role, direction, content, metadata, createdAt
+      ) VALUES (
+        ${updatedId}, ${conversationId}, 'user', 'INBOUND', 'legacy update',
+        JSON_OBJECT(), ${createdAt}
+      )
+    `;
+    await prisma.$executeRaw`
+      UPDATE Message
+      SET metadata = JSON_OBJECT(
+        'conversationAnalysisPending',
+        '2026-02-31T20:09:00.456Z'
+      )
+      WHERE id = ${updatedId}
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO Message (
+        id, conversationId, role, direction, content, metadata, createdAt
+      ) VALUES (
+        ${timestampId}, ${conversationId}, 'user', 'INBOUND', 'legacy timestamp',
+        JSON_OBJECT(
+          'conversationAnalysisPending',
+          '2026-02-31T20:09:00.456Z'
+        ),
+        ${createdAt}
+      )
+    `;
+
+    const bridged = await prisma.message.findMany({
+      where: { id: { in: [insertedId, updatedId, timestampId] } },
+      select: { id: true, analysisPendingAt: true },
+    });
+    const pendingById = new Map(
+      bridged.map((message) => [message.id, message.analysisPendingAt?.getTime()]),
+    );
+    expect(pendingById.get(insertedId)).toBe(createdAt.getTime());
+    expect(pendingById.get(updatedId)).toBe(createdAt.getTime());
+    expect(pendingById.get(timestampId)).toBe(createdAt.getTime());
+
+    const repository = new PrismaConversationAnalysisRepository(prisma);
+    await repository.clearFailedEnqueueMarker({
+      conversationId,
+      assistantId,
+      messageId: insertedId,
+    });
+    const cleared = await prisma.message.findUniqueOrThrow({
+      where: { id: insertedId },
+      select: { analysisPendingAt: true, metadata: true },
+    });
+    expect(cleared.analysisPendingAt).toBeNull();
+    expect(cleared.metadata).not.toHaveProperty("conversationAnalysisPending");
+  });
 });

@@ -216,7 +216,12 @@ implements ConversationAnalysisQueueRepository {
     await this.prisma.$executeRaw`
       UPDATE Message m
       JOIN Conversation c ON c.id = m.conversationId
-      SET m.analysisPendingAt = NULL
+      SET
+        m.analysisPendingAt = NULL,
+        m.metadata = JSON_REMOVE(
+          m.metadata,
+          '$.conversationAnalysisPending'
+        )
       WHERE m.id = ${input.messageId}
         AND m.conversationId = ${input.conversationId}
         AND c.assistantId = ${input.assistantId}
