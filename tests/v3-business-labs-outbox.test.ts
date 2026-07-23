@@ -20,6 +20,30 @@ describe("Business to Labs catalog outbox", () => {
     })).toMatchObject({ externalProductId: "erp_1", price: 1200.5, stock: 3, active: true });
   });
 
+  it.each([
+    [{ image_url: "https://cdn.vase.ar/a.jpg" }, "https://cdn.vase.ar/a.jpg"],
+    [{ imageUrl: "https://cdn.vase.ar/b.jpg" }, "https://cdn.vase.ar/b.jpg"],
+    [{ image: "https://cdn.vase.ar/c.jpg" }, "https://cdn.vase.ar/c.jpg"],
+    [{ images: ["https://cdn.vase.ar/d.jpg"] }, "https://cdn.vase.ar/d.jpg"],
+    [{ images: [{ url: "https://cdn.vase.ar/e.jpg" }] }, "https://cdn.vase.ar/e.jpg"],
+    [{ images: [{ src: "https://cdn.vase.ar/f.jpg" }] }, "https://cdn.vase.ar/f.jpg"],
+    [{ images: [{ image_url: "https://cdn.vase.ar/g.jpg" }] }, "https://cdn.vase.ar/g.jpg"],
+  ])("maps image data %j to the shared imageUrl contract", (data, expected) => {
+    expect(mapBusinessProductForLabs(businessProduct({ data })).imageUrl).toBe(expected);
+  });
+
+  it.each([
+    { image_url: "http://cdn.vase.ar/insecure.jpg" },
+    { data: { image: "not a URL" } },
+    { data: { images: ["ftp://cdn.vase.ar/file.jpg", null, {}] } },
+  ])("keeps the product and sets imageUrl to null for invalid image data %j", (imageData) => {
+    expect(mapBusinessProductForLabs(businessProduct(imageData))).toMatchObject({
+      externalProductId: "erp_1",
+      name: "Producto",
+      imageUrl: null,
+    });
+  });
+
   it("uses capped exponential retry delays", () => {
     expect(nextCatalogRetryDelayMs(1)).toBe(5_000);
     expect(nextCatalogRetryDelayMs(4)).toBe(40_000);
@@ -54,3 +78,14 @@ describe("Business to Labs catalog outbox", () => {
     });
   });
 });
+
+function businessProduct(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "product_1",
+    external_id: "erp_1",
+    name: "Producto",
+    stock: 3,
+    updated_at: "2026-07-16T12:00:00.000Z",
+    ...overrides,
+  };
+}

@@ -48,6 +48,32 @@ describe("Business internal catalog snapshot", () => {
     });
   });
 
+  it.each([
+    [{ image_url: "https://cdn.vase.ar/a.jpg" }, "https://cdn.vase.ar/a.jpg"],
+    [{ imageUrl: "https://cdn.vase.ar/b.jpg" }, "https://cdn.vase.ar/b.jpg"],
+    [{ image: "https://cdn.vase.ar/c.jpg" }, "https://cdn.vase.ar/c.jpg"],
+    [{ images: ["https://cdn.vase.ar/d.jpg"] }, "https://cdn.vase.ar/d.jpg"],
+    [{ images: [{ url: "https://cdn.vase.ar/e.jpg" }] }, "https://cdn.vase.ar/e.jpg"],
+    [{ images: [{ src: "https://cdn.vase.ar/f.jpg" }] }, "https://cdn.vase.ar/f.jpg"],
+    [{ images: [{ image_url: "https://cdn.vase.ar/g.jpg" }] }, "https://cdn.vase.ar/g.jpg"],
+  ])("maps Business image data %j", async (data, expected) => {
+    const snapshot = await buildSnapshotWithProductData(data);
+
+    expect(snapshot.payload.products[0].imageUrl).toBe(expected);
+  });
+
+  it.each([
+    [{ image_url: "http://cdn.vase.ar/insecure.jpg" }],
+    [{ imageUrl: "not a URL" }],
+    [{ image: "ftp://cdn.vase.ar/file.jpg" }],
+    [{ images: [null, {}, 42] }],
+  ])("drops invalid Business image data %j without dropping the product", async (data) => {
+    const snapshot = await buildSnapshotWithProductData(data);
+
+    expect(snapshot.payload.products).toHaveLength(1);
+    expect(snapshot.payload.products[0]).toMatchObject({ name: "Producto", imageUrl: null });
+  });
+
   it("returns not connected when the tenant bridge does not exist", async () => {
     const handler = createBusinessCatalogSnapshotHandler({
       db: { query: vi.fn(async () => ({ rows: [] })) },
@@ -96,6 +122,35 @@ describe("Business internal catalog snapshot", () => {
     expect(query).not.toHaveBeenCalled();
   });
 });
+
+async function buildSnapshotWithProductData(data: unknown) {
+  const query = vi.fn(async (sql: string) => {
+    if (sql.includes("from tenants")) {
+      return { rows: [{ id: "business-uuid", external_tenant_id: "global-tenant" }] };
+    }
+    if (sql.includes("from product_cache")) {
+      expect(sql).toContain("data");
+      return {
+        rows: [{
+          id: "p1",
+          external_id: "erp-1",
+          name: "Producto",
+          stock: 2,
+          data,
+          updated_at: "2026-07-22T12:00:00.000Z",
+        }],
+      };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  return buildBusinessCatalogSnapshot({
+    db: { query },
+    tenantReference: "global-tenant",
+    createEventId: () => "event-1",
+    now: () => new Date("2026-07-22T13:00:00.000Z"),
+  });
+}
 
 function responseRecorder() {
   const res: Record<string, ReturnType<typeof vi.fn>> = {
