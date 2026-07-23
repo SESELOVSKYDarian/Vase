@@ -75,24 +75,38 @@ describe("Vase Labs operation services", () => {
       },
     });
     const markAssistantReplyDelivery = vi.fn(async () => undefined);
+    const generateReply = vi.fn(async (input) => {
+      expect(input.context).toContain("Atendemos de 9 a 18.");
+      expect(input.context).toContain("Producto estrella");
+      return {
+        text: "Atendemos de 9 a 18.",
+        imageUrls: ["https://cdn.vase.ar/p1.jpg"],
+        inputTokens: 20,
+        outputTokens: 30,
+        provider: "openai" as const,
+        model: "gpt-test",
+        profile: "everyday" as const,
+      };
+    });
+    const persistAssistantReply = vi.fn(async (input) => ({ messageId: "msg_ai", ...input }));
+    const sendReply = vi.fn(async () => ({ ok: true, providerMessageId: "mid_ai" }));
     const orchestrator = createAiOrchestrator({
       knowledge,
-      catalog: { async buildAiContext() { return "# Producto estrella\nSKU: A1 | Precio: 1200 | Stock: 3"; } },
-      async generateReply(input) {
-        expect(input.context).toContain("Atendemos de 9 a 18.");
-        expect(input.context).toContain("Producto estrella");
-        return { text: "Atendemos de 9 a 18.", inputTokens: 20, outputTokens: 30, provider: "openai", model: "gpt-test", profile: "everyday" };
+      catalog: {
+        async buildAiResources() {
+          return {
+            context: "# Producto estrella\nSKU: A1 | Precio: 1200 | Stock: 3",
+            allowedImageUrls: ["https://cdn.vase.ar/p1.jpg"],
+          };
+        },
       },
-      async persistAssistantReply(input) {
-        return { messageId: "msg_ai", ...input };
-      },
+      generateReply,
+      persistAssistantReply,
       async registerTokenUsage(input) {
         expect(input.source).toBe("openai:gpt-test:everyday");
         return { totalTokens: input.inputTokens + input.outputTokens };
       },
-      async sendReply() {
-        return { ok: true, providerMessageId: "mid_ai" };
-      },
+      sendReply,
       markAssistantReplyDelivery,
     });
 
@@ -107,6 +121,20 @@ describe("Vase Labs operation services", () => {
     });
 
     expect(result).toMatchObject({ ok: true, messageId: "msg_ai", totalTokens: 50 });
+    expect(generateReply).toHaveBeenCalledWith(expect.objectContaining({
+      allowedImageUrls: ["https://cdn.vase.ar/p1.jpg"],
+    }));
+    expect(persistAssistantReply).toHaveBeenCalledWith({
+      conversationId: "conv_123",
+      channel: "INSTAGRAM",
+      text: "Atendemos de 9 a 18.",
+    });
+    expect(sendReply).toHaveBeenCalledWith({
+      channel: "INSTAGRAM",
+      conversationId: "conv_123",
+      text: "Atendemos de 9 a 18.",
+      imageUrls: ["https://cdn.vase.ar/p1.jpg"],
+    });
     expect(markAssistantReplyDelivery).toHaveBeenCalledWith({
       messageId: "msg_ai",
       status: "SENT",
@@ -118,7 +146,14 @@ describe("Vase Labs operation services", () => {
     const markAssistantReplyDelivery = vi.fn(async () => undefined);
     const orchestrator = createAiOrchestrator({
       knowledge: createKnowledgeService({ async listReadyKnowledge() { return []; } }),
-      async generateReply() { return { text: "Respuesta", inputTokens: 1, outputTokens: 1 }; },
+      async generateReply() {
+        return {
+          text: "Respuesta",
+          imageUrls: ["https://cdn.vase.ar/p1.jpg"],
+          inputTokens: 1,
+          outputTokens: 1,
+        };
+      },
       async persistAssistantReply() { return { messageId: "msg_failed" }; },
       async registerTokenUsage() { return { totalTokens: 2 }; },
       async sendReply() { throw new Error("META_SEND_FAILED"); },
