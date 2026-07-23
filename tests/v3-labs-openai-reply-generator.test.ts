@@ -6,6 +6,17 @@ import {
   resolveOpenAiModelProfile,
 } from "../apps/vase-labs/app/lib/openai-reply-generator";
 
+function structuredReply(
+  text: string,
+  imageUrls: string[] = [],
+  usage: { input_tokens: number; output_tokens: number } = { input_tokens: 1, output_tokens: 1 },
+) {
+  return {
+    output_text: JSON.stringify({ text, imageUrls }),
+    usage,
+  };
+}
+
 describe("Labs OpenAI reply generator", () => {
   it("uses the approved customer support model catalog", () => {
     expect(getOpenAiModelProfiles({} as NodeJS.ProcessEnv).map(({ id, model }) => ({ id, model }))).toEqual([
@@ -45,7 +56,7 @@ describe("Labs OpenAI reply generator", () => {
       env: { OPENAI_MODEL_FAST: "gpt-fast" } as NodeJS.ProcessEnv,
       fetcher: (async (url: string | URL | Request, init?: RequestInit) => {
         calls.push({ url: String(url), init: init ?? {} });
-        return new Response(JSON.stringify({ output_text: "Listo", usage: { input_tokens: 1, output_tokens: 2 } }));
+        return new Response(JSON.stringify(structuredReply("Listo", [], { input_tokens: 1, output_tokens: 2 })));
       }) as typeof fetch,
     });
 
@@ -58,10 +69,9 @@ describe("Labs OpenAI reply generator", () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetcher = async (url: string | URL | Request, init?: RequestInit) => {
       calls.push({ url: String(url), init: init ?? {} });
-      return new Response(JSON.stringify({
-        output_text: "Hola, te puedo ayudar.",
-        usage: { input_tokens: 12, output_tokens: 7 },
-      }), { status: 200 });
+      return new Response(JSON.stringify(
+        structuredReply("Hola, te puedo ayudar.", [], { input_tokens: 12, output_tokens: 7 }),
+      ), { status: 200 });
     };
     const generator = createOpenAiReplyGenerator({
       apiKey: "sk-test",
@@ -77,6 +87,7 @@ describe("Labs OpenAI reply generator", () => {
 
     expect(result).toMatchObject({
       text: "Hola, te puedo ayudar.",
+      imageUrls: [],
       inputTokens: 12,
       outputTokens: 7,
       provider: "openai",
@@ -91,6 +102,26 @@ describe("Labs OpenAI reply generator", () => {
     expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
       model: "gpt-fast",
       input: "Hola",
+      text: {
+        format: {
+          type: "json_schema",
+          name: "vase_catalog_reply",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["text", "imageUrls"],
+            properties: {
+              text: { type: "string" },
+              imageUrls: {
+                type: "array",
+                items: { type: "string" },
+                maxItems: 3,
+              },
+            },
+          },
+        },
+      },
     });
     expect(JSON.parse(String(calls[0]?.init.body)).instructions).toContain("Horario: 9 a 18");
   });
@@ -102,7 +133,7 @@ describe("Labs OpenAI reply generator", () => {
       model: "gpt-selected",
       fetcher: (async (url: string | URL | Request, init?: RequestInit) => {
         calls.push({ url: String(url), init: init ?? {} });
-        return new Response(JSON.stringify({ output_text: "Listo", usage: { input_tokens: 1, output_tokens: 1 } }));
+        return new Response(JSON.stringify(structuredReply("Listo")));
       }) as typeof fetch,
     });
 
@@ -115,6 +146,106 @@ describe("Labs OpenAI reply generator", () => {
     const instructions = JSON.parse(String(calls[0]?.init.body)).instructions;
     expect(instructions).toContain("Sos el vendedor de Sanitarios El Teflon. Usa tono cercano.");
     expect(instructions.indexOf("Sos el vendedor")).toBeLessThan(instructions.indexOf("Horario: 9 a 18"));
+    expect(instructions).toContain("solo cuando el cliente las pida");
+    expect(instructions).toContain("exclusivamente URLs del catalogo");
+  });
+
+  it("keeps only exact, public HTTPS allowlist matches in model order, deduplicated and limited to three", async () => {
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      fetcher: (async () => new Response(JSON.stringify(structuredReply("Te muestro el producto.", [
+        "https://cdn.vase.ar/p2.jpg",
+        "https://evil.example/invented.jpg",
+        "https://cdn.vase.ar/p2.jpg",
+        "http://cdn.vase.ar/p1.jpg",
+        "https://cdn.vase.ar/p1.jpg",
+        "https://cdn.vase.ar/p3.jpg",
+        "https://cdn.vase.ar/p4.jpg",
+        "https://localhost/local.jpg",
+        "https://user:pass@cdn.vase.ar/secret.jpg",
+        "https://203.0.113.1/ip.jpg",
+      ])))) as typeof fetch,
+    });
+
+    await expect(generator.generateReply({
+      userText: "Mostrame opciones",
+      context: "Catalogo",
+      allowedImageUrls: [
+        "https://cdn.vase.ar/p1.jpg",
+        "https://cdn.vase.ar/p2.jpg",
+        "https://cdn.vase.ar/p3.jpg",
+        "https://cdn.vase.ar/p4.jpg",
+        "http://cdn.vase.ar/p1.jpg",
+        "https://localhost/local.jpg",
+        "https://user:pass@cdn.vase.ar/secret.jpg",
+        "https://203.0.113.1/ip.jpg",
+      ],
+    })).resolves.toMatchObject({
+      text: "Te muestro el producto.",
+      imageUrls: [
+        "https://cdn.vase.ar/p2.jpg",
+        "https://cdn.vase.ar/p1.jpg",
+        "https://cdn.vase.ar/p3.jpg",
+      ],
+    });
+  });
+
+  it("returns an empty image list when the model selects no catalog image", async () => {
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      fetcher: (async () => new Response(JSON.stringify(structuredReply("No hace falta una imagen.")))) as typeof fetch,
+    });
+
+    await expect(generator.generateReply({
+      userText: "Cual es el horario?",
+      context: "Horario: 9 a 18",
+      allowedImageUrls: ["https://cdn.vase.ar/p1.jpg"],
+    })).resolves.toMatchObject({
+      text: "No hace falta una imagen.",
+      imageUrls: [],
+    });
+  });
+
+  it("rejects malformed structured output", async () => {
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      fetcher: (async () => new Response(JSON.stringify({ output_text: "{not-json" }))) as typeof fetch,
+    });
+
+    await expect(generator.generateReply({ userText: "Hola", context: "" }))
+      .rejects.toThrow("OPENAI_RESPONSE_INVALID");
+  });
+
+  it("rejects structured output with empty reply text", async () => {
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      fetcher: (async () => new Response(JSON.stringify(structuredReply("   ")))) as typeof fetch,
+    });
+
+    await expect(generator.generateReply({ userText: "Hola", context: "" }))
+      .rejects.toThrow("OPENAI_RESPONSE_INVALID");
+  });
+
+  it("rejects empty Responses API output", async () => {
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      fetcher: (async () => new Response(JSON.stringify({ output: [] }))) as typeof fetch,
+    });
+
+    await expect(generator.generateReply({ userText: "Hola", context: "" }))
+      .rejects.toThrow("OPENAI_RESPONSE_EMPTY");
+  });
+
+  it("rejects a Responses API refusal explicitly", async () => {
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      fetcher: (async () => new Response(JSON.stringify({
+        output: [{ content: [{ type: "refusal", refusal: "No puedo responder." }] }],
+      }))) as typeof fetch,
+    });
+
+    await expect(generator.generateReply({ userText: "Hola", context: "" }))
+      .rejects.toThrow("OPENAI_RESPONSE_REFUSED");
   });
 
   it("fails before calling OpenAI when the API key is missing", async () => {

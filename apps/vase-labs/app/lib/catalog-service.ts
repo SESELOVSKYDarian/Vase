@@ -1,4 +1,5 @@
 import { labsCatalogSyncSchema, type LabsCatalogSync } from "@vase/contracts";
+import { normalizePublicHttpsImageUrl } from "./public-image-url";
 
 export interface LabsCatalogRecord {
   globalTenantId: string;
@@ -21,6 +22,11 @@ export interface LabsCatalogRecord {
 export type CatalogEditorialInput = Pick<LabsCatalogRecord,
   "offeredByChatbot" | "aiAlias" | "aiDescription" | "aiInstructions"
 >;
+
+export interface CatalogAiResources {
+  context: string;
+  allowedImageUrls: string[];
+}
 
 export interface LabsCatalogOperations {
   hasEvent(eventId: string): Promise<boolean>;
@@ -67,6 +73,29 @@ async function syncCatalogBatch(repository: LabsCatalogOperations, batch: LabsCa
 }
 
 export function createLabsCatalogService(repository: LabsCatalogRepository) {
+  async function buildAiResources(globalTenantId: string): Promise<CatalogAiResources> {
+    const products = (await repository.list(globalTenantId))
+      .filter((product) => product.active && product.stock > 0 && product.offeredByChatbot);
+    const allowedImageUrls: string[] = [];
+    const seenImageUrls = new Set<string>();
+    const context = products.map((product) => {
+      const imageUrl = normalizePublicHttpsImageUrl(product.imageUrl);
+      if (imageUrl && !seenImageUrls.has(imageUrl)) {
+        seenImageUrls.add(imageUrl);
+        allowedImageUrls.push(imageUrl);
+      }
+      return [
+        `# ${product.aiAlias || product.name}`,
+        product.aiDescription || product.description || "",
+        `SKU: ${product.sku || "N/A"} | Precio: ${product.price ?? "Consultar"} | Stock: ${product.stock}`,
+        imageUrl ? `Imagen disponible: ${imageUrl}` : "",
+        product.aiInstructions || "",
+      ].filter(Boolean).join("\n");
+    }).join("\n\n");
+
+    return { context, allowedImageUrls };
+  }
+
   return {
     async sync(raw: LabsCatalogSync) {
       const batch = labsCatalogSyncSchema.parse(raw);
@@ -81,17 +110,9 @@ export function createLabsCatalogService(repository: LabsCatalogRepository) {
     updateEditorial(globalTenantId: string, externalProductId: string, input: CatalogEditorialInput) {
       return repository.updateEditorial(globalTenantId, externalProductId, input);
     },
+    buildAiResources,
     async buildAiContext(globalTenantId: string) {
-      const products = await repository.list(globalTenantId);
-      return products
-        .filter((product) => product.active && product.stock > 0 && product.offeredByChatbot)
-        .map((product) => [
-          `# ${product.aiAlias || product.name}`,
-          product.aiDescription || product.description || "",
-          `SKU: ${product.sku || "N/A"} | Precio: ${product.price ?? "Consultar"} | Stock: ${product.stock}`,
-          product.aiInstructions || "",
-        ].filter(Boolean).join("\n"))
-        .join("\n\n");
+      return (await buildAiResources(globalTenantId)).context;
     },
   };
 }
