@@ -374,6 +374,7 @@ model ConversationAnalysisJob {
   conversationId                   String                        @unique
   requestedThroughMessageId        String
   requestedThroughMessageCreatedAt DateTime
+  requestedAt                      DateTime                      @default(now())
   status                           ConversationAnalysisJobStatus @default(QUEUED)
   attempts                         Int                           @default(0)
   leaseToken                       String?

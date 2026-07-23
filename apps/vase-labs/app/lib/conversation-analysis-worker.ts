@@ -67,6 +67,23 @@ type Generator = {
   }): Promise<GeneratedConversationInsight>;
 };
 
+export type ConversationAnalysisJobMetrics = {
+  inputTokens: number;
+  outputTokens: number;
+  analysisVersion: number;
+  queueAgeMs: number;
+  attempt: number;
+  latencyMs: number;
+};
+
+export type ConversationAnalysisProcessResult =
+  | { status: "IDLE" }
+  | ({
+      status: ConversationAnalysisCompletion | ConversationAnalysisFailure;
+      conversationId: string;
+      errorCode?: string;
+    } & ConversationAnalysisJobMetrics);
+
 export function createConversationAnalysisWorker(dependencies: {
   queue: Queue;
   repository: Repository;
@@ -83,20 +100,29 @@ export function createConversationAnalysisWorker(dependencies: {
   clock: () => Date;
 }) {
   return {
-    async processNext(): Promise<
-      | { status: "IDLE" }
-      | {
-          status: ConversationAnalysisCompletion | ConversationAnalysisFailure;
-          conversationId: string;
-          errorCode?: string;
-        }
-    > {
+    async processNext(): Promise<ConversationAnalysisProcessResult> {
       const job = await dependencies.queue.claimNext();
       if (!job) return { status: "IDLE" };
       const leaseToken = job.leaseToken;
       if (!leaseToken) {
         throw new Error("CONVERSATION_ANALYSIS_LEASE_MISSING");
       }
+      const startedAt = dependencies.clock();
+      const queueAgeMs = Math.max(
+        0,
+        startedAt.getTime() - job.requestedAt.getTime(),
+      );
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let analysisVersion = 0;
+      const metrics = (): ConversationAnalysisJobMetrics => ({
+        inputTokens,
+        outputTokens,
+        analysisVersion,
+        queueAgeMs,
+        attempt: job.attempts,
+        latencyMs: Math.max(0, dependencies.clock().getTime() - startedAt.getTime()),
+      });
 
       try {
         const context = await dependencies.repository.loadAnalysisContext({
@@ -106,6 +132,7 @@ export function createConversationAnalysisWorker(dependencies: {
         if (!context || context.conversationId !== job.conversationId) {
           throw new Error("CONVERSATION_ANALYSIS_CONTEXT_NOT_FOUND");
         }
+        analysisVersion = context.settings.version;
         const messages = [...context.messages].sort((left, right) =>
           left.createdAt.getTime() - right.createdAt.getTime()
           || left.id.localeCompare(right.id),
@@ -113,6 +140,8 @@ export function createConversationAnalysisWorker(dependencies: {
         const generated = await dependencies.createGenerator({
           apiKey: context.openAiApiKey ?? undefined,
         }).generate({ messages, settings: context.settings });
+        inputTokens = generated.inputTokens;
+        outputTokens = generated.outputTokens;
 
         if (context.channel) {
           await dependencies.registerTokenUsage({
@@ -150,7 +179,7 @@ export function createConversationAnalysisWorker(dependencies: {
             insight,
           }),
         });
-        return { status, conversationId: job.conversationId };
+        return { status, conversationId: job.conversationId, ...metrics() };
       } catch {
         const errorCode = "CONVERSATION_ANALYSIS_FAILED";
         const status = await dependencies.queue.fail({
@@ -158,29 +187,70 @@ export function createConversationAnalysisWorker(dependencies: {
           leaseToken,
           error: errorCode,
         });
-        return { status, conversationId: job.conversationId, errorCode };
+        return {
+          status,
+          conversationId: job.conversationId,
+          errorCode,
+          ...metrics(),
+        };
       }
     },
   };
 }
 
-type ProcessNextResult = Awaited<
-  ReturnType<ReturnType<typeof createConversationAnalysisWorker>["processNext"]>
->;
+export const MAX_CONVERSATION_ANALYSIS_BATCH_SIZE = 100;
+
+export function resolveConversationAnalysisBatchSize(
+  raw: string | number | undefined,
+  fallback: number,
+): number {
+  const fallbackValue = Number.isFinite(fallback) && fallback >= 1
+    ? Math.floor(fallback)
+    : 10;
+  const parsed = typeof raw === "number" ? raw : Number(raw);
+  const resolved = Number.isFinite(parsed) && parsed >= 1
+    ? Math.floor(parsed)
+    : fallbackValue;
+  return Math.min(MAX_CONVERSATION_ANALYSIS_BATCH_SIZE, resolved);
+}
+
+export type ConversationAnalysisBatchMetrics = {
+  claimed: number;
+  completed: number;
+  requeued: number;
+  failed: number;
+  leaseLost: number;
+  errorCodes: string[];
+  inputTokens: number;
+  outputTokens: number;
+  analysisVersions: number[];
+  maxQueueAgeMs: number;
+  maxAttempt: number;
+  jobLatencyMs: number;
+};
 
 export async function runConversationAnalysisBatch(input: {
-  worker: { processNext(): Promise<ProcessNextResult> };
+  worker: { processNext(): Promise<ConversationAnalysisProcessResult> };
   maxJobs: number;
-}) {
-  const counts = {
+  shouldStop?: () => boolean;
+}): Promise<ConversationAnalysisBatchMetrics> {
+  const counts: ConversationAnalysisBatchMetrics = {
     claimed: 0,
     completed: 0,
     requeued: 0,
     failed: 0,
     leaseLost: 0,
-    errorCodes: [] as string[],
+    errorCodes: [],
+    inputTokens: 0,
+    outputTokens: 0,
+    analysisVersions: [],
+    maxQueueAgeMs: 0,
+    maxAttempt: 0,
+    jobLatencyMs: 0,
   };
-  for (let index = 0; index < Math.max(0, Math.floor(input.maxJobs)); index += 1) {
+  const maxJobs = resolveConversationAnalysisBatchSize(input.maxJobs, 10);
+  for (let index = 0; index < maxJobs; index += 1) {
+    if (input.shouldStop?.()) break;
     const result = await input.worker.processNext();
     if (result.status === "IDLE") break;
     counts.claimed += 1;
@@ -189,6 +259,17 @@ export async function runConversationAnalysisBatch(input: {
     if (result.status === "FAILED") counts.failed += 1;
     if (result.status === "LEASE_LOST") counts.leaseLost += 1;
     if (result.errorCode) counts.errorCodes.push(result.errorCode);
+    counts.inputTokens += result.inputTokens;
+    counts.outputTokens += result.outputTokens;
+    if (
+      result.analysisVersion > 0
+      && !counts.analysisVersions.includes(result.analysisVersion)
+    ) {
+      counts.analysisVersions.push(result.analysisVersion);
+    }
+    counts.maxQueueAgeMs = Math.max(counts.maxQueueAgeMs, result.queueAgeMs);
+    counts.maxAttempt = Math.max(counts.maxAttempt, result.attempt);
+    counts.jobLatencyMs += result.latencyMs;
   }
   return counts;
 }

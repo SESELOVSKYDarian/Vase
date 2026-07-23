@@ -11,6 +11,7 @@ export interface ConversationAnalysisJob {
   conversationId: string;
   requestedThroughMessageId: string;
   requestedThroughMessageCreatedAt: Date;
+  requestedAt: Date;
   status: ConversationAnalysisJobStatus;
   attempts: number;
   leaseToken: string | null;
@@ -108,6 +109,7 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
             conversationId: input.conversationId,
             requestedThroughMessageId: input.requestedThroughMessageId,
             requestedThroughMessageCreatedAt: input.requestedThroughMessageCreatedAt,
+            requestedAt: now,
             status: "QUEUED",
             attempts: 0,
             leaseToken: null,
@@ -132,6 +134,7 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
               ...current,
               requestedThroughMessageId: input.requestedThroughMessageId,
               requestedThroughMessageCreatedAt: input.requestedThroughMessageCreatedAt,
+              requestedAt: now,
               attempts: 0,
               updatedAt: now,
             }
@@ -139,6 +142,7 @@ export function createConversationAnalysisQueue(dependencies: ConversationAnalys
               ...current,
               requestedThroughMessageId: input.requestedThroughMessageId,
               requestedThroughMessageCreatedAt: input.requestedThroughMessageCreatedAt,
+              requestedAt: now,
               status: "QUEUED",
               attempts: 0,
               leaseToken: null,

@@ -2,17 +2,24 @@ import { describe, expect, it, vi } from "vitest";
 import type { ConversationAnalysisJob } from "../apps/vase-labs/app/lib/conversation-analysis-queue";
 import {
   createConversationAnalysisWorker,
+  MAX_CONVERSATION_ANALYSIS_BATCH_SIZE,
   recoverConversationAnalysisEnqueues,
+  resolveConversationAnalysisBatchSize,
   runConversationAnalysisBatch,
   type ConversationAnalysisContext,
 } from "../apps/vase-labs/app/lib/conversation-analysis-worker";
-import { PrismaConversationAnalysisRepository } from "../apps/vase-labs/app/lib/conversation-analysis-repository";
+import {
+  PrismaConversationAnalysisRepository,
+  resolveAssistantOpenAiApiKey,
+} from "../apps/vase-labs/app/lib/conversation-analysis-repository";
+import { encryptChannelSecret } from "../apps/vase-labs/app/lib/channel-secrets";
 
 const requestedAt = new Date("2026-07-23T12:00:00.000Z");
 const job: ConversationAnalysisJob = {
   conversationId: "conversation_a",
   requestedThroughMessageId: "message_2",
   requestedThroughMessageCreatedAt: requestedAt,
+  requestedAt,
   status: "PROCESSING",
   attempts: 1,
   leaseToken: "lease_a",
@@ -110,8 +117,27 @@ function harness(overrides: {
 describe("conversation analysis worker", () => {
   it("polls a bounded batch and stops early when the queue becomes idle", async () => {
     const processNext = vi.fn()
-      .mockResolvedValueOnce({ status: "COMPLETED", conversationId: "c1" })
-      .mockResolvedValueOnce({ status: "RETRY_QUEUED", conversationId: "c2", errorCode: "CONVERSATION_ANALYSIS_FAILED" })
+      .mockResolvedValueOnce({
+        status: "COMPLETED",
+        conversationId: "c1",
+        inputTokens: 11,
+        outputTokens: 9,
+        analysisVersion: 3,
+        queueAgeMs: 30_000,
+        attempt: 1,
+        latencyMs: 25,
+      })
+      .mockResolvedValueOnce({
+        status: "RETRY_QUEUED",
+        conversationId: "c2",
+        errorCode: "CONVERSATION_ANALYSIS_FAILED",
+        inputTokens: 0,
+        outputTokens: 0,
+        analysisVersion: 4,
+        queueAgeMs: 60_000,
+        attempt: 2,
+        latencyMs: 10,
+      })
       .mockResolvedValueOnce({ status: "IDLE" });
 
     await expect(runConversationAnalysisBatch({ worker: { processNext }, maxJobs: 10 }))
@@ -122,8 +148,60 @@ describe("conversation analysis worker", () => {
         failed: 0,
         leaseLost: 0,
         errorCodes: ["CONVERSATION_ANALYSIS_FAILED"],
+        inputTokens: 11,
+        outputTokens: 9,
+        analysisVersions: [3, 4],
+        maxQueueAgeMs: 60_000,
+        maxAttempt: 2,
+        jobLatencyMs: 35,
       });
     expect(processNext).toHaveBeenCalledTimes(3);
+  });
+
+  it("stops before claiming another job when termination arrives during a batch", async () => {
+    let stopping = false;
+    const processNext = vi.fn(async () => {
+      stopping = true;
+      return {
+        status: "COMPLETED" as const,
+        conversationId: "c1",
+        inputTokens: 1,
+        outputTokens: 1,
+        analysisVersion: 1,
+        queueAgeMs: 1,
+        attempt: 1,
+        latencyMs: 1,
+      };
+    });
+
+    const result = await runConversationAnalysisBatch({
+      worker: { processNext },
+      maxJobs: 10,
+      shouldStop: () => stopping,
+    });
+
+    expect(result.claimed).toBe(1);
+    expect(processNext).toHaveBeenCalledTimes(1);
+  });
+
+  it("caps configured and runtime batch sizes at a finite hard maximum", async () => {
+    expect(MAX_CONVERSATION_ANALYSIS_BATCH_SIZE).toBe(100);
+    expect(resolveConversationAnalysisBatchSize("1000", 10)).toBe(100);
+    expect(resolveConversationAnalysisBatchSize("Infinity", 10)).toBe(10);
+    expect(resolveConversationAnalysisBatchSize("-1", 10)).toBe(10);
+
+    const processNext = vi.fn(async () => ({
+      status: "COMPLETED" as const,
+      conversationId: "c",
+      inputTokens: 0,
+      outputTokens: 0,
+      analysisVersion: 1,
+      queueAgeMs: 0,
+      attempt: 1,
+      latencyMs: 0,
+    }));
+    await runConversationAnalysisBatch({ worker: { processNext }, maxJobs: 10_000 });
+    expect(processNext).toHaveBeenCalledTimes(100);
   });
 
   it("recovers durable enqueue-failure markers in bounded batches", async () => {
@@ -172,6 +250,20 @@ describe("conversation analysis worker", () => {
     });
     expect(test.generate.mock.calls[0]?.[0].messages.map((message) => message.id))
       .toEqual(["message_1", "message_2"]);
+  });
+
+  it("returns safe per-job observability metrics", async () => {
+    const test = harness();
+    await expect(test.worker.processNext()).resolves.toMatchObject({
+      status: "COMPLETED",
+      conversationId: "conversation_a",
+      inputTokens: 11,
+      outputTokens: 9,
+      analysisVersion: 3,
+      queueAgeMs: 30_000,
+      attempt: 1,
+      latencyMs: 0,
+    });
   });
 
   it("atomically publishes the insight/projection through queue completion", async () => {
@@ -265,6 +357,42 @@ describe("conversation analysis worker", () => {
 });
 
 describe("Prisma conversation analysis repository boundaries", () => {
+  it("prefers and decrypts the assistant-specific OpenAI secret", () => {
+    const encryptedValue = encryptChannelSecret("assistant-key", "encryption-key");
+    expect(resolveAssistantOpenAiApiKey({
+      encryptedValue,
+      env: {
+        TOKEN_ENCRYPTION_SECRET: "encryption-key",
+        OPENAI_API_KEY: "global-key",
+      } as NodeJS.ProcessEnv,
+    })).toBe("assistant-key");
+  });
+
+  it("falls back to OPENAI_API_KEY only when no assistant secret exists", () => {
+    expect(resolveAssistantOpenAiApiKey({
+      encryptedValue: null,
+      env: { OPENAI_API_KEY: "global-key" } as NodeJS.ProcessEnv,
+    })).toBe("global-key");
+  });
+
+  it("fails safely when assistant secret decryption cannot be configured or completed", () => {
+    expect(() => resolveAssistantOpenAiApiKey({
+      encryptedValue: "",
+      env: { OPENAI_API_KEY: "global-key" } as NodeJS.ProcessEnv,
+    })).toThrow("OPENAI_ASSISTANT_KEY_DECRYPT_FAILED");
+    expect(() => resolveAssistantOpenAiApiKey({
+      encryptedValue: "encrypted",
+      env: { OPENAI_API_KEY: "global-key" } as NodeJS.ProcessEnv,
+    })).toThrow("TOKEN_ENCRYPTION_SECRET_MISSING");
+    expect(() => resolveAssistantOpenAiApiKey({
+      encryptedValue: "not-a-valid-secret",
+      env: {
+        TOKEN_ENCRYPTION_SECRET: "encryption-key",
+        OPENAI_API_KEY: "global-key",
+      } as NodeJS.ProcessEnv,
+    })).toThrow("OPENAI_ASSISTANT_KEY_DECRYPT_FAILED");
+  });
+
   it("rejects publication when assistant and tenant do not match the conversation", async () => {
     const transaction = {
       conversation: {
@@ -387,21 +515,22 @@ describe("Prisma conversation analysis repository boundaries", () => {
       { id: "m2", role: "assistant", content: "Segundo", createdAt: requestedAt },
       { id: "m1", role: "user", content: "Primero", createdAt: new Date("2026-07-23T11:59:00.000Z") },
     ]);
+    const findConversation = vi.fn(async () => ({
+      id: "conversation_a",
+      assistantId: "assistant_a",
+      channel: "INSTAGRAM",
+      status: "OPEN",
+      escalatedToHuman: false,
+      assistant: {
+        globalTenantId: "tenant_a",
+        model: "reply-model",
+        secrets: [],
+        conversationInsightSettings: null,
+      },
+    }));
     const prisma = {
       conversation: {
-        findFirst: vi.fn(async () => ({
-          id: "conversation_a",
-          assistantId: "assistant_a",
-          channel: "INSTAGRAM",
-          status: "OPEN",
-          escalatedToHuman: false,
-          assistant: {
-            globalTenantId: "tenant_a",
-            model: "reply-model",
-            secrets: [],
-            conversationInsightSettings: null,
-          },
-        })),
+        findFirst: findConversation,
       },
       message: {
         findFirst: vi.fn(async () => ({
@@ -422,6 +551,19 @@ describe("Prisma conversation analysis repository boundaries", () => {
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 200,
+    }));
+    expect(findConversation).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        assistant: {
+          select: expect.objectContaining({
+            secrets: {
+              where: { kind: "OPENAI_API_KEY" },
+              take: 1,
+              select: { encryptedValue: true },
+            },
+          }),
+        },
+      }),
     }));
     expect(loaded?.messages.map((message) => message.id)).toEqual(["m1", "m2"]);
     expect(loaded?.requestedHandoff).toBe(true);

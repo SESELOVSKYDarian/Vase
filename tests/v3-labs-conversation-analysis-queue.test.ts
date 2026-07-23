@@ -77,6 +77,7 @@ function job(overrides: Partial<ConversationAnalysisJob> = {}): ConversationAnal
     conversationId: "conversation_1",
     requestedThroughMessageId: "message_1",
     requestedThroughMessageCreatedAt: new Date("2026-07-23T12:00:01.000Z"),
+    requestedAt: new Date("2026-07-23T12:00:00.000Z"),
     status: "QUEUED",
     attempts: 0,
     leaseToken: null,
@@ -125,14 +126,16 @@ function queueHarness(options: {
 
 describe("Labs durable conversation analysis queue", () => {
   it("coalesces multiple inbound requests to the latest requested message", async () => {
-    const { queue, repository } = queueHarness();
+    const { queue, repository, setNow } = queueHarness();
 
     await queue.enqueue(enqueueRequest("message_1"));
+    setNow(new Date("2026-07-23T12:06:00.000Z"));
     await queue.enqueue(enqueueRequest("message_3"));
 
     expect(repository.get("conversation_1")).toMatchObject({
       status: "QUEUED",
       requestedThroughMessageId: "message_3",
+      requestedAt: new Date("2026-07-23T12:06:00.000Z"),
       attempts: 0,
     });
   });

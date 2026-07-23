@@ -74,6 +74,7 @@ implements ConversationAnalysisQueueRepository {
           conversationId,
           requestedThroughMessageId: outcome.job.requestedThroughMessageId,
           requestedThroughMessageCreatedAt: outcome.job.requestedThroughMessageCreatedAt,
+          requestedAt: outcome.job.requestedAt,
           status: outcome.job.status,
           attempts: outcome.job.attempts,
           leaseToken: outcome.job.leaseToken,
@@ -85,6 +86,7 @@ implements ConversationAnalysisQueueRepository {
         update: {
           requestedThroughMessageId: outcome.job.requestedThroughMessageId,
           requestedThroughMessageCreatedAt: outcome.job.requestedThroughMessageCreatedAt,
+          requestedAt: outcome.job.requestedAt,
           status: outcome.job.status,
           attempts: outcome.job.attempts,
           leaseToken: outcome.job.leaseToken,
@@ -171,10 +173,10 @@ implements ConversationAnalysisQueueRepository {
       globalTenantId: conversation.assistant.globalTenantId,
       channel: conversation.channel,
       assistantModel: conversation.assistant.model,
-      openAiApiKey: decryptAssistantOpenAiKey(
-        conversation.assistant.secrets[0]?.encryptedValue,
-        this.env,
-      ),
+      openAiApiKey: resolveAssistantOpenAiApiKey({
+        encryptedValue: conversation.assistant.secrets[0]?.encryptedValue,
+        env: this.env,
+      }),
       settings: normalizeConversationInsightSettings(mapSettings(
         conversation.assistant.conversationInsightSettings,
       )),
@@ -272,6 +274,7 @@ function mapJob(record: {
   conversationId: string;
   requestedThroughMessageId: string;
   requestedThroughMessageCreatedAt: Date;
+  requestedAt: Date;
   status: ConversationAnalysisJob["status"];
   attempts: number;
   leaseToken: string | null;
@@ -310,14 +313,28 @@ function mapSettings(record: null | {
   };
 }
 
-function decryptAssistantOpenAiKey(
-  encryptedValue: string | undefined,
-  env: NodeJS.ProcessEnv,
-): string | null {
-  if (!encryptedValue) return null;
+export function resolveAssistantOpenAiApiKey(input: {
+  encryptedValue: string | null | undefined;
+  env?: NodeJS.ProcessEnv;
+  decrypt?: typeof decryptChannelSecret;
+}): string | null {
+  const env = input.env ?? process.env;
+  if (input.encryptedValue === null || input.encryptedValue === undefined) {
+    return env.OPENAI_API_KEY?.trim() || null;
+  }
+  if (!input.encryptedValue) {
+    throw new Error("OPENAI_ASSISTANT_KEY_DECRYPT_FAILED");
+  }
   const encryptionSecret = env.TOKEN_ENCRYPTION_SECRET?.trim();
   if (!encryptionSecret) throw new Error("TOKEN_ENCRYPTION_SECRET_MISSING");
-  return decryptChannelSecret(encryptedValue, encryptionSecret);
+  try {
+    return (input.decrypt ?? decryptChannelSecret)(
+      input.encryptedValue,
+      encryptionSecret,
+    );
+  } catch {
+    throw new Error("OPENAI_ASSISTANT_KEY_DECRYPT_FAILED");
+  }
 }
 
 async function publishWithTransaction(
