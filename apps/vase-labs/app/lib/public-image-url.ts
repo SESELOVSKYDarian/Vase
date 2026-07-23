@@ -13,6 +13,7 @@ export function normalizePublicHttpsImageUrl(value: unknown): string | null {
       || url.username
       || url.password
       || !hostname
+      || hostname.endsWith(".")
       || hostname === "localhost"
       || !hostname.includes(".")
       || isIP(hostname) !== 0

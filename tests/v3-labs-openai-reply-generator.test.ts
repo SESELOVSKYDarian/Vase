@@ -69,9 +69,16 @@ describe("Labs OpenAI reply generator", () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetcher = async (url: string | URL | Request, init?: RequestInit) => {
       calls.push({ url: String(url), init: init ?? {} });
-      return new Response(JSON.stringify(
-        structuredReply("Hola, te puedo ayudar.", [], { input_tokens: 12, output_tokens: 7 }),
-      ), { status: 200 });
+      return new Response(JSON.stringify({
+        output: [{
+          type: "message",
+          content: [{
+            type: "output_text",
+            text: JSON.stringify({ text: "Hola, te puedo ayudar.", imageUrls: [] }),
+          }],
+        }],
+        usage: { input_tokens: 12, output_tokens: 7 },
+      }), { status: 200 });
     };
     const generator = createOpenAiReplyGenerator({
       apiKey: "sk-test",
@@ -206,14 +213,136 @@ describe("Labs OpenAI reply generator", () => {
     });
   });
 
-  it("rejects malformed structured output", async () => {
+  it.each(["text.format", "response_format"])(
+    "retries once without structured output when OpenAI reports unsupported %s",
+    async (param) => {
+      const calls: Array<{ url: string; init: RequestInit }> = [];
+      const generator = createOpenAiReplyGenerator({
+        apiKey: "sk-test",
+        model: "gpt-compatible",
+        fetcher: (async (url: string | URL | Request, init?: RequestInit) => {
+          calls.push({ url: String(url), init: init ?? {} });
+          if (calls.length === 1) {
+            return new Response(JSON.stringify({
+              error: {
+                message: `Unsupported parameter: '${param}'.`,
+                type: "invalid_request_error",
+                param,
+                code: "unsupported_parameter",
+              },
+            }), { status: 400 });
+          }
+          return new Response(JSON.stringify({
+            output: [{
+              type: "message",
+              content: [{ type: "output_text", text: "Respuesta compatible." }],
+            }],
+            usage: { input_tokens: 5, output_tokens: 3 },
+          }));
+        }) as typeof fetch,
+      });
+
+      await expect(generator.generateReply({
+        userText: "Hola",
+        context: "Contexto",
+        allowedImageUrls: ["https://cdn.vase.ar/p1.jpg"],
+      })).resolves.toMatchObject({
+        text: "Respuesta compatible.",
+        imageUrls: [],
+        inputTokens: 5,
+        outputTokens: 3,
+        model: "gpt-compatible",
+      });
+      expect(calls).toHaveLength(2);
+      expect(JSON.parse(String(calls[0]?.init.body))).toHaveProperty("text.format");
+      expect(JSON.parse(String(calls[1]?.init.body))).not.toHaveProperty("text");
+    },
+  );
+
+  it.each([
+    {
+      name: "an unrelated 400",
+      status: 400,
+      error: {
+        message: "Unsupported parameter: input.",
+        type: "invalid_request_error",
+        param: "input",
+        code: "unsupported_parameter",
+      },
+    },
+    {
+      name: "a schema validation 400",
+      status: 400,
+      error: {
+        message: "The supplied JSON schema is invalid.",
+        type: "invalid_request_error",
+        param: "text.format",
+        code: "invalid_json_schema",
+      },
+    },
+    {
+      name: "a 401",
+      status: 401,
+      error: {
+        message: "Unsupported parameter: text.format.",
+        type: "invalid_request_error",
+        param: "text.format",
+        code: "unsupported_parameter",
+      },
+    },
+    {
+      name: "a 429",
+      status: 429,
+      error: {
+        message: "Rate limit exceeded.",
+        type: "rate_limit_error",
+        param: "text.format",
+        code: "unsupported_parameter",
+      },
+    },
+  ])("does not retry for $name", async ({ status, error }) => {
+    let calls = 0;
     const generator = createOpenAiReplyGenerator({
       apiKey: "sk-test",
-      fetcher: (async () => new Response(JSON.stringify({ output_text: "{not-json" }))) as typeof fetch,
+      fetcher: (async () => {
+        calls += 1;
+        return new Response(JSON.stringify({ error }), { status });
+      }) as typeof fetch,
+    });
+
+    await expect(generator.generateReply({ userText: "Hola", context: "" }))
+      .rejects.toThrow(error.message);
+    expect(calls).toBe(1);
+  });
+
+  it("does not retry a network failure", async () => {
+    let calls = 0;
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      fetcher: (async () => {
+        calls += 1;
+        throw new Error("NETWORK_DOWN");
+      }) as typeof fetch,
+    });
+
+    await expect(generator.generateReply({ userText: "Hola", context: "" }))
+      .rejects.toThrow("NETWORK_DOWN");
+    expect(calls).toBe(1);
+  });
+
+  it("rejects malformed structured output", async () => {
+    let calls = 0;
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      fetcher: (async () => {
+        calls += 1;
+        return new Response(JSON.stringify({ output_text: "{not-json" }));
+      }) as typeof fetch,
     });
 
     await expect(generator.generateReply({ userText: "Hola", context: "" }))
       .rejects.toThrow("OPENAI_RESPONSE_INVALID");
+    expect(calls).toBe(1);
   });
 
   it("rejects structured output with empty reply text", async () => {

@@ -114,43 +114,53 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
         throw new Error("OPENAI_API_KEY_MISSING");
       }
 
-      const response = await fetcher("https://api.openai.com/v1/responses", {
+      const baseRequestBody = {
+        model,
+        instructions: buildSystemInstructions({
+          context: request.context,
+          systemPrompt: request.systemPrompt,
+        }),
+        input: request.userText,
+      };
+      const sendRequest = (body: Record<string, unknown>) => fetcher("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model,
-          instructions: buildSystemInstructions({
-            context: request.context,
-            systemPrompt: request.systemPrompt,
-          }),
-          input: request.userText,
-          text: {
-            format: {
-              type: "json_schema",
-              name: "vase_catalog_reply",
-              strict: true,
-              schema: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  text: { type: "string" },
-                  imageUrls: {
-                    type: "array",
-                    items: { type: "string" },
-                    maxItems: 3,
-                  },
+        body: JSON.stringify(body),
+      });
+      let usedStructuredOutput = true;
+      let response = await sendRequest({
+        ...baseRequestBody,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "vase_catalog_reply",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                text: { type: "string" },
+                imageUrls: {
+                  type: "array",
+                  items: { type: "string" },
+                  maxItems: 3,
                 },
-                required: ["text", "imageUrls"],
               },
+              required: ["text", "imageUrls"],
             },
           },
-        }),
+        },
       });
+      let payload = await response.json().catch(() => null);
 
-      const payload = await response.json().catch(() => null);
+      if (!response.ok && isUnsupportedStructuredOutputError(response.status, payload)) {
+        usedStructuredOutput = false;
+        response = await sendRequest(baseRequestBody);
+        payload = await response.json().catch(() => null);
+      }
 
       if (!response.ok) {
         throw new Error(readOpenAiError(payload) ?? `OPENAI_RESPONSE_FAILED_${response.status}`);
@@ -162,6 +172,17 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
       const outputText = extractOutputText(payload);
       if (!outputText) {
         throw new Error("OPENAI_RESPONSE_EMPTY");
+      }
+      if (!usedStructuredOutput) {
+        return {
+          text: outputText,
+          imageUrls: [],
+          inputTokens: readUsageToken(payload, "input_tokens"),
+          outputTokens: readUsageToken(payload, "output_tokens"),
+          provider: "openai",
+          model,
+          profile: profile.id,
+        };
       }
       const structuredReply = parseStructuredReply(outputText);
       const allowedImageUrls = new Set(
@@ -208,6 +229,25 @@ export async function validateOpenAiCredential(input: {
   }
 
   return { ok: true, model: input.model };
+}
+
+function isUnsupportedStructuredOutputError(status: number, payload: unknown): boolean {
+  if (status !== 400) return false;
+  const error = (payload as {
+    error?: { param?: unknown; code?: unknown; type?: unknown; message?: unknown };
+  } | null)?.error;
+  const param = typeof error?.param === "string" ? error.param.toLowerCase() : "";
+  if (param !== "text.format" && !param.startsWith("text.format.") && param !== "response_format") {
+    return false;
+  }
+
+  const code = typeof error?.code === "string" ? error.code.toLowerCase() : "";
+  const type = typeof error?.type === "string" ? error.type.toLowerCase() : "";
+  const message = typeof error?.message === "string" ? error.message.toLowerCase() : "";
+  const unsupportedCode = code.includes("unsupported") || code === "unknown_parameter";
+  const unsupportedType = type.includes("unsupported");
+  const unsupportedMessage = /unsupported|not supported|does not support|unknown parameter|unrecognized parameter/.test(message);
+  return unsupportedCode || unsupportedType || (type === "invalid_request_error" && unsupportedMessage);
 }
 
 function buildSystemInstructions(input: { context: string; systemPrompt?: string | null }): string {
