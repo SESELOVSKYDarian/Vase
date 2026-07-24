@@ -517,20 +517,18 @@ describe("Prisma conversation analysis repository boundaries", () => {
     expect(schema).toContain("@@index([analysisPendingAt, id])");
     expect(migration).toContain("ADD COLUMN `analysisPendingAt`");
     expect(migration).toContain("Message_analysisPendingAt_id_idx");
-    expect(migration).toContain("BEFORE INSERT ON `Message`");
-    expect(migration).toContain("BEFORE UPDATE ON `Message`");
+    expect(migration).not.toContain("CREATE TRIGGER");
+    expect(migration).not.toContain("BEFORE INSERT ON `Message`");
+    expect(migration).not.toContain("BEFORE UPDATE ON `Message`");
     expect(migration).toContain("JSON_TYPE(");
     expect(migration).toContain("CHAR_LENGTH(");
     expect(migration).not.toContain("STR_TO_DATE(");
     expect(migration).not.toContain("JSON_VALUE(");
-    expect(migration).toContain("<=> JSON_EXTRACT(");
     expect(migration).toContain(
       "OR JSON_EXTRACT(`metadata`, '$.conversationAnalysisPending') = true",
     );
     expect(migration).toContain("SET `analysisPendingAt` = `createdAt`");
     expect(migration.indexOf("ADD COLUMN `analysisPendingAt`"))
-      .toBeLessThan(migration.indexOf("CREATE TRIGGER"));
-    expect(migration.indexOf("CREATE TRIGGER"))
       .toBeLessThan(migration.indexOf("UPDATE `Message`"));
     expect(migration.indexOf("UPDATE `Message`"))
       .toBeLessThan(migration.indexOf("ADD INDEX `Message_analysisPendingAt_id_idx`"));
