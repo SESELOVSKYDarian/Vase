@@ -515,7 +515,7 @@ describe("Prisma conversation analysis repository boundaries", () => {
     );
     expect(schema).toContain("analysisPendingAt DateTime?");
     expect(schema).toContain("@@index([analysisPendingAt, id])");
-    expect(migration).toContain("ADD COLUMN IF NOT EXISTS `analysisPendingAt`");
+    expect(migration).toContain("ADD COLUMN `analysisPendingAt`");
     expect(migration).toContain("Message_analysisPendingAt_id_idx");
     expect(migration).not.toContain("CREATE TRIGGER");
     expect(migration).not.toContain("BEFORE INSERT ON `Message`");
