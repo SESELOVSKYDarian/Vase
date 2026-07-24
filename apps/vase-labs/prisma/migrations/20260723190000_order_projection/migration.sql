@@ -28,7 +28,7 @@ CREATE TABLE `BusinessOrderProjection` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `BusinessOrderProjection_globalTenantId_businessOrderId_key` (`globalTenantId`, `businessOrderId`),
   INDEX `BusinessOrderProjection_assistantId_businessUpdatedAt_idx` (`assistantId`, `businessUpdatedAt`),
-  INDEX `BusinessOrderProjection_globalTenantId_channel_status_businessUpdatedAt_idx` (`globalTenantId`, `channel`, `status`, `businessUpdatedAt`),
+  INDEX `BOP_tenant_channel_status_updated_idx` (`globalTenantId`, `channel`, `status`, `businessUpdatedAt`),
   INDEX `BusinessOrderProjection_conversationId_idx` (`conversationId`),
   INDEX `BusinessOrderProjection_customerEmailNormalized_idx` (`customerEmailNormalized`),
   INDEX `BusinessOrderProjection_customerPhoneNormalized_idx` (`customerPhoneNormalized`)

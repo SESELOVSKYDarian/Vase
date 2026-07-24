@@ -428,7 +428,7 @@ model BusinessOrderProjection {
 
   @@unique([globalTenantId, businessOrderId])
   @@index([assistantId, businessUpdatedAt])
-  @@index([globalTenantId, channel, status, businessUpdatedAt])
+  @@index([globalTenantId, channel, status, businessUpdatedAt], name: "BOP_tenant_channel_status_updated_idx")
   @@index([conversationId])
   @@index([customerEmailNormalized])
   @@index([customerPhoneNormalized])
