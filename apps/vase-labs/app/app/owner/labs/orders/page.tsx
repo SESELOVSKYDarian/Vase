@@ -5,6 +5,7 @@ import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import { LabsPageHeader, LabsMetricCard } from "../labs-ui";
 import OrdersWorkspace from "./orders-workspace";
 import { ShoppingBag, Send, CreditCard } from "lucide-react";
+import { buildLabsOrderAnalytics } from "../../../../lib/order-analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ async function getOrdersData() {
 export default async function LabsOrdersPage() {
   const data = await getOrdersData();
   const total = data.orders.reduce((sum, order) => sum + Number(order.totalAmount), 0);
+  const analytics = buildLabsOrderAnalytics(data.orders);
 
   return (
     <div className="space-y-6">
@@ -42,6 +44,18 @@ export default async function LabsOrdersPage() {
         <LabsMetricCard label="Pedidos sincronizados" value={data.orders.length} icon={ShoppingBag} tone="info" />
         <LabsMetricCard label="Confirmados" value={data.confirmed} icon={Send} tone="success" />
         <LabsMetricCard label="Monto visible" value={new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(total)} icon={CreditCard} tone="neutral" />
+      </section>
+      <section className="grid gap-3 md:grid-cols-3">
+        {(["WHATSAPP", "INSTAGRAM", "MESSENGER"] as const).map((channel) => (
+          <LabsMetricCard
+            key={channel}
+            label={channel}
+            value={analytics.channels[channel].orders}
+            detail={`${analytics.channels[channel].conversionRate}% conversion - ticket ${analytics.channels[channel].averageTicket}`}
+            icon={ShoppingBag}
+            tone="info"
+          />
+        ))}
       </section>
       <OrdersWorkspace orders={data.orders} />
     </div>

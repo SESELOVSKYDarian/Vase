@@ -14,6 +14,7 @@ import {
 } from "./labs-ui";
 import { LabsConversationTrendChart, LabsIntentDistributionChart } from "./labs-analytics-charts";
 import { buildLabsConversationAnalytics } from "./labs-analytics";
+import { buildLabsOrderAnalytics } from "../../../lib/order-analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,7 @@ async function getOwnerLabsData() {
     redirect("https://app.vase.ar/app");
   }
 
-  const [entitlement, channels, conversations, knowledgeItems, tokenUsage] = await Promise.all([
+  const [entitlement, channels, conversations, knowledgeItems, tokenUsage, orders] = await Promise.all([
     labsPrisma.labsEntitlement.findUnique({
       where: { globalTenantId: resolved.context.globalTenantId },
     }),
@@ -95,6 +96,11 @@ async function getOwnerLabsData() {
     labsPrisma.tokenUsage.aggregate({
       where: { globalTenantId: resolved.context.globalTenantId },
       _sum: { totalTokens: true },
+    }),
+    labsPrisma.businessOrderProjection.findMany({
+      where: { globalTenantId: resolved.context.globalTenantId },
+      orderBy: { businessUpdatedAt: "desc" },
+      take: 200,
     }),
   ]);
 
@@ -128,6 +134,7 @@ async function getOwnerLabsData() {
     knowledgeItems,
     criticalConversations,
     setupSteps,
+    orders,
   };
 }
 
@@ -141,6 +148,7 @@ export default async function LabsDashboardPage() {
       lastMessageAt: c.lastMessageAt,
     })),
   );
+  const orderAnalytics = buildLabsOrderAnalytics(data.orders);
   const setupCompleted =
     data.setupSteps.hasKnowledge && data.setupSteps.hasChannel && data.setupSteps.hasEscalation;
 
@@ -167,6 +175,19 @@ export default async function LabsDashboardPage() {
         <LabsMetricCard label="Canales conectados" value={data.connectedChannels} icon={Cable} tone="info" />
         <LabsMetricCard label="Conocimiento cargado" value={data.knowledgeItemCount} icon={Database} tone="neutral" />
         <LabsMetricCard label="Training" value={`${data.readyKnowledge}/${data.knowledgeItemCount}`} detail="Fuentes listas" icon={Bot} tone="neutral" />
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-3">
+        {(["WHATSAPP", "INSTAGRAM", "MESSENGER"] as const).map((channel) => (
+          <LabsMetricCard
+            key={channel}
+            label={`Pedidos ${channel}`}
+            value={orderAnalytics.channels[channel].orders}
+            detail={`${orderAnalytics.channels[channel].conversionRate}% conversion`}
+            icon={MessageSquare}
+            tone="neutral"
+          />
+        ))}
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
