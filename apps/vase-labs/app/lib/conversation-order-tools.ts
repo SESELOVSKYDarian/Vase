@@ -22,7 +22,12 @@ type StoredDraft = {
   channel: LabsChannel | null;
   items: Array<{ productId: string; quantity: number }>;
   customer: Record<string, unknown>;
-  fulfillment: { type: "DELIVERY" | "PICKUP"; branchId?: string | null };
+  fulfillment: {
+    type: "DELIVERY" | "PICKUP";
+    branchId?: string | null;
+    pickupLabel?: string | null;
+    address?: string | null;
+  };
   quoteHash: string | null;
   quoteVersion: number | null;
   confirmationCodeHash: string | null;
@@ -168,7 +173,7 @@ export async function confirmConversationOrderDraft(input: {
     fulfillment: draft.fulfillment,
     quoteHash: latestQuote.quoteHash,
     quoteVersion: latestQuote.quoteVersion,
-    notes: draft.notes,
+    notes: buildOrderNotes(draft),
   });
   const order = readBusinessOrder(created);
   await deps.repository.markConfirmed({
@@ -196,12 +201,26 @@ function readJsonItems(value: unknown): Array<{ productId: string; quantity: num
     : [];
 }
 
-function readJsonFulfillment(value: unknown): { type: "DELIVERY" | "PICKUP"; branchId?: string | null } {
+function readJsonFulfillment(value: unknown): {
+  type: "DELIVERY" | "PICKUP";
+  branchId?: string | null;
+  pickupLabel?: string | null;
+  address?: string | null;
+} {
   const source = readJsonObject(value);
   return {
     type: source.type === "PICKUP" ? "PICKUP" : "DELIVERY",
     branchId: typeof source.branchId === "string" ? source.branchId : null,
+    pickupLabel: typeof source.pickupLabel === "string" ? source.pickupLabel : null,
+    address: typeof source.address === "string" ? source.address : null,
   };
+}
+
+function buildOrderNotes(draft: StoredDraft) {
+  const pickup = draft.fulfillment.type === "PICKUP" && draft.fulfillment.pickupLabel
+    ? `Retiro solicitado: ${draft.fulfillment.pickupLabel}${draft.fulfillment.address ? ` — ${draft.fulfillment.address}` : ""}`
+    : null;
+  return [draft.notes, pickup].filter(Boolean).join("\n") || null;
 }
 
 function toStoredDraft(draft: {
@@ -236,7 +255,7 @@ function toStoredDraft(draft: {
     confirmationSalt: draft.confirmationSalt,
     expiresAt: draft.expiresAt,
     idempotencyKey: draft.idempotencyKey,
-    notes: draft.lastError ?? null,
+    notes: null,
   };
 }
 
