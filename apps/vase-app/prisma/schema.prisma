@@ -113,6 +113,8 @@ enum OrderChannel {
   WEB
   EMAIL
   WHATSAPP
+  INSTAGRAM
+  MESSENGER
 }
 
 enum PaymentStatus {
