@@ -95,6 +95,15 @@ enum ConversationAnalysisJobStatus {
   FAILED
 }
 
+enum ConversationOrderDraftState {
+  COLLECTING
+  QUOTED
+  AWAITING_CONFIRMATION
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+}
+
 model Assistant {
   id             String   @id @default(cuid())
   globalTenantId String
@@ -317,12 +326,44 @@ model Conversation {
   handoffs          Handoff[]
   insight           ConversationInsight?
   analysisJob       ConversationAnalysisJob?
+  orderDrafts       ConversationOrderDraft[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   @@index([assistantId, status, lastMessageAt])
   @@index([externalThreadKey])
   @@unique([assistantId, channel, externalThreadKey])
+}
+
+model ConversationOrderDraft {
+  id                    String                      @id @default(cuid())
+  conversationId        String
+  assistantId           String
+  globalTenantId        String
+  state                 ConversationOrderDraftState @default(COLLECTING)
+  revision              Int                         @default(1)
+  channel               LabsChannel?
+  items                 Json
+  customer              Json
+  fulfillment           Json
+  quoteSnapshot         Json?
+  quoteHash             String?
+  quoteVersion          Int?
+  confirmationCodeHash  String?
+  confirmationSalt      String?
+  expiresAt             DateTime?
+  idempotencyKey        String                      @unique
+  businessOrderId       String?
+  businessOrderNumber   String?
+  lastError             String?                     @db.Text
+  confirmedAt           DateTime?
+  conversation          Conversation                @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+
+  @@index([assistantId, state, updatedAt])
+  @@index([globalTenantId, state, updatedAt])
+  @@index([conversationId, state, updatedAt])
 }
 
 model ConversationInsight {
