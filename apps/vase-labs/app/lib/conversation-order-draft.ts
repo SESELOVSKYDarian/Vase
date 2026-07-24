@@ -60,6 +60,33 @@ export function isExactConfirmation(text: string, confirmationCodeHash: string, 
   return createConfirmationCodeHash(match[1], salt) === confirmationCodeHash;
 }
 
+function normalizeConfirmationText(text: string) {
+  return text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[!.,;:]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function isExplicitOrderConfirmation(text: string) {
+  const raw = text.trim();
+  const normalized = normalizeConfirmationText(raw);
+  if (!normalized || /[?¿]/.test(raw)) return false;
+  if (/\b(no|nunca|todavia no|no quiero|cancelar|cambiar|modificar)\b/.test(normalized)) {
+    return false;
+  }
+
+  return [
+    /^(si )?(confirmo|acepto)( el)? pedido$/,
+    /^(si )?(confirmo|acepto)( el)? pedido por favor$/,
+    /^(si )?(dale )?(hacelo|hazlo)$/,
+    /^(dale )?quiero (hacer|realizar|confirmar)( el)? pedido$/,
+    /^confirmar pedido [0-9]{4}$/,
+  ].some((pattern) => pattern.test(normalized));
+}
+
 export function resolveDraftTransition(input: {
   state: ConversationOrderDraftState;
   quoteHash: string | null;
@@ -81,7 +108,10 @@ export function resolveDraftTransition(input: {
   if (input.quoteHash !== input.latestQuoteHash || input.quoteVersion !== input.latestQuoteVersion) {
     return { allowed: false as const, reason: "QUOTE_CHANGED" as const };
   }
-  if (!isExactConfirmation(input.userText, input.confirmationCodeHash, input.salt)) {
+  if (
+    !isExplicitOrderConfirmation(input.userText)
+    && !isExactConfirmation(input.userText, input.confirmationCodeHash, input.salt)
+  ) {
     return { allowed: false as const, reason: "CONFIRMATION_REQUIRED" as const };
   }
   return { allowed: true as const };

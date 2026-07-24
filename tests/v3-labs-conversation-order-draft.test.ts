@@ -3,6 +3,7 @@ import {
   buildConfirmationPhrase,
   createConfirmationCodeHash,
   isExactConfirmation,
+  isExplicitOrderConfirmation,
   normalizeOrderDraftInput,
   resolveDraftTransition,
 } from "../apps/vase-labs/app/lib/conversation-order-draft";
@@ -29,6 +30,44 @@ describe("Labs conversation order drafts", () => {
     expect(isExactConfirmation("CONFIRMAR PEDIDO 4821", hash, "salt")).toBe(true);
     expect(isExactConfirmation("confirmar pedido 4821", hash, "salt")).toBe(false);
     expect(isExactConfirmation("CONFIRMAR PEDIDO 4821 por favor", hash, "salt")).toBe(false);
+  });
+
+  it.each([
+    "Confirmo el pedido",
+    "acepto el pedido",
+    "Sí, hacelo",
+    "dale, quiero hacer el pedido",
+    "confirmar pedido 4821",
+  ])("accepts an explicit natural confirmation: %s", (text) => {
+    expect(isExplicitOrderConfirmation(text)).toBe(true);
+  });
+
+  it.each([
+    "Hola",
+    "ok",
+    "tal vez",
+    "¿Confirmo el pedido?",
+    "no confirmo el pedido",
+    "quiero cambiar la cantidad",
+  ])("rejects an ambiguous, negative or unrelated message: %s", (text) => {
+    expect(isExplicitOrderConfirmation(text)).toBe(false);
+  });
+
+  it("allows an explicit natural confirmation for a current quote", () => {
+    const result = resolveDraftTransition({
+      state: "AWAITING_CONFIRMATION",
+      quoteHash: "hash",
+      quoteVersion: 1,
+      expiresAt: new Date("2026-07-23T13:00:00.000Z"),
+      now: new Date("2026-07-23T12:00:00.000Z"),
+      latestQuoteHash: "hash",
+      latestQuoteVersion: 1,
+      userText: "Sí, acepto el pedido",
+      confirmationCodeHash: createConfirmationCodeHash("4821", "salt"),
+      salt: "salt",
+    });
+
+    expect(result).toEqual({ allowed: true });
   });
 
   it("invalidates a draft when the quote changes before confirmation", () => {

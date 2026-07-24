@@ -42,11 +42,11 @@ describe("Labs conversation order tools", () => {
     }));
   });
 
-  it("does not create an order without the exact confirmation phrase", async () => {
+  it("does not create an order from an ambiguous acknowledgement", async () => {
     const create = vi.fn();
     const result = await confirmConversationOrderDraft({
       conversationId: "conversation_1",
-      userText: "confirmar pedido 4821",
+      userText: "ok",
     }, {
       now: () => new Date("2026-07-23T12:00:00.000Z"),
       business: {
@@ -79,5 +79,50 @@ describe("Labs conversation order tools", () => {
 
     expect(result).toEqual({ ok: false, reason: "CONFIRMATION_REQUIRED" });
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("creates the active draft after an explicit natural confirmation", async () => {
+    const create = vi.fn(async () => ({ order: { id: "order_1", orderNumber: "V-1042" } }));
+    const markConfirmed = vi.fn();
+    const result = await confirmConversationOrderDraft({
+      conversationId: "conversation_1",
+      userText: "Sí, acepto el pedido",
+    }, {
+      now: () => new Date("2026-07-23T12:00:00.000Z"),
+      business: {
+        quote: vi.fn(async () => ({ valid: true, quoteHash: "quote_hash_1", quoteVersion: 5 })),
+        create,
+      },
+      repository: {
+        findActiveDraft: vi.fn(async () => ({
+          id: "draft_1",
+          state: "AWAITING_CONFIRMATION",
+          conversationId: "conversation_1",
+          globalTenantId: "tenant_1",
+          channel: "WHATSAPP",
+          items: [{ productId: "prod_1", quantity: 1 }],
+          customer: {},
+          fulfillment: { type: "DELIVERY" },
+          quoteHash: "quote_hash_1",
+          quoteVersion: 5,
+          confirmationCodeHash: "legacy_hash",
+          confirmationSalt: "legacy_salt",
+          expiresAt: new Date("2026-07-23T13:00:00.000Z"),
+          idempotencyKey: "conversation_1:rev_1",
+          notes: null,
+        })),
+        saveDraft: vi.fn(),
+        markConfirmed,
+        markFailed: vi.fn(),
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(markConfirmed).toHaveBeenCalledWith({
+      draftId: "draft_1",
+      businessOrderId: "order_1",
+      businessOrderNumber: "V-1042",
+    });
   });
 });
