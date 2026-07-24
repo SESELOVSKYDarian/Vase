@@ -150,7 +150,7 @@ describe("Labs conversation order orchestrator", () => {
     expect(prepareDraft).toHaveBeenCalledWith(expect.objectContaining({
       input: expect.objectContaining({
         items: [{ productId: "product_1004", quantity: 1 }],
-        fulfillment: { type: "PICKUP", branchId: "branch_1" },
+        fulfillment: expect.objectContaining({ type: "PICKUP", branchId: "branch_1" }),
       }),
     }));
     expect(result.text).toContain("BOQUILLA 20 MM");
@@ -159,6 +159,57 @@ describe("Labs conversation order orchestrator", () => {
     expect(result.text).toContain("6657 Avenida Pedro Luro, Mar del Plata");
     expect(result.text).toContain("¿Confirmás el pedido?");
     expect(result.text).not.toContain("CONFIRMAR PEDIDO");
+  });
+
+  it("prepares pickup from prompt knowledge when Business has no synchronized branches", async () => {
+    const prepareDraft = vi.fn(async () => ({
+      draft: activeDraft,
+      quote: {
+        valid: true,
+        currency: "ARS",
+        subtotal: 9614.15,
+        shippingAmount: 0,
+        total: 9614.15,
+        items: [{ name: "BOQUILLA 20 MM", quantity: 1, totalAmount: 9614.15 }],
+      },
+    }));
+    const service = createConversationOrderOrchestrator({
+      loadHistory: vi.fn(async () => []),
+      loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
+      findActiveDraft: vi.fn(async () => null),
+      prepareDraft,
+      confirmDraft: vi.fn(),
+    });
+
+    const result = await service.prepare({
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
+      action: {
+        type: "PREPARE",
+        items: [{ productId: "product_1006", quantity: 1 }],
+        customer: { name: "Darian", phone: "2234390415" },
+        fulfillment: {
+          type: "PICKUP",
+          pickupLabel: "El Teflón (Central)",
+          address: "6657 Avenida Pedro Luro, Mar del Plata",
+        },
+      },
+    });
+
+    expect(prepareDraft).toHaveBeenCalledWith(expect.objectContaining({
+      input: expect.objectContaining({
+        fulfillment: {
+          type: "PICKUP",
+          branchId: null,
+          pickupLabel: "El Teflón (Central)",
+          address: "6657 Avenida Pedro Luro, Mar del Plata",
+        },
+      }),
+    }));
+    expect(result.text).toContain("Retiro: El Teflón (Central)");
+    expect(result.text).toContain("6657 Avenida Pedro Luro, Mar del Plata");
   });
 
   it("creates an active order after a natural explicit confirmation", async () => {

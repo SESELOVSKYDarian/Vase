@@ -6,7 +6,12 @@ type ActiveOrderDraft = {
   state: string;
   items: Array<{ productId: string; quantity: number }>;
   customer: Record<string, unknown>;
-  fulfillment: { type: "DELIVERY" | "PICKUP"; branchId?: string | null };
+  fulfillment: {
+    type: "DELIVERY" | "PICKUP";
+    branchId?: string | null;
+    pickupLabel?: string | null;
+    address?: string | null;
+  };
   notes?: string | null;
 };
 
@@ -34,7 +39,12 @@ type OrderOrchestratorDependencies = {
     input: {
       items: Array<{ productId: string; quantity: number }>;
       customer: Record<string, unknown>;
-      fulfillment: { type: "DELIVERY" | "PICKUP"; branchId?: string | null };
+      fulfillment: {
+        type: "DELIVERY" | "PICKUP";
+        branchId?: string | null;
+        pickupLabel?: string | null;
+        address?: string | null;
+      };
       notes?: string | null;
     };
   }): Promise<{ quote: unknown }>;
@@ -137,18 +147,31 @@ function formatMoney(value: unknown, currency: string) {
 }
 
 function fulfillmentSummary(
-  fulfillment: { type: "DELIVERY" | "PICKUP"; branchId?: string | null },
+  fulfillment: {
+    type: "DELIVERY" | "PICKUP";
+    branchId?: string | null;
+    pickupLabel?: string | null;
+    address?: string | null;
+  },
   value: unknown,
 ) {
   if (fulfillment.type === "DELIVERY") return "Modalidad: Envío";
   const branch = readBranches(value).find((candidate) => candidate.id === fulfillment.branchId);
+  if (!branch && fulfillment.pickupLabel) {
+    return `Retiro: ${fulfillment.pickupLabel}${fulfillment.address ? ` — ${fulfillment.address}` : ""}`;
+  }
   if (!branch) return "Modalidad: Retiro en sucursal";
   return `Retiro: ${branch.name}${branch.address ? ` — ${branch.address}` : ""}`;
 }
 
 function quoteSummary(
   value: unknown,
-  fulfillment?: { type: "DELIVERY" | "PICKUP"; branchId?: string | null },
+  fulfillment?: {
+    type: "DELIVERY" | "PICKUP";
+    branchId?: string | null;
+    pickupLabel?: string | null;
+    address?: string | null;
+  },
   fulfillmentOptions?: unknown,
 ) {
   const quote = value as {
@@ -270,6 +293,8 @@ export function createConversationOrderOrchestrator(deps: OrderOrchestratorDepen
       const normalizedFulfillment = {
         type: input.action.fulfillment.type,
         branchId: input.action.fulfillment.branchId || null,
+        pickupLabel: input.action.fulfillment.pickupLabel || null,
+        address: input.action.fulfillment.address || null,
       };
       const [prepared, fulfillment] = await Promise.all([
         deps.prepareDraft({
