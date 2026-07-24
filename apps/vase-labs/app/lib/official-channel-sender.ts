@@ -15,6 +15,24 @@ export interface OfficialChannelSenderRepository {
   }): Promise<OfficialChannelDeliveryContext | null>;
 }
 
+export class OfficialChannelDeliveryError extends Error {
+  constructor(
+    public readonly code: string,
+    public readonly providerStatus?: number,
+    public readonly providerMessage?: string,
+  ) {
+    super(code);
+    this.name = "OfficialChannelDeliveryError";
+  }
+}
+
+function safeProviderMessage(payload: unknown) {
+  const message = (payload as { error?: { message?: unknown } } | null)?.error?.message;
+  return typeof message === "string" && message.trim()
+    ? message.trim().slice(0, 300)
+    : undefined;
+}
+
 export function createOfficialChannelSender(input: {
   repository: OfficialChannelSenderRepository;
   encryptionSecret: string;
@@ -36,13 +54,21 @@ export function createOfficialChannelSender(input: {
         channelType: params.channelType,
       });
       if (!context) {
-        throw new Error("OFFICIAL_CHANNEL_NOT_CONNECTED");
+        throw new OfficialChannelDeliveryError("OFFICIAL_CHANNEL_NOT_CONNECTED");
       }
 
-      const accessToken = decryptChannelSecret(
-        context.encryptedAccessToken,
-        input.encryptionSecret,
-      );
+      if (!input.encryptionSecret.trim()) {
+        throw new OfficialChannelDeliveryError("TOKEN_ENCRYPTION_SECRET_MISSING");
+      }
+      let accessToken: string;
+      try {
+        accessToken = decryptChannelSecret(
+          context.encryptedAccessToken,
+          input.encryptionSecret,
+        );
+      } catch {
+        throw new OfficialChannelDeliveryError("CHANNEL_CREDENTIAL_DECRYPTION_FAILED");
+      }
       const endpoint = `https://graph.facebook.com/${input.graphVersion}/${encodeURIComponent(context.providerAccountId)}/messages`;
       const sendGraphPayload = async (body: unknown) => {
         const response = await fetcher(endpoint, {
@@ -56,7 +82,11 @@ export function createOfficialChannelSender(input: {
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          throw new Error("META_SEND_FAILED");
+          throw new OfficialChannelDeliveryError(
+            "META_SEND_FAILED",
+            response.status,
+            safeProviderMessage(payload),
+          );
         }
 
         const whatsappMessageId = Array.isArray(payload.messages)

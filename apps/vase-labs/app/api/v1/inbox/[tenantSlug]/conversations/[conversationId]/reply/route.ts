@@ -10,6 +10,8 @@ type InboxReplyConversation = {
   id: string;
   channel: LabsChannel | null;
   customerContact: string | null;
+  externalUserId?: string | null;
+  externalThreadKey?: string | null;
 };
 
 type InboxReplyHandlerDependencies = {
@@ -115,14 +117,17 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
         conversationId,
         globalTenantId: context.globalTenantId,
       });
-      if (!conversation?.channel || !conversation.customerContact) {
+      const recipientId = conversation?.customerContact
+        ?? conversation?.externalUserId
+        ?? conversation?.externalThreadKey;
+      if (!conversation?.channel || !recipientId) {
         return NextResponse.json({ error: "CONVERSATION_NOT_DELIVERABLE" }, { status: 404 });
       }
 
       const delivery = await dependencies.sendReply({
         globalTenantId: context.globalTenantId,
         channelType: conversation.channel,
-        recipientId: conversation.customerContact,
+        recipientId,
         text,
       });
       if (!delivery.ok) {
@@ -148,8 +153,26 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
         delivery: { status: "SENT" },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "CHANNEL_DELIVERY_FAILED";
-      return NextResponse.json({ error: message }, { status: 502 });
+      const source = error as {
+        code?: unknown;
+        message?: unknown;
+        providerStatus?: unknown;
+        providerMessage?: unknown;
+      } | null;
+      const code = typeof source?.code === "string"
+        ? source.code
+        : typeof source?.message === "string"
+          ? source.message
+          : "CHANNEL_DELIVERY_FAILED";
+      return NextResponse.json({
+        error: code,
+        ...(typeof source?.providerStatus === "number"
+          ? { providerStatus: source.providerStatus }
+          : {}),
+        ...(typeof source?.providerMessage === "string"
+          ? { providerMessage: source.providerMessage }
+          : {}),
+      }, { status: 502 });
     }
   };
 }
@@ -166,6 +189,8 @@ export const POST = createInboxReplyHandler({
         id: true,
         channel: true,
         customerContact: true,
+        externalUserId: true,
+        externalThreadKey: true,
       },
     });
   },

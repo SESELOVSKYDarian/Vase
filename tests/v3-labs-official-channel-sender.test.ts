@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { encryptChannelSecret } from "../apps/vase-labs/app/lib/channel-secrets";
-import { createOfficialChannelSender } from "../apps/vase-labs/app/lib/official-channel-sender";
+import {
+  createOfficialChannelSender,
+  OfficialChannelDeliveryError,
+} from "../apps/vase-labs/app/lib/official-channel-sender";
 
 const encryptionSecret = "0123456789abcdef0123456789abcdef";
 
@@ -251,5 +254,61 @@ describe("official Meta outbound sender", () => {
         text: "Hola",
       }),
     ).rejects.toThrow("OFFICIAL_CHANNEL_NOT_CONNECTED");
+  });
+
+  it("returns a safe Meta status and message when delivery is rejected", async () => {
+    const sender = createOfficialChannelSender({
+      encryptionSecret,
+      graphVersion: "v99.0",
+      repository: {
+        async findDeliveryContext() {
+          return {
+            channelType: "WHATSAPP",
+            providerAccountId: "phone_123",
+            encryptedAccessToken: encryptChannelSecret("token", encryptionSecret),
+          };
+        },
+      },
+      fetcher: async () => Response.json({
+        error: { message: "(#131030) Recipient phone number not in allowed list" },
+      }, { status: 400 }),
+    });
+
+    const error = await sender.send({
+      globalTenantId: "tenant_123",
+      channelType: "WHATSAPP",
+      recipientId: "549223",
+      text: "Hola",
+    }).catch((reason) => reason);
+
+    expect(error).toBeInstanceOf(OfficialChannelDeliveryError);
+    expect(error).toMatchObject({
+      code: "META_SEND_FAILED",
+      providerStatus: 400,
+      providerMessage: "(#131030) Recipient phone number not in allowed list",
+    });
+  });
+
+  it("classifies an incompatible encryption key without exposing ciphertext", async () => {
+    const sender = createOfficialChannelSender({
+      encryptionSecret: "different-secret",
+      graphVersion: "v99.0",
+      repository: {
+        async findDeliveryContext() {
+          return {
+            channelType: "WHATSAPP",
+            providerAccountId: "phone_123",
+            encryptedAccessToken: encryptChannelSecret("token", encryptionSecret),
+          };
+        },
+      },
+    });
+
+    await expect(sender.send({
+      globalTenantId: "tenant_123",
+      channelType: "WHATSAPP",
+      recipientId: "549223",
+      text: "Hola",
+    })).rejects.toMatchObject({ code: "CHANNEL_CREDENTIAL_DECRYPTION_FAILED" });
   });
 });

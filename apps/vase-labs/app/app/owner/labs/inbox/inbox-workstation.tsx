@@ -3,6 +3,7 @@
 import { Bell, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LabsStatusPill } from "../labs-ui";
+import { formatInboxDeliveryError } from "./inbox-delivery-errors";
 
 type InboxMessage = {
   id: string;
@@ -239,7 +240,13 @@ export function InboxWorkstation({
         body: JSON.stringify({ text }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error ?? "INBOX_REPLY_FAILED");
+      if (!response.ok) {
+        throw {
+          code: payload.error ?? "INBOX_REPLY_FAILED",
+          providerStatus: payload.providerStatus,
+          providerMessage: payload.providerMessage,
+        };
+      }
 
       setDraft("");
       setConversations((current) => sortConversations(current.map((conversation) =>
@@ -254,10 +261,12 @@ export function InboxWorkstation({
           : conversation,
       )));
     } catch (reason) {
-      const code = reason instanceof Error ? reason.message : "";
-      setError(code === "CONVERSATION_NOT_DELIVERABLE"
-        ? "Esta conversacion no tiene un canal entregable."
-        : "No pudimos enviar el mensaje.");
+      const source = reason as {
+        code?: string;
+        providerStatus?: number;
+        providerMessage?: string;
+      } | null;
+      setError(formatInboxDeliveryError(source ?? {}));
     } finally {
       setBusy(false);
     }
