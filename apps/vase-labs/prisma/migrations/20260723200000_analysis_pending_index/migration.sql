@@ -1,5 +1,5 @@
 ALTER TABLE `Message`
-  ADD COLUMN `analysisPendingAt` DATETIME(3) NULL;
+  ADD COLUMN IF NOT EXISTS `analysisPendingAt` DATETIME(3) NULL;
 
 UPDATE `Message`
 SET `analysisPendingAt` = `createdAt`
