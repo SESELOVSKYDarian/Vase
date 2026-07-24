@@ -36,6 +36,8 @@ describe("Labs conversation order drafts", () => {
     "Confirmo el pedido",
     "acepto el pedido",
     "Sí, hacelo",
+    "Acepto",
+    "Envialo",
     "dale, quiero hacer el pedido",
     "confirmar pedido 4821",
   ])("accepts an explicit natural confirmation: %s", (text) => {
