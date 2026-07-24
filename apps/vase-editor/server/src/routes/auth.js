@@ -611,7 +611,7 @@ async function handleSignup(req, res, next) {
         details: 'No se pudo identificar el sitio. Verifica que el dominio esta asociado a un tenant.',
       });
     }
-    const normalizedEmail = normalizeLoginEmailInput(email, requestedTenantId);
+    const normalizedEmail = normalizeLoginEmailInput(email, tenant_id);
     if (!normalizedEmail) {
       return res.status(400).json({ error: 'missing_fields', details: 'email invalido' });
     }

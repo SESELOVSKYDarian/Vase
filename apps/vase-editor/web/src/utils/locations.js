@@ -1,4 +1,3 @@
-const REST_COUNTRIES_URL = 'https://restcountries.com/v3.1/all?fields=name,cca2,translations';
 const ARGENTINA_PROVINCES_URL = 'https://apis.datos.gob.ar/georef/api/provincias?campos=id,nombre';
 const ARGENTINA_LOCALITIES_URL = 'https://apis.datos.gob.ar/georef/api/localidades?campos=id,nombre&max=5000&provincia=';
 const ARGENTINA_ADDRESSES_URL = 'https://apis.datos.gob.ar/georef/api/direcciones';
@@ -18,7 +17,6 @@ export const FALLBACK_COUNTRY_OPTIONS = [
 
 const countriesState = {
     data: null,
-    promise: null,
 };
 
 const argentinaProvincesState = {
@@ -103,32 +101,9 @@ export const loadCountries = async () => {
     if (Array.isArray(countriesState.data) && countriesState.data.length) {
         return countriesState.data;
     }
-    if (countriesState.promise) {
-        return countriesState.promise;
-    }
 
-    countriesState.promise = fetchJson(REST_COUNTRIES_URL)
-        .then((payload) => {
-            const options = uniqueSortedOptions(
-                (Array.isArray(payload) ? payload : []).map((country) => ({
-                    value: String(country?.cca2 || '').trim().toUpperCase(),
-                    label:
-                        String(country?.translations?.spa?.common || '').trim()
-                        || String(country?.name?.common || '').trim(),
-                })),
-            );
-            countriesState.data = options.length ? options : FALLBACK_COUNTRY_OPTIONS;
-            return countriesState.data;
-        })
-        .catch(() => {
-            countriesState.data = FALLBACK_COUNTRY_OPTIONS;
-            return countriesState.data;
-        })
-        .finally(() => {
-            countriesState.promise = null;
-        });
-
-    return countriesState.promise;
+    countriesState.data = uniqueSortedOptions(FALLBACK_COUNTRY_OPTIONS);
+    return countriesState.data;
 };
 
 export const loadArgentinaProvinces = async () => {

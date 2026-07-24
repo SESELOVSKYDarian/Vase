@@ -591,7 +591,7 @@ export default function SignupPage() {
         if (!formData.email.trim()) return 'Completa tu email.';
         if (!/\S+@\S+\.\S+/.test(formData.email)) return 'Email invalido.';
         if (!formData.password) return 'Completa la contrasena.';
-        if (formData.password.length < 6) return 'La contrasena debe tener al menos 6 caracteres.';
+        if (formData.password.length < 8) return 'La contrasena debe tener al menos 8 caracteres.';
         if (formData.password !== formData.confirmPassword) return 'Las contrasenas no coinciden.';
         return '';
     };
