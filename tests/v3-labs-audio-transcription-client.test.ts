@@ -45,4 +45,18 @@ describe("Labs OpenAI audio transcription client", () => {
 
     expect(uploadedType).toBe("audio/ogg");
   });
+
+  it("rejects audio larger than 15 MB before calling OpenAI", async () => {
+    const fetcher = vi.fn();
+    const client = createAudioTranscriptionClient({
+      apiKey: "sk-business",
+      fetcher: fetcher as typeof fetch,
+    });
+
+    await expect(client.transcribe(
+      Buffer.alloc(15 * 1024 * 1024 + 1),
+      "audio/ogg",
+    )).rejects.toThrow("AUDIO_TOO_LARGE");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
 });

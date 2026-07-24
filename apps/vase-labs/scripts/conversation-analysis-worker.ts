@@ -24,6 +24,10 @@ import {
 import { decryptChannelSecret } from "../app/lib/channel-secrets";
 import { PrismaOfficialChannelSenderRepository } from "../app/lib/official-channel-sender-repository";
 import { downloadWhatsAppMedia } from "../app/lib/whatsapp-media";
+import {
+  PrismaAssistantOpenAiKeyRepository,
+  resolveAssistantOpenAiApiKey,
+} from "../app/lib/assistant-openai-key";
 
 const maxAttempts = positiveInteger(process.env.CONVERSATION_ANALYSIS_MAX_ATTEMPTS, 3);
 const timing = resolveConversationAnalysisTimingConfig({
@@ -78,10 +82,8 @@ const audioQueue = new PrismaAudioTranscriptionQueue(labsPrisma, {
   leaseDurationMs: positiveInteger(process.env.AUDIO_TRANSCRIPTION_LEASE_DURATION_MS, 240_000),
 });
 const channelDeliveryRepository = new PrismaOfficialChannelSenderRepository(labsPrisma);
+const assistantOpenAiKeyRepository = new PrismaAssistantOpenAiKeyRepository(labsPrisma);
 const runChannelAiReply = createPrismaChannelAiReplyRunner();
-const transcriptionClient = createAudioTranscriptionClient({
-  timeoutMs: positiveInteger(process.env.AUDIO_TRANSCRIPTION_REQUEST_TIMEOUT_MS, 180_000),
-});
 const audioWorker = createAudioTranscriptionWorker({
   queue: audioQueue,
   async downloadMedia(rawJob) {
@@ -106,7 +108,24 @@ const audioWorker = createAudioTranscriptionWorker({
       process.env.META_GRAPH_VERSION?.trim() || "v25.0",
     );
   },
-  transcriber: transcriptionClient,
+  async resolveTranscriber(rawJob) {
+    const job = rawJob as ClaimedAudioTranscriptionJob;
+    const apiKey = await resolveAssistantOpenAiApiKey({
+      assistantId: job.assistantId,
+      encryptionSecret: process.env.TOKEN_ENCRYPTION_SECRET ?? "",
+      repository: assistantOpenAiKeyRepository,
+    });
+    return createAudioTranscriptionClient({
+      apiKey,
+      model:
+        process.env.AI_TRANSCRIPTION_MODEL?.trim()
+        || "gpt-4o-mini-transcribe",
+      timeoutMs: positiveInteger(
+        process.env.AUDIO_TRANSCRIPTION_REQUEST_TIMEOUT_MS,
+        120_000,
+      ),
+    });
+  },
   storeTranscript(jobId, transcript) {
     return audioQueue.storeTranscript(jobId, transcript);
   },

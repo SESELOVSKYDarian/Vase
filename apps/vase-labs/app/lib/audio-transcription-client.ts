@@ -5,12 +5,16 @@ export function createAudioTranscriptionClient(input: {
   model?: string;
   fetcher?: FetchLike;
   timeoutMs?: number;
+  maxBytes?: number;
 }) {
   const fetcher = input.fetcher ?? fetch;
   return {
     async transcribe(buffer: Buffer, mimeType: string) {
       const apiKey = input.apiKey.trim();
       if (!apiKey) throw new Error("OPENAI_API_KEY_MISSING");
+      if (buffer.byteLength > (input.maxBytes ?? 15 * 1024 * 1024)) {
+        throw new Error("AUDIO_TOO_LARGE");
+      }
       const normalizedMimeType = mimeType.split(";", 1)[0]?.trim().toLowerCase() || "audio/ogg";
       const form = new FormData();
       form.set("file", new Blob([new Uint8Array(buffer)], { type: normalizedMimeType }), "channel-audio.ogg");
