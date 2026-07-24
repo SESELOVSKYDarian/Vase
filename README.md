@@ -56,6 +56,18 @@ Validar Prisma por app:
 npx prisma validate --schema apps/vase-app/prisma/schema.prisma
 ```
 
+## Labs Comercial
+
+El flujo comercial de Labs usa `vase-app` como broker interno tenant-aware y `vase-labs` como inbox/IA. Business sigue siendo la fuente de verdad de productos, precios, stock, envios, sucursales y pedidos.
+
+Para producción desplegar:
+
+- `vase-app`: aplicar migraciones y exponer solo su dominio público normal; Labs lo llama por `APP_INTERNAL_URL`.
+- `vase-labs`: aplicar migraciones, desplegar web y worker de inteligencia conversacional.
+- `vase-transcription`: servicio privado en red interna para audios con faster-whisper, sin OpenAI tokens.
+
+Detalle operativo: `docs/deploy/labs-commercial-operations.md`.
+
 ## Reglas
 
 - No reintroducir monolito.
