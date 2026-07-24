@@ -106,7 +106,10 @@ describe("Labs conversation order orchestrator", () => {
     });
 
     const result = await service.confirmIfRequested({
+      assistantId: "assistant_1",
       conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
       userText: "Sí, acepto el pedido",
     });
 
@@ -127,9 +130,58 @@ describe("Labs conversation order orchestrator", () => {
     });
 
     await expect(service.confirmIfRequested({
+      assistantId: "assistant_1",
       conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
       userText: "Hola",
     })).resolves.toEqual({ handled: false });
     expect(confirmDraft).not.toHaveBeenCalled();
+  });
+
+  it("requotes the existing draft when Business changed before confirmation", async () => {
+    const prepareDraft = vi.fn(async () => ({
+      draft: activeDraft,
+      quote: {
+        valid: true,
+        currency: "ARS",
+        subtotal: 10000,
+        shippingAmount: 0,
+        total: 10000,
+        items: [{
+          productId: "product_1004",
+          name: "BOQUILLA 20 MM",
+          quantity: 1,
+          totalAmount: 10000,
+        }],
+      },
+    }));
+    const service = createConversationOrderOrchestrator({
+      loadHistory: vi.fn(async () => []),
+      findActiveDraft: vi.fn(async () => activeDraft),
+      prepareDraft,
+      confirmDraft: vi.fn(async () => ({ ok: false as const, reason: "QUOTE_CHANGED" })),
+    });
+
+    const result = await service.confirmIfRequested({
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
+      userText: "Acepto",
+    });
+
+    expect(prepareDraft).toHaveBeenCalledWith(expect.objectContaining({
+      assistantId: "assistant_1",
+      input: expect.objectContaining({
+        items: activeDraft.items,
+        customer: activeDraft.customer,
+        fulfillment: activeDraft.fulfillment,
+      }),
+    }));
+    expect(result).toMatchObject({
+      handled: true,
+      text: expect.stringContaining("$ 10.000,00"),
+    });
   });
 });

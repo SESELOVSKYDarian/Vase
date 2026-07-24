@@ -7,6 +7,7 @@ type ActiveOrderDraft = {
   items: Array<{ productId: string; quantity: number }>;
   customer: Record<string, unknown>;
   fulfillment: { type: "DELIVERY" | "PICKUP"; branchId?: string | null };
+  notes?: string | null;
 };
 
 type ConversationMessage = {
@@ -110,23 +111,36 @@ export function createConversationOrderOrchestrator(deps: OrderOrchestratorDepen
       ].filter(Boolean).join("\n\n");
     },
 
-    async confirmIfRequested(input: { conversationId: string; userText: string }) {
+    async confirmIfRequested(input: {
+      assistantId: string;
+      conversationId: string;
+      globalTenantId: string;
+      channel: LabsChannel;
+      userText: string;
+    }) {
       if (!isExplicitOrderConfirmation(input.userText)) return { handled: false as const };
       const activeDraft = await deps.findActiveDraft(input.conversationId);
       if (!activeDraft) return { handled: false as const };
       const result = await deps.confirmDraft(input);
       if (!result.ok) {
-        if (result.reason === "QUOTE_CHANGED") {
-          return {
-            handled: true as const,
-            text: "El precio, stock o la entrega cambiaron. Voy a actualizar el resumen antes de que lo confirmes.",
-          };
+        if (result.reason === "QUOTE_CHANGED" || result.reason === "EXPIRED") {
+          const refreshed = await deps.prepareDraft({
+            assistantId: input.assistantId,
+            conversationId: input.conversationId,
+            globalTenantId: input.globalTenantId,
+            channel: input.channel,
+            input: {
+              items: activeDraft.items,
+              customer: activeDraft.customer,
+              fulfillment: activeDraft.fulfillment,
+              notes: activeDraft.notes ?? null,
+            },
+          });
+          return { handled: true as const, text: quoteSummary(refreshed.quote) };
         }
         return {
           handled: true as const,
-          text: result.reason === "EXPIRED"
-            ? "La cotización venció. Voy a preparar un resumen actualizado antes de confirmar."
-            : "No pude confirmar el pedido todavía. Revisemos el resumen y volvé a indicarme si lo aceptás.",
+          text: "No pude confirmar el pedido todavía. Revisemos el resumen y volvé a indicarme si lo aceptás.",
         };
       }
       const orderNumber = readOrderNumber(result.order);

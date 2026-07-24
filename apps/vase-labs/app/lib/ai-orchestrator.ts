@@ -23,7 +23,10 @@ interface AiOrchestratorDeps {
   orders?: {
     buildContext(conversationId: string): Promise<string>;
     confirmIfRequested(input: {
+      assistantId: string;
       conversationId: string;
+      globalTenantId: string;
+      channel: LabsChannel;
       userText: string;
     }): Promise<{ handled: false } | { handled: true; text: string }>;
     prepare(input: {
@@ -71,7 +74,10 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
       if (input.handoffActive) return { ok: false, reason: "HANDOFF_ACTIVE" };
 
       const confirmation = await deps.orders?.confirmIfRequested({
+        assistantId: input.assistantId,
         conversationId: input.conversationId,
+        globalTenantId: input.globalTenantId,
+        channel: input.channel,
         userText: input.latestUserText,
       });
       const [knowledgeContext, catalogResources, orderContext] = await Promise.all([
