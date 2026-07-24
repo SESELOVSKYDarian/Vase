@@ -27,18 +27,75 @@ describe("Labs conversation order orchestrator", () => {
         { role: "assistant", content: "¿Retiro o envío?" },
         { role: "user", content: "Retiro" },
       ]),
+      loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
       findActiveDraft: vi.fn(async () => activeDraft),
       prepareDraft: vi.fn(),
       confirmDraft: vi.fn(),
     });
 
-    const context = await service.buildContext("conversation_1");
+    const context = await service.buildContext({
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+    });
 
     expect(context).toContain("Cliente: Quiero una boquilla");
     expect(context).toContain("IA: ¿Retiro o envío?");
     expect(context.indexOf("Quiero una boquilla")).toBeLessThan(context.indexOf("Retiro"));
     expect(context).toContain("Estado del pedido: esperando confirmacion");
     expect(context).toContain("product_1004 x 1");
+  });
+
+  it("includes Business branch ids and suggests the branch matching the customer locality", async () => {
+    const service = createConversationOrderOrchestrator({
+      loadHistory: vi.fn(async () => [
+        { role: "user", content: "Estoy en Mar del Plata y quiero retirar acá" },
+      ]),
+      loadFulfillment: vi.fn(async () => ({
+        branches: [
+          {
+            id: "branch_central",
+            name: "El Teflón (Central)",
+            address: "6657 Avenida Pedro Luro, Mar del Plata, Buenos Aires",
+            hours: "Lunes a viernes de 08:00 a 17:00",
+          },
+          {
+            id: "branch_necochea",
+            name: "El Teflón (Necochea)",
+            address: "2743 Calle 57, Necochea, Buenos Aires",
+            hours: "Lunes a viernes de 08:00 a 17:00",
+          },
+        ],
+        deliveryZones: [],
+      })),
+      findActiveDraft: vi.fn(async () => null),
+      prepareDraft: vi.fn(),
+      confirmDraft: vi.fn(),
+    });
+
+    const context = await service.buildContext({
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+    });
+
+    expect(context).toContain("ID interno para orderAction: branch_central");
+    expect(context).toContain("ID interno para orderAction: branch_necochea");
+    expect(context).toContain("Sucursal sugerida por localidad: El Teflón (Central) [branch_central]");
+    expect(context).toContain("Nunca le pidas al cliente IDs internos");
+  });
+
+  it("keeps ordinary replies available when fulfillment synchronization is temporarily unavailable", async () => {
+    const service = createConversationOrderOrchestrator({
+      loadHistory: vi.fn(async () => [{ role: "user", content: "¿Qué horario tienen?" }]),
+      loadFulfillment: vi.fn(async () => { throw new Error("BUSINESS_ORDER_CLIENT_UNAVAILABLE"); }),
+      findActiveDraft: vi.fn(async () => null),
+      prepareDraft: vi.fn(),
+      confirmDraft: vi.fn(),
+    });
+
+    await expect(service.buildContext({
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+    })).resolves.toContain("Sucursales sincronizadas desde Business: temporalmente no disponibles.");
   });
 
   it("prepares a Business quote and returns a server-authored confirmation summary", async () => {
@@ -63,6 +120,15 @@ describe("Labs conversation order orchestrator", () => {
     }));
     const service = createConversationOrderOrchestrator({
       loadHistory: vi.fn(async () => []),
+      loadFulfillment: vi.fn(async () => ({
+        branches: [{
+          id: "branch_1",
+          name: "El Teflón (Central)",
+          address: "6657 Avenida Pedro Luro, Mar del Plata",
+          hours: "Lunes a viernes de 08:00 a 17:00",
+        }],
+        deliveryZones: [],
+      })),
       findActiveDraft: vi.fn(async () => null),
       prepareDraft,
       confirmDraft: vi.fn(),
@@ -89,6 +155,8 @@ describe("Labs conversation order orchestrator", () => {
     }));
     expect(result.text).toContain("BOQUILLA 20 MM");
     expect(result.text.replace(/\s/g, "")).toContain("$9.614,15");
+    expect(result.text).toContain("Retiro: El Teflón (Central)");
+    expect(result.text).toContain("6657 Avenida Pedro Luro, Mar del Plata");
     expect(result.text).toContain("¿Confirmás el pedido?");
     expect(result.text).not.toContain("CONFIRMAR PEDIDO");
   });
@@ -100,6 +168,7 @@ describe("Labs conversation order orchestrator", () => {
     }));
     const service = createConversationOrderOrchestrator({
       loadHistory: vi.fn(async () => []),
+      loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
       findActiveDraft: vi.fn(async () => activeDraft),
       prepareDraft: vi.fn(),
       confirmDraft,
@@ -124,6 +193,7 @@ describe("Labs conversation order orchestrator", () => {
     const confirmDraft = vi.fn();
     const service = createConversationOrderOrchestrator({
       loadHistory: vi.fn(async () => []),
+      loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
       findActiveDraft: vi.fn(async () => activeDraft),
       prepareDraft: vi.fn(),
       confirmDraft,
@@ -158,6 +228,7 @@ describe("Labs conversation order orchestrator", () => {
     }));
     const service = createConversationOrderOrchestrator({
       loadHistory: vi.fn(async () => []),
+      loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
       findActiveDraft: vi.fn(async () => activeDraft),
       prepareDraft,
       confirmDraft: vi.fn(async () => ({ ok: false as const, reason: "QUOTE_CHANGED" })),

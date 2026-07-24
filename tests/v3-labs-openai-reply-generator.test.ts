@@ -208,6 +208,8 @@ describe("Labs OpenAI reply generator", () => {
     expect(instructions).toContain("exclusivamente URLs del catalogo");
     expect(instructions).toContain("orienta la conversacion hacia un pedido");
     expect(instructions).toContain("aceptacion explicita e inequivoca");
+    expect(instructions).toContain("Nunca le pidas al cliente IDs internos");
+    expect(instructions).toContain("sucursal que coincida con su localidad");
   });
 
   it("keeps only exact, public HTTPS allowlist matches in model order, deduplicated and limited to three", async () => {

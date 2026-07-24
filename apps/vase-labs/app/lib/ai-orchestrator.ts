@@ -21,7 +21,7 @@ interface AiOrchestratorDeps {
     allowedImageUrls?: string[];
   }): Promise<OrchestratedAiReply>;
   orders?: {
-    buildContext(conversationId: string): Promise<string>;
+    buildContext(input: { conversationId: string; globalTenantId: string }): Promise<string>;
     confirmIfRequested(input: {
       assistantId: string;
       conversationId: string;
@@ -85,7 +85,10 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         buildCatalogResources(deps.catalog, input.globalTenantId),
         confirmation?.handled
           ? Promise.resolve("")
-          : deps.orders?.buildContext(input.conversationId) ?? Promise.resolve(""),
+          : deps.orders?.buildContext({
+              conversationId: input.conversationId,
+              globalTenantId: input.globalTenantId,
+            }) ?? Promise.resolve(""),
       ]);
       const context = [knowledgeContext, catalogResources.context, orderContext].filter(Boolean).join("\n\n");
       let reply: OrchestratedAiReply = confirmation?.handled
