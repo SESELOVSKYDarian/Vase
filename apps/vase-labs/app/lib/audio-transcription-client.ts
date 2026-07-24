@@ -1,30 +1,30 @@
 type FetchLike = typeof fetch;
 
 export function createAudioTranscriptionClient(input: {
-  baseUrl?: string;
-  token?: string;
+  apiKey: string;
+  model?: string;
   fetcher?: FetchLike;
   timeoutMs?: number;
-} = {}) {
+}) {
   const fetcher = input.fetcher ?? fetch;
   return {
     async transcribe(buffer: Buffer, mimeType: string) {
-      const baseUrl = input.baseUrl?.trim() || process.env.TRANSCRIPTION_SERVICE_URL?.trim();
-      const token = input.token?.trim() || process.env.TRANSCRIPTION_SERVICE_TOKEN?.trim();
-      if (!baseUrl || !token) throw new Error("TRANSCRIPTION_SERVICE_UNAVAILABLE");
+      const apiKey = input.apiKey.trim();
+      if (!apiKey) throw new Error("OPENAI_API_KEY_MISSING");
       const normalizedMimeType = mimeType.split(";", 1)[0]?.trim().toLowerCase() || "audio/ogg";
       const form = new FormData();
-      form.set("audio", new Blob([new Uint8Array(buffer)], { type: normalizedMimeType }), "channel-audio.ogg");
+      form.set("file", new Blob([new Uint8Array(buffer)], { type: normalizedMimeType }), "channel-audio.ogg");
+      form.set("model", input.model?.trim() || "gpt-4o-mini-transcribe");
       const abortController = new AbortController();
-      const timeout = setTimeout(() => abortController.abort(), input.timeoutMs ?? 30_000);
+      const timeout = setTimeout(() => abortController.abort(), input.timeoutMs ?? 120_000);
       try {
-        const response = await fetcher(`${new URL(baseUrl).origin}/v1/transcribe`, {
+        const response = await fetcher("https://api.openai.com/v1/audio/transcriptions", {
           method: "POST",
-          headers: { authorization: `Bearer ${token}` },
+          headers: { authorization: `Bearer ${apiKey}` },
           body: form,
           signal: abortController.signal,
         });
-        if (!response.ok) throw new Error("TRANSCRIPTION_SERVICE_UNAVAILABLE");
+        if (!response.ok) throw new Error("OPENAI_TRANSCRIPTION_FAILED");
         const payload = await response.json().catch(() => null) as { text?: unknown } | null;
         if (typeof payload?.text !== "string" || !payload.text.trim()) throw new Error("TRANSCRIPTION_EMPTY");
         return { text: payload.text.trim() };
