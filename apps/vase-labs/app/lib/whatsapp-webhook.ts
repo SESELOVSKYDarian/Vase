@@ -54,6 +54,10 @@ export function parseWhatsAppWebhookMessage(input: {
     typeof rawMessage.audio === "object" && rawMessage.audio && "id" in rawMessage.audio
       ? String((rawMessage.audio as { id?: string }).id || "")
       : null;
+  const mediaMimeType =
+    typeof rawMessage.audio === "object" && rawMessage.audio && "mime_type" in rawMessage.audio
+      ? String((rawMessage.audio as { mime_type?: string }).mime_type || "")
+      : null;
 
   return inboundChannelMessageSchema.parse({
     globalTenantId: input.globalTenantId,
@@ -65,6 +69,7 @@ export function parseWhatsAppWebhookMessage(input: {
     text,
     messageType,
     mediaId,
+    mediaMimeType,
     provider: input.provider || "META_OFFICIAL",
     rawPayload: rawMessage,
   });

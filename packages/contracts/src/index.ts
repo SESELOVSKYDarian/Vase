@@ -213,6 +213,7 @@ export const inboundChannelMessageSchema = z.object({
   text: z.string().nullable().optional(),
   messageType: channelMessageTypeSchema,
   mediaId: z.string().min(1).nullable().optional(),
+  mediaMimeType: z.string().min(1).nullable().optional(),
   provider: labsChannelProviderSchema.optional(),
   rawPayload: z.unknown().optional(),
 });

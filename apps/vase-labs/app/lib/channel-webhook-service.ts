@@ -82,6 +82,13 @@ export interface ChannelWebhookRepository {
     messageId: string;
     messageCreatedAt: Date;
   }): Promise<void>;
+  enqueueAudioTranscription?(input: {
+    context: ChannelWebhookContext;
+    conversationId: string;
+    messageId: string;
+    providerMediaId: string;
+    mimeType: string | null;
+  }): Promise<void>;
   markConversationAnalysisEnqueued?(input: {
     context: ChannelWebhookContext;
     conversationId: string;
@@ -589,6 +596,33 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     });
   }
 
+  async enqueueAudioTranscription(input: {
+    context: ChannelWebhookContext;
+    conversationId: string;
+    messageId: string;
+    providerMediaId: string;
+    mimeType: string | null;
+  }): Promise<void> {
+    await this.prisma.audioTranscriptionJob.upsert({
+      where: {
+        assistantId_providerMediaId: {
+          assistantId: input.context.assistantId,
+          providerMediaId: input.providerMediaId,
+        },
+      },
+      create: {
+        conversationId: input.conversationId,
+        messageId: input.messageId,
+        globalTenantId: input.context.globalTenantId,
+        assistantId: input.context.assistantId,
+        channel: input.context.channelType,
+        providerMediaId: input.providerMediaId,
+        mimeType: input.mimeType,
+      },
+      update: {},
+    });
+  }
+
   async markConversationAnalysisEnqueueFailed(input: {
     context: ChannelWebhookContext;
     conversationId: string;
@@ -946,34 +980,60 @@ export async function handleMetaChannelWebhook(input: {
       });
       persisted = { ...persisted, handoffActive: true };
     }
-    try {
-      await input.repository.enqueueConversationAnalysis({
-        conversationId: persisted.conversationId,
-        messageId: persisted.messageId,
-        messageCreatedAt: persisted.messageCreatedAt,
-      });
+    const audioQueued =
+      message.messageType === "audio"
+      && Boolean(message.mediaId)
+      && !aiBlockedReason
+      && !persisted.handoffActive
+      && Boolean(input.repository.enqueueAudioTranscription);
+    if (audioQueued) {
       try {
-        await input.repository.markConversationAnalysisEnqueued?.({
+        await input.repository.enqueueAudioTranscription?.({
           context,
           conversationId: persisted.conversationId,
           messageId: persisted.messageId,
+          providerMediaId: message.mediaId!,
+          mimeType: message.mediaMimeType ?? null,
         });
       } catch {
-        // The durable message marker lets the worker sweep finish cleanup.
+        aiReplyError = "AUDIO_TRANSCRIPTION_ENQUEUE_FAILED";
+        await input.repository.markAiReplyFailed?.({
+          context,
+          conversationId: persisted.conversationId,
+          messageId: persisted.messageId,
+          reason: aiReplyError,
+        });
       }
-    } catch {
+    } else {
       try {
-        await input.repository.markConversationAnalysisEnqueueFailed?.({
-          context,
+        await input.repository.enqueueConversationAnalysis({
           conversationId: persisted.conversationId,
           messageId: persisted.messageId,
-          reason: "CONVERSATION_ANALYSIS_ENQUEUE_FAILED",
+          messageCreatedAt: persisted.messageCreatedAt,
         });
+        try {
+          await input.repository.markConversationAnalysisEnqueued?.({
+            context,
+            conversationId: persisted.conversationId,
+            messageId: persisted.messageId,
+          });
+        } catch {
+          // The durable message marker lets the worker sweep finish cleanup.
+        }
       } catch {
-        // The inbound is durable; keep Meta acknowledgement stable.
+        try {
+          await input.repository.markConversationAnalysisEnqueueFailed?.({
+            context,
+            conversationId: persisted.conversationId,
+            messageId: persisted.messageId,
+            reason: "CONVERSATION_ANALYSIS_ENQUEUE_FAILED",
+          });
+        } catch {
+          // The inbound is durable; keep Meta acknowledgement stable.
+        }
       }
     }
-    if (!aiBlockedReason && !persisted.handoffActive && input.runAiReply) {
+    if (!audioQueued && !aiBlockedReason && !persisted.handoffActive && input.runAiReply) {
       try {
         await input.runAiReply({ context, message, persisted });
       } catch (error) {

@@ -12,6 +12,7 @@ import {
 } from "../apps/vase-labs/app/lib/channel-webhook-service";
 import { signMetaPayload } from "../apps/vase-labs/app/lib/meta-signature";
 import { parseInstagramWebhookMessage } from "../apps/vase-labs/app/lib/instagram-webhook";
+import { parseWhatsAppWebhookMessage } from "../apps/vase-labs/app/lib/whatsapp-webhook";
 import { recoverConversationAnalysisEnqueues } from "../apps/vase-labs/app/lib/conversation-analysis-worker";
 
 function createContext(overrides: Partial<ChannelWebhookContext> = {}): ChannelWebhookContext {
@@ -74,6 +75,12 @@ class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
     messageCreatedAt: Date;
   }> = [];
   analysisEnqueueFailures: Array<{ conversationId: string; messageId: string; reason: string }> = [];
+  audioTranscriptionEnqueues: Array<{
+    conversationId: string;
+    messageId: string;
+    providerMediaId: string;
+    mimeType: string | null;
+  }> = [];
   failAnalysisEnqueue = false;
   operationOrder: string[] = [];
   eventSeen = false;
@@ -109,6 +116,16 @@ class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
     this.operationOrder.push("enqueue");
     if (this.failAnalysisEnqueue) throw new Error("database details must stay private");
     this.analysisEnqueues.push(input);
+  }
+
+  async enqueueAudioTranscription(input: {
+    conversationId: string;
+    messageId: string;
+    providerMediaId: string;
+    mimeType: string | null;
+  }) {
+    this.operationOrder.push("enqueue_audio");
+    this.audioTranscriptionEnqueues.push(input);
   }
 
   async markConversationAnalysisEnqueueFailed(input: {
@@ -190,6 +207,58 @@ describe("Vase Labs generic Meta channel webhook service", () => {
       persisted: { conversationId: "conversation_123", messageId: "message_123" },
       message: { text: "Hola IG" },
     });
+  });
+
+  it("queues inbound audio for transcription before running AI", async () => {
+    const repository = new MemoryChannelWebhookRepository(createContext({
+      channelType: "WHATSAPP",
+    }));
+    const aiRuns: unknown[] = [];
+    const body = JSON.stringify({
+      object: "whatsapp_business_account",
+      entry: [{
+        id: "waba_123",
+        changes: [{
+          value: {
+            contacts: [{ profile: { name: "Cliente" }, wa_id: "5491112345678" }],
+            messages: [{
+              from: "5491112345678",
+              id: "wamid.audio.1",
+              type: "audio",
+              audio: { id: "media_audio_1", mime_type: "audio/ogg" },
+            }],
+          },
+        }],
+      }],
+    });
+
+    const result = await handleMetaChannelWebhook({
+      channelType: "WHATSAPP",
+      repository,
+      tenantSlug: "tenant-demo",
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
+      parseMessage: parseWhatsAppWebhookMessage,
+      runAiReply: async (input) => {
+        aiRuns.push(input);
+        return { ok: true };
+      },
+    });
+
+    expect(result.body).toMatchObject({
+      ok: true,
+      processed: true,
+      aiBlockedReason: null,
+    });
+    expect(repository.audioTranscriptionEnqueues).toMatchObject([{
+      conversationId: "conversation_123",
+      messageId: "message_123",
+      providerMediaId: "media_audio_1",
+      mimeType: "audio/ogg",
+    }]);
+    expect(repository.analysisEnqueues).toHaveLength(0);
+    expect(aiRuns).toHaveLength(0);
+    expect(repository.operationOrder).toEqual(["persist", "enqueue_audio"]);
   });
 
   it("keeps the durable inbound acknowledged when analysis enqueue fails", async () => {

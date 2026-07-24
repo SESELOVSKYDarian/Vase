@@ -59,7 +59,8 @@ async def transcribe(
     authorization: str | None = Header(default=None),
 ):
     _auth(authorization)
-    if audio.content_type not in ALLOWED_TYPES:
+    normalized_content_type = (audio.content_type or "").split(";", 1)[0].strip().lower()
+    if normalized_content_type not in ALLOWED_TYPES:
         raise HTTPException(status_code=415, detail="UNSUPPORTED_AUDIO_TYPE")
 
     data = await audio.read(MAX_BYTES + 1)

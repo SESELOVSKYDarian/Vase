@@ -22,4 +22,22 @@ describe("Labs local audio transcription client", () => {
       }),
     );
   });
+
+  it("normalizes WhatsApp Opus content types before uploading", async () => {
+    let uploadedType: string | undefined;
+    const client = createAudioTranscriptionClient({
+      baseUrl: "http://vase-transcription:8080",
+      token: "secret",
+      fetcher: vi.fn(async (_url, init) => {
+        uploadedType = (init?.body as FormData).get("audio") instanceof Blob
+          ? ((init?.body as FormData).get("audio") as Blob).type
+          : undefined;
+        return Response.json({ text: "audio entendido" });
+      }) as typeof fetch,
+    });
+
+    await client.transcribe(Buffer.from("audio"), "audio/ogg; codecs=opus");
+
+    expect(uploadedType).toBe("audio/ogg");
+  });
 });

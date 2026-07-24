@@ -33,6 +33,16 @@ def test_transcribes_audio(monkeypatch):
     assert response.json() == {"text": "quiero comprar dos productos"}
 
 
+def test_accepts_whatsapp_opus_content_type(monkeypatch):
+    c = client(monkeypatch)
+    response = c.post(
+        "/v1/transcribe",
+        headers={"authorization": "Bearer secret"},
+        files={"audio": ("a.ogg", b"audio", "audio/ogg; codecs=opus")},
+    )
+    assert response.status_code == 200
+
+
 def test_rejects_unsupported_type(monkeypatch):
     c = client(monkeypatch)
     response = c.post(
