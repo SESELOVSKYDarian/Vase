@@ -1154,6 +1154,40 @@ a:focus-visible {
   padding: 0.85rem 1rem;
 }
 
+.labs-inbox-message-viewport {
+  position: relative;
+  min-height: 0;
+}
+
+.labs-inbox-messages {
+  height: 100%;
+}
+
+.labs-inbox-jump-latest {
+  position: absolute;
+  right: 1.15rem;
+  bottom: 1rem;
+  display: grid;
+  width: 2.45rem;
+  height: 2.45rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent-strong) 30%, var(--border-subtle));
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--accent-strong);
+  box-shadow: 0 0.55rem 1.5rem color-mix(in srgb, var(--foreground) 14%, transparent);
+}
+
+.labs-inbox-jump-latest:hover,
+.labs-inbox-jump-latest:focus-visible {
+  background: var(--accent-soft);
+}
+
+.labs-inbox-jump-latest svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
 .labs-inbox-bubble {
   width: min(31rem, 84%);
   border: 1px solid var(--border-subtle);

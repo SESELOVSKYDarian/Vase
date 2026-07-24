@@ -1,9 +1,10 @@
 "use client";
 
-import { Bell, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
+import { ArrowDown, Bell, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LabsStatusPill } from "../labs-ui";
 import { formatInboxDeliveryError } from "./inbox-delivery-errors";
+import { isInboxNearBottom, shouldAutoScrollInbox } from "./inbox-scroll-policy";
 
 type InboxMessage = {
   id: string;
@@ -98,7 +99,11 @@ export function InboxWorkstation({
   const [handoffBusy, setHandoffBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
+  const nearBottomRef = useRef(true);
+  const operatorSentRef = useRef(false);
+  const previousThreadRef = useRef({ conversationId: "", messageCount: 0 });
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeId) ?? conversations[0] ?? null,
@@ -108,10 +113,46 @@ export function InboxWorkstation({
     (conversation) => conversation.escalatedToHuman || conversation.handoffs.length > 0,
   ).length;
 
+  function scrollToLatest(behavior: ScrollBehavior = "smooth") {
+    const thread = threadRef.current;
+    if (!thread) return;
+    thread.scrollTo({ top: thread.scrollHeight, behavior });
+    nearBottomRef.current = true;
+    setShowJumpToLatest(false);
+  }
+
+  function handleThreadScroll() {
+    const thread = threadRef.current;
+    if (!thread) return;
+    const nearBottom = isInboxNearBottom(thread);
+    nearBottomRef.current = nearBottom;
+    setShowJumpToLatest(!nearBottom);
+  }
+
   useEffect(() => {
     if (!activeConversation) return;
-    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
-  }, [activeConversation?.messages.length, activeConversation]);
+    const previous = previousThreadRef.current;
+    const conversationChanged = previous.conversationId !== activeConversation.id;
+    const messagesAdded = !conversationChanged
+      && activeConversation.messages.length > previous.messageCount;
+    const operatorSent = operatorSentRef.current;
+    const autoScroll = shouldAutoScrollInbox({
+      conversationChanged,
+      messagesAdded,
+      operatorSent,
+      wasNearBottom: nearBottomRef.current,
+    });
+    previousThreadRef.current = {
+      conversationId: activeConversation.id,
+      messageCount: activeConversation.messages.length,
+    };
+    operatorSentRef.current = false;
+    if (autoScroll) {
+      window.requestAnimationFrame(() => scrollToLatest(conversationChanged ? "auto" : "smooth"));
+    } else if (messagesAdded) {
+      setShowJumpToLatest(true);
+    }
+  }, [activeConversation?.id, activeConversation?.messages.length]);
 
   async function refreshConversationList(silent = false) {
     if (!silent) setRefreshing(true);
@@ -249,6 +290,7 @@ export function InboxWorkstation({
       }
 
       setDraft("");
+      operatorSentRef.current = true;
       setConversations((current) => sortConversations(current.map((conversation) =>
         conversation.id === activeId
           ? {
@@ -355,17 +397,35 @@ export function InboxWorkstation({
           </div>
         ) : null}
 
-        <div ref={threadRef} className="labs-inbox-messages" aria-live="polite">
-          {activeConversation.messages.map((message) => (
-            <div
-              key={message.id}
-              className={`labs-inbox-bubble ${message.direction === "OUTBOUND" ? "is-outbound" : "is-inbound"}`}
+        <div className="labs-inbox-message-viewport">
+          <div
+            ref={threadRef}
+            className="labs-inbox-messages"
+            aria-live="polite"
+            onScroll={handleThreadScroll}
+          >
+            {activeConversation.messages.map((message) => (
+              <div
+                key={message.id}
+                className={`labs-inbox-bubble ${message.direction === "OUTBOUND" ? "is-outbound" : "is-inbound"}`}
+              >
+                <span>{messageAuthor(message)}</span>
+                <p>{message.content}</p>
+                <time>{formatDate(message.createdAt)}</time>
+              </div>
+            ))}
+          </div>
+          {showJumpToLatest ? (
+            <button
+              type="button"
+              className="labs-inbox-jump-latest"
+              onClick={() => scrollToLatest()}
+              aria-label="Ir al último mensaje"
+              title="Ir al último mensaje"
             >
-              <span>{messageAuthor(message)}</span>
-              <p>{message.content}</p>
-              <time>{formatDate(message.createdAt)}</time>
-            </div>
-          ))}
+              <ArrowDown aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
 
         <form onSubmit={sendReply} className="labs-inbox-composer">
