@@ -169,7 +169,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(page).toContain("LabsMetricCard");
     expect(page).toContain("LabsConversationTrendChart");
     expect(page).toContain("LabsIntentDistributionChart");
-    for (const destination of ["inbox", "activity", "knowledge", "channels", "settings"]) {
+    for (const destination of ["inbox", "activity", "orders", "knowledge", "channels", "settings"]) {
       expect(nav).toContain(`/owner/${destination}`);
     }
     expect(styles).toContain(".labs-shell");

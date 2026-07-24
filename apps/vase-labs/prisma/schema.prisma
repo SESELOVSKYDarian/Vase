@@ -366,6 +366,41 @@ model ConversationOrderDraft {
   @@index([conversationId, state, updatedAt])
 }
 
+model BusinessOrderProjection {
+  id                      String   @id @default(cuid())
+  globalTenantId          String
+  assistantId             String?
+  conversationId          String?
+  businessOrderId         String
+  orderNumber             String
+  status                  String
+  channel                 String
+  currency                String
+  subtotalAmount          Decimal  @default(0) @db.Decimal(14, 2)
+  shippingAmount          Decimal  @default(0) @db.Decimal(14, 2)
+  totalAmount             Decimal  @default(0) @db.Decimal(14, 2)
+  customerName            String?
+  customerEmail           String?
+  customerEmailNormalized String?
+  customerPhone           String?
+  customerPhoneNormalized String?
+  items                   Json
+  rawSnapshot             Json
+  version                 Int
+  businessUpdatedAt       DateTime
+  businessCreatedAt       DateTime?
+  lastSyncedAt            DateTime @default(now())
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([globalTenantId, businessOrderId])
+  @@index([assistantId, businessUpdatedAt])
+  @@index([globalTenantId, channel, status, businessUpdatedAt])
+  @@index([conversationId])
+  @@index([customerEmailNormalized])
+  @@index([customerPhoneNormalized])
+}
+
 model ConversationInsight {
   id                       String                  @id @default(cuid())
   conversationId           String                  @unique
