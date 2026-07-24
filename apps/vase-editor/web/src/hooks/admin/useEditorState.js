@@ -182,13 +182,11 @@ export function useEditorState(user) {
     const isApplyingHistoryRef = useRef(false);
     const settingsRef = useRef(settings);
     const pageSectionsRef = useRef(pageSections);
-    const productsRef = useRef(products);
     const categoriesRef = useRef(categories);
     const brandsRef = useRef(brands);
 
     useEffect(() => { settingsRef.current = settings; }, [settings]);
     useEffect(() => { pageSectionsRef.current = pageSections; }, [pageSections]);
-    useEffect(() => { productsRef.current = products; }, [products]);
     useEffect(() => { categoriesRef.current = categories; }, [categories]);
     useEffect(() => { brandsRef.current = brands; }, [brands]);
 
@@ -200,7 +198,6 @@ export function useEditorState(user) {
     const snapshotState = useCallback(() => ({
         settings: deepClone(settingsRef.current),
         pageSections: deepClone(pageSectionsRef.current),
-        products: deepClone(productsRef.current),
         categories: deepClone(categoriesRef.current),
         brands: deepClone(brandsRef.current),
     }), [deepClone]);
@@ -210,7 +207,6 @@ export function useEditorState(user) {
         isApplyingHistoryRef.current = true;
         rawSetSettings(snapshot.settings);
         rawSetPageSections(snapshot.pageSections);
-        rawSetProducts(snapshot.products);
         rawSetCategories(snapshot.categories);
         rawSetBrands(snapshot.brands);
         setTimeout(() => {
@@ -236,9 +232,8 @@ export function useEditorState(user) {
     }, [pushHistorySnapshot]);
 
     const setProducts = useCallback((updater) => {
-        pushHistorySnapshot();
         rawSetProducts((prev) => (typeof updater === 'function' ? updater(prev) : updater));
-    }, [pushHistorySnapshot]);
+    }, []);
 
     const setCategories = useCallback((updater) => {
         pushHistorySnapshot();

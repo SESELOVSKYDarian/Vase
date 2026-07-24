@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { getApiBase, getTenantHeaders } from '../../utils/api';
+import { uploadPublicFile } from '../../utils/uploadsClient';
 import { useToast } from '../../context/ToastContext';
 import useEvolutionStore from '../../store/useEvolutionStore';
 
@@ -34,14 +35,6 @@ const createEmptyProduct = () => ({
     source_category: '',
     source_category_path: [],
 });
-
-const readImageAsDataUrl = (file) =>
-    new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-        reader.onerror = (err) => reject(err);
-        reader.readAsDataURL(file);
-    });
 
 const mapSpecificationsObjectToRows = (specifications) => {
     if (!specifications || typeof specifications !== 'object' || Array.isArray(specifications)) {
@@ -829,9 +822,9 @@ export const useCatalogManager = ({ setProducts, categories, setCategories, bran
         if (!file) return;
         setUploading(true);
         try {
-            const dataUrl = await readImageAsDataUrl(file);
-            if (!dataUrl) {
-                addToast('No se pudo leer la imagen', 'error');
+            const publicUrl = await uploadPublicFile(file);
+            if (!publicUrl) {
+                addToast('No se pudo publicar la imagen', 'error');
                 return;
             }
             setProductDraft((prev) => {
@@ -841,7 +834,7 @@ export const useCatalogManager = ({ setProducts, categories, setCategories, bran
                     images: [
                         ...currentImages,
                         {
-                            url: dataUrl,
+                            url: publicUrl,
                             alt: prev.name || 'Producto',
                             sku: prev.sku || '',
                             primary: currentImages.length === 0
@@ -849,10 +842,10 @@ export const useCatalogManager = ({ setProducts, categories, setCategories, bran
                     ]
                 };
             });
-            addToast('Imagen cargada', 'success');
+            addToast('Imagen subida y publicada', 'success');
         } catch (err) {
-            console.error('Image read failed', err);
-            addToast('Error al leer la imagen', 'error');
+            console.error('Product image upload failed', err);
+            addToast('Error al subir la imagen', 'error');
         } finally {
             setUploading(false);
             event.target.value = '';

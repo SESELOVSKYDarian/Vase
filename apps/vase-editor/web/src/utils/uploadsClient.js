@@ -65,3 +65,22 @@ export async function createPublicUploadUrl(session, filename) {
   if (!response.ok) throw new Error(payload?.error || `uploads_public_${response.status}`);
   return payload;
 }
+
+export async function uploadPublicFile(file) {
+  if (!file) throw new Error('upload_file_required');
+
+  const session = await getUploadsSession();
+  const uploaded = await uploadPrivateFile(session, file);
+  const filename = String(
+    uploaded?.filename
+    || uploaded?.file?.filename
+    || uploaded?.item?.filename
+    || ''
+  ).trim();
+  if (!filename) throw new Error('uploads_filename_missing');
+
+  const published = await createPublicUploadUrl(session, filename);
+  const publicUrl = String(published?.public_url || published?.url || '').trim();
+  if (!publicUrl) throw new Error('uploads_public_url_missing');
+  return publicUrl;
+}
