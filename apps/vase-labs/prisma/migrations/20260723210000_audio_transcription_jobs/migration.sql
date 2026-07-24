@@ -22,4 +22,4 @@ CREATE TABLE `AudioTranscriptionJob` (
   INDEX `AudioTranscriptionJob_status_leaseExpiresAt_idx` (`status`, `leaseExpiresAt`),
   INDEX `AudioTranscriptionJob_conversationId_createdAt_idx` (`conversationId`, `createdAt`),
   CONSTRAINT `AudioTranscriptionJob_conversationId_fkey` FOREIGN KEY (`conversationId`) REFERENCES `Conversation`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+);

@@ -32,4 +32,4 @@ CREATE TABLE `BusinessOrderProjection` (
   INDEX `BusinessOrderProjection_conversationId_idx` (`conversationId`),
   INDEX `BusinessOrderProjection_customerEmailNormalized_idx` (`customerEmailNormalized`),
   INDEX `BusinessOrderProjection_customerPhoneNormalized_idx` (`customerPhoneNormalized`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+);

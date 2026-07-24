@@ -29,4 +29,4 @@ CREATE TABLE `ConversationOrderDraft` (
   INDEX `ConversationOrderDraft_globalTenantId_state_updatedAt_idx` (`globalTenantId`, `state`, `updatedAt`),
   INDEX `ConversationOrderDraft_conversationId_state_updatedAt_idx` (`conversationId`, `state`, `updatedAt`),
   CONSTRAINT `ConversationOrderDraft_conversationId_fkey` FOREIGN KEY (`conversationId`) REFERENCES `Conversation`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+);
