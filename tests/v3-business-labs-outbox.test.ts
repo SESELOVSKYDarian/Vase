@@ -32,6 +32,17 @@ describe("Business to Labs catalog outbox", () => {
     expect(mapBusinessProductForLabs(businessProduct({ data })).imageUrl).toBe(expected);
   });
 
+  it.each([
+    [{ image_url: "/uploads/products/a.jpg" }, "https://business.vase.ar/uploads/products/a.jpg"],
+    [{ images: ["/uploads/products/b.webp"] }, "https://business.vase.ar/uploads/products/b.webp"],
+    [{ images: [{ url: "/uploads/products/c.png" }] }, "https://business.vase.ar/uploads/products/c.png"],
+  ])("converts relative Business image paths %j to public URLs", (data, expected) => {
+    expect(mapBusinessProductForLabs(
+      businessProduct({ data }),
+      { baseUrl: "https://business.vase.ar" },
+    ).imageUrl).toBe(expected);
+  });
+
   it("uses the highest-priority valid image candidate", () => {
     expect(mapBusinessProductForLabs(businessProduct({
       image_url: "https://cdn.vase.ar/legacy.jpg",

@@ -62,6 +62,25 @@ describe("Business internal catalog snapshot", () => {
     expect(snapshot.payload.products[0].imageUrl).toBe(expected);
   });
 
+  it("converts relative Business upload paths to absolute public URLs", async () => {
+    const previousPublicApiUrl = process.env.PUBLIC_API_URL;
+    process.env.PUBLIC_API_URL = "https://business.vase.ar";
+    let snapshot;
+    try {
+      snapshot = await buildBusinessCatalogSnapshot({
+        db: dbWithProductData({ images: [{ url: "/uploads/products/boquilla.jpg" }] }),
+        tenantReference: "global-tenant",
+        createEventId: () => "event-1",
+        now: () => new Date("2026-07-22T13:00:00.000Z"),
+      });
+    } finally {
+      if (previousPublicApiUrl === undefined) delete process.env.PUBLIC_API_URL;
+      else process.env.PUBLIC_API_URL = previousPublicApiUrl;
+    }
+
+    expect(snapshot.payload.products[0].imageUrl).toBe("https://business.vase.ar/uploads/products/boquilla.jpg");
+  });
+
   it.each([
     [{ image_url: "http://cdn.vase.ar/insecure.jpg" }],
     [{ imageUrl: "not a URL" }],
@@ -139,6 +158,15 @@ describe("Business internal catalog snapshot", () => {
 });
 
 async function buildSnapshotWithProductData(data: unknown) {
+  return buildBusinessCatalogSnapshot({
+    db: dbWithProductData(data),
+    tenantReference: "global-tenant",
+    createEventId: () => "event-1",
+    now: () => new Date("2026-07-22T13:00:00.000Z"),
+  });
+}
+
+function dbWithProductData(data: unknown) {
   const query = vi.fn(async (sql: string) => {
     if (sql.includes("from tenants")) {
       return { rows: [{ id: "business-uuid", external_tenant_id: "global-tenant" }] };
@@ -161,12 +189,7 @@ async function buildSnapshotWithProductData(data: unknown) {
     throw new Error(`Unexpected SQL: ${sql}`);
   });
 
-  return buildBusinessCatalogSnapshot({
-    db: { query },
-    tenantReference: "global-tenant",
-    createEventId: () => "event-1",
-    now: () => new Date("2026-07-22T13:00:00.000Z"),
-  });
+  return { query };
 }
 
 function responseRecorder() {

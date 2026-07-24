@@ -2,6 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { mapBusinessProductForLabs } from './labsCatalogOutboxCore.js';
 import { findLatestProductSyncToken } from './productSyncCredentials.js';
 
+const resolveCatalogImageBaseUrl = () => (
+  process.env.INTEGRATIONS_PUBLIC_BASE_URL
+  || process.env.PUBLIC_API_URL
+  || process.env.API_PUBLIC_URL
+  || process.env.PUBLIC_EDITOR_HOST
+  || process.env.PUBLIC_STOREFRONT_HOST
+  || ''
+);
+
 export async function resolveBusinessCatalogTenant(db, tenantReference) {
   const result = await db.query(
     [
@@ -21,7 +30,7 @@ export async function resolveBusinessCatalogTenant(db, tenantReference) {
   };
 }
 
-export async function loadBusinessTenantCatalog(db, businessTenantId) {
+export async function loadBusinessTenantCatalog(db, businessTenantId, options = {}) {
   const result = await db.query(`select id, erp_id, external_id, sku, name, description, price, stock,
     is_active_source, deleted_at, last_sync_at, updated_at,
     jsonb_build_object(
@@ -31,7 +40,8 @@ export async function loadBusinessTenantCatalog(db, businessTenantId) {
       'images', data->'images'
     ) as data
     from product_cache where tenant_id = $1 and status = 'active' order by name asc`, [businessTenantId]);
-  return result.rows.map(mapBusinessProductForLabs);
+  const baseUrl = options.imageBaseUrl ?? resolveCatalogImageBaseUrl();
+  return result.rows.map((product) => mapBusinessProductForLabs(product, { baseUrl }));
 }
 
 export async function buildBusinessCatalogSnapshot({

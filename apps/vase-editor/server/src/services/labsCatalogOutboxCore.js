@@ -13,10 +13,33 @@ const nonPublicHostSuffixes = [
   '.local',
 ];
 
-const asPublicHttpsUrl = (value) => {
+const trimTrailingSlash = (value) => String(value || '').trim().replace(/\/+$/, '');
+
+const publicBusinessBaseUrl = () => (
+  process.env.INTEGRATIONS_PUBLIC_BASE_URL
+  || process.env.PUBLIC_API_URL
+  || process.env.API_PUBLIC_URL
+  || process.env.PUBLIC_EDITOR_HOST
+  || process.env.PUBLIC_STOREFRONT_HOST
+  || ''
+);
+
+const resolveCandidateUrl = (value, baseUrl = publicBusinessBaseUrl()) => {
   if (typeof value !== 'string' || !value.trim()) return null;
+  const trimmed = value.trim();
+  if (trimmed.startsWith('/')) {
+    const base = trimTrailingSlash(baseUrl);
+    if (!base) return null;
+    return `${base}/${trimmed.replace(/^\/+/, '')}`;
+  }
+  return trimmed;
+};
+
+const asPublicHttpsUrl = (value, baseUrl) => {
+  const candidate = resolveCandidateUrl(value, baseUrl);
+  if (!candidate) return null;
   try {
-    const url = new URL(value.trim());
+    const url = new URL(candidate);
     const hostname = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
     if (
       url.protocol !== 'https:'
@@ -35,7 +58,7 @@ const asPublicHttpsUrl = (value) => {
   }
 };
 
-export const resolveBusinessProductImageUrl = (product) => {
+export const resolveBusinessProductImageUrl = (product, options = {}) => {
   const data = product?.data && typeof product.data === 'object' ? product.data : {};
   const images = Array.isArray(data.images) ? data.images : [];
   const candidates = [
@@ -47,17 +70,17 @@ export const resolveBusinessProductImageUrl = (product) => {
       typeof image === 'string' ? [image] : [image?.url, image?.src, image?.image_url]
     )),
   ];
-  return candidates.map(asPublicHttpsUrl).find(Boolean) ?? null;
+  return candidates.map((candidate) => asPublicHttpsUrl(candidate, options.baseUrl)).find(Boolean) ?? null;
 };
 
-export const mapBusinessProductForLabs = (product) => ({
+export const mapBusinessProductForLabs = (product, options = {}) => ({
   externalProductId: String(product.external_id || product.erp_id || product.id),
   sku: product.sku ? String(product.sku) : null,
   name: String(product.name || 'Producto'),
   description: product.description ? String(product.description) : null,
   price: product.price === null || product.price === undefined ? null : Number(product.price),
   stock: Math.trunc(Number(product.stock || 0)),
-  imageUrl: resolveBusinessProductImageUrl(product),
+  imageUrl: resolveBusinessProductImageUrl(product, options),
   categories: Array.isArray(product.category_names) ? product.category_names.map(String) : [],
   active: product.is_active_source !== false && !product.deleted_at,
   sourceUpdatedAt: new Date(product.updated_at || product.last_sync_at || Date.now()).toISOString(),
