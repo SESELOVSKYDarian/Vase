@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Clock3, Loader2, MessageCircle, PauseCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
+import { Bell, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LabsStatusPill } from "../labs-ui";
 
@@ -196,6 +196,35 @@ export function InboxWorkstation({
     }
   }
 
+  async function reactivateAi() {
+    if (!activeId || handoffBusy) return;
+    setHandoffBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}/reactivate`, {
+        method: "POST",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.conversation) throw new Error("AI_REACTIVATION_FAILED");
+      setConversations((current) => sortConversations(current.map((conversation) =>
+        conversation.id === activeId
+          ? {
+              ...conversation,
+              status: payload.conversation.status ?? "OPEN",
+              escalatedToHuman: false,
+              handoffs: [],
+            }
+          : conversation,
+      )));
+      setNotice("IA reactivada. Responderá el próximo mensaje del cliente.");
+    } catch {
+      setError("No pudimos reactivar la IA para esta conversación.");
+    } finally {
+      setHandoffBusy(false);
+    }
+  }
+
   async function sendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
@@ -292,13 +321,17 @@ export function InboxWorkstation({
             ) : null}
             <button
               type="button"
-              onClick={() => void requestHandoff()}
-              disabled={handoffBusy || activeConversation.escalatedToHuman}
-              aria-label="Pausar IA e intervenir humano"
-              title="Pausar IA"
+              onClick={() => void (activeConversation.escalatedToHuman ? reactivateAi() : requestHandoff())}
+              disabled={handoffBusy}
+              aria-label={activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA e intervenir humano"}
+              title={activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA"}
             >
-              {handoffBusy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <PauseCircle aria-hidden="true" />}
-              <span>{activeConversation.escalatedToHuman ? "IA pausada" : "Pausar IA"}</span>
+              {handoffBusy
+                ? <Loader2 className="animate-spin" aria-hidden="true" />
+                : activeConversation.escalatedToHuman
+                  ? <PlayCircle aria-hidden="true" />
+                  : <PauseCircle aria-hidden="true" />}
+              <span>{activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA"}</span>
             </button>
             <button type="button" onClick={() => void refreshConversation()} aria-label="Actualizar hilo">
               {refreshing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}

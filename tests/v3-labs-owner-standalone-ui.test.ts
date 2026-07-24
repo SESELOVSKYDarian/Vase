@@ -244,6 +244,8 @@ describe("Vase Labs standalone owner experience", () => {
     expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}/handoff`");
     expect(workstation).toContain("Intervenir humano");
     expect(workstation).toContain("Pausar IA");
+    expect(workstation).toContain("Reactivar IA");
+    expect(workstation).toContain("/reactivate");
     expect(workstation).toContain("labs-inbox-alert");
     expect(workstation).toContain("labs-inbox-shell");
     expect(workstation).toContain("labs-inbox-workstation");

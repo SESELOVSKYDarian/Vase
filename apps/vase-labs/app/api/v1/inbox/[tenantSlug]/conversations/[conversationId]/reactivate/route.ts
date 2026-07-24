@@ -1,20 +1,18 @@
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { labsPrisma } from "../../../../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../../../../lib/request-context";
 
-type HandoffDependencies = {
+type ReactivateDependencies = {
   resolveContext(cookieHeader: string | null): Promise<{
     context: { tenantSlug: string; globalTenantId: string };
   }>;
-  pauseConversation(input: {
+  reactivateConversation(input: {
     conversationId: string;
     globalTenantId: string;
-    reason: string;
-  }): Promise<{ handoff: unknown; conversation: unknown } | null>;
+  }): Promise<{ conversation: unknown; resolvedHandoffs: number } | null>;
 };
 
-export function createInboxHandoffHandler(deps: HandoffDependencies) {
+export function createInboxReactivateHandler(deps: ReactivateDependencies) {
   return async function POST(
     request: Request,
     { params }: { params: Promise<{ tenantSlug: string; conversationId: string }> },
@@ -25,58 +23,45 @@ export function createInboxHandoffHandler(deps: HandoffDependencies) {
       if (tenantSlug !== context.tenantSlug) {
         return NextResponse.json({ error: "LABS_TENANT_FORBIDDEN" }, { status: 403 });
       }
-      const body = await request.json().catch(() => ({}));
-      const reason = typeof body.reason === "string" && body.reason.trim()
-        ? body.reason.trim()
-        : "Intervención humana solicitada desde Inbox.";
-      const result = await deps.pauseConversation({
+      const result = await deps.reactivateConversation({
         conversationId,
         globalTenantId: context.globalTenantId,
-        reason,
       });
       if (!result) return NextResponse.json({ error: "CONVERSATION_NOT_FOUND" }, { status: 404 });
       return NextResponse.json(result);
     } catch {
-      return NextResponse.json({ error: "HANDOFF_FAILED" }, { status: 500 });
+      return NextResponse.json({ error: "AI_REACTIVATION_FAILED" }, { status: 500 });
     }
   };
 }
 
-export const POST = createInboxHandoffHandler({
+export const POST = createInboxReactivateHandler({
   resolveContext: resolveLabsRequestContext,
-  async pauseConversation(input) {
+  async reactivateConversation(input) {
     return labsPrisma.$transaction(async (tx) => {
       const conversation = await tx.conversation.findFirst({
         where: {
           id: input.conversationId,
           assistant: { globalTenantId: input.globalTenantId },
         },
-        select: {
-          id: true,
-          handoffs: {
-            where: { status: { in: ["PENDING", "ASSIGNED"] } },
-            orderBy: { createdAt: "desc" },
-            take: 1,
-          },
-        },
+        select: { id: true },
       });
       if (!conversation) return null;
-      const handoff = conversation.handoffs[0] ?? await tx.handoff.create({
-        data: {
-          id: randomUUID(),
+      const handoffs = await tx.handoff.updateMany({
+        where: {
           conversationId: input.conversationId,
-          reason: input.reason,
-          target: "labs",
-          status: "PENDING",
-          priority: "high",
-          notes: JSON.stringify({ source: "manual_inbox" }),
+          status: { in: ["PENDING", "ASSIGNED"] },
         },
+        data: { status: "RESOLVED", resolvedAt: new Date() },
       });
       const updatedConversation = await tx.conversation.update({
         where: { id: input.conversationId },
-        data: { status: "ESCALATED", escalatedToHuman: true },
+        data: { status: "OPEN", escalatedToHuman: false },
       });
-      return { handoff, conversation: updatedConversation };
+      return {
+        conversation: updatedConversation,
+        resolvedHandoffs: handoffs.count,
+      };
     });
   },
 });
