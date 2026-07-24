@@ -169,7 +169,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(page).toContain("LabsMetricCard");
     expect(page).toContain("LabsConversationTrendChart");
     expect(page).toContain("LabsIntentDistributionChart");
-    for (const destination of ["inbox", "activity", "knowledge", "channels", "settings"]) {
+    for (const destination of ["inbox", "activity", "orders", "knowledge", "channels", "settings"]) {
       expect(nav).toContain(`/owner/${destination}`);
     }
     expect(styles).toContain(".labs-shell");
@@ -220,6 +220,10 @@ describe("Vase Labs standalone owner experience", () => {
       path.resolve("apps/vase-labs/app/app/owner/labs/activity/page.tsx"),
       "utf8",
     );
+    const activityWorkspace = fs.readFileSync(
+      path.resolve("apps/vase-labs/app/app/owner/labs/activity/activity-workspace.tsx"),
+      "utf8",
+    );
 
     expect(fs.existsSync(workstationPath)).toBe(true);
     if (!fs.existsSync(workstationPath)) return;
@@ -243,9 +247,10 @@ describe("Vase Labs standalone owner experience", () => {
     expect(workstation).toContain("labs-inbox-alert");
     expect(workstation).toContain("labs-inbox-shell");
     expect(workstation).toContain("labs-inbox-workstation");
-    expect(activity).toContain('title="Analisis"');
-    expect(activity).toContain("aiReplyError");
-    expect(activity).toContain("Esperando respuesta IA");
+    expect(activity).toContain('title="Inteligencia comercial"');
+    expect(activity).toContain("<ActivityWorkspace");
+    expect(activityWorkspace).toContain("aiReplyError");
+    expect(activityWorkspace).toContain("Esperando respuesta IA");
     expect(activity).not.toContain('title="Inbox"');
   });
 

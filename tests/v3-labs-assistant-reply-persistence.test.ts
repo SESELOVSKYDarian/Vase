@@ -6,8 +6,12 @@ describe("assistant reply persistence", () => {
     const messageCreate = vi.fn(async () => ({ id: "message_1" }));
     const conversationUpdate = vi.fn(async () => ({}));
     const transactionClient = {
+      $queryRaw: vi.fn(async () => [{ id: "conversation_1" }]),
       message: { create: messageCreate },
-      conversation: { update: conversationUpdate },
+      conversation: {
+        findUnique: vi.fn(async () => ({ metadata: null })),
+        update: conversationUpdate,
+      },
     };
     const prisma = {
       async $transaction(callback: (client: typeof transactionClient) => unknown) {
@@ -16,6 +20,7 @@ describe("assistant reply persistence", () => {
     };
 
     const result = await persistPrismaAssistantReply(prisma as never, {
+      assistantId: "assistant_1",
       conversationId: "conversation_1",
       channel: "WHATSAPP",
       text: "Hola desde Vase",

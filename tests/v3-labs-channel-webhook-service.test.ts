@@ -12,6 +12,7 @@ import {
 } from "../apps/vase-labs/app/lib/channel-webhook-service";
 import { signMetaPayload } from "../apps/vase-labs/app/lib/meta-signature";
 import { parseInstagramWebhookMessage } from "../apps/vase-labs/app/lib/instagram-webhook";
+import { recoverConversationAnalysisEnqueues } from "../apps/vase-labs/app/lib/conversation-analysis-worker";
 
 function createContext(overrides: Partial<ChannelWebhookContext> = {}): ChannelWebhookContext {
   return {
@@ -67,6 +68,15 @@ class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
   persisted: PersistChannelInboundMessageInput[] = [];
   aiFailures: Array<{ conversationId: string; messageId: string; reason: string }> = [];
   handoffs: Array<{ conversationId: string; messageId: string; reason: string; source: string }> = [];
+  analysisEnqueues: Array<{
+    conversationId: string;
+    messageId: string;
+    messageCreatedAt: Date;
+  }> = [];
+  analysisEnqueueFailures: Array<{ conversationId: string; messageId: string; reason: string }> = [];
+  failAnalysisEnqueue = false;
+  operationOrder: string[] = [];
+  eventSeen = false;
 
   constructor(private readonly context: ChannelWebhookContext | null) {}
 
@@ -74,13 +84,39 @@ class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
     return this.context;
   }
 
+  async markWebhookEventProcessing() {
+    if (this.eventSeen) return { duplicate: true };
+    this.eventSeen = true;
+    return { duplicate: false };
+  }
+
   async persistInboundMessage(input: PersistChannelInboundMessageInput): Promise<PersistChannelInboundMessageResult> {
+    this.operationOrder.push("persist");
     this.persisted.push(input);
     return {
       conversationId: "conversation_123",
       messageId: "message_123",
+      messageCreatedAt: new Date("2026-07-23T12:00:00.000Z"),
       aiBlockedReason: input.aiBlockedReason,
     };
+  }
+
+  async enqueueConversationAnalysis(input: {
+    conversationId: string;
+    messageId: string;
+    messageCreatedAt: Date;
+  }) {
+    this.operationOrder.push("enqueue");
+    if (this.failAnalysisEnqueue) throw new Error("database details must stay private");
+    this.analysisEnqueues.push(input);
+  }
+
+  async markConversationAnalysisEnqueueFailed(input: {
+    conversationId: string;
+    messageId: string;
+    reason: string;
+  }) {
+    this.analysisEnqueueFailures.push(input);
   }
 
   async markAiReplyFailed(input: { conversationId: string; messageId: string; reason: string }) {
@@ -88,6 +124,7 @@ class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
   }
 
   async requestHumanHandoff(input: { conversationId: string; messageId: string; reason: string; source: string }) {
+    this.operationOrder.push("handoff");
     this.handoffs.push(input);
   }
 }
@@ -143,11 +180,87 @@ describe("Vase Labs generic Meta channel webhook service", () => {
       },
     });
     expect(aiRuns).toHaveLength(1);
+    expect(repository.analysisEnqueues).toEqual([{
+      conversationId: "conversation_123",
+      messageId: "message_123",
+      messageCreatedAt: new Date("2026-07-23T12:00:00.000Z"),
+    }]);
     expect(aiRuns[0]).toMatchObject({
       context: { assistantId: "assistant_123", globalTenantId: "tenant_123" },
       persisted: { conversationId: "conversation_123", messageId: "message_123" },
       message: { text: "Hola IG" },
     });
+  });
+
+  it("keeps the durable inbound acknowledged when analysis enqueue fails", async () => {
+    const repository = new MemoryChannelWebhookRepository(createContext());
+    repository.failAnalysisEnqueue = true;
+    const body = JSON.stringify(createInstagramPayload());
+
+    const result = await handleMetaChannelWebhook({
+      channelType: "INSTAGRAM",
+      repository,
+      tenantSlug: "tenant-demo",
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
+      parseMessage: parseInstagramWebhookMessage,
+    });
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: {
+        ok: true,
+        processed: true,
+        conversationId: "conversation_123",
+        messageId: "message_123",
+      },
+    });
+    expect(repository.persisted).toHaveLength(1);
+    expect(repository.analysisEnqueueFailures).toMatchObject([{
+      conversationId: "conversation_123",
+      messageId: "message_123",
+      reason: "CONVERSATION_ANALYSIS_ENQUEUE_FAILED",
+    }]);
+
+    repository.failAnalysisEnqueue = false;
+    const duplicate = await handleMetaChannelWebhook({
+      channelType: "INSTAGRAM",
+      repository,
+      tenantSlug: "tenant-demo",
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
+      parseMessage: parseInstagramWebhookMessage,
+    });
+    expect(duplicate.body).toMatchObject({
+      ok: true,
+      processed: false,
+      reason: "duplicate",
+    });
+    expect(repository.persisted).toHaveLength(1);
+
+    await recoverConversationAnalysisEnqueues({
+      repository: {
+        async listFailedEnqueueCandidates() {
+          return [{
+            conversationId: "conversation_123",
+            assistantId: "assistant_123",
+            messageId: "message_123",
+            messageCreatedAt: new Date("2026-07-23T12:00:00.000Z"),
+          }];
+        },
+        async clearFailedEnqueueMarker() {
+          repository.analysisEnqueueFailures = [];
+        },
+      },
+      enqueue: (request) => repository.enqueueConversationAnalysis({
+        conversationId: request.conversationId,
+        messageId: request.requestedThroughMessageId,
+        messageCreatedAt: request.requestedThroughMessageCreatedAt,
+      }),
+      limit: 10,
+    });
+    expect(repository.analysisEnqueues).toHaveLength(1);
+    expect(repository.analysisEnqueueFailures).toHaveLength(0);
   });
 
   it("persists inbound messages and marks AI blocked when the channel is not entitled", async () => {
@@ -254,6 +367,7 @@ describe("Vase Labs generic Meta channel webhook service", () => {
       messageId: "message_123",
       source: "customer_intent",
     }]);
+    expect(repository.operationOrder).toEqual(["persist", "handoff", "enqueue"]);
     expect(ranAi).toBe(false);
   });
 

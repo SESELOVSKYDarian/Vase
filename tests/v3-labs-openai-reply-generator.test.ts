@@ -155,6 +155,8 @@ describe("Labs OpenAI reply generator", () => {
     expect(instructions.indexOf("Sos el vendedor")).toBeLessThan(instructions.indexOf("Horario: 9 a 18"));
     expect(instructions).toContain("solo cuando el cliente las pida");
     expect(instructions).toContain("exclusivamente URLs del catalogo");
+    expect(instructions).toContain("orienta la conversacion hacia un pedido");
+    expect(instructions).toContain("CONFIRMAR PEDIDO");
   });
 
   it("keeps only exact, public HTTPS allowlist matches in model order, deduplicated and limited to three", async () => {

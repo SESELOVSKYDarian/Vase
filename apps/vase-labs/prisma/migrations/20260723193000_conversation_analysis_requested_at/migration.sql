@@ -1,0 +1,2 @@
+ALTER TABLE `ConversationAnalysisJob`
+  ADD COLUMN `requestedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3);

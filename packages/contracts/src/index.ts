@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export * from "./labs-orders";
+
 export const vaseServiceKeySchema = z.enum([
   "vase-portal",
   "vase-app",

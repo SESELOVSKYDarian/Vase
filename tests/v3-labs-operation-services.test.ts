@@ -125,6 +125,7 @@ describe("Vase Labs operation services", () => {
       allowedImageUrls: ["https://cdn.vase.ar/p1.jpg"],
     }));
     expect(persistAssistantReply).toHaveBeenCalledWith({
+      assistantId: "assistant_123",
       conversationId: "conv_123",
       channel: "INSTAGRAM",
       text: "Atendemos de 9 a 18.",

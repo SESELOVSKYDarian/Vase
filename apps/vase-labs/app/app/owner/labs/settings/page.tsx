@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import { LabsPageHeader, LabsSection, LabsStatusPill } from "../labs-ui";
+import { ConversationInsightSettingsCard } from "./conversation-insight-settings-card";
 import { IntegrationProviderCard } from "./integration-provider-card";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +60,7 @@ export default async function LabsSettingsPage() {
           <p className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">{data.tokensUsed.toLocaleString("es-AR")}</p>
         </LabsSection>
       </section>
+      <ConversationInsightSettingsCard />
       <IntegrationProviderCard />
     </div>
   );

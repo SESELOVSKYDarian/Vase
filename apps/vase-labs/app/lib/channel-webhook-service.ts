@@ -6,6 +6,8 @@ import { resolveMetaWebhookVerifyToken } from "./meta-webhook";
 import { getManualChannelId } from "./channel-manual-setup";
 import { verifyMetaSignature } from "./meta-signature";
 import { resolveChannelConnectionStatus } from "./channel-health";
+import { createConversationAnalysisQueue } from "./conversation-analysis-queue";
+import { PrismaConversationAnalysisRepository } from "./conversation-analysis-repository";
 
 export type ChannelWebhookContext = {
   assistantId: string;
@@ -32,6 +34,7 @@ export type PersistChannelInboundMessageInput = {
 export type PersistChannelInboundMessageResult = {
   conversationId: string;
   messageId: string;
+  messageCreatedAt: Date;
   aiBlockedReason: string | null;
   handoffActive?: boolean;
 };
@@ -73,6 +76,22 @@ export interface ChannelWebhookRepository {
     messageId: string;
     reason: string;
     source: "customer_intent" | "manual";
+  }): Promise<void>;
+  enqueueConversationAnalysis(input: {
+    conversationId: string;
+    messageId: string;
+    messageCreatedAt: Date;
+  }): Promise<void>;
+  markConversationAnalysisEnqueued?(input: {
+    context: ChannelWebhookContext;
+    conversationId: string;
+    messageId: string;
+  }): Promise<void>;
+  markConversationAnalysisEnqueueFailed?(input: {
+    context: ChannelWebhookContext;
+    conversationId: string;
+    messageId: string;
+    reason: "CONVERSATION_ANALYSIS_ENQUEUE_FAILED";
   }): Promise<void>;
   persistInboundMessage(input: PersistChannelInboundMessageInput): Promise<PersistChannelInboundMessageResult>;
 }
@@ -526,6 +545,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         content,
         providerMessageId,
         metadata,
+        analysisPendingAt,
         createdAt
       )
       VALUES (
@@ -536,6 +556,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         ${messageContent(input.message)},
         ${input.message.externalMessageId ?? null},
         ${metadataJson(buildMessageMetadata(input))},
+        ${now},
         ${now}
       )
     `;
@@ -543,9 +564,76 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     return {
       conversationId: conversation.id,
       messageId,
+      messageCreatedAt: now,
       aiBlockedReason: input.aiBlockedReason,
       handoffActive: Boolean(conversation.escalatedToHuman) || conversation.status === "ESCALATED",
     };
+  }
+
+  async enqueueConversationAnalysis(input: {
+    conversationId: string;
+    messageId: string;
+    messageCreatedAt: Date;
+  }): Promise<void> {
+    const queue = createConversationAnalysisQueue({
+      repository: new PrismaConversationAnalysisRepository(this.prisma),
+      clock: () => new Date(),
+      tokenFactory: randomUUID,
+      maxAttempts: 3,
+      leaseDurationMs: 60_000,
+    });
+    await queue.enqueue({
+      conversationId: input.conversationId,
+      requestedThroughMessageId: input.messageId,
+      requestedThroughMessageCreatedAt: input.messageCreatedAt,
+    });
+  }
+
+  async markConversationAnalysisEnqueueFailed(input: {
+    context: ChannelWebhookContext;
+    conversationId: string;
+    messageId: string;
+    reason: "CONVERSATION_ANALYSIS_ENQUEUE_FAILED";
+  }): Promise<void> {
+    const rows = await this.prisma.$queryRaw<ConversationRow[]>`
+      SELECT id, metadata
+      FROM Conversation
+      WHERE id = ${input.conversationId}
+        AND assistantId = ${input.context.assistantId}
+      LIMIT 1
+    `;
+    const conversation = rows[0];
+    if (!conversation) return;
+    const metadata = normalizeRecord(conversation.metadata) ?? {};
+    const context = normalizeRecord(metadata.context) ?? {};
+    await this.prisma.$executeRaw`
+      UPDATE Conversation
+      SET
+        metadata = ${metadataJson({
+          ...metadata,
+          context: {
+            ...context,
+            conversationAnalysisEnqueueError: input.reason,
+            conversationAnalysisEnqueueFailedMessageId: input.messageId,
+          },
+        })},
+        updatedAt = ${new Date()}
+      WHERE id = ${input.conversationId}
+        AND assistantId = ${input.context.assistantId}
+    `;
+  }
+
+  async markConversationAnalysisEnqueued(input: {
+    context: ChannelWebhookContext;
+    conversationId: string;
+    messageId: string;
+  }): Promise<void> {
+    await new PrismaConversationAnalysisRepository(this.prisma)
+      .clearFailedEnqueueMarker({
+        conversationId: input.conversationId,
+        assistantId: input.context.assistantId,
+        messageId: input.messageId,
+      });
   }
 
   async markWebhookEventProcessing(input: {
@@ -857,6 +945,33 @@ export async function handleMetaChannelWebhook(input: {
         source: "customer_intent",
       });
       persisted = { ...persisted, handoffActive: true };
+    }
+    try {
+      await input.repository.enqueueConversationAnalysis({
+        conversationId: persisted.conversationId,
+        messageId: persisted.messageId,
+        messageCreatedAt: persisted.messageCreatedAt,
+      });
+      try {
+        await input.repository.markConversationAnalysisEnqueued?.({
+          context,
+          conversationId: persisted.conversationId,
+          messageId: persisted.messageId,
+        });
+      } catch {
+        // The durable message marker lets the worker sweep finish cleanup.
+      }
+    } catch {
+      try {
+        await input.repository.markConversationAnalysisEnqueueFailed?.({
+          context,
+          conversationId: persisted.conversationId,
+          messageId: persisted.messageId,
+          reason: "CONVERSATION_ANALYSIS_ENQUEUE_FAILED",
+        });
+      } catch {
+        // The inbound is durable; keep Meta acknowledgement stable.
+      }
     }
     if (!aiBlockedReason && !persisted.handoffActive && input.runAiReply) {
       try {

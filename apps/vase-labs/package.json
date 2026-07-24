@@ -9,7 +9,8 @@
     "typecheck": "prisma generate && tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "migrate:legacy-channels": "tsx scripts/migrate-legacy-channels.ts"
+    "migrate:legacy-channels": "tsx scripts/migrate-legacy-channels.ts",
+    "worker:conversation-analysis": "tsx scripts/conversation-analysis-worker.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",

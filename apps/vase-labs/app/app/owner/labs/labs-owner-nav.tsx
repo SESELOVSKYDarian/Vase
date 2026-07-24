@@ -8,6 +8,7 @@ import {
   Cable,
   MessageSquare,
   LayoutDashboard,
+  ShoppingBag,
   Settings2,
   Sparkles,
 } from "lucide-react";
@@ -16,6 +17,7 @@ const navItems = [
   { href: "/owner", label: "Panel", icon: LayoutDashboard },
   { href: "/owner/inbox", label: "Inbox", icon: MessageSquare },
   { href: "/owner/activity", label: "Actividad", icon: Activity },
+  { href: "/owner/orders", label: "Pedidos", icon: ShoppingBag },
   { href: "/owner/knowledge", label: "Conocimiento", icon: Bot },
   { href: "/owner/channels", label: "Canales", icon: Cable },
   { href: "/owner/settings", label: "Ajustes", icon: Settings2 },

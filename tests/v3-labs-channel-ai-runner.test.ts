@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { createChannelAiReplyRunner } from "../apps/vase-labs/app/lib/channel-ai-runner";
+import {
+  createChannelAiReplyRunner,
+  persistPrismaAssistantReply,
+} from "../apps/vase-labs/app/lib/channel-ai-runner";
 
 describe("channel AI reply runner", () => {
   it("uses the Labs OpenAI key and selected assistant model to reply through the channel sender", async () => {
@@ -70,6 +73,7 @@ describe("channel AI reply runner", () => {
 
     expect(generatorInputs).toEqual([{ apiKey: "sk-labs", model: "gpt-selected" }]);
     expect(persistAssistantReply).toHaveBeenCalledWith({
+      assistantId: "assistant_123",
       conversationId: "conversation_123",
       channel: "FACEBOOK",
       text: "Respuesta IA",
@@ -186,5 +190,69 @@ describe("channel AI reply runner", () => {
     expect(result).toEqual({ ok: false, reason: "HANDOFF_ACTIVE" });
     expect(generateReply).not.toHaveBeenCalled();
     expect(sendReply).not.toHaveBeenCalled();
+  });
+
+  it("clears a stale AI reply error transactionally when a later assistant reply succeeds", async () => {
+    const operationOrder: string[] = [];
+    const rowLock = vi.fn(async () => {
+      operationOrder.push("lock");
+      return [{ id: "conversation_1" }];
+    });
+    const conversationFindUnique = vi.fn(async () => {
+      operationOrder.push("read");
+      return {
+      metadata: {
+        state: "AI_FAILED",
+        source: "instagram",
+        context: {
+          provider: "META_OFFICIAL",
+          aiReplyError: "OPENAI_TIMEOUT",
+          aiReplyFailedAt: "2026-07-23T15:00:00.000Z",
+          aiReplyFailedMessageId: "inbound_failed",
+        },
+      },
+      };
+    });
+    const conversationUpdate = vi.fn(async () => ({}));
+    const transactionClient = {
+      $queryRaw: rowLock,
+      message: { create: vi.fn(async () => ({ id: "reply_recovered" })) },
+      conversation: {
+        findUnique: conversationFindUnique,
+        update: conversationUpdate,
+      },
+    };
+    const prisma = {
+      async $transaction(callback: (client: typeof transactionClient) => unknown) {
+        return callback(transactionClient);
+      },
+    };
+
+    await persistPrismaAssistantReply(prisma as never, {
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      channel: "INSTAGRAM",
+      text: "Ya puedo responderte.",
+    });
+
+    expect(operationOrder.slice(0, 2)).toEqual(["lock", "read"]);
+    const [query, ...values] = rowLock.mock.calls[0];
+    expect(Array.from(query as TemplateStringsArray).join(" ")).toContain("FOR UPDATE");
+    expect(Array.from(query as TemplateStringsArray).join(" ")).toContain("assistantId");
+    expect(values).toEqual(["conversation_1", "assistant_1"]);
+    expect(conversationFindUnique).toHaveBeenCalledWith({
+      where: { id: "conversation_1" },
+      select: { metadata: true },
+    });
+    const update = conversationUpdate.mock.calls[0][0];
+    expect(update.data.metadata).toEqual({
+      state: "IDLE",
+      source: "instagram",
+      context: {
+        provider: "META_OFFICIAL",
+      },
+    });
+    expect(JSON.stringify(update.data.metadata)).not.toContain("OPENAI_TIMEOUT");
+    expect(JSON.stringify(update.data.metadata)).not.toContain("aiReplyFailed");
   });
 });

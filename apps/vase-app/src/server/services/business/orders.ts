@@ -34,6 +34,8 @@ export function formatCheckoutModeLabel(mode: string) {
 export function formatOrderChannelLabel(channel: string) {
   if (channel === "email") return "Gmail";
   if (channel === "whatsapp") return "WhatsApp";
+  if (channel === "instagram") return "Instagram";
+  if (channel === "messenger") return "Messenger";
   return "Web";
 }
 
@@ -108,6 +110,7 @@ export async function createOrderFromCheckout(input: {
     longitude?: number | null;
     billing?: Record<string, unknown>;
   };
+  preferredBranchId?: string | null;
   requestedCheckoutMethod?: string | null;
   requestedOrderChannel?: string | null;
   notes?: string | null;
@@ -118,6 +121,7 @@ export async function createOrderFromCheckout(input: {
     userId: input.userId,
     customerType: input.customerType,
     shippingCustomer: input.customer,
+    preferredBranchId: input.preferredBranchId,
   });
 
   if (!checkout.valid) {

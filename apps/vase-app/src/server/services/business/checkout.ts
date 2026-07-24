@@ -21,6 +21,8 @@ export function normalizeOrderChannel(value: unknown) {
   const normalized = String(value || "").trim().toLowerCase();
   if (normalized === "email") return "email";
   if (normalized === "whatsapp") return "whatsapp";
+  if (normalized === "instagram") return "instagram";
+  if (normalized === "messenger") return "messenger";
   return "web";
 }
 
