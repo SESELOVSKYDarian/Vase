@@ -104,6 +104,13 @@ enum ConversationOrderDraftState {
   CANCELLED
 }
 
+enum AudioTranscriptionJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model Assistant {
   id             String   @id @default(cuid())
   globalTenantId String
@@ -327,12 +334,38 @@ model Conversation {
   insight           ConversationInsight?
   analysisJob       ConversationAnalysisJob?
   orderDrafts       ConversationOrderDraft[]
+  audioTranscriptionJobs AudioTranscriptionJob[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   @@index([assistantId, status, lastMessageAt])
   @@index([externalThreadKey])
   @@unique([assistantId, channel, externalThreadKey])
+}
+
+model AudioTranscriptionJob {
+  id                String                      @id @default(cuid())
+  conversationId    String
+  messageId         String?
+  globalTenantId    String
+  assistantId       String
+  channel           LabsChannel
+  providerMediaId   String
+  mimeType          String?
+  status            AudioTranscriptionJobStatus @default(QUEUED)
+  attempts          Int                         @default(0)
+  transcript        String?                     @db.Text
+  lastError         String?                     @db.Text
+  leaseToken        String?
+  leaseExpiresAt    DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  conversation      Conversation                @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([assistantId, providerMediaId])
+  @@index([status, leaseExpiresAt])
+  @@index([conversationId, createdAt])
 }
 
 model ConversationOrderDraft {

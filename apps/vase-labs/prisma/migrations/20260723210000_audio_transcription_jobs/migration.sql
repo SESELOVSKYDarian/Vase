@@ -1,0 +1,25 @@
+CREATE TABLE `AudioTranscriptionJob` (
+  `id` VARCHAR(191) NOT NULL,
+  `conversationId` VARCHAR(191) NOT NULL,
+  `messageId` VARCHAR(191) NULL,
+  `globalTenantId` VARCHAR(191) NOT NULL,
+  `assistantId` VARCHAR(191) NOT NULL,
+  `channel` ENUM('WHATSAPP', 'INSTAGRAM', 'FACEBOOK') NOT NULL,
+  `providerMediaId` VARCHAR(191) NOT NULL,
+  `mimeType` VARCHAR(191) NULL,
+  `status` ENUM('QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'QUEUED',
+  `attempts` INTEGER NOT NULL DEFAULT 0,
+  `transcript` TEXT NULL,
+  `lastError` TEXT NULL,
+  `leaseToken` VARCHAR(191) NULL,
+  `leaseExpiresAt` DATETIME(3) NULL,
+  `completedAt` DATETIME(3) NULL,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) NOT NULL,
+
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `AudioTranscriptionJob_assistantId_providerMediaId_key` (`assistantId`, `providerMediaId`),
+  INDEX `AudioTranscriptionJob_status_leaseExpiresAt_idx` (`status`, `leaseExpiresAt`),
+  INDEX `AudioTranscriptionJob_conversationId_createdAt_idx` (`conversationId`, `createdAt`),
+  CONSTRAINT `AudioTranscriptionJob_conversationId_fkey` FOREIGN KEY (`conversationId`) REFERENCES `Conversation`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
