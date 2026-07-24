@@ -10,6 +10,13 @@ import { createKnowledgeService } from "./knowledge-service";
 import { createOpenAiReplyGenerator, getDefaultOpenAiModel } from "./openai-reply-generator";
 import { labsPrisma, type PrismaClient } from "./db";
 import { decryptChannelSecret } from "./channel-secrets";
+import { createBusinessOrderClient } from "./business-order-client";
+import { createConversationOrderOrchestrator } from "./conversation-order-orchestrator";
+import {
+  confirmConversationOrderDraft,
+  prepareConversationOrderDraft,
+  prismaConversationOrderDraftRepository,
+} from "./conversation-order-tools";
 
 type RunnerInput = Parameters<RunChannelAiReply>[0];
 
@@ -34,6 +41,7 @@ type ChannelAiReplyRunnerDeps = {
     buildAiContext?(globalTenantId: string): Promise<string>;
   };
   createReplyGenerator(input: { apiKey?: string; model: string }): ReplyGenerator;
+  orders?: NonNullable<Parameters<typeof createAiOrchestrator>[0]["orders"]>;
   persistAssistantReply(input: {
     assistantId: string;
     conversationId: string;
@@ -187,6 +195,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
       knowledge: deps.knowledge,
       catalog: deps.catalog,
       generateReply: generator.generateReply,
+      orders: deps.orders,
       persistAssistantReply: deps.persistAssistantReply,
       registerTokenUsage: deps.registerTokenUsage,
       sendReply(reply) {
@@ -228,6 +237,37 @@ export function createPrismaChannelAiReplyRunner(input: {
     graphVersion: env.META_GRAPH_VERSION?.trim() || "v25.0",
     fetcher: input.fetcher,
   });
+  const businessOrders = createBusinessOrderClient({
+    appInternalUrl: env.APP_INTERNAL_URL,
+    serviceToken: env.SERVICE_TO_SERVICE_TOKEN,
+    fetcher: input.fetcher,
+  });
+  const orders = createConversationOrderOrchestrator({
+    async loadHistory(conversationId) {
+      const messages = await prisma.message.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { role: true, content: true },
+      });
+      return messages.reverse();
+    },
+    findActiveDraft(conversationId) {
+      return prismaConversationOrderDraftRepository.findActiveDraft(conversationId);
+    },
+    prepareDraft(orderInput) {
+      return prepareConversationOrderDraft(orderInput, {
+        business: businessOrders,
+        repository: prismaConversationOrderDraftRepository,
+      });
+    },
+    confirmDraft(orderInput) {
+      return confirmConversationOrderDraft(orderInput, {
+        business: businessOrders,
+        repository: prismaConversationOrderDraftRepository,
+      });
+    },
+  });
 
   return createChannelAiReplyRunner({
     env,
@@ -242,6 +282,7 @@ export function createPrismaChannelAiReplyRunner(input: {
       },
     }),
     catalog: labsCatalogService,
+    orders,
     async resolveOpenAiApiKey(assistantId) {
       const secret = await prisma.assistantSecret.findUnique({
         where: { assistantId_kind: { assistantId, kind: "OPENAI_API_KEY" } },

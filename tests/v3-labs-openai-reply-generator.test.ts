@@ -10,9 +10,16 @@ function structuredReply(
   text: string,
   imageUrls: string[] = [],
   usage: { input_tokens: number; output_tokens: number } = { input_tokens: 1, output_tokens: 1 },
+  orderAction: unknown = {
+    type: "NONE",
+    items: [],
+    customer: { name: "", phone: "", email: "" },
+    fulfillment: { type: "DELIVERY", branchId: "", address: "" },
+    notes: "",
+  },
 ) {
   return {
-    output_text: JSON.stringify({ text, imageUrls }),
+    output_text: JSON.stringify({ text, imageUrls, orderAction }),
     usage,
   };
 }
@@ -74,7 +81,17 @@ describe("Labs OpenAI reply generator", () => {
           type: "message",
           content: [{
             type: "output_text",
-            text: JSON.stringify({ text: "Hola, te puedo ayudar.", imageUrls: [] }),
+            text: JSON.stringify({
+              text: "Hola, te puedo ayudar.",
+              imageUrls: [],
+              orderAction: {
+                type: "NONE",
+                items: [],
+                customer: { name: "", phone: "", email: "" },
+                fulfillment: { type: "DELIVERY", branchId: "", address: "" },
+                notes: "",
+              },
+            }),
           }],
         }],
         usage: { input_tokens: 12, output_tokens: 7 },
@@ -117,7 +134,7 @@ describe("Labs OpenAI reply generator", () => {
           schema: {
             type: "object",
             additionalProperties: false,
-            required: ["text", "imageUrls"],
+            required: ["text", "imageUrls", "orderAction"],
             properties: {
               text: { type: "string" },
               imageUrls: {
@@ -125,12 +142,46 @@ describe("Labs OpenAI reply generator", () => {
                 items: { type: "string" },
                 maxItems: 3,
               },
+              orderAction: expect.objectContaining({
+                type: "object",
+                required: ["type", "items", "customer", "fulfillment", "notes"],
+              }),
             },
           },
         },
       },
     });
     expect(JSON.parse(String(calls[0]?.init.body)).instructions).toContain("Horario: 9 a 18");
+  });
+
+  it("returns a validated PREPARE order proposal with Business product ids", async () => {
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      fetcher: (async () => new Response(JSON.stringify(structuredReply(
+        "Voy a preparar el resumen.",
+        [],
+        { input_tokens: 12, output_tokens: 8 },
+        {
+          type: "PREPARE",
+          items: [{ productId: "business_product_1004", quantity: 2 }],
+          customer: { name: "Darian", phone: "2234390415", email: "" },
+          fulfillment: { type: "PICKUP", branchId: "branch_1", address: "" },
+          notes: "",
+        },
+      )))) as typeof fetch,
+    });
+
+    await expect(generator.generateReply({
+      userText: "Quiero dos y retiro en el local",
+      context: "Producto ID Business: business_product_1004",
+    })).resolves.toMatchObject({
+      orderAction: {
+        type: "PREPARE",
+        items: [{ productId: "business_product_1004", quantity: 2 }],
+        customer: { name: "Darian", phone: "2234390415" },
+        fulfillment: { type: "PICKUP", branchId: "branch_1" },
+      },
+    });
   });
 
   it("includes the assistant prompt before knowledge context", async () => {
@@ -156,7 +207,7 @@ describe("Labs OpenAI reply generator", () => {
     expect(instructions).toContain("solo cuando el cliente las pida");
     expect(instructions).toContain("exclusivamente URLs del catalogo");
     expect(instructions).toContain("orienta la conversacion hacia un pedido");
-    expect(instructions).toContain("CONFIRMAR PEDIDO");
+    expect(instructions).toContain("aceptacion explicita e inequivoca");
   });
 
   it("keeps only exact, public HTTPS allowlist matches in model order, deduplicated and limited to three", async () => {

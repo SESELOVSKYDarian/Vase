@@ -177,6 +177,92 @@ describe("Vase Labs operation services", () => {
     });
   });
 
+  it("uses conversation history and replaces a PREPARE proposal with the authoritative quote", async () => {
+    const generateReply = vi.fn(async (input) => {
+      expect(input.context).toContain("Cliente: Quiero una boquilla");
+      return {
+        text: "Texto provisional del modelo",
+        imageUrls: [],
+        orderAction: {
+          type: "PREPARE" as const,
+          items: [{ productId: "product_1004", quantity: 1 }],
+          customer: { name: "Darian", phone: "2234390415" },
+          fulfillment: { type: "PICKUP" as const, branchId: "branch_1" },
+        },
+        inputTokens: 5,
+        outputTokens: 4,
+      };
+    });
+    const prepare = vi.fn(async () => ({
+      text: "Resumen real de Business\nTotal: $9.614,15\n¿Confirmás el pedido?",
+    }));
+    const persistAssistantReply = vi.fn(async () => ({ messageId: "message_quote" }));
+    const orchestrator = createAiOrchestrator({
+      knowledge: { async buildContext() { return ""; } },
+      orders: {
+        async buildContext() { return "Cliente: Quiero una boquilla"; },
+        async confirmIfRequested() { return { handled: false as const }; },
+        prepare,
+      },
+      generateReply,
+      persistAssistantReply,
+      async registerTokenUsage() { return { totalTokens: 9 }; },
+      async sendReply() { return { ok: true }; },
+    });
+
+    await orchestrator.processConversation({
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
+      latestUserText: "Envialo",
+      canRunAi: true,
+      handoffActive: false,
+    });
+
+    expect(prepare).toHaveBeenCalledWith(expect.objectContaining({
+      conversationId: "conversation_1",
+      action: expect.objectContaining({ type: "PREPARE" }),
+    }));
+    expect(persistAssistantReply).toHaveBeenCalledWith(expect.objectContaining({
+      text: "Resumen real de Business\nTotal: $9.614,15\n¿Confirmás el pedido?",
+    }));
+  });
+
+  it("confirms an active draft before asking the model again", async () => {
+    const generateReply = vi.fn();
+    const persistAssistantReply = vi.fn(async () => ({ messageId: "message_confirmed" }));
+    const orchestrator = createAiOrchestrator({
+      knowledge: { async buildContext() { return ""; } },
+      orders: {
+        async buildContext() { return ""; },
+        async confirmIfRequested() {
+          return { handled: true as const, text: "Pedido confirmado. Tu número es V-1042." };
+        },
+        prepare: vi.fn(),
+      },
+      generateReply,
+      persistAssistantReply,
+      async registerTokenUsage() { return { totalTokens: 0 }; },
+      async sendReply() { return { ok: true }; },
+    });
+
+    await orchestrator.processConversation({
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
+      latestUserText: "Acepto el pedido",
+      canRunAi: true,
+      handoffActive: false,
+    });
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(persistAssistantReply).toHaveBeenCalledWith(expect.objectContaining({
+      text: "Pedido confirmado. Tu número es V-1042.",
+    }));
+  });
+
   it("summarizes analytics from conversations, messages, token usage and channels", () => {
     const summary = summarizeLabsAnalytics({
       conversations: [

@@ -20,6 +20,20 @@ interface AiOrchestratorDeps {
     systemPrompt?: string | null;
     allowedImageUrls?: string[];
   }): Promise<OrchestratedAiReply>;
+  orders?: {
+    buildContext(conversationId: string): Promise<string>;
+    confirmIfRequested(input: {
+      conversationId: string;
+      userText: string;
+    }): Promise<{ handled: false } | { handled: true; text: string }>;
+    prepare(input: {
+      assistantId: string;
+      conversationId: string;
+      globalTenantId: string;
+      channel: LabsChannel;
+      action: Extract<NonNullable<AiReplyResult["orderAction"]>, { type: "PREPARE" }>;
+    }): Promise<{ text: string }>;
+  };
   persistAssistantReply(input: {
     assistantId: string;
     conversationId: string;
@@ -56,17 +70,42 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
       if (!input.canRunAi) return { ok: false, reason: "AI_NOT_ALLOWED" };
       if (input.handoffActive) return { ok: false, reason: "HANDOFF_ACTIVE" };
 
-      const [knowledgeContext, catalogResources] = await Promise.all([
+      const confirmation = await deps.orders?.confirmIfRequested({
+        conversationId: input.conversationId,
+        userText: input.latestUserText,
+      });
+      const [knowledgeContext, catalogResources, orderContext] = await Promise.all([
         deps.knowledge.buildContext(input.assistantId),
         buildCatalogResources(deps.catalog, input.globalTenantId),
+        confirmation?.handled
+          ? Promise.resolve("")
+          : deps.orders?.buildContext(input.conversationId) ?? Promise.resolve(""),
       ]);
-      const context = [knowledgeContext, catalogResources.context].filter(Boolean).join("\n\n");
-      const reply = await deps.generateReply({
-        userText: input.latestUserText,
-        context,
-        systemPrompt: input.systemPrompt,
-        allowedImageUrls: catalogResources.allowedImageUrls,
-      });
+      const context = [knowledgeContext, catalogResources.context, orderContext].filter(Boolean).join("\n\n");
+      let reply: OrchestratedAiReply = confirmation?.handled
+        ? {
+            text: confirmation.text,
+            imageUrls: [],
+            orderAction: { type: "NONE" },
+            inputTokens: 0,
+            outputTokens: 0,
+          }
+        : await deps.generateReply({
+            userText: input.latestUserText,
+            context,
+            systemPrompt: input.systemPrompt,
+            allowedImageUrls: catalogResources.allowedImageUrls,
+          });
+      if (!confirmation?.handled && reply.orderAction?.type === "PREPARE" && deps.orders) {
+        const prepared = await deps.orders.prepare({
+          assistantId: input.assistantId,
+          conversationId: input.conversationId,
+          globalTenantId: input.globalTenantId,
+          channel: input.channel,
+          action: reply.orderAction,
+        });
+        reply = { ...reply, text: prepared.text };
+      }
       const message = await deps.persistAssistantReply({
         assistantId: input.assistantId,
         conversationId: input.conversationId,

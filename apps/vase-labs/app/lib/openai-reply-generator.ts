@@ -12,12 +12,23 @@ export interface OpenAiModelProfile {
 export interface AiReplyResult {
   text: string;
   imageUrls: string[];
+  orderAction?: AiOrderAction;
   inputTokens: number;
   outputTokens: number;
   provider?: "openai";
   model?: string;
   profile?: OpenAiModelProfileId;
 }
+
+export type AiOrderAction =
+  | { type: "NONE" }
+  | {
+      type: "PREPARE";
+      items: Array<{ productId: string; quantity: number }>;
+      customer: { name: string; phone: string; email?: string };
+      fulfillment: { type: "DELIVERY" | "PICKUP"; branchId?: string; address?: string };
+      notes?: string;
+    };
 
 type FetchLike = typeof fetch;
 
@@ -145,8 +156,49 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
                     items: { type: "string" },
                     maxItems: 3,
                   },
+                  orderAction: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      type: { type: "string", enum: ["NONE", "PREPARE"] },
+                      items: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          additionalProperties: false,
+                          properties: {
+                            productId: { type: "string" },
+                            quantity: { type: "integer", minimum: 1 },
+                          },
+                          required: ["productId", "quantity"],
+                        },
+                      },
+                      customer: {
+                        type: "object",
+                        additionalProperties: false,
+                        properties: {
+                          name: { type: "string" },
+                          phone: { type: "string" },
+                          email: { type: "string" },
+                        },
+                        required: ["name", "phone", "email"],
+                      },
+                      fulfillment: {
+                        type: "object",
+                        additionalProperties: false,
+                        properties: {
+                          type: { type: "string", enum: ["DELIVERY", "PICKUP"] },
+                          branchId: { type: "string" },
+                          address: { type: "string" },
+                        },
+                        required: ["type", "branchId", "address"],
+                      },
+                      notes: { type: "string" },
+                    },
+                    required: ["type", "items", "customer", "fulfillment", "notes"],
+                  },
                 },
-                required: ["text", "imageUrls"],
+                required: ["text", "imageUrls", "orderAction"],
               },
             },
           },
@@ -178,6 +230,7 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
       return {
         text: structuredReply.text,
         imageUrls,
+        orderAction: structuredReply.orderAction,
         inputTokens: readUsageToken(payload, "input_tokens"),
         outputTokens: readUsageToken(payload, "output_tokens"),
         provider: "openai",
@@ -219,7 +272,8 @@ function buildSystemInstructions(input: { context: string; systemPrompt?: string
     customerPrompt ? `Instrucciones del negocio:\n${customerPrompt}` : null,
     "Responde en el mismo idioma del cliente, con tono claro, breve y orientado a resolver.",
     "Cuando haya interes comercial, orienta la conversacion hacia un pedido: confirma producto, cantidad, datos de contacto y modalidad de entrega o retiro.",
-    "Explica que el pedido se crea solo despues de que el cliente revise el resumen y escriba exactamente la frase CONFIRMAR PEDIDO con el codigo que le indique el sistema.",
+    "Cuando ya esten completos producto, cantidad, nombre, telefono y entrega o retiro, devolve orderAction PREPARE usando exclusivamente IDs de producto y sucursal presentes en el contexto.",
+    "La confirmacion final es natural: el sistema crea el pedido solo despues de mostrar el resumen y recibir una aceptacion explicita e inequivoca del cliente.",
     "No digas que un pedido fue creado, reservado o confirmado si el contexto no incluye una confirmacion del servidor.",
     "Usa solamente el contexto disponible cuando menciones politicas, horarios, precios, stock o datos del negocio.",
     "Selecciona imagenes solo cuando el cliente las pida o cuando sean necesarias para identificar productos.",
@@ -229,7 +283,7 @@ function buildSystemInstructions(input: { context: string; systemPrompt?: string
   ].filter(Boolean).join("\n\n");
 }
 
-function parseStructuredReply(value: string): { text: string; imageUrls: string[] } {
+function parseStructuredReply(value: string): { text: string; imageUrls: string[]; orderAction: AiOrderAction } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(value);
@@ -237,12 +291,82 @@ function parseStructuredReply(value: string): { text: string; imageUrls: string[
     throw new Error("OPENAI_RESPONSE_INVALID");
   }
 
-  const candidate = parsed as { text?: unknown; imageUrls?: unknown } | null;
+  const candidate = parsed as { text?: unknown; imageUrls?: unknown; orderAction?: unknown } | null;
   const text = typeof candidate?.text === "string" ? candidate.text.trim() : "";
   if (!text || !Array.isArray(candidate?.imageUrls) || !candidate.imageUrls.every((url) => typeof url === "string")) {
     throw new Error("OPENAI_RESPONSE_INVALID");
   }
-  return { text, imageUrls: candidate.imageUrls };
+  return {
+    text,
+    imageUrls: candidate.imageUrls,
+    orderAction: parseOrderAction(candidate.orderAction),
+  };
+}
+
+function parseOrderAction(value: unknown): AiOrderAction {
+  if (value == null) return { type: "NONE" };
+  const source = value as {
+    type?: unknown;
+    items?: unknown;
+    customer?: unknown;
+    fulfillment?: unknown;
+    notes?: unknown;
+  };
+  if (source.type === "NONE") return { type: "NONE" };
+  if (source.type !== "PREPARE" || !Array.isArray(source.items)) {
+    throw new Error("OPENAI_RESPONSE_INVALID");
+  }
+  const items = source.items.map((item) => {
+    const candidate = item as { productId?: unknown; quantity?: unknown };
+    if (
+      typeof candidate.productId !== "string"
+      || !candidate.productId.trim()
+      || !Number.isInteger(candidate.quantity)
+      || Number(candidate.quantity) < 1
+    ) {
+      throw new Error("OPENAI_RESPONSE_INVALID");
+    }
+    return { productId: candidate.productId.trim(), quantity: Number(candidate.quantity) };
+  });
+  const customer = source.customer as { name?: unknown; phone?: unknown; email?: unknown } | null;
+  const fulfillment = source.fulfillment as {
+    type?: unknown;
+    branchId?: unknown;
+    address?: unknown;
+  } | null;
+  if (
+    items.length === 0
+    || typeof customer?.name !== "string"
+    || !customer.name.trim()
+    || typeof customer.phone !== "string"
+    || !customer.phone.trim()
+    || (fulfillment?.type !== "DELIVERY" && fulfillment?.type !== "PICKUP")
+  ) {
+    throw new Error("OPENAI_RESPONSE_INVALID");
+  }
+  return {
+    type: "PREPARE",
+    items,
+    customer: {
+      name: customer.name.trim(),
+      phone: customer.phone.trim(),
+      ...(typeof customer.email === "string" && customer.email.trim()
+        ? { email: customer.email.trim() }
+        : {}),
+    },
+    fulfillment: {
+      type: fulfillment.type,
+      ...(typeof fulfillment.branchId === "string" && fulfillment.branchId.trim()
+        ? { branchId: fulfillment.branchId.trim() }
+        : {}),
+      ...(typeof fulfillment.address === "string" && fulfillment.address.trim()
+        ? { address: fulfillment.address.trim() }
+        : {}),
+    },
+    ...(typeof source.notes === "string" && source.notes.trim()
+      ? { notes: source.notes.trim() }
+      : {}),
+  };
 }
 
 function extractOutputText(payload: unknown): string {

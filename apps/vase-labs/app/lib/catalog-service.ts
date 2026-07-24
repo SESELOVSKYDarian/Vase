@@ -86,6 +86,7 @@ export function createLabsCatalogService(repository: LabsCatalogRepository) {
       }
       return [
         `# ${product.aiAlias || product.name}`,
+        `ID de producto Business: ${product.externalProductId}`,
         product.aiDescription || product.description || "",
         `SKU: ${product.sku || "N/A"} | Precio: ${product.price ?? "Consultar"} | Stock: ${product.stock}`,
         imageUrl ? `Imagen disponible: ${imageUrl}` : "",
