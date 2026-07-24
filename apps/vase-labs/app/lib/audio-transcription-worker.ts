@@ -38,7 +38,9 @@ export async function processAudioTranscriptionJob(job: AudioJob, deps: WorkerDe
 export function createAudioTranscriptionWorker(input: {
   queue: AudioQueue;
   downloadMedia(job: AudioJob): Promise<Buffer>;
-  transcriber: WorkerDeps["transcriber"];
+  resolveTranscriber(
+    job: AudioJob,
+  ): Promise<WorkerDeps["transcriber"]> | WorkerDeps["transcriber"];
   storeTranscript?(jobId: string, transcript: string): Promise<void> | void;
   continueConversation(job: AudioJob, transcript: string): Promise<void> | void;
 }) {
@@ -47,9 +49,20 @@ export function createAudioTranscriptionWorker(input: {
       const job = await input.queue.claimNext();
       if (!job) return { status: "IDLE" as const };
 
+      let transcriber: WorkerDeps["transcriber"];
+      try {
+        transcriber = await input.resolveTranscriber(job);
+      } catch (error) {
+        const message = error instanceof Error
+          ? error.message
+          : "AUDIO_TRANSCRIPTION_FAILED";
+        await input.queue.fail(job.id, message);
+        return { status: "FAILED" as const, jobId: job.id, error: message };
+      }
+
       const result = await processAudioTranscriptionJob(job, {
         downloadMedia: () => input.downloadMedia(job),
-        transcriber: input.transcriber,
+        transcriber,
         storeTranscript: input.storeTranscript,
         continueConversation: input.continueConversation,
         complete: (jobId, transcript) => input.queue.complete(jobId, transcript),

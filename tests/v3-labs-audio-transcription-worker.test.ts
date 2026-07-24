@@ -46,7 +46,9 @@ describe("Labs audio transcription worker", () => {
         fail,
       },
       downloadMedia: vi.fn(async () => Buffer.from("audio")),
-      transcriber: { transcribe: vi.fn(async () => ({ text: "necesito dos unidades" })) },
+      resolveTranscriber: vi.fn(async () => ({
+        transcribe: vi.fn(async () => ({ text: "necesito dos unidades" })),
+      })),
       continueConversation,
     });
 
@@ -78,11 +80,45 @@ describe("Labs audio transcription worker", () => {
     const worker = createAudioTranscriptionWorker({
       queue,
       downloadMedia: vi.fn(async () => Buffer.from("audio")),
-      transcriber: { transcribe: vi.fn(async () => ({ text: "hola" })) },
+      resolveTranscriber: vi.fn(async () => ({
+        transcribe: vi.fn(async () => ({ text: "hola" })),
+      })),
       continueConversation: vi.fn(),
     });
 
     await expect(worker.processNext()).resolves.toMatchObject({ status: "COMPLETED" });
     expect(queue.completed).toEqual(["job_bound"]);
+  });
+
+  it("resolves a separate transcriber for the claimed assistant job", async () => {
+    const complete = vi.fn();
+    const resolveTranscriber = vi.fn(async (job: { id: string }) => ({
+      transcribe: vi.fn(async () => ({ text: `transcript-${job.id}` })),
+    }));
+    const worker = createAudioTranscriptionWorker({
+      queue: {
+        claimNext: vi.fn(async () => ({
+          id: "job_business_1",
+          providerMediaId: "media_business_1",
+        })),
+        complete,
+        fail: vi.fn(),
+      },
+      downloadMedia: vi.fn(async () => Buffer.from("audio")),
+      resolveTranscriber,
+      continueConversation: vi.fn(),
+    });
+
+    await expect(worker.processNext()).resolves.toEqual({
+      status: "COMPLETED",
+      jobId: "job_business_1",
+    });
+    expect(resolveTranscriber).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "job_business_1" }),
+    );
+    expect(complete).toHaveBeenCalledWith(
+      "job_business_1",
+      "transcript-job_business_1",
+    );
   });
 });
