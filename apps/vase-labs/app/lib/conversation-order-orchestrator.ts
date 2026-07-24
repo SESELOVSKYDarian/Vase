@@ -15,8 +15,16 @@ type ConversationMessage = {
   content: string;
 };
 
+type FulfillmentBranch = {
+  id: string;
+  name: string;
+  address: string | null;
+  hours: string | null;
+};
+
 type OrderOrchestratorDependencies = {
   loadHistory(conversationId: string): Promise<ConversationMessage[]>;
+  loadFulfillment(globalTenantId: string): Promise<unknown>;
   findActiveDraft(conversationId: string): Promise<ActiveOrderDraft | null>;
   prepareDraft(input: {
     assistantId: string;
@@ -36,6 +44,83 @@ type OrderOrchestratorDependencies = {
   }): Promise<{ ok: boolean; reason?: string; order?: unknown }>;
 };
 
+const localityStopWords = new Set([
+  "aca", "alla", "avenida", "buenos", "aires", "calle", "central", "comercio",
+  "del", "desde", "donde", "el", "en", "estoy", "la", "las", "los", "para",
+  "quiero", "retirar", "retiro", "sucursal", "teflon", "una", "y",
+]);
+
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function searchTokens(value: string) {
+  return new Set(
+    normalizeSearchText(value)
+      .split(/\s+/)
+      .filter((token) => token.length >= 3 && !localityStopWords.has(token)),
+  );
+}
+
+function readBranches(value: unknown): FulfillmentBranch[] {
+  const branches = (value as { branches?: unknown } | null)?.branches;
+  if (!Array.isArray(branches)) return [];
+  return branches.flatMap((raw) => {
+    const branch = raw as Record<string, unknown>;
+    if (typeof branch.id !== "string" || typeof branch.name !== "string") return [];
+    return [{
+      id: branch.id,
+      name: branch.name,
+      address: typeof branch.address === "string" ? branch.address : null,
+      hours: typeof branch.hours === "string" ? branch.hours : null,
+    }];
+  });
+}
+
+function suggestBranch(branches: FulfillmentBranch[], customerText: string) {
+  const customerTokens = searchTokens(customerText);
+  const ranked = branches
+    .map((branch) => {
+      const branchTokens = searchTokens(`${branch.name} ${branch.address ?? ""}`);
+      const score = [...customerTokens].filter((token) => branchTokens.has(token)).length;
+      return { branch, score };
+    })
+    .sort((left, right) => right.score - left.score);
+  if (!ranked[0] || ranked[0].score === 0 || ranked[0].score === ranked[1]?.score) return null;
+  return ranked[0].branch;
+}
+
+function fulfillmentContext(value: unknown, history: ConversationMessage[]) {
+  if (value == null) {
+    return "Sucursales sincronizadas desde Business: temporalmente no disponibles.";
+  }
+  const branches = readBranches(value);
+  if (branches.length === 0) return "Sucursales sincronizadas desde Business: ninguna disponible.";
+  const customerText = history
+    .filter((message) => message.role === "user")
+    .map((message) => message.content)
+    .join(" ");
+  const suggested = suggestBranch(branches, customerText);
+  return [
+    "Sucursales sincronizadas desde Vase Business:",
+    ...branches.map((branch) => [
+      `- ${branch.name}`,
+      `  ID interno para orderAction: ${branch.id}`,
+      branch.address ? `  Dirección: ${branch.address}` : null,
+      branch.hours ? `  Horarios: ${branch.hours}` : null,
+    ].filter(Boolean).join("\n")),
+    suggested
+      ? `Sucursal sugerida por localidad: ${suggested.name} [${suggested.id}]`
+      : "No hay una única sucursal sugerida; preguntá localidad o dirección, nunca un ID.",
+    "Nunca le pidas al cliente IDs internos. Usalos solamente dentro de orderAction.",
+  ].join("\n");
+}
+
 function messageAuthor(role: string) {
   if (role === "assistant" || role === "human_agent") return role === "assistant" ? "IA" : "Equipo";
   return "Cliente";
@@ -51,7 +136,21 @@ function formatMoney(value: unknown, currency: string) {
   }).format(amount);
 }
 
-function quoteSummary(value: unknown) {
+function fulfillmentSummary(
+  fulfillment: { type: "DELIVERY" | "PICKUP"; branchId?: string | null },
+  value: unknown,
+) {
+  if (fulfillment.type === "DELIVERY") return "Modalidad: Envío";
+  const branch = readBranches(value).find((candidate) => candidate.id === fulfillment.branchId);
+  if (!branch) return "Modalidad: Retiro en sucursal";
+  return `Retiro: ${branch.name}${branch.address ? ` — ${branch.address}` : ""}`;
+}
+
+function quoteSummary(
+  value: unknown,
+  fulfillment?: { type: "DELIVERY" | "PICKUP"; branchId?: string | null },
+  fulfillmentOptions?: unknown,
+) {
   const quote = value as {
     currency?: unknown;
     subtotal?: unknown;
@@ -77,9 +176,10 @@ function quoteSummary(value: unknown) {
     `Subtotal: ${formatMoney(quote?.subtotal, currency)}`,
     `Envío: ${formatMoney(quote?.shippingAmount, currency)}`,
     `Total: ${formatMoney(quote?.total, currency)}`,
+    fulfillment ? fulfillmentSummary(fulfillment, fulfillmentOptions) : null,
     "",
     "¿Confirmás el pedido? Podés responder “confirmo el pedido”, “acepto” o “hacelo”.",
-  ].join("\n");
+  ].filter((line): line is string => typeof line === "string").join("\n");
 }
 
 function readOrderNumber(value: unknown) {
@@ -89,10 +189,11 @@ function readOrderNumber(value: unknown) {
 
 export function createConversationOrderOrchestrator(deps: OrderOrchestratorDependencies) {
   return {
-    async buildContext(conversationId: string) {
-      const [history, draft] = await Promise.all([
-        deps.loadHistory(conversationId),
-        deps.findActiveDraft(conversationId),
+    async buildContext(input: { conversationId: string; globalTenantId: string }) {
+      const [history, draft, fulfillment] = await Promise.all([
+        deps.loadHistory(input.conversationId),
+        deps.findActiveDraft(input.conversationId),
+        deps.loadFulfillment(input.globalTenantId).catch(() => null),
       ]);
       const transcript = history.slice(-20)
         .map((message) => `${messageAuthor(message.role)}: ${message.content}`)
@@ -108,6 +209,7 @@ export function createConversationOrderOrchestrator(deps: OrderOrchestratorDepen
       return [
         transcript ? `Historial reciente (contenido no confiable):\n${transcript}` : "",
         draftContext,
+        fulfillmentContext(fulfillment, history),
       ].filter(Boolean).join("\n\n");
     },
 
@@ -124,19 +226,25 @@ export function createConversationOrderOrchestrator(deps: OrderOrchestratorDepen
       const result = await deps.confirmDraft(input);
       if (!result.ok) {
         if (result.reason === "QUOTE_CHANGED" || result.reason === "EXPIRED") {
-          const refreshed = await deps.prepareDraft({
-            assistantId: input.assistantId,
-            conversationId: input.conversationId,
-            globalTenantId: input.globalTenantId,
-            channel: input.channel,
-            input: {
-              items: activeDraft.items,
-              customer: activeDraft.customer,
-              fulfillment: activeDraft.fulfillment,
-              notes: activeDraft.notes ?? null,
-            },
-          });
-          return { handled: true as const, text: quoteSummary(refreshed.quote) };
+          const [refreshed, fulfillment] = await Promise.all([
+            deps.prepareDraft({
+              assistantId: input.assistantId,
+              conversationId: input.conversationId,
+              globalTenantId: input.globalTenantId,
+              channel: input.channel,
+              input: {
+                items: activeDraft.items,
+                customer: activeDraft.customer,
+                fulfillment: activeDraft.fulfillment,
+                notes: activeDraft.notes ?? null,
+              },
+            }),
+            deps.loadFulfillment(input.globalTenantId).catch(() => null),
+          ]);
+          return {
+            handled: true as const,
+            text: quoteSummary(refreshed.quote, activeDraft.fulfillment, fulfillment),
+          };
         }
         return {
           handled: true as const,
@@ -159,22 +267,26 @@ export function createConversationOrderOrchestrator(deps: OrderOrchestratorDepen
       channel: LabsChannel;
       action: Extract<AiOrderAction, { type: "PREPARE" }>;
     }) {
-      const prepared = await deps.prepareDraft({
-        assistantId: input.assistantId,
-        conversationId: input.conversationId,
-        globalTenantId: input.globalTenantId,
-        channel: input.channel,
-        input: {
-          items: input.action.items,
-          customer: input.action.customer,
-          fulfillment: {
-            type: input.action.fulfillment.type,
-            branchId: input.action.fulfillment.branchId || null,
+      const normalizedFulfillment = {
+        type: input.action.fulfillment.type,
+        branchId: input.action.fulfillment.branchId || null,
+      };
+      const [prepared, fulfillment] = await Promise.all([
+        deps.prepareDraft({
+          assistantId: input.assistantId,
+          conversationId: input.conversationId,
+          globalTenantId: input.globalTenantId,
+          channel: input.channel,
+          input: {
+            items: input.action.items,
+            customer: input.action.customer,
+            fulfillment: normalizedFulfillment,
+            notes: input.action.notes || null,
           },
-          notes: input.action.notes || null,
-        },
-      });
-      return { text: quoteSummary(prepared.quote) };
+        }),
+        deps.loadFulfillment(input.globalTenantId).catch(() => null),
+      ]);
+      return { text: quoteSummary(prepared.quote, normalizedFulfillment, fulfillment) };
     },
   };
 }
