@@ -75,18 +75,51 @@ async function getInboxData() {
 
 export default async function LabsInboxPage() {
   const data = await getInboxData();
+  const totalConversations = data.conversations.length;
+  const humanAttentionCount = data.conversations.filter(
+    (conversation) => conversation.escalatedToHuman || conversation.handoffs.length > 0,
+  ).length;
+  const totalMessages = data.conversations.reduce(
+    (total, conversation) => total + conversation.messageCount,
+    0,
+  );
+  const latestActivity = data.conversations[0]?.lastMessageAt ?? null;
 
   return (
-    <div className="space-y-6">
+    <div className="labs-inbox-page space-y-6">
       <LabsPageHeader
         eyebrow="Atencion"
         title="Inbox"
         description="Conversaciones abiertas y derivaciones que requieren seguimiento del equipo."
       />
 
+      <section className="labs-inbox-summary-grid" aria-label="Resumen del inbox">
+        <article>
+          <span>Abiertas</span>
+          <strong>{totalConversations}</strong>
+          <small>Conversaciones en seguimiento</small>
+        </article>
+        <article>
+          <span>Humanas</span>
+          <strong>{humanAttentionCount}</strong>
+          <small>Requieren intervencion del equipo</small>
+        </article>
+        <article>
+          <span>Mensajes</span>
+          <strong>{totalMessages}</strong>
+          <small>Ultimos hilos cargados</small>
+        </article>
+        <article>
+          <span>Ultima actividad</span>
+          <strong>{latestActivity ? formatDate(latestActivity) : "Sin fecha"}</strong>
+          <small>Ordenado por prioridad reciente</small>
+        </article>
+      </section>
+
       <LabsSection
         title="Pendientes de atencion"
         description="Ordenados por la actividad mas reciente para que el equipo priorice la respuesta."
+        className="labs-inbox-board-section"
       >
         {data.conversations.length === 0 ? (
           <LabsEmptyState

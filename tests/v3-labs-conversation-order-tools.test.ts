@@ -102,7 +102,11 @@ describe("Labs conversation order tools", () => {
           channel: "WHATSAPP",
           items: [{ productId: "prod_1", quantity: 1 }],
           customer: {},
-          fulfillment: { type: "DELIVERY" },
+          fulfillment: {
+            type: "PICKUP",
+            pickupLabel: "El Teflón (Central)",
+            address: "6657 Avenida Pedro Luro, Mar del Plata",
+          },
           quoteHash: "quote_hash_1",
           quoteVersion: 5,
           confirmationCodeHash: "legacy_hash",
@@ -119,6 +123,9 @@ describe("Labs conversation order tools", () => {
 
     expect(result.ok).toBe(true);
     expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      notes: expect.stringContaining("El Teflón (Central)"),
+    }));
     expect(markConfirmed).toHaveBeenCalledWith({
       draftId: "draft_1",
       businessOrderId: "order_1",

@@ -14,7 +14,7 @@ function structuredReply(
     type: "NONE",
     items: [],
     customer: { name: "", phone: "", email: "" },
-    fulfillment: { type: "DELIVERY", branchId: "", address: "" },
+    fulfillment: { type: "DELIVERY", branchId: "", pickupLabel: "", address: "" },
     notes: "",
   },
 ) {
@@ -88,7 +88,7 @@ describe("Labs OpenAI reply generator", () => {
                 type: "NONE",
                 items: [],
                 customer: { name: "", phone: "", email: "" },
-                fulfillment: { type: "DELIVERY", branchId: "", address: "" },
+                fulfillment: { type: "DELIVERY", branchId: "", pickupLabel: "", address: "" },
                 notes: "",
               },
             }),
@@ -165,7 +165,12 @@ describe("Labs OpenAI reply generator", () => {
           type: "PREPARE",
           items: [{ productId: "business_product_1004", quantity: 2 }],
           customer: { name: "Darian", phone: "2234390415", email: "" },
-          fulfillment: { type: "PICKUP", branchId: "branch_1", address: "" },
+          fulfillment: {
+            type: "PICKUP",
+            branchId: "branch_1",
+            pickupLabel: "El Teflón (Central)",
+            address: "",
+          },
           notes: "",
         },
       )))) as typeof fetch,
@@ -180,6 +185,43 @@ describe("Labs OpenAI reply generator", () => {
         items: [{ productId: "business_product_1004", quantity: 2 }],
         customer: { name: "Darian", phone: "2234390415" },
         fulfillment: { type: "PICKUP", branchId: "branch_1" },
+      },
+    });
+  });
+
+  it("allows a prompt-defined pickup location when Business has no branch id", async () => {
+    const generator = createOpenAiReplyGenerator({
+      apiKey: "sk-test",
+      fetcher: (async () => new Response(JSON.stringify(structuredReply(
+        "Preparo el retiro en la sucursal indicada.",
+        [],
+        { input_tokens: 8, output_tokens: 6 },
+        {
+          type: "PREPARE",
+          items: [{ productId: "product_1006", quantity: 1 }],
+          customer: { name: "Darian", phone: "2234390415", email: "" },
+          fulfillment: {
+            type: "PICKUP",
+            branchId: "",
+            pickupLabel: "El Teflón (Central)",
+            address: "6657 Avenida Pedro Luro, Mar del Plata",
+          },
+          notes: "",
+        },
+      )))) as typeof fetch,
+    });
+
+    await expect(generator.generateReply({
+      userText: "Retiro en Mar del Plata",
+      context: "El Teflón (Central): 6657 Avenida Pedro Luro, Mar del Plata",
+    })).resolves.toMatchObject({
+      orderAction: {
+        type: "PREPARE",
+        fulfillment: {
+          type: "PICKUP",
+          pickupLabel: "El Teflón (Central)",
+          address: "6657 Avenida Pedro Luro, Mar del Plata",
+        },
       },
     });
   });
@@ -208,6 +250,9 @@ describe("Labs OpenAI reply generator", () => {
     expect(instructions).toContain("exclusivamente URLs del catalogo");
     expect(instructions).toContain("orienta la conversacion hacia un pedido");
     expect(instructions).toContain("aceptacion explicita e inequivoca");
+    expect(instructions).toContain("Nunca le pidas al cliente IDs internos");
+    expect(instructions).toContain("sucursal que coincida con su localidad");
+    expect(instructions).toContain("branchId vacio");
   });
 
   it("keeps only exact, public HTTPS allowlist matches in model order, deduplicated and limited to three", async () => {

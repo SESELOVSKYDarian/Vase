@@ -252,6 +252,9 @@ export function createPrismaChannelAiReplyRunner(input: {
       });
       return messages.reverse();
     },
+    loadFulfillment(globalTenantId) {
+      return businessOrders.getFulfillment(globalTenantId);
+    },
     findActiveDraft(conversationId) {
       return prismaConversationOrderDraftRepository.findActiveDraft(conversationId);
     },

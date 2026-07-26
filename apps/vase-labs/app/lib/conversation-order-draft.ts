@@ -11,14 +11,24 @@ export type ConversationOrderDraftState =
 export type NormalizedOrderDraftInput = {
   items: Array<{ productId: string; quantity: number }>;
   customer: Record<string, unknown>;
-  fulfillment: { type: "DELIVERY" | "PICKUP"; branchId?: string | null };
+  fulfillment: {
+    type: "DELIVERY" | "PICKUP";
+    branchId?: string | null;
+    pickupLabel?: string | null;
+    address?: string | null;
+  };
   notes?: string | null;
 };
 
 export function normalizeOrderDraftInput(input: {
   items?: Array<{ productId?: string | null; quantity?: number | null }> | null;
   customer?: Record<string, unknown> | null;
-  fulfillment?: { type?: string | null; branchId?: string | null } | null;
+  fulfillment?: {
+    type?: string | null;
+    branchId?: string | null;
+    pickupLabel?: string | null;
+    address?: string | null;
+  } | null;
   notes?: string | null;
 }): NormalizedOrderDraftInput {
   const items = (input.items ?? [])
@@ -37,6 +47,8 @@ export function normalizeOrderDraftInput(input: {
     fulfillment: {
       type: fulfillmentType,
       branchId: input.fulfillment?.branchId ?? null,
+      pickupLabel: input.fulfillment?.pickupLabel?.trim() || null,
+      address: input.fulfillment?.address?.trim() || null,
     },
     notes: input.notes?.trim() || null,
   };

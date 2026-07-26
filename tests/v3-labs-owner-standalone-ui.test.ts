@@ -256,6 +256,31 @@ describe("Vase Labs standalone owner experience", () => {
     expect(activity).not.toContain('title="Inbox"');
   });
 
+  it("ports the main Vase app visual language into the Labs Inbox", () => {
+    const page = fs.readFileSync(
+      path.resolve("apps/vase-labs/app/app/owner/labs/inbox/page.tsx"),
+      "utf8",
+    );
+    const workstation = fs.readFileSync(
+      path.resolve("apps/vase-labs/app/app/owner/labs/inbox/inbox-workstation.tsx"),
+      "utf8",
+    );
+    const styles = fs.readFileSync(
+      path.resolve("apps/vase-labs/app/globals.css"),
+      "utf8",
+    );
+
+    expect(page).toContain('className="labs-inbox-page');
+    expect(page).toContain("labs-inbox-summary-grid");
+    expect(workstation).toContain("labs-inbox-hero");
+    expect(workstation).toContain("labs-inbox-stat-card");
+    expect(workstation).toContain("labs-inbox-thread-card");
+    expect(styles).toContain(".labs-inbox-hero");
+    expect(styles).toContain(".labs-inbox-stat-card");
+    expect(styles).toContain(".labs-inbox-thread-card");
+    expect(styles).toContain("backdrop-filter: blur(26px) saturate(150%)");
+  });
+
   it("keeps chart containers measurable during their first render", () => {
     const charts = fs.readFileSync(
       path.resolve("apps/vase-labs/app/app/owner/labs/labs-analytics-charts.tsx"),

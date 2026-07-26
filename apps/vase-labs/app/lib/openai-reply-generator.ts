@@ -26,7 +26,12 @@ export type AiOrderAction =
       type: "PREPARE";
       items: Array<{ productId: string; quantity: number }>;
       customer: { name: string; phone: string; email?: string };
-      fulfillment: { type: "DELIVERY" | "PICKUP"; branchId?: string; address?: string };
+      fulfillment: {
+        type: "DELIVERY" | "PICKUP";
+        branchId?: string;
+        pickupLabel?: string;
+        address?: string;
+      };
       notes?: string;
     };
 
@@ -189,9 +194,10 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
                         properties: {
                           type: { type: "string", enum: ["DELIVERY", "PICKUP"] },
                           branchId: { type: "string" },
+                          pickupLabel: { type: "string" },
                           address: { type: "string" },
                         },
-                        required: ["type", "branchId", "address"],
+                        required: ["type", "branchId", "pickupLabel", "address"],
                       },
                       notes: { type: "string" },
                     },
@@ -273,6 +279,9 @@ function buildSystemInstructions(input: { context: string; systemPrompt?: string
     "Responde en el mismo idioma del cliente, con tono claro, breve y orientado a resolver.",
     "Cuando haya interes comercial, orienta la conversacion hacia un pedido: confirma producto, cantidad, datos de contacto y modalidad de entrega o retiro.",
     "Cuando ya esten completos producto, cantidad, nombre, telefono y entrega o retiro, devolve orderAction PREPARE usando exclusivamente IDs de producto y sucursal presentes en el contexto.",
+    "Nunca le pidas al cliente IDs internos de productos o sucursales, ni frases artificiales para confirmar una sucursal.",
+    "Para retiro, elegi el branchId de la sucursal que coincida con su localidad. Si hay mas de una opcion posible, pregunta su zona o direccion y ofrece sucursales por nombre.",
+    "Si Business informa que no hay sucursales sincronizadas pero el negocio definio sucursales en sus instrucciones, usa branchId vacio y completa pickupLabel y address con esos datos. Esto no impide preparar el pedido.",
     "La confirmacion final es natural: el sistema crea el pedido solo despues de mostrar el resumen y recibir una aceptacion explicita e inequivoca del cliente.",
     "No digas que un pedido fue creado, reservado o confirmado si el contexto no incluye una confirmacion del servidor.",
     "Usa solamente el contexto disponible cuando menciones politicas, horarios, precios, stock o datos del negocio.",
@@ -332,6 +341,7 @@ function parseOrderAction(value: unknown): AiOrderAction {
   const fulfillment = source.fulfillment as {
     type?: unknown;
     branchId?: unknown;
+    pickupLabel?: unknown;
     address?: unknown;
   } | null;
   if (
@@ -358,6 +368,9 @@ function parseOrderAction(value: unknown): AiOrderAction {
       type: fulfillment.type,
       ...(typeof fulfillment.branchId === "string" && fulfillment.branchId.trim()
         ? { branchId: fulfillment.branchId.trim() }
+        : {}),
+      ...(typeof fulfillment.pickupLabel === "string" && fulfillment.pickupLabel.trim()
+        ? { pickupLabel: fulfillment.pickupLabel.trim() }
         : {}),
       ...(typeof fulfillment.address === "string" && fulfillment.address.trim()
         ? { address: fulfillment.address.trim() }
