@@ -12,20 +12,20 @@ function request(body: unknown) {
 
 describe("PATCH /api/labs/assistant/model", () => {
   it("updates the resolved assistant to the selected OpenAI model profile", async () => {
-    const updateModel = vi.fn(async () => ({ id: "assistant_1", model: "gpt-premium" }));
+    const updateModel = vi.fn(async () => ({ id: "assistant_1", model: "gpt-enterprise" }));
     const PATCH = createAssistantModelPatchHandler({
-      env: { OPENAI_MODEL_PREMIUM: "gpt-premium" } as NodeJS.ProcessEnv,
+      env: { OPENAI_MODEL_ENTERPRISE: "gpt-enterprise" } as NodeJS.ProcessEnv,
       resolveContext: async () => ({ assistant: { id: "assistant_1" } }),
       updateModel,
     });
 
-    const response = await PATCH(request({ profileId: "premium" }));
+    const response = await PATCH(request({ profileId: "enterprise" }));
 
     expect(response.status).toBe(200);
-    expect(updateModel).toHaveBeenCalledWith("assistant_1", "gpt-premium");
+    expect(updateModel).toHaveBeenCalledWith("assistant_1", "gpt-enterprise");
     expect(await response.json()).toMatchObject({
-      assistant: { id: "assistant_1", model: "gpt-premium" },
-      profile: { id: "premium", model: "gpt-premium" },
+      assistant: { id: "assistant_1", model: "gpt-enterprise" },
+      profile: { id: "enterprise", model: "gpt-enterprise" },
     });
   });
 
@@ -45,20 +45,21 @@ describe("PATCH /api/labs/assistant/model", () => {
 });
 
 describe("Labs OpenAI model profile metadata", () => {
-  it("exposes serializable ChatGPT profile options for the selector", () => {
+  it("exposes only the three approved ChatGPT profile options for the selector", () => {
     const profiles = getOpenAiModelProfiles({
-      OPENAI_MODEL_FAST: "gpt-fast",
-      OPENAI_MODEL_EVERYDAY: "gpt-everyday",
-      OPENAI_MODEL_TOOLS: "gpt-tools",
-      OPENAI_MODEL_PREMIUM: "gpt-premium",
+      OPENAI_MODEL_ECONOMIC: "gpt-economic",
+      OPENAI_MODEL_PROFESSIONAL: "gpt-professional",
+      OPENAI_MODEL_ENTERPRISE: "gpt-enterprise",
     } as NodeJS.ProcessEnv);
 
     expect(profiles).toEqual([
-      expect.objectContaining({ id: "fast", label: "Rápido", model: "gpt-fast" }),
-      expect.objectContaining({ id: "everyday", label: "Uso cotidiano", model: "gpt-everyday" }),
-      expect.objectContaining({ id: "tools", label: "Herramientas", model: "gpt-tools" }),
-      expect.objectContaining({ id: "premium", label: "Premium", model: "gpt-premium" }),
+      expect.objectContaining({ id: "economic", label: "⚡ Económico", model: "gpt-economic" }),
+      expect.objectContaining({ id: "professional", label: "🚀 Profesional", model: "gpt-professional" }),
+      expect.objectContaining({ id: "enterprise", label: "👑 Enterprise", model: "gpt-enterprise" }),
     ]);
-    expect(resolveOpenAiModelProfile({ profileId: "fast", env: { OPENAI_MODEL_FAST: "gpt-fast" } as NodeJS.ProcessEnv }).model).toBe("gpt-fast");
+    expect(resolveOpenAiModelProfile({
+      profileId: "economic",
+      env: { OPENAI_MODEL_ECONOMIC: "gpt-economic" } as NodeJS.ProcessEnv,
+    }).model).toBe("gpt-economic");
   });
 });

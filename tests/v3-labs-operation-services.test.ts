@@ -85,7 +85,7 @@ describe("Vase Labs operation services", () => {
         outputTokens: 30,
         provider: "openai" as const,
         model: "gpt-test",
-        profile: "everyday" as const,
+        profile: "professional" as const,
       };
     });
     const persistAssistantReply = vi.fn(async (input) => ({ messageId: "msg_ai", ...input }));
@@ -103,7 +103,7 @@ describe("Vase Labs operation services", () => {
       generateReply,
       persistAssistantReply,
       async registerTokenUsage(input) {
-        expect(input.source).toBe("openai:gpt-test:everyday");
+        expect(input.source).toBe("openai:gpt-test:professional");
         return { totalTokens: input.inputTokens + input.outputTokens };
       },
       sendReply,

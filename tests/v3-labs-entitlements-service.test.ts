@@ -148,7 +148,7 @@ describe("Vase Labs entitlements service", () => {
       messageId: "msg_123",
       assistantId: "assistant_123",
       model: "gpt-5-mini",
-      profile: "fast",
+      profile: "economic",
     });
 
     expect(result.entitlement.aiBudgetUsedMicros).toBeGreaterThan(4420000);

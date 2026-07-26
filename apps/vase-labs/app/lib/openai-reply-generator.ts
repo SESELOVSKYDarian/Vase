@@ -1,6 +1,6 @@
 import { normalizePublicHttpsImageUrl } from "./public-image-url";
 
-export type OpenAiModelProfileId = "fast" | "everyday" | "tools" | "premium";
+export type OpenAiModelProfileId = "economic" | "professional" | "enterprise";
 
 export interface OpenAiModelProfile {
   id: OpenAiModelProfileId;
@@ -46,45 +46,44 @@ interface CreateOpenAiReplyGeneratorInput {
 }
 
 const fallbackModels: Record<OpenAiModelProfileId, string> = {
-  fast: "gpt-5-mini",
-  everyday: "gpt-4o",
-  tools: "gpt-4.1",
-  premium: "gpt-5.6-sol",
+  economic: "gpt-5-mini",
+  professional: "gpt-4.1",
+  enterprise: "gpt-5.6-sol",
 };
 
 const profileCopy: Record<OpenAiModelProfileId, Pick<OpenAiModelProfile, "label" | "description">> = {
-  fast: {
-    label: "Rápido",
-    description: "Baja latencia y costo para consultas frecuentes y alto volumen.",
+  economic: {
+    label: "⚡ Económico",
+    description: "Atención al cliente, FAQs, WhatsApp y pedidos.",
   },
-  everyday: {
-    label: "Uso cotidiano",
-    description: "Modelo versátil para atención general y automatizaciones habituales.",
+  professional: {
+    label: "🚀 Profesional",
+    description: "La gran mayoría de las empresas.",
   },
-  tools: {
-    label: "Herramientas",
-    description: "Seguimiento preciso de instrucciones extensas y llamadas a APIs.",
-  },
-  premium: {
-    label: "Premium",
-    description: "Razonamiento avanzado para conversaciones y casos complejos.",
+  enterprise: {
+    label: "👑 Enterprise",
+    description: "Empresas con procesos complejos y análisis avanzados.",
   },
 };
 
 export function isOpenAiModelProfileId(value: string | null | undefined): value is OpenAiModelProfileId {
-  return value === "fast" || value === "everyday" || value === "tools" || value === "premium";
+  return value === "economic" || value === "professional" || value === "enterprise";
+}
+
+function normalizeOpenAiModelProfileId(value: string | null | undefined): OpenAiModelProfileId {
+  if (isOpenAiModelProfileId(value)) return value;
+  return "economic";
 }
 
 export function getOpenAiModelProfiles(env: NodeJS.ProcessEnv = process.env): OpenAiModelProfile[] {
   const defaultModel = env.OPENAI_DEFAULT_MODEL ?? env.OPENAI_MODEL;
   const configured: Record<OpenAiModelProfileId, string> = {
-    fast: env.OPENAI_MODEL_FAST ?? defaultModel ?? fallbackModels.fast,
-    everyday: env.OPENAI_MODEL_EVERYDAY ?? env.OPENAI_MODEL_BALANCED ?? defaultModel ?? fallbackModels.everyday,
-    tools: env.OPENAI_MODEL_TOOLS ?? defaultModel ?? fallbackModels.tools,
-    premium: env.OPENAI_MODEL_PREMIUM ?? defaultModel ?? fallbackModels.premium,
+    economic: env.OPENAI_MODEL_ECONOMIC ?? defaultModel ?? fallbackModels.economic,
+    professional: env.OPENAI_MODEL_PROFESSIONAL ?? defaultModel ?? fallbackModels.professional,
+    enterprise: env.OPENAI_MODEL_ENTERPRISE ?? defaultModel ?? fallbackModels.enterprise,
   };
 
-  return (["fast", "everyday", "tools", "premium"] as const).map((id) => ({
+  return (["economic", "professional", "enterprise"] as const).map((id) => ({
     id,
     model: configured[id],
     ...profileCopy[id],
@@ -96,8 +95,8 @@ export function resolveOpenAiModelProfile(input: {
   env?: NodeJS.ProcessEnv;
 } = {}): OpenAiModelProfile {
   const env = input.env ?? process.env;
-  const requested = input.profileId ?? env.OPENAI_MODEL_PROFILE ?? "fast";
-  const profileId = isOpenAiModelProfileId(requested) ? requested : "fast";
+  const requested = input.profileId ?? env.OPENAI_MODEL_PROFILE ?? "economic";
+  const profileId = normalizeOpenAiModelProfileId(requested);
   const profile = getOpenAiModelProfiles(env).find((item) => item.id === profileId);
 
   if (!profile) {

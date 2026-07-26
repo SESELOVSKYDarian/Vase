@@ -84,7 +84,7 @@ export function createConversationInsightGenerator(input: {
   const env = input.env ?? process.env;
   const apiKey = input.apiKey ?? env.OPENAI_API_KEY;
   const model = env.OPENAI_CONVERSATION_ANALYSIS_MODEL?.trim()
-    || resolveOpenAiModelProfile({ profileId: "fast", env }).model;
+    || resolveOpenAiModelProfile({ profileId: "economic", env }).model;
   const fetcher = input.fetcher ?? fetch;
   const requestTimeoutMs = input.requestTimeoutMs ?? 45_000;
   if (!Number.isFinite(requestTimeoutMs) || requestTimeoutMs < 1) {

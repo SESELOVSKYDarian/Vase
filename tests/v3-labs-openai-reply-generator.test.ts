@@ -27,32 +27,30 @@ function structuredReply(
 describe("Labs OpenAI reply generator", () => {
   it("uses the approved customer support model catalog", () => {
     expect(getOpenAiModelProfiles({} as NodeJS.ProcessEnv).map(({ id, model }) => ({ id, model }))).toEqual([
-      { id: "fast", model: "gpt-5-mini" },
-      { id: "everyday", model: "gpt-4o" },
-      { id: "tools", model: "gpt-4.1" },
-      { id: "premium", model: "gpt-5.6-sol" },
+      { id: "economic", model: "gpt-5-mini" },
+      { id: "professional", model: "gpt-4.1" },
+      { id: "enterprise", model: "gpt-5.6-sol" },
     ]);
   });
 
-  it("resolves configurable model profiles with a fast default", () => {
+  it("resolves configurable model profiles with an economic default", () => {
     const env = {
-      OPENAI_MODEL_FAST: "gpt-fast",
-      OPENAI_MODEL_EVERYDAY: "gpt-everyday",
-      OPENAI_MODEL_TOOLS: "gpt-tools",
-      OPENAI_MODEL_PREMIUM: "gpt-premium",
+      OPENAI_MODEL_ECONOMIC: "gpt-economic",
+      OPENAI_MODEL_PROFESSIONAL: "gpt-professional",
+      OPENAI_MODEL_ENTERPRISE: "gpt-enterprise",
     } as NodeJS.ProcessEnv;
 
-    expect(resolveOpenAiModelProfile({ env })).toMatchObject({ id: "fast", model: "gpt-fast" });
-    expect(resolveOpenAiModelProfile({ profileId: "premium", env })).toMatchObject({ id: "premium", model: "gpt-premium" });
-    expect(resolveOpenAiModelProfile({ profileId: "unknown", env })).toMatchObject({ id: "fast", model: "gpt-fast" });
-    expect(getDefaultOpenAiModel(env)).toBe("gpt-fast");
-    expect(getOpenAiModelProfiles(env).map((profile) => profile.id)).toEqual(["fast", "everyday", "tools", "premium"]);
+    expect(resolveOpenAiModelProfile({ env })).toMatchObject({ id: "economic", model: "gpt-economic" });
+    expect(resolveOpenAiModelProfile({ profileId: "enterprise", env })).toMatchObject({ id: "enterprise", model: "gpt-enterprise" });
+    expect(resolveOpenAiModelProfile({ profileId: "unknown", env })).toMatchObject({ id: "economic", model: "gpt-economic" });
+    expect(getDefaultOpenAiModel(env)).toBe("gpt-economic");
+    expect(getOpenAiModelProfiles(env).map((profile) => profile.id)).toEqual(["economic", "professional", "enterprise"]);
   });
 
   it("allows one default model to back every profile", () => {
     const env = { OPENAI_DEFAULT_MODEL: "gpt-shared" } as NodeJS.ProcessEnv;
 
-    expect(getOpenAiModelProfiles(env).map((profile) => profile.model)).toEqual(["gpt-shared", "gpt-shared", "gpt-shared", "gpt-shared"]);
+    expect(getOpenAiModelProfiles(env).map((profile) => profile.model)).toEqual(["gpt-shared", "gpt-shared", "gpt-shared"]);
   });
 
   it("uses an explicit assistant model over profile defaults", async () => {
@@ -60,7 +58,7 @@ describe("Labs OpenAI reply generator", () => {
     const generator = createOpenAiReplyGenerator({
       apiKey: "sk-test",
       model: "gpt-selected",
-      env: { OPENAI_MODEL_FAST: "gpt-fast" } as NodeJS.ProcessEnv,
+      env: { OPENAI_MODEL_ECONOMIC: "gpt-economic" } as NodeJS.ProcessEnv,
       fetcher: (async (url: string | URL | Request, init?: RequestInit) => {
         calls.push({ url: String(url), init: init ?? {} });
         return new Response(JSON.stringify(structuredReply("Listo", [], { input_tokens: 1, output_tokens: 2 })));
@@ -99,8 +97,8 @@ describe("Labs OpenAI reply generator", () => {
     };
     const generator = createOpenAiReplyGenerator({
       apiKey: "sk-test",
-      profileId: "fast",
-      env: { OPENAI_MODEL_FAST: "gpt-fast" } as NodeJS.ProcessEnv,
+      profileId: "economic",
+      env: { OPENAI_MODEL_ECONOMIC: "gpt-economic" } as NodeJS.ProcessEnv,
       fetcher,
     });
 
@@ -115,8 +113,8 @@ describe("Labs OpenAI reply generator", () => {
       inputTokens: 12,
       outputTokens: 7,
       provider: "openai",
-      model: "gpt-fast",
-      profile: "fast",
+      model: "gpt-economic",
+      profile: "economic",
     });
     expect(calls[0]?.url).toBe("https://api.openai.com/v1/responses");
     expect(calls[0]?.init.headers).toMatchObject({
@@ -124,7 +122,7 @@ describe("Labs OpenAI reply generator", () => {
       "Content-Type": "application/json",
     });
     expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
-      model: "gpt-fast",
+      model: "gpt-economic",
       input: "Hola",
       text: {
         format: {
@@ -458,7 +456,7 @@ describe("Labs OpenAI reply generator", () => {
   it("fails before calling OpenAI when the API key is missing", async () => {
     let called = false;
     const generator = createOpenAiReplyGenerator({
-      env: { OPENAI_MODEL_PROFILE: "fast" } as NodeJS.ProcessEnv,
+      env: { OPENAI_MODEL_PROFILE: "economic" } as NodeJS.ProcessEnv,
       fetcher: (async () => {
         called = true;
         return new Response("{}");

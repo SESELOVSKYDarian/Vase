@@ -17,13 +17,8 @@ const planBudgetsUsd = {
 
 const modelPricingDefaults = {
   "gpt-5-mini": { inputUsdPerMillion: 0.25, outputUsdPerMillion: 2 },
-  "gpt-4o": { inputUsdPerMillion: 2.5, outputUsdPerMillion: 10 },
   "gpt-4.1": { inputUsdPerMillion: 2, outputUsdPerMillion: 8 },
   "gpt-5.6-sol": { inputUsdPerMillion: 2.5, outputUsdPerMillion: 15 },
-  "gpt-5.6-terra": { inputUsdPerMillion: 1.25, outputUsdPerMillion: 7.5 },
-  "gpt-5.6-luna": { inputUsdPerMillion: 0.5, outputUsdPerMillion: 3 },
-  "gpt-5.4-mini": { inputUsdPerMillion: 0.375, outputUsdPerMillion: 2.25 },
-  "gpt-5.4": { inputUsdPerMillion: 1.25, outputUsdPerMillion: 7.5 },
 } as const satisfies Record<string, AiModelPricing>;
 
 export function usdToMicros(value: number): number {

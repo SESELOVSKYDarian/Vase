@@ -36,7 +36,7 @@ describe("channel AI reply runner", () => {
               outputTokens: 5,
               provider: "openai",
               model: input.model,
-              profile: "everyday",
+              profile: "professional",
             };
           },
         };
@@ -84,9 +84,9 @@ describe("channel AI reply runner", () => {
       inputTokens: 10,
       outputTokens: 5,
       messageId: "ai_message_123",
-      source: "openai:gpt-selected:everyday",
+      source: "openai:gpt-selected:professional",
       model: "gpt-selected",
-      profile: "everyday",
+      profile: "professional",
     }));
     expect(sendReply).toHaveBeenCalledWith({
       globalTenantId: "tenant_123",
@@ -111,7 +111,7 @@ describe("channel AI reply runner", () => {
       createReplyGenerator(input) {
         generatorInputs.push(input);
         return {
-          generateReply: async () => ({ text: "Respuesta", inputTokens: 1, outputTokens: 1, provider: "openai", model: input.model, profile: "everyday" }),
+          generateReply: async () => ({ text: "Respuesta", inputTokens: 1, outputTokens: 1, provider: "openai", model: input.model, profile: "professional" }),
         };
       },
       persistAssistantReply: vi.fn(async () => ({ messageId: "ai_message_123" })),

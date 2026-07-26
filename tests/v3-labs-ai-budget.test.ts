@@ -46,7 +46,7 @@ describe("Vase Labs AI budget planning", () => {
       outputUsdPerMillion: 2,
     });
     expect(premiumCost).toBeGreaterThan(fastCost);
-    expect(parseModelFromUsageSource("openai:gpt-5-mini:fast")).toBe("gpt-5-mini");
+    expect(parseModelFromUsageSource("openai:gpt-5-mini:economic")).toBe("gpt-5-mini");
   });
 
   it("pauses AI when the dollar budget is exhausted but keeps human handoff available", () => {

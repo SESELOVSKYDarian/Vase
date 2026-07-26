@@ -157,14 +157,14 @@ describe("conversation insight generator", () => {
     expect(body.input).toContain("\\u003c/conversation_transcript>");
   });
 
-  it("uses the analysis model env override, then the existing fast profile fallback", async () => {
+  it("uses the analysis model env override, then the economic profile fallback", async () => {
     const models: string[] = [];
     const env = {
       OPENAI_API_KEY: "global-key",
       OPENAI_CONVERSATION_ANALYSIS_MODEL: "gpt-analysis-env",
-      OPENAI_MODEL_FAST: "gpt-fast-env",
-      OPENAI_MODEL_PROFILE: "premium",
-      OPENAI_MODEL_PREMIUM: "gpt-premium-reply",
+      OPENAI_MODEL_ECONOMIC: "gpt-economic-env",
+      OPENAI_MODEL_PROFILE: "enterprise",
+      OPENAI_MODEL_ENTERPRISE: "gpt-enterprise-reply",
     } as NodeJS.ProcessEnv;
     const fetcher = async (_url: string | URL | Request, init?: RequestInit) => {
       models.push(JSON.parse(String(init?.body)).model);
@@ -187,7 +187,7 @@ describe("conversation insight generator", () => {
       } },
     });
 
-    expect(models).toEqual(["gpt-analysis-env", "gpt-fast-env"]);
+    expect(models).toEqual(["gpt-analysis-env", "gpt-economic-env"]);
   });
 
   it("returns validated insight and token usage", async () => {

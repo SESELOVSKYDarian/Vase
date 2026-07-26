@@ -127,7 +127,9 @@ describe("Vase Labs standalone owner experience", () => {
     expect(page).toContain("Canales activos");
     expect(testPanel).toContain('fetch("/api/labs/assistant/test"');
     expect(testPanel).toContain('aria-live="polite"');
-    expect(testPanel).toContain("Probar chatbot");
+    expect(testPanel).not.toContain("Vista previa");
+    expect(testPanel).not.toContain("Probar chatbot");
+    expect(testPanel).not.toContain("Disponible");
     expect(keyCard).toContain("aria-label={showKey");
     expect(keyCard).toContain('autoComplete="new-password"');
     expect(styles).toContain(".labs-knowledge-workspace");

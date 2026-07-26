@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Loader2, Send, Sparkles } from "lucide-react";
+import { Bot, Loader2, Send } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 export function AssistantTestPanel({ configured, hasKnowledge }: { configured: boolean; hasKnowledge: boolean }) {
@@ -43,19 +43,7 @@ export function AssistantTestPanel({ configured, hasKnowledge }: { configured: b
   }
 
   return (
-    <section className="labs-panel labs-assistant-test" aria-labelledby="assistant-test-title">
-      <header>
-        <div>
-          <p className="vase-kicker">Vista previa</p>
-          <h2 id="assistant-test-title">Probar chatbot</h2>
-          <p>Consultá como lo haría un cliente antes de activar el flujo en tus canales.</p>
-        </div>
-        <span className={configured ? "is-ready" : ""}>
-          <Sparkles aria-hidden="true" />
-          {configured ? "Disponible" : "Sin configurar"}
-        </span>
-      </header>
-
+    <section className="labs-panel labs-assistant-test" aria-label="Prueba del asistente">
       <div className="labs-assistant-test-thread" aria-live="polite">
         {!reply && !busy ? (
           <div className="labs-assistant-test-placeholder">

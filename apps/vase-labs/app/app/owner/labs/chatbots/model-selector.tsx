@@ -62,7 +62,7 @@ export function ModelSelector({ profiles, currentModel }: ModelSelectorProps) {
         </span>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-3">
         {profiles.map((profile) => {
           const isSelected = selected === profile.id || (!selected && profile.model === currentModel);
           const isBusy = busy === profile.id;
