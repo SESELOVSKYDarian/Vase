@@ -231,6 +231,49 @@ describe("Labs conversation order orchestrator", () => {
     expect(result.text).toBe("Pedido confirmado. Tu nÃºmero de pedido es V-1042.");
   });
 
+  it("falls back to the quote summary when automatic confirmation fails", async () => {
+    const prepareDraft = vi.fn(async () => ({
+      draft: activeDraft,
+      confirmationPhrase: "CONFIRMAR PEDIDO 4821",
+      quote: {
+        valid: true,
+        currency: "ARS",
+        subtotal: 9614.15,
+        shippingAmount: 0,
+        total: 9614.15,
+        items: [{ name: "BOQUILLA 20 MM", quantity: 1, totalAmount: 9614.15 }],
+      },
+    }));
+    const confirmDraft = vi.fn(async () => {
+      throw new Error("BUSINESS_ORDER_CLIENT_UNAVAILABLE");
+    });
+    const service = createConversationOrderOrchestrator({
+      loadHistory: vi.fn(async () => []),
+      loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
+      findActiveDraft: vi.fn(async () => null),
+      prepareDraft,
+      confirmDraft,
+    });
+
+    const result = await service.prepare({
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
+      action: {
+        type: "PREPARE",
+        items: [{ productId: "product_1004", quantity: 1 }],
+        customer: { name: "Darian", phone: "2234390415" },
+        fulfillment: { type: "PICKUP", branchId: "branch_1" },
+      },
+    });
+
+    expect(confirmDraft).toHaveBeenCalledOnce();
+    expect(result.text).toContain("Resumen del pedido:");
+    expect(result.text).toContain("BOQUILLA 20 MM");
+    expect(result.text).toContain("No pude confirmar automaticamente");
+  });
+
   it("prepares pickup from prompt knowledge when Business has no synchronized branches", async () => {
     const prepareDraft = vi.fn(async () => ({
       draft: activeDraft,

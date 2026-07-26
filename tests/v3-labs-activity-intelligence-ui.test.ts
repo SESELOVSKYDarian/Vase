@@ -280,6 +280,25 @@ describe("Labs Activity commercial intelligence", () => {
     expect(html).not.toContain("provider failure");
   });
 
+  it("shows the active AI reply error in the expanded activity detail", () => {
+    const html = renderToStaticMarkup(React.createElement(ActivityWorkspace, {
+      conversations: [conversation({
+        metadata: {
+          context: {
+            aiReplyError: "BUSINESS_ORDER_CLIENT_UNAVAILABLE",
+            aiReplyFailedAt: "2026-07-23T16:06:00.000Z",
+          },
+        },
+      })],
+      activeIntent: "all",
+      activeSort: "latest",
+    }));
+
+    expect(html).toContain("Respuesta IA con error");
+    expect(html).toContain("Error IA");
+    expect(html).toContain("BUSINESS_ORDER_CLIENT_UNAVAILABLE");
+  });
+
   it("falls back to the legacy Conversation summary, score, and intent", () => {
     const html = renderToStaticMarkup(React.createElement(ActivityWorkspace, {
       conversations: [conversation({

@@ -86,16 +86,20 @@ function readContext(metadata: unknown): Record<string, unknown> {
     : {};
 }
 
+function isActiveAiReplyError(conversation: ActivityConversation, failedAt: number) {
+  const latestOutboundAt = conversation.messages
+    .filter((message) => message.role === "assistant" || message.direction === "OUTBOUND")
+    .reduce((latest, message) => Math.max(latest, message.createdAt.getTime()), 0);
+  return !Number.isFinite(failedAt) || latestOutboundAt <= failedAt;
+}
+
 function resolveAiStatus(conversation: ActivityConversation) {
   const context = readContext(conversation.metadata);
   if (typeof context.aiReplyError === "string" && context.aiReplyError) {
     const failedAt = typeof context.aiReplyFailedAt === "string"
       ? Date.parse(context.aiReplyFailedAt)
       : Number.NaN;
-    const latestOutboundAt = conversation.messages
-      .filter((message) => message.role === "assistant" || message.direction === "OUTBOUND")
-      .reduce((latest, message) => Math.max(latest, message.createdAt.getTime()), 0);
-    if (!Number.isFinite(failedAt) || latestOutboundAt <= failedAt) {
+    if (isActiveAiReplyError(conversation, failedAt)) {
       return "Respuesta IA con error";
     }
   }
@@ -107,6 +111,15 @@ function resolveAiStatus(conversation: ActivityConversation) {
   )
     ? "IA respondió"
     : "Esperando respuesta IA";
+}
+
+function readAiReplyError(conversation: ActivityConversation) {
+  const context = readContext(conversation.metadata);
+  if (typeof context.aiReplyError !== "string" || !context.aiReplyError) return null;
+  const failedAt = typeof context.aiReplyFailedAt === "string"
+    ? Date.parse(context.aiReplyFailedAt)
+    : Number.NaN;
+  return isActiveAiReplyError(conversation, failedAt) ? context.aiReplyError : null;
 }
 
 function resolveIntent(conversation: ActivityConversation) {
@@ -281,6 +294,7 @@ export default function ActivityWorkspace({
               ?? conversation.summary
               ?? conversation.messages[0]?.content
               ?? "Todavía no hay un resumen disponible.";
+            const aiReplyError = readAiReplyError(conversation);
             return (
               <article className="labs-activity-card" key={conversation.id}>
                 <header>
@@ -345,6 +359,7 @@ export default function ActivityWorkspace({
                         empty="La conversación conserva su resumen y clasificación anterior mientras llega un nuevo análisis."
                       />
                     )}
+                    {aiReplyError ? <DetailList title="Error IA" items={[aiReplyError]} /> : null}
                   </div>
                 </details>
               </article>

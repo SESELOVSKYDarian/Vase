@@ -319,16 +319,27 @@ export function createConversationOrderOrchestrator(deps: OrderOrchestratorDepen
         }),
         deps.loadFulfillment(input.globalTenantId).catch(() => null),
       ]);
+      const summary = quoteSummary(prepared.quote, normalizedFulfillment, fulfillment);
       if (prepared.confirmationPhrase) {
-        const confirmed = await deps.confirmDraft({
-          conversationId: input.conversationId,
-          userText: prepared.confirmationPhrase,
-        });
-        if (confirmed.ok) {
-          return { text: confirmedOrderText(confirmed.order) };
+        try {
+          const confirmed = await deps.confirmDraft({
+            conversationId: input.conversationId,
+            userText: prepared.confirmationPhrase,
+          });
+          if (confirmed.ok) {
+            return { text: confirmedOrderText(confirmed.order) };
+          }
+        } catch {
+          return {
+            text: [
+              summary,
+              "",
+              "No pude confirmar automaticamente el pedido en Business. El equipo ya tiene el resumen para revisarlo.",
+            ].join("\n"),
+          };
         }
       }
-      return { text: quoteSummary(prepared.quote, normalizedFulfillment, fulfillment) };
+      return { text: summary };
     },
   };
 }
