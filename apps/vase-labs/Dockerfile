@@ -4,7 +4,11 @@ COPY package.json package-lock.json ./
 COPY tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/vase-labs ./apps/vase-labs
-RUN npm install
+RUN npm config set fetch-retries 5 \
+  && npm config set fetch-retry-mintimeout 20000 \
+  && npm config set fetch-retry-maxtimeout 120000 \
+  && npm config set fetch-timeout 600000 \
+  && npm ci --workspace @vase/labs --include-workspace-root --include=dev --no-audit --no-fund
 RUN npm run prisma:generate --workspace @vase/labs
 RUN npm run build --workspace @vase/labs
 
