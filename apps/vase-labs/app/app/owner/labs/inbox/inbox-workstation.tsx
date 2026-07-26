@@ -472,10 +472,13 @@ export function InboxWorkstation({
 
         <form onSubmit={sendReply} className="labs-inbox-composer">
           <div className="labs-inbox-composer-heading">
-            <label htmlFor="inbox-human-reply">Intervenir humano</label>
-            <span>{activeConversation.channel ?? "Canal"} oficial</span>
+            <label htmlFor="inbox-human-reply">
+              <UserRoundCheck aria-hidden="true" />
+              Respuesta humana
+            </label>
+            <span>{activeConversation.channel ?? "Canal"}</span>
           </div>
-          <div>
+          <div className="labs-inbox-composer-field">
             <textarea
               id="inbox-human-reply"
               value={draft}
@@ -489,7 +492,6 @@ export function InboxWorkstation({
               {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
             </button>
           </div>
-          <small>El mensaje se envia al cliente real y queda auditado en el historial.</small>
           {error ? <p role="alert">{error}</p> : null}
           {notice ? <p className="is-success" aria-live="polite">{notice}</p> : null}
         </form>

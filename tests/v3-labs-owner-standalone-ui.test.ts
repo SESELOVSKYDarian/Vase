@@ -258,7 +258,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}`");
     expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}/reply`");
     expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}/handoff`");
-    expect(workstation).toContain("Intervenir humano");
+    expect(workstation).toContain("Respuesta humana");
     expect(workstation).toContain("Pausar IA");
     expect(workstation).toContain("Reactivar IA");
     expect(workstation).toContain("/reactivate");
@@ -292,11 +292,16 @@ describe("Vase Labs standalone owner experience", () => {
     expect(workstation).toContain("labs-inbox-stat-card");
     expect(workstation).toContain("labs-inbox-thread-card");
     expect(workstation).toContain("labs-inbox-bubble-meta");
+    expect(workstation).toContain("labs-inbox-composer-field");
+    expect(workstation).toContain("Respuesta humana");
     expect(workstation).toContain("Mensaje enviado al cliente por el canal oficial.");
+    expect(workstation).not.toContain("El mensaje se envia al cliente real y queda auditado en el historial.");
     expect(styles).toContain(".labs-inbox-hero");
     expect(styles).toContain(".labs-inbox-stat-card");
     expect(styles).toContain(".labs-inbox-thread-card");
     expect(styles).toContain(".labs-inbox-bubble-meta");
+    expect(styles).toContain(".labs-inbox-composer-field");
+    expect(styles).not.toContain(".labs-inbox-composer > div");
     expect(styles).toContain("backdrop-filter: blur(26px) saturate(150%)");
   });
 
