@@ -35,6 +35,23 @@ describe("Meta Graph official channel adapter", () => {
     await expect(client.resolveManualAsset({ channelType:"FACEBOOK", accessToken:"page-token", providerAccountId:"page_1", parentId:null })).resolves.toMatchObject({ candidate:{ id:"page_1", kind:"FACEBOOK_PAGE" }, accessToken:"page-token" });
     await expect(client.resolveManualAsset({ channelType:"INSTAGRAM", accessToken:"page-token", providerAccountId:"ig_1", parentId:"page_1" })).resolves.toMatchObject({ candidate:{ id:"ig_1", kind:"INSTAGRAM_ACCOUNT", parentId:"page_1" }, parentId:"page_1", accessToken:"page-token" });
   });
+
+  it("validates an Instagram Login token directly against the Instagram graph", async () => {
+    const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"1540258407754657", appSecret:"secret", fetcher: async (url) => {
+      expect(String(url)).toBe("https://graph.instagram.com/v99.0/me?fields=user_id,username,name");
+      return Response.json({ user_id:"17841428932871922", username:"elteflonsanitarios", name:"El Teflon" });
+    }});
+
+    await expect(client.resolveManualAsset({
+      channelType:"INSTAGRAM",
+      accessToken:"IGAA-token",
+      providerAccountId:"17841428932871922",
+      parentId:"61590260919409",
+    })).resolves.toMatchObject({
+      candidate:{ id:"17841428932871922", kind:"INSTAGRAM_ACCOUNT", handle:"@elteflonsanitarios" },
+      accessToken:"IGAA-token",
+    });
+  });
   it("discovers Facebook Pages and linked Instagram professional accounts", async () => {
     const client = createMetaGraphClient({
       graphVersion: "v99.0",
@@ -137,6 +154,25 @@ describe("Meta Graph official channel adapter", () => {
     await client.verifyAndSubscribe({ channelType:"WHATSAPP", userAccessToken:"token", asset:{ candidate:{ id:"1244514615401381", kind:"WHATSAPP_PHONE", name:"Ventas", parentId:"956541757411319" }, parentId:"956541757411319" } });
     const subscription = calls.find((url) => url.includes("/956541757411319/subscribed_apps"));
     expect(subscription).toBe("https://graph.facebook.com/v99.0/956541757411319/subscribed_apps");
+  });
+
+  it("subscribes Instagram Login accounts through graph.instagram.com messages only", async () => {
+    const calls: Array<{ url: string; method: string }> = [];
+    const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"1540258407754657", appSecret:"secret", fetcher: async (url, init) => {
+      calls.push({ url:String(url), method:init?.method ?? "GET" });
+      expect(init?.method).toBe("POST");
+      return Response.json({ success:true });
+    }});
+    await client.verifyAndSubscribe({
+      channelType:"INSTAGRAM",
+      userAccessToken:"IGAA-token",
+      asset:{ candidate:{ id:"17841428932871922", kind:"INSTAGRAM_ACCOUNT", name:"El Teflon", handle:"@elteflonsanitarios" }, accessToken:"IGAA-token" },
+    });
+
+    expect(calls).toEqual([{
+      url:"https://graph.instagram.com/v99.0/17841428932871922/subscribed_apps?subscribed_fields=messages",
+      method:"POST",
+    }]);
   });
 
   it("maps Meta subscribed_apps failures to a subscription assignment error", async () => {

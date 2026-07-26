@@ -5,13 +5,13 @@ type GraphPayload = Record<string, unknown>;
 
 const REQUIRED_SCOPES: Record<LabsChannel, string[]> = {
   WHATSAPP: ["whatsapp_business_management", "whatsapp_business_messaging"],
-  INSTAGRAM: ["instagram_manage_messages", "pages_manage_metadata"],
+  INSTAGRAM: ["instagram_business_basic", "instagram_business_manage_messages"],
   FACEBOOK: ["pages_messaging", "pages_manage_metadata"],
 };
 
 const SUBSCRIBED_FIELDS: Record<LabsChannel, string[]> = {
   WHATSAPP: ["messages"],
-  INSTAGRAM: ["messages", "messaging_postbacks", "messaging_seen", "message_reactions"],
+  INSTAGRAM: ["messages"],
   FACEBOOK: ["messages", "messaging_postbacks", "message_deliveries", "message_reads"],
 };
 
@@ -37,6 +37,7 @@ export function createMetaGraphClient(input: {
 }) {
   const fetcher = input.fetcher ?? fetch;
   const graphBase = `https://graph.facebook.com/${input.graphVersion}`;
+  const instagramGraphBase = `https://graph.instagram.com/${input.graphVersion}`;
 
   async function graphRequest(
     path: string,
@@ -45,6 +46,35 @@ export function createMetaGraphClient(input: {
     fallbackError = "META_GRAPH_REQUEST_FAILED",
   ): Promise<GraphPayload> {
     const response = await fetcher(`${graphBase}${path}`, {
+      ...init,
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${accessToken}`,
+        ...(init?.headers ?? {}),
+      },
+    });
+    const payload = asRecord(await response.json().catch(() => ({})));
+    if (!response.ok || payload.error) {
+      const providerError = asRecord(payload.error);
+      if (providerError.code === 190) throw new Error("META_TOKEN_INVALID");
+      if (fallbackError === "META_SUBSCRIPTION_FAILED") throw new Error(fallbackError);
+      if (providerError.code === 10 || providerError.code === 200) throw new Error("META_PERMISSIONS_MISSING");
+      throw new Error(fallbackError);
+    }
+    return payload;
+  }
+
+  function isInstagramLoginToken(accessToken: string) {
+    return accessToken.trim().startsWith("IG");
+  }
+
+  async function instagramGraphRequest(
+    path: string,
+    accessToken: string,
+    init?: RequestInit,
+    fallbackError = "META_GRAPH_REQUEST_FAILED",
+  ): Promise<GraphPayload> {
+    const response = await fetcher(`${instagramGraphBase}${path}`, {
       ...init,
       headers: {
         accept: "application/json",
@@ -204,6 +234,27 @@ export function createMetaGraphClient(input: {
         };
       }
 
+      if (params.channelType === "INSTAGRAM" && isInstagramLoginToken(params.accessToken)) {
+        const profile = await instagramGraphRequest(
+          "/me?fields=user_id,username,name",
+          params.accessToken,
+          undefined,
+          "META_ASSET_NOT_AUTHORIZED",
+        );
+        const instagramId = stringValue(profile.user_id ?? profile.id);
+        if (instagramId && instagramId !== params.providerAccountId) throw new Error("META_ASSET_NOT_AUTHORIZED");
+        const username = stringValue(profile.username);
+        return {
+          candidate: {
+            id: params.providerAccountId,
+            kind: "INSTAGRAM_ACCOUNT",
+            name: stringValue(profile.name) ?? username ?? "Instagram",
+            ...(username ? { handle: `@${username}` } : {}),
+          },
+          accessToken: params.accessToken,
+        };
+      }
+
       const pageId = params.channelType === "FACEBOOK" ? params.providerAccountId : params.parentId;
       if (!pageId) throw new Error("META_ASSET_PARENT_MISSING");
       const page = await graphRequest(
@@ -251,7 +302,10 @@ export function createMetaGraphClient(input: {
       userAccessToken: string;
     }) {
       const accessToken = params.asset.accessToken ?? params.userAccessToken;
-      await debugToken(accessToken, params.channelType);
+      const usesInstagramLogin = params.channelType === "INSTAGRAM" && isInstagramLoginToken(accessToken);
+      if (!usesInstagramLogin) {
+        await debugToken(accessToken, params.channelType);
+      }
 
       const subscriptionTarget =
         params.channelType === "WHATSAPP"
@@ -265,12 +319,21 @@ export function createMetaGraphClient(input: {
       const subscriptionPath = params.channelType === "WHATSAPP"
         ? `/${encodeURIComponent(subscriptionTarget)}/subscribed_apps`
         : `/${encodeURIComponent(subscriptionTarget)}/subscribed_apps?subscribed_fields=${encodeURIComponent(fields)}`;
-      await graphRequest(
-        subscriptionPath,
-        accessToken,
-        { method: "POST" },
-        "META_SUBSCRIPTION_FAILED",
-      );
+      if (usesInstagramLogin) {
+        await instagramGraphRequest(
+          subscriptionPath,
+          accessToken,
+          { method: "POST" },
+          "META_SUBSCRIPTION_FAILED",
+        );
+      } else {
+        await graphRequest(
+          subscriptionPath,
+          accessToken,
+          { method: "POST" },
+          "META_SUBSCRIPTION_FAILED",
+        );
+      }
 
       return {
         providerAccountId: params.asset.candidate.id,
