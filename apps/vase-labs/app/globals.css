@@ -1776,7 +1776,8 @@ a:focus-visible {
 .labs-channel-picker strong { display:block; color:var(--foreground); font-size:.92rem; }
 .labs-channel-picker small { display:block; margin-top:.18rem; color:var(--muted); font-size:.76rem; }
 .labs-channel-picker em { color:var(--muted); font-size:.72rem; font-style:normal; font-weight:700; }
-.labs-picker-mark { display:grid; width:2.5rem; height:2.5rem; place-items:center; border-radius:.75rem; background:var(--accent-strong); color:var(--accent-contrast); font-size:.72rem; font-weight:850; text-transform:lowercase; }
+.labs-picker-mark { display:grid; width:2.5rem; height:2.5rem; place-items:center; border:1px solid var(--border-subtle); border-radius:.75rem; background:var(--surface-strong); color:var(--accent-strong); font-size:.72rem; font-weight:850; text-transform:lowercase; }
+.labs-picker-mark img { width:1.45rem; height:1.45rem; object-fit:contain; }
 .labs-connect-modal > footer { display:flex; justify-content:space-between; gap:1rem; padding:1.15rem 1.75rem; border-top:1px solid var(--border-subtle); background:var(--surface); }
 .labs-form-error { margin:0 1.75rem 1rem; color:#9c3838; font-size:.82rem; font-weight:700; }
 .labs-form-success { margin:0 1.75rem 1rem; color:var(--accent-strong); font-size:.84rem; font-weight:750; }
@@ -1897,12 +1898,19 @@ a:focus-visible {
   width: 2.8rem;
   height: 2.8rem;
   place-items: center;
+  border: 1px solid var(--border-subtle);
   border-radius: 0.9rem;
-  background: var(--foreground);
-  color: var(--background);
+  background: var(--surface-strong);
+  color: var(--accent-strong);
   font-size: 0.8rem;
   font-weight: 900;
   text-transform: uppercase;
+}
+
+.labs-channel-tag img {
+  width: 1.55rem;
+  height: 1.55rem;
+  object-fit: contain;
 }
 
 

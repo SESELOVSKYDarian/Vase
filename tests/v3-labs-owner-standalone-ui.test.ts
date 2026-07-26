@@ -13,6 +13,7 @@ describe("Vase Labs standalone owner experience", () => {
   it("renders only real channel records and uses the hybrid Meta connection flow", () => {
     const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/page.tsx"), "utf8");
     const modal = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-connect-modal.tsx"), "utf8");
+    const icons = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-icons.ts"), "utf8");
 
     expect(page).toContain("data.channels.length === 0 ? (");
     const emptyBranch = page.split("data.channels.length === 0 ? (")[1]?.split(") : (")[0] ?? "";
@@ -28,6 +29,14 @@ describe("Vase Labs standalone owner experience", () => {
     expect(page).not.toContain("labs-channel-endpoints");
     expect(page).toContain("channel.accountLabel ?? channel.externalHandle ?? \"Cuenta sin nombre\"");
     expect(page).toContain("channel.lastError");
+    expect(page).toContain("channelIconSrc[channel.type]");
+    expect(modal).toContain("channelIconSrc[type]");
+    expect(icons).toContain('WHATSAPP: "/icons/channels/whatsapp.svg"');
+    expect(icons).toContain('INSTAGRAM: "/icons/channels/instagram.svg"');
+    expect(icons).toContain('FACEBOOK: "/icons/channels/facebook.svg"');
+    for (const icon of ["whatsapp.svg", "instagram.svg", "facebook.svg"]) {
+      expect(fs.existsSync(path.resolve("apps/vase-labs/public/icons/channels", icon))).toBe(true);
+    }
 
     for (const label of ["WhatsApp", "Instagram", "Facebook", "Webhook URL", "Webhook Key", "Comprobar conexión"]) {
       expect(modal).toContain(label);

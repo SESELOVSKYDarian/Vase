@@ -2,8 +2,10 @@
 
 import type { LabsChannel } from "@vase/contracts";
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, Copy, Eye, LockKeyhole, Plus, X } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { channelIconSrc } from "./channel-icons";
 import { buildChannelSetupRequest, buildChannelVerifyRequest, createChannelUiFlow } from "./channel-ui-flow";
 
 type Capacity = Record<LabsChannel, { limit: number; used: number; remaining: number }>;
@@ -206,7 +208,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
         {step === 1 ? <div className="labs-channel-picker">{(Object.keys(channelMeta) as LabsChannel[]).map((type) => {
           const item = capacity[type], available = item.remaining > 0;
           return <button key={type} type="button" disabled={!available} onClick={() => setSelected(type)} className={selected === type ? "is-selected" : ""}>
-            <span className="labs-picker-mark">{available ? selected === type ? <Check className="size-4" /> : channelMeta[type].label.slice(0, 2) : <LockKeyhole className="size-4" />}</span>
+            <span className="labs-picker-mark">{available ? selected === type ? <Check className="size-4" /> : <Image src={channelIconSrc[type]} alt="" width={24} height={24} aria-hidden="true" /> : <LockKeyhole className="size-4" />}</span>
             <span><strong>{channelMeta[type].label}</strong><small>{channelMeta[type].detail}</small></span><em>{item.used} de {item.limit} usados</em>
           </button>;
         })}</div> : <div className="labs-manual-setup">

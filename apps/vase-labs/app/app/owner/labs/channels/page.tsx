@@ -1,5 +1,6 @@
 import type { LabsChannel } from "@vase/contracts";
 import { CircleAlert } from "lucide-react";
+import Image from "next/image";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getManualChannelCapacity } from "../../../../lib/channel-capacity";
@@ -9,6 +10,7 @@ import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import { LabsPageHeader, LabsStatusPill } from "../labs-ui";
 import { ChannelConnectModal } from "./channel-connect-modal";
 import { ChannelEditModal } from "./channel-edit-modal";
+import { channelIconSrc } from "./channel-icons";
 import { MetaOAuthResume } from "./meta-oauth-resume";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +66,9 @@ export default async function LabsChannelsPage({ searchParams }: { searchParams:
         <div className="labs-page-heading-row labs-channels-actions"><span /><ChannelConnectModal capacity={capacity} /></div>
         <section className="labs-connections-list" aria-label="Canales conectados">
           {data.channels.map((channel) => <article key={channel.id} className="labs-channel-record">
-            <span className="labs-channel-tag">{channel.type.slice(0, 2)}</span>
+            <span className="labs-channel-tag">
+              <Image src={channelIconSrc[channel.type]} alt="" width={24} height={24} aria-hidden="true" />
+            </span>
             <div className="labs-channel-record-body">
               <div><strong>{channel.accountLabel ?? channel.externalHandle ?? "Cuenta sin nombre"}</strong><p>{channelNames[channel.type]} · {formatDate(channel.lastSyncedAt ?? channel.connectedAt)}</p></div>
               <dl className="labs-channel-record-facts"><div><dt>Estado</dt><dd>{channel.status}</dd></div><div><dt>Credencial</dt><dd>{channel.secretStatus}</dd></div></dl>
