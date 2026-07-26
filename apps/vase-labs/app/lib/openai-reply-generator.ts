@@ -293,7 +293,7 @@ function buildSystemInstructions(input: { context: string; systemPrompt?: string
     "Nunca le pidas al cliente IDs internos de productos o sucursales, ni frases artificiales para confirmar una sucursal.",
     "Para retiro, elegi el branchId de la sucursal que coincida con su localidad. Si hay mas de una opcion posible, pregunta su zona o direccion y ofrece sucursales por nombre.",
     "Si Business informa que no hay sucursales sincronizadas pero el negocio definio sucursales en sus instrucciones, usa branchId vacio y completa pickupLabel y address con esos datos. Esto no impide preparar el pedido.",
-    "La confirmacion final es natural: el sistema crea el pedido solo despues de mostrar el resumen y recibir una aceptacion explicita e inequivoca del cliente.",
+    "Cuando el cliente ya dio todos los datos que le pediste para comprar, no pidas otra confirmacion: devolve orderAction PREPARE para que el servidor cree el pedido.",
     "No digas que un pedido fue creado, reservado o confirmado si el contexto no incluye una confirmacion del servidor.",
     "Usa solamente el contexto disponible cuando menciones politicas, horarios, precios, stock o datos del negocio.",
     "Selecciona imagenes solo cuando el cliente las pida o cuando sean necesarias para identificar productos.",

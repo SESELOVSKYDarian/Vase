@@ -47,7 +47,7 @@ type OrderOrchestratorDependencies = {
       };
       notes?: string | null;
     };
-  }): Promise<{ quote: unknown }>;
+  }): Promise<{ quote: unknown; confirmationPhrase?: string | null }>;
   confirmDraft(input: {
     conversationId: string;
     userText: string;
@@ -211,6 +211,13 @@ function readOrderNumber(value: unknown) {
   return typeof source?.order?.orderNumber === "string" ? source.order.orderNumber : null;
 }
 
+function confirmedOrderText(order: unknown) {
+  const orderNumber = readOrderNumber(order);
+  return orderNumber
+    ? `Pedido confirmado. Tu nÃºmero de pedido es ${orderNumber}.`
+    : "Pedido confirmado correctamente.";
+}
+
 export function createConversationOrderOrchestrator(deps: OrderOrchestratorDependencies) {
   return {
     async buildContext(input: { conversationId: string; globalTenantId: string }) {
@@ -312,6 +319,15 @@ export function createConversationOrderOrchestrator(deps: OrderOrchestratorDepen
         }),
         deps.loadFulfillment(input.globalTenantId).catch(() => null),
       ]);
+      if (prepared.confirmationPhrase) {
+        const confirmed = await deps.confirmDraft({
+          conversationId: input.conversationId,
+          userText: prepared.confirmationPhrase,
+        });
+        if (confirmed.ok) {
+          return { text: confirmedOrderText(confirmed.order) };
+        }
+      }
       return { text: quoteSummary(prepared.quote, normalizedFulfillment, fulfillment) };
     },
   };

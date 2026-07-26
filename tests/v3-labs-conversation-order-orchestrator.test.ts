@@ -119,7 +119,7 @@ describe("Labs conversation order orchestrator", () => {
     })).resolves.toContain("Sucursales sincronizadas desde Business: temporalmente no disponibles.");
   });
 
-  it("prepares a Business quote and returns a server-authored confirmation summary", async () => {
+  it("creates a Business order directly when the customer already provided all requested data", async () => {
     const prepareDraft = vi.fn(async () => ({
       draft: activeDraft,
       quote: {
@@ -139,6 +139,10 @@ describe("Labs conversation order orchestrator", () => {
       },
       expiresAt: new Date("2026-07-24T16:00:00.000Z"),
     }));
+    const confirmDraft = vi.fn(async () => ({
+      ok: true as const,
+      order: { order: { id: "order_1", orderNumber: "V-1042" } },
+    }));
     const service = createConversationOrderOrchestrator({
       loadHistory: vi.fn(async () => []),
       loadFulfillment: vi.fn(async () => ({
@@ -152,7 +156,7 @@ describe("Labs conversation order orchestrator", () => {
       })),
       findActiveDraft: vi.fn(async () => null),
       prepareDraft,
-      confirmDraft: vi.fn(),
+      confirmDraft,
     });
 
     const result = await service.prepare({
@@ -180,6 +184,51 @@ describe("Labs conversation order orchestrator", () => {
     expect(result.text).toContain("6657 Avenida Pedro Luro, Mar del Plata");
     expect(result.text).toContain("¿Confirmás el pedido?");
     expect(result.text).not.toContain("CONFIRMAR PEDIDO");
+  });
+
+  it("auto-confirms a prepared order when the customer already provided all requested data", async () => {
+    const prepareDraft = vi.fn(async () => ({
+      draft: activeDraft,
+      confirmationPhrase: "CONFIRMAR PEDIDO 4821",
+      quote: {
+        valid: true,
+        currency: "ARS",
+        subtotal: 9614.15,
+        shippingAmount: 0,
+        total: 9614.15,
+        items: [{ name: "BOQUILLA 20 MM", quantity: 1, totalAmount: 9614.15 }],
+      },
+    }));
+    const confirmDraft = vi.fn(async () => ({
+      ok: true as const,
+      order: { order: { id: "order_1", orderNumber: "V-1042" } },
+    }));
+    const service = createConversationOrderOrchestrator({
+      loadHistory: vi.fn(async () => []),
+      loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
+      findActiveDraft: vi.fn(async () => null),
+      prepareDraft,
+      confirmDraft,
+    });
+
+    const result = await service.prepare({
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
+      action: {
+        type: "PREPARE",
+        items: [{ productId: "product_1004", quantity: 1 }],
+        customer: { name: "Darian", phone: "2234390415" },
+        fulfillment: { type: "PICKUP", branchId: "branch_1" },
+      },
+    });
+
+    expect(confirmDraft).toHaveBeenCalledWith({
+      conversationId: "conversation_1",
+      userText: "CONFIRMAR PEDIDO 4821",
+    });
+    expect(result.text).toBe("Pedido confirmado. Tu nÃºmero de pedido es V-1042.");
   });
 
   it("prepares pickup from prompt knowledge when Business has no synchronized branches", async () => {

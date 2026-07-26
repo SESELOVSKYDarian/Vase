@@ -247,7 +247,8 @@ describe("Labs OpenAI reply generator", () => {
     expect(instructions).toContain("solo cuando el cliente las pida");
     expect(instructions).toContain("exclusivamente URLs del catalogo");
     expect(instructions).toContain("orienta la conversacion hacia un pedido");
-    expect(instructions).toContain("aceptacion explicita e inequivoca");
+    expect(instructions).toContain("no pidas otra confirmacion");
+    expect(instructions).toContain("servidor cree el pedido");
     expect(instructions).toContain("Nunca le pidas al cliente IDs internos");
     expect(instructions).toContain("sucursal que coincida con su localidad");
     expect(instructions).toContain("branchId vacio");
