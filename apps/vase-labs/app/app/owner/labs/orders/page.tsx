@@ -38,10 +38,10 @@ export default async function LabsOrdersPage() {
       <LabsPageHeader
         eyebrow="Pedidos"
         title="Pedidos de clientes"
-        description="Pedidos creados por la IA o sincronizados desde Business, diferenciados por canal."
+        description="Pedidos creados por la IA en Labs o sincronizados desde Business, diferenciados por canal."
       />
       <section className="grid gap-3 md:grid-cols-3">
-        <LabsMetricCard label="Pedidos sincronizados" value={data.orders.length} icon={ShoppingBag} tone="info" />
+        <LabsMetricCard label="Pedidos en Labs" value={data.orders.length} icon={ShoppingBag} tone="info" />
         <LabsMetricCard label="Confirmados" value={data.confirmed} icon={Send} tone="success" />
         <LabsMetricCard label="Monto visible" value={new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(total)} icon={CreditCard} tone="neutral" />
       </section>

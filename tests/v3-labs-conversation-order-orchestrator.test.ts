@@ -231,6 +231,53 @@ describe("Labs conversation order orchestrator", () => {
     expect(result.text).toBe("Pedido confirmado. Tu nÃºmero de pedido es V-1042.");
   });
 
+  it("creates a local Labs order without calling Business when local ordering is enabled", async () => {
+    const prepareDraft = vi.fn();
+    const confirmDraft = vi.fn();
+    const createLocalOrder = vi.fn(async () => ({ processed: true }));
+    const service = createConversationOrderOrchestrator({
+      loadHistory: vi.fn(async () => []),
+      loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
+      findActiveDraft: vi.fn(async () => null),
+      createLocalOrder,
+      prepareDraft,
+      confirmDraft,
+    });
+
+    const result = await service.prepare({
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
+      action: {
+        type: "PREPARE",
+        items: [{ productId: "1005", quantity: 1 }],
+        customer: { name: "Alexis", phone: "2236334301" },
+        fulfillment: { type: "PICKUP", pickupLabel: "El TeflÃ³n Central" },
+      },
+    });
+
+    expect(prepareDraft).not.toHaveBeenCalled();
+    expect(confirmDraft).not.toHaveBeenCalled();
+    expect(createLocalOrder).toHaveBeenCalledWith(expect.objectContaining({
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
+      order: expect.objectContaining({
+        id: "labs-local:conversation_1",
+        orderNumber: "LABS-ATION1",
+        status: "PENDING_REVIEW",
+        channel: "WHATSAPP",
+        customerName: "Alexis",
+        customerPhone: "2236334301",
+        items: [{ productId: "1005", name: "1005", quantity: 1 }],
+      }),
+    }));
+    expect(result.text).toContain("Pedido armado en Labs");
+    expect(result.text).toContain("LABS-ATION1");
+  });
+
   it("falls back to the quote summary when automatic confirmation fails", async () => {
     const prepareDraft = vi.fn(async () => ({
       draft: activeDraft,

@@ -274,6 +274,14 @@ export function createPrismaChannelAiReplyRunner(input: {
     findActiveDraft(conversationId) {
       return prismaConversationOrderDraftRepository.findActiveDraft(conversationId);
     },
+    createLocalOrder(orderInput) {
+      return upsertBusinessOrderProjection({
+        globalTenantId: orderInput.globalTenantId,
+        assistantId: orderInput.assistantId,
+        conversationId: orderInput.conversationId,
+        order: orderInput.order,
+      });
+    },
     prepareDraft(orderInput) {
       return prepareConversationOrderDraft(orderInput, {
         business: businessOrders,

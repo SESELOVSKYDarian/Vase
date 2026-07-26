@@ -26,8 +26,8 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
     return (
       <div className="grid min-h-64 place-items-center rounded-lg border border-dashed border-[var(--border-subtle)] bg-[var(--surface)] p-8 text-center">
         <div>
-          <p className="text-lg font-semibold text-[var(--foreground)]">Todavia no hay pedidos sincronizados</p>
-          <p className="mt-2 text-sm text-[var(--muted)]">Cuando Business confirme pedidos desde WhatsApp, Instagram o Messenger van a aparecer aca.</p>
+          <p className="text-lg font-semibold text-[var(--foreground)]">Todavia no hay pedidos en Labs</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">Cuando la IA arme pedidos desde WhatsApp, Instagram o Messenger van a aparecer aca.</p>
         </div>
       </div>
     );

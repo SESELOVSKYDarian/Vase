@@ -31,6 +31,13 @@ type OrderOrchestratorDependencies = {
   loadHistory(conversationId: string): Promise<ConversationMessage[]>;
   loadFulfillment(globalTenantId: string): Promise<unknown>;
   findActiveDraft(conversationId: string): Promise<ActiveOrderDraft | null>;
+  createLocalOrder?(input: {
+    assistantId: string;
+    conversationId: string;
+    globalTenantId: string;
+    channel: LabsChannel;
+    order: Record<string, unknown>;
+  }): Promise<unknown>;
   prepareDraft(input: {
     assistantId: string;
     conversationId: string;
@@ -247,6 +254,58 @@ function orderFallbackText(input: {
   ].filter((line): line is string => typeof line === "string").join("\n");
 }
 
+function mapLocalOrderChannel(channel: LabsChannel) {
+  if (channel === "FACEBOOK") return "MESSENGER";
+  return channel;
+}
+
+function buildLocalOrderNumber(conversationId: string) {
+  return `LABS-${conversationId.replace(/[^a-z0-9]/gi, "").slice(-6).toUpperCase() || "LOCAL"}`;
+}
+
+function buildLocalOrderSnapshot(input: {
+  conversationId: string;
+  channel: LabsChannel;
+  action: Extract<AiOrderAction, { type: "PREPARE" }>;
+  fulfillment: {
+    type: "DELIVERY" | "PICKUP";
+    branchId?: string | null;
+    pickupLabel?: string | null;
+    address?: string | null;
+  };
+}) {
+  const now = new Date();
+  return {
+    id: `labs-local:${input.conversationId}`,
+    orderNumber: buildLocalOrderNumber(input.conversationId),
+    status: "PENDING_REVIEW",
+    channel: mapLocalOrderChannel(input.channel),
+    currency: "ARS",
+    subtotalAmount: 0,
+    shippingAmount: 0,
+    totalAmount: 0,
+    customerName: input.action.customer.name,
+    customerPhone: input.action.customer.phone,
+    customerEmail: input.action.customer.email ?? null,
+    items: input.action.items.map((item) => ({
+      productId: item.productId,
+      name: item.productId,
+      quantity: item.quantity,
+    })),
+    fulfillment: input.fulfillment,
+    source: "vase-labs-local",
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+}
+
+function localOrderText(order: unknown) {
+  const orderNumber = readOrderNumber({ order });
+  return orderNumber
+    ? `Pedido armado en Labs. NÃºmero interno: ${orderNumber}. Queda pendiente de revisiÃ³n del equipo.`
+    : "Pedido armado en Labs. Queda pendiente de revisiÃ³n del equipo.";
+}
+
 export function createConversationOrderOrchestrator(deps: OrderOrchestratorDependencies) {
   return {
     async buildContext(input: { conversationId: string; globalTenantId: string }) {
@@ -333,6 +392,22 @@ export function createConversationOrderOrchestrator(deps: OrderOrchestratorDepen
         pickupLabel: input.action.fulfillment.pickupLabel || null,
         address: input.action.fulfillment.address || null,
       };
+      if (deps.createLocalOrder) {
+        const order = buildLocalOrderSnapshot({
+          conversationId: input.conversationId,
+          channel: input.channel,
+          action: input.action,
+          fulfillment: normalizedFulfillment,
+        });
+        await deps.createLocalOrder({
+          assistantId: input.assistantId,
+          conversationId: input.conversationId,
+          globalTenantId: input.globalTenantId,
+          channel: input.channel,
+          order,
+        });
+        return { text: localOrderText(order) };
+      }
       const fulfillmentPromise = deps.loadFulfillment(input.globalTenantId).catch(() => null);
       const prepared = await deps.prepareDraft({
         assistantId: input.assistantId,
