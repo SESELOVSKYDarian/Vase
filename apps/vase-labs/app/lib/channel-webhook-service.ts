@@ -43,6 +43,11 @@ export interface ChannelWebhookRepository {
   findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
   findManualSubscriptionContext?(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
   markWebhookVerified?(context: ChannelWebhookContext): Promise<void>;
+  markWebhookAttempt?(input: {
+    context: ChannelWebhookContext;
+    status: "RECEIVED" | "IGNORED" | "PROCESSED" | "FAILED";
+    reason?: string | null;
+  }): Promise<void>;
   findContextByProviderAccountId?(
     channelType: LabsChannel,
     providerAccountId: string,
@@ -480,6 +485,28 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     });
   }
 
+  async markWebhookAttempt(input: {
+    context: ChannelWebhookContext;
+    status: "RECEIVED" | "IGNORED" | "PROCESSED" | "FAILED";
+    reason?: string | null;
+  }): Promise<void> {
+    if (!input.context.channel?.id) return;
+    const reason = input.reason?.trim();
+    const lastError = input.status === "PROCESSED" || input.status === "RECEIVED"
+      ? null
+      : [
+          `webhook_${input.status.toLowerCase()}`,
+          reason ? reason.slice(0, 180) : null,
+        ].filter(Boolean).join(": ");
+    await this.prisma.channel.updateMany({
+      where: { id: input.context.channel.id, assistantId: input.context.assistantId },
+      data: {
+        lastSyncedAt: new Date(),
+        lastError,
+      },
+    });
+  }
+
   async persistInboundMessage(input: PersistChannelInboundMessageInput): Promise<PersistChannelInboundMessageResult> {
     const now = new Date();
     const channelType = input.message.channelType;
@@ -911,6 +938,11 @@ export async function handleMetaChannelWebhook(input: {
   }
 
   if (!canProcessChannelWebhook(context)) {
+    await input.repository.markWebhookAttempt?.({
+      context,
+      status: "IGNORED",
+      reason: "channel_not_connected",
+    });
     return {
       status: 200,
       body: { ok: true, ignored: true, reason: "channel_not_connected" },
@@ -921,6 +953,11 @@ export async function handleMetaChannelWebhook(input: {
   const appSecret = input.appSecret ?? providerConfig.appSecret;
 
   if (!appSecret || !verifyMetaSignature(appSecret, input.rawBody, input.signatureHeader)) {
+    await input.repository.markWebhookAttempt?.({
+      context,
+      status: "FAILED",
+      reason: "invalid_signature",
+    });
     return {
       status: 401,
       body: { ok: false, reason: "invalid_signature" },
@@ -931,6 +968,11 @@ export async function handleMetaChannelWebhook(input: {
   try {
     payload = JSON.parse(input.rawBody);
   } catch {
+    await input.repository.markWebhookAttempt?.({
+      context,
+      status: "IGNORED",
+      reason: "invalid_json",
+    });
     return {
       status: 200,
       body: { ok: true, ignored: true, reason: "invalid_json" },
@@ -943,6 +985,11 @@ export async function handleMetaChannelWebhook(input: {
   });
 
   if (!message) {
+    await input.repository.markWebhookAttempt?.({
+      context,
+      status: "IGNORED",
+      reason: "message_not_found",
+    });
     return {
       status: 200,
       body: { ok: true, ignored: true },
@@ -957,6 +1004,11 @@ export async function handleMetaChannelWebhook(input: {
   });
 
   if (event?.duplicate) {
+    await input.repository.markWebhookAttempt?.({
+      context,
+      status: "IGNORED",
+      reason: "duplicate",
+    });
     return {
       status: 200,
       body: { ok: true, processed: false, reason: "duplicate" },
@@ -1058,10 +1110,19 @@ export async function handleMetaChannelWebhook(input: {
         // Keep webhook acknowledgement stable after the inbound message is persisted.
       }
     }
+    await input.repository.markWebhookAttempt?.({
+      context,
+      status: "PROCESSED",
+    });
   } catch (error) {
     await input.repository.markWebhookEventFailed?.({
       context,
       providerMessageId: message.externalMessageId,
+      reason: error instanceof Error ? error.message : "PERSIST_FAILED",
+    });
+    await input.repository.markWebhookAttempt?.({
+      context,
+      status: "FAILED",
       reason: error instanceof Error ? error.message : "PERSIST_FAILED",
     });
     throw error;
