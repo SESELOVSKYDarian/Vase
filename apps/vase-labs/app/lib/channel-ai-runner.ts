@@ -17,6 +17,7 @@ import {
   prepareConversationOrderDraft,
   prismaConversationOrderDraftRepository,
 } from "./conversation-order-tools";
+import { upsertBusinessOrderProjection } from "./order-projection";
 
 type RunnerInput = Parameters<RunChannelAiReply>[0];
 
@@ -283,6 +284,7 @@ export function createPrismaChannelAiReplyRunner(input: {
       return confirmConversationOrderDraft(orderInput, {
         business: businessOrders,
         repository: prismaConversationOrderDraftRepository,
+        projectOrder: upsertBusinessOrderProjection,
       });
     },
   });

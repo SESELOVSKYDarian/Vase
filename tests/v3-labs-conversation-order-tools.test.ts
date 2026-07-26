@@ -84,6 +84,7 @@ describe("Labs conversation order tools", () => {
   it("creates the active draft after an explicit natural confirmation", async () => {
     const create = vi.fn(async () => ({ order: { id: "order_1", orderNumber: "V-1042" } }));
     const markConfirmed = vi.fn();
+    const projectOrder = vi.fn(async () => ({ processed: true }));
     const result = await confirmConversationOrderDraft({
       conversationId: "conversation_1",
       userText: "Sí, acepto el pedido",
@@ -96,6 +97,7 @@ describe("Labs conversation order tools", () => {
       repository: {
         findActiveDraft: vi.fn(async () => ({
           id: "draft_1",
+          assistantId: "assistant_1",
           state: "AWAITING_CONFIRMATION",
           conversationId: "conversation_1",
           globalTenantId: "tenant_1",
@@ -119,6 +121,7 @@ describe("Labs conversation order tools", () => {
         markConfirmed,
         markFailed: vi.fn(),
       },
+      projectOrder,
     });
 
     expect(result.ok).toBe(true);
@@ -130,6 +133,12 @@ describe("Labs conversation order tools", () => {
       draftId: "draft_1",
       businessOrderId: "order_1",
       businessOrderNumber: "V-1042",
+    });
+    expect(projectOrder).toHaveBeenCalledWith({
+      globalTenantId: "tenant_1",
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      order: { id: "order_1", orderNumber: "V-1042" },
     });
   });
 });

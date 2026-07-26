@@ -16,6 +16,7 @@ import { mapLabsChannelToOrderChannel } from "./business-order-client";
 
 type StoredDraft = {
   id: string;
+  assistantId?: string | null;
   state: ConversationOrderDraftState;
   conversationId: string;
   globalTenantId: string;
@@ -52,6 +53,12 @@ type BusinessClient = {
 type ToolDeps = {
   business: BusinessClient;
   repository: DraftRepository;
+  projectOrder?(input: {
+    globalTenantId: string;
+    assistantId?: string | null;
+    conversationId?: string | null;
+    order: Record<string, unknown>;
+  }): Promise<unknown>;
   now?: () => Date;
   createCode?: () => string;
   createSalt?: () => string;
@@ -78,6 +85,9 @@ function readBusinessOrder(value: unknown) {
   return {
     id: typeof source?.order?.id === "string" ? source.order.id : null,
     orderNumber: typeof source?.order?.orderNumber === "string" ? source.order.orderNumber : null,
+    snapshot: source?.order && typeof source.order === "object"
+      ? source.order as Record<string, unknown>
+      : null,
   };
 }
 
@@ -176,6 +186,14 @@ export async function confirmConversationOrderDraft(input: {
     notes: buildOrderNotes(draft),
   });
   const order = readBusinessOrder(created);
+  if (order.snapshot) {
+    await deps.projectOrder?.({
+      globalTenantId: draft.globalTenantId,
+      assistantId: draft.assistantId ?? null,
+      conversationId: draft.conversationId,
+      order: order.snapshot,
+    });
+  }
   await deps.repository.markConfirmed({
     draftId: draft.id,
     businessOrderId: order.id,
@@ -225,6 +243,7 @@ function buildOrderNotes(draft: StoredDraft) {
 
 function toStoredDraft(draft: {
   id: string;
+  assistantId?: string | null;
   state: ConversationOrderDraftState;
   conversationId: string;
   globalTenantId: string;
@@ -242,6 +261,7 @@ function toStoredDraft(draft: {
 }): StoredDraft {
   return {
     id: draft.id,
+    assistantId: draft.assistantId ?? null,
     state: draft.state,
     conversationId: draft.conversationId,
     globalTenantId: draft.globalTenantId,
