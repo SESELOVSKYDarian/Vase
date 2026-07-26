@@ -162,6 +162,39 @@ describe("Labs Inbox human replies", () => {
     }));
   });
 
+  it("prefers the Meta thread identifier over a formatted customer contact", async () => {
+    const sendReply = vi.fn(async () => ({ ok: true, providerMessageId: "wamid_manual" }));
+    const POST = createInboxReplyHandler({
+      resolveContext: async () => ({
+        context: { tenantSlug: "tenant-demo", globalTenantId: "tenant_123" },
+      }),
+      findConversation: async () => ({
+        id: "conversation_123",
+        channel: "WHATSAPP",
+        customerContact: "+54 9 11 2261-5555",
+        externalUserId: "5491122615555",
+        externalThreadKey: "5491122615555",
+      }),
+      sendReply,
+      persistReply: vi.fn(async () => ({
+        messageId: "message_manual",
+        createdAt: new Date("2026-07-26T15:00:00.000Z"),
+      })),
+    });
+
+    const response = await POST(new Request("https://labs.vase.ar", {
+      method: "POST",
+      body: JSON.stringify({ text: "Hola Alexis, te ayudo con el pedido." }),
+    }), {
+      params: Promise.resolve({ tenantSlug: "tenant-demo", conversationId: "conversation_123" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(sendReply).toHaveBeenCalledWith(expect.objectContaining({
+      recipientId: "5491122615555",
+    }));
+  });
+
   it("returns safe provider diagnostics and does not persist a rejected reply", async () => {
     const persistReply = vi.fn();
     const POST = createInboxReplyHandler({

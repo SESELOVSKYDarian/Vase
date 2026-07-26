@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, Bell, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
+import { ArrowDown, Bell, CheckCheck, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LabsStatusPill } from "../labs-ui";
 import { formatInboxDeliveryError } from "./inbox-delivery-errors";
@@ -292,6 +292,7 @@ export function InboxWorkstation({
       }
 
       setDraft("");
+      setNotice("Mensaje enviado al cliente por el canal oficial.");
       operatorSentRef.current = true;
       setConversations((current) => sortConversations(current.map((conversation) =>
         conversation.id === activeId
@@ -444,7 +445,15 @@ export function InboxWorkstation({
               >
                 <span>{messageAuthor(message)}</span>
                 <p>{message.content}</p>
-                <time>{formatDate(message.createdAt)}</time>
+                <div className="labs-inbox-bubble-meta">
+                  <time>{formatDate(message.createdAt)}</time>
+                  {message.direction === "OUTBOUND" ? (
+                    <span>
+                      <CheckCheck aria-hidden="true" />
+                      Entregado
+                    </span>
+                  ) : null}
+                </div>
               </div>
             ))}
           </div>
@@ -462,7 +471,10 @@ export function InboxWorkstation({
         </div>
 
         <form onSubmit={sendReply} className="labs-inbox-composer">
-          <label htmlFor="inbox-human-reply">Intervenir humano</label>
+          <div className="labs-inbox-composer-heading">
+            <label htmlFor="inbox-human-reply">Intervenir humano</label>
+            <span>{activeConversation.channel ?? "Canal"} oficial</span>
+          </div>
           <div>
             <textarea
               id="inbox-human-reply"
@@ -477,6 +489,7 @@ export function InboxWorkstation({
               {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
             </button>
           </div>
+          <small>El mensaje se envia al cliente real y queda auditado en el historial.</small>
           {error ? <p role="alert">{error}</p> : null}
           {notice ? <p className="is-success" aria-live="polite">{notice}</p> : null}
         </form>

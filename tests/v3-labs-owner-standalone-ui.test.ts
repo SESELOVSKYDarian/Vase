@@ -140,6 +140,10 @@ describe("Vase Labs standalone owner experience", () => {
       path.resolve("apps/vase-labs/app/page.tsx"),
       "utf8",
     );
+    const rootLayout = fs.readFileSync(
+      path.resolve("apps/vase-labs/app/layout.tsx"),
+      "utf8",
+    );
     const page = fs.readFileSync(
       path.resolve("apps/vase-labs/app/app/owner/labs/page.tsx"),
       "utf8",
@@ -158,11 +162,18 @@ describe("Vase Labs standalone owner experience", () => {
     );
 
     expect(root).toContain('redirect("/owner")');
+    expect(rootLayout).toContain('className="light h-full scroll-smooth antialiased"');
+    expect(styles).toContain("--font-manrope: Manrope");
+    expect(styles).toContain("--font-newsreader: Newsreader");
+    expect(styles).toContain("--font-ibm-plex-mono");
     expect(root).not.toContain("tenant_demo");
     expect(page).toContain("resolveLabsRequestContext");
     expect(page).toContain("labsPrisma");
     expect(layout).toContain("labs-shell");
     expect(layout).toContain("labs-sidebar");
+    expect(layout).toContain("labs-sidebar-brand");
+    expect(layout).toContain("font-[family-name:var(--font-newsreader)]");
+    expect(layout).toContain("labs-sidebar-tenant");
     expect(layout).toContain("LabsOwnerMobileNav");
     expect(page).toContain('eyebrow="Operacion IA"');
     expect(page).toContain('title="Panel de control"');
@@ -172,8 +183,13 @@ describe("Vase Labs standalone owner experience", () => {
     for (const destination of ["inbox", "activity", "orders", "knowledge", "channels", "settings"]) {
       expect(nav).toContain(`/owner/${destination}`);
     }
+    expect(nav).toContain("labs-owner-nav-link");
+    expect(nav).toContain("labs-owner-mobile-nav-link");
     expect(styles).toContain(".labs-shell");
     expect(styles).toContain(".labs-sidebar");
+    expect(styles).toContain(".labs-sidebar-brand");
+    expect(styles).toContain(".labs-sidebar-tenant");
+    expect(styles).toContain(".labs-owner-nav-link");
     expect(styles).toContain(".labs-panel");
     expect(styles).not.toContain(".labs-rail");
     expect(page).not.toContain("Tu acceso a Labs, canales y tokens en una sola vista.");
@@ -275,9 +291,12 @@ describe("Vase Labs standalone owner experience", () => {
     expect(workstation).toContain("labs-inbox-hero");
     expect(workstation).toContain("labs-inbox-stat-card");
     expect(workstation).toContain("labs-inbox-thread-card");
+    expect(workstation).toContain("labs-inbox-bubble-meta");
+    expect(workstation).toContain("Mensaje enviado al cliente por el canal oficial.");
     expect(styles).toContain(".labs-inbox-hero");
     expect(styles).toContain(".labs-inbox-stat-card");
     expect(styles).toContain(".labs-inbox-thread-card");
+    expect(styles).toContain(".labs-inbox-bubble-meta");
     expect(styles).toContain("backdrop-filter: blur(26px) saturate(150%)");
   });
 

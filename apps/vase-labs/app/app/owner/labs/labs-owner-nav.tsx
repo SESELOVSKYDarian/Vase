@@ -35,7 +35,7 @@ export function LabsOwnerNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex-1 space-y-1">
+    <nav className="flex-1 space-y-1.5">
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = isActive(pathname, item.href);
@@ -45,10 +45,10 @@ export function LabsOwnerNav() {
             key={item.href}
             href={item.href as never}
             className={[
-              "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-[var(--muted)] transition-colors duration-200",
+              "labs-owner-nav-link flex min-h-11 items-center gap-3 rounded-xl px-4 text-sm transition-all duration-200",
               active
-                ? "bg-[var(--foreground)] text-[var(--background)] shadow-sm"
-                : "hover:bg-[var(--surface)] hover:text-[var(--foreground)]",
+                ? "is-active font-semibold"
+                : "text-[var(--muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]",
             ].join(" ")}
           >
             <Icon className="size-4" />
@@ -67,6 +67,7 @@ export function LabsOwnerMobileNav() {
     <div className="mb-6 lg:hidden">
       <nav className="flex gap-2 overflow-x-auto pb-1 labs-scrollbar">
         {navItems.map((item) => {
+          const Icon = item.icon;
           const active = isActive(pathname, item.href);
 
           return (
@@ -74,22 +75,23 @@ export function LabsOwnerMobileNav() {
               key={item.href}
               href={item.href as never}
               className={[
-                "inline-flex min-h-10 shrink-0 items-center rounded-lg px-3 text-xs font-bold transition-colors",
-                active ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]",
+                "labs-owner-mobile-nav-link inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-bold transition-colors",
+                active ? "is-active" : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]",
               ].join(" ")}
             >
+              <Icon className="size-3.5" />
               {item.label}
             </Link>
           );
         })}
       </nav>
-      <div className="mt-4 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
-        <div className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
+      <div className="labs-sidebar-brand mt-4 flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
+        <div className="labs-sidebar-mark grid h-10 w-10 place-items-center rounded-2xl bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
           <Sparkles className="size-4" />
         </div>
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Vase Labs</p>
-          <p className="text-sm font-semibold text-[var(--foreground)]">Gestion avanzada</p>
+          <p className="font-[family-name:var(--font-newsreader)] text-xl font-semibold italic leading-none text-[var(--foreground)]">Gestion avanzada</p>
         </div>
       </div>
     </div>

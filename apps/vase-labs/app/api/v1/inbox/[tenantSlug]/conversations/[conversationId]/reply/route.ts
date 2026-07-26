@@ -43,6 +43,14 @@ type InboxReplyTransaction = {
   conversation: { update(input: unknown): Promise<unknown> };
 };
 
+function resolveInboxReplyRecipient(conversation: InboxReplyConversation | null) {
+  if (!conversation?.channel) return null;
+  return conversation.externalUserId?.trim()
+    || conversation.externalThreadKey?.trim()
+    || conversation.customerContact?.trim()
+    || null;
+}
+
 export async function persistHumanInboxReply(
   prisma: { $transaction<T>(callback: (tx: InboxReplyTransaction) => Promise<T>): Promise<T> },
   input: {
@@ -117,9 +125,7 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
         conversationId,
         globalTenantId: context.globalTenantId,
       });
-      const recipientId = conversation?.customerContact
-        ?? conversation?.externalUserId
-        ?? conversation?.externalThreadKey;
+      const recipientId = resolveInboxReplyRecipient(conversation);
       if (!conversation?.channel || !recipientId) {
         return NextResponse.json({ error: "CONVERSATION_NOT_DELIVERABLE" }, { status: 404 });
       }
