@@ -33,6 +33,22 @@ function safeProviderMessage(payload: unknown) {
     : undefined;
 }
 
+function isInstagramLoginAccessToken(channelType: LabsChannel, accessToken: string) {
+  return channelType === "INSTAGRAM" && accessToken.trim().startsWith("IG");
+}
+
+function resolveGraphMessagesEndpoint(input: {
+  channelType: LabsChannel;
+  graphVersion: string;
+  providerAccountId: string;
+  accessToken: string;
+}) {
+  const graphHost = isInstagramLoginAccessToken(input.channelType, input.accessToken)
+    ? "https://graph.instagram.com"
+    : "https://graph.facebook.com";
+  return `${graphHost}/${input.graphVersion}/${encodeURIComponent(input.providerAccountId)}/messages`;
+}
+
 export function createOfficialChannelSender(input: {
   repository: OfficialChannelSenderRepository;
   encryptionSecret: string;
@@ -69,7 +85,12 @@ export function createOfficialChannelSender(input: {
       } catch {
         throw new OfficialChannelDeliveryError("CHANNEL_CREDENTIAL_DECRYPTION_FAILED");
       }
-      const endpoint = `https://graph.facebook.com/${input.graphVersion}/${encodeURIComponent(context.providerAccountId)}/messages`;
+      const endpoint = resolveGraphMessagesEndpoint({
+        channelType: params.channelType,
+        graphVersion: input.graphVersion,
+        providerAccountId: context.providerAccountId,
+        accessToken,
+      });
       const sendGraphPayload = async (body: unknown) => {
         const response = await fetcher(endpoint, {
           method: "POST",

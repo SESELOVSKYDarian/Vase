@@ -153,6 +153,45 @@ describe("official Meta outbound sender", () => {
     });
   });
 
+  it("sends Instagram Login replies through graph.instagram.com", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const sender = createOfficialChannelSender({
+      encryptionSecret,
+      graphVersion: "v99.0",
+      repository: {
+        async findDeliveryContext() {
+          return {
+            channelType: "INSTAGRAM",
+            providerAccountId: "17841428932871922",
+            encryptedAccessToken: encryptChannelSecret("IGAA-token", encryptionSecret),
+          };
+        },
+      },
+      fetcher: async (url, init) => {
+        requests.push({ url: String(url), init });
+        return Response.json({ message_id: "mid_ig" });
+      },
+    });
+
+    await expect(sender.send({
+      globalTenantId: "tenant_123",
+      channelType: "INSTAGRAM",
+      recipientId: "customer_123",
+      text: "Hola desde IA",
+    })).resolves.toEqual({ ok: true, providerMessageId: "mid_ig" });
+
+    expect(requests[0]?.url).toBe(
+      "https://graph.instagram.com/v99.0/17841428932871922/messages",
+    );
+    expect(new Headers(requests[0]?.init?.headers).get("authorization")).toBe(
+      "Bearer IGAA-token",
+    );
+    expect(JSON.parse(requests[0]?.init?.body as string)).toEqual({
+      recipient: { id: "customer_123" },
+      message: { text: "Hola desde IA" },
+    });
+  });
+
   it("sends Facebook reusable image attachments after the text", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
     const sender = createOfficialChannelSender({
