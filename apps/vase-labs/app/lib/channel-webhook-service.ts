@@ -230,8 +230,8 @@ function readMetaChannelProviderConfig(config: unknown) {
   };
 }
 
-function isConnectedChannel(context: ChannelWebhookContext) {
-  return context.channel?.status === "CONNECTED";
+function canProcessChannelWebhook(context: ChannelWebhookContext) {
+  return context.channel?.status !== "DISCONNECTED";
 }
 
 function resolveAiBlockedReason(entitlement: LabsRuntimeEntitlement | null, channelType: LabsChannel) {
@@ -910,7 +910,7 @@ export async function handleMetaChannelWebhook(input: {
     };
   }
 
-  if (!isConnectedChannel(context)) {
+  if (!canProcessChannelWebhook(context)) {
     return {
       status: 200,
       body: { ok: true, ignored: true, reason: "channel_not_connected" },

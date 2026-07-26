@@ -6,7 +6,7 @@ type MetaMessagingEvent = {
   message?: Record<string, unknown>;
 };
 
-function getFirstMessagingEvent(payload: unknown): MetaMessagingEvent | null {
+function getMessagingEvents(payload: unknown): MetaMessagingEvent[] {
   const source = payload as
     | {
         entry?: Array<{
@@ -15,7 +15,13 @@ function getFirstMessagingEvent(payload: unknown): MetaMessagingEvent | null {
       }
     | undefined;
 
-  return source?.entry?.[0]?.messaging?.[0] ?? null;
+  return source?.entry?.flatMap((entry) => entry.messaging ?? []) ?? [];
+}
+
+function isInboundMessageEvent(event: MetaMessagingEvent) {
+  const rawMessage = event.message;
+  if (!rawMessage || !event.sender?.id) return false;
+  return rawMessage.is_echo !== true;
 }
 
 function getMessageText(rawMessage: Record<string, unknown>) {
@@ -26,7 +32,7 @@ export function parseInstagramWebhookMessage(input: {
   globalTenantId: string;
   payload: unknown;
 }): InboundChannelMessage | null {
-  const event = getFirstMessagingEvent(input.payload);
+  const event = getMessagingEvents(input.payload).find(isInboundMessageEvent);
   const rawMessage = event?.message;
   const senderId = event?.sender?.id;
 

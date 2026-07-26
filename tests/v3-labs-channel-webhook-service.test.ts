@@ -209,6 +209,36 @@ describe("Vase Labs generic Meta channel webhook service", () => {
     });
   });
 
+  it("processes inbound Instagram messages when channel health is still pending but Meta signature is valid", async () => {
+    const repository = new MemoryChannelWebhookRepository(createContext({
+      channel: {
+        id: "channel_123",
+        provider: "META_OFFICIAL",
+        status: "PENDING",
+        config: {
+          provider: "META_OFFICIAL",
+          appSecret: "secret",
+          verifyToken: "verify-token",
+          accessToken: "access-token",
+        },
+      },
+    }));
+    const body = JSON.stringify(createInstagramPayload());
+
+    const result = await handleMetaChannelWebhook({
+      channelType: "INSTAGRAM",
+      repository,
+      tenantSlug: "tenant-demo",
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
+      parseMessage: parseInstagramWebhookMessage,
+      runAiReply: async () => ({ ok: true }),
+    });
+
+    expect(result.body).toMatchObject({ ok: true, processed: true });
+    expect(repository.persisted).toHaveLength(1);
+  });
+
   it("runs AI when legacy token balance is exhausted but dollar budget remains", async () => {
     const repository = new MemoryChannelWebhookRepository(createContext({
       entitlement: {
