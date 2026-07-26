@@ -117,25 +117,14 @@ describe("Vase Labs standalone owner experience", () => {
     const testPanelPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/assistant-test-panel.tsx");
     const styles = fs.readFileSync(path.resolve("apps/vase-labs/app/globals.css"), "utf8");
 
-    expect(fs.existsSync(testPanelPath)).toBe(true);
-    if (!fs.existsSync(testPanelPath)) return;
-    const testPanel = fs.readFileSync(testPanelPath, "utf8");
-
     expect(page).toContain("labs-knowledge-status");
-    expect(page).toContain("<AssistantTestPanel");
+    expect(page).not.toContain("AssistantTestPanel");
+    expect(page).not.toContain("assistant-test-panel");
+    expect(fs.existsSync(testPanelPath)).toBe(false);
     expect(page).toContain("Fuentes listas");
     expect(page).toContain("Canales activos");
-    expect(testPanel).toContain('fetch("/api/labs/assistant/test"');
-    expect(testPanel).toContain('aria-live="polite"');
-    expect(testPanel).not.toContain("Vista previa");
-    expect(testPanel).not.toContain("Probar chatbot");
-    expect(testPanel).not.toContain("Disponible");
-    expect(testPanel).not.toContain("Escribí una consulta para comprobar la respuesta");
-    expect(testPanel).not.toContain("Podés probar el modelo");
-    expect(testPanel).not.toContain("Mensaje de prueba");
-    expect(testPanel).not.toContain("Ej.: ¿En qué horario atienden?");
-    expect(testPanel).not.toContain("Prueba del asistente");
-    expect(testPanel).not.toContain("Enviar mensaje de prueba");
+    expect(styles).not.toContain(".labs-assistant-test");
+    expect(styles).not.toContain(".labs-assistant-message");
     expect(keyCard).toContain("aria-label={showKey");
     expect(keyCard).toContain('autoComplete="new-password"');
     expect(styles).toContain(".labs-knowledge-workspace");

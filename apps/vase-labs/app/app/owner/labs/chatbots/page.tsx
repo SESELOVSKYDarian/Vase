@@ -7,7 +7,6 @@ import { getOpenAiModelProfiles } from "../../../../lib/openai-reply-generator";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import { LabsPageHeader, LabsSection } from "../labs-ui";
 import { AssistantPromptCard } from "./assistant-prompt-card";
-import { AssistantTestPanel } from "./assistant-test-panel";
 import { KnowledgeAddModal } from "./knowledge-add-modal";
 import { KnowledgeGroups } from "./knowledge-groups";
 import { ModelSelector } from "./model-selector";
@@ -88,7 +87,6 @@ export default async function LabsChatbotsPage() {
           <ModelSelector profiles={getOpenAiModelProfiles()} currentModel={data.assistant.model} />
           <OpenAiKeyCard configured={data.openAiKeyConfigured} />
         </div>
-        <AssistantTestPanel configured={data.openAiKeyConfigured} hasKnowledge={readySources > 0} />
       </div>
 
       <div id="knowledge-sources-focus-target" role="region" aria-label="Fuentes de conocimiento" tabIndex={-1} className="labs-knowledge-focus-target">
