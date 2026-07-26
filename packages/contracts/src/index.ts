@@ -294,6 +294,9 @@ export const tokenUsageSchema = z.object({
   conversationId: z.string().min(1).optional(),
   messageId: z.string().min(1).optional(),
   assistantId: z.string().min(1).optional(),
+  costMicros: z.number().int().nonnegative().optional(),
+  model: z.string().min(1).optional(),
+  profile: z.string().min(1).optional(),
   occurredAt: z.iso.datetime(),
 });
 
@@ -420,6 +423,9 @@ export interface CreateTokenUsageInput {
   messageId?: string;
   assistantId?: string;
   occurredAt?: string;
+  costMicros?: number;
+  model?: string;
+  profile?: string;
 }
 
 export function getLabsPlanLimits(plan: LabsPlan): LabsPlanLimits {

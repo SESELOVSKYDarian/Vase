@@ -85,6 +85,8 @@ describe("channel AI reply runner", () => {
       outputTokens: 5,
       messageId: "ai_message_123",
       source: "openai:gpt-selected:everyday",
+      model: "gpt-selected",
+      profile: "everyday",
     }));
     expect(sendReply).toHaveBeenCalledWith({
       globalTenantId: "tenant_123",

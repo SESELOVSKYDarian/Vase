@@ -57,6 +57,8 @@ type ChannelAiReplyRunnerDeps = {
     conversationId: string;
     assistantId: string;
     source?: string;
+    model?: string | null;
+    profile?: string | null;
   }): Promise<{ totalTokens: number }>;
   sendReply(input: {
     globalTenantId: string;

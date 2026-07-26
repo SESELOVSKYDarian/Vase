@@ -43,7 +43,18 @@ interface AiOrchestratorDeps {
     channel: LabsChannel;
     text: string;
   }): Promise<{ messageId: string }>;
-  registerTokenUsage(input: { globalTenantId: string; channel: LabsChannel; inputTokens: number; outputTokens: number; messageId: string; conversationId: string; assistantId: string; source?: string }): Promise<{ totalTokens: number }>;
+  registerTokenUsage(input: {
+    globalTenantId: string;
+    channel: LabsChannel;
+    inputTokens: number;
+    outputTokens: number;
+    messageId: string;
+    conversationId: string;
+    assistantId: string;
+    source?: string;
+    model?: string | null;
+    profile?: string | null;
+  }): Promise<{ totalTokens: number }>;
   sendReply(input: {
     channel: LabsChannel;
     text: string;
@@ -130,6 +141,8 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         conversationId: input.conversationId,
         assistantId: input.assistantId,
         source: buildTokenUsageSource(reply),
+        model: reply.model ?? null,
+        profile: reply.profile ?? null,
       });
       try {
         const delivery = await deps.sendReply({

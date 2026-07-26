@@ -6,6 +6,11 @@ import {
   type TokenPack,
   type TokenUsage,
 } from "@vase/contracts";
+import {
+  calculateAiBudget,
+  getPlanAiBudgetMicros,
+  type AiBudgetStatus,
+} from "./ai-budget";
 
 export const FIVE_HOUR_WINDOW_MS = 5 * 60 * 60 * 1000;
 
@@ -21,6 +26,9 @@ export interface LabsRuntimeEntitlement {
   tokensIncluded: number;
   tokensUsed: number;
   extraTokens: number;
+  aiBudgetMicros?: number;
+  aiBudgetUsedMicros?: number;
+  extraAiBudgetMicros?: number;
   currentPeriodStart?: string | null;
   renewsAt?: string | null;
 }
@@ -38,17 +46,19 @@ export interface UsageWindowSnapshot {
 export interface ChannelAccessDecision {
   allowed: boolean;
   requiresUpgrade: boolean;
-  reason: "OK" | "CHANNEL_NOT_INCLUDED" | "SERVICE_INACTIVE" | "AI_PAUSED_NO_TOKENS" | "AI_PAUSED_MANUAL";
+  reason: "OK" | "CHANNEL_NOT_INCLUDED" | "SERVICE_INACTIVE" | "AI_PAUSED_NO_TOKENS" | "AI_PAUSED_NO_BUDGET" | "AI_PAUSED_MANUAL";
   humanInterventionAllowed: boolean;
 }
 
 export interface AiAvailability {
   aiEnabled: boolean;
   humanInterventionAllowed: true;
-  reason: "OK" | "SERVICE_INACTIVE" | "AI_PAUSED_NO_TOKENS" | "AI_PAUSED_MANUAL";
+  reason: "OK" | "SERVICE_INACTIVE" | "AI_PAUSED_NO_TOKENS" | "AI_PAUSED_NO_BUDGET" | "AI_PAUSED_MANUAL";
   remainingTokens: number;
   remainingMessages: number;
   availableWindowTokens: number;
+  remainingAiBudgetMicros: number;
+  aiBudgetStatus: AiBudgetStatus;
 }
 
 export interface RegisterTokenConsumptionInput {
@@ -59,6 +69,7 @@ export interface RegisterTokenConsumptionInput {
   messageId?: string;
   assistantId?: string;
   occurredAt?: string;
+  costMicros?: number;
 }
 
 export function createRuntimeEntitlement(input: LabsRuntimeEntitlement): LabsRuntimeEntitlement {
@@ -68,6 +79,11 @@ export function createRuntimeEntitlement(input: LabsRuntimeEntitlement): LabsRun
       (["WHATSAPP", "INSTAGRAM", "FACEBOOK"] as const).map((channel) => [channel, input.enabledChannels.includes(channel) ? 1 : 0]),
     ) as Record<LabsChannel, number>,
     tokenPack: input.tokenPack ?? null,
+    aiBudgetMicros: input.aiBudgetMicros && input.aiBudgetMicros > 0
+      ? input.aiBudgetMicros
+      : getPlanAiBudgetMicros(input.plan),
+    aiBudgetUsedMicros: Math.max(0, input.aiBudgetUsedMicros ?? 0),
+    extraAiBudgetMicros: Math.max(0, input.extraAiBudgetMicros ?? 0),
     currentPeriodStart: input.currentPeriodStart ?? null,
     renewsAt: input.renewsAt ?? null,
   };
@@ -130,6 +146,7 @@ export function getAiAvailability(entitlement: LabsRuntimeEntitlement, now: Date
   const remainingTokens = calculateRemainingTokens(entitlement);
   const remainingMessages = calculateRemainingMessages(entitlement);
   const window = getUsageWindowSnapshot(entitlement, now);
+  const budget = calculateAiBudget(entitlement);
 
   if (entitlement.status === "PAUSED") {
     return {
@@ -139,6 +156,8 @@ export function getAiAvailability(entitlement: LabsRuntimeEntitlement, now: Date
       remainingTokens,
       remainingMessages,
       availableWindowTokens: window.availableWindowTokens,
+      remainingAiBudgetMicros: budget.remainingMicros,
+      aiBudgetStatus: budget.status,
     };
   }
 
@@ -150,6 +169,21 @@ export function getAiAvailability(entitlement: LabsRuntimeEntitlement, now: Date
       remainingTokens,
       remainingMessages,
       availableWindowTokens: window.availableWindowTokens,
+      remainingAiBudgetMicros: budget.remainingMicros,
+      aiBudgetStatus: budget.status,
+    };
+  }
+
+  if (budget.remainingMicros <= 0) {
+    return {
+      aiEnabled: false,
+      humanInterventionAllowed: true,
+      reason: "AI_PAUSED_NO_BUDGET",
+      remainingTokens,
+      remainingMessages,
+      availableWindowTokens: window.availableWindowTokens,
+      remainingAiBudgetMicros: budget.remainingMicros,
+      aiBudgetStatus: budget.status,
     };
   }
 
@@ -161,6 +195,8 @@ export function getAiAvailability(entitlement: LabsRuntimeEntitlement, now: Date
       remainingTokens,
       remainingMessages,
       availableWindowTokens: window.availableWindowTokens,
+      remainingAiBudgetMicros: budget.remainingMicros,
+      aiBudgetStatus: budget.status,
     };
   }
 
@@ -171,6 +207,8 @@ export function getAiAvailability(entitlement: LabsRuntimeEntitlement, now: Date
     remainingTokens,
     remainingMessages,
     availableWindowTokens: window.availableWindowTokens,
+    remainingAiBudgetMicros: budget.remainingMicros,
+    aiBudgetStatus: budget.status,
   };
 }
 
@@ -210,15 +248,24 @@ export function canTenantUseChannel(
 export function registerTokenConsumption(
   entitlement: LabsRuntimeEntitlement,
   input: RegisterTokenConsumptionInput,
-): { entitlement: LabsRuntimeEntitlement; usage: TokenUsage; remainingTokens: number; remainingMessages: number; aiEnabled: boolean } {
-  const access = canTenantUseChannel(entitlement, input.channel, input.occurredAt ? new Date(input.occurredAt) : new Date());
+): {
+  entitlement: LabsRuntimeEntitlement;
+  usage: TokenUsage;
+  remainingTokens: number;
+  remainingMessages: number;
+  remainingAiBudgetMicros: number;
+  aiBudgetStatus: AiBudgetStatus;
+  aiEnabled: boolean;
+} {
+  const currentEntitlement = createRuntimeEntitlement(entitlement);
+  const access = canTenantUseChannel(currentEntitlement, input.channel, input.occurredAt ? new Date(input.occurredAt) : new Date());
 
   if (!access.allowed) {
     throw new Error(access.reason);
   }
 
   const usage = createTokenUsage({
-    globalTenantId: entitlement.globalTenantId,
+    globalTenantId: currentEntitlement.globalTenantId,
     channel: input.channel,
     inputTokens: input.inputTokens,
     outputTokens: input.outputTokens,
@@ -229,8 +276,9 @@ export function registerTokenConsumption(
   });
 
   const nextEntitlement = createRuntimeEntitlement({
-    ...entitlement,
-    tokensUsed: entitlement.tokensUsed + usage.totalTokens,
+    ...currentEntitlement,
+    tokensUsed: currentEntitlement.tokensUsed + usage.totalTokens,
+    aiBudgetUsedMicros: (currentEntitlement.aiBudgetUsedMicros ?? 0) + Math.max(0, input.costMicros ?? 0),
   });
   const availability = getAiAvailability(nextEntitlement, input.occurredAt ? new Date(input.occurredAt) : new Date());
 
@@ -242,6 +290,8 @@ export function registerTokenConsumption(
     usage,
     remainingTokens: availability.remainingTokens,
     remainingMessages: availability.remainingMessages,
+    remainingAiBudgetMicros: availability.remainingAiBudgetMicros,
+    aiBudgetStatus: availability.aiBudgetStatus,
     aiEnabled: availability.aiEnabled,
   };
 }

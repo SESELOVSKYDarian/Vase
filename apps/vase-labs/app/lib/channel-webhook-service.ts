@@ -165,6 +165,9 @@ type EntitlementRow = {
   tokensIncluded: number;
   tokensUsed: number;
   extraTokens: number;
+  aiBudgetMicros?: number | null;
+  aiBudgetUsedMicros?: number | null;
+  extraAiBudgetMicros?: number | null;
   currentPeriodStart: Date | null;
   renewsAt: Date | null;
 };
@@ -301,6 +304,9 @@ function buildRuntimeEntitlement(row: EntitlementRow | undefined): LabsRuntimeEn
     tokensIncluded: row.tokensIncluded,
     tokensUsed: row.tokensUsed,
     extraTokens: row.extraTokens,
+    aiBudgetMicros: row.aiBudgetMicros ?? undefined,
+    aiBudgetUsedMicros: row.aiBudgetUsedMicros ?? undefined,
+    extraAiBudgetMicros: row.extraAiBudgetMicros ?? undefined,
     currentPeriodStart: row.currentPeriodStart?.toISOString() ?? null,
     renewsAt: row.renewsAt?.toISOString() ?? null,
   });
@@ -338,6 +344,9 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         tokensIncluded,
         tokensUsed,
         extraTokens,
+        aiBudgetMicros,
+        aiBudgetUsedMicros,
+        extraAiBudgetMicros,
         currentPeriodStart,
         renewsAt
       FROM LabsEntitlement
@@ -398,7 +407,9 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     const entitlements = await this.prisma.$queryRaw<EntitlementRow[]>`
       SELECT
         globalTenantId, plan, status, enabledChannels, tokenPack,
-        tokensIncluded, tokensUsed, extraTokens, currentPeriodStart, renewsAt
+        tokensIncluded, tokensUsed, extraTokens,
+        aiBudgetMicros, aiBudgetUsedMicros, extraAiBudgetMicros,
+        currentPeriodStart, renewsAt
       FROM LabsEntitlement
       WHERE globalTenantId = ${row.globalTenantId}
       LIMIT 1

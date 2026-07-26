@@ -16,6 +16,9 @@ const entitlement = {
   tokensIncluded: 250000,
   tokensUsed: 1000,
   extraTokens: 100000,
+  aiBudgetMicros: 15000000,
+  aiBudgetUsedMicros: 4420000,
+  extraAiBudgetMicros: 0,
   currentPeriodStart: "2026-06-24T00:00:00.000Z",
   renewsAt: "2026-06-26T00:00:00.000Z",
 };
@@ -56,6 +59,8 @@ describe("Vase Labs API routes", () => {
     expect(response.status).toBe(200);
     expect(payload.remainingTokens).toBe(349000);
     expect(payload.remainingMessages).toBe(698);
+    expect(payload.aiBudget.remainingMicros).toBe(10580000);
+    expect(payload.availability.reason).toBe("OK");
     expect(payload.availability.aiEnabled).toBe(true);
   });
 
@@ -79,6 +84,7 @@ describe("Vase Labs API routes", () => {
     expect(response.status).toBe(200);
     expect(payload.usage.totalTokens).toBe(250);
     expect(payload.entitlement.tokensUsed).toBe(1250);
+    expect(payload.entitlement.aiBudgetUsedMicros).toBe(4420000);
   });
 
   it("reports whether a channel requires upgrade", async () => {

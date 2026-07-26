@@ -169,6 +169,10 @@ describe("Vase Labs standalone owner experience", () => {
     expect(root).not.toContain("tenant_demo");
     expect(page).toContain("resolveLabsRequestContext");
     expect(page).toContain("labsPrisma");
+    const settings = fs.readFileSync(
+      path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"),
+      "utf8",
+    );
     expect(layout).toContain("labs-shell");
     expect(layout).toContain("labs-sidebar");
     expect(layout).toContain("labs-sidebar-brand");
@@ -193,6 +197,10 @@ describe("Vase Labs standalone owner experience", () => {
     expect(styles).toContain(".labs-panel");
     expect(styles).not.toContain(".labs-rail");
     expect(page).not.toContain("Tu acceso a Labs, canales y tokens en una sola vista.");
+    expect(settings).toContain("Presupuesto IA");
+    expect(settings).toContain("calculateAiBudget");
+    expect(settings).toContain("estimateRemainingAiReplies");
+    expect(settings).toContain("currentModel");
   });
 
   it("keeps old channel entrypoints pointed at the owner Labs dashboard", () => {

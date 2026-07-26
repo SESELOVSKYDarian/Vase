@@ -58,6 +58,9 @@ export function createEntitlementFromUnknown(input: unknown): LabsRuntimeEntitle
     tokensIncluded: parseNumber(record.tokensIncluded, defaults.monthlyTokenLimit),
     tokensUsed: parseNumber(record.tokensUsed, 0),
     extraTokens: parseNumber(record.extraTokens, 0),
+    aiBudgetMicros: parseNumber(record.aiBudgetMicros, 0),
+    aiBudgetUsedMicros: parseNumber(record.aiBudgetUsedMicros, 0),
+    extraAiBudgetMicros: parseNumber(record.extraAiBudgetMicros, 0),
     currentPeriodStart: typeof record.currentPeriodStart === "string" ? record.currentPeriodStart : null,
     renewsAt: typeof record.renewsAt === "string" ? record.renewsAt : null,
   });
@@ -75,6 +78,9 @@ export function createEntitlementFromRequest(request: Request): LabsRuntimeEntit
     tokensIncluded: params.get("tokensIncluded") ?? undefined,
     tokensUsed: params.get("tokensUsed") ?? undefined,
     extraTokens: params.get("extraTokens") ?? undefined,
+    aiBudgetMicros: params.get("aiBudgetMicros") ?? undefined,
+    aiBudgetUsedMicros: params.get("aiBudgetUsedMicros") ?? undefined,
+    extraAiBudgetMicros: params.get("extraAiBudgetMicros") ?? undefined,
     currentPeriodStart: params.get("currentPeriodStart") ?? undefined,
     renewsAt: params.get("renewsAt") ?? undefined,
   });

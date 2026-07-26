@@ -65,6 +65,9 @@ export async function POST(request: Request) {
       tokensIncluded: typeof body.tokensIncluded === "number" ? body.tokensIncluded : undefined,
       tokensUsed: typeof body.tokensUsed === "number" ? body.tokensUsed : undefined,
       extraTokens: typeof body.extraTokens === "number" ? body.extraTokens : undefined,
+      aiBudgetMicros: typeof body.aiBudgetMicros === "number" ? body.aiBudgetMicros : undefined,
+      aiBudgetUsedMicros: typeof body.aiBudgetUsedMicros === "number" ? body.aiBudgetUsedMicros : undefined,
+      extraAiBudgetMicros: typeof body.extraAiBudgetMicros === "number" ? body.extraAiBudgetMicros : undefined,
       currentPeriodStart: typeof body.currentPeriodStart === "string" ? body.currentPeriodStart : null,
       renewsAt: typeof body.renewsAt === "string" ? body.renewsAt : null,
     });

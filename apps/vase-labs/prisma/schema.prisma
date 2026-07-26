@@ -253,6 +253,9 @@ model LabsEntitlement {
   tokensIncluded     Int
   tokensUsed         Int               @default(0)
   extraTokens        Int               @default(0)
+  aiBudgetMicros     Int               @default(0)
+  aiBudgetUsedMicros Int               @default(0)
+  extraAiBudgetMicros Int              @default(0)
   currentPeriodStart DateTime?
   renewsAt           DateTime?
   createdAt          DateTime          @default(now())
@@ -545,6 +548,9 @@ model TokenUsage {
   outputTokens   Int          @default(0)
   totalTokens    Int
   costCents      Int?
+  costMicros     Int          @default(0)
+  model          String?
+  profile        String?
   source         String       @default("assistant")
   createdAt      DateTime     @default(now())
 

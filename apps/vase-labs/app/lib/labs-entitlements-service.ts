@@ -14,6 +14,11 @@ import {
   type LabsRuntimeEntitlement,
   type LabsRuntimeStatus,
 } from "./billing";
+import {
+  estimateAiUsageCostMicros,
+  getPlanAiBudgetMicros,
+  parseModelFromUsageSource,
+} from "./ai-budget";
 import { labsPrisma } from "./db";
 
 export interface LabsEntitlementRecord {
@@ -27,6 +32,9 @@ export interface LabsEntitlementRecord {
   tokensIncluded: number;
   tokensUsed: number;
   extraTokens: number;
+  aiBudgetMicros?: number;
+  aiBudgetUsedMicros?: number;
+  extraAiBudgetMicros?: number;
   currentPeriodStart: Date | null;
   renewsAt: Date | null;
   createdAt: Date;
@@ -43,6 +51,9 @@ export interface UpsertLabsEntitlementInput {
   tokensIncluded?: number;
   tokensUsed?: number;
   extraTokens?: number;
+  aiBudgetMicros?: number;
+  aiBudgetUsedMicros?: number;
+  extraAiBudgetMicros?: number;
   currentPeriodStart?: string | Date | null;
   renewsAt?: string | Date | null;
 }
@@ -56,6 +67,9 @@ interface PersistedTokenUsageInput {
   messageId?: string;
   assistantId?: string;
   costCents?: number | null;
+  costMicros?: number | null;
+  model?: string | null;
+  profile?: string | null;
   source?: string;
 }
 
@@ -71,10 +85,13 @@ export interface LabsEntitlementsRepository {
     enabledChannels: LabsChannel[];
     channelLimits: LabsChannelLimits;
     tokenPack: TokenPack | null;
-    tokensIncluded: number;
-    tokensUsed?: number;
-    extraTokens: number;
-    currentPeriodStart: Date | null;
+      tokensIncluded: number;
+      tokensUsed?: number;
+      extraTokens: number;
+      aiBudgetMicros: number;
+      aiBudgetUsedMicros?: number;
+      extraAiBudgetMicros: number;
+      currentPeriodStart: Date | null;
     renewsAt: Date | null;
   }): Promise<LabsEntitlementRecord>;
   registerUsage(globalTenantId: string, usage: PersistedTokenUsageInput): Promise<{
@@ -91,6 +108,9 @@ export interface RegisterPersistedTokenUsageInput {
   messageId?: string;
   assistantId?: string;
   costCents?: number | null;
+  costMicros?: number | null;
+  model?: string | null;
+  profile?: string | null;
   source?: string;
 }
 
@@ -151,6 +171,9 @@ function toRuntimeEntitlement(record: LabsEntitlementRecord): LabsRuntimeEntitle
     tokensIncluded: record.tokensIncluded,
     tokensUsed: record.tokensUsed,
     extraTokens: record.extraTokens,
+    aiBudgetMicros: record.aiBudgetMicros,
+    aiBudgetUsedMicros: record.aiBudgetUsedMicros,
+    extraAiBudgetMicros: record.extraAiBudgetMicros,
     currentPeriodStart: record.currentPeriodStart?.toISOString() ?? null,
     renewsAt: record.renewsAt?.toISOString() ?? null,
   });
@@ -175,6 +198,9 @@ export function createLabsEntitlementsService(repository: LabsEntitlementsReposi
         tokensIncluded: input.tokensIncluded ?? defaults.monthlyTokenLimit,
         tokensUsed: input.tokensUsed,
         extraTokens: input.extraTokens ?? 0,
+        aiBudgetMicros: input.aiBudgetMicros ?? getPlanAiBudgetMicros(input.plan),
+        aiBudgetUsedMicros: input.aiBudgetUsedMicros,
+        extraAiBudgetMicros: input.extraAiBudgetMicros ?? 0,
         currentPeriodStart: parseNullableDate(input.currentPeriodStart),
         renewsAt: parseNullableDate(input.renewsAt),
       });
@@ -192,6 +218,12 @@ export function createLabsEntitlementsService(repository: LabsEntitlementsReposi
         messageId: input.messageId,
         assistantId: input.assistantId,
       });
+      const model = input.model ?? parseModelFromUsageSource(input.source) ?? undefined;
+      const costMicros = Math.max(0, input.costMicros ?? estimateAiUsageCostMicros({
+        model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      }));
       const persisted = await repository.registerUsage(globalTenantId, {
         channel: usage.channel,
         inputTokens: usage.inputTokens,
@@ -200,7 +232,10 @@ export function createLabsEntitlementsService(repository: LabsEntitlementsReposi
         conversationId: usage.conversationId,
         messageId: usage.messageId,
         assistantId: usage.assistantId,
-        costCents: input.costCents ?? null,
+        costCents: input.costCents ?? Math.ceil(costMicros / 10_000),
+        costMicros,
+        model: model ?? null,
+        profile: input.profile ?? null,
         source: input.source ?? "assistant",
       });
       const entitlement = toRuntimeEntitlement(persisted.entitlement);
@@ -209,6 +244,9 @@ export function createLabsEntitlementsService(repository: LabsEntitlementsReposi
         entitlement,
         usage: {
           ...usage,
+          costMicros: persisted.usage.costMicros ?? undefined,
+          model: persisted.usage.model ?? undefined,
+          profile: persisted.usage.profile ?? undefined,
           occurredAt: persisted.usage.createdAt.toISOString(),
         } satisfies TokenUsage,
         remainingTokens: calculateRemainingTokens(entitlement),
@@ -233,19 +271,23 @@ export const prismaLabsEntitlementsRepository: LabsEntitlementsRepository = {
         ...input,
         enabledChannels: input.enabledChannels,
         channelLimits: input.channelLimits,
-        tokensUsed: input.tokensUsed ?? 0,
-      },
-      update: {
+          tokensUsed: input.tokensUsed ?? 0,
+          aiBudgetUsedMicros: input.aiBudgetUsedMicros ?? 0,
+        },
+        update: {
         plan: input.plan,
         status: input.status,
         enabledChannels: input.enabledChannels,
         channelLimits: input.channelLimits,
         tokenPack: input.tokenPack,
-        tokensIncluded: input.tokensIncluded,
-        ...(input.tokensUsed === undefined ? {} : { tokensUsed: input.tokensUsed }),
-        extraTokens: input.extraTokens,
-        currentPeriodStart: input.currentPeriodStart,
-        renewsAt: input.renewsAt,
+          tokensIncluded: input.tokensIncluded,
+          ...(input.tokensUsed === undefined ? {} : { tokensUsed: input.tokensUsed }),
+          extraTokens: input.extraTokens,
+          aiBudgetMicros: input.aiBudgetMicros,
+          ...(input.aiBudgetUsedMicros === undefined ? {} : { aiBudgetUsedMicros: input.aiBudgetUsedMicros }),
+          extraAiBudgetMicros: input.extraAiBudgetMicros,
+          currentPeriodStart: input.currentPeriodStart,
+          renewsAt: input.renewsAt,
       },
     });
     const mapped = mapEntitlementRecord(record);
@@ -263,6 +305,9 @@ export const prismaLabsEntitlementsRepository: LabsEntitlementsRepository = {
           tokensUsed: {
             increment: usage.totalTokens,
           },
+          aiBudgetUsedMicros: {
+            increment: usage.costMicros ?? 0,
+          },
         },
       });
       const persistedUsage = await tx.tokenUsage.create({
@@ -276,6 +321,9 @@ export const prismaLabsEntitlementsRepository: LabsEntitlementsRepository = {
           messageId: usage.messageId,
           assistantId: usage.assistantId,
           costCents: usage.costCents,
+          costMicros: usage.costMicros ?? 0,
+          model: usage.model ?? null,
+          profile: usage.profile ?? null,
           source: usage.source ?? "assistant",
         },
       });

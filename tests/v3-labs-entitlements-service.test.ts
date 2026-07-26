@@ -36,7 +36,11 @@ function createMemoryRepository(seed: LabsEntitlementRecord[] = []): LabsEntitle
       if (!current) {
         throw new Error("LABS_ENTITLEMENT_NOT_FOUND");
       }
-      const next = { ...current, tokensUsed: current.tokensUsed + usage.totalTokens };
+      const next = {
+        ...current,
+        tokensUsed: current.tokensUsed + usage.totalTokens,
+        aiBudgetUsedMicros: (current.aiBudgetUsedMicros ?? 0) + (usage.costMicros ?? 0),
+      };
       records.set(globalTenantId, next);
       return {
         entitlement: next,
@@ -112,6 +116,44 @@ describe("Vase Labs entitlements service", () => {
     expect(result.usage.totalTokens).toBe(350);
     expect(result.entitlement.tokensUsed).toBe(1350);
     expect(result.remainingTokens).toBe(998650);
+  });
+
+  it("estimates and persists OpenAI cost micros for the selected model", async () => {
+    const service = createLabsEntitlementsService(createMemoryRepository([
+      {
+        id: "ent_123",
+        globalTenantId: "tenant_123",
+        plan: "STARTER",
+        status: "ACTIVE",
+        enabledChannels: ["WHATSAPP"],
+        tokenPack: null,
+        tokensIncluded: 50000,
+        tokensUsed: 0,
+        extraTokens: 0,
+        aiBudgetMicros: 5000000,
+        aiBudgetUsedMicros: 4420000,
+        extraAiBudgetMicros: 0,
+        currentPeriodStart: null,
+        renewsAt: null,
+        createdAt: new Date("2026-06-24T00:00:00.000Z"),
+        updatedAt: new Date("2026-06-24T00:00:00.000Z"),
+      },
+    ]));
+
+    const result = await service.registerTokenUsage("tenant_123", {
+      channel: "WHATSAPP",
+      inputTokens: 1500,
+      outputTokens: 500,
+      conversationId: "conv_123",
+      messageId: "msg_123",
+      assistantId: "assistant_123",
+      model: "gpt-5-mini",
+      profile: "fast",
+    });
+
+    expect(result.entitlement.aiBudgetUsedMicros).toBeGreaterThan(4420000);
+    expect(result.entitlement.aiBudgetUsedMicros).toBeLessThan(5000000);
+    expect(result.remainingTokens).toBe(48000);
   });
 
   it("preserves existing usage when sync payload omits tokensUsed", async () => {

@@ -18,6 +18,7 @@ function createUsageInput(input: unknown): RegisterTokenConsumptionInput | null 
     messageId: typeof record.messageId === "string" ? record.messageId : undefined,
     assistantId: typeof record.assistantId === "string" ? record.assistantId : undefined,
     occurredAt: typeof record.occurredAt === "string" ? record.occurredAt : undefined,
+    costMicros: typeof record.costMicros === "number" ? record.costMicros : undefined,
   };
 }
 
