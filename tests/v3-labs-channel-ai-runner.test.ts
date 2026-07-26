@@ -11,7 +11,10 @@ describe("channel AI reply runner", () => {
     const registerTokenUsage = vi.fn(async () => ({ totalTokens: 15 }));
     const sendReply = vi.fn(async () => ({ ok: true, providerMessageId: "mid_ai" }));
     const runner = createChannelAiReplyRunner({
-      env: { OPENAI_API_KEY: "sk-labs" } as NodeJS.ProcessEnv,
+      env: {
+        OPENAI_API_KEY: "sk-labs",
+        OPENAI_MODEL_PROFESSIONAL: "gpt-selected",
+      } as NodeJS.ProcessEnv,
       knowledge: { async buildContext() { return "Horario: 9 a 18"; } },
       catalog: {
         async buildAiResources() {
@@ -102,7 +105,10 @@ describe("channel AI reply runner", () => {
   it("prefers the assistant OpenAI key over the global environment key", async () => {
     const generatorInputs: unknown[] = [];
     const runner = createChannelAiReplyRunner({
-      env: { OPENAI_API_KEY: "sk-env" } as NodeJS.ProcessEnv,
+      env: {
+        OPENAI_API_KEY: "sk-env",
+        OPENAI_MODEL_PROFESSIONAL: "gpt-selected",
+      } as NodeJS.ProcessEnv,
       async resolveOpenAiApiKey(assistantId) {
         expect(assistantId).toBe("assistant_123");
         return "sk-assistant";
@@ -144,6 +150,59 @@ describe("channel AI reply runner", () => {
     });
 
     expect(generatorInputs).toEqual([{ apiKey: "sk-assistant", model: "gpt-selected" }]);
+  });
+
+  it("falls back to an approved model when the stored assistant model is no longer in the chatbot catalog", async () => {
+    const generatorInputs: unknown[] = [];
+    const runner = createChannelAiReplyRunner({
+      env: {
+        OPENAI_API_KEY: "sk-env",
+        OPENAI_MODEL_ECONOMIC: "gpt-5-mini-approved",
+      } as NodeJS.ProcessEnv,
+      knowledge: { async buildContext() { return ""; } },
+      createReplyGenerator(input) {
+        generatorInputs.push(input);
+        return {
+          generateReply: async () => ({
+            text: "Respuesta",
+            inputTokens: 1,
+            outputTokens: 1,
+            provider: "openai",
+            model: input.model,
+            profile: "economic",
+          }),
+        };
+      },
+      persistAssistantReply: vi.fn(async () => ({ messageId: "ai_message_123" })),
+      registerTokenUsage: vi.fn(async () => ({ totalTokens: 2 })),
+      sendReply: vi.fn(async () => ({ ok: true })),
+    });
+
+    await runner({
+      context: {
+        assistantId: "assistant_123",
+        assistantModel: "gpt-4o",
+        globalTenantId: "tenant_123",
+        tenantSlug: "tenant-demo",
+        channelType: "WHATSAPP",
+        channel: { id: "channel_123", provider: "META_OFFICIAL", status: "CONNECTED", config: {} },
+        entitlement: null,
+      },
+      message: {
+        id: "inbound_123",
+        globalTenantId: "tenant_123",
+        channelType: "WHATSAPP",
+        provider: "META_OFFICIAL",
+        externalThreadKey: "549223",
+        customerContact: "549223",
+        messageType: "text",
+        text: "Hola",
+        rawPayload: null,
+      },
+      persisted: { conversationId: "conversation_123", messageId: "message_123", aiBlockedReason: null },
+    });
+
+    expect(generatorInputs).toEqual([{ apiKey: "sk-env", model: "gpt-5-mini-approved" }]);
   });
 
   it("does not generate an automatic answer when a human handoff is active", async () => {

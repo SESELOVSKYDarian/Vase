@@ -36,11 +36,19 @@ export type InboxConversationItem = {
   handoffs: InboxHandoff[];
 };
 
+type RawInboxMessage = Partial<Record<keyof InboxMessage, unknown>>;
+type RawInboxHandoff = Partial<Record<keyof InboxHandoff, unknown>>;
+type RawInboxConversation = Partial<Omit<InboxConversationItem, "messages" | "handoffs">> & {
+  messages?: unknown;
+  handoffs?: unknown;
+};
+
 function formatDate(value: string | null) {
   if (!value) return "Sin fecha";
   return new Intl.DateTimeFormat("es-AR", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "America/Argentina/Buenos_Aires",
   }).format(new Date(value));
 }
 
@@ -56,30 +64,38 @@ function sortConversations(conversations: InboxConversationItem[]) {
   );
 }
 
-function normalizeConversation(raw: any): InboxConversationItem {
+function stringify(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : value?.toString() ?? fallback;
+}
+
+function stringifyNullable(value: unknown) {
+  return typeof value === "string" ? value : value?.toString() ?? null;
+}
+
+function normalizeConversation(raw: RawInboxConversation): InboxConversationItem {
   return {
-    id: raw.id,
-    channel: raw.channel ?? null,
-    status: raw.status,
-    customerName: raw.customerName ?? null,
-    customerContact: raw.customerContact ?? null,
-    messageCount: raw.messageCount ?? 0,
-    lastMessageAt: typeof raw.lastMessageAt === "string" ? raw.lastMessageAt : raw.lastMessageAt?.toString() ?? null,
+    id: stringify(raw.id),
+    channel: stringifyNullable(raw.channel),
+    status: stringify(raw.status, "OPEN"),
+    customerName: stringifyNullable(raw.customerName),
+    customerContact: stringifyNullable(raw.customerContact),
+    messageCount: typeof raw.messageCount === "number" ? raw.messageCount : 0,
+    lastMessageAt: stringifyNullable(raw.lastMessageAt),
     escalatedToHuman: Boolean(raw.escalatedToHuman),
-    summary: raw.summary ?? null,
-    messages: Array.isArray(raw.messages) ? raw.messages.map((message: any) => ({
-      id: message.id,
-      role: message.role,
-      direction: message.direction,
-      content: message.content,
-      createdAt: typeof message.createdAt === "string" ? message.createdAt : message.createdAt?.toString() ?? new Date().toISOString(),
+    summary: stringifyNullable(raw.summary),
+    messages: Array.isArray(raw.messages) ? raw.messages.map((message: RawInboxMessage) => ({
+      id: stringify(message.id),
+      role: stringify(message.role, "customer"),
+      direction: message.direction === "INBOUND" || message.direction === "OUTBOUND" ? message.direction : null,
+      content: stringify(message.content),
+      createdAt: stringify(message.createdAt, new Date().toISOString()),
     })) : [],
-    handoffs: Array.isArray(raw.handoffs) ? raw.handoffs.map((handoff: any) => ({
-      id: handoff.id,
-      status: handoff.status,
-      reason: handoff.reason,
-      priority: handoff.priority,
-      assignedTo: handoff.assignedTo ?? null,
+    handoffs: Array.isArray(raw.handoffs) ? raw.handoffs.map((handoff: RawInboxHandoff) => ({
+      id: stringify(handoff.id),
+      status: stringify(handoff.status, "OPEN"),
+      reason: stringify(handoff.reason),
+      priority: stringify(handoff.priority, "normal"),
+      assignedTo: stringifyNullable(handoff.assignedTo),
     })) : [],
   };
 }

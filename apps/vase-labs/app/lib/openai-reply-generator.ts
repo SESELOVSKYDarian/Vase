@@ -110,6 +110,16 @@ export function getDefaultOpenAiModel(env: NodeJS.ProcessEnv = process.env): str
   return resolveOpenAiModelProfile({ env }).model;
 }
 
+export function resolveApprovedOpenAiModel(
+  model: string | null | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const requested = model?.trim();
+  const approvedModels = getOpenAiModelProfiles(env).map((profile) => profile.model);
+  if (requested && approvedModels.includes(requested)) return requested;
+  return getDefaultOpenAiModel(env);
+}
+
 export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInput = {}) {
   const env = input.env ?? process.env;
   const apiKey = input.apiKey ?? env.OPENAI_API_KEY;

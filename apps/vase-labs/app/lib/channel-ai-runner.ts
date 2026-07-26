@@ -7,7 +7,7 @@ import { PrismaOfficialChannelSenderRepository } from "./official-channel-sender
 import { labsCatalogService } from "./catalog-repository";
 import { labsEntitlementsService } from "./labs-entitlements-service";
 import { createKnowledgeService } from "./knowledge-service";
-import { createOpenAiReplyGenerator, getDefaultOpenAiModel } from "./openai-reply-generator";
+import { createOpenAiReplyGenerator, resolveApprovedOpenAiModel } from "./openai-reply-generator";
 import { labsPrisma, type PrismaClient } from "./db";
 import { decryptChannelSecret } from "./channel-secrets";
 import { createBusinessOrderClient } from "./business-order-client";
@@ -187,7 +187,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
       return { ok: false };
     }
 
-    const model = input.context.assistantModel ?? getDefaultOpenAiModel(deps.env);
+    const model = resolveApprovedOpenAiModel(input.context.assistantModel, deps.env);
     const assistantApiKey = await deps.resolveOpenAiApiKey?.(input.context.assistantId);
     const generator = deps.createReplyGenerator({
       apiKey: assistantApiKey ?? deps.env?.OPENAI_API_KEY,

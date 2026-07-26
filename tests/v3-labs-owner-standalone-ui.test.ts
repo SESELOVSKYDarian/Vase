@@ -137,6 +137,12 @@ describe("Vase Labs standalone owner experience", () => {
     expect(styles).toContain("@media (max-width: 760px)");
   });
 
+  it("renders Inbox dates with a fixed timezone to avoid hydration text mismatches", () => {
+    const workstation = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/inbox/inbox-workstation.tsx"), "utf8");
+
+    expect(workstation).toContain('timeZone: "America/Argentina/Buenos_Aires"');
+  });
+
   it("serves the authenticated 05c3cb8 owner dashboard from the standalone Labs app", () => {
     const root = fs.readFileSync(
       path.resolve("apps/vase-labs/app/page.tsx"),
