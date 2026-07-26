@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { calculateRemainingTokens, createRuntimeEntitlement, getAiAvailability } from "../../../../lib/billing";
+import { createRuntimeEntitlement, getAiAvailability } from "../../../../lib/billing";
 import { createEntitlementFromUnknown, readJsonRecord } from "../../_shared";
 
 export async function POST(request: Request) {
@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const current = createEntitlementFromUnknown(body.entitlement ?? body);
   const entitlement = createRuntimeEntitlement({
     ...current,
-    status: calculateRemainingTokens(current) > 0 ? "ACTIVE" : "PAUSED",
+    status: "ACTIVE",
   });
 
   return NextResponse.json({

@@ -74,17 +74,21 @@ describe("Vase Labs runtime services", () => {
     expect(result.aiEnabled).toBe(true);
   });
 
-  it("pauses AI when the tenant runs out of available tokens but keeps human intervention enabled", () => {
+  it("keeps AI enabled when the legacy token balance is exhausted", () => {
     const entitlement = createEntitlement({
       tokensIncluded: 1000,
       tokensUsed: 1000,
       extraTokens: 0,
+      aiBudgetMicros: 5_000_000,
+      aiBudgetUsedMicros: 1_000_000,
+      extraAiBudgetMicros: 0,
     });
 
     const availability = getAiAvailability(entitlement);
 
-    expect(availability.aiEnabled).toBe(false);
-    expect(availability.reason).toBe("AI_PAUSED_NO_TOKENS");
+    expect(availability.aiEnabled).toBe(true);
+    expect(availability.reason).toBe("OK");
+    expect(availability.remainingTokens).toBe(0);
     expect(availability.humanInterventionAllowed).toBe(true);
   });
 

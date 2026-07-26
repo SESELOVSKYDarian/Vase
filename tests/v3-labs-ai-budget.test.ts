@@ -75,6 +75,32 @@ describe("Vase Labs AI budget planning", () => {
     });
   });
 
+  it("keeps AI enabled when legacy token balance is exhausted but dollar budget remains", () => {
+    const entitlement = createRuntimeEntitlement({
+      globalTenantId: "tenant_123",
+      plan: "STARTER",
+      status: "ACTIVE",
+      enabledChannels: ["WHATSAPP"],
+      tokenPack: null,
+      tokensIncluded: 50000,
+      tokensUsed: 569970,
+      extraTokens: 0,
+      aiBudgetMicros: 5_000_000,
+      aiBudgetUsedMicros: 4_420_000,
+      extraAiBudgetMicros: 0,
+      currentPeriodStart: null,
+      renewsAt: null,
+    });
+
+    expect(getAiAvailability(entitlement)).toMatchObject({
+      aiEnabled: true,
+      reason: "OK",
+      remainingTokens: 0,
+      remainingAiBudgetMicros: 580_000,
+      aiBudgetStatus: "WARNING",
+    });
+  });
+
   it("increments the AI budget usage when registering token consumption", () => {
     const entitlement = createRuntimeEntitlement({
       globalTenantId: "tenant_123",

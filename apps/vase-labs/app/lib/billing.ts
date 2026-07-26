@@ -187,19 +187,6 @@ export function getAiAvailability(entitlement: LabsRuntimeEntitlement, now: Date
     };
   }
 
-  if (remainingTokens <= 0 || window.availableWindowTokens <= 0) {
-    return {
-      aiEnabled: false,
-      humanInterventionAllowed: true,
-      reason: "AI_PAUSED_NO_TOKENS",
-      remainingTokens,
-      remainingMessages,
-      availableWindowTokens: window.availableWindowTokens,
-      remainingAiBudgetMicros: budget.remainingMicros,
-      aiBudgetStatus: budget.status,
-    };
-  }
-
   return {
     aiEnabled: true,
     humanInterventionAllowed: true,

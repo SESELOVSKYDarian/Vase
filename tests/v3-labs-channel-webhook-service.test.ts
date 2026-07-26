@@ -209,6 +209,45 @@ describe("Vase Labs generic Meta channel webhook service", () => {
     });
   });
 
+  it("runs AI when legacy token balance is exhausted but dollar budget remains", async () => {
+    const repository = new MemoryChannelWebhookRepository(createContext({
+      entitlement: {
+        globalTenantId: "tenant_123",
+        plan: "STARTER",
+        status: "ACTIVE",
+        enabledChannels: ["INSTAGRAM"],
+        tokenPack: null,
+        tokensIncluded: 50000,
+        tokensUsed: 569970,
+        extraTokens: 0,
+        aiBudgetMicros: 5000000,
+        aiBudgetUsedMicros: 4420000,
+        extraAiBudgetMicros: 0,
+        currentPeriodStart: null,
+        renewsAt: null,
+      },
+    }));
+    const aiRuns: unknown[] = [];
+    const body = JSON.stringify(createInstagramPayload());
+
+    const result = await handleMetaChannelWebhook({
+      channelType: "INSTAGRAM",
+      repository,
+      tenantSlug: "tenant-demo",
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
+      parseMessage: parseInstagramWebhookMessage,
+      runAiReply: async (input) => {
+        aiRuns.push(input);
+        return { ok: true, messageId: "ai_message_123", totalTokens: 42 };
+      },
+    });
+
+    expect(result.body.aiBlockedReason).toBeNull();
+    expect(repository.persisted[0]?.aiBlockedReason).toBeNull();
+    expect(aiRuns).toHaveLength(1);
+  });
+
   it("queues inbound audio for transcription before running AI", async () => {
     const repository = new MemoryChannelWebhookRepository(createContext({
       channelType: "WHATSAPP",

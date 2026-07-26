@@ -115,4 +115,27 @@ describe("Vase Labs API routes", () => {
     expect(reactivated.entitlement.status).toBe("ACTIVE");
     expect(reactivated.availability.aiEnabled).toBe(true);
   });
+
+  it("reactivates AI when legacy tokens are exhausted but dollar budget remains", async () => {
+    const exhaustedLegacyTokens = {
+      ...entitlement,
+      status: "PAUSED",
+      tokensIncluded: 250000,
+      tokensUsed: 569970,
+      extraTokens: 0,
+      aiBudgetMicros: 5000000,
+      aiBudgetUsedMicros: 4420000,
+      extraAiBudgetMicros: 0,
+    };
+
+    const response = await reactivateRoute.POST(
+      jsonRequest("https://labs.vase.ar/api/labs/ai/reactivate", { entitlement: exhaustedLegacyTokens }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.entitlement.status).toBe("ACTIVE");
+    expect(payload.availability.aiEnabled).toBe(true);
+    expect(payload.availability.reason).toBe("OK");
+  });
 });
