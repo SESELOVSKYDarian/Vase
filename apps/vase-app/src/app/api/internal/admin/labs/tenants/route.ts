@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
+import { resolveLabsEntitlementPlanFromSubmoduleAccess } from "@/lib/admin/user-access";
 
 const updateSchema = z.object({
   globalTenantId: z.string().min(1),
@@ -11,8 +12,10 @@ const updateSchema = z.object({
   reason: z.string().trim().min(8),
 });
 
-function paidPlan(plan: string | null | undefined) {
-  return labsPlanSchema.parse(plan === "PREMIUM" ? "PRO" : "STARTER");
+function paidPlan(plan: string | null | undefined, submodules: Array<{ moduleId: string; key: string | null; isActive?: boolean }> = []) {
+  return labsPlanSchema.parse(
+    resolveLabsEntitlementPlanFromSubmoduleAccess(submodules, plan === "PREMIUM" ? "PRO" : "STARTER"),
+  );
 }
 
 function assertInternal(request: Request) {
@@ -29,12 +32,29 @@ async function assertSuperAdmin(request: Request) {
 
 async function serializeTenants() {
   const tenants = await prisma.tenant.findMany({
-    include: { aiWorkspace: true, tenantModules: { where: { moduleId: "vase_labs" }, select: { isActive: true } } },
+    include: {
+      aiWorkspace: true,
+      tenantModules: { where: { moduleId: "vase_labs" }, select: { isActive: true } },
+      tenantSubmodules: {
+        where: { isActive: true, submodule: { moduleId: "vase_labs" } },
+        select: {
+          isActive: true,
+          submodule: { select: { moduleId: true, key: true } },
+        },
+      },
+    },
     orderBy: { name: "asc" },
   });
   return tenants.map((tenant) => {
     const workspace = tenant.aiWorkspace;
-    const plan = paidPlan(workspace?.plan);
+    const plan = paidPlan(
+      workspace?.plan,
+      tenant.tenantSubmodules.map((item) => ({
+        moduleId: item.submodule.moduleId,
+        key: item.submodule.key,
+        isActive: item.isActive,
+      })),
+    );
     const planLimits = getEffectiveLabsEntitlement({ paidPlan: plan }).channelLimits;
     const channelLimits = workspace?.channelLimits ? labsChannelLimitsSchema.parse(workspace.channelLimits) : planLimits;
     return {
@@ -74,9 +94,28 @@ export async function POST(request: Request) {
     assertInternal(request);
     const actorUserId = await assertSuperAdmin(request);
     const input = updateSchema.parse(await request.json());
-    const tenant = await prisma.tenant.findUnique({ where: { id: input.globalTenantId }, include: { aiWorkspace: true } });
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: input.globalTenantId },
+      include: {
+        aiWorkspace: true,
+        tenantSubmodules: {
+          where: { isActive: true, submodule: { moduleId: "vase_labs" } },
+          select: {
+            isActive: true,
+            submodule: { select: { moduleId: true, key: true } },
+          },
+        },
+      },
+    });
     if (!tenant) return NextResponse.json({ error: "TENANT_NOT_FOUND" }, { status: 404 });
-    const plan = paidPlan(tenant.aiWorkspace?.plan);
+    const plan = paidPlan(
+      tenant.aiWorkspace?.plan,
+      tenant.tenantSubmodules.map((item) => ({
+        moduleId: item.submodule.moduleId,
+        key: item.submodule.key,
+        isActive: item.isActive,
+      })),
+    );
     const effective = getEffectiveLabsEntitlement({
       paidPlan: plan,
       override: input.channelLimits ? { channelLimits: input.channelLimits, reason: input.reason, updatedBy: actorUserId, updatedAt: new Date().toISOString() } : null,

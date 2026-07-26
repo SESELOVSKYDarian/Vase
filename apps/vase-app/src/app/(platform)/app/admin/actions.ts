@@ -2538,7 +2538,7 @@ export async function updateUserTenantAccessSnapshotAction(
         where: {
           id: { in: parsed.data.modules.flatMap((module) => module.submodules.map((submodule) => submodule.submoduleId)) },
         },
-        select: { id: true, moduleId: true },
+        select: { id: true, moduleId: true, key: true },
       }),
     ]);
 
@@ -2547,6 +2547,7 @@ export async function updateUserTenantAccessSnapshotAction(
     }
 
     const submoduleParentMap = new Map(submoduleCatalog.map((item) => [item.id, item.moduleId]));
+    const submoduleKeyMap = new Map(submoduleCatalog.map((item) => [item.id, item.key]));
     const moduleStateMap = new Map(parsed.data.modules.map((module) => [module.moduleId, module.isActive]));
     const activeModuleIds = parsed.data.modules
       .filter((module) => module.isActive)
@@ -2626,6 +2627,15 @@ export async function updateUserTenantAccessSnapshotAction(
         tenantId: parsed.data.tenantId,
         moduleIds: activeModuleIds,
         tenantPlan,
+        labsSubmodules: parsed.data.modules.flatMap((moduleAccess) =>
+          moduleAccess.submodules
+            .filter((submodule) => submodule.isActive && moduleAccess.isActive)
+            .map((submodule) => ({
+              moduleId: submoduleParentMap.get(submodule.submoduleId) ?? "",
+              key: submoduleKeyMap.get(submodule.submoduleId) ?? null,
+              isActive: true,
+            })),
+        ),
         tenantName: tenant.name,
         userEmail: user.email || tenant.billingEmail || "",
       });
@@ -4824,6 +4834,7 @@ async function syncTenantProductAndLabsWorkspace(params: {
   tenantId: string;
   moduleIds: string[];
   tenantPlan: TenantPlanForProvisioning;
+  labsSubmodules?: Array<{ moduleId: string; key: string | null; isActive?: boolean }>;
   tenantName: string;
   userEmail: string;
 }) {
@@ -4837,6 +4848,7 @@ async function syncTenantProductAndLabsWorkspace(params: {
   const labsWorkspace = buildLabsWorkspaceProvisioning({
     moduleIds: params.moduleIds,
     tenantPlan: params.tenantPlan,
+    labsSubmodules: params.labsSubmodules,
     tenantName: params.tenantName,
     userEmail: params.userEmail,
   });
@@ -5000,20 +5012,28 @@ async function provisionClientWorkspaceFromMasterUser(params: {
     });
   }
 
+  const selectedSubmodules = await params.tx.moduleSubmodule.findMany({
+    where: { moduleId: { in: [userAccessModuleIds.business, userAccessModuleIds.labs] } },
+    select: { id: true, moduleId: true, key: true },
+  });
+  const selectedSubmoduleIds = selectedSubmodules.map((submodule) => submodule.id);
+  const activeSubmoduleIdSet = new Set(provisioning.activeSubmoduleIds);
+
   await syncTenantProductAndLabsWorkspace({
     tx: params.tx,
     tenantId,
     moduleIds: provisioning.activeModuleIds,
     tenantPlan: params.clientAccessConfig.tenantPlan,
+    labsSubmodules: selectedSubmodules
+      .filter((submodule) => activeSubmoduleIdSet.has(submodule.id))
+      .map((submodule) => ({
+        moduleId: submodule.moduleId,
+        key: submodule.key,
+        isActive: true,
+      })),
     tenantName: params.clientAccessConfig.tenantName || params.userName,
     userEmail: params.userEmail,
   });
-
-  const selectedSubmodules = await params.tx.moduleSubmodule.findMany({
-    where: { moduleId: { in: [userAccessModuleIds.business, userAccessModuleIds.labs] } },
-    select: { id: true },
-  });
-  const selectedSubmoduleIds = selectedSubmodules.map((submodule) => submodule.id);
 
   if (selectedSubmoduleIds.length > 0) {
     await params.tx.tenantSubmodule.updateMany({

@@ -38,6 +38,46 @@ type ClientTenantProvisioningInput = {
   proSubmoduleIds?: string[];
 };
 
+type LabsPlanSubmoduleAccess = {
+  moduleId: string;
+  key: string | null;
+  isActive?: boolean;
+};
+
+export type LabsEntitlementPlanFromAccess = "STARTER" | "GROWTH" | "PRO";
+
+const labsSubmodulePlanPriority: Record<string, LabsEntitlementPlanFromAccess> = {
+  starter: "STARTER",
+  growth: "GROWTH",
+  pro: "PRO",
+};
+
+const labsPlanRank: Record<LabsEntitlementPlanFromAccess, number> = {
+  STARTER: 1,
+  GROWTH: 2,
+  PRO: 3,
+};
+
+export function resolveLabsEntitlementPlanFromSubmoduleAccess(
+  submodules: LabsPlanSubmoduleAccess[],
+  fallbackPlan: LabsEntitlementPlanFromAccess,
+): LabsEntitlementPlanFromAccess {
+  return submodules
+    .filter((submodule) => submodule.moduleId === userAccessModuleIds.labs && submodule.isActive !== false)
+    .map((submodule) => labsSubmodulePlanPriority[submodule.key ?? ""])
+    .filter((plan): plan is LabsEntitlementPlanFromAccess => Boolean(plan))
+    .sort((left, right) => labsPlanRank[right] - labsPlanRank[left])[0] ?? fallbackPlan;
+}
+
+export function resolveAiWorkspacePlanFromLabsSubmoduleAccess(
+  submodules: LabsPlanSubmoduleAccess[],
+  fallbackPlan: "START" | "PREMIUM",
+) {
+  const fallbackEntitlementPlan = fallbackPlan === "PREMIUM" ? "PRO" : "STARTER";
+  const entitlementPlan = resolveLabsEntitlementPlanFromSubmoduleAccess(submodules, fallbackEntitlementPlan);
+  return entitlementPlan === "STARTER" ? "START" : "PREMIUM";
+}
+
 export function buildClientTenantAccessProvisioning(input: ClientTenantProvisioningInput) {
   const activeModuleIds = Array.from(new Set(input.moduleIds));
   const hasBusiness = activeModuleIds.includes(userAccessModuleIds.business);
@@ -61,6 +101,7 @@ export function buildClientTenantAccessProvisioning(input: ClientTenantProvision
 type LabsWorkspaceProvisioningInput = {
   moduleIds: string[];
   tenantPlan: "TRIAL" | "PRO";
+  labsSubmodules?: LabsPlanSubmoduleAccess[];
   tenantName: string;
   userEmail: string;
 };
@@ -70,7 +111,10 @@ export function buildLabsWorkspaceProvisioning(input: LabsWorkspaceProvisioningI
     return null;
   }
 
-  const plan = input.tenantPlan === "PRO" ? "PREMIUM" : "START";
+  const plan = resolveAiWorkspacePlanFromLabsSubmoduleAccess(
+    input.labsSubmodules ?? [],
+    input.tenantPlan === "PRO" ? "PREMIUM" : "START",
+  );
   const limits = getLabsPlanLimits(plan);
   const tenantName = input.tenantName.trim() || "Vase";
 

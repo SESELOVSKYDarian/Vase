@@ -373,6 +373,17 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
     [clientModules],
   );
 
+  const effectiveLabsPlanLabel = useMemo(() => {
+    if (!selectedModuleIds.includes("vase_labs")) return null;
+    const selectedSubmoduleIds = new Set(clientAccessConfig?.proSubmoduleIds ?? []);
+    const labsSubmodules = modules.find((module) => module.id === "vase_labs")?.submodules ?? [];
+    const selectedLabsSubmodules = labsSubmodules.filter((submodule) => selectedSubmoduleIds.has(submodule.id));
+    const priority = ["pro", "growth", "starter"];
+    return priority
+      .map((key) => selectedLabsSubmodules.find((submodule) => submodule.key === key)?.name)
+      .find(Boolean) ?? (clientAccessConfig?.tenantPlan === "PRO" ? "Pro" : "Starter");
+  }, [clientAccessConfig?.proSubmoduleIds, clientAccessConfig?.tenantPlan, modules, selectedModuleIds]);
+
   const generatePassword = () => {
     const random = Math.random().toString(36).slice(2, 8);
     setGeneratedPassword(`Vase-${random}#${Math.floor(100 + Math.random() * 900)}`);
@@ -1168,7 +1179,7 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Plan de cliente</span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Plan base del cliente</span>
                     <select
                       value={clientAccessConfig?.tenantPlan ?? "TRIAL"}
                       onChange={(event) =>
@@ -1184,6 +1195,11 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                       <option value="TRIAL">Trial</option>
                       <option value="PRO">Pro</option>
                     </select>
+                    {effectiveLabsPlanLabel ? (
+                      <span className="text-xs text-[var(--muted)]">
+                        Labs efectivo: <strong className="text-[var(--foreground)]">{effectiveLabsPlanLabel}</strong>
+                      </span>
+                    ) : null}
                   </label>
                   <div className="grid gap-1">
                     <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Estado base</span>

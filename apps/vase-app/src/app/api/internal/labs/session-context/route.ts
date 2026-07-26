@@ -5,6 +5,7 @@ import type { LabsChannel, LabsPlan } from "@vase/contracts";
 import { labsSessionContextSchema } from "@vase/contracts";
 import { prisma } from "@/lib/db/prisma";
 import { getEffectiveLabsEntitlement, type LabsChannelLimits } from "@vase/contracts";
+import { resolveLabsEntitlementPlanFromSubmoduleAccess } from "@/lib/admin/user-access";
 
 function mapWorkspacePlan(plan: AiWorkspacePlan | null | undefined): LabsPlan {
   return plan === "PREMIUM" ? "PRO" : "STARTER";
@@ -68,6 +69,23 @@ export async function GET(request: Request) {
         tenant: {
           include: {
             aiWorkspace: true,
+            tenantSubmodules: {
+              where: {
+                isActive: true,
+                submodule: {
+                  moduleId: "vase_labs",
+                },
+              },
+              select: {
+                isActive: true,
+                submodule: {
+                  select: {
+                    moduleId: true,
+                    key: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -81,7 +99,14 @@ export async function GET(request: Request) {
     }
 
     const workspace = membership.tenant.aiWorkspace;
-    const paidPlan = mapWorkspacePlan(workspace?.plan);
+    const paidPlan = resolveLabsEntitlementPlanFromSubmoduleAccess(
+      membership.tenant.tenantSubmodules.map((item) => ({
+        moduleId: item.submodule.moduleId,
+        key: item.submodule.key,
+        isActive: item.isActive,
+      })),
+      mapWorkspacePlan(workspace?.plan),
+    );
     const planLimits = getEffectiveLabsEntitlement({ paidPlan }).channelLimits;
     const channelLimits = parseChannelLimits(workspace?.channelLimits, planLimits);
     const enabledChannels = (["WHATSAPP", "INSTAGRAM", "FACEBOOK"] as LabsChannel[])
