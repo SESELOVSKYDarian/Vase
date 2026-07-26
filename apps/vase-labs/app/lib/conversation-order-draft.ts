@@ -98,6 +98,7 @@ export function isExplicitOrderConfirmation(text: string) {
     /^(si )?(dale )?(envialo|mandalo)$/,
     /^(dale )?quiero (hacer|realizar|confirmar)( el)? pedido$/,
     /^(si )?(me )?(armas|arma|prepara|preparame|hace|haceme)( el)? pedido\??$/,
+    /^(si )?(me )?(confirmas|confirmame)( el)? pedido\??$/,
     /^confirmar pedido [0-9]{4}$/,
   ].some((pattern) => pattern.test(normalized));
 }

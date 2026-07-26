@@ -218,6 +218,35 @@ function confirmedOrderText(order: unknown) {
     : "Pedido confirmado correctamente.";
 }
 
+function orderFallbackText(input: {
+  action: Extract<AiOrderAction, { type: "PREPARE" }>;
+  fulfillment: {
+    type: "DELIVERY" | "PICKUP";
+    branchId?: string | null;
+    pickupLabel?: string | null;
+    address?: string | null;
+  };
+}) {
+  const products = input.action.items
+    .map((item) => `${item.quantity} unidad${item.quantity === 1 ? "" : "es"} de ${item.productId}`)
+    .join(", ");
+  const customer = [
+    input.action.customer.name,
+    input.action.customer.phone,
+  ].filter(Boolean).join(" - ");
+  const fulfillment = input.fulfillment.type === "PICKUP"
+    ? `Retiro: ${input.fulfillment.pickupLabel || input.fulfillment.address || input.fulfillment.branchId || "sucursal indicada"}`
+    : `Envio: ${input.fulfillment.address || "direccion indicada"}`;
+  return [
+    "Tengo los datos del pedido:",
+    products ? `Productos: ${products}` : null,
+    customer ? `Cliente: ${customer}` : null,
+    fulfillment,
+    "",
+    "No pude conectarme con Business para confirmarlo automaticamente. El equipo ya tiene el resumen para revisarlo.",
+  ].filter((line): line is string => typeof line === "string").join("\n");
+}
+
 export function createConversationOrderOrchestrator(deps: OrderOrchestratorDependencies) {
   return {
     async buildContext(input: { conversationId: string; globalTenantId: string }) {
@@ -304,21 +333,23 @@ export function createConversationOrderOrchestrator(deps: OrderOrchestratorDepen
         pickupLabel: input.action.fulfillment.pickupLabel || null,
         address: input.action.fulfillment.address || null,
       };
-      const [prepared, fulfillment] = await Promise.all([
-        deps.prepareDraft({
-          assistantId: input.assistantId,
-          conversationId: input.conversationId,
-          globalTenantId: input.globalTenantId,
-          channel: input.channel,
-          input: {
-            items: input.action.items,
-            customer: input.action.customer,
-            fulfillment: normalizedFulfillment,
-            notes: input.action.notes || null,
-          },
-        }),
-        deps.loadFulfillment(input.globalTenantId).catch(() => null),
-      ]);
+      const fulfillmentPromise = deps.loadFulfillment(input.globalTenantId).catch(() => null);
+      const prepared = await deps.prepareDraft({
+        assistantId: input.assistantId,
+        conversationId: input.conversationId,
+        globalTenantId: input.globalTenantId,
+        channel: input.channel,
+        input: {
+          items: input.action.items,
+          customer: input.action.customer,
+          fulfillment: normalizedFulfillment,
+          notes: input.action.notes || null,
+        },
+      }).catch(() => null);
+      const fulfillment = await fulfillmentPromise;
+      if (!prepared) {
+        return { text: orderFallbackText({ action: input.action, fulfillment: normalizedFulfillment }) };
+      }
       const summary = quoteSummary(prepared.quote, normalizedFulfillment, fulfillment);
       if (prepared.confirmationPhrase) {
         try {

@@ -274,6 +274,38 @@ describe("Labs conversation order orchestrator", () => {
     expect(result.text).toContain("No pude confirmar automaticamente");
   });
 
+  it("returns an operational reply when Business cannot prepare the quote", async () => {
+    const prepareDraft = vi.fn(async () => {
+      throw new Error("BUSINESS_ORDER_CLIENT_UNAVAILABLE");
+    });
+    const service = createConversationOrderOrchestrator({
+      loadHistory: vi.fn(async () => []),
+      loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
+      findActiveDraft: vi.fn(async () => null),
+      prepareDraft,
+      confirmDraft: vi.fn(),
+    });
+
+    const result = await service.prepare({
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "WHATSAPP",
+      action: {
+        type: "PREPARE",
+        items: [{ productId: "product_1004", quantity: 1 }],
+        customer: { name: "Alexis", phone: "2236334301" },
+        fulfillment: { type: "PICKUP", pickupLabel: "Mar del Plata" },
+      },
+    });
+
+    expect(prepareDraft).toHaveBeenCalledOnce();
+    expect(result.text).toContain("Tengo los datos del pedido");
+    expect(result.text).toContain("Alexis");
+    expect(result.text).toContain("2236334301");
+    expect(result.text).toContain("No pude conectarme con Business");
+  });
+
   it("prepares pickup from prompt knowledge when Business has no synchronized branches", async () => {
     const prepareDraft = vi.fn(async () => ({
       draft: activeDraft,
