@@ -130,6 +130,12 @@ describe("Vase Labs standalone owner experience", () => {
     expect(testPanel).not.toContain("Vista previa");
     expect(testPanel).not.toContain("Probar chatbot");
     expect(testPanel).not.toContain("Disponible");
+    expect(testPanel).not.toContain("Escribí una consulta para comprobar la respuesta");
+    expect(testPanel).not.toContain("Podés probar el modelo");
+    expect(testPanel).not.toContain("Mensaje de prueba");
+    expect(testPanel).not.toContain("Ej.: ¿En qué horario atienden?");
+    expect(testPanel).not.toContain("Prueba del asistente");
+    expect(testPanel).not.toContain("Enviar mensaje de prueba");
     expect(keyCard).toContain("aria-label={showKey");
     expect(keyCard).toContain('autoComplete="new-password"');
     expect(styles).toContain(".labs-knowledge-workspace");
@@ -209,6 +215,11 @@ describe("Vase Labs standalone owner experience", () => {
     expect(settings).toContain("calculateAiBudget");
     expect(settings).toContain("estimateRemainingAiReplies");
     expect(settings).toContain("currentModel");
+    expect(settings).not.toContain('title="Tenant"');
+    expect(settings).not.toContain('title="Plan"');
+    expect(settings).not.toContain('title="Tokens disponibles"');
+    expect(settings).not.toContain('title="Tokens usados"');
+    expect(settings).not.toContain("canales habilitados");
   });
 
   it("keeps old channel entrypoints pointed at the owner Labs dashboard", () => {
@@ -304,16 +315,21 @@ describe("Vase Labs standalone owner experience", () => {
 
     expect(page).toContain('className="labs-inbox-page');
     expect(page).toContain("labs-inbox-summary-grid");
-    expect(workstation).toContain("labs-inbox-hero");
-    expect(workstation).toContain("labs-inbox-stat-card");
+    expect(workstation).not.toContain("labs-inbox-hero");
+    expect(workstation).not.toContain("labs-inbox-stat-card");
+    expect(workstation).not.toContain("Centro de conversaciones");
+    expect(workstation).not.toContain("Operacion en vivo");
+    expect(workstation).not.toContain("Seguimiento directo de clientes");
+    expect(workstation).not.toContain("Hilo activo");
+    expect(workstation).not.toContain("Equipo / IA");
     expect(workstation).toContain("labs-inbox-thread-card");
     expect(workstation).toContain("labs-inbox-bubble-meta");
     expect(workstation).toContain("labs-inbox-composer-field");
     expect(workstation).toContain("Respuesta humana");
     expect(workstation).toContain("Mensaje enviado al cliente por el canal oficial.");
     expect(workstation).not.toContain("El mensaje se envia al cliente real y queda auditado en el historial.");
-    expect(styles).toContain(".labs-inbox-hero");
-    expect(styles).toContain(".labs-inbox-stat-card");
+    expect(styles).not.toContain(".labs-inbox-hero");
+    expect(styles).not.toContain(".labs-inbox-stat-card");
     expect(styles).toContain(".labs-inbox-thread-card");
     expect(styles).toContain(".labs-inbox-bubble-meta");
     expect(styles).toContain(".labs-inbox-composer-field");

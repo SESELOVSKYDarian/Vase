@@ -43,13 +43,12 @@ export function AssistantTestPanel({ configured, hasKnowledge }: { configured: b
   }
 
   return (
-    <section className="labs-panel labs-assistant-test" aria-label="Prueba del asistente">
+    <section className="labs-panel labs-assistant-test" aria-label="Asistente">
       <div className="labs-assistant-test-thread" aria-live="polite">
         {!reply && !busy ? (
           <div className="labs-assistant-test-placeholder">
             <Bot aria-hidden="true" />
             <strong>{hasKnowledge ? "Tu conocimiento está listo" : "Todavía no hay fuentes listas"}</strong>
-            <p>{hasKnowledge ? "Escribí una consulta para comprobar la respuesta." : "Podés probar el modelo, pero responderá sin información propia del negocio."}</p>
           </div>
         ) : null}
         {busy ? <div className="labs-assistant-test-loading"><Loader2 className="animate-spin" aria-hidden="true" /> Generando respuesta...</div> : null}
@@ -74,18 +73,17 @@ export function AssistantTestPanel({ configured, hasKnowledge }: { configured: b
       </div>
 
       <form onSubmit={submit}>
-        <label htmlFor="assistant-test-message">Mensaje de prueba</label>
         <div>
           <textarea
             id="assistant-test-message"
+            aria-label="Consulta para el asistente"
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             maxLength={2000}
             rows={3}
-            placeholder="Ej.: ¿En qué horario atienden?"
             disabled={!configured || busy}
           />
-          <button type="submit" disabled={!configured || busy || !message.trim()} aria-label="Enviar mensaje de prueba">
+          <button type="submit" disabled={!configured || busy || !message.trim()} aria-label="Enviar consulta">
             {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
           </button>
         </div>

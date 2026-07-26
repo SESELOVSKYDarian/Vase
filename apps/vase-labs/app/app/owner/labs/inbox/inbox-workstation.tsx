@@ -128,8 +128,6 @@ export function InboxWorkstation({
   const pendingHumanCount = conversations.filter(
     (conversation) => conversation.escalatedToHuman || conversation.handoffs.length > 0,
   ).length;
-  const outboundMessages = activeConversation?.messages.filter((message) => message.direction === "OUTBOUND").length ?? 0;
-  const inboundMessages = activeConversation?.messages.filter((message) => message.direction !== "OUTBOUND").length ?? 0;
 
   function scrollToLatest(behavior: ScrollBehavior = "smooth") {
     const thread = threadRef.current;
@@ -345,33 +343,6 @@ export function InboxWorkstation({
           <span>{pendingHumanCount} conversacion{pendingHumanCount === 1 ? "" : "es"} requiere{pendingHumanCount === 1 ? "" : "n"} atencion humana.</span>
         </div>
       ) : null}
-
-      <div className="labs-inbox-hero">
-        <div>
-          <p className="vase-kicker">Centro de conversaciones</p>
-          <h2>Operacion en vivo</h2>
-          <span>
-            Seguimiento directo de clientes, pausa de IA y respuesta humana desde una sola superficie.
-          </span>
-        </div>
-        <div className="labs-inbox-hero-stats" aria-label="Estado del hilo activo">
-          <article className="labs-inbox-stat-card">
-            <span>Hilo activo</span>
-            <strong>{activeConversation.messageCount}</strong>
-            <small>mensajes</small>
-          </article>
-          <article className="labs-inbox-stat-card">
-            <span>Cliente</span>
-            <strong>{inboundMessages}</strong>
-            <small>entrantes</small>
-          </article>
-          <article className="labs-inbox-stat-card">
-            <span>Equipo / IA</span>
-            <strong>{outboundMessages}</strong>
-            <small>salientes</small>
-          </article>
-        </div>
-      </div>
 
       <div className="labs-inbox-workstation">
       <aside className="labs-inbox-queue" aria-label="Pendientes de atencion">
