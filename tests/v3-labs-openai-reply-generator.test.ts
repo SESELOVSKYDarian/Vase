@@ -251,6 +251,8 @@ describe("Labs OpenAI reply generator", () => {
     expect(instructions).toContain("Nunca le pidas al cliente IDs internos");
     expect(instructions).toContain("sucursal que coincida con su localidad");
     expect(instructions).toContain("branchId vacio");
+    expect(instructions).toContain("Usa nombre y telefono ya presentes en el historial o en datos verificados del cliente");
+    expect(instructions).toContain("Si el cliente escribe un telefono con errores menores pero deja digitos suficientes");
   });
 
   it("keeps only exact, public HTTPS allowlist matches in model order, deduplicated and limited to three", async () => {

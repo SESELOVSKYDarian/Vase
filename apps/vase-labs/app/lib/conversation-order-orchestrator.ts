@@ -132,6 +132,7 @@ function fulfillmentContext(value: unknown, history: ConversationMessage[]) {
 }
 
 function messageAuthor(role: string) {
+  if (role === "system") return "Sistema";
   if (role === "assistant" || role === "human_agent") return role === "assistant" ? "IA" : "Equipo";
   return "Cliente";
 }

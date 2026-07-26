@@ -85,7 +85,7 @@ function normalizeConfirmationText(text: string) {
 export function isExplicitOrderConfirmation(text: string) {
   const raw = text.trim();
   const normalized = normalizeConfirmationText(raw);
-  if (!normalized || /[?¿]/.test(raw)) return false;
+  if (!normalized) return false;
   if (/\b(no|nunca|todavia no|no quiero|cancelar|cambiar|modificar)\b/.test(normalized)) {
     return false;
   }
@@ -97,6 +97,7 @@ export function isExplicitOrderConfirmation(text: string) {
     /^(si )?(dale )?(hacelo|hazlo)$/,
     /^(si )?(dale )?(envialo|mandalo)$/,
     /^(dale )?quiero (hacer|realizar|confirmar)( el)? pedido$/,
+    /^(si )?(me )?(armas|arma|prepara|preparame|hace|haceme)( el)? pedido\??$/,
     /^confirmar pedido [0-9]{4}$/,
   ].some((pattern) => pattern.test(normalized));
 }

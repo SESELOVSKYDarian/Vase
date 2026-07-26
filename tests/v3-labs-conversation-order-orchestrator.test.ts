@@ -45,6 +45,27 @@ describe("Labs conversation order orchestrator", () => {
     expect(context).toContain("product_1004 x 1");
   });
 
+  it("labels verified system customer data separately from customer messages", async () => {
+    const service = createConversationOrderOrchestrator({
+      loadHistory: vi.fn(async () => [
+        { role: "system", content: "Datos verificados del cliente: nombre Alexis Vallejos; telefono 2236951106" },
+        { role: "user", content: "Quiero 1 boquilla y la retiro en el local" },
+      ]),
+      loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
+      findActiveDraft: vi.fn(async () => null),
+      prepareDraft: vi.fn(),
+      confirmDraft: vi.fn(),
+    });
+
+    const context = await service.buildContext({
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+    });
+
+    expect(context).toContain("Sistema: Datos verificados del cliente");
+    expect(context).toContain("Cliente: Quiero 1 boquilla");
+  });
+
   it("includes Business branch ids and suggests the branch matching the customer locality", async () => {
     const service = createConversationOrderOrchestrator({
       loadHistory: vi.fn(async () => [

@@ -39,6 +39,7 @@ describe("Labs conversation order drafts", () => {
     "Acepto",
     "Envialo",
     "dale, quiero hacer el pedido",
+    "me armas el pedido?",
     "confirmar pedido 4821",
   ])("accepts an explicit natural confirmation: %s", (text) => {
     expect(isExplicitOrderConfirmation(text)).toBe(true);

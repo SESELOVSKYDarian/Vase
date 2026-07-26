@@ -246,13 +246,26 @@ export function createPrismaChannelAiReplyRunner(input: {
   });
   const orders = createConversationOrderOrchestrator({
     async loadHistory(conversationId) {
-      const messages = await prisma.message.findMany({
-        where: { conversationId },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-        select: { role: true, content: true },
-      });
-      return messages.reverse();
+      const [conversation, messages] = await Promise.all([
+        prisma.conversation.findUnique({
+          where: { id: conversationId },
+          select: { customerName: true, customerContact: true },
+        }),
+        prisma.message.findMany({
+          where: { conversationId },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          select: { role: true, content: true },
+        }),
+      ]);
+      const customerContext = [
+        conversation?.customerName ? `nombre ${conversation.customerName}` : null,
+        conversation?.customerContact ? `telefono ${conversation.customerContact}` : null,
+      ].filter(Boolean).join("; ");
+      return [
+        ...(customerContext ? [{ role: "system", content: `Datos verificados del cliente: ${customerContext}` }] : []),
+        ...messages.reverse(),
+      ];
     },
     loadFulfillment(globalTenantId) {
       return businessOrders.getFulfillment(globalTenantId);
