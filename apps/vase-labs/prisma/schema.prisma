@@ -428,6 +428,13 @@ model BusinessOrderProjection {
   lastSyncedAt            DateTime @default(now())
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
+  operationalStatus       String   @default("PROCESSING")
+  operationalUpdatedAt    DateTime?
+  readyAt                  DateTime?
+  customerNotificationStatus String?
+  customerNotifiedAt      DateTime?
+  customerNotificationError String? @db.Text
+  statusEvents            OrderStatusEvent[]
 
   @@unique([globalTenantId, businessOrderId])
   @@index([assistantId, businessUpdatedAt])
@@ -435,6 +442,20 @@ model BusinessOrderProjection {
   @@index([conversationId])
   @@index([customerEmailNormalized])
   @@index([customerPhoneNormalized])
+}
+
+model OrderStatusEvent {
+  id                 String   @id @default(cuid())
+  orderProjectionId  String
+  fromStatus         String?
+  toStatus           String
+  source             String   @default("TEAM")
+  notificationStatus String?
+  error              String?  @db.Text
+  order              BusinessOrderProjection @relation(fields: [orderProjectionId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+
+  @@index([orderProjectionId, createdAt])
 }
 
 model ConversationInsight {

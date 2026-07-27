@@ -18,6 +18,7 @@ import {
   prismaConversationOrderDraftRepository,
 } from "./conversation-order-tools";
 import { upsertBusinessOrderProjection } from "./order-projection";
+import { enrichLocalOrderSnapshot } from "./local-order-snapshot";
 
 type RunnerInput = Parameters<RunChannelAiReply>[0];
 
@@ -274,13 +275,31 @@ export function createPrismaChannelAiReplyRunner(input: {
     findActiveDraft(conversationId) {
       return prismaConversationOrderDraftRepository.findActiveDraft(conversationId);
     },
-    createLocalOrder(orderInput) {
-      return upsertBusinessOrderProjection({
+    async createLocalOrder(orderInput) {
+      const requestedItems = Array.isArray(orderInput.order.items)
+        ? orderInput.order.items as Array<{ productId: string }>
+        : [];
+      const catalogProducts = await prisma.catalogProduct.findMany({
+        where: {
+          globalTenantId: orderInput.globalTenantId,
+          externalProductId: { in: requestedItems.map((item) => item.productId) },
+          active: true,
+        },
+        select: { externalProductId: true, sku: true, name: true, price: true, imageUrl: true },
+      });
+      const enrichedOrder = enrichLocalOrderSnapshot(
+        orderInput.order as Record<string, unknown> & {
+          items: Array<{ productId: string; name?: string; quantity: number }>;
+        },
+        catalogProducts,
+      );
+      await upsertBusinessOrderProjection({
         globalTenantId: orderInput.globalTenantId,
         assistantId: orderInput.assistantId,
         conversationId: orderInput.conversationId,
-        order: orderInput.order,
+        order: enrichedOrder,
       });
+      return enrichedOrder;
     },
     prepareDraft(orderInput) {
       return prepareConversationOrderDraft(orderInput, {

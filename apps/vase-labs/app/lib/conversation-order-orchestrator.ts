@@ -1,6 +1,7 @@
 import type { LabsChannel } from "@vase/contracts";
 import type { AiOrderAction } from "./openai-reply-generator";
 import { isExplicitOrderConfirmation } from "./conversation-order-draft";
+import { publicOrderNumber } from "./local-order-snapshot";
 
 type ActiveOrderDraft = {
   state: string;
@@ -37,7 +38,7 @@ type OrderOrchestratorDependencies = {
     globalTenantId: string;
     channel: LabsChannel;
     order: Record<string, unknown>;
-  }): Promise<unknown>;
+  }): Promise<Record<string, unknown>>;
   prepareDraft(input: {
     assistantId: string;
     conversationId: string;
@@ -260,7 +261,12 @@ function mapLocalOrderChannel(channel: LabsChannel) {
 }
 
 function buildLocalOrderNumber(conversationId: string) {
-  return `LABS-${conversationId.replace(/[^a-z0-9]/gi, "").slice(-6).toUpperCase() || "LOCAL"}`;
+  let hash = 2166136261;
+  for (const character of conversationId) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `LABS-${String((hash >>> 0) % 900000 + 100000)}`;
 }
 
 function buildLocalOrderSnapshot(input: {
@@ -302,8 +308,8 @@ function buildLocalOrderSnapshot(input: {
 function localOrderText(order: unknown) {
   const orderNumber = readOrderNumber({ order });
   return orderNumber
-    ? `Pedido armado en Labs. NÃºmero interno: ${orderNumber}. Queda pendiente de revisiÃ³n del equipo.`
-    : "Pedido armado en Labs. Queda pendiente de revisiÃ³n del equipo.";
+    ? `Tu pedido N.º ${publicOrderNumber(orderNumber)} está en proceso y pendiente de confirmación. Te avisaremos por este mismo medio cuando esté listo.`
+    : "Tu pedido está en proceso y pendiente de confirmación. Te avisaremos por este mismo medio cuando esté listo.";
 }
 
 export function createConversationOrderOrchestrator(deps: OrderOrchestratorDependencies) {
@@ -399,14 +405,14 @@ export function createConversationOrderOrchestrator(deps: OrderOrchestratorDepen
           action: input.action,
           fulfillment: normalizedFulfillment,
         });
-        await deps.createLocalOrder({
+        const createdOrder = await deps.createLocalOrder({
           assistantId: input.assistantId,
           conversationId: input.conversationId,
           globalTenantId: input.globalTenantId,
           channel: input.channel,
           order,
         });
-        return { text: localOrderText(order) };
+        return { text: localOrderText(createdOrder) };
       }
       const fulfillmentPromise = deps.loadFulfillment(input.globalTenantId).catch(() => null);
       const prepared = await deps.prepareDraft({

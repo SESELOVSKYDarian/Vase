@@ -234,7 +234,7 @@ describe("Labs conversation order orchestrator", () => {
   it("creates a local Labs order without calling Business when local ordering is enabled", async () => {
     const prepareDraft = vi.fn();
     const confirmDraft = vi.fn();
-    const createLocalOrder = vi.fn(async () => ({ processed: true }));
+    const createLocalOrder = vi.fn(async ({ order }: { order: Record<string, unknown> }) => order);
     const service = createConversationOrderOrchestrator({
       loadHistory: vi.fn(async () => []),
       loadFulfillment: vi.fn(async () => ({ branches: [], deliveryZones: [] })),
@@ -266,7 +266,7 @@ describe("Labs conversation order orchestrator", () => {
       channel: "WHATSAPP",
       order: expect.objectContaining({
         id: "labs-local:conversation_1",
-        orderNumber: "LABS-ATION1",
+        orderNumber: expect.stringMatching(/^LABS-\d{6}$/),
         status: "PENDING_REVIEW",
         channel: "WHATSAPP",
         customerName: "Alexis",
@@ -274,8 +274,8 @@ describe("Labs conversation order orchestrator", () => {
         items: [{ productId: "1005", name: "1005", quantity: 1 }],
       }),
     }));
-    expect(result.text).toContain("Pedido armado en Labs");
-    expect(result.text).toContain("LABS-ATION1");
+    expect(result.text).toMatch(/Tu pedido N.º \d{6} está en proceso/);
+    expect(result.text).not.toContain("Labs");
   });
 
   it("falls back to the quote summary when automatic confirmation fails", async () => {
