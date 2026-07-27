@@ -210,4 +210,22 @@ describe("ChannelEditModal", () => {
 
     expect(host.textContent).toContain("Volvé a pegar el Access Token");
   });
+  it("shows the specific Meta OAuth start error instead of a generic reconnect failure", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "FACEBOOK", status: "ERROR",
+        webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "page", parentId: null, accessTokenMasked: "masked", appSecretMasked: "masked", accountLabel: "Facebook",
+        health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:false },
+      }))
+      .mockResolvedValueOnce(Response.json({ error:"META_APP_ID_MISSING" }, { status:400 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await act(async () => root.render(React.createElement(ChannelEditModal, { channel: { id: "c", type: "FACEBOOK", accountLabel: "Facebook" } })));
+
+    await click("Editar");
+    await click("Reconectar con Meta");
+
+    expect(host.textContent).toContain("Falta configurar META_APP_ID");
+    expect(host.textContent).not.toContain("No pudimos iniciar la conexi");
+  });
 });

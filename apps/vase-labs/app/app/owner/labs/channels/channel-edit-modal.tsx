@@ -31,6 +31,18 @@ function metaConnectionErrorMessage(code: string) {
   return "Vase no pudo validar el canal con las credenciales cargadas. Revisá el Phone Number ID, WABA ID y Access Token de este canal.";
 }
 
+function metaConnectionStartErrorMessage(code: string) {
+  if (code === "META_APP_ID_MISSING") return "Falta configurar META_APP_ID en Vase Labs.";
+  if (code === "META_APP_SECRET_MISSING") return "Falta configurar META_APP_SECRET en Vase Labs.";
+  if (code === "META_OAUTH_REDIRECT_URI_MISSING") return "Falta configurar META_OAUTH_REDIRECT_URI en Vase Labs.";
+  if (code === "META_WEBHOOK_SECRET_MISSING") return "Falta configurar META_WEBHOOK_SECRET o SERVICE_TO_SERVICE_TOKEN en Vase Labs.";
+  if (code === "TOKEN_ENCRYPTION_SECRET_MISSING") return "Falta configurar TOKEN_ENCRYPTION_SECRET en Vase Labs.";
+  if (code === "CHANNEL_LIMIT_REACHED") return "El plan de este cliente ya alcanzo el limite de canales para este tipo.";
+  if (code === "CHANNEL_NOT_INCLUDED") return "El plan de este cliente no incluye este canal.";
+  if (code.includes("SESSION")) return "La sesion expiro. Volve a iniciar sesion en Vase.";
+  return "No pudimos iniciar la conexiÃ³n con Meta.";
+}
+
 export function ChannelEditModal({ channel }: { channel: Summary }) {
   const router = useRouter();
   const [open, setOpen] = useState(false), [advanced, setAdvanced] = useState(false), [confirming, setConfirming] = useState(false);
@@ -58,8 +70,8 @@ export function ChannelEditModal({ channel }: { channel: Summary }) {
   }
   async function oauth() {
     setBusy(true); setError(null);
-    try { const response = await fetch("/api/v1/meta/connections/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channelType: channel.type }) }); const payload = await response.json(); if (!response.ok || !payload.authorizationUrl) throw new Error(); window.location.assign(payload.authorizationUrl); }
-    catch { setError("No pudimos iniciar la conexión con Meta."); setBusy(false); }
+    try { const response = await fetch("/api/v1/meta/connections/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channelType: channel.type }) }); const payload = await response.json(); if (!response.ok || !payload.authorizationUrl) throw new Error(typeof payload.error === "string" ? payload.error : "META_CONNECTION_START_FAILED"); window.location.assign(payload.authorizationUrl); }
+    catch (reason) { const code = reason instanceof Error ? reason.message : ""; setError(metaConnectionStartErrorMessage(code)); setBusy(false); }
   }
   async function verify() {
     setBusy(true); setError(null);
