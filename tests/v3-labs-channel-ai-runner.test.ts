@@ -80,6 +80,7 @@ describe("channel AI reply runner", () => {
       conversationId: "conversation_123",
       channel: "FACEBOOK",
       text: "Respuesta IA",
+      imageUrls: ["https://cdn.vase.ar/p1.jpg"],
     });
     expect(registerTokenUsage).toHaveBeenCalledWith(expect.objectContaining({
       globalTenantId: "tenant_123",

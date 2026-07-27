@@ -109,12 +109,12 @@ describe("Vase Labs Meta webhook hardening", () => {
     expect(result.body).toMatchObject({ ok: true, processed: true });
   });
 
-  it("ignores messages for channels that are not connected", async () => {
+  it("ignores messages for channels that are explicitly disconnected", async () => {
     const repository = new MemoryRepository(createContext({
       channel: {
         id: "channel_123",
         provider: "META_OFFICIAL",
-        status: "PENDING",
+        status: "DISCONNECTED",
         config: { appSecret: "secret", verifyToken: "verify-token" },
       },
     }));

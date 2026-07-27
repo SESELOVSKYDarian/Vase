@@ -20,6 +20,7 @@ interface AiOrchestratorDeps {
     systemPrompt?: string | null;
     allowedImageUrls?: string[];
   }): Promise<OrchestratedAiReply>;
+  listSentImageUrls?(conversationId: string): Promise<string[]>;
   orders?: {
     buildContext(input: { conversationId: string; globalTenantId: string }): Promise<string>;
     confirmIfRequested(input: {
@@ -42,6 +43,7 @@ interface AiOrchestratorDeps {
     conversationId: string;
     channel: LabsChannel;
     text: string;
+    imageUrls: string[];
   }): Promise<{ messageId: string }>;
   registerTokenUsage(input: {
     globalTenantId: string;
@@ -91,7 +93,7 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         channel: input.channel,
         userText: input.latestUserText,
       });
-      const [knowledgeContext, catalogResources, orderContext] = await Promise.all([
+      const [knowledgeContext, catalogResources, orderContext, previouslySentImageUrls] = await Promise.all([
         deps.knowledge.buildContext(input.assistantId),
         buildCatalogResources(deps.catalog, input.globalTenantId),
         confirmation?.handled
@@ -100,6 +102,7 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
               conversationId: input.conversationId,
               globalTenantId: input.globalTenantId,
             }) ?? Promise.resolve(""),
+        deps.listSentImageUrls?.(input.conversationId) ?? Promise.resolve([]),
       ]);
       const context = [knowledgeContext, catalogResources.context, orderContext].filter(Boolean).join("\n\n");
       let reply: OrchestratedAiReply = confirmation?.handled
@@ -126,11 +129,17 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         });
         reply = { ...reply, text: prepared.text };
       }
+      const sentImageUrls = new Set(previouslySentImageUrls);
+      reply = {
+        ...reply,
+        imageUrls: (reply.imageUrls ?? []).filter((url) => !sentImageUrls.has(url)),
+      };
       const message = await deps.persistAssistantReply({
         assistantId: input.assistantId,
         conversationId: input.conversationId,
         channel: input.channel,
         text: reply.text,
+        imageUrls: reply.imageUrls ?? [],
       });
       const usage = await deps.registerTokenUsage({
         globalTenantId: input.globalTenantId,

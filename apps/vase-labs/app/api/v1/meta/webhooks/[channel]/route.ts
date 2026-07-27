@@ -10,11 +10,18 @@ import { labsPrisma } from "../../../../../lib/db";
 import { parseFacebookWebhookMessage } from "../../../../../lib/facebook-webhook";
 import { parseInstagramWebhookMessage } from "../../../../../lib/instagram-webhook";
 import { parseWhatsAppWebhookMessage } from "../../../../../lib/whatsapp-webhook";
+import { createMetaCustomerProfileResolver } from "../../../../../lib/meta-customer-profile";
+import { PrismaOfficialChannelSenderRepository } from "../../../../../lib/official-channel-sender-repository";
 
 export const dynamic = "force-dynamic";
 
 const repository = new PrismaChannelWebhookRepository(labsPrisma);
 const runAiReply = createPrismaChannelAiReplyRunner();
+const customerProfiles = createMetaCustomerProfileResolver({
+  repository: new PrismaOfficialChannelSenderRepository(labsPrisma),
+  encryptionSecret: process.env.TOKEN_ENCRYPTION_SECRET ?? "",
+  graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v25.0",
+});
 
 function parseChannel(value: string): LabsChannel {
   return labsChannelSchema.parse(value.trim().toUpperCase());
@@ -67,6 +74,11 @@ export async function POST(
       appSecret: process.env.META_APP_SECRET ?? "",
       parseMessage: parserFor(channelType),
       runAiReply,
+      resolveCustomerName: ({ context, message }) => customerProfiles.resolve({
+        globalTenantId: context.globalTenantId,
+        channelType: context.channelType,
+        userId: message.externalThreadKey,
+      }),
     });
     return NextResponse.json(result.body, { status: result.status });
   } catch {

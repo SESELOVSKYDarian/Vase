@@ -11,8 +11,8 @@ export type AiModelPricing = {
 
 const planBudgetsUsd = {
   STARTER: 5,
-  GROWTH: 15,
-  PRO: 40,
+  GROWTH: 10,
+  PRO: 20,
 } as const satisfies Record<LabsPlan, number>;
 
 const modelPricingDefaults = {

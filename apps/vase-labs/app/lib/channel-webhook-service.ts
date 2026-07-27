@@ -138,6 +138,11 @@ export type RunChannelAiReply = (input: {
   persisted: PersistChannelInboundMessageResult;
 }) => Promise<{ ok: boolean; messageId?: string; totalTokens?: number; reason?: string }>;
 
+export type ResolveInboundCustomerName = (input: {
+  context: ChannelWebhookContext;
+  message: InboundChannelMessage;
+}) => Promise<string | null>;
+
 type AssistantRow = {
   id: string;
   model?: string | null;
@@ -927,6 +932,7 @@ export async function handleMetaChannelWebhook(input: {
   appSecret?: string;
   parseMessage: ParseChannelWebhookMessage;
   runAiReply?: RunChannelAiReply;
+  resolveCustomerName?: ResolveInboundCustomerName;
 }): Promise<ChannelWebhookPostResult> {
   const context = await input.repository.findContextByTenantSlug(input.tenantSlug, input.channelType);
 
@@ -979,7 +985,7 @@ export async function handleMetaChannelWebhook(input: {
     };
   }
 
-  const message = input.parseMessage({
+  let message = input.parseMessage({
     globalTenantId: context.globalTenantId,
     payload,
   });
@@ -994,6 +1000,11 @@ export async function handleMetaChannelWebhook(input: {
       status: 200,
       body: { ok: true, ignored: true },
     };
+  }
+
+  if (!message.customerName && input.resolveCustomerName) {
+    const customerName = await input.resolveCustomerName({ context, message }).catch(() => null);
+    if (customerName) message = { ...message, customerName };
   }
 
   const event = await input.repository.markWebhookEventProcessing?.({
@@ -1150,6 +1161,7 @@ export async function handleGlobalMetaChannelWebhook(input: {
   appSecret: string;
   parseMessage: ParseChannelWebhookMessage;
   runAiReply?: RunChannelAiReply;
+  resolveCustomerName?: ResolveInboundCustomerName;
 }): Promise<ChannelWebhookPostResult> {
   if (!verifyMetaSignature(input.appSecret, input.rawBody, input.signatureHeader)) {
     return { status: 401, body: { ok: false, reason: "invalid_signature" } };
@@ -1191,5 +1203,6 @@ export async function handleGlobalMetaChannelWebhook(input: {
     appSecret: input.appSecret,
     parseMessage: input.parseMessage,
     runAiReply: input.runAiReply,
+    resolveCustomerName: input.resolveCustomerName,
   });
 }

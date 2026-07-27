@@ -15,6 +15,12 @@ import {
 } from "../apps/vase-labs/app/lib/billing";
 
 describe("Vase Labs AI budget planning", () => {
+  it("assigns the commercial budget agreed for every plan", () => {
+    expect(microsToUsd(getPlanAiBudgetMicros("STARTER"))).toBe(5);
+    expect(microsToUsd(getPlanAiBudgetMicros("GROWTH"))).toBe(10);
+    expect(microsToUsd(getPlanAiBudgetMicros("PRO"))).toBe(20);
+  });
+
   it("assigns USD budgets by plan and reports critical usage near a 5 dollar Starter cap", () => {
     const budget = calculateAiBudget({
       plan: "STARTER",

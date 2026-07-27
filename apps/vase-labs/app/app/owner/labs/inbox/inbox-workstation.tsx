@@ -12,6 +12,7 @@ import {
 } from "./inbox-channels";
 import { formatInboxDeliveryError } from "./inbox-delivery-errors";
 import { isInboxNearBottom, shouldAutoScrollInbox } from "./inbox-scroll-policy";
+import { mergeInboxConversationSummaries } from "./inbox-conversation-merge";
 
 type InboxMessage = {
   id: string;
@@ -236,7 +237,10 @@ export function InboxWorkstation({
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !Array.isArray(payload.conversations)) return;
 
-      setConversations(sortConversations(payload.conversations.map(normalizeConversation)));
+      const refreshed = payload.conversations.map(normalizeConversation);
+      setConversations((current) => sortConversations(
+        mergeInboxConversationSummaries(current, refreshed),
+      ));
     } finally {
       if (!silent) setRefreshing(false);
     }

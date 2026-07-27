@@ -5,9 +5,48 @@ import type {
 } from "../apps/vase-labs/app/lib/channel-webhook-service";
 import { handleGlobalMetaChannelWebhook } from "../apps/vase-labs/app/lib/channel-webhook-service";
 import { parseFacebookWebhookMessage } from "../apps/vase-labs/app/lib/facebook-webhook";
+import { parseInstagramWebhookMessage } from "../apps/vase-labs/app/lib/instagram-webhook";
 import { signMetaPayload } from "../apps/vase-labs/app/lib/meta-signature";
 
 describe("single Meta app global webhook", () => {
+  it("enriches an Instagram sender id with the resolved customer name before persistence", async () => {
+    let persistedName: string | null | undefined;
+    const context: ChannelWebhookContext = {
+      assistantId: "assistant_1",
+      globalTenantId: "tenant_1",
+      tenantSlug: "tenant",
+      channelType: "INSTAGRAM",
+      channel: { id: "channel_1", provider: "META_OFFICIAL", status: "CONNECTED", config: {} },
+      entitlement: null,
+    };
+    const repository = {
+      async findContextByTenantSlug() { return context; },
+      async findContextByProviderAccountId() { return context; },
+      async persistInboundMessage(input: { message: { customerName?: string | null } }) {
+        persistedName = input.message.customerName;
+        return { conversationId: "conversation_1", messageId: "message_1", messageCreatedAt: new Date(), aiBlockedReason: null };
+      },
+      async enqueueConversationAnalysis() {},
+    };
+    const body = JSON.stringify({
+      entry: [{ id: "ig_business", messaging: [{
+        sender: { id: "ig_user" }, message: { mid: "mid_1", text: "Hola" },
+      }] }],
+    });
+    const result = await handleGlobalMetaChannelWebhook({
+      channelType: "INSTAGRAM",
+      repository,
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
+      appSecret: "secret",
+      parseMessage: parseInstagramWebhookMessage,
+      resolveCustomerName: async () => "Alexis Vallejos",
+    });
+
+    expect(result.status).toBe(200);
+    expect(persistedName).toBe("Alexis Vallejos");
+  });
+
   it("routes an event to the tenant by the subscribed provider account id", async () => {
     const context: ChannelWebhookContext = {
       assistantId: "assistant_123",

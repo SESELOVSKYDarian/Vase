@@ -129,6 +129,7 @@ describe("Vase Labs operation services", () => {
       conversationId: "conv_123",
       channel: "INSTAGRAM",
       text: "Atendemos de 9 a 18.",
+      imageUrls: ["https://cdn.vase.ar/p1.jpg"],
     });
     expect(sendReply).toHaveBeenCalledWith({
       channel: "INSTAGRAM",
@@ -141,6 +142,41 @@ describe("Vase Labs operation services", () => {
       status: "SENT",
       providerMessageId: "mid_ai",
     });
+  });
+
+  it("does not resend a product image already used in the conversation", async () => {
+    const sendReply = vi.fn(async () => ({ ok: true }));
+    const persistAssistantReply = vi.fn(async () => ({ messageId: "msg_2" }));
+    const orchestrator = createAiOrchestrator({
+      knowledge: { async buildContext() { return ""; } },
+      async generateReply() {
+        return {
+          text: "La boquilla sigue disponible.",
+          imageUrls: ["https://cdn.vase.ar/boquilla.jpg"],
+          inputTokens: 1,
+          outputTokens: 1,
+        };
+      },
+      async listSentImageUrls() {
+        return ["https://cdn.vase.ar/boquilla.jpg"];
+      },
+      persistAssistantReply,
+      async registerTokenUsage() { return { totalTokens: 2 }; },
+      sendReply,
+    });
+
+    await orchestrator.processConversation({
+      assistantId: "assistant_1",
+      conversationId: "conversation_1",
+      globalTenantId: "tenant_1",
+      channel: "INSTAGRAM",
+      latestUserText: "¿Y la boquilla?",
+      canRunAi: true,
+      handoffActive: false,
+    });
+
+    expect(sendReply).toHaveBeenCalledWith(expect.objectContaining({ imageUrls: [] }));
+    expect(persistAssistantReply).toHaveBeenCalledWith(expect.objectContaining({ imageUrls: [] }));
   });
 
   it("marks a persisted assistant reply as failed when Meta rejects delivery", async () => {

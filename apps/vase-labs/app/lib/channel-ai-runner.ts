@@ -44,11 +44,13 @@ type ChannelAiReplyRunnerDeps = {
   };
   createReplyGenerator(input: { apiKey?: string; model: string }): ReplyGenerator;
   orders?: NonNullable<Parameters<typeof createAiOrchestrator>[0]["orders"]>;
+  listSentImageUrls?(conversationId: string): Promise<string[]>;
   persistAssistantReply(input: {
     assistantId: string;
     conversationId: string;
     channel: LabsChannel;
     text: string;
+    imageUrls: string[];
   }): Promise<{ messageId: string }>;
   registerTokenUsage(input: {
     globalTenantId: string;
@@ -118,6 +120,7 @@ export async function persistPrismaAssistantReply(
     conversationId: string;
     channel: LabsChannel;
     text: string;
+    imageUrls?: string[];
   },
 ): Promise<{ messageId: string }> {
   return prisma.$transaction(async (transaction) => {
@@ -142,6 +145,7 @@ export async function persistPrismaAssistantReply(
         role: "assistant",
         direction: "OUTBOUND",
         content: reply.text,
+        metadata: { imageUrls: reply.imageUrls ?? [] },
         deliveries: { create: { channel: reply.channel, status: "PENDING" } },
       },
       select: { id: true },
@@ -200,6 +204,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
       catalog: deps.catalog,
       generateReply: generator.generateReply,
       orders: deps.orders,
+      listSentImageUrls: deps.listSentImageUrls,
       persistAssistantReply: deps.persistAssistantReply,
       registerTokenUsage: deps.registerTokenUsage,
       sendReply(reply) {
@@ -330,6 +335,22 @@ export function createPrismaChannelAiReplyRunner(input: {
     }),
     catalog: labsCatalogService,
     orders,
+    async listSentImageUrls(conversationId) {
+      const messages = await prisma.message.findMany({
+        where: {
+          conversationId,
+          role: "assistant",
+          deliveries: { some: { status: "SENT" } },
+        },
+        select: { metadata: true },
+      });
+      return [...new Set(messages.flatMap((message) => {
+        const imageUrls = (message.metadata as { imageUrls?: unknown } | null)?.imageUrls;
+        return Array.isArray(imageUrls)
+          ? imageUrls.filter((url): url is string => typeof url === "string")
+          : [];
+      }))];
+    },
     async resolveOpenAiApiKey(assistantId) {
       const secret = await prisma.assistantSecret.findUnique({
         where: { assistantId_kind: { assistantId, kind: "OPENAI_API_KEY" } },
