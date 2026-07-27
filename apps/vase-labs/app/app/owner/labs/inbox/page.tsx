@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
-import { LabsEmptyState, LabsPageHeader, LabsSection, LabsStatusPill } from "../labs-ui";
+import { LabsPageHeader, LabsSection, LabsStatusPill } from "../labs-ui";
 import { InboxWorkstation, type InboxConversationItem } from "./inbox-workstation";
 
 export const dynamic = "force-dynamic";
@@ -20,25 +20,45 @@ async function getInboxData() {
 
   try {
     const resolved = await resolveLabsRequestContext(requestHeaders.get("cookie"));
-    const conversations = await labsPrisma.conversation.findMany({
-      where: {
-        assistantId: resolved.assistant.id,
-        status: { in: ["OPEN", "ESCALATED"] },
-      },
-      include: {
-        messages: { orderBy: { createdAt: "asc" }, take: 80 },
-        handoffs: {
-          where: { status: { in: ["PENDING", "ASSIGNED"] } },
-          orderBy: { createdAt: "desc" },
-          take: 1,
+    const [conversations, channels] = await Promise.all([
+      labsPrisma.conversation.findMany({
+        where: {
+          assistantId: resolved.assistant.id,
+          status: { in: ["OPEN", "ESCALATED"] },
         },
-      },
-      orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }],
-      take: 50,
-    });
+        include: {
+          messages: { orderBy: { createdAt: "asc" }, take: 80 },
+          handoffs: {
+            where: { status: { in: ["PENDING", "ASSIGNED"] } },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+        orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }],
+        take: 50,
+      }),
+      labsPrisma.channel.findMany({
+        where: {
+          assistantId: resolved.assistant.id,
+          type: { in: ["WHATSAPP", "INSTAGRAM", "FACEBOOK"] },
+        },
+        select: {
+          type: true,
+          status: true,
+          lastSyncedAt: true,
+          lastError: true,
+        },
+      }),
+    ]);
 
     return {
       tenantSlug: resolved.context.tenantSlug,
+      channelStates: channels.map((channel) => ({
+        channel: channel.type,
+        status: channel.status,
+        lastSyncedAt: channel.lastSyncedAt?.toISOString() ?? null,
+        lastError: channel.lastError,
+      })),
       conversations: conversations.map((conversation): InboxConversationItem => ({
         id: conversation.id,
         channel: conversation.channel,
@@ -121,17 +141,11 @@ export default async function LabsInboxPage() {
         description="Ordenados por la actividad mas reciente para que el equipo priorice la respuesta."
         className="labs-inbox-board-section"
       >
-        {data.conversations.length === 0 ? (
-          <LabsEmptyState
-            title="Inbox al dia"
-            description="No hay conversaciones abiertas ni derivaciones pendientes en este momento."
-          />
-        ) : (
-          <InboxWorkstation
-            tenantSlug={data.tenantSlug}
-            initialConversations={data.conversations}
-          />
-        )}
+        <InboxWorkstation
+          tenantSlug={data.tenantSlug}
+          initialConversations={data.conversations}
+          channelStates={data.channelStates}
+        />
       </LabsSection>
 
       {data.conversations.length > 0 ? (

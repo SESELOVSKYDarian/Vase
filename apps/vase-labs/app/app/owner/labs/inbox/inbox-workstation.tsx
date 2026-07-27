@@ -3,6 +3,13 @@
 import { ArrowDown, Bell, CheckCheck, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LabsStatusPill } from "../labs-ui";
+import {
+  countInboxConversationsByChannel,
+  filterInboxConversationsByChannel,
+  inboxChannels,
+  normalizeInboxChannel,
+  type InboxChannel,
+} from "./inbox-channels";
 import { formatInboxDeliveryError } from "./inbox-delivery-errors";
 import { isInboxNearBottom, shouldAutoScrollInbox } from "./inbox-scroll-policy";
 
@@ -34,6 +41,13 @@ export type InboxConversationItem = {
   summary: string | null;
   messages: InboxMessage[];
   handoffs: InboxHandoff[];
+};
+
+type InboxChannelState = {
+  channel: string;
+  status: string;
+  lastSyncedAt: string | null;
+  lastError: string | null;
 };
 
 type RawInboxMessage = Partial<Record<keyof InboxMessage, unknown>>;
@@ -100,15 +114,32 @@ function normalizeConversation(raw: RawInboxConversation): InboxConversationItem
   };
 }
 
+const inboxChannelLabels: Record<InboxChannel, string> = {
+  WHATSAPP: "WhatsApp",
+  INSTAGRAM: "Instagram",
+  FACEBOOK: "Facebook",
+};
+
+const inboxChannelTitles: Record<InboxChannel, string> = {
+  WHATSAPP: "Chats de WhatsApp",
+  INSTAGRAM: "Chats de Instagram",
+  FACEBOOK: "Chats de Facebook",
+};
+
 export function InboxWorkstation({
   tenantSlug,
   initialConversations,
+  channelStates,
 }: {
   tenantSlug: string;
   initialConversations: InboxConversationItem[];
+  channelStates: InboxChannelState[];
 }) {
   const [conversations, setConversations] = useState(() => sortConversations(initialConversations));
-  const [activeId, setActiveId] = useState(conversations[0]?.id ?? "");
+  const [selectedChannel, setSelectedChannel] = useState<InboxChannel>(
+    () => normalizeInboxChannel(initialConversations[0]?.channel) ?? "WHATSAPP",
+  );
+  const [activeId, setActiveId] = useState(initialConversations[0]?.id ?? "");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -121,13 +152,39 @@ export function InboxWorkstation({
   const operatorSentRef = useRef(false);
   const previousThreadRef = useRef({ conversationId: "", messageCount: 0 });
 
+  const channelCounts = useMemo(
+    () => countInboxConversationsByChannel(conversations),
+    [conversations],
+  );
+  const channelStateMap = useMemo(
+    () => new Map(
+      channelStates.flatMap((state) => {
+        const channel = normalizeInboxChannel(state.channel);
+        return channel ? [[channel, state] as const] : [];
+      }),
+    ),
+    [channelStates],
+  );
+  const visibleConversations = useMemo(
+    () => filterInboxConversationsByChannel(conversations, selectedChannel),
+    [conversations, selectedChannel],
+  );
   const activeConversation = useMemo(
-    () => conversations.find((conversation) => conversation.id === activeId) ?? conversations[0] ?? null,
-    [activeId, conversations],
+    () => visibleConversations.find((conversation) => conversation.id === activeId)
+      ?? visibleConversations[0]
+      ?? null,
+    [activeId, visibleConversations],
   );
   const pendingHumanCount = conversations.filter(
     (conversation) => conversation.escalatedToHuman || conversation.handoffs.length > 0,
   ).length;
+
+  useEffect(() => {
+    const nextActiveId = visibleConversations.some((conversation) => conversation.id === activeId)
+      ? activeId
+      : visibleConversations[0]?.id ?? "";
+    if (nextActiveId !== activeId) setActiveId(nextActiveId);
+  }, [activeId, visibleConversations]);
 
   function scrollToLatest(behavior: ScrollBehavior = "smooth") {
     const thread = threadRef.current;
@@ -214,10 +271,16 @@ export function InboxWorkstation({
   }
 
   useEffect(() => {
+    const interval = window.setInterval(() => {
+      void refreshConversationList(true);
+    }, 4000);
+    return () => window.clearInterval(interval);
+  }, [tenantSlug]);
+
+  useEffect(() => {
     if (!activeId) return;
     const interval = window.setInterval(() => {
       void refreshConversation(true);
-      void refreshConversationList(true);
     }, 4000);
     return () => window.clearInterval(interval);
   }, [activeId]);
@@ -331,12 +394,39 @@ export function InboxWorkstation({
     }
   }
 
-  if (!activeConversation) {
-    return null;
-  }
-
   return (
     <section className="labs-inbox-shell">
+      <nav className="labs-inbox-channel-tabs" aria-label="Chats por canal">
+        {inboxChannels.map((channel) => {
+          const active = selectedChannel === channel;
+          const channelState = channelStateMap.get(channel);
+          return (
+            <button
+              key={channel}
+              type="button"
+              className={active ? "is-active" : ""}
+              aria-pressed={active}
+              onClick={() => {
+                setSelectedChannel(channel);
+                setError("");
+                setNotice("");
+              }}
+            >
+              <img src={`/icons/channels/${channel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
+              <span>
+                <strong>{inboxChannelTitles[channel]}</strong>
+                <small>
+                  {channelCounts[channel]} conversacion{channelCounts[channel] === 1 ? "" : "es"}
+                  {" · "}
+                  {channelState?.status === "CONNECTED" ? "Conectado" : channelState?.status ?? "No conectado"}
+                </small>
+              </span>
+              <em>{channelCounts[channel]}</em>
+            </button>
+          );
+        })}
+      </nav>
+
       {pendingHumanCount > 0 ? (
         <div className="labs-inbox-alert" aria-live="polite">
           <Bell aria-hidden="true" />
@@ -347,12 +437,26 @@ export function InboxWorkstation({
       <div className="labs-inbox-workstation">
       <aside className="labs-inbox-queue" aria-label="Pendientes de atencion">
         <div className="labs-inbox-queue-heading">
-          <span>Cola</span>
-          <strong>{conversations.length}</strong>
+          <span>Chats de {inboxChannelLabels[selectedChannel]}</span>
+          <strong>{visibleConversations.length}</strong>
         </div>
-        {conversations.map((conversation) => {
+        {visibleConversations.length === 0 ? (
+          <div className="labs-inbox-channel-empty">
+            <img src={`/icons/channels/${selectedChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
+            <strong>No hay conversaciones de este canal</strong>
+            <span>Los mensajes nuevos de {inboxChannelLabels[selectedChannel]} apareceran aca automaticamente.</span>
+            <small>
+              {channelStateMap.get(selectedChannel)?.lastError
+                ? `Ultimo webhook: ${channelStateMap.get(selectedChannel)?.lastError}`
+                : channelStateMap.get(selectedChannel)?.lastSyncedAt
+                  ? `Ultimo webhook: ${formatDate(channelStateMap.get(selectedChannel)?.lastSyncedAt ?? null)}`
+                  : "Sin webhooks recibidos"}
+            </small>
+          </div>
+        ) : null}
+        {visibleConversations.map((conversation) => {
           const latestMessage = conversation.messages.at(-1);
-          const active = conversation.id === activeConversation.id;
+          const active = conversation.id === activeId;
           const hasHandoff = conversation.escalatedToHuman || conversation.handoffs.length > 0;
           return (
             <button
@@ -379,6 +483,7 @@ export function InboxWorkstation({
         })}
       </aside>
 
+      {activeConversation ? (
       <article className="labs-inbox-thread labs-inbox-thread-card">
         <header>
           <div>
@@ -483,6 +588,18 @@ export function InboxWorkstation({
           {notice ? <p className="is-success" aria-live="polite">{notice}</p> : null}
         </form>
       </article>
+      ) : (
+        <article className="labs-inbox-thread-empty" aria-live="polite">
+          <img src={`/icons/channels/${selectedChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
+          <p className="vase-kicker">{inboxChannelLabels[selectedChannel]}</p>
+          <h2>Esperando el primer mensaje</h2>
+          <p>Cuando un cliente escriba por {inboxChannelLabels[selectedChannel]}, el chat se abrira en esta bandeja.</p>
+          <button type="button" onClick={() => void refreshConversationList()} disabled={refreshing}>
+            {refreshing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
+            Comprobar mensajes
+          </button>
+        </article>
+      )}
       </div>
     </section>
   );

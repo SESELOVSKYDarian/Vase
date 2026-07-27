@@ -21,7 +21,7 @@ function getMessagingEvents(payload: unknown): MetaMessagingEvent[] {
 function isInboundMessageEvent(event: MetaMessagingEvent) {
   const rawMessage = event.message;
   if (!rawMessage || !event.sender?.id) return false;
-  return rawMessage.is_echo !== true;
+  return rawMessage.is_echo !== true && rawMessage.is_self !== true;
 }
 
 function getMessageText(rawMessage: Record<string, unknown>) {

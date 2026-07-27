@@ -73,4 +73,21 @@ describe("Vase Labs Instagram webhook parser", () => {
       messageType: "text",
     });
   });
+
+  it("ignores Instagram Login self events so AI replies do not become customer messages", () => {
+    expect(parseInstagramWebhookMessage({
+      globalTenantId: "tenant_123",
+      payload: {
+        object: "instagram",
+        entry: [{
+          id: "ig_business_123",
+          messaging: [{
+            sender: { id: "ig_business_123" },
+            recipient: { id: "ig_user_456" },
+            message: { mid: "self_mid", text: "Respuesta de Vase", is_self: true },
+          }],
+        }],
+      },
+    })).toBeNull();
+  });
 });

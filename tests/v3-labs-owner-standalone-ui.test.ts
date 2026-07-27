@@ -277,6 +277,8 @@ describe("Vase Labs standalone owner experience", () => {
     expect(inbox).toContain("handoffs: {");
     expect(inbox).toContain('status: { in: ["PENDING", "ASSIGNED"] }');
     expect(inbox).toContain("<InboxWorkstation");
+    expect(inbox).toContain("lastSyncedAt");
+    expect(inbox).toContain("channelStates=");
     expect(workstation).toContain('"use client"');
     expect(workstation).toContain("setInterval");
     expect(workstation).toContain("refreshConversationList");
@@ -290,6 +292,12 @@ describe("Vase Labs standalone owner experience", () => {
     expect(workstation).toContain("labs-inbox-alert");
     expect(workstation).toContain("labs-inbox-shell");
     expect(workstation).toContain("labs-inbox-workstation");
+    expect(workstation).toContain("labs-inbox-channel-tabs");
+    expect(workstation).toContain("Chats de WhatsApp");
+    expect(workstation).toContain("Chats de Instagram");
+    expect(workstation).toContain("Chats de Facebook");
+    expect(workstation).toContain("No hay conversaciones de este canal");
+    expect(workstation).toContain("Sin webhooks recibidos");
     expect(activity).toContain('title="Inteligencia comercial"');
     expect(activity).toContain("<ActivityWorkspace");
     expect(activityWorkspace).toContain("aiReplyError");
