@@ -36,6 +36,18 @@ describe("Meta Graph official channel adapter", () => {
     await expect(client.resolveManualAsset({ channelType:"INSTAGRAM", accessToken:"page-token", providerAccountId:"ig_1", parentId:"page_1" })).resolves.toMatchObject({ candidate:{ id:"ig_1", kind:"INSTAGRAM_ACCOUNT", parentId:"page_1" }, parentId:"page_1", accessToken:"page-token" });
   });
 
+  it("does not require Instagram page fields when validating a manually entered Facebook Page", async () => {
+    const requestedUrls: string[] = [];
+    const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"app_123", appSecret:"secret", fetcher: async (url) => {
+      requestedUrls.push(String(url));
+      return Response.json({ id:"page_1", name:"Vase", username:"vase" });
+    }});
+
+    await expect(client.resolveManualAsset({ channelType:"FACEBOOK", accessToken:"page-token", providerAccountId:"page_1", parentId:null }))
+      .resolves.toMatchObject({ candidate:{ id:"page_1", kind:"FACEBOOK_PAGE" }, accessToken:"page-token" });
+    expect(requestedUrls[0]).toBe("https://graph.facebook.com/v99.0/page_1?fields=id%2Cname%2Cusername");
+  });
+
   it("validates an Instagram Login token directly against the Instagram graph", async () => {
     const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"1540258407754657", appSecret:"secret", fetcher: async (url) => {
       expect(String(url)).toBe("https://graph.instagram.com/v99.0/me?fields=user_id,username,name");

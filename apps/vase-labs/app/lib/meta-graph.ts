@@ -257,8 +257,11 @@ export function createMetaGraphClient(input: {
 
       const pageId = params.channelType === "FACEBOOK" ? params.providerAccountId : params.parentId;
       if (!pageId) throw new Error("META_ASSET_PARENT_MISSING");
+      const pageFields = params.channelType === "FACEBOOK"
+        ? "id,name,username"
+        : "id,name,username,instagram_business_account{id,name,username}";
       const page = await graphRequest(
-        `/${encodeURIComponent(pageId)}?fields=id,name,username,instagram_business_account{id,name,username}`,
+        `/${encodeURIComponent(pageId)}?fields=${encodeURIComponent(pageFields)}`,
         params.accessToken,
         undefined,
         "META_ASSET_NOT_AUTHORIZED",
