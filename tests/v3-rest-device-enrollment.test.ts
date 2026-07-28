@@ -56,7 +56,7 @@ describe("Rest secure device enrollment", () => {
       certificateFingerprint: "SHA256:ABCDEF0123456789",
     });
     expect(response.payload.branchId).toBe("branch_1");
-    expect(response.payload.syncUrl).toContain("/api/v1/sync");
+    expect(response.payload.syncUrl).toContain("/api/v1/edge/sync");
     expect(verifyEnrollmentResponse(response, secret)).toBe(true);
   });
 

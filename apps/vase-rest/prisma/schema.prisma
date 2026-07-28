@@ -30,6 +30,8 @@ model RestTenant {
   reservations   Reservation[]
   orders         RestaurantOrder[]
   kitchenStations KitchenStation[]
+  edgeAggregates  EdgeAggregateProjection[]
+  edgeEventReceipts EdgeEventReceipt[]
   createdAt      DateTime                     @default(now())
   updatedAt      DateTime                     @updatedAt
 }
@@ -728,6 +730,45 @@ model OrderCommandReceipt {
 
   @@unique([globalTenantId, commandId])
   @@index([orderId, createdAt])
+}
+
+model EdgeAggregateProjection {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  aggregateType  String
+  aggregateId    String
+  version        Int
+  state          Json
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([globalTenantId, aggregateType, aggregateId])
+  @@index([globalTenantId, aggregateType, updatedAt])
+}
+
+model EdgeEventReceipt {
+  id               String     @id @default(cuid())
+  restTenantId     String
+  globalTenantId   String
+  branchId         String
+  installationId  String
+  eventId          String
+  idempotencyKey   String
+  aggregateType    String
+  aggregateId      String
+  aggregateVersion Int
+  eventType        String
+  payload          Json
+  status           String
+  occurredAt       DateTime
+  acceptedAt       DateTime   @default(now())
+  restTenant       RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+
+  @@unique([globalTenantId, eventId])
+  @@unique([globalTenantId, idempotencyKey])
+  @@index([globalTenantId, aggregateType, aggregateId, aggregateVersion])
+  @@index([installationId, acceptedAt])
 }
 
 model StaffSession {

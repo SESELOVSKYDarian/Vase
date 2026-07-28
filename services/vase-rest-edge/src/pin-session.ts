@@ -69,3 +69,37 @@ export async function authenticateOfflinePin(database: EdgeDatabase, raw: unknow
     staff: { id: employee.staff_id, displayName: employee.display_name, roles },
   };
 }
+
+export function validateOfflineSession(
+  database: EdgeDatabase,
+  authorization: string | undefined,
+  sessionSecret: string,
+) {
+  const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) throw new Error("EDGE_STAFF_SESSION_REQUIRED");
+  const tokenHash = createHmac("sha256", sessionSecret).update(token).digest("base64url");
+  const session = database.raw.prepare(`
+    SELECT s.staff_id, s.branch_id, s.device_id, s.expires_at, s.revoked_at,
+           p.display_name, p.roles_json, p.active
+    FROM staff_session s JOIN staff_projection p ON p.staff_id = s.staff_id
+    WHERE s.token_hash = ?
+  `).get(tokenHash) as {
+    staff_id: string; branch_id: string; device_id: string; expires_at: string;
+    revoked_at: string | null; display_name: string; roles_json: string; active: number;
+  } | undefined;
+  if (
+    !session ||
+    session.revoked_at ||
+    !session.active ||
+    new Date(session.expires_at) <= new Date()
+  ) throw new Error("EDGE_STAFF_SESSION_EXPIRED");
+  return {
+    staffId: session.staff_id,
+    branchId: session.branch_id,
+    deviceId: session.device_id,
+    displayName: session.display_name,
+    roles: JSON.parse(session.roles_json) as Array<{
+      branchId: string; role: string; capabilities: string[];
+    }>,
+  };
+}

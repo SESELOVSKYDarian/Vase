@@ -156,7 +156,7 @@ export function createEnrollmentService(
           ? ["sync:push", "sync:pull", "printing:dispatch", "lan:coordinate"]
           : ["staff:authenticate", "orders:operate"],
         syncUrl: new URL(
-          "/api/v1/sync",
+          "/api/v1/edge/sync",
           config.syncBaseUrl ?? "https://rest.vase.ar",
         ).toString(),
         issuedAt: now.toISOString(),
