@@ -26,6 +26,8 @@ model RestTenant {
   ingredients    Ingredient[]
   modifierGroups ModifierGroup[]
   warehouses     Warehouse[]
+  diningFloors   DiningFloor[]
+  reservations   Reservation[]
   createdAt      DateTime                     @default(now())
   updatedAt      DateTime                     @updatedAt
 }
@@ -69,6 +71,9 @@ model Branch {
   productAvailability ProductBranchAvailability[]
   warehouseLinks WarehouseBranch[]
   inventoryAllocations BranchInventoryAllocation[]
+  diningFloors   DiningFloor[]
+  diningTables   DiningTable[]
+  reservations   Reservation[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -435,6 +440,126 @@ model AllocationConsumption {
 
   @@unique([globalTenantId, commandId])
   @@index([allocationId, occurredAt])
+}
+
+model DiningFloor {
+  id             String      @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  code           String
+  name           String
+  sortOrder      Int         @default(0)
+  active         Boolean     @default(true)
+  revision       Int         @default(1)
+  restTenant     RestTenant  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  zones          DiningZone[]
+  tables         DiningTable[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([branchId, code])
+  @@index([globalTenantId, branchId, active])
+}
+
+model DiningZone {
+  id             String        @id @default(cuid())
+  globalTenantId String
+  floorId        String
+  code           String
+  name           String
+  colorToken     String?
+  floor          DiningFloor   @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  tables         DiningTable[]
+
+  @@unique([floorId, code])
+}
+
+model DiningTable {
+  id             String             @id @default(cuid())
+  globalTenantId String
+  branchId       String
+  floorId        String
+  zoneId         String?
+  code           String
+  name           String
+  capacity       Int
+  x              Decimal            @db.Decimal(10, 2)
+  y              Decimal            @db.Decimal(10, 2)
+  width          Decimal            @db.Decimal(10, 2)
+  height         Decimal            @db.Decimal(10, 2)
+  status         String             @default("AVAILABLE")
+  revision       Int                @default(1)
+  mergeGroupId   String?
+  mergedIntoId   String?
+  branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  floor          DiningFloor        @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  zone           DiningZone?        @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  reservationLinks ReservationTable[]
+  transitions    TableTransition[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([branchId, code])
+  @@index([globalTenantId, branchId, status])
+  @@index([mergeGroupId])
+}
+
+model TableTransition {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  branchId       String
+  tableId        String
+  fromStatus     String
+  toStatus       String
+  fromRevision   Int
+  toRevision     Int
+  actorId        String
+  commandId      String
+  table          DiningTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  occurredAt     DateTime    @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([tableId, occurredAt])
+}
+
+model Reservation {
+  id             String             @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  guestName      String
+  guestPhone     String?
+  partySize      Int
+  startsAt       DateTime
+  endsAt         DateTime
+  status         String             @default("CONFIRMED")
+  notes          String?
+  revision       Int                @default(1)
+  createdBy      String
+  cancelledAt    DateTime?
+  cancellationReason String?
+  restTenant     RestTenant         @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  tables         ReservationTable[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([globalTenantId, branchId, startsAt, endsAt])
+  @@index([branchId, status, startsAt])
+}
+
+model ReservationTable {
+  id             String       @id @default(cuid())
+  globalTenantId String
+  reservationId  String
+  tableId        String
+  reservation    Reservation  @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  table          DiningTable  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([reservationId, tableId])
+  @@index([globalTenantId, tableId])
 }
 
 model StaffSession {
