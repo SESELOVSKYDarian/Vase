@@ -15,6 +15,8 @@ type Order = {
   revision: number;
   aggregateVersion: number;
   total: string;
+  tableId: string | null;
+  guestCount: number;
   items: Array<{
     id: string;
     nameSnapshot: string;
@@ -39,17 +41,24 @@ export default function OrderPage({
     id: string; version: number; orderNumber: number | null;
   }>>([]);
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [tables, setTables] = useState<Array<{
+    id: string; code: string; capacity: number; status: string; mergedIntoId: string | null;
+  }>>([]);
 
   async function refresh() {
     const client = readLocalEdgeClient();
-    const [orders, catalog] = await Promise.all([
+    const [orders, catalog, tableState] = await Promise.all([
       client.state("ORDER"),
       client.state("CATALOG"),
+      client.state("TABLE"),
     ]) as [
       { aggregates: Array<{ aggregateId: string; version: number; state: Order }> },
       { aggregates: Array<{ state: {
         categories: Array<{ id: string; name: string }>;
         products: Product[];
+      } }> },
+      { aggregates: Array<{ state: {
+        id: string; code: string; capacity: number; status: string; mergedIntoId: string | null;
       } }> },
     ];
     const found = orders.aggregates.find((item) => item.aggregateId === orderId);
@@ -60,6 +69,7 @@ export default function OrderPage({
       item.aggregateId !== orderId && item.state.status === "OPEN"
         ? [{ id: item.aggregateId, version: item.version, orderNumber: item.state.orderNumber }]
         : []));
+    setTables(tableState.aggregates.map((item) => item.state));
     const snapshot = catalog.aggregates[0]?.state;
     setCategories((snapshot?.categories ?? []).map((category) => ({
       ...category,
@@ -72,7 +82,7 @@ export default function OrderPage({
   }, [orderId]);
 
   async function command(
-    action: "ADD_ITEM" | "SUBMIT" | "SPLIT" | "MERGE",
+    action: "ADD_ITEM" | "UPDATE_DETAILS" | "SUBMIT" | "SPLIT" | "MERGE",
     payload: Record<string, unknown>,
   ) {
     if (!order) return;
@@ -84,6 +94,7 @@ export default function OrderPage({
         aggregateId: orderId,
         expectedVersion: order.aggregateVersion,
         eventType: action === "ADD_ITEM" ? "ORDER_ITEM_ADDED"
+          : action === "UPDATE_DETAILS" ? "ORDER_DETAILS_UPDATED"
           : action === "SUBMIT" ? "ORDER_SUBMITTED"
             : action === "SPLIT" ? "ORDER_SPLIT" : "ORDER_MERGED",
         idempotencyKey: crypto.randomUUID(),
@@ -179,6 +190,35 @@ export default function OrderPage({
         </form>
       ) : null}
       {error ? <p role="alert">{error}</p> : null}
+      {["OPEN", "SUBMITTED", "PARTIALLY_READY", "READY"].includes(order.status)
+        ? <form className="inline-form" onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            const rawTableId = String(form.get("tableId") ?? "");
+            void command("UPDATE_DETAILS", {
+              tableId: rawTableId || null,
+              guestCount: Number(form.get("guestCount")),
+            });
+          }}>
+            <label>Mesa
+              <select name="tableId" defaultValue={order.tableId ?? ""}>
+                <option value="">Mostrador / sin mesa</option>
+                {tables.filter((table) =>
+                  !table.mergedIntoId &&
+                  (table.id === order.tableId ||
+                    ["AVAILABLE", "RESERVED"].includes(table.status)))
+                  .map((table) => <option value={table.id} key={table.id}>
+                    Mesa {table.code} · {table.capacity} personas
+                  </option>)}
+              </select>
+            </label>
+            <label>Cubiertos
+              <input name="guestCount" type="number" min="1" max="500"
+                defaultValue={order.guestCount} required />
+            </label>
+            <button className="button" type="submit">Actualizar mesa</button>
+          </form>
+        : null}
       <div className="branch-list">
         {order.items.map((item) => (
           <article key={item.id}>

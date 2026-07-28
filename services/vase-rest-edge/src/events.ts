@@ -183,6 +183,100 @@ function orderTransition(
     };
   }
   if (!current) throw new Error("EDGE_ORDER_NOT_FOUND");
+  if (input.eventType === "ORDER_DETAILS_UPDATED") {
+    if (!["OPEN", "SUBMITTED", "PARTIALLY_READY", "READY"].includes(String(current.status))) {
+      throw new Error("EDGE_ORDER_STATUS_INVALID");
+    }
+    const intent = z.object({
+      tableId: z.string().min(1).nullable(),
+      guestCount: z.number().int().positive().max(500),
+    }).strict().parse(input.payload);
+    const previousTableId = z.string().nullable().catch(null).parse(current.tableId);
+    const readTable = (tableId: string) => {
+      const row = database.raw.prepare(`
+        SELECT version, state_json FROM aggregate_state
+        WHERE aggregate_type = 'TABLE' AND aggregate_id = ?
+      `).get(tableId) as { version: number; state_json: string } | undefined;
+      if (!row) throw new Error("EDGE_TABLE_NOT_FOUND");
+      return {
+        id: tableId,
+        version: row.version,
+        state: z.object({
+          status: z.string(),
+          capacity: z.number().int().positive(),
+          mergedIntoId: z.string().nullable().optional(),
+        }).passthrough().parse(JSON.parse(row.state_json)),
+      };
+    };
+    const previous = previousTableId ? readTable(previousTableId) : null;
+    const target = intent.tableId ? readTable(intent.tableId) : null;
+    if (target?.state.mergedIntoId) throw new Error("EDGE_TABLE_UNAVAILABLE");
+    if (target && target.state.capacity < intent.guestCount) {
+      throw new Error("EDGE_TABLE_CAPACITY_INSUFFICIENT");
+    }
+    const moving = previousTableId !== intent.tableId;
+    if (moving && previous && previous.state.status !== "OCCUPIED") {
+      throw new Error("EDGE_TABLE_STATE_CONFLICT");
+    }
+    if (
+      moving &&
+      target &&
+      !["AVAILABLE", "RESERVED"].includes(target.state.status)
+    ) throw new Error("EDGE_TABLE_UNAVAILABLE");
+    const additionalStates = [];
+    if (moving && previous) {
+      additionalStates.push({
+        aggregateType: "TABLE",
+        aggregateId: previous.id,
+        version: previous.version + 1,
+        state: {
+          ...previous.state,
+          status: "AVAILABLE",
+          revision: previous.version + 1,
+        },
+      });
+    }
+    if (moving && target) {
+      additionalStates.push({
+        aggregateType: "TABLE",
+        aggregateId: target.id,
+        version: target.version + 1,
+        state: {
+          ...target.state,
+          status: "OCCUPIED",
+          revision: target.version + 1,
+        },
+      });
+    }
+    return {
+      state: {
+        ...current,
+        tableId: intent.tableId,
+        guestCount: intent.guestCount,
+        revision: nextVersion,
+      },
+      eventPayload: {
+        ...intent,
+        previousTable: previous
+          ? {
+              id: previous.id,
+              expectedVersion: previous.version,
+              status: previous.state.status,
+            }
+          : null,
+        targetTable: target
+          ? {
+              id: target.id,
+              expectedVersion: target.version,
+              status: target.state.status,
+              capacity: target.state.capacity,
+            }
+          : null,
+      },
+      additionalStates,
+      createdTickets: [],
+    };
+  }
   if (input.eventType === "ORDER_ITEM_ADDED") {
     if (current.status !== "OPEN") throw new Error("EDGE_ORDER_STATUS_INVALID");
     const intent = z.object({

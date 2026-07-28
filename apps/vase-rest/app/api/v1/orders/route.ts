@@ -59,6 +59,7 @@ export async function POST(request: Request) {
     };
     const result = action === "OPEN" ? await orders.open(common)
       : action === "ADD_ITEM" ? await orders.addItem(common)
+        : action === "UPDATE_DETAILS" ? await orders.updateDetails(common)
         : action === "SUBMIT" ? await orders.submit(common)
           : action === "CANCEL" ? await orders.cancel(common)
             : action === "SPLIT" ? await orders.split(common)

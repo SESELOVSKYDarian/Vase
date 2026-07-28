@@ -62,6 +62,16 @@ export function createOrderService(repository: OrderRepository) {
       await validate(input, ["OPEN"]);
       return repository.execute({ action: "ADD_ITEM", ...input });
     },
+    async updateDetails(raw: unknown) {
+      const input = baseSchema.extend({
+        tableId: z.string().min(1).nullable(),
+        guestCount: z.number().int().positive().max(500),
+      }).strict().parse(raw);
+      const prior = await existing(input.globalTenantId, input.commandId);
+      if (prior) return prior;
+      await validate(input, ["OPEN", "SUBMITTED", "PARTIALLY_READY", "READY"]);
+      return repository.execute({ action: "UPDATE_DETAILS", ...input });
+    },
     async submit(raw: unknown) {
       const input = baseSchema.strict().parse(raw);
       const prior = await existing(input.globalTenantId, input.commandId);

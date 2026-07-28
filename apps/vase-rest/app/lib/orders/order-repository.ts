@@ -238,6 +238,86 @@ export const prismaOrderRepository: OrderRepository = {
       });
       if (!order) throw new Error("REST_ORDER_REVISION_CONFLICT");
 
+      if (input.action === "UPDATE_DETAILS") {
+        const targetTableId = input.tableId as string | null;
+        const moving = order.tableId !== targetTableId;
+        const target = targetTableId ? await tx.diningTable.findFirst({
+          where: {
+            id: targetTableId,
+            globalTenantId: input.globalTenantId,
+            branchId: input.branchId,
+            ...(moving ? { status: { in: ["AVAILABLE", "RESERVED"] } } : {}),
+            mergedIntoId: null,
+          },
+        }) : null;
+        if (targetTableId && !target) throw new Error("REST_TABLE_UNAVAILABLE");
+        if (target && target.capacity < Number(input.guestCount)) {
+          throw new Error("REST_TABLE_CAPACITY_INSUFFICIENT");
+        }
+        if (moving && order.tableId) {
+          const previous = await tx.diningTable.findFirst({
+            where: {
+              id: order.tableId,
+              globalTenantId: input.globalTenantId,
+              branchId: input.branchId,
+              status: "OCCUPIED",
+            },
+          });
+          if (!previous) throw new Error("REST_TABLE_REVISION_CONFLICT");
+          await tx.diningTable.update({
+            where: { id: previous.id },
+            data: { status: "AVAILABLE", revision: { increment: 1 } },
+          });
+          await tx.tableTransition.create({
+            data: {
+              globalTenantId: input.globalTenantId,
+              branchId: input.branchId,
+              tableId: previous.id,
+              fromStatus: previous.status,
+              toStatus: "AVAILABLE",
+              fromRevision: previous.revision,
+              toRevision: previous.revision + 1,
+              actorId: input.actorId,
+              commandId: `${input.commandId}:table:${previous.id}`,
+            },
+          });
+        }
+        if (moving && target) {
+          await tx.diningTable.update({
+            where: { id: target.id },
+            data: { status: "OCCUPIED", revision: { increment: 1 } },
+          });
+          await tx.tableTransition.create({
+            data: {
+              globalTenantId: input.globalTenantId,
+              branchId: input.branchId,
+              tableId: target.id,
+              fromStatus: target.status,
+              toStatus: "OCCUPIED",
+              fromRevision: target.revision,
+              toRevision: target.revision + 1,
+              actorId: input.actorId,
+              commandId: `${input.commandId}:table:${target.id}`,
+            },
+          });
+        }
+        const updated = await tx.restaurantOrder.update({
+          where: { id: order.id },
+          data: {
+            tableId: targetTableId,
+            guestCount: input.guestCount as number,
+            revision: { increment: 1 },
+          },
+        });
+        return receipt(tx, input, order.id, {
+          commandId: input.commandId,
+          orderId: order.id,
+          revision: updated.revision,
+          tableId: updated.tableId,
+          guestCount: updated.guestCount,
+        });
+      }
+
       if (input.action === "ADD_ITEM") {
         const product = await tx.menuProduct.findFirst({
           where: {

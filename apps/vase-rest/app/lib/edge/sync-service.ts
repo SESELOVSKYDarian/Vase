@@ -198,6 +198,115 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
               createdAt: new Date(payload.openedAt),
             },
           });
+        } else if (event.eventType === "ORDER_DETAILS_UPDATED") {
+          const tableReference = z.object({
+            id: z.string().min(1),
+            expectedVersion: z.number().int().positive(),
+            status: z.string().min(1),
+          }).passthrough();
+          const payload = z.object({
+            tableId: z.string().min(1).nullable(),
+            guestCount: z.number().int().positive().max(500),
+            previousTable: tableReference.nullable(),
+            targetTable: tableReference.extend({
+              capacity: z.number().int().positive(),
+            }).nullable(),
+          }).strict().parse(event.payload);
+          const order = await tx.restaurantOrder.findFirst({
+            where: {
+              id: event.aggregateId,
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              revision: event.aggregateVersion - 1,
+              status: { in: ["OPEN", "SUBMITTED", "PARTIALLY_READY", "READY"] },
+            },
+          });
+          if (!order) throw new Error("REST_ORDER_REVISION_CONFLICT");
+          if (
+            order.tableId !== (payload.previousTable?.id ?? null) ||
+            payload.tableId !== (payload.targetTable?.id ?? null)
+          ) throw new Error("REST_ORDER_TABLE_CONFLICT");
+          if (payload.targetTable && payload.targetTable.capacity < payload.guestCount) {
+            throw new Error("REST_TABLE_CAPACITY_INSUFFICIENT");
+          }
+          const moving = order.tableId !== payload.tableId;
+          const tableUpdates = moving
+            ? [
+                ...(payload.previousTable
+                  ? [{ reference: payload.previousTable, to: "AVAILABLE" }]
+                  : []),
+                ...(payload.targetTable
+                  ? [{ reference: payload.targetTable, to: "OCCUPIED" }]
+                  : []),
+              ]
+            : [];
+          for (const update of tableUpdates) {
+            const allowedFrom = update.to === "AVAILABLE"
+              ? ["OCCUPIED"] : ["AVAILABLE", "RESERVED"];
+            if (!allowedFrom.includes(update.reference.status)) {
+              throw new Error("REST_TABLE_TRANSITION_INVALID");
+            }
+            const changed = await tx.diningTable.updateMany({
+              where: {
+                id: update.reference.id,
+                globalTenantId: event.globalTenantId,
+                branchId: event.branchId,
+                revision: update.reference.expectedVersion,
+                status: update.reference.status,
+                mergedIntoId: null,
+              },
+              data: {
+                status: update.to,
+                revision: update.reference.expectedVersion + 1,
+              },
+            });
+            if (changed.count !== 1) throw new Error("REST_TABLE_REVISION_CONFLICT");
+            const updatedTable = await tx.diningTable.findUniqueOrThrow({
+              where: { id: update.reference.id },
+            });
+            await tx.tableTransition.create({
+              data: {
+                globalTenantId: event.globalTenantId,
+                branchId: event.branchId,
+                tableId: update.reference.id,
+                fromStatus: update.reference.status,
+                toStatus: update.to,
+                fromRevision: update.reference.expectedVersion,
+                toRevision: update.reference.expectedVersion + 1,
+                actorId: event.actorId,
+                commandId: `${event.idempotencyKey}:table:${update.reference.id}`,
+              },
+            });
+            await tx.edgeAggregateProjection.upsert({
+              where: {
+                globalTenantId_aggregateType_aggregateId: {
+                  globalTenantId: event.globalTenantId,
+                  aggregateType: "TABLE",
+                  aggregateId: update.reference.id,
+                },
+              },
+              create: {
+                restTenantId: tenant.id,
+                globalTenantId: event.globalTenantId,
+                aggregateType: "TABLE",
+                aggregateId: update.reference.id,
+                version: updatedTable.revision,
+                state: JSON.parse(JSON.stringify(updatedTable)) as Prisma.InputJsonValue,
+              },
+              update: {
+                version: updatedTable.revision,
+                state: JSON.parse(JSON.stringify(updatedTable)) as Prisma.InputJsonValue,
+              },
+            });
+          }
+          await tx.restaurantOrder.update({
+            where: { id: order.id },
+            data: {
+              tableId: payload.tableId,
+              guestCount: payload.guestCount,
+              revision: event.aggregateVersion,
+            },
+          });
         } else if (event.eventType === "ORDER_ITEM_ADDED") {
           const payload = z.object({
             id: z.string().min(1),

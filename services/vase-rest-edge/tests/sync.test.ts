@@ -149,6 +149,49 @@ describe("Rest Edge durable sync", () => {
     database.close();
   });
 
+  it("moves an active order between tables and updates guest count offline", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    applySnapshots(database, [{
+      aggregateType: "ORDER", aggregateId: "order_1", version: 2,
+      state: {
+        id: "order_1", status: "OPEN", revision: 2, tableId: "t1",
+        guestCount: 2, items: [], total: "0.00",
+      },
+    }, {
+      aggregateType: "TABLE", aggregateId: "t1", version: 2,
+      state: { id: "t1", status: "OCCUPIED", revision: 2, capacity: 4 },
+    }, {
+      aggregateType: "TABLE", aggregateId: "t2", version: 1,
+      state: { id: "t2", status: "AVAILABLE", revision: 1, capacity: 6 },
+    }]);
+    acceptLocalCommand(database, {
+      eventId: "move-order", aggregateType: "ORDER", aggregateId: "order_1",
+      expectedVersion: 2, eventType: "ORDER_DETAILS_UPDATED",
+      actorId: "waiter", deviceId: "device", idempotencyKey: "move-order-command",
+      payload: { tableId: "t2", guestCount: 5 },
+    });
+    const order = database.raw.prepare(`
+      SELECT state_json FROM aggregate_state
+      WHERE aggregate_type = 'ORDER' AND aggregate_id = 'order_1'
+    `).get() as { state_json: string };
+    expect(JSON.parse(order.state_json)).toMatchObject({
+      tableId: "t2", guestCount: 5, revision: 3,
+    });
+    const tableRows = database.raw.prepare(`
+      SELECT aggregate_id, version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'TABLE' ORDER BY aggregate_id
+    `).all() as Array<{ aggregate_id: string; version: number; state_json: string }>;
+    expect(tableRows.map((row) => ({
+      id: row.aggregate_id, version: row.version, status: JSON.parse(row.state_json).status,
+    }))).toEqual([
+      { id: "t1", version: 3, status: "AVAILABLE" },
+      { id: "t2", version: 2, status: "OCCUPIED" },
+    ]);
+    database.close();
+  });
+
   it("cancels an open order offline without trusting a browser total", async () => {
     const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
     cleanup.push(dir);
