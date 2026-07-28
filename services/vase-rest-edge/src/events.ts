@@ -718,11 +718,116 @@ function reservationTransition(
 }
 
 function tableTransition(
+  database: EdgeDatabase,
   input: z.infer<typeof commandSchema>,
   current: Record<string, unknown> | undefined,
   nextVersion: number,
 ) {
   if (!current) throw new Error("EDGE_TABLE_NOT_FOUND");
+  if (input.eventType === "TABLES_MERGED") {
+    const intent = z.object({
+      tableIds: z.array(z.string().min(1)).min(2),
+    }).strict().parse(input.payload);
+    const tableIds = [...new Set(intent.tableIds)];
+    if (tableIds.length < 2 || tableIds[0] !== input.aggregateId) {
+      throw new Error("EDGE_TABLE_MERGE_INVALID");
+    }
+    const tables = tableIds.map((tableId) => {
+      const row = database.raw.prepare(`
+        SELECT version, state_json FROM aggregate_state
+        WHERE aggregate_type = 'TABLE' AND aggregate_id = ?
+      `).get(tableId) as { version: number; state_json: string } | undefined;
+      if (!row) throw new Error("EDGE_TABLE_NOT_FOUND");
+      const state = z.object({
+        id: z.string(), status: z.string(), mergeGroupId: z.string().nullable().optional(),
+        mergedIntoId: z.string().nullable().optional(),
+      }).passthrough().parse(JSON.parse(row.state_json));
+      if (state.status !== "AVAILABLE" || state.mergeGroupId || state.mergedIntoId) {
+        throw new Error("EDGE_TABLE_MERGE_UNAVAILABLE");
+      }
+      return { id: tableId, version: row.version, state };
+    });
+    if (tables[0]!.version + 1 !== nextVersion) {
+      throw new Error("EDGE_AGGREGATE_VERSION_CONFLICT");
+    }
+    const mergeGroupId = randomUUID();
+    return {
+      state: {
+        ...current,
+        mergeGroupId,
+        mergedIntoId: null,
+        revision: nextVersion,
+      },
+      eventPayload: {
+        anchorId: input.aggregateId,
+        mergeGroupId,
+        tables: tables.map((table) => ({ id: table.id, expectedVersion: table.version })),
+      },
+      additionalStates: tables.slice(1).map((table) => ({
+        aggregateType: "TABLE",
+        aggregateId: table.id,
+        version: table.version + 1,
+        state: {
+          ...table.state,
+          mergeGroupId,
+          mergedIntoId: input.aggregateId,
+          revision: table.version + 1,
+        },
+      })),
+      createdTickets: [],
+    };
+  }
+  if (input.eventType === "TABLES_SPLIT") {
+    z.object({}).strict().parse(input.payload);
+    const mergeGroupId = z.string().min(1).parse(current.mergeGroupId);
+    if (current.status !== "AVAILABLE" || current.mergedIntoId) {
+      throw new Error("EDGE_TABLE_SPLIT_UNAVAILABLE");
+    }
+    const tables = (database.raw.prepare(`
+      SELECT aggregate_id, version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'TABLE'
+    `).all() as Array<{ aggregate_id: string; version: number; state_json: string }>)
+      .map((row) => ({
+        id: row.aggregate_id,
+        version: row.version,
+        state: z.object({
+          status: z.string(),
+          mergeGroupId: z.string().nullable().optional(),
+        }).passthrough().parse(JSON.parse(row.state_json)),
+      }))
+      .filter((table) => table.state.mergeGroupId === mergeGroupId);
+    if (tables.length < 2 || tables.some((table) => table.state.status !== "AVAILABLE")) {
+      throw new Error("EDGE_TABLE_SPLIT_UNAVAILABLE");
+    }
+    const anchor = tables.find((table) => table.id === input.aggregateId);
+    if (!anchor || anchor.version + 1 !== nextVersion) {
+      throw new Error("EDGE_AGGREGATE_VERSION_CONFLICT");
+    }
+    return {
+      state: {
+        ...current,
+        mergeGroupId: null,
+        mergedIntoId: null,
+        revision: nextVersion,
+      },
+      eventPayload: {
+        mergeGroupId,
+        tables: tables.map((table) => ({ id: table.id, expectedVersion: table.version })),
+      },
+      additionalStates: tables.filter((table) => table.id !== input.aggregateId).map((table) => ({
+        aggregateType: "TABLE",
+        aggregateId: table.id,
+        version: table.version + 1,
+        state: {
+          ...table.state,
+          mergeGroupId: null,
+          mergedIntoId: null,
+          revision: table.version + 1,
+        },
+      })),
+      createdTickets: [],
+    };
+  }
   const to = input.eventType.match(/^TABLE_(AVAILABLE|RESERVED|OCCUPIED|DIRTY|CLEANING|DISABLED)$/)?.[1];
   if (!to) throw new Error("EDGE_TABLE_EVENT_INVALID");
   const from = String(current.status);
@@ -1057,6 +1162,7 @@ export function acceptLocalCommand(database: EdgeDatabase, raw: unknown) {
         )
       : input.aggregateType === "TABLE"
         ? tableTransition(
+            database,
             input,
             aggregate
               ? JSON.parse(aggregate.state_json) as Record<string, unknown>

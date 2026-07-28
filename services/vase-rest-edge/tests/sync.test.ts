@@ -95,6 +95,60 @@ describe("Rest Edge durable sync", () => {
     database.close();
   });
 
+  it("merges and splits available tables atomically offline", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    applySnapshots(database, ["t1", "t2"].map((id, index) => ({
+      aggregateType: "TABLE",
+      aggregateId: id,
+      version: 1,
+      state: {
+        id, code: String(index + 1), capacity: 4, status: "AVAILABLE",
+        revision: 1, mergeGroupId: null, mergedIntoId: null,
+      },
+    })));
+    acceptLocalCommand(database, {
+      eventId: "merge-tables", aggregateType: "TABLE", aggregateId: "t1",
+      expectedVersion: 1, eventType: "TABLES_MERGED",
+      actorId: "waiter", deviceId: "device", idempotencyKey: "merge-tables-command",
+      payload: { tableIds: ["t1", "t2"] },
+    });
+    const mergedRows = database.raw.prepare(`
+      SELECT aggregate_id, version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'TABLE' ORDER BY aggregate_id
+    `).all() as Array<{ aggregate_id: string; version: number; state_json: string }>;
+    expect(mergedRows.map((row) => ({
+      id: row.aggregate_id, version: row.version, state: JSON.parse(row.state_json),
+    }))).toEqual([
+      expect.objectContaining({
+        id: "t1", version: 2,
+        state: expect.objectContaining({ mergedIntoId: null }),
+      }),
+      expect.objectContaining({
+        id: "t2", version: 2,
+        state: expect.objectContaining({ mergedIntoId: "t1" }),
+      }),
+    ]);
+    acceptLocalCommand(database, {
+      eventId: "split-tables", aggregateType: "TABLE", aggregateId: "t1",
+      expectedVersion: 2, eventType: "TABLES_SPLIT",
+      actorId: "waiter", deviceId: "device", idempotencyKey: "split-tables-command",
+      payload: {},
+    });
+    const splitRows = database.raw.prepare(`
+      SELECT version, state_json FROM aggregate_state WHERE aggregate_type = 'TABLE'
+    `).all() as Array<{ version: number; state_json: string }>;
+    expect(splitRows.every((row) => {
+      const state = JSON.parse(row.state_json);
+      return row.version === 3 && state.mergeGroupId === null && state.mergedIntoId === null;
+    })).toBe(true);
+    expect(pendingOutbox(database).slice(-2).map((event) => event.eventType)).toEqual([
+      "TABLES_MERGED", "TABLES_SPLIT",
+    ]);
+    database.close();
+  });
+
   it("cancels an open order offline without trusting a browser total", async () => {
     const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
     cleanup.push(dir);

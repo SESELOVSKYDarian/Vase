@@ -102,36 +102,6 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
       if (event.aggregateVersion !== current + 1) {
         throw new Error("AGGREGATE_VERSION_CONFLICT");
       }
-      if (event.aggregateType === "TABLE") {
-        const payload = z.object({
-          status: z.enum(["AVAILABLE", "RESERVED", "OCCUPIED", "DIRTY", "CLEANING", "DISABLED"]),
-        }).passthrough().parse(event.payload);
-        const table = await tx.diningTable.findFirst({
-          where: {
-            id: event.aggregateId,
-            globalTenantId: event.globalTenantId,
-            branchId: event.branchId,
-          },
-        });
-        if (!table || table.revision + 1 !== event.aggregateVersion) {
-          throw new Error("AGGREGATE_VERSION_CONFLICT");
-        }
-        const transitions: Record<string, string[]> = {
-          AVAILABLE: ["RESERVED", "OCCUPIED", "DISABLED"],
-          RESERVED: ["OCCUPIED", "AVAILABLE"],
-          OCCUPIED: ["DIRTY"],
-          DIRTY: ["CLEANING"],
-          CLEANING: ["AVAILABLE"],
-          DISABLED: ["AVAILABLE"],
-        };
-        if (!transitions[table.status]?.includes(payload.status)) {
-          throw new Error("EDGE_EVENT_TRANSITION_INVALID");
-        }
-        await tx.diningTable.update({
-          where: { id: table.id },
-          data: { status: payload.status, revision: event.aggregateVersion },
-        });
-      }
       if (event.aggregateType === "ORDER") {
         if (event.eventType === "ORDER_OPENED") {
           const payload = z.object({
@@ -932,6 +902,93 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
         }
       }
       if (event.aggregateType === "TABLE") {
+        if (["TABLES_MERGED", "TABLES_SPLIT"].includes(event.eventType)) {
+          const payload = z.object({
+            tables: z.array(z.object({
+              id: z.string().min(1),
+              expectedVersion: z.number().int().positive(),
+            }).strict()).min(2),
+            anchorId: z.string().min(1).optional(),
+            mergeGroupId: z.string().min(1),
+          }).strict().parse(event.payload);
+          const tableIds = [...new Set(payload.tables.map((table) => table.id))];
+          if (
+            tableIds.length !== payload.tables.length ||
+            !tableIds.includes(event.aggregateId) ||
+            (event.eventType === "TABLES_MERGED" && payload.anchorId !== event.aggregateId)
+          ) throw new Error("REST_TABLE_MERGE_INVALID");
+          for (const expected of payload.tables) {
+            const changed = await tx.diningTable.updateMany({
+              where: {
+                id: expected.id,
+                globalTenantId: event.globalTenantId,
+                branchId: event.branchId,
+                revision: expected.expectedVersion,
+                status: "AVAILABLE",
+                ...(event.eventType === "TABLES_MERGED"
+                  ? { mergeGroupId: null, mergedIntoId: null }
+                  : { mergeGroupId: payload.mergeGroupId }),
+              },
+              data: event.eventType === "TABLES_MERGED"
+                ? {
+                    mergeGroupId: payload.mergeGroupId,
+                    mergedIntoId: expected.id === event.aggregateId
+                      ? null : event.aggregateId,
+                    revision: expected.expectedVersion + 1,
+                  }
+                : {
+                    mergeGroupId: null,
+                    mergedIntoId: null,
+                    revision: expected.expectedVersion + 1,
+                  },
+            });
+            if (changed.count !== 1) throw new Error("REST_TABLE_REVISION_CONFLICT");
+            if (expected.id !== event.aggregateId) {
+              const updated = await tx.diningTable.findUniqueOrThrow({
+                where: { id: expected.id },
+              });
+              await tx.edgeAggregateProjection.upsert({
+                where: {
+                  globalTenantId_aggregateType_aggregateId: {
+                    globalTenantId: event.globalTenantId,
+                    aggregateType: "TABLE",
+                    aggregateId: expected.id,
+                  },
+                },
+                create: {
+                  restTenantId: tenant.id,
+                  globalTenantId: event.globalTenantId,
+                  aggregateType: "TABLE",
+                  aggregateId: expected.id,
+                  version: updated.revision,
+                  state: JSON.parse(JSON.stringify(updated)) as Prisma.InputJsonValue,
+                },
+                update: {
+                  version: updated.revision,
+                  state: JSON.parse(JSON.stringify(updated)) as Prisma.InputJsonValue,
+                },
+              });
+            }
+          }
+          const anchorExpected = payload.tables.find((table) =>
+            table.id === event.aggregateId)!.expectedVersion;
+          if (anchorExpected + 1 !== event.aggregateVersion) {
+            throw new Error("AGGREGATE_VERSION_CONFLICT");
+          }
+          await tx.tableTransition.create({
+            data: {
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              tableId: event.aggregateId,
+              fromStatus: "AVAILABLE",
+              toStatus: "AVAILABLE",
+              fromRevision: anchorExpected,
+              toRevision: event.aggregateVersion,
+              actorId: event.actorId,
+              commandId: event.idempotencyKey,
+            },
+          });
+        } else {
         const payload = z.object({
           fromStatus: z.string().min(1),
           toStatus: z.enum([
@@ -976,6 +1033,7 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
             commandId: event.idempotencyKey,
           },
         });
+        }
       }
       if (event.aggregateType === "RESERVATION") {
         if (event.eventType === "RESERVATION_CANCELLED") {
@@ -1339,7 +1397,7 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
             state: { expectedCash: payload.drawerExpectedCash },
           },
         });
-      }
+        }
       if (event.aggregateType === "KITCHEN_TICKET") {
         const payload = z.object({
           status: z.enum(["QUEUED", "PREPARING", "READY", "SERVED", "CANCELLED"]),
