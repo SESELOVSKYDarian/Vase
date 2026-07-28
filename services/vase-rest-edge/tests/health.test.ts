@@ -17,11 +17,17 @@ describe("Vase Rest Edge foundation", () => {
     cleanups.push(dir);
     const database = openEdgeDatabase({ dataDir: dir });
     expect(database.pragma("journal_mode")).toBe("wal");
-    expect(database.migrations()).toContain("001_foundation");
+    expect(database.migrations()).toEqual([
+      "001_foundation",
+      "002_staff_pin_lockout",
+    ]);
     database.close();
 
     const reopened = openEdgeDatabase({ dataDir: dir });
-    expect(reopened.migrations()).toEqual(["001_foundation"]);
+    expect(reopened.migrations()).toEqual([
+      "001_foundation",
+      "002_staff_pin_lockout",
+    ]);
     reopened.close();
   });
 

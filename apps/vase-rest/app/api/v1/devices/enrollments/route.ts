@@ -22,6 +22,9 @@ export async function POST(request: Request) {
     const input = inputSchema.parse(await request.json());
     const enrollment = await createEnrollmentService(prismaEnrollmentRepository, {
       signingSecret: process.env.REST_ENROLLMENT_SIGNING_SECRET ?? "",
+      signingPrivateKey: process.env.REST_EDGE_SIGNING_PRIVATE_KEY_B64
+        ? Buffer.from(process.env.REST_EDGE_SIGNING_PRIVATE_KEY_B64, "base64").toString("utf8")
+        : undefined,
       syncBaseUrl: process.env.REST_PUBLIC_URL ?? "https://rest.vase.ar",
     }).issue({
       ...input,

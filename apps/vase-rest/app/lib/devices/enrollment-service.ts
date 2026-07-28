@@ -1,4 +1,10 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createHmac,
+  randomBytes,
+  sign as signAsymmetric,
+  timingSafeEqual,
+  verify as verifyAsymmetric,
+} from "node:crypto";
 import { db } from "../db";
 
 type EnrollmentKind = "DEVICE" | "EDGE";
@@ -47,16 +53,31 @@ export function hashEnrollmentCode(code: string, secret: string) {
   return createHmac("sha256", secret).update(code).digest("base64url");
 }
 
-function signPayload(payload: object, secret: string) {
+function signPayload(payload: object, secret: string, privateKey?: string) {
+  if (privateKey) {
+    return signAsymmetric(
+      null,
+      Buffer.from(JSON.stringify(payload)),
+      privateKey,
+    ).toString("base64url");
+  }
   return createHmac("sha256", secret)
     .update(JSON.stringify(payload)).digest("base64url");
 }
 
 export function verifyEnrollmentResponse(
   response: { payload: object; signature: string },
-  secret: string,
+  verificationKey: string,
 ) {
-  const expected = Buffer.from(signPayload(response.payload, secret));
+  if (verificationKey.includes("PUBLIC KEY")) {
+    return verifyAsymmetric(
+      null,
+      Buffer.from(JSON.stringify(response.payload)),
+      verificationKey,
+      Buffer.from(response.signature, "base64url"),
+    );
+  }
+  const expected = Buffer.from(signPayload(response.payload, verificationKey));
   const candidate = Buffer.from(response.signature);
   return expected.length === candidate.length && timingSafeEqual(expected, candidate);
 }
@@ -65,6 +86,7 @@ export function createEnrollmentService(
   repository: EnrollmentRepository,
   config: {
     signingSecret: string;
+    signingPrivateKey?: string;
     now?: () => Date;
     ttlMs?: number;
     syncBaseUrl?: string;
@@ -140,7 +162,11 @@ export function createEnrollmentService(
         issuedAt: now.toISOString(),
         expiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       };
-      return { payload, signature: signPayload(payload, config.signingSecret) };
+      return {
+        payload,
+        signature: signPayload(payload, config.signingSecret, config.signingPrivateKey),
+        algorithm: config.signingPrivateKey ? "Ed25519" : "HMAC-SHA256",
+      };
     },
   };
 }

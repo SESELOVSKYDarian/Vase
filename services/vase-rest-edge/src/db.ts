@@ -28,17 +28,30 @@ export function openEdgeDatabase(input: { dataDir: string }): EdgeDatabase {
         applied_at TEXT NOT NULL
       );
     `);
-    const applied = database.prepare(
-      "SELECT version FROM schema_migration WHERE version = ?",
-    ).get("001_foundation");
-    if (!applied) {
-      const schemaSql = readFileSync(new URL("./schema.sql", import.meta.url), "utf8");
+    const migrations = [
+      {
+        version: "001_foundation",
+        sql: readFileSync(new URL("./schema.sql", import.meta.url), "utf8"),
+      },
+      {
+        version: "002_staff_pin_lockout",
+        sql: `
+          ALTER TABLE staff_projection ADD COLUMN failed_pin_attempts INTEGER NOT NULL DEFAULT 0;
+          ALTER TABLE staff_projection ADD COLUMN locked_until TEXT;
+        `,
+      },
+    ];
+    for (const migration of migrations) {
+      const applied = database.prepare(
+        "SELECT version FROM schema_migration WHERE version = ?",
+      ).get(migration.version);
+      if (applied) continue;
       database.exec("BEGIN IMMEDIATE");
       try {
-        database.exec(schemaSql);
+        database.exec(migration.sql);
         database.prepare(
           "INSERT INTO schema_migration(version, applied_at) VALUES (?, ?)",
-        ).run("001_foundation", new Date().toISOString());
+        ).run(migration.version, new Date().toISOString());
         database.exec("COMMIT");
       } catch (error) {
         database.exec("ROLLBACK");

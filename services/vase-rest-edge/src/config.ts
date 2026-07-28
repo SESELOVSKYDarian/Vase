@@ -8,6 +8,8 @@ const schema = z.object({
   EDGE_PORT: z.coerce.number().int().positive().max(65535).default(3443),
   EDGE_TLS_KEY_PATH: z.string().min(1),
   EDGE_TLS_CERT_PATH: z.string().min(1),
+  EDGE_CLOUD_BASE_URL: z.url().default("https://rest.vase.ar"),
+  EDGE_CLOUD_PUBLIC_KEY_PATH: z.string().min(1).optional(),
 }).passthrough();
 
 export type EdgeConfig = {
@@ -16,6 +18,8 @@ export type EdgeConfig = {
   port: number;
   tlsKeyPath: string;
   tlsCertPath: string;
+  cloudBaseUrl: string;
+  cloudPublicKeyPath: string;
 };
 
 export function readEdgeConfig(environment: Record<string, string | undefined>): EdgeConfig {
@@ -31,6 +35,10 @@ export function readEdgeConfig(environment: Record<string, string | undefined>):
     port: parsed.EDGE_PORT,
     tlsKeyPath: resolve(parsed.EDGE_TLS_KEY_PATH),
     tlsCertPath: resolve(parsed.EDGE_TLS_CERT_PATH),
+    cloudBaseUrl: parsed.EDGE_CLOUD_BASE_URL,
+    cloudPublicKeyPath: resolve(
+      parsed.EDGE_CLOUD_PUBLIC_KEY_PATH ?? resolve(parsed.EDGE_DATA_DIR, "cloud-signing.pub"),
+    ),
   };
   if (!existsSync(config.tlsKeyPath) || !existsSync(config.tlsCertPath)) {
     throw new Error("EDGE_TLS_REQUIRED");
