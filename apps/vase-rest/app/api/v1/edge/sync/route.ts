@@ -84,6 +84,8 @@ export async function POST(request: Request) {
       payments,
       inventoryBalances,
       inventoryMovements,
+      branch,
+      promotions,
     ] = await Promise.all([
       db.diningTable.findMany({
         where: { globalTenantId: edge.globalTenantId, branchId: edge.branchId },
@@ -197,6 +199,20 @@ export async function POST(request: Request) {
         orderBy: { occurredAt: "desc" },
         take: 500,
       }),
+      db.branch.findFirstOrThrow({
+        where: {
+          id: edge.branchId,
+          globalTenantId: edge.globalTenantId,
+        },
+        select: { timezone: true },
+      }),
+      db.promotion.findMany({
+        where: {
+          globalTenantId: edge.globalTenantId,
+          active: true,
+        },
+        orderBy: [{ priority: "desc" }, { code: "asc" }],
+      }),
     ]);
     const json = (value: unknown): Prisma.InputJsonValue => JSON.parse(JSON.stringify(
       value,
@@ -245,6 +261,9 @@ export async function POST(request: Request) {
           modifierOptions: product.modifierGroups.flatMap((link) =>
             link.modifierGroup.options.map((option) => ({
               id: option.id,
+              groupId: link.modifierGroup.id,
+              minSelections: link.modifierGroup.minSelections,
+              maxSelections: link.modifierGroup.maxSelections,
               name: option.name,
               priceDelta: option.priceDelta.toFixed(2),
               active: option.active,
@@ -280,6 +299,11 @@ export async function POST(request: Request) {
         aggregateId: "current",
         version: Date.now(),
         state: json({
+          timezone: branch.timezone,
+          globalTenantId: edge.globalTenantId,
+          branchId: edge.branchId,
+          branchGroupIds: groupIds,
+          promotions,
           categories: categories.map((category) => ({
             id: category.id,
             name: category.name,

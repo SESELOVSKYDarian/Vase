@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { db } from "../db";
 import type { PaymentRepository } from "./payment-service";
+import { allowedPromotionTenderTypes } from "../promotions/promotion-tender-policy";
 
 function json(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -20,6 +21,10 @@ export const prismaPaymentRepository: PaymentRepository = {
           where: { status: "APPLIED" },
           select: { amount: true },
         },
+        items: {
+          where: { status: { not: "CANCELLED" } },
+          select: { promotionIds: true },
+        },
       },
     });
     if (!order) return null;
@@ -27,6 +32,21 @@ export const prismaPaymentRepository: PaymentRepository = {
       (total, payment) => total.add(payment.amount),
       new Prisma.Decimal(0),
     );
+    const promotionIds = [...new Set(order.items.flatMap((item) =>
+      Array.isArray(item.promotionIds) ? item.promotionIds.map(String) : []))];
+    const promotions = promotionIds.length
+      ? await db.promotion.findMany({
+          where: {
+            id: { in: promotionIds },
+            globalTenantId,
+          },
+          select: { id: true, paymentMethods: true },
+        })
+      : [];
+    const promotionTenderTypes = allowedPromotionTenderTypes({
+      promotionIds,
+      promotions,
+    });
     return {
       id: order.id,
       globalTenantId: order.globalTenantId,
@@ -34,6 +54,7 @@ export const prismaPaymentRepository: PaymentRepository = {
       status: order.status,
       total: order.total.toFixed(2),
       paidTotal: paid.toFixed(2),
+      allowedPromotionTenderTypes: promotionTenderTypes,
     };
   },
   getOpenDrawer(globalTenantId, branchId) {
@@ -58,6 +79,10 @@ export const prismaPaymentRepository: PaymentRepository = {
         },
         include: {
           payments: { where: { status: "APPLIED" }, select: { amount: true } },
+          items: {
+            where: { status: { not: "CANCELLED" } },
+            select: { promotionIds: true },
+          },
         },
       });
       const paid = order.payments.reduce(
@@ -67,6 +92,22 @@ export const prismaPaymentRepository: PaymentRepository = {
       const amount = new Prisma.Decimal(String(input.amount));
       const remaining = order.total.sub(paid);
       if (amount.greaterThan(remaining)) throw new Error("REST_PAYMENT_EXCEEDS_BALANCE");
+      const promotionIds = [...new Set(order.items.flatMap((item) =>
+        Array.isArray(item.promotionIds) ? item.promotionIds.map(String) : []))];
+      const promotionTenderTypes = allowedPromotionTenderTypes({
+        promotionIds,
+        promotions: promotionIds.length ? await tx.promotion.findMany({
+          where: {
+            id: { in: promotionIds },
+            globalTenantId: order.globalTenantId,
+          },
+          select: { id: true, paymentMethods: true },
+        }) : [],
+      });
+      if (
+        promotionTenderTypes &&
+        !promotionTenderTypes.includes(String(input.tenderType))
+      ) throw new Error("REST_PROMOTION_TENDER_MISMATCH");
       const drawerId = input.drawerId ? String(input.drawerId) : null;
       const customerAccountId = input.customerAccountId
         ? String(input.customerAccountId) : null;

@@ -49,6 +49,10 @@ export function createOrderService(repository: OrderRepository) {
         productId: z.string().min(1), quantity: z.number().int().positive().max(999),
         course: z.number().int().positive().max(20),
         notes: z.string().max(1000).optional(),
+        paymentMethod: z.enum([
+          "CASH", "BANK_TRANSFER", "EXTERNAL_TERMINAL", "EXTERNAL_WALLET",
+          "CUSTOMER_ACCOUNT", "MERCADO_PAGO",
+        ]).optional(),
         modifiers: z.array(z.object({
           optionId: z.string().min(1), quantity: z.number().int().positive().max(99),
         }).strict()),

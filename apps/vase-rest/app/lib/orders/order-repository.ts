@@ -2,8 +2,8 @@ import { Prisma } from "@prisma/client";
 import { db } from "../db";
 import type { OrderRepository } from "./order-service";
 import type { KitchenRepository } from "../kds/kitchen-service";
-import { splitTax } from "../fiscal/tax-calculation";
 import { effectiveRecipeItems } from "../catalog/effective-recipe";
+import { priceRestOrderItem, type RestPromotionCandidate } from "@vase/contracts";
 
 type Command = Record<string, unknown> & {
   action: string; commandId: string; globalTenantId: string; branchId: string;
@@ -44,14 +44,20 @@ async function receipt(
 async function recalculate(tx: Prisma.TransactionClient, orderId: string) {
   const items = await tx.orderItem.findMany({
     where: { orderId, status: { not: "CANCELLED" } },
-    select: { lineTotal: true, netTotal: true, taxAmount: true },
+    select: {
+      lineTotal: true, netTotal: true, taxAmount: true, discountTotal: true,
+    },
   });
   const subtotal = items.reduce((sum, item) => sum.plus(item.netTotal), new Prisma.Decimal(0));
   const taxTotal = items.reduce((sum, item) => sum.plus(item.taxAmount), new Prisma.Decimal(0));
   const total = items.reduce((sum, item) => sum.plus(item.lineTotal), new Prisma.Decimal(0));
+  const discountTotal = items.reduce(
+    (sum, item) => sum.plus(item.discountTotal),
+    new Prisma.Decimal(0),
+  );
   return tx.restaurantOrder.update({
     where: { id: orderId },
-    data: { subtotal, taxTotal, total, revision: { increment: 1 } },
+    data: { subtotal, discountTotal, taxTotal, total, revision: { increment: 1 } },
   });
 }
 
@@ -211,7 +217,10 @@ export const prismaOrderRepository: OrderRepository = {
             globalTenantId: input.globalTenantId,
             available: true,
           },
-          include: { prices: true },
+          include: {
+            prices: true,
+            modifierGroups: { include: { modifierGroup: true } },
+          },
         });
         if (!product) throw new Error("REST_PRODUCT_NOT_FOUND");
         const availability = await tx.productBranchAvailability.findUnique({
@@ -227,6 +236,21 @@ export const prismaOrderRepository: OrderRepository = {
           where: { globalTenantId: input.globalTenantId, branchId: input.branchId },
           select: { branchGroupId: true },
         })).map((member) => member.branchGroupId);
+        const [branch, promotions] = await Promise.all([
+          tx.branch.findFirstOrThrow({
+            where: {
+              id: input.branchId,
+              globalTenantId: input.globalTenantId,
+            },
+            select: { timezone: true },
+          }),
+          tx.promotion.findMany({
+            where: {
+              globalTenantId: input.globalTenantId,
+              active: true,
+            },
+          }),
+        ]);
         const branchPrice = product.prices.find((price) =>
           price.scopeType === "BRANCH" && price.scopeId === input.branchId);
         const groupPrice = product.prices.filter((price) =>
@@ -242,24 +266,53 @@ export const prismaOrderRepository: OrderRepository = {
             id: { in: requestedModifiers.map((modifier) => modifier.optionId) },
             globalTenantId: input.globalTenantId,
             active: true,
+            modifierGroup: {
+              products: { some: { productId: product.id } },
+            },
           },
         });
         if (options.length !== new Set(requestedModifiers.map((modifier) => modifier.optionId)).size) {
           throw new Error("REST_MODIFIER_NOT_FOUND");
+        }
+        for (const link of product.modifierGroups) {
+          const selected = requestedModifiers.filter((requested) =>
+            options.some((option) =>
+              option.id === requested.optionId &&
+              option.modifierGroupId === link.modifierGroupId))
+            .reduce((sum, requested) => sum + requested.quantity, 0);
+          if (
+            selected < link.modifierGroup.minSelections ||
+            selected > link.modifierGroup.maxSelections
+          ) throw new Error("REST_MODIFIER_SELECTION_INVALID");
         }
         const modifierTotal = requestedModifiers.reduce((sum, requested) => {
           const option = options.find((candidate) => candidate.id === requested.optionId)!;
           return sum.plus(option.priceDelta.mul(requested.quantity));
         }, new Prisma.Decimal(0));
         const quantity = input.quantity as number;
-        const unitTax = splitTax({
-          gross: price.amount.plus(modifierTotal).toFixed(2),
-          rate: product.taxRate.toFixed(2),
-          included: product.taxIncluded,
+        const pricing = priceRestOrderItem({
+          unitPrice: price.amount.toFixed(2),
+          modifierTotal: modifierTotal.toFixed(2),
+          quantity,
+          taxRate: product.taxRate.toFixed(2),
+          taxIncluded: product.taxIncluded,
+          promotion: {
+            now: new Date(),
+            timezone: branch.timezone,
+            globalTenantId: input.globalTenantId,
+            branchId: input.branchId,
+            branchGroupIds: groupIds,
+            productId: product.id,
+            paymentMethod: input.paymentMethod as string | undefined,
+            promotions: promotions.map((promotion) => ({
+              ...promotion,
+              discountValue: promotion.discountValue.toFixed(4),
+              productIds: promotion.productIds as string[],
+              paymentMethods: promotion.paymentMethods as string[],
+              weekdays: promotion.weekdays as number[],
+            })) as RestPromotionCandidate[],
+          },
         });
-        const lineTotal = new Prisma.Decimal(unitTax.gross).mul(quantity);
-        const netTotal = new Prisma.Decimal(unitTax.net).mul(quantity);
-        const taxAmount = new Prisma.Decimal(unitTax.tax).mul(quantity);
         const item = await tx.orderItem.create({
           data: {
             globalTenantId: input.globalTenantId,
@@ -270,9 +323,12 @@ export const prismaOrderRepository: OrderRepository = {
             quantity,
             unitPrice: price.amount,
             modifierTotal,
-            lineTotal,
-            netTotal,
-            taxAmount,
+            grossBeforeDiscount: pricing.grossBeforeDiscount,
+            discountTotal: pricing.discountTotal,
+            promotionIds: pricing.promotionIds,
+            lineTotal: pricing.lineTotal,
+            netTotal: pricing.netTotal,
+            taxAmount: pricing.taxAmount,
             taxRate: product.taxRate,
             taxIncluded: product.taxIncluded,
             course: input.course as number,

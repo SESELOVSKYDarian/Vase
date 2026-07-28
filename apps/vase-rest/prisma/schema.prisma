@@ -23,6 +23,7 @@ model RestTenant {
   configurationPolicies        ConfigurationPolicy[]
   categories                   MenuCategory[]
   products                     MenuProduct[]
+  promotions                   Promotion[]
   ingredients                  Ingredient[]
   modifierGroups               ModifierGroup[]
   warehouses                   Warehouse[]
@@ -343,6 +344,34 @@ model ProductBranchAvailability {
 
   @@unique([productId, branchId])
   @@index([globalTenantId, branchId, available])
+}
+
+model Promotion {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  scopeType      String
+  scopeId        String
+  discountType   String
+  discountValue  Decimal    @db.Decimal(18, 4)
+  productIds     Json
+  paymentMethods Json
+  weekdays       Json
+  minimumQuantity Int       @default(1)
+  startsAt       DateTime
+  endsAt         DateTime
+  priority       Int        @default(0)
+  active         Boolean    @default(true)
+  revision       Int        @default(1)
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@index([globalTenantId, active, startsAt, endsAt])
+  @@index([globalTenantId, scopeType, scopeId])
 }
 
 model ModifierGroup {
@@ -1087,6 +1116,9 @@ model OrderItem {
   quantity       Int
   unitPrice      Decimal             @db.Decimal(18, 2)
   modifierTotal  Decimal             @default(0) @db.Decimal(18, 2)
+  grossBeforeDiscount Decimal         @default(0) @db.Decimal(18, 2)
+  discountTotal  Decimal             @default(0) @db.Decimal(18, 2)
+  promotionIds   Json                @default("[]")
   lineTotal      Decimal             @db.Decimal(18, 2)
   netTotal       Decimal             @db.Decimal(18, 2)
   taxAmount      Decimal             @db.Decimal(18, 2)

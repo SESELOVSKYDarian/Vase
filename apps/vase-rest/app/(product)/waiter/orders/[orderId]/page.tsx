@@ -3,7 +3,10 @@
 import { use, useEffect, useState, type FormEvent } from "react";
 import { readLocalEdgeClient } from "@/lib/edge/local-edge-client";
 
-type Product = { id: string; categoryId: string; name: string; sku: string };
+type Product = {
+  id: string; categoryId: string; name: string; sku: string;
+  modifierOptions: Array<{ id: string; name: string; priceDelta: string }>;
+};
 type Category = { id: string; name: string; products: Product[] };
 type Order = {
   id: string;
@@ -35,6 +38,7 @@ export default function OrderPage({
   const [mergeCandidates, setMergeCandidates] = useState<Array<{
     id: string; version: number; orderNumber: number | null;
   }>>([]);
+  const [selectedProductId, setSelectedProductId] = useState("");
 
   async function refresh() {
     const client = readLocalEdgeClient();
@@ -101,7 +105,10 @@ export default function OrderPage({
       quantity: Number(form.get("quantity")),
       course: Number(form.get("course")),
       notes: String(form.get("notes") ?? "") || undefined,
-      modifiers: [],
+      paymentMethod: String(form.get("paymentMethod") ?? "") || undefined,
+      modifiers: form.getAll("modifierOptionId").map((optionId) => ({
+        optionId, quantity: 1,
+      })),
     });
     event.currentTarget.reset();
   }
@@ -136,7 +143,8 @@ export default function OrderPage({
       {order.status === "OPEN" ? (
         <form className="inline-form" onSubmit={add}>
           <label>Producto
-            <select name="productId" required>
+            <select name="productId" required value={selectedProductId}
+              onChange={(event) => setSelectedProductId(event.target.value)}>
               <option value="">Seleccionar</option>
               {categories.map((category) => (
                 <optgroup label={category.name} key={category.id}>
@@ -147,8 +155,25 @@ export default function OrderPage({
               ))}
             </select>
           </label>
+          {categories.flatMap((category) => category.products)
+            .find((product) => product.id === selectedProductId)?.modifierOptions
+            .map((option) => <label key={option.id}>
+              <input type="checkbox" name="modifierOptionId" value={option.id} />
+              {option.name} · ARS {option.priceDelta}
+            </label>)}
           <label>Cantidad<input name="quantity" type="number" min="1" defaultValue="1" required /></label>
           <label>Paso<input name="course" type="number" min="1" defaultValue="1" required /></label>
+          <label>Medio previsto
+            <select name="paymentMethod" defaultValue="">
+              <option value="">Sin restricciÃ³n</option>
+              <option value="CASH">Efectivo</option>
+              <option value="BANK_TRANSFER">Transferencia</option>
+              <option value="EXTERNAL_TERMINAL">Tarjeta externa</option>
+              <option value="EXTERNAL_WALLET">Billetera externa</option>
+              <option value="CUSTOMER_ACCOUNT">Cuenta corriente</option>
+              <option value="MERCADO_PAGO">Mercado Pago</option>
+            </select>
+          </label>
           <label>Notas<input name="notes" /></label>
           <button className="button button-primary">Agregar</button>
         </form>

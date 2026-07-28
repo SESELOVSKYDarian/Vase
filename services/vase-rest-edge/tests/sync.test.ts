@@ -212,6 +212,26 @@ describe("Rest Edge durable sync", () => {
           recipeItems: [],
           modifierOptions: [],
         }],
+        timezone: "America/Argentina/Buenos_Aires",
+        globalTenantId: "tenant_1",
+        branchId: "branch_1",
+        branchGroupIds: [],
+        promotions: [{
+          id: "promo_1",
+          code: "EFECTIVO",
+          scopeType: "TENANT",
+          scopeId: "tenant_1",
+          discountType: "PERCENTAGE",
+          discountValue: "10.0000",
+          productIds: ["product_1"],
+          paymentMethods: ["CASH"],
+          weekdays: [],
+          minimumQuantity: 1,
+          startsAt: "2026-01-01T00:00:00.000Z",
+          endsAt: "2027-01-01T00:00:00.000Z",
+          priority: 1,
+          active: true,
+        }],
       },
     }]);
     acceptLocalCommand(database, {
@@ -229,6 +249,7 @@ describe("Rest Edge durable sync", () => {
         quantity: 2,
         course: 1,
         modifiers: [],
+        paymentMethod: "CASH",
         lineTotal: "0.01",
       },
     });
@@ -238,19 +259,23 @@ describe("Rest Edge durable sync", () => {
     `).get() as { state_json: string };
     expect(JSON.parse(state.state_json)).toMatchObject({
       status: "OPEN",
-      subtotal: "2000.00",
-      taxTotal: "420.00",
-      total: "2420.00",
+      subtotal: "1800.00",
+      discountTotal: "242.00",
+      taxTotal: "378.00",
+      total: "2178.00",
       items: [{
         skuSnapshot: "BURGER",
-        lineTotal: "2420.00",
-        netTotal: "2000.00",
-        taxAmount: "420.00",
+        grossBeforeDiscount: "2420.00",
+        discountTotal: "242.00",
+        promotionIds: ["promo_1"],
+        lineTotal: "2178.00",
+        netTotal: "1800.00",
+        taxAmount: "378.00",
       }],
     });
     expect(pendingOutbox(database)[1]?.payload).toMatchObject({
       productId: "product_1",
-      lineTotal: "2420.00",
+      lineTotal: "2178.00",
       catalogRevision: 2,
     });
     acceptLocalCommand(database, {

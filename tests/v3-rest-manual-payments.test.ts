@@ -49,4 +49,23 @@ describe("Rest manual payments", () => {
       actorId: "cashier_1",
     })).rejects.toThrow("REST_PAYMENT_EXCEEDS_BALANCE");
   });
+
+  it("rejects a tender that would invalidate an applied promotion", async () => {
+    const service = createPaymentService({
+      findReceipt: async () => null,
+      getOrder: async () => ({
+        id: "order_1", globalTenantId: "tenant_1", branchId: "branch_1",
+        status: "READY", total: "90.00", paidTotal: "0.00",
+        allowedPromotionTenderTypes: ["CASH"],
+      }),
+      getOpenDrawer: async () => ({ id: "drawer_1" }),
+      execute: vi.fn(),
+    });
+    await expect(service.apply({
+      globalTenantId: "tenant_1", branchId: "branch_1", orderId: "order_1",
+      tenderType: "BANK_TRANSFER", amount: "90.00",
+      provider: "Banco", reference: "TRX-1", operator: "Caja",
+      commandId: "pay-invalid-promo", actorId: "cashier_1",
+    })).rejects.toThrow("REST_PROMOTION_TENDER_MISMATCH");
+  });
 });

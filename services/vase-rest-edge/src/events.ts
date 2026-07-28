@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import {
+  priceRestOrderItem,
+  type RestPromotionCandidate,
+} from "../../../packages/contracts/src/rest-promotions.js";
 import type { EdgeDatabase } from "./db.js";
 
 const commandSchema = z.object({
@@ -37,6 +41,9 @@ type CatalogProduct = {
   recipeItems: Array<{ ingredientId: string; quantity: string }>;
   modifierOptions: Array<{
     id: string;
+    groupId: string;
+    minSelections: number;
+    maxSelections: number;
     name: string;
     priceDelta: string;
     active: boolean;
@@ -51,6 +58,9 @@ function orderTotals(items: Array<Record<string, unknown>>) {
     taxTotal: formatMoney(items.reduce(
       (sum, item) => sum + cents(String(item.taxAmount)), BigInt(0),
     )),
+    discountTotal: formatMoney(items.reduce(
+      (sum, item) => sum + cents(String(item.discountTotal ?? "0.00")), BigInt(0),
+    )),
     total: formatMoney(items.reduce(
       (sum, item) => sum + cents(String(item.lineTotal)), BigInt(0),
     )),
@@ -64,6 +74,18 @@ function catalog(database: EdgeDatabase) {
   `).get() as { version: number; state_json: string } | undefined;
   if (!row) throw new Error("EDGE_CATALOG_NOT_AVAILABLE");
   const state = z.object({
+    timezone: z.string().min(1).default("UTC"),
+    globalTenantId: z.string().min(1),
+    branchId: z.string().min(1),
+    branchGroupIds: z.array(z.string().min(1)).default([]),
+    promotions: z.array(z.object({
+      id: z.string(), code: z.string(), scopeType: z.string(), scopeId: z.string(),
+      discountType: z.enum(["PERCENTAGE", "FIXED_PER_UNIT"]),
+      discountValue: z.string(), productIds: z.array(z.string()),
+      paymentMethods: z.array(z.string()), weekdays: z.array(z.number().int()),
+      minimumQuantity: z.number().int().positive(), startsAt: z.string(),
+      endsAt: z.string(), priority: z.number().int(), active: z.boolean(),
+    }).strict()).default([]),
     products: z.array(z.object({
       id: z.string(),
       categoryId: z.string(),
@@ -80,13 +102,24 @@ function catalog(database: EdgeDatabase) {
       }).strict()).default([]),
       modifierOptions: z.array(z.object({
         id: z.string(),
+        groupId: z.string(),
+        minSelections: z.number().int().nonnegative(),
+        maxSelections: z.number().int().positive(),
         name: z.string(),
         priceDelta: money,
         active: z.boolean(),
       }).strict()),
     }).strict()),
   }).passthrough().parse(JSON.parse(row.state_json));
-  return { revision: row.version, products: state.products as CatalogProduct[] };
+  return {
+    revision: row.version,
+    products: state.products as CatalogProduct[],
+    timezone: state.timezone,
+    globalTenantId: state.globalTenantId,
+    branchId: state.branchId,
+    branchGroupIds: state.branchGroupIds,
+    promotions: state.promotions as RestPromotionCandidate[],
+  };
 }
 
 function orderTransition(
@@ -94,6 +127,7 @@ function orderTransition(
   input: z.infer<typeof commandSchema>,
   current: Record<string, unknown> | undefined,
   nextVersion: number,
+  occurredAt: Date,
 ) {
   if (input.eventType === "ORDER_OPENED") {
     if (current) throw new Error("EDGE_ORDER_ALREADY_EXISTS");
@@ -130,6 +164,7 @@ function orderTransition(
       quantity: z.number().int().positive().max(999),
       course: z.number().int().positive().max(20),
       notes: z.string().max(1000).optional(),
+      paymentMethod: z.string().min(1).optional(),
       modifiers: z.array(z.object({
         optionId: z.string().min(1),
         quantity: z.number().int().positive().max(99),
@@ -151,23 +186,44 @@ function orderTransition(
         totalDelta: formatMoney(cents(option.priceDelta) * BigInt(requested.quantity)),
       };
     });
+    const modifierGroups = new Map(product.modifierOptions.map((option) => [
+      option.groupId,
+      {
+        minSelections: option.minSelections,
+        maxSelections: option.maxSelections,
+      },
+    ]));
+    for (const [groupId, limits] of modifierGroups) {
+      const selectionCount = intent.modifiers.filter((requested) =>
+        product.modifierOptions.some((option) =>
+          option.id === requested.optionId && option.groupId === groupId))
+        .reduce((sum, requested) => sum + requested.quantity, 0);
+      if (
+        selectionCount < limits.minSelections ||
+        selectionCount > limits.maxSelections
+      ) throw new Error("EDGE_MODIFIER_SELECTION_INVALID");
+    }
     const modifierCents = selected.reduce(
       (sum, option) => sum + cents(option.totalDelta),
       BigInt(0),
     );
-    const unitGross = cents(product.unitPrice) + modifierCents;
-    const gross = unitGross * BigInt(intent.quantity);
-    const rateBasisPoints = BigInt(
-      Math.round(Number(product.taxRate) * 100),
-    );
-    const net = product.taxIncluded
-      ? (gross * BigInt(10_000) + (BigInt(10_000) + rateBasisPoints) / BigInt(2)) /
-        (BigInt(10_000) + rateBasisPoints)
-      : gross;
-    const finalGross = product.taxIncluded
-      ? gross
-      : (net * (BigInt(10_000) + rateBasisPoints) + BigInt(5_000)) /
-        BigInt(10_000);
+    const pricing = priceRestOrderItem({
+      unitPrice: product.unitPrice,
+      modifierTotal: formatMoney(modifierCents),
+      quantity: intent.quantity,
+      taxRate: product.taxRate,
+      taxIncluded: product.taxIncluded,
+      promotion: {
+        now: occurredAt,
+        timezone: currentCatalog.timezone,
+        globalTenantId: currentCatalog.globalTenantId,
+        branchId: currentCatalog.branchId,
+        branchGroupIds: currentCatalog.branchGroupIds,
+        productId: product.id,
+        paymentMethod: intent.paymentMethod,
+        promotions: currentCatalog.promotions,
+      },
+    });
     const item = {
       id: randomUUID(),
       productId: product.id,
@@ -179,13 +235,12 @@ function orderTransition(
       quantity: intent.quantity,
       unitPrice: product.unitPrice,
       modifierTotal: formatMoney(modifierCents),
-      lineTotal: formatMoney(finalGross),
-      netTotal: formatMoney(net),
-      taxAmount: formatMoney(finalGross - net),
+      ...pricing,
       taxRate: product.taxRate,
       taxIncluded: product.taxIncluded,
       course: intent.course,
       notes: intent.notes,
+      paymentMethod: intent.paymentMethod,
       status: "DRAFT",
       revision: 1,
       modifiers: selected,
@@ -205,6 +260,10 @@ function orderTransition(
       (sum, candidate) => sum + cents(String(candidate.taxAmount)),
       BigInt(0),
     );
+    const discountTotal = nextItems.reduce(
+      (sum, candidate) => sum + cents(String(candidate.discountTotal ?? "0.00")),
+      BigInt(0),
+    );
     return {
       eventPayload: {
         ...item,
@@ -214,6 +273,7 @@ function orderTransition(
         ...current,
         items: nextItems,
         subtotal: formatMoney(subtotal),
+        discountTotal: formatMoney(discountTotal),
         taxTotal: formatMoney(taxTotal),
         total: formatMoney(total),
         revision: nextVersion,
@@ -850,6 +910,7 @@ export function acceptLocalCommand(database: EdgeDatabase, raw: unknown) {
         input,
         aggregate ? JSON.parse(aggregate.state_json) as Record<string, unknown> : undefined,
         nextVersion,
+        new Date(occurredAt),
       )
       : input.aggregateType === "RESERVATION"
       ? reservationTransition(

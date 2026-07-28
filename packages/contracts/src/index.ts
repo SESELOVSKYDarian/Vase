@@ -3,6 +3,7 @@ import { z } from "zod";
 export * from "./labs-orders";
 export * from "./rest";
 export * from "./rest-support";
+export * from "./rest-promotions";
 
 export const vaseServiceKeySchema = z.enum([
   "vase-portal",

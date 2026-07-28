@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "../db";
 import { z } from "zod";
 import { effectiveRecipeItems } from "../catalog/effective-recipe";
+import { priceRestOrderItem, type RestPromotionCandidate } from "@vase/contracts";
 
 export type SyncReceipt = {
   eventId: string;
@@ -189,6 +190,9 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
             quantity: z.number().int().positive(),
             unitPrice: z.string(),
             modifierTotal: z.string(),
+            grossBeforeDiscount: z.string(),
+            discountTotal: z.string(),
+            promotionIds: z.array(z.string()),
             lineTotal: z.string(),
             netTotal: z.string(),
             taxAmount: z.string(),
@@ -196,6 +200,7 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
             taxIncluded: z.boolean(),
             course: z.number().int().positive(),
             notes: z.string().optional(),
+            paymentMethod: z.string().optional(),
             modifiers: z.array(z.object({
               optionId: z.string().min(1),
               nameSnapshot: z.string().min(1),
@@ -226,6 +231,17 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
               globalTenantId: event.globalTenantId,
               available: true,
             },
+            include: {
+              prices: true,
+              branchAvailability: {
+                where: { branchId: event.branchId },
+              },
+              modifierGroups: {
+                include: {
+                  modifierGroup: { include: { options: true } },
+                },
+              },
+            },
           });
           if (
             !product ||
@@ -233,16 +249,115 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
             product.name !== payload.nameSnapshot ||
             product.categoryId !== payload.categoryId
           ) throw new Error("EDGE_ORDER_PRODUCT_SNAPSHOT_INVALID");
-          const optionIds = payload.modifiers.map((item) => item.optionId);
-          if (await tx.modifierOption.count({
+          if (product.branchAvailability[0]?.available === false) {
+            throw new Error("REST_PRODUCT_UNAVAILABLE");
+          }
+          const groupIds = (await tx.branchGroupMember.findMany({
             where: {
-              id: { in: optionIds },
               globalTenantId: event.globalTenantId,
-              active: true,
+              branchId: event.branchId,
             },
-          }) !== new Set(optionIds).size) {
+            select: { branchGroupId: true },
+          })).map((member) => member.branchGroupId);
+          const [branch, promotions] = await Promise.all([
+            tx.branch.findFirstOrThrow({
+              where: {
+                id: event.branchId,
+                globalTenantId: event.globalTenantId,
+              },
+              select: { timezone: true },
+            }),
+            tx.promotion.findMany({
+              where: {
+                globalTenantId: event.globalTenantId,
+                active: true,
+              },
+            }),
+          ]);
+          const price = product.prices.find((candidate) =>
+            candidate.scopeType === "BRANCH" && candidate.scopeId === event.branchId) ??
+            product.prices.filter((candidate) =>
+              candidate.scopeType === "BRANCH_GROUP" &&
+              groupIds.includes(candidate.scopeId))
+              .sort((left, right) =>
+                right.revision - left.revision ||
+                left.scopeId.localeCompare(right.scopeId))[0] ??
+            product.prices.find((candidate) =>
+              candidate.scopeType === "TENANT" &&
+              candidate.scopeId === event.globalTenantId);
+          if (!price) throw new Error("REST_PRODUCT_PRICE_NOT_CONFIGURED");
+          const allowedOptions = product.modifierGroups.flatMap((link) =>
+            link.modifierGroup.options.filter((option) => option.active));
+          const optionIds = payload.modifiers.map((item) => item.optionId);
+          if (
+            new Set(optionIds).size !== optionIds.length ||
+            payload.modifiers.some((modifier) =>
+              !allowedOptions.some((option) => option.id === modifier.optionId))
+          ) {
             throw new Error("REST_MODIFIER_NOT_FOUND");
           }
+          for (const link of product.modifierGroups) {
+            const selected = payload.modifiers.filter((modifier) =>
+              allowedOptions.some((option) =>
+                option.id === modifier.optionId &&
+                option.modifierGroupId === link.modifierGroupId))
+              .reduce((sum, modifier) => sum + modifier.quantity, 0);
+            if (
+              selected < link.modifierGroup.minSelections ||
+              selected > link.modifierGroup.maxSelections
+            ) throw new Error("REST_MODIFIER_SELECTION_INVALID");
+          }
+          const modifierTotal = payload.modifiers.reduce((sum, modifier) => {
+            const option = allowedOptions.find((candidate) =>
+              candidate.id === modifier.optionId)!;
+            const total = option.priceDelta.mul(modifier.quantity);
+            if (
+              option.name !== modifier.nameSnapshot ||
+              !option.priceDelta.equals(modifier.unitDelta) ||
+              !total.equals(modifier.totalDelta)
+            ) throw new Error("EDGE_MODIFIER_SNAPSHOT_INVALID");
+            return sum.add(total);
+          }, new Prisma.Decimal(0));
+          const pricing = priceRestOrderItem({
+            unitPrice: price.amount.toFixed(2),
+            modifierTotal: modifierTotal.toFixed(2),
+            quantity: payload.quantity,
+            taxRate: product.taxRate.toFixed(2),
+            taxIncluded: product.taxIncluded,
+            promotion: {
+              now: new Date(event.occurredAt),
+              timezone: branch.timezone,
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              branchGroupIds: groupIds,
+              productId: product.id,
+              paymentMethod: payload.paymentMethod,
+              promotions: promotions.map((promotion) => ({
+                ...promotion,
+                discountValue: promotion.discountValue.toFixed(4),
+                productIds: promotion.productIds as string[],
+                paymentMethods: promotion.paymentMethods as string[],
+                weekdays: promotion.weekdays as number[],
+              })) as RestPromotionCandidate[],
+            },
+          });
+          const expected = {
+            unitPrice: price.amount,
+            modifierTotal,
+            ...pricing,
+          };
+          if (
+            !expected.unitPrice.equals(payload.unitPrice) ||
+            !expected.modifierTotal.equals(payload.modifierTotal) ||
+            expected.grossBeforeDiscount !== payload.grossBeforeDiscount ||
+            expected.discountTotal !== payload.discountTotal ||
+            JSON.stringify(expected.promotionIds) !== JSON.stringify(payload.promotionIds) ||
+            expected.lineTotal !== payload.lineTotal ||
+            expected.netTotal !== payload.netTotal ||
+            expected.taxAmount !== payload.taxAmount ||
+            !product.taxRate.equals(payload.taxRate) ||
+            product.taxIncluded !== payload.taxIncluded
+          ) throw new Error("EDGE_ORDER_TOTAL_MISMATCH");
           await tx.orderItem.create({
             data: {
               id: payload.id,
@@ -254,6 +369,9 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
               quantity: payload.quantity,
               unitPrice: payload.unitPrice,
               modifierTotal: payload.modifierTotal,
+              grossBeforeDiscount: payload.grossBeforeDiscount,
+              discountTotal: payload.discountTotal,
+              promotionIds: payload.promotionIds,
               lineTotal: payload.lineTotal,
               netTotal: payload.netTotal,
               taxAmount: payload.taxAmount,
@@ -277,6 +395,7 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
             where: { id: order.id },
             data: {
               subtotal: order.subtotal.add(payload.netTotal),
+              discountTotal: order.discountTotal.add(payload.discountTotal),
               taxTotal: order.taxTotal.add(payload.taxAmount),
               total: order.total.add(payload.lineTotal),
               revision: event.aggregateVersion,
@@ -606,7 +725,8 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
           });
         } else if (event.eventType === "ORDER_SPLIT") {
           const totalsSchema = z.object({
-            subtotal: z.string(), taxTotal: z.string(), total: z.string(),
+            subtotal: z.string(), discountTotal: z.string(),
+            taxTotal: z.string(), total: z.string(),
           }).strict();
           const payload = z.object({
             itemIds: z.array(z.string().min(1)).min(1),
@@ -656,11 +776,16 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
           const calculate = async (orderId: string) => {
             const items = await tx.orderItem.findMany({
               where: { orderId, status: { not: "CANCELLED" } },
-              select: { lineTotal: true, netTotal: true, taxAmount: true },
+              select: {
+                lineTotal: true, netTotal: true, taxAmount: true,
+                discountTotal: true,
+              },
             });
             return {
               subtotal: items.reduce((sum, item) =>
                 sum.add(item.netTotal), new Prisma.Decimal(0)),
+              discountTotal: items.reduce((sum, item) =>
+                sum.add(item.discountTotal), new Prisma.Decimal(0)),
               taxTotal: items.reduce((sum, item) =>
                 sum.add(item.taxAmount), new Prisma.Decimal(0)),
               total: items.reduce((sum, item) =>
@@ -672,6 +797,7 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
           ]);
           const matches = (actual: typeof sourceTotals, claimed: z.infer<typeof totalsSchema>) =>
             actual.subtotal.equals(claimed.subtotal) &&
+            actual.discountTotal.equals(claimed.discountTotal) &&
             actual.taxTotal.equals(claimed.taxTotal) &&
             actual.total.equals(claimed.total);
           if (
@@ -691,7 +817,8 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
             sourceOrderId: z.string().min(1),
             sourceExpectedVersion: z.number().int().positive(),
             totals: z.object({
-              subtotal: z.string(), taxTotal: z.string(), total: z.string(),
+              subtotal: z.string(), discountTotal: z.string(),
+              taxTotal: z.string(), total: z.string(),
             }).strict(),
           }).strict().parse(event.payload);
           const [target, source] = await Promise.all([
@@ -723,11 +850,16 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
           });
           const items = await tx.orderItem.findMany({
             where: { orderId: target.id, status: { not: "CANCELLED" } },
-            select: { lineTotal: true, netTotal: true, taxAmount: true },
+            select: {
+              lineTotal: true, netTotal: true, taxAmount: true,
+              discountTotal: true,
+            },
           });
           const totals = {
             subtotal: items.reduce((sum, item) =>
               sum.add(item.netTotal), new Prisma.Decimal(0)),
+            discountTotal: items.reduce((sum, item) =>
+              sum.add(item.discountTotal), new Prisma.Decimal(0)),
             taxTotal: items.reduce((sum, item) =>
               sum.add(item.taxAmount), new Prisma.Decimal(0)),
             total: items.reduce((sum, item) =>
@@ -735,6 +867,7 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
           };
           if (
             !totals.subtotal.equals(payload.totals.subtotal) ||
+            !totals.discountTotal.equals(payload.totals.discountTotal) ||
             !totals.taxTotal.equals(payload.totals.taxTotal) ||
             !totals.total.equals(payload.totals.total)
           ) throw new Error("EDGE_ORDER_TOTAL_MISMATCH");

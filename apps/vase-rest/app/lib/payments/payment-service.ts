@@ -8,6 +8,7 @@ type PaymentOrder = {
   status: string;
   total: string;
   paidTotal: string;
+  allowedPromotionTenderTypes?: string[];
 };
 
 export type PaymentRepository = {
@@ -51,6 +52,12 @@ export function createPaymentService(repository: PaymentRepository) {
       );
       if (!order || ["CANCELLED", "PAID"].includes(order.status)) {
         throw new Error("REST_PAYMENT_ORDER_INVALID");
+      }
+      if (
+        order.allowedPromotionTenderTypes &&
+        !order.allowedPromotionTenderTypes.includes(input.tenderType)
+      ) {
+        throw new Error("REST_PROMOTION_TENDER_MISMATCH");
       }
       let drawerId: string | undefined;
       if (input.tenderType === "CASH") {

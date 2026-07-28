@@ -20,6 +20,10 @@ export default function OwnerSettingsPage() {
           <h2>Salón y cocina</h2>
           <p>Pisos, zonas, mesas, estaciones KDS y enrutamiento de categorías.</p>
         </a>
+        <a className="ui-card" href="/owner/promotions">
+          <h2>Promociones</h2>
+          <p>Reglas por fecha, día, producto, medio de pago, grupo o sucursal.</p>
+        </a>
         <a className="ui-card" href="/owner/settings/delivery">
           <h2>Delivery</h2>
           <p>Credenciales, tiendas, webhooks y certificación por proveedor y sucursal.</p>

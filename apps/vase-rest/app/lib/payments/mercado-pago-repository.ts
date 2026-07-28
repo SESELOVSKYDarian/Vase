@@ -4,6 +4,7 @@ import { db } from "../db";
 import { decryptSecret } from "../secrets/encryption";
 import { readSecretKeyring } from "../secrets/keyring";
 import { createMercadoPagoClient } from "./mercado-pago-client";
+import { allowedPromotionTenderTypes } from "../promotions/promotion-tender-policy";
 
 function inputJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -67,9 +68,29 @@ export const prismaMercadoPagoOperationalRepository = {
         },
         include: {
           payments: { where: { status: "APPLIED" }, select: { amount: true } },
+          items: {
+            where: { status: { not: "CANCELLED" } },
+            select: { promotionIds: true },
+          },
         },
       });
       if (!order) throw new Error("REST_MP_ORDER_INVALID");
+      const promotionIds = [...new Set(order.items.flatMap((item) =>
+        Array.isArray(item.promotionIds) ? item.promotionIds.map(String) : []))];
+      const promotionTenderTypes = allowedPromotionTenderTypes({
+        promotionIds,
+        promotions: promotionIds.length ? await tx.promotion.findMany({
+          where: {
+            id: { in: promotionIds },
+            globalTenantId: order.globalTenantId,
+          },
+          select: { id: true, paymentMethods: true },
+        }) : [],
+      });
+      if (
+        promotionTenderTypes &&
+        !promotionTenderTypes.includes("MERCADO_PAGO")
+      ) throw new Error("REST_PROMOTION_TENDER_MISMATCH");
       const paid = order.payments.reduce(
         (sum, payment) => sum.add(payment.amount),
         new Prisma.Decimal(0),
@@ -208,4 +229,3 @@ export const prismaMercadoPagoOperationalRepository = {
     return createMercadoPagoClient({ accessToken: accessTokenValue });
   },
 };
-
