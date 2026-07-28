@@ -29,6 +29,7 @@ import {
   retryPrintJob,
 } from "./printing/print-queue.js";
 import { renderEscPosReceipt } from "./printing/receipt-template.js";
+import { REST_EDGE_AGENT_VERSION } from "./version.js";
 
 const config = readEdgeConfig(process.env);
 const database = openEdgeDatabase(config);
@@ -359,6 +360,28 @@ async function backgroundSync() {
       certificateFingerprint: identity.certificate_fingerprint,
       syncUrl: new URL("/api/v1/edge/sync", config.cloudBaseUrl).toString(),
       fetcher,
+      heartbeat: () => {
+        const backlog = database.raw.prepare(
+          "SELECT COUNT(*) AS count FROM outbox WHERE state <> 'ACKNOWLEDGED'",
+        ).get() as { count: number };
+        const printFailures = database.raw.prepare(
+          "SELECT COUNT(*) AS count FROM print_job WHERE state = 'FAILED'",
+        ).get() as { count: number };
+        const lastSync = database.raw.prepare(
+          "SELECT value FROM edge_runtime WHERE key = 'last_cloud_sync_at'",
+        ).get() as { value: string } | undefined;
+        const lastError = database.raw.prepare(`
+          SELECT last_error FROM outbox
+          WHERE last_error IS NOT NULL ORDER BY sequence DESC LIMIT 1
+        `).get() as { last_error: string } | undefined;
+        return {
+          agentVersion: REST_EDGE_AGENT_VERSION,
+          pendingEventCount: backlog.count,
+          failedPrintJobCount: printFailures.count,
+          lastCloudSyncAt: lastSync?.value ?? null,
+          lastErrorCode: lastError?.last_error.match(/[A-Z][A-Z0-9_]{2,119}/)?.[0] ?? null,
+        };
+      },
     });
     let cloudResult: Awaited<ReturnType<typeof upload>> | undefined;
     const pending = database.raw.prepare(

@@ -15,6 +15,34 @@ export type RestPricingView = {
   publishedAt: string | null;
 };
 
+export type RestOperationsView = {
+  tenants: Array<{
+    globalTenantId: string;
+    name: string;
+    slug: string;
+    entitlement: { plan: string; status: string; contractVersion: number };
+    branchCount: number;
+    staffCount: number;
+    deviceCount: number;
+    edgeCount: number;
+    degradedIntegrations: number;
+  }>;
+  edges: Array<{
+    id: string;
+    globalTenantId: string;
+    branchName: string;
+    name: string;
+    status: string;
+    agentVersion: string | null;
+    operationalState: "ONLINE" | "DEGRADED" | "OFFLINE" | "REVOKED";
+    heartbeatLagSeconds: number | null;
+    syncLagSeconds: number | null;
+    pendingEventCount: number;
+    failedPrintJobCount: number;
+    lastErrorCode: string | null;
+  }>;
+};
+
 const plans: RestPlan[] = ["STARTER", "GROWTH", "PRO", "ENTERPRISE"];
 const initialLimits: RestPlanLimits = {
   branches: 1,
@@ -26,9 +54,11 @@ const initialLimits: RestPlanLimits = {
 export function RestAdminWorkspace({
   initialVersions,
   initialHealth,
+  initialOperations,
 }: {
   initialVersions: RestPricingView[];
   initialHealth: "ok" | "degraded" | "unavailable";
+  initialOperations: RestOperationsView;
 }) {
   const [versions, setVersions] = useState(initialVersions);
   const [plan, setPlan] = useState<RestPlan>("STARTER");
@@ -38,6 +68,18 @@ export function RestAdminWorkspace({
   const [effectiveAt, setEffectiveAt] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [operations, setOperations] = useState(initialOperations);
+  const [operationalFilter, setOperationalFilter] = useState("ATTENTION");
+
+  async function refreshOperations() {
+    const response = await fetch("/api/rest/tenants", { cache: "no-store" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(payload.error ?? "No se pudo actualizar la operación Rest.");
+      return;
+    }
+    setOperations({ tenants: payload.tenants ?? [], edges: payload.edges ?? [] });
+  }
 
   async function send(command: Record<string, unknown>) {
     setSaving(true);
@@ -123,6 +165,44 @@ export function RestAdminWorkspace({
           </article>
         ))}
         {versions.length === 0 ? <p className="rest-empty">Todavía no hay versiones. Creá el primer borrador con valores comerciales reales.</p> : null}
+      </div>
+
+      <div className="section-heading rest-heading">
+        <div><p className="eyebrow">Operación en vivo</p><h2>Tenants y Edge</h2></div>
+        <div>
+          <select aria-label="Filtrar estado Edge" value={operationalFilter}
+            onChange={(event) => setOperationalFilter(event.target.value)}>
+            <option value="ATTENTION">Requieren atención</option>
+            <option value="ALL">Todos</option>
+            <option value="OFFLINE">Offline</option>
+            <option value="DEGRADED">Degradados</option>
+          </select>
+          <button onClick={() => void refreshOperations()}>Actualizar</button>
+        </div>
+      </div>
+      <div className="rest-version-list">
+        {operations.tenants.map((tenant) => (
+          <article key={tenant.globalTenantId}>
+            <div><span>{tenant.name}</span><strong>{tenant.entitlement.plan} · {tenant.entitlement.status}</strong></div>
+            <p>{tenant.branchCount} suc. · {tenant.staffCount} personas · {tenant.deviceCount} dispositivos · {tenant.edgeCount} Edge</p>
+            <em className={tenant.degradedIntegrations ? "rest-health rest-health-degraded" : "rest-health rest-health-ok"}>
+              {tenant.degradedIntegrations} integraciones degradadas
+            </em>
+          </article>
+        ))}
+      </div>
+      <div className="rest-version-list">
+        {operations.edges.filter((edge) =>
+          operationalFilter === "ALL" ||
+          operationalFilter === edge.operationalState ||
+          (operationalFilter === "ATTENTION" && edge.operationalState !== "ONLINE"))
+          .map((edge) => (
+            <article key={edge.id}>
+              <div><span>{edge.branchName} · {edge.name}</span><strong>{edge.operationalState}</strong></div>
+              <p>Agente {edge.agentVersion ?? "sin versión"} · heartbeat {edge.heartbeatLagSeconds ?? "sin dato"}s · sync {edge.syncLagSeconds ?? "sin dato"}s</p>
+              <p>{edge.pendingEventCount} eventos pendientes · {edge.failedPrintJobCount} impresiones fallidas{edge.lastErrorCode ? ` · ${edge.lastErrorCode}` : ""}</p>
+            </article>
+          ))}
       </div>
     </section>
   );

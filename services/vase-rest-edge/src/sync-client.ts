@@ -146,6 +146,13 @@ export function createCloudUploader(input: {
   certificateFingerprint: string;
   syncUrl: string;
   fetcher: typeof fetch;
+  heartbeat(): {
+    agentVersion: string;
+    pendingEventCount: number;
+    failedPrintJobCount: number;
+    lastCloudSyncAt: string | null;
+    lastErrorCode: string | null;
+  };
 }) {
   return async (entries: ReturnType<typeof pendingOutbox>) => {
     const response = await input.fetcher(input.syncUrl, {
@@ -163,6 +170,7 @@ export function createCloudUploader(input: {
           branchId: input.branchId,
           installationId: input.installationId,
         })),
+        heartbeat: input.heartbeat(),
       }),
       signal: AbortSignal.timeout(15_000),
     });

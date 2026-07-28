@@ -13,12 +13,31 @@ import {
 const service = createCloudSyncService(prismaCloudSyncRepository);
 const batchSchema = z.object({
   events: z.array(restSyncEventSchema).max(100),
+  heartbeat: z.object({
+    agentVersion: z.string().min(1).max(80),
+    pendingEventCount: z.number().int().nonnegative(),
+    failedPrintJobCount: z.number().int().nonnegative(),
+    lastCloudSyncAt: z.iso.datetime().nullable(),
+    lastErrorCode: z.string().max(120).nullable(),
+  }).strict(),
 }).strict();
 
 export async function POST(request: Request) {
   try {
     const edge = await authenticateEdgeRequest(request);
     const batch = batchSchema.parse(await request.json());
+    await db.edgeInstallation.update({
+      where: { id: edge.id },
+      data: {
+        lastSeenAt: new Date(),
+        lastCloudSyncAt: batch.heartbeat.lastCloudSyncAt
+          ? new Date(batch.heartbeat.lastCloudSyncAt) : null,
+        agentVersion: batch.heartbeat.agentVersion,
+        pendingEventCount: batch.heartbeat.pendingEventCount,
+        failedPrintJobCount: batch.heartbeat.failedPrintJobCount,
+        lastErrorCode: batch.heartbeat.lastErrorCode,
+      },
+    });
     const receipts = [];
     for (const event of batch.events) {
       if (

@@ -1,0 +1,6 @@
+ALTER TABLE "EdgeInstallation"
+ADD COLUMN "lastCloudSyncAt" TIMESTAMP(3),
+ADD COLUMN "agentVersion" TEXT,
+ADD COLUMN "pendingEventCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "failedPrintJobCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "lastErrorCode" TEXT;
