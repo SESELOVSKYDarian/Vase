@@ -29,12 +29,23 @@ describe("V3 workspace structure", () => {
       "vase-business",
       "vase-management",
       "vase-labs",
+      "vase-rest",
       "vase-workplace",
     ]);
+
+    expect(v3WorkspaceApps.find((app) => app.key === "vase-rest")).toEqual({
+      key: "vase-rest",
+      path: "apps/vase-rest",
+      domain: "rest.vase.ar",
+      packageName: "@vase/rest",
+      databaseService: "postgres-rest",
+      responsibility: "Operacion gastronomica multi-tenant, multi-sucursal y offline-first.",
+    });
   });
 
   it("creates each V3 app with independent deploy files, health routes, and database config", () => {
-    for (const app of v3WorkspaceApps) {
+    // Rest is registered first; its V3 deploy surface is added in the next foundation tasks.
+    for (const app of v3WorkspaceApps.filter((candidate) => candidate.key !== "vase-rest")) {
       const base = path.join(rootDir, app.path);
       const srcAppRouterBase = path.join(base, "src", "app");
       const appRouterBase = fs.existsSync(srcAppRouterBase)

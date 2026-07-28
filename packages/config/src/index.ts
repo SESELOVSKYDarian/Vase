@@ -7,6 +7,7 @@ export type V3WorkspaceApp = {
     | "vase-business"
     | "vase-management"
     | "vase-labs"
+    | "vase-rest"
     | "vase-workplace";
   path: string;
   domain: string;
@@ -77,6 +78,14 @@ export const v3WorkspaceApps: V3WorkspaceApp[] = [
     packageName: "@vase/labs",
     databaseService: "vase-db",
     responsibility: "IA SaaS, chatbots, inbox, training y automatizaciones.",
+  },
+  {
+    key: "vase-rest",
+    path: "apps/vase-rest",
+    domain: "rest.vase.ar",
+    packageName: "@vase/rest",
+    databaseService: "postgres-rest",
+    responsibility: "Operacion gastronomica multi-tenant, multi-sucursal y offline-first.",
   },
   {
     key: "vase-workplace",
