@@ -37,6 +37,12 @@ a {
   text-decoration: none;
 }
 
+button,
+input,
+select {
+  font: inherit;
+}
+
 .rest-shell {
   position: relative;
   width: min(1440px, 100%);
@@ -44,6 +50,117 @@ a {
   margin: 0 auto;
   overflow: hidden;
   border-inline: 1px solid rgba(255, 255, 255, 0.035);
+}
+
+.owner-workspace {
+  width: min(1080px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 72px 0;
+}
+
+.owner-workspace > header {
+  max-width: 720px;
+  margin-bottom: 42px;
+}
+
+.owner-workspace h1 {
+  margin: 12px 0;
+  font-size: clamp(2.4rem, 6vw, 5rem);
+  letter-spacing: -0.065em;
+}
+
+.owner-workspace header > p,
+.owner-panel label,
+.branch-list span {
+  color: var(--quiet);
+}
+
+.owner-panel {
+  display: grid;
+  grid-template-columns: 0.7fr 1.3fr;
+  gap: 44px;
+  padding: clamp(24px, 5vw, 52px);
+  background: rgba(16, 22, 19, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+}
+
+.owner-panel form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.owner-panel label {
+  display: grid;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.owner-panel input,
+.owner-panel select {
+  min-height: 48px;
+  padding: 0 14px;
+  color: var(--mist);
+  background: var(--carbon);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.owner-panel input:focus,
+.owner-panel select:focus {
+  border-color: var(--jade);
+  outline: 2px solid rgba(120, 168, 122, 0.15);
+}
+
+.owner-panel button,
+.owner-panel [role="alert"] {
+  align-self: end;
+}
+
+.owner-panel [role="alert"] {
+  color: #f4a99f;
+}
+
+.branch-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.branch-list article {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 22px;
+  background: rgba(15, 20, 17, 0.8);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.branch-list code {
+  color: var(--jade-bright);
+}
+
+@media (max-width: 760px) {
+  .owner-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-panel form {
+    grid-template-columns: 1fr;
+  }
+
+  .branch-list article {
+    grid-template-columns: 64px 1fr;
+  }
+
+  .branch-list span {
+    grid-column: 2;
+  }
 }
 
 .rest-shell::before {

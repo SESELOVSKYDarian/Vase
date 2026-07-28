@@ -44,6 +44,7 @@ model Branch {
   restTenantId   String
   globalTenantId String
   code           String
+  slug           String
   name           String
   timezone       String              @default("America/Argentina/Buenos_Aires")
   active         Boolean             @default(true)
@@ -54,6 +55,7 @@ model Branch {
   updatedAt      DateTime            @updatedAt
 
   @@unique([globalTenantId, code])
+  @@unique([globalTenantId, slug])
   @@index([globalTenantId, active])
   @@index([restTenantId])
 }
