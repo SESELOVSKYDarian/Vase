@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { readCloudStaffToken } from "@/lib/edge/local-edge-client";
+import {
+  readCloudStaffToken,
+  readLocalEdgeClient,
+} from "@/lib/edge/local-edge-client";
 
 function token() {
   return readCloudStaffToken();
@@ -34,16 +37,24 @@ export default function CashierPage() {
   const [documents, setDocuments] = useState<FiscalDocument[]>([]);
   const [error, setError] = useState("");
   const refresh = useCallback(async () => {
-    const headers = { authorization: `Bearer ${token()}` };
-    const [cashResponse, fiscalResponse] = await Promise.all([
-      fetch("/api/v1/cash", { headers, cache: "no-store" }),
-      fetch("/api/v1/fiscal/documents", { headers, cache: "no-store" }),
-    ]);
-    const cashPayload = await cashResponse.json();
+    const local = await readLocalEdgeClient().state("CASH_DRAWER") as {
+      aggregates: Array<{ version: number; state: Drawer }>;
+    };
+    setDrawers(local.aggregates.map((item) => ({
+      ...item.state,
+      revision: item.version,
+    })));
+    const cloudToken = token();
+    if (!cloudToken) {
+      setDocuments([]);
+      return;
+    }
+    const fiscalResponse = await fetch("/api/v1/fiscal/documents", {
+      headers: { authorization: `Bearer ${cloudToken}` },
+      cache: "no-store",
+    });
     const fiscalPayload = await fiscalResponse.json();
-    if (!cashResponse.ok) throw new Error(cashPayload.error);
     if (!fiscalResponse.ok) throw new Error(fiscalPayload.error);
-    setDrawers(cashPayload.drawers);
     setDocuments(fiscalPayload.documents);
   }, []);
   useEffect(() => { void refresh().catch((cause) => setError(String(cause))); }, [refresh]);
@@ -51,23 +62,31 @@ export default function CashierPage() {
   async function open(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    await mutate("/api/v1/cash", {
-      action: "OPEN",
-      stationId: form.get("stationId"),
-      openingFloat: form.get("openingFloat"),
-      commandId: crypto.randomUUID(),
+    await readLocalEdgeClient().command({
+      eventId: crypto.randomUUID(),
+      aggregateType: "CASH_DRAWER",
+      aggregateId: crypto.randomUUID(),
+      expectedVersion: 0,
+      eventType: "CASH_DRAWER_OPENED",
+      idempotencyKey: crypto.randomUUID(),
+      payload: {
+        stationId: form.get("stationId"),
+        openingFloat: form.get("openingFloat"),
+      },
     });
     event.currentTarget.reset();
     await refresh();
   }
 
   async function close(drawer: Drawer, form: FormData) {
-    await mutate("/api/v1/cash", {
-      action: "CLOSE",
-      drawerId: drawer.id,
-      countedCash: form.get("countedCash"),
-      expectedRevision: drawer.revision,
-      commandId: crypto.randomUUID(),
+    await readLocalEdgeClient().command({
+      eventId: crypto.randomUUID(),
+      aggregateType: "CASH_DRAWER",
+      aggregateId: drawer.id,
+      expectedVersion: drawer.revision,
+      eventType: "CASH_DRAWER_CLOSED",
+      idempotencyKey: crypto.randomUUID(),
+      payload: { countedCash: form.get("countedCash") },
     });
     await refresh();
   }
@@ -76,7 +95,7 @@ export default function CashierPage() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const tenderType = String(form.get("tenderType"));
-    await mutate("/api/v1/payments", {
+    const paymentPayload = {
       orderId: form.get("orderId"),
       tenderType,
       amount: form.get("amount"),
@@ -89,7 +108,23 @@ export default function CashierPage() {
       customerAccountId: tenderType === "CUSTOMER_ACCOUNT"
         ? form.get("customerAccountId") : undefined,
       commandId: crypto.randomUUID(),
-    });
+    };
+    if (tenderType === "CASH") {
+      await readLocalEdgeClient().command({
+        eventId: crypto.randomUUID(),
+        aggregateType: "PAYMENT",
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        eventType: "CASH_PAYMENT_APPLIED",
+        idempotencyKey: String(paymentPayload.commandId),
+        payload: {
+          orderId: paymentPayload.orderId,
+          amount: paymentPayload.amount,
+        },
+      });
+    } else {
+      await mutate("/api/v1/payments", paymentPayload);
+    }
     event.currentTarget.reset();
     await refresh();
   }
@@ -136,6 +171,7 @@ export default function CashierPage() {
 
   async function mutate(url: string, payload: unknown) {
     setError("");
+    if (!token()) throw new Error("REST_CLOUD_CONNECTION_REQUIRED");
     const response = await fetch(url, {
       method: "POST",
       headers: {

@@ -87,4 +87,192 @@ describe("Rest Edge durable sync", () => {
     ).get()).toEqual({ version: 8 });
     database.close();
   });
+
+  it("prices offline order items from the cloud catalog snapshot, not browser totals", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    applySnapshots(database, [{
+      aggregateType: "CATALOG",
+      aggregateId: "current",
+      version: 2,
+      state: {
+        products: [{
+          id: "product_1",
+          categoryId: "category_1",
+          sku: "BURGER",
+          name: "Burger",
+          available: true,
+          unitPrice: "1210.00",
+          taxRate: "21.00",
+          taxIncluded: true,
+          stationId: "station_1",
+          recipeItems: [],
+          modifierOptions: [],
+        }],
+      },
+    }]);
+    acceptLocalCommand(database, {
+      eventId: "open_1", aggregateType: "ORDER", aggregateId: "order_1",
+      expectedVersion: 0, eventType: "ORDER_OPENED", actorId: "staff_1",
+      deviceId: "device_1", idempotencyKey: "open_cmd_1",
+      payload: { guestCount: 2 },
+    });
+    acceptLocalCommand(database, {
+      eventId: "item_1", aggregateType: "ORDER", aggregateId: "order_1",
+      expectedVersion: 1, eventType: "ORDER_ITEM_ADDED", actorId: "staff_1",
+      deviceId: "device_1", idempotencyKey: "item_cmd_1",
+      payload: {
+        productId: "product_1",
+        quantity: 2,
+        course: 1,
+        modifiers: [],
+        lineTotal: "0.01",
+      },
+    });
+    const state = database.raw.prepare(`
+      SELECT state_json FROM aggregate_state
+      WHERE aggregate_type = 'ORDER' AND aggregate_id = 'order_1'
+    `).get() as { state_json: string };
+    expect(JSON.parse(state.state_json)).toMatchObject({
+      status: "OPEN",
+      subtotal: "2000.00",
+      taxTotal: "420.00",
+      total: "2420.00",
+      items: [{
+        skuSnapshot: "BURGER",
+        lineTotal: "2420.00",
+        netTotal: "2000.00",
+        taxAmount: "420.00",
+      }],
+    });
+    expect(pendingOutbox(database)[1]?.payload).toMatchObject({
+      productId: "product_1",
+      lineTotal: "2420.00",
+      catalogRevision: 2,
+    });
+    acceptLocalCommand(database, {
+      eventId: "submit_1", aggregateType: "ORDER", aggregateId: "order_1",
+      expectedVersion: 2, eventType: "ORDER_SUBMITTED", actorId: "staff_1",
+      deviceId: "device_1", idempotencyKey: "submit_cmd_1", payload: {},
+    });
+    expect(database.raw.prepare(`
+      SELECT COUNT(*) AS count FROM aggregate_state
+      WHERE aggregate_type = 'KITCHEN_TICKET'
+    `).get()).toEqual({ count: 1 });
+    expect(pendingOutbox(database)[2]?.payload).toMatchObject({
+      tickets: [expect.objectContaining({ stationId: "station_1" })],
+      consumptions: [],
+    });
+    database.close();
+  });
+
+  it("checks table capacity and overlap before accepting an offline reservation", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    applySnapshots(database, [{
+      aggregateType: "TABLE",
+      aggregateId: "table_1",
+      version: 1,
+      state: { id: "table_1", code: "M1", capacity: 4, status: "AVAILABLE" },
+    }]);
+    const first = {
+      guestName: "Ana",
+      partySize: 4,
+      startsAt: "2026-07-29T20:00:00.000Z",
+      endsAt: "2026-07-29T22:00:00.000Z",
+      tableIds: ["table_1"],
+    };
+    acceptLocalCommand(database, {
+      eventId: "reservation_1",
+      aggregateType: "RESERVATION",
+      aggregateId: "reservation_1",
+      expectedVersion: 0,
+      eventType: "RESERVATION_CREATED",
+      actorId: "staff_1",
+      deviceId: "device_1",
+      idempotencyKey: "reservation_cmd_1",
+      payload: first,
+    });
+    expect(() => acceptLocalCommand(database, {
+      eventId: "reservation_2",
+      aggregateType: "RESERVATION",
+      aggregateId: "reservation_2",
+      expectedVersion: 0,
+      eventType: "RESERVATION_CREATED",
+      actorId: "staff_1",
+      deviceId: "device_1",
+      idempotencyKey: "reservation_cmd_2",
+      payload: {
+        ...first,
+        guestName: "Luis",
+        startsAt: "2026-07-29T21:00:00.000Z",
+        endsAt: "2026-07-29T23:00:00.000Z",
+      },
+    })).toThrow("EDGE_RESERVATION_OVERLAP");
+    database.close();
+  });
+
+  it("applies an offline cash payment atomically to payment, order, drawer, and outbox", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    applySnapshots(database, [{
+      aggregateType: "ORDER",
+      aggregateId: "order_1",
+      version: 4,
+      state: {
+        id: "order_1",
+        status: "SUBMITTED",
+        total: "100.00",
+        paidTotal: "0.00",
+        revision: 4,
+      },
+    }]);
+    acceptLocalCommand(database, {
+      eventId: "drawer_open",
+      aggregateType: "CASH_DRAWER",
+      aggregateId: "drawer_1",
+      expectedVersion: 0,
+      eventType: "CASH_DRAWER_OPENED",
+      actorId: "cashier_1",
+      deviceId: "device_1",
+      idempotencyKey: "drawer_open_cmd",
+      payload: { stationId: "POS-1", openingFloat: "500.00" },
+    });
+    acceptLocalCommand(database, {
+      eventId: "payment_1",
+      aggregateType: "PAYMENT",
+      aggregateId: "payment_1",
+      expectedVersion: 0,
+      eventType: "CASH_PAYMENT_APPLIED",
+      actorId: "cashier_1",
+      deviceId: "device_1",
+      idempotencyKey: "payment_cmd_1",
+      payload: { orderId: "order_1", amount: "100.00" },
+    });
+    const order = database.raw.prepare(`
+      SELECT version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'ORDER' AND aggregate_id = 'order_1'
+    `).get() as { version: number; state_json: string };
+    const drawer = database.raw.prepare(`
+      SELECT version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'CASH_DRAWER' AND aggregate_id = 'drawer_1'
+    `).get() as { version: number; state_json: string };
+    expect({ version: order.version, ...JSON.parse(order.state_json) }).toMatchObject({
+      version: 5,
+      status: "PAID",
+      paidTotal: "100.00",
+    });
+    expect({ version: drawer.version, ...JSON.parse(drawer.state_json) }).toMatchObject({
+      version: 2,
+      expectedCash: "600.00",
+    });
+    expect(pendingOutbox(database).map((item) => item.eventId)).toEqual([
+      "drawer_open",
+      "payment_1",
+    ]);
+    database.close();
+  });
 });

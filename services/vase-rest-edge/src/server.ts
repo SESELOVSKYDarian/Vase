@@ -170,6 +170,9 @@ const server = createServer({
       const aggregateType = String(input.aggregateType ?? "");
       const capability = aggregateType === "TABLE" ? "tables:write"
         : aggregateType === "ORDER" ? "orders:write"
+          : aggregateType === "RESERVATION" ? "orders:write"
+            : aggregateType === "CASH_DRAWER" || aggregateType === "PAYMENT"
+              ? "cash:operate"
           : aggregateType === "KITCHEN_TICKET" ? "kds:operate"
             : aggregateType === "INVENTORY" ? "inventory:write" : null;
       if (!capability || !session.roles.some((role) =>
@@ -181,6 +184,9 @@ const server = createServer({
         actorId: session.staffId,
         deviceId: session.deviceId,
       });
+      for (const ticket of result.createdTickets ?? []) {
+        queueKitchenTicketPrints(database, ticket);
+      }
       response.writeHead(202, { "content-type": "application/json", "cache-control": "no-store" });
       response.end(JSON.stringify(result));
       return;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { readLocalEdgeClient } from "@/lib/edge/local-edge-client";
 
 type InventoryData = {
   balances: Array<{
@@ -31,11 +32,23 @@ export default function StockPage() {
   const [data, setData] = useState<InventoryData | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
-    void fetch("/api/v1/inventory", { cache: "no-store" })
-      .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error);
-        setData(payload);
+    void Promise.all([
+      readLocalEdgeClient().state("INVENTORY_BALANCE"),
+      readLocalEdgeClient().state("INVENTORY_MOVEMENT"),
+      readLocalEdgeClient().state("INVENTORY_ALLOCATION"),
+    ])
+      .then(([balances, movements, allocations]) => {
+        setData({
+          balances: (balances as {
+            aggregates: Array<{ state: InventoryData["balances"][number] }>;
+          }).aggregates.map((item) => item.state),
+          movements: (movements as {
+            aggregates: Array<{ state: InventoryData["movements"][number] }>;
+          }).aggregates.map((item) => item.state),
+          allocations: (allocations as {
+            aggregates: Array<{ state: InventoryData["allocations"][number] }>;
+          }).aggregates.map((item) => item.state),
+        });
       })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Error de inventario"));
   }, []);

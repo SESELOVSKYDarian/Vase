@@ -51,7 +51,20 @@ export async function POST(request: Request) {
         aggregateType: true, aggregateId: true, version: true, state: true,
       },
     }) : [];
-    const [tables, orders, kitchenTickets] = await Promise.all([
+    const [
+      tables,
+      orders,
+      kitchenTickets,
+      groupMembers,
+      categories,
+      stationMappings,
+      inventoryAllocations,
+      reservations,
+      cashDrawers,
+      payments,
+      inventoryBalances,
+      inventoryMovements,
+    ] = await Promise.all([
       db.diningTable.findMany({
         where: { globalTenantId: edge.globalTenantId, branchId: edge.branchId },
       }),
@@ -61,7 +74,15 @@ export async function POST(request: Request) {
           branchId: edge.branchId,
           status: { in: ["OPEN", "SUBMITTED", "PARTIALLY_READY", "READY"] },
         },
-        include: { items: { include: { modifiers: true } } },
+        include: {
+          items: { include: { modifiers: true } },
+          payments: {
+            where: {
+              status: { in: ["APPLIED", "PARTIALLY_REFUNDED", "REFUNDED"] },
+            },
+            select: { amount: true },
+          },
+        },
       }),
       db.kitchenTicket.findMany({
         where: {
@@ -75,6 +96,87 @@ export async function POST(request: Request) {
           orderItem: { include: { modifiers: true } },
         },
       }),
+      db.branchGroupMember.findMany({
+        where: {
+          globalTenantId: edge.globalTenantId,
+          branchId: edge.branchId,
+        },
+        select: { branchGroupId: true },
+      }),
+      db.menuCategory.findMany({
+        where: { globalTenantId: edge.globalTenantId, active: true },
+        orderBy: { sortOrder: "asc" },
+        include: {
+          products: {
+            where: { available: true },
+            orderBy: { name: "asc" },
+            include: {
+              prices: true,
+              recipeItems: true,
+              branchAvailability: {
+                where: { branchId: edge.branchId },
+              },
+              modifierGroups: {
+                orderBy: { sortOrder: "asc" },
+                include: {
+                  modifierGroup: {
+                    include: { options: { where: { active: true } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+      db.kitchenStationCategory.findMany({
+        where: {
+          globalTenantId: edge.globalTenantId,
+          station: { branchId: edge.branchId, active: true },
+        },
+        select: { categoryId: true, stationId: true },
+      }),
+      db.branchInventoryAllocation.findMany({
+        where: {
+          globalTenantId: edge.globalTenantId,
+          branchId: edge.branchId,
+        },
+        include: { branch: true, ingredient: true, warehouse: true },
+      }),
+      db.reservation.findMany({
+        where: {
+          globalTenantId: edge.globalTenantId,
+          branchId: edge.branchId,
+          endsAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) },
+          status: { in: ["CONFIRMED", "SEATED"] },
+        },
+        include: { tables: { include: { table: true } } },
+      }),
+      db.cashDrawer.findMany({
+        where: {
+          globalTenantId: edge.globalTenantId,
+          branchId: edge.branchId,
+          openedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60_000) },
+        },
+      }),
+      db.payment.findMany({
+        where: {
+          globalTenantId: edge.globalTenantId,
+          branchId: edge.branchId,
+          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60_000) },
+        },
+      }),
+      db.inventoryBalance.findMany({
+        where: { globalTenantId: edge.globalTenantId },
+        include: { ingredient: true, warehouse: true },
+      }),
+      db.inventoryMovement.findMany({
+        where: {
+          globalTenantId: edge.globalTenantId,
+          occurredAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60_000) },
+        },
+        orderBy: { occurredAt: "desc" },
+        take: 500,
+      }),
     ]);
     const json = (value: unknown): Prisma.InputJsonValue => JSON.parse(JSON.stringify(
       value,
@@ -82,6 +184,43 @@ export async function POST(request: Request) {
       typeof item === "object" && item && typeof item.toFixed === "function"
         ? item.toFixed() : item,
     )) as Prisma.InputJsonValue;
+    const groupIds = groupMembers.map((member) => member.branchGroupId);
+    const catalogProducts = categories.flatMap((category) =>
+      category.products.flatMap((product) => {
+        if (product.branchAvailability[0]?.available === false) return [];
+        const branchPrice = product.prices.find((price) =>
+          price.scopeType === "BRANCH" && price.scopeId === edge.branchId);
+        const groupPrice = product.prices.filter((price) =>
+          price.scopeType === "BRANCH_GROUP" && groupIds.includes(price.scopeId))
+          .sort((left, right) => right.revision - left.revision)[0];
+        const tenantPrice = product.prices.find((price) =>
+          price.scopeType === "TENANT" && price.scopeId === edge.globalTenantId);
+        const price = branchPrice ?? groupPrice ?? tenantPrice;
+        if (!price) return [];
+        return [{
+          id: product.id,
+          categoryId: category.id,
+          sku: product.sku,
+          name: product.name,
+          available: true,
+          unitPrice: price.amount.toFixed(2),
+          taxRate: product.taxRate.toFixed(2),
+          taxIncluded: product.taxIncluded,
+          stationId: stationMappings.find((mapping) =>
+            mapping.categoryId === category.id)?.stationId,
+          recipeItems: product.recipeItems.map((recipe) => ({
+            ingredientId: recipe.ingredientId,
+            quantity: recipe.quantity.toFixed(6),
+          })),
+          modifierOptions: product.modifierGroups.flatMap((link) =>
+            link.modifierGroup.options.map((option) => ({
+              id: option.id,
+              name: option.name,
+              priceDelta: option.priceDelta.toFixed(2),
+              active: option.active,
+            }))),
+        }];
+      }));
     const snapshots = [
       ...conflictSnapshots.map((snapshot) => ({
         ...snapshot,
@@ -93,11 +232,79 @@ export async function POST(request: Request) {
       })),
       ...orders.map((order) => ({
         aggregateType: "ORDER", aggregateId: order.id,
-        version: order.revision, state: json(order),
+        version: order.revision,
+        state: json({
+          ...order,
+          paidTotal: order.payments.reduce(
+            (sum, payment) => sum.add(payment.amount),
+            new Prisma.Decimal(0),
+          ).toFixed(2),
+        }),
       })),
       ...kitchenTickets.map((ticket) => ({
         aggregateType: "KITCHEN_TICKET", aggregateId: ticket.id,
         version: ticket.revision, state: json(ticket),
+      })),
+      {
+        aggregateType: "CATALOG",
+        aggregateId: "current",
+        version: Date.now(),
+        state: json({
+          categories: categories.map((category) => ({
+            id: category.id,
+            name: category.name,
+          })),
+          products: catalogProducts,
+        }),
+      },
+      ...inventoryAllocations.map((allocation) => ({
+        aggregateType: "INVENTORY_ALLOCATION",
+        aggregateId: allocation.id,
+        version: allocation.revision,
+        state: json({
+          id: allocation.id,
+          ingredientId: allocation.ingredientId,
+          warehouseId: allocation.warehouseId,
+          available: allocation.available.toFixed(6),
+          safetyStock: allocation.safetyStock.toFixed(6),
+          revision: allocation.revision,
+          branch: allocation.branch,
+          ingredient: allocation.ingredient,
+          warehouse: allocation.warehouse,
+        }),
+      })),
+      ...reservations.map((reservation) => ({
+        aggregateType: "RESERVATION",
+        aggregateId: reservation.id,
+        version: reservation.revision,
+        state: json({
+          ...reservation,
+          tableIds: reservation.tables.map((link) => link.tableId),
+        }),
+      })),
+      ...cashDrawers.map((drawer) => ({
+        aggregateType: "CASH_DRAWER",
+        aggregateId: drawer.id,
+        version: drawer.revision,
+        state: json(drawer),
+      })),
+      ...payments.map((payment) => ({
+        aggregateType: "PAYMENT",
+        aggregateId: payment.id,
+        version: 1,
+        state: json(payment),
+      })),
+      ...inventoryBalances.map((balance) => ({
+        aggregateType: "INVENTORY_BALANCE",
+        aggregateId: balance.id,
+        version: balance.revision,
+        state: json(balance),
+      })),
+      ...inventoryMovements.map((movement) => ({
+        aggregateType: "INVENTORY_MOVEMENT",
+        aggregateId: movement.id,
+        version: 1,
+        state: json(movement),
       })),
     ];
     const restTenant = await db.restTenant.findUniqueOrThrow({
