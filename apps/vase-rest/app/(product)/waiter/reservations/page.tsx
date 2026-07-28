@@ -13,16 +13,29 @@ type Reservation = {
   revision: number;
   tables: Array<{ table: { id: string; code: string } }>;
 };
+type Table = {
+  id: string; code: string; name: string; capacity: number; status: string;
+};
 
 export default function ReservationsPage() {
   const [rows, setRows] = useState<Reservation[]>([]);
+  const [tables, setTables] = useState<Table[]>([]);
   const [error, setError] = useState("");
   async function refresh() {
-    const payload = await readLocalEdgeClient().state("RESERVATION") as {
+    const client = readLocalEdgeClient();
+    const [payload, tablePayload] = await Promise.all([
+      client.state("RESERVATION"),
+      client.state("TABLE"),
+    ]) as [{
       aggregates: Array<{ state: Reservation }>;
-    };
+    }, {
+      aggregates: Array<{ state: Table }>;
+    }];
     setRows(payload.aggregates.map((item) => item.state)
       .sort((left, right) => left.startsAt.localeCompare(right.startsAt)));
+    setTables(tablePayload.aggregates.map((item) => item.state)
+      .filter((table) => table.status !== "DISABLED")
+      .sort((left, right) => left.code.localeCompare(right.code)));
   }
   useEffect(() => {
     void refresh().catch((cause) => setError(String(cause)));
@@ -48,8 +61,7 @@ export default function ReservationsPage() {
           partySize: Number(form.get("partySize")),
           startsAt: startsAt.toISOString(),
           endsAt: new Date(startsAt.getTime() + duration * 60_000).toISOString(),
-          tableIds: String(form.get("tableIds"))
-            .split(",").map((id) => id.trim()).filter(Boolean),
+          tableIds: form.getAll("tableIds").map(String),
         },
       });
       event.currentTarget.reset();
@@ -89,9 +101,15 @@ export default function ReservationsPage() {
         <label>Duración (min)
           <input name="duration" type="number" min="30" defaultValue="120" required />
         </label>
-        <label>IDs de mesas
-          <input name="tableIds" placeholder="Separados por coma" required />
-        </label>
+        <fieldset>
+          <legend>Mesas</legend>
+          {tables.map((table) => (
+            <label key={table.id}>
+              <input type="checkbox" name="tableIds" value={table.id} />
+              {table.code} Â· {table.capacity} personas
+            </label>
+          ))}
+        </fieldset>
         <button className="button button-primary">Confirmar reserva</button>
       </form>
       {error ? <p role="alert">{error}</p> : null}

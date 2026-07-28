@@ -65,7 +65,7 @@ export const prismaBranchRepository: BranchRepository = {
           restTenantId: tenant.id,
           branchId: branch.id,
           actorType: "SYSTEM",
-          actorId: "owner-onboarding",
+          actorId: input.actorId,
           action: "BRANCH_CREATED",
           entityType: "Branch",
           entityId: branch.id,
@@ -74,7 +74,7 @@ export const prismaBranchRepository: BranchRepository = {
       return branch;
     });
   },
-  update(globalTenantId, branchId, input) {
+  update(globalTenantId, branchId, input, actorId) {
     return db.$transaction(async (tx) => {
       const branch = await tx.branch.findFirst({
         where: { id: branchId, globalTenantId },
@@ -90,7 +90,7 @@ export const prismaBranchRepository: BranchRepository = {
           restTenantId: branch.restTenantId,
           branchId,
           actorType: "GLOBAL_USER",
-          actorId: "owner",
+          actorId,
           action: "BRANCH_UPDATED",
           entityType: "Branch",
           entityId: branchId,

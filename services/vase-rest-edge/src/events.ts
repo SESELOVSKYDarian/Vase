@@ -135,9 +135,25 @@ function orderTransition(
       tableId: z.string().min(1).optional(),
       guestCount: z.number().int().positive().max(500),
     }).strict().parse(input.payload);
+    const table = intent.tableId ? database.raw.prepare(`
+      SELECT version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'TABLE' AND aggregate_id = ?
+    `).get(intent.tableId) as { version: number; state_json: string } | undefined : undefined;
+    const tableState = table
+      ? z.object({
+          status: z.enum(["AVAILABLE", "RESERVED"]),
+          capacity: z.number().int().positive(),
+          revision: z.number().int().positive().optional(),
+        }).passthrough().parse(JSON.parse(table.state_json))
+      : undefined;
+    if (intent.tableId && !tableState) throw new Error("EDGE_TABLE_NOT_FOUND");
+    if (tableState && tableState.capacity < intent.guestCount) {
+      throw new Error("EDGE_TABLE_CAPACITY_INSUFFICIENT");
+    }
     const eventPayload = {
       ...intent,
-      openedAt: new Date().toISOString(),
+      ...(table ? { tableVersion: table.version } : {}),
+      openedAt: occurredAt.toISOString(),
     };
     return {
       eventPayload,
@@ -154,6 +170,16 @@ function orderTransition(
         revision: nextVersion,
         items: [],
       },
+      additionalStates: table && tableState ? [{
+        aggregateType: "TABLE",
+        aggregateId: intent.tableId!,
+        version: table.version + 1,
+        state: {
+          ...JSON.parse(table.state_json),
+          status: "OCCUPIED",
+          revision: table.version + 1,
+        },
+      }] : [],
     };
   }
   if (!current) throw new Error("EDGE_ORDER_NOT_FOUND");

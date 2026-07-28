@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 
 describe("Rest product experience shell", () => {
   it("shows active branch, explicit connectivity status and accessible focus", async () => {
-    const [shell, css, login] = await Promise.all([
+    const [shell, css, login, layout] = await Promise.all([
       readFile(new URL("../apps/vase-rest/app/(product)/rest-shell.tsx", import.meta.url), "utf8"),
       readFile(new URL("../apps/vase-rest/app/globals.css", import.meta.url), "utf8"),
       readFile(new URL("../apps/vase-rest/app/(product)/staff/login/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../apps/vase-rest/app/(product)/layout.tsx", import.meta.url), "utf8"),
     ]);
     expect(shell).toContain("Sucursal activa");
     expect(shell).toContain("Sin conexión");
@@ -15,5 +16,6 @@ describe("Rest product experience shell", () => {
     expect(css).not.toMatch(/#(?:7c3aed|8b5cf6|a855f7)/i);
     expect(login).toContain("Código de empleado");
     expect(login).toContain("PIN individual");
+    expect(layout).toContain("ProductShellBoundary");
   });
 });

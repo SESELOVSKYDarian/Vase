@@ -13,20 +13,33 @@ type Order = {
   items: Array<unknown>;
   aggregateVersion: number;
 };
+type Table = {
+  id: string; code: string; name: string; capacity: number; status: string;
+};
 
 export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [tables, setTables] = useState<Table[]>([]);
   const [error, setError] = useState("");
   async function refresh() {
-    const payload = await readLocalEdgeClient().state("ORDER") as {
+    const client = readLocalEdgeClient();
+    const [payload, tablePayload] = await Promise.all([
+      client.state("ORDER"),
+      client.state("TABLE"),
+    ]) as [{
       aggregates: Array<{ version: number; state: Order }>;
-    };
+    }, {
+      aggregates: Array<{ state: Table }>;
+    }];
     setOrders(payload.aggregates.map((item) => ({
       ...item.state,
       aggregateVersion: item.version,
     })).filter((item) =>
       ["OPEN", "SUBMITTED", "PARTIALLY_READY", "READY"].includes(item.status)));
+    setTables(tablePayload.aggregates.map((item) => item.state)
+      .filter((table) => ["AVAILABLE", "RESERVED"].includes(table.status))
+      .sort((left, right) => left.code.localeCompare(right.code)));
   }
   useEffect(() => {
     void refresh().catch((cause) => setError(String(cause)));
@@ -62,7 +75,16 @@ export default function OrdersPage() {
       <p className="eyebrow">Comandas activas</p>
       <h1>Pedidos</h1>
       <form className="inline-form" onSubmit={open}>
-        <label>ID de mesa (opcional)<input name="tableId" /></label>
+        <label>Mesa (opcional)
+          <select name="tableId" defaultValue="">
+            <option value="">Mostrador / retiro</option>
+            {tables.map((table) => (
+              <option key={table.id} value={table.id}>
+                {table.code} Â· {table.capacity} personas Â· {table.status}
+              </option>
+            ))}
+          </select>
+        </label>
         <label>Comensales
           <input name="guestCount" type="number" min="1" defaultValue="2" required />
         </label>

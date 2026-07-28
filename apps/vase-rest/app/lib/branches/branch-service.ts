@@ -31,6 +31,7 @@ type Context = {
   globalTenantId: string;
   status: RestServiceStatus | string;
   branchLimit: number;
+  actorId?: string;
 };
 
 export interface BranchRepository {
@@ -48,11 +49,13 @@ export interface BranchRepository {
     name: string;
     timezone: string;
     groupName?: string;
+    actorId: string;
   }): Promise<BranchRecord>;
   update(
     globalTenantId: string,
     branchId: string,
     input: z.infer<typeof branchUpdateSchema>,
+    actorId: string,
   ): Promise<BranchRecord | null>;
 }
 
@@ -82,13 +85,19 @@ export function createBranchService(repository: BranchRepository) {
       }
       return repository.create({
         globalTenantId: context.globalTenantId,
+        actorId: context.actorId ?? "SYSTEM",
         ...input,
       });
     },
     async update(context: Context, branchId: string, raw: unknown) {
       assertActive(context);
       const input = branchUpdateSchema.parse(raw);
-      const result = await repository.update(context.globalTenantId, branchId, input);
+      const result = await repository.update(
+        context.globalTenantId,
+        branchId,
+        input,
+        context.actorId ?? "SYSTEM",
+      );
       if (!result) throw new Error("REST_BRANCH_NOT_FOUND");
       return result;
     },

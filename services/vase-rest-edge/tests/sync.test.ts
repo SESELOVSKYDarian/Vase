@@ -80,6 +80,33 @@ describe("Rest Edge durable sync", () => {
     database.close();
   });
 
+  it("occupies a selected table atomically when opening its order", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    applySnapshots(database, [{
+      aggregateType: "TABLE", aggregateId: "table-order", version: 3,
+      state: {
+        id: "table-order", code: "M4", status: "AVAILABLE",
+        revision: 3, capacity: 4,
+      },
+    }]);
+    acceptLocalCommand(database, {
+      eventId: "open-table-order", aggregateType: "ORDER", aggregateId: "order-table",
+      expectedVersion: 0, eventType: "ORDER_OPENED", actorId: "staff",
+      deviceId: "device", idempotencyKey: "open-table-command",
+      payload: { tableId: "table-order", guestCount: 3 },
+    });
+    const table = database.raw.prepare(`
+      SELECT version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'TABLE' AND aggregate_id = 'table-order'
+    `).get() as { version: number; state_json: string };
+    expect({ version: table.version, ...JSON.parse(table.state_json) }).toMatchObject({
+      version: 4, status: "OCCUPIED", revision: 4,
+    });
+    database.close();
+  });
+
   it("splits and merges draft orders atomically in local Edge state", async () => {
     const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
     cleanup.push(dir);

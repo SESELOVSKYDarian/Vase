@@ -20,6 +20,7 @@ export async function PATCH(
       globalTenantId: resolved.globalTenantId,
       status: resolved.entitlement.status,
       branchLimit: resolved.entitlement.limits.branches,
+      actorId: resolved.actor.id,
     }, branchId, await request.json());
     return NextResponse.json({ branch });
   } catch (error) {

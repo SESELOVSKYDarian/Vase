@@ -136,6 +136,7 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
         if (event.eventType === "ORDER_OPENED") {
           const payload = z.object({
             tableId: z.string().min(1).optional(),
+            tableVersion: z.number().int().positive().optional(),
             guestCount: z.number().int().positive().max(500),
             openedAt: z.iso.datetime(),
           }).strict().parse(event.payload);
@@ -150,13 +151,60 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
             },
           });
           if (!branch) throw new Error("REST_BRANCH_NOT_FOUND");
-          if (payload.tableId && !await tx.diningTable.findFirst({
-            where: {
-              id: payload.tableId,
-              globalTenantId: event.globalTenantId,
-              branchId: event.branchId,
-            },
-          })) throw new Error("REST_TABLE_NOT_FOUND");
+          if (payload.tableId) {
+            if (!payload.tableVersion) throw new Error("REST_TABLE_REVISION_REQUIRED");
+            const table = await tx.diningTable.findFirst({
+              where: {
+                id: payload.tableId,
+                globalTenantId: event.globalTenantId,
+                branchId: event.branchId,
+                revision: payload.tableVersion,
+                status: { in: ["AVAILABLE", "RESERVED"] },
+              },
+            });
+            if (!table) throw new Error("REST_TABLE_REVISION_CONFLICT");
+            if (table.capacity < payload.guestCount) {
+              throw new Error("REST_TABLE_CAPACITY_INSUFFICIENT");
+            }
+            await tx.diningTable.update({
+              where: { id: table.id },
+              data: { status: "OCCUPIED", revision: table.revision + 1 },
+            });
+            await tx.tableTransition.create({
+              data: {
+                globalTenantId: event.globalTenantId,
+                branchId: event.branchId,
+                tableId: table.id,
+                fromStatus: table.status,
+                toStatus: "OCCUPIED",
+                fromRevision: table.revision,
+                toRevision: table.revision + 1,
+                actorId: event.actorId,
+                commandId: `${event.idempotencyKey}:table`,
+              },
+            });
+            await tx.edgeAggregateProjection.upsert({
+              where: {
+                globalTenantId_aggregateType_aggregateId: {
+                  globalTenantId: event.globalTenantId,
+                  aggregateType: "TABLE",
+                  aggregateId: table.id,
+                },
+              },
+              create: {
+                restTenantId: tenant.id,
+                globalTenantId: event.globalTenantId,
+                aggregateType: "TABLE",
+                aggregateId: table.id,
+                version: table.revision + 1,
+                state: { status: "OCCUPIED", revision: table.revision + 1 },
+              },
+              update: {
+                version: table.revision + 1,
+                state: { status: "OCCUPIED", revision: table.revision + 1 },
+              },
+            });
+          }
           const sequence = await tx.branchOrderSequence.upsert({
             where: { branchId: event.branchId },
             create: {

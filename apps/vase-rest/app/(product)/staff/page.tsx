@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import type { RestStaffRole } from "@vase/contracts";
-import { RestShell } from "../rest-shell";
 
 type Session = {
   staff: {
@@ -27,18 +26,11 @@ export default function StaffHomePage() {
     }
   }, []);
   if (!session) return <main className="staff-login"><p>Validando acceso…</p></main>;
-  const assignment = session.staff.roles[0]!;
   return (
-    <RestShell
-      role={assignment.role}
-      branchName="Sucursal enrolada"
-      actorName={session.staff.displayName}
-    >
       <main className="product-content">
         <p className="eyebrow">Turno activo</p>
         <h1>Hola, {session.staff.displayName}</h1>
         <p>Elegí una función del menú para comenzar.</p>
       </main>
-    </RestShell>
   );
 }

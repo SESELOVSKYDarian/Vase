@@ -12,6 +12,9 @@ export function RestShell(props: {
   branchName: string;
   actorName: string;
   pendingOperations?: number;
+  branches?: Array<{ id: string; name: string }>;
+  activeBranchId?: string;
+  onBranchChange?: (branchId: string) => void;
 }) {
   const [online, setOnline] = useState(true);
   const [edgeState, setEdgeState] = useState<EdgeConnectionKind | null>(null);
@@ -47,7 +50,17 @@ export function RestShell(props: {
         <a className="brand" href="/owner"><span className="brand-mark"><span /></span>vase <em>rest</em></a>
         <div className="branch-context">
           <small>Sucursal activa</small>
-          <strong>{props.branchName}</strong>
+          {props.branches?.length ? (
+            <select
+              aria-label="Sucursal activa"
+              value={props.activeBranchId}
+              onChange={(event) => props.onBranchChange?.(event.target.value)}
+            >
+              {props.branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>{branch.name}</option>
+              ))}
+            </select>
+          ) : <strong>{props.branchName}</strong>}
         </div>
         <nav aria-label="Módulos operativos">
           {navigationForRole(props.role).map((item) => (

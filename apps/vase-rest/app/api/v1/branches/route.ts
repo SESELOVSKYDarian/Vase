@@ -24,6 +24,7 @@ async function context(request: Request) {
       globalTenantId: staff.globalTenantId,
       status: entitlement.status,
       branchLimit: entitlement.branchLimit,
+      actorId: staff.actorId,
     };
   }
   const resolved = await resolveRestOwnerRequest({
@@ -34,6 +35,7 @@ async function context(request: Request) {
     globalTenantId: resolved.globalTenantId,
     status: resolved.entitlement.status,
     branchLimit: resolved.entitlement.limits.branches,
+    actorId: resolved.actor.id,
   };
 }
 
