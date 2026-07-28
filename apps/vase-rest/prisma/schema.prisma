@@ -39,6 +39,8 @@ model RestTenant {
   paymentProviderConnections   PaymentProviderConnection[]
   providerPaymentAttempts      ProviderPaymentAttempt[]
   paymentProviderWebhookEvents PaymentProviderWebhookEvent[]
+  fiscalConnections            FiscalConnection[]
+  fiscalDocuments              FiscalDocument[]
   createdAt                    DateTime                      @default(now())
   updatedAt                    DateTime                      @updatedAt
 }
@@ -93,6 +95,8 @@ model Branch {
   payments                   Payment[]
   paymentProviderConnections PaymentProviderConnection[]
   providerPaymentAttempts    ProviderPaymentAttempt[]
+  fiscalConnection           FiscalConnection?
+  fiscalDocuments            FiscalDocument[]
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
 
@@ -241,6 +245,8 @@ model MenuProduct {
   name               String
   description        String?
   available          Boolean                     @default(true)
+  taxRate            Decimal                     @default(21) @db.Decimal(5, 2)
+  taxIncluded        Boolean                     @default(true)
   revision           Int                         @default(1)
   restTenant         RestTenant                  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
   category           MenuCategory                @relation(fields: [categoryId], references: [id], onDelete: Restrict)
@@ -619,6 +625,7 @@ model RestaurantOrder {
   commandReceipts         OrderCommandReceipt[]
   payments                Payment[]
   providerPaymentAttempts ProviderPaymentAttempt[]
+  fiscalDocuments         FiscalDocument[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 
@@ -789,6 +796,87 @@ model PaymentProviderWebhookEvent {
   @@index([globalTenantId, providerOrderId])
 }
 
+model FiscalConnection {
+  id                     String               @id @default(cuid())
+  restTenantId           String
+  globalTenantId         String
+  branchId               String               @unique
+  environment            String
+  status                 String               @default("UNCONFIGURED")
+  cuit                   String
+  legalName              String
+  pointOfSale            Int
+  certificateCiphertext  String
+  privateKeyCiphertext   String
+  passphraseCiphertext   String?
+  certificateNotAfter    DateTime
+  authorizedVoucherTypes Json
+  restTenant             RestTenant           @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                 Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  accessTickets          FiscalAccessTicket[]
+  documents              FiscalDocument[]
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  @@unique([globalTenantId, cuit, pointOfSale])
+  @@index([globalTenantId, status])
+}
+
+model FiscalAccessTicket {
+  id              String           @id @default(cuid())
+  connectionId    String
+  service         String
+  tokenCiphertext String
+  signCiphertext  String
+  expiresAt       DateTime
+  connection      FiscalConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([connectionId, service])
+}
+
+model FiscalDocument {
+  id                 String           @id @default(cuid())
+  restTenantId       String
+  globalTenantId     String
+  branchId           String
+  orderId            String
+  connectionId       String
+  documentType       String
+  voucherType        Int
+  pointOfSale        Int
+  voucherNumber      Int?
+  status             String           @default("PENDING")
+  currency           String           @default("PES")
+  total              Decimal          @db.Decimal(18, 2)
+  net                Decimal          @db.Decimal(18, 2)
+  vat                Decimal          @db.Decimal(18, 2)
+  exempt             Decimal          @default(0) @db.Decimal(18, 2)
+  untaxed            Decimal          @default(0) @db.Decimal(18, 2)
+  recipientDocType   Int
+  recipientDocNumber String
+  cae                String?
+  caeExpiresAt       DateTime?
+  observations       Json
+  qrPayload          Json?
+  request            Json
+  response           Json?
+  commandId          String
+  actorId            String
+  restTenant         RestTenant       @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch             Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  order              RestaurantOrder  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  connection         FiscalConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([globalTenantId, commandId])
+  @@unique([connectionId, voucherType, pointOfSale, voucherNumber])
+  @@index([globalTenantId, branchId, status, createdAt])
+  @@index([orderId])
+}
+
 model OrderItem {
   id             String              @id @default(cuid())
   globalTenantId String
@@ -800,6 +888,10 @@ model OrderItem {
   unitPrice      Decimal             @db.Decimal(18, 2)
   modifierTotal  Decimal             @default(0) @db.Decimal(18, 2)
   lineTotal      Decimal             @db.Decimal(18, 2)
+  netTotal       Decimal             @db.Decimal(18, 2)
+  taxAmount      Decimal             @db.Decimal(18, 2)
+  taxRate        Decimal             @db.Decimal(5, 2)
+  taxIncluded    Boolean
   course         Int                 @default(1)
   notes          String?
   status         String              @default("DRAFT")

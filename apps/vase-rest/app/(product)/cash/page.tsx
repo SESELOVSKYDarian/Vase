@@ -20,17 +20,34 @@ type Drawer = {
   revision: number;
 };
 
+type FiscalDocument = {
+  id: string;
+  orderId: string;
+  documentType: string;
+  pointOfSale: number;
+  voucherNumber: number | null;
+  status: string;
+  total: string;
+  cae: string | null;
+  qrUrl: string | null;
+};
+
 export default function CashierPage() {
   const [drawers, setDrawers] = useState<Drawer[]>([]);
+  const [documents, setDocuments] = useState<FiscalDocument[]>([]);
   const [error, setError] = useState("");
   const refresh = useCallback(async () => {
-    const response = await fetch("/api/v1/cash", {
-      headers: { authorization: `Bearer ${token()}` },
-      cache: "no-store",
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error);
-    setDrawers(payload.drawers);
+    const headers = { authorization: `Bearer ${token()}` };
+    const [cashResponse, fiscalResponse] = await Promise.all([
+      fetch("/api/v1/cash", { headers, cache: "no-store" }),
+      fetch("/api/v1/fiscal/documents", { headers, cache: "no-store" }),
+    ]);
+    const cashPayload = await cashResponse.json();
+    const fiscalPayload = await fiscalResponse.json();
+    if (!cashResponse.ok) throw new Error(cashPayload.error);
+    if (!fiscalResponse.ok) throw new Error(fiscalPayload.error);
+    setDrawers(cashPayload.drawers);
+    setDocuments(fiscalPayload.documents);
   }, []);
   useEffect(() => { void refresh().catch((cause) => setError(String(cause))); }, [refresh]);
 
@@ -84,6 +101,20 @@ export default function CashierPage() {
       commandId: crypto.randomUUID(),
     });
     event.currentTarget.reset();
+  }
+
+  async function issueFiscalDocument(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await mutate("/api/v1/fiscal/documents", {
+      orderId: form.get("orderId"),
+      documentType: form.get("documentType"),
+      recipientDocType: Number(form.get("recipientDocType")),
+      recipientDocNumber: String(form.get("recipientDocNumber") ?? "").replace(/\D/g, ""),
+      commandId: crypto.randomUUID(),
+    });
+    event.currentTarget.reset();
+    await refresh();
   }
 
   async function mutate(url: string, payload: unknown) {
@@ -142,6 +173,26 @@ export default function CashierPage() {
         </label>
         <button className="button button-primary">Iniciar cobro integrado</button>
       </form>
+      <form className="inline-form" onSubmit={(event) =>
+        void issueFiscalDocument(event).catch((cause) => setError(String(cause)))}>
+        <label>ID de orden pagada<input name="orderId" required /></label>
+        <label>Comprobante
+          <select name="documentType">
+            <option value="INVOICE_B">Factura B</option>
+            <option value="INVOICE_A">Factura A</option>
+            <option value="INVOICE_C">Factura C</option>
+          </select>
+        </label>
+        <label>Tipo de documento receptor
+          <select name="recipientDocType" defaultValue="99">
+            <option value="99">Consumidor final</option>
+            <option value="80">CUIT</option>
+            <option value="96">DNI</option>
+          </select>
+        </label>
+        <label>Número de documento<input name="recipientDocNumber" defaultValue="0" inputMode="numeric" required /></label>
+        <button className="button button-primary">Emitir en ARCA</button>
+      </form>
       {error ? <p role="alert">{error}</p> : null}
       <div className="catalog-grid">
         {drawers.map((drawer) => (
@@ -159,6 +210,23 @@ export default function CashierPage() {
                 <button className="button">Cerrar y calcular diferencia</button>
               </form>
             ) : <p>Diferencia: ARS {drawer.variance}</p>}
+          </article>
+        ))}
+      </div>
+      <h2>Comprobantes fiscales</h2>
+      <div className="catalog-grid">
+        {documents.map((document) => (
+          <article className="ui-card" key={document.id}>
+            <h3>{document.documentType}</h3>
+            <strong>{document.status}</strong>
+            <p>
+              {document.voucherNumber
+                ? `PV ${document.pointOfSale} · N.º ${document.voucherNumber}`
+                : "Pendiente de autorización"}
+            </p>
+            <p>ARS {document.total}</p>
+            {document.cae ? <small>CAE {document.cae}</small> : null}
+            {document.qrUrl ? <a href={document.qrUrl} target="_blank" rel="noreferrer">Abrir QR fiscal</a> : null}
           </article>
         ))}
       </div>

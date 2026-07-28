@@ -11,6 +11,9 @@ const productSchema = z.object({
   name: z.string().trim().min(2).max(140),
   description: z.string().trim().max(1000).optional(),
   available: z.boolean().default(true),
+  taxRate: z.enum(["0.00", "2.50", "5.00", "10.50", "21.00", "27.00"])
+    .default("21.00"),
+  taxIncluded: z.boolean().default(true),
 }).strict();
 const updateSchema = z.object({
   expectedRevision: z.number().int().positive(),
@@ -19,6 +22,9 @@ const updateSchema = z.object({
   name: z.string().trim().min(2).max(140).optional(),
   description: z.string().trim().max(1000).nullable().optional(),
   available: z.boolean().optional(),
+  taxRate: z.enum(["0.00", "2.50", "5.00", "10.50", "21.00", "27.00"])
+    .optional(),
+  taxIncluded: z.boolean().optional(),
 }).strict();
 
 type ProductIdentity = {
@@ -39,6 +45,8 @@ export interface CatalogRepository {
     name?: string;
     description?: string | null;
     available?: boolean;
+    taxRate?: string;
+    taxIncluded?: boolean;
   }): Promise<unknown>;
 }
 

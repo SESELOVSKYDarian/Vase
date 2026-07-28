@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "../db";
 import type { OrderRepository } from "./order-service";
 import type { KitchenRepository } from "../kds/kitchen-service";
+import { splitTax } from "../fiscal/tax-calculation";
 
 type Command = Record<string, unknown> & {
   action: string; commandId: string; globalTenantId: string; branchId: string;
@@ -42,12 +43,14 @@ async function receipt(
 async function recalculate(tx: Prisma.TransactionClient, orderId: string) {
   const items = await tx.orderItem.findMany({
     where: { orderId, status: { not: "CANCELLED" } },
-    select: { lineTotal: true },
+    select: { lineTotal: true, netTotal: true, taxAmount: true },
   });
-  const subtotal = items.reduce((sum, item) => sum.plus(item.lineTotal), new Prisma.Decimal(0));
+  const subtotal = items.reduce((sum, item) => sum.plus(item.netTotal), new Prisma.Decimal(0));
+  const taxTotal = items.reduce((sum, item) => sum.plus(item.taxAmount), new Prisma.Decimal(0));
+  const total = items.reduce((sum, item) => sum.plus(item.lineTotal), new Prisma.Decimal(0));
   return tx.restaurantOrder.update({
     where: { id: orderId },
-    data: { subtotal, total: subtotal, revision: { increment: 1 } },
+    data: { subtotal, taxTotal, total, revision: { increment: 1 } },
   });
 }
 
@@ -227,7 +230,14 @@ export const prismaOrderRepository: OrderRepository = {
           return sum.plus(option.priceDelta.mul(requested.quantity));
         }, new Prisma.Decimal(0));
         const quantity = input.quantity as number;
-        const lineTotal = price.amount.plus(modifierTotal).mul(quantity);
+        const unitTax = splitTax({
+          gross: price.amount.plus(modifierTotal).toFixed(2),
+          rate: product.taxRate.toFixed(2),
+          included: product.taxIncluded,
+        });
+        const lineTotal = new Prisma.Decimal(unitTax.gross).mul(quantity);
+        const netTotal = new Prisma.Decimal(unitTax.net).mul(quantity);
+        const taxAmount = new Prisma.Decimal(unitTax.tax).mul(quantity);
         const item = await tx.orderItem.create({
           data: {
             globalTenantId: input.globalTenantId,
@@ -239,6 +249,10 @@ export const prismaOrderRepository: OrderRepository = {
             unitPrice: price.amount,
             modifierTotal,
             lineTotal,
+            netTotal,
+            taxAmount,
+            taxRate: product.taxRate,
+            taxIncluded: product.taxIncluded,
             course: input.course as number,
             notes: input.notes as string | undefined,
             modifiers: {

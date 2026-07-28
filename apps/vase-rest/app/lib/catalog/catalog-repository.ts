@@ -46,6 +46,8 @@ export const prismaCatalogRepository: CatalogRepository = {
           name: input.name,
           description: input.description,
           available: input.available,
+          taxRate: input.taxRate,
+          taxIncluded: input.taxIncluded,
           revision: { increment: 1 },
         },
       });

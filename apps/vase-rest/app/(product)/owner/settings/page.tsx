@@ -4,6 +4,10 @@ export default function OwnerSettingsPage() {
       <p className="eyebrow">Configuración</p>
       <h1>Operación de sucursales</h1>
       <div className="catalog-grid">
+        <a className="ui-card" href="/owner/settings/fiscal">
+          <h2>Facturación electrónica</h2>
+          <p>ARCA WSAA/WSFE, certificados, puntos de venta y comprobantes por sucursal.</p>
+        </a>
         <a className="ui-card" href="/owner/settings/payments">
           <h2>Pagos</h2>
           <p>Mercado Pago Point y QR por sucursal, OAuth y webhooks.</p>
