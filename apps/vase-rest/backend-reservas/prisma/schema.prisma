@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+model Mesa {
+  id          Int       @id @default(autoincrement())
+  numero      Int       @unique
+  capacidad   Int
+  ubicacion   String?
+  disponible  Boolean   @default(true)
+
+  reservas    Reserva[]
+  pedidos     Pedido[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Reserva {
+  id               Int       @id @default(autoincrement())
+
+  nombreCliente    String
+  telefono         String
+  email            String?
+
+  cantidadPersonas Int
+  fechaHoraInicio  DateTime
+  fechaHoraFin     DateTime
+
+  estado           EstadoReserva @default(PENDIENTE)
+
+  mesaId           Int
+  mesa             Mesa      @relation(fields: [mesaId], references: [id])
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Producto {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+  precio      Float
+  categoria   String
+  imagenUrl   String?
+  disponible  Boolean  @default(true)
+  stock       Int      @default(0)
+
+  detalles    DetallePedido[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Pedido {
+  id        Int          @id @default(autoincrement())
+
+  mesaId    Int
+  mesa      Mesa         @relation(fields: [mesaId], references: [id])
+
+  estado    EstadoPedido @default(ABIERTO)
+  total     Float        @default(0)
+
+  detalles  DetallePedido[]
+  factura   Factura?
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model DetallePedido {
+  id             Int      @id @default(autoincrement())
+
+  pedidoId       Int
+  pedido         Pedido   @relation(fields: [pedidoId], references: [id])
+
+  productoId     Int
+  producto       Producto @relation(fields: [productoId], references: [id])
+
+  cantidad       Int
+  precioUnitario Float
+  subtotal       Float
+
+  createdAt      DateTime @default(now())
+}
+
+model Factura {
+  id                  Int      @id @default(autoincrement())
+
+  pedidoId            Int      @unique
+  pedido              Pedido   @relation(fields: [pedidoId], references: [id])
+
+  tipoComprobante     String
+  puntoVenta          Int
+  numeroComprobante   Int?
+
+  concepto            Int      @default(1)
+  tipoDocumento       Int      @default(99)
+  numeroDocumento     String   @default("0")
+
+  importeNeto         Float
+  importeIVA          Float
+  importeTotal        Float
+
+  cae                 String?
+  vencimientoCAE      String?
+  resultadoArca       String?
+  observaciones       String?
+
+  estado              EstadoFactura @default(PENDIENTE)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+
+enum EstadoReserva {
+  PENDIENTE
+  CONFIRMADA
+  CANCELADA
+  FINALIZADA
+}
+
+enum EstadoPedido {
+  ABIERTO
+  EN_PREPARACION
+  ENTREGADO
+  PAGADO
+  CANCELADO
+}
+
+enum EstadoFactura {
+  PENDIENTE
+  AUTORIZADA
+  RECHAZADA
+  ANULADA
+}
