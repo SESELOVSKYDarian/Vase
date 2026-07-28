@@ -1343,6 +1343,9 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
       if (event.aggregateType === "KITCHEN_TICKET") {
         const payload = z.object({
           status: z.enum(["QUEUED", "PREPARING", "READY", "SERVED", "CANCELLED"]),
+          priority: z.number().int().min(0).max(2).optional(),
+          recalledAt: z.iso.datetime().optional(),
+          recallReason: z.string().trim().min(2).max(500).optional(),
         }).passthrough().parse(event.payload);
         const ticket = await tx.kitchenTicket.findFirst({
           where: {
@@ -1354,47 +1357,77 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
         if (!ticket || ticket.revision + 1 !== event.aggregateVersion) {
           throw new Error("AGGREGATE_VERSION_CONFLICT");
         }
+        const priorityOnly = event.eventType === "KITCHEN_TICKET_PRIORITY_SET";
+        const recalled = event.eventType === "KITCHEN_TICKET_RECALLED";
         const transitions: Record<string, string[]> = {
           QUEUED: ["PREPARING", "CANCELLED"],
           PREPARING: ["READY", "CANCELLED"],
-          READY: ["SERVED"],
+          READY: ["SERVED", "PREPARING"],
+          SERVED: ["PREPARING"],
         };
-        if (!transitions[ticket.status]?.includes(payload.status)) {
+        if (
+          (!priorityOnly && !transitions[ticket.status]?.includes(payload.status)) ||
+          (priorityOnly && payload.status !== ticket.status) ||
+          (recalled && (!payload.recalledAt || !payload.recallReason))
+        ) {
           throw new Error("EDGE_EVENT_TRANSITION_INVALID");
         }
         await tx.kitchenTicket.update({
           where: { id: ticket.id },
           data: {
             status: payload.status,
+            ...(payload.priority === undefined ? {} : { priority: payload.priority }),
             revision: event.aggregateVersion,
             ...(payload.status === "PREPARING" ? { preparingAt: new Date() } : {}),
             ...(payload.status === "READY" ? { readyAt: new Date() } : {}),
             ...(payload.status === "SERVED" ? { servedAt: new Date() } : {}),
             ...(payload.status === "CANCELLED" ? { cancelledAt: new Date() } : {}),
+            ...(recalled ? {
+              recalledAt: new Date(payload.recalledAt!),
+              recallReason: payload.recallReason,
+              readyAt: null,
+              servedAt: null,
+            } : {}),
           },
         });
-        await tx.orderItem.update({
-          where: { id: ticket.orderItemId },
-          data: { status: payload.status, revision: { increment: 1 } },
-        });
-        const pending = await tx.kitchenTicket.count({
-          where: {
-            orderId: ticket.orderId,
-            status: payload.status === "SERVED"
-              ? { notIn: ["SERVED", "CANCELLED"] }
-              : { notIn: ["READY", "SERVED", "CANCELLED"] },
-          },
-        });
-        await tx.restaurantOrder.update({
-          where: { id: ticket.orderId },
+        await tx.kitchenTicketTransition.create({
           data: {
-            status: payload.status === "SERVED" && pending === 0 ? "SERVED"
-              : payload.status === "READY" && pending === 0 ? "READY"
-                : payload.status === "READY" ? "PARTIALLY_READY" : undefined,
-            ...(payload.status === "SERVED" && pending === 0 ? { servedAt: new Date() } : {}),
-            revision: { increment: 1 },
+            globalTenantId: event.globalTenantId,
+            ticketId: ticket.id,
+            fromStatus: ticket.status,
+            toStatus: payload.status,
+            fromRevision: ticket.revision,
+            toRevision: event.aggregateVersion,
+            commandId: event.idempotencyKey,
+            actorId: event.actorId,
           },
         });
+        if (!priorityOnly) {
+          await tx.orderItem.update({
+            where: { id: ticket.orderItemId },
+            data: { status: payload.status, revision: { increment: 1 } },
+          });
+          const pending = await tx.kitchenTicket.count({
+            where: {
+              orderId: ticket.orderId,
+              status: payload.status === "SERVED"
+                ? { notIn: ["SERVED", "CANCELLED"] }
+                : { notIn: ["READY", "SERVED", "CANCELLED"] },
+            },
+          });
+          await tx.restaurantOrder.update({
+            where: { id: ticket.orderId },
+            data: {
+              status: recalled ? "SUBMITTED"
+                : payload.status === "SERVED" && pending === 0 ? "SERVED"
+                : payload.status === "READY" && pending === 0 ? "READY"
+                  : payload.status === "READY" ? "PARTIALLY_READY" : undefined,
+              ...(recalled ? { servedAt: null }
+                : payload.status === "SERVED" && pending === 0 ? { servedAt: new Date() } : {}),
+              revision: { increment: 1 },
+            },
+          });
+        }
       }
       await tx.edgeAggregateProjection.upsert({
         where: {

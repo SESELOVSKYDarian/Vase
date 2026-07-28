@@ -27,7 +27,7 @@ export async function GET(request: Request) {
         order: { select: { orderNumber: true, table: { select: { code: true } } } },
         orderItem: { include: { modifiers: true } },
       },
-      orderBy: [{ status: "desc" }, { queuedAt: "asc" }],
+      orderBy: [{ priority: "desc" }, { status: "desc" }, { queuedAt: "asc" }],
     });
     return NextResponse.json({ tickets });
   } catch (error) {
@@ -81,12 +81,22 @@ export async function POST(request: Request) {
       authorization: request.headers.get("authorization"),
       requiredCapability: "kds:operate",
     });
-    const result = await kitchen.transition({
-      ...payload,
-      globalTenantId: context.globalTenantId,
-      branchId: context.branchId,
-      actorId: context.actorId,
-    });
+    const result = payload.action === "SET_PRIORITY"
+      ? await kitchen.setPriority({
+          globalTenantId: context.globalTenantId,
+          branchId: context.branchId,
+          ticketId: payload.ticketId,
+          expectedRevision: payload.expectedRevision,
+          priority: payload.priority,
+          commandId: payload.commandId,
+          actorId: context.actorId,
+        })
+      : await kitchen.transition({
+          ...payload,
+          globalTenantId: context.globalTenantId,
+          branchId: context.branchId,
+          actorId: context.actorId,
+        });
     return NextResponse.json({ result });
   } catch (error) {
     return failure(error);

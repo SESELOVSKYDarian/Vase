@@ -743,6 +743,86 @@ function tableTransition(
   };
 }
 
+function kitchenTicketTransition(
+  input: z.infer<typeof commandSchema>,
+  current: Record<string, unknown> | undefined,
+  nextVersion: number,
+  occurredAt: Date,
+) {
+  if (!current) throw new Error("EDGE_KITCHEN_TICKET_NOT_FOUND");
+  const status = z.enum([
+    "QUEUED", "PREPARING", "READY", "SERVED", "CANCELLED",
+  ]).parse(current.status);
+  const priority = z.number().int().min(0).max(2).catch(0).parse(current.priority);
+  if (input.eventType === "KITCHEN_TICKET_PRIORITY_SET") {
+    const intent = z.object({
+      priority: z.number().int().min(0).max(2),
+    }).strict().parse(input.payload);
+    return {
+      state: { ...current, priority: intent.priority, revision: nextVersion },
+      eventPayload: { status, priority: intent.priority },
+      additionalStates: [],
+      createdTickets: [],
+    };
+  }
+  if (input.eventType === "KITCHEN_TICKET_RECALLED") {
+    if (!["READY", "SERVED"].includes(status)) {
+      throw new Error("EDGE_KITCHEN_TICKET_RECALL_INVALID");
+    }
+    const intent = z.object({
+      reason: z.string().trim().min(2).max(500),
+    }).strict().parse(input.payload);
+    const recalledAt = occurredAt.toISOString();
+    return {
+      state: {
+        ...current,
+        status: "PREPARING",
+        revision: nextVersion,
+        priority,
+        preparingAt: recalledAt,
+        readyAt: null,
+        servedAt: null,
+        recalledAt,
+        recallReason: intent.reason,
+      },
+      eventPayload: {
+        status: "PREPARING",
+        priority,
+        recalledAt,
+        recallReason: intent.reason,
+      },
+      additionalStates: [],
+      createdTickets: [],
+    };
+  }
+  const target = input.eventType.match(
+    /^KITCHEN_TICKET_(PREPARING|READY|SERVED|CANCELLED)$/,
+  )?.[1];
+  const allowed: Record<string, string[]> = {
+    QUEUED: ["PREPARING", "CANCELLED"],
+    PREPARING: ["READY", "CANCELLED"],
+    READY: ["SERVED"],
+  };
+  if (!target || !allowed[status]?.includes(target)) {
+    throw new Error("EDGE_KITCHEN_TICKET_TRANSITION_INVALID");
+  }
+  return {
+    state: {
+      ...current,
+      status: target,
+      priority,
+      revision: nextVersion,
+      ...(target === "PREPARING" ? { preparingAt: occurredAt.toISOString() } : {}),
+      ...(target === "READY" ? { readyAt: occurredAt.toISOString() } : {}),
+      ...(target === "SERVED" ? { servedAt: occurredAt.toISOString() } : {}),
+      ...(target === "CANCELLED" ? { cancelledAt: occurredAt.toISOString() } : {}),
+    },
+    eventPayload: { status: target, priority },
+    additionalStates: [],
+    createdTickets: [],
+  };
+}
+
 function cashDrawerTransition(
   database: EdgeDatabase,
   input: z.infer<typeof commandSchema>,
@@ -982,6 +1062,15 @@ export function acceptLocalCommand(database: EdgeDatabase, raw: unknown) {
               ? JSON.parse(aggregate.state_json) as Record<string, unknown>
               : undefined,
             nextVersion,
+          )
+      : input.aggregateType === "KITCHEN_TICKET"
+        ? kitchenTicketTransition(
+            input,
+            aggregate
+              ? JSON.parse(aggregate.state_json) as Record<string, unknown>
+              : undefined,
+            nextVersion,
+            new Date(occurredAt),
           )
       : input.aggregateType === "CASH_DRAWER"
         ? cashDrawerTransition(

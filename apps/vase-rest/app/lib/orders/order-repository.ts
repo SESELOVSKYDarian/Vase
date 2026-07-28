@@ -565,6 +565,43 @@ export const prismaKitchenRepository: KitchenRepository = {
       select: { id: true, globalTenantId: true, branchId: true, status: true, revision: true },
     });
   },
+  setPriority(input) {
+    return db.$transaction(async (tx) => {
+      const duplicate = await tx.kitchenTicketTransition.findUnique({
+        where: {
+          globalTenantId_commandId: {
+            globalTenantId: input.globalTenantId,
+            commandId: input.commandId,
+          },
+        },
+      });
+      if (duplicate) {
+        return tx.kitchenTicket.findUniqueOrThrow({ where: { id: duplicate.ticketId } });
+      }
+      const current = await tx.kitchenTicket.findFirst({
+        where: {
+          id: input.ticketId,
+          globalTenantId: input.globalTenantId,
+          branchId: input.branchId,
+          revision: input.expectedRevision,
+        },
+      });
+      if (!current) throw new Error("REST_KDS_REVISION_CONFLICT");
+      const ticket = await tx.kitchenTicket.update({
+        where: { id: current.id },
+        data: { priority: input.priority, revision: { increment: 1 } },
+      });
+      await tx.kitchenTicketTransition.create({
+        data: {
+          globalTenantId: input.globalTenantId, ticketId: input.ticketId,
+          fromStatus: current.status, toStatus: current.status,
+          fromRevision: input.expectedRevision, toRevision: input.expectedRevision + 1,
+          commandId: input.commandId, actorId: input.actorId,
+        },
+      });
+      return ticket;
+    });
+  },
   transition(input) {
     return db.$transaction(async (tx) => {
       const duplicate = await tx.kitchenTicketTransition.findUnique({
@@ -585,6 +622,12 @@ export const prismaKitchenRepository: KitchenRepository = {
           status: input.to,
           revision: { increment: 1 },
           ...(input.to === "PREPARING" ? { preparingAt: new Date() } : {}),
+          ...(["READY", "SERVED"].includes(input.from) && input.to === "PREPARING"
+            ? {
+                recalledAt: new Date(), recallReason: input.recallReason,
+                servedAt: null, readyAt: null,
+              }
+            : {}),
           ...(input.to === "READY" ? { readyAt: new Date() } : {}),
           ...(input.to === "CANCELLED" ? { cancelledAt: new Date() } : {}),
         },
@@ -595,6 +638,12 @@ export const prismaKitchenRepository: KitchenRepository = {
         where: { id: ticket.orderItemId },
         data: { status: input.to, revision: { increment: 1 } },
       });
+      if (["READY", "SERVED"].includes(input.from) && input.to === "PREPARING") {
+        await tx.restaurantOrder.update({
+          where: { id: ticket.orderId },
+          data: { status: "SUBMITTED", servedAt: null, revision: { increment: 1 } },
+        });
+      }
       await tx.kitchenTicketTransition.create({
         data: {
           globalTenantId: input.globalTenantId, ticketId: input.ticketId,

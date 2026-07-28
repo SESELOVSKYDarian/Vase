@@ -1188,12 +1188,15 @@ model KitchenTicket {
   orderItemId    String                    @unique
   stationId      String
   status         String                    @default("QUEUED")
+  priority       Int                       @default(0)
   revision       Int                       @default(1)
   queuedAt       DateTime                  @default(now())
   preparingAt    DateTime?
   readyAt        DateTime?
   servedAt       DateTime?
   cancelledAt    DateTime?
+  recalledAt     DateTime?
+  recallReason   String?
   order          RestaurantOrder           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderItem      OrderItem                 @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   station        KitchenStation            @relation(fields: [stationId], references: [id], onDelete: Restrict)

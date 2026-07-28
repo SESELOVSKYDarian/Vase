@@ -54,6 +54,47 @@ describe("Rest Edge durable sync", () => {
     database.close();
   });
 
+  it("validates kitchen priority and recall transitions offline", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    applySnapshots(database, [{
+      aggregateType: "KITCHEN_TICKET",
+      aggregateId: "ticket_1",
+      version: 3,
+      state: {
+        id: "ticket_1", status: "READY", revision: 3, priority: 0,
+        queuedAt: "2026-07-28T20:00:00.000Z",
+      },
+    }]);
+    acceptLocalCommand(database, {
+      eventId: "priority", aggregateType: "KITCHEN_TICKET", aggregateId: "ticket_1",
+      expectedVersion: 3, eventType: "KITCHEN_TICKET_PRIORITY_SET",
+      actorId: "cook", deviceId: "device", idempotencyKey: "priority-command",
+      payload: { priority: 2 },
+    });
+    acceptLocalCommand(database, {
+      eventId: "recall", aggregateType: "KITCHEN_TICKET", aggregateId: "ticket_1",
+      expectedVersion: 4, eventType: "KITCHEN_TICKET_RECALLED",
+      actorId: "cook", deviceId: "device", idempotencyKey: "recall-command",
+      payload: { reason: "Rehacer cocción" },
+    });
+    const state = database.raw.prepare(`
+      SELECT version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'KITCHEN_TICKET' AND aggregate_id = 'ticket_1'
+    `).get() as { version: number; state_json: string };
+    expect(state.version).toBe(5);
+    expect(JSON.parse(state.state_json)).toMatchObject({
+      status: "PREPARING", revision: 5, priority: 2,
+      recallReason: "Rehacer cocción",
+    });
+    expect(pendingOutbox(database).slice(-2).map((event) => event.payload)).toEqual([
+      expect.objectContaining({ status: "READY", priority: 2 }),
+      expect.objectContaining({ status: "PREPARING", recallReason: "Rehacer cocción" }),
+    ]);
+    database.close();
+  });
+
   it("cancels an open order offline without trusting a browser total", async () => {
     const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
     cleanup.push(dir);
