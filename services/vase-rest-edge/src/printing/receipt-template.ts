@@ -22,7 +22,7 @@ export function renderEscPosReceipt(input: {
   ];
   for (const line of input.lines) {
     chunks.push(Buffer.from(
-      `${printable(line.quantity)} x ${printable(line.name)}\n`,
+      `${line.quantity ? `${printable(line.quantity)} x ` : ""}${printable(line.name)}\n`,
       "ascii",
     ));
     if (line.note) chunks.push(Buffer.from(`  > ${printable(line.note)}\n`, "ascii"));
@@ -34,4 +34,3 @@ export function renderEscPosReceipt(input: {
   chunks.push(Buffer.from("\n\n", "ascii"), Buffer.from([GS, 0x56, 0x00]));
   return Buffer.concat(chunks);
 }
-

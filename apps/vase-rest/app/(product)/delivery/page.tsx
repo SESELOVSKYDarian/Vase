@@ -3,10 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { readCloudStaffToken } from "@/lib/edge/local-edge-client";
 
-function token() {
-  return readCloudStaffToken();
-}
-
 type DeliveryOrder = {
   id: string;
   providerOrderId: string;
@@ -23,15 +19,18 @@ export default function DeliveryPage() {
   const [error, setError] = useState("");
   const refresh = useCallback(async () => {
     const response = await fetch("/api/v1/delivery", {
-      headers: { authorization: `Bearer ${token()}` },
+      headers: { authorization: `Bearer ${readCloudStaffToken()}` },
       cache: "no-store",
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error);
     setOrders(payload.orders);
   }, []);
+
   useEffect(() => {
     void refresh().catch((cause) => setError(String(cause)));
+    const interval = setInterval(() => void refresh().catch(() => undefined), 15000);
+    return () => clearInterval(interval);
   }, [refresh]);
 
   async function mutate(
@@ -39,10 +38,11 @@ export default function DeliveryPage() {
     action: "ACCEPT" | "REJECT" | "UPDATE" | "CANCEL",
     extra: Record<string, string> = {},
   ) {
+    setError("");
     const response = await fetch("/api/v1/delivery", {
       method: "POST",
       headers: {
-        authorization: `Bearer ${token()}`,
+        authorization: `Bearer ${readCloudStaffToken()}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -57,15 +57,30 @@ export default function DeliveryPage() {
     await refresh();
   }
 
+  function reasonAction(order: DeliveryOrder, action: "REJECT" | "CANCEL") {
+    const reason = window.prompt(
+      action === "REJECT" ? "Motivo del rechazo" : "Motivo de la cancelación",
+    );
+    if (reason?.trim()) {
+      void mutate(order.id, action, { reason: reason.trim() })
+        .catch((cause) => setError(String(cause)));
+    }
+  }
+
+  const nextStatuses: Record<string, string[]> = {
+    ACCEPTED: ["PREPARING"],
+    PREPARING: ["READY"],
+    READY: ["PICKED_UP"],
+    PICKED_UP: ["DELIVERED"],
+  };
+
   return (
     <main className="product-content">
       <p className="eyebrow">Operación</p>
       <h1>Delivery</h1>
-      <p>Pedidos obtenidos y verificados directamente desde cada proveedor certificado.</p>
+      <p>Los cambios se envían al proveedor conectado y sólo se guardan después de su respuesta.</p>
       {error ? <p role="alert">{error}</p> : null}
-      {!orders.length && !error ? (
-        <p>No hay pedidos reales recibidos para esta sucursal.</p>
-      ) : null}
+      {!orders.length && !error ? <p>No hay pedidos recibidos para esta sucursal.</p> : null}
       <div className="catalog-grid">
         {orders.map((order) => (
           <article className="ui-card" key={order.id}>
@@ -74,15 +89,31 @@ export default function DeliveryPage() {
             <strong>{order.status}</strong>
             <p>{order.deliveryAddress ?? "Retiro o dirección no informada"}</p>
             <p>{order.currency} {order.total}</p>
-            <button className="button button-primary" onClick={() =>
-              void mutate(order.id, "ACCEPT").catch((cause) => setError(String(cause)))}>
-              Aceptar
-            </button>
-            <button className="button" onClick={() =>
-              void mutate(order.id, "UPDATE", { status: "READY" })
-                .catch((cause) => setError(String(cause)))}>
-              Marcar listo
-            </button>
+            {["RECEIVED", "PENDING"].includes(order.status)
+              ? <>
+                  <button className="button button-primary" onClick={() =>
+                    void mutate(order.id, "ACCEPT")
+                      .catch((cause) => setError(String(cause)))}>
+                    Aceptar
+                  </button>
+                  <button className="button" onClick={() =>
+                    reasonAction(order, "REJECT")}>Rechazar</button>
+                </>
+              : null}
+            {(nextStatuses[order.status] ?? []).map((status) => (
+              <button className="button button-primary" key={status} onClick={() =>
+                void mutate(order.id, "UPDATE", { status })
+                  .catch((cause) => setError(String(cause)))}>
+                {status === "PREPARING" ? "Iniciar preparación"
+                  : status === "READY" ? "Marcar listo"
+                    : status === "PICKED_UP" ? "Retirado por repartidor"
+                      : "Marcar entregado"}
+              </button>
+            ))}
+            {!["REJECTED", "CANCELLED", "DELIVERED"].includes(order.status)
+              ? <button className="button" onClick={() =>
+                  reasonAction(order, "CANCEL")}>Cancelar</button>
+              : null}
           </article>
         ))}
       </div>

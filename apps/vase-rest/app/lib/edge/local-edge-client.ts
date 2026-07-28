@@ -191,6 +191,22 @@ export function createLocalEdgeClient(input: {
       if (!response.ok) throw new Error(payload.error ?? "REST_EDGE_PRINT_TEST_FAILED");
       return payload;
     },
+    async printOrderReceipt(orderId: string, idempotencyKey: string) {
+      await identity();
+      const response = await fetcher(new URL("/print/order-receipt", pairing.edgeUrl), {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${input.sessionToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ orderId, idempotencyKey }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error ?? "REST_EDGE_RECEIPT_PRINT_FAILED");
+      }
+      return payload;
+    },
     async printJobs() {
       await identity();
       const response = await fetcher(new URL("/print/jobs", pairing.edgeUrl), {

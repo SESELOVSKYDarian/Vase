@@ -277,6 +277,15 @@ export default function OrderPage({
       {["OPEN", "SUBMITTED", "PARTIALLY_READY"].includes(order.status) ? (
         <button className="button" onClick={() => void cancel()}>Cancelar pedido</button>
       ) : null}
+      {order.items.length ? (
+        <button className="button" onClick={() => {
+          setError("");
+          void readLocalEdgeClient().printOrderReceipt(order.id, crypto.randomUUID())
+            .catch((cause) => setError(
+              cause instanceof Error ? cause.message : "No se pudo imprimir el comprobante.",
+            ));
+        }}>Imprimir comprobante no fiscal</button>
+      ) : null}
     </main>
   );
 }

@@ -155,7 +155,11 @@ export async function POST(request: Request) {
           globalTenantId: edge.globalTenantId,
           station: { branchId: edge.branchId, active: true },
         },
-        select: { categoryId: true, stationId: true },
+        select: {
+          categoryId: true,
+          stationId: true,
+          station: { select: { id: true, name: true } },
+        },
       }),
       db.branchInventoryAllocation.findMany({
         where: {
@@ -308,6 +312,10 @@ export async function POST(request: Request) {
             id: category.id,
             name: category.name,
           })),
+          stations: [...new Map(stationMappings.map((mapping) => [
+            mapping.station.id,
+            mapping.station,
+          ])).values()],
           products: catalogProducts,
         }),
       },

@@ -102,11 +102,15 @@ export function queueKitchenTicketPrints(database: EdgeDatabase, raw: unknown) {
       quantity: z.union([z.string(), z.number()]),
       nameSnapshot: z.string(),
       notes: z.string().nullable().optional(),
+      categoryId: z.string().min(1).optional(),
     }).passthrough(),
   }).passthrough().parse(raw);
   if (ticket.status !== "QUEUED") return 0;
   let queued = 0;
-  for (const printer of printersForRoute(database, { stationId: ticket.stationId })) {
+  for (const printer of printersForRoute(database, {
+    stationId: ticket.stationId,
+    categoryId: ticket.orderItem.categoryId,
+  })) {
     const idempotencyKey = `KITCHEN_TICKET:${ticket.id}:v${ticket.revision}:${printer.id}`;
     if (database.raw.prepare(
       "SELECT id FROM print_job WHERE idempotency_key = ?",
@@ -128,6 +132,53 @@ export function queueKitchenTicketPrints(database: EdgeDatabase, raw: unknown) {
       }),
     });
     queued += 1;
+  }
+  return queued;
+}
+
+export function queueOrderReceiptPrints(database: EdgeDatabase, raw: unknown) {
+  const input = z.object({
+    order: z.object({
+      id: z.string().min(1),
+      orderNumber: z.union([z.string(), z.number()]).nullable(),
+      revision: z.number().int().nonnegative(),
+      total: z.string().min(1),
+      items: z.array(z.object({
+        quantity: z.union([z.string(), z.number()]),
+        nameSnapshot: z.string().min(1),
+        lineTotal: z.string().min(1),
+      }).passthrough()).min(1),
+    }).passthrough(),
+    idempotencyKey: z.string().min(1).max(200),
+  }).strict().parse(raw);
+  const printers = printersForRoute(database, { receiptType: "SALE_RECEIPT" });
+  let queued = 0;
+  for (const printer of printers) {
+    const key = `${input.idempotencyKey}:${printer.id}`;
+    if (database.raw.prepare(
+      "SELECT id FROM print_job WHERE idempotency_key = ?",
+    ).get(key)) continue;
+    enqueuePrintJob(database, {
+      id: randomUUID(),
+      idempotencyKey: key,
+      printerId: printer.id,
+      payload: renderEscPosReceipt({
+        title: input.order.orderNumber
+          ? `PEDIDO #${input.order.orderNumber}` : "PEDIDO",
+        lines: [
+          ...input.order.items.map((item) => ({
+            quantity: String(item.quantity),
+            name: `${item.nameSnapshot} ARS ${item.lineTotal}`,
+          })),
+          { quantity: "", name: `TOTAL ARS ${input.order.total}` },
+        ],
+        footer: "COMPROBANTE NO FISCAL",
+      }),
+    });
+    queued += 1;
+  }
+  if (!queued && !printers.length) {
+    throw new Error("EDGE_RECEIPT_PRINTER_NOT_CONFIGURED");
   }
   return queued;
 }

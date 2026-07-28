@@ -13,6 +13,7 @@ import type { PrinterAdapter } from "../src/printing/printer-adapter.js";
 import {
   printersForRoute,
   queueKitchenTicketPrints,
+  queueOrderReceiptPrints,
   savePrinter,
 } from "../src/printing/printer-config.js";
 
@@ -155,6 +156,38 @@ describe("Rest Edge ESC/POS printing", () => {
     expect(database.raw.prepare("SELECT COUNT(*) AS count FROM print_job").get())
       .toEqual({ count: 1 });
     expect(ticket.status).toBe("QUEUED");
+    database.close();
+  });
+
+  it("queues a real non-fiscal sales receipt through the configured receipt route", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-print-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    savePrinter(database, {
+      id: "printer-counter",
+      name: "Caja",
+      connection: { type: "WINDOWS_SPOOLER", printerName: "EPSON TM-T20" },
+      routes: [{ type: "RECEIPT", value: "SALE_RECEIPT" }],
+      enabled: true,
+    });
+    expect(queueOrderReceiptPrints(database, {
+      order: {
+        id: "order-1",
+        orderNumber: 42,
+        revision: 3,
+        total: "3500.00",
+        items: [{
+          quantity: 2,
+          nameSnapshot: "Menú",
+          lineTotal: "3500.00",
+        }],
+      },
+      idempotencyKey: "receipt-order-1-copy-1",
+    })).toBe(1);
+    const job = database.raw.prepare(
+      "SELECT payload FROM print_job WHERE printer_id = 'printer-counter'",
+    ).get() as { payload: Uint8Array };
+    expect(Buffer.from(job.payload).toString("latin1")).toContain("TOTAL ARS 3500.00");
     database.close();
   });
 });

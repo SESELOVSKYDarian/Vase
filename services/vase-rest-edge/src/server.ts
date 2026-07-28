@@ -19,6 +19,7 @@ import { syncStaffProjection } from "./staff-projection.js";
 import {
   listPrinters,
   queueKitchenTicketPrints,
+  queueOrderReceiptPrints,
   savePrinter,
 } from "./printing/printer-config.js";
 import { NetworkPrinter } from "./printing/network-printer.js";
@@ -292,6 +293,37 @@ const server = createServer({
       });
       response.writeHead(202, { "content-type": "application/json", "cache-control": "no-store" });
       response.end(JSON.stringify(result));
+      return;
+    }
+    if (request.method === "POST" && request.url === "/print/order-receipt") {
+      const session = validateOfflineSession(
+        database,
+        request.headers.authorization,
+        sessionSecret,
+      );
+      if (!session.roles.some((role) =>
+        role.branchId === session.branchId &&
+        (role.capabilities.includes("orders:write") ||
+          role.capabilities.includes("cash:operate")))) {
+        throw new Error("EDGE_STAFF_CAPABILITY_FORBIDDEN");
+      }
+      const input = await body(request);
+      const orderId = String(input.orderId ?? "");
+      const idempotencyKey = String(input.idempotencyKey ?? "");
+      const row = database.raw.prepare(`
+        SELECT state_json FROM aggregate_state
+        WHERE aggregate_type = 'ORDER' AND aggregate_id = ?
+      `).get(orderId) as { state_json: string } | undefined;
+      if (!row) throw new Error("EDGE_ORDER_NOT_FOUND");
+      const queued = queueOrderReceiptPrints(database, {
+        order: JSON.parse(row.state_json),
+        idempotencyKey,
+      });
+      response.writeHead(202, {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+      });
+      response.end(JSON.stringify({ queued }));
       return;
     }
     const retryMatch = request.method === "POST"
