@@ -2,9 +2,10 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   stageSignedUpdate,
+  applyStagedUpdate,
   verifyUpdateManifest,
 } from "../src/updater.js";
 
@@ -21,7 +22,7 @@ function signedManifest(input: {
   const payload = {
     version: "1.4.0",
     channel: input.channel ?? "stable",
-    artifactUrl: "https://updates.vase.ar/rest-edge/1.4.0.zip",
+    artifactUrl: "https://updates.vase.ar/rest-edge/VaseRestEdge-1.4.0-x64.msi",
     sha256: input.sha256,
     publishedAt: "2026-07-28T12:00:00.000Z",
   };
@@ -70,7 +71,7 @@ describe("Rest Edge signed updater", () => {
       stagingDir: dir,
       fetcher: async () => new Response(artifact),
     });
-    expect(result.artifactPath.endsWith(".zip")).toBe(true);
+    expect(result.artifactPath.endsWith(".msi")).toBe(true);
     expect(await readFile(result.artifactPath)).toEqual(artifact);
   });
 
@@ -91,6 +92,42 @@ describe("Rest Edge signed updater", () => {
       fetcher: async () => new Response("truncated"),
     })).rejects.toThrow("EDGE_UPDATE_HASH_MISMATCH");
     expect(await readFile(join(dir, "installed.version"), "utf8")).toBe("1.3.0");
-    await expect(readFile(join(dir, "1.4.0.zip.partial"))).rejects.toThrow();
+    await expect(readFile(join(dir, "1.4.0.msi.partial"))).rejects.toThrow();
+  });
+
+  it("commits a version only after health and rolls back an unhealthy install", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-update-"));
+    cleanup.push(dir);
+    const installedVersionPath = join(dir, "installed.version");
+    await writeFile(installedVersionPath, "1.3.0");
+    const install = vi.fn().mockResolvedValue(undefined);
+    const rollback = vi.fn().mockResolvedValue(undefined);
+    const healthy = await applyStagedUpdate({
+      version: "1.4.0",
+      artifactPath: join(dir, "1.4.0.msi"),
+      installedVersionPath,
+      install,
+      healthCheck: vi.fn().mockResolvedValue(true),
+      rollback,
+      healthDeadlineMs: 1000,
+      wait: vi.fn().mockResolvedValue(undefined),
+    });
+    expect(healthy).toEqual({ version: "1.4.0", rolledBack: false });
+    expect(await readFile(installedVersionPath, "utf8")).toBe("1.4.0");
+
+    await expect(applyStagedUpdate({
+      version: "1.5.0",
+      artifactPath: join(dir, "1.5.0.msi"),
+      installedVersionPath,
+      install,
+      healthCheck: vi.fn()
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true),
+      rollback,
+      healthDeadlineMs: 1,
+      wait: vi.fn().mockResolvedValue(undefined),
+    })).rejects.toThrow("EDGE_UPDATE_HEALTH_FAILED_ROLLED_BACK");
+    expect(rollback).toHaveBeenCalled();
+    expect(await readFile(installedVersionPath, "utf8")).toBe("1.4.0");
   });
 });

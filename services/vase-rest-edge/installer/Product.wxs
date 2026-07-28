@@ -6,7 +6,8 @@
            Version="$(var.ProductVersion)"
            UpgradeCode="8E4219A4-9BAA-4A31-86C4-F59DDDE835EA"
            Scope="perMachine">
-    <MajorUpgrade DowngradeErrorMessage="Ya hay una versión más reciente de Vase Rest Edge." />
+    <MajorUpgrade Schedule="afterInstallExecute"
+                  DowngradeErrorMessage="A newer Vase Rest Edge version is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <Feature Id="Main" Title="Vase Rest Edge">
@@ -84,5 +85,26 @@
                               Scope="localSubnet"
                               IgnoreFailure="no" />
     </Component>
+
+    <CustomAction
+      Id="BootstrapEdgeTls"
+      FileRef="NodeRuntime"
+      ExeCommand="--experimental-sqlite &quot;[INSTALLFOLDER]node_modules\tsx\dist\cli.mjs&quot; &quot;[INSTALLFOLDER]src\bootstrap-tls.ts&quot; &quot;[EDGEDATADIR]&quot;"
+      Execute="deferred"
+      Impersonate="no"
+      Return="check" />
+
+    <CustomAction
+      Id="VerifyEdgeHealth"
+      Directory="System64Folder"
+      ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;$healthy=$false; 1..30 | ForEach-Object { curl.exe -k --fail --silent --max-time 2 https://localhost:3443/health/live | Out-Null; if ($LASTEXITCODE -eq 0) { $healthy=$true; break }; Start-Sleep -Seconds 2 }; if (-not $healthy) { exit 1 }&quot;"
+      Execute="deferred"
+      Impersonate="no"
+      Return="check" />
+
+    <InstallExecuteSequence>
+      <Custom Action="BootstrapEdgeTls" Before="StartServices">NOT REMOVE</Custom>
+      <Custom Action="VerifyEdgeHealth" After="StartServices">NOT REMOVE</Custom>
+    </InstallExecuteSequence>
   </Package>
 </Wix>

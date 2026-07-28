@@ -5,6 +5,7 @@ import {
 } from "node:crypto";
 import {
   mkdir,
+  readFile,
   rename,
   rm,
   writeFile,
@@ -15,7 +16,8 @@ import { z } from "zod";
 const payloadSchema = z.object({
   version: z.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/),
   channel: z.enum(["stable", "beta"]),
-  artifactUrl: z.url().refine((value) => value.startsWith("https://")),
+  artifactUrl: z.url().refine((value) =>
+    value.startsWith("https://") && value.toLowerCase().endsWith(".msi")),
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
   publishedAt: z.iso.datetime(),
 }).strict();
@@ -59,8 +61,8 @@ export async function stageSignedUpdate(input: {
 }) {
   const manifest = verifyUpdateManifest(input);
   await mkdir(input.stagingDir, { recursive: true, mode: 0o700 });
-  const partialPath = join(input.stagingDir, `${manifest.version}.zip.partial`);
-  const artifactPath = join(input.stagingDir, `${manifest.version}.zip`);
+  const partialPath = join(input.stagingDir, `${manifest.version}.msi.partial`);
+  const artifactPath = join(input.stagingDir, `${manifest.version}.msi`);
   try {
     const response = await (input.fetcher ?? fetch)(manifest.artifactUrl, {
       signal: AbortSignal.timeout(120_000),
@@ -82,4 +84,45 @@ export async function stageSignedUpdate(input: {
     await rm(partialPath, { force: true });
     throw error;
   }
+}
+
+export async function applyStagedUpdate(input: {
+  version: string;
+  artifactPath: string;
+  installedVersionPath: string;
+  install: (artifactPath: string) => Promise<void>;
+  healthCheck: () => Promise<boolean>;
+  rollback: (previousVersion: string) => Promise<void>;
+  healthDeadlineMs: number;
+  healthIntervalMs?: number;
+  wait?: (milliseconds: number) => Promise<void>;
+}) {
+  const version = z.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/)
+    .parse(input.version);
+  if (!input.artifactPath.toLowerCase().endsWith(".msi")) {
+    throw new Error("EDGE_UPDATE_ARTIFACT_TYPE_INVALID");
+  }
+  const deadline = z.number().int().positive().max(10 * 60_000)
+    .parse(input.healthDeadlineMs);
+  const interval = z.number().int().positive().max(deadline)
+    .parse(input.healthIntervalMs ?? Math.min(1000, deadline));
+  const previousVersion = (await readFile(input.installedVersionPath, "utf8")).trim();
+  z.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/).parse(previousVersion);
+  const wait = input.wait ?? ((milliseconds: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  await input.install(input.artifactPath);
+  const attempts = Math.max(1, Math.ceil(deadline / interval));
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (await input.healthCheck()) {
+      await writeFile(input.installedVersionPath, version, {
+        mode: 0o600,
+        flush: true,
+      });
+      return { version, rolledBack: false };
+    }
+    if (attempt + 1 < attempts) await wait(interval);
+  }
+  await input.rollback(previousVersion);
+  if (!await input.healthCheck()) throw new Error("EDGE_UPDATE_ROLLBACK_FAILED");
+  throw new Error("EDGE_UPDATE_HEALTH_FAILED_ROLLED_BACK");
 }
