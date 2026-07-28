@@ -9,6 +9,7 @@ import {
 } from "@/lib/catalog/catalog-repository";
 import { createRecipeService } from "@/lib/catalog/recipe-service";
 import { db } from "@/lib/db";
+import { resolveRestStaffRequest } from "@/lib/staff/staff-request-context";
 
 const catalog = createCatalogService(prismaCatalogRepository);
 const recipes = createRecipeService(prismaRecipeRepository);
@@ -23,8 +24,13 @@ async function owner(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const context = await owner(request);
-    return NextResponse.json({ categories: await getCatalog(context.globalTenantId) });
+    const globalTenantId = request.headers.get("authorization")
+      ? (await resolveRestStaffRequest({
+        authorization: request.headers.get("authorization"),
+        requiredCapability: "orders:write",
+      })).globalTenantId
+      : (await owner(request)).globalTenantId;
+    return NextResponse.json({ categories: await getCatalog(globalTenantId) });
   } catch (error) {
     return failure(error);
   }

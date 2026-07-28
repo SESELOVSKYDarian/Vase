@@ -28,6 +28,8 @@ model RestTenant {
   warehouses     Warehouse[]
   diningFloors   DiningFloor[]
   reservations   Reservation[]
+  orders         RestaurantOrder[]
+  kitchenStations KitchenStation[]
   createdAt      DateTime                     @default(now())
   updatedAt      DateTime                     @updatedAt
 }
@@ -74,6 +76,9 @@ model Branch {
   diningFloors   DiningFloor[]
   diningTables   DiningTable[]
   reservations   Reservation[]
+  orders         RestaurantOrder[]
+  kitchenStations KitchenStation[]
+  orderSequence  BranchOrderSequence?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -205,6 +210,7 @@ model MenuCategory {
   revision       Int           @default(1)
   restTenant     RestTenant    @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
   products       MenuProduct[]
+  kitchenStations KitchenStationCategory[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -228,6 +234,7 @@ model MenuProduct {
   prices         ProductPrice[]
   branchAvailability ProductBranchAvailability[]
   modifierGroups ProductModifierGroup[]
+  orderItems     OrderItem[]
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
 
@@ -498,6 +505,7 @@ model DiningTable {
   zone           DiningZone?        @relation(fields: [zoneId], references: [id], onDelete: SetNull)
   reservationLinks ReservationTable[]
   transitions    TableTransition[]
+  orders         RestaurantOrder[]
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
@@ -560,6 +568,166 @@ model ReservationTable {
 
   @@unique([reservationId, tableId])
   @@index([globalTenantId, tableId])
+}
+
+model BranchOrderSequence {
+  id             String @id @default(cuid())
+  globalTenantId String
+  branchId       String @unique
+  nextNumber     Int    @default(1)
+  branch         Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+}
+
+model RestaurantOrder {
+  id             String       @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  tableId        String?
+  orderNumber    Int
+  status         String       @default("OPEN")
+  guestCount     Int
+  subtotal       Decimal      @default(0) @db.Decimal(18, 2)
+  discountTotal  Decimal      @default(0) @db.Decimal(18, 2)
+  taxTotal       Decimal      @default(0) @db.Decimal(18, 2)
+  total          Decimal      @default(0) @db.Decimal(18, 2)
+  revision       Int          @default(1)
+  openedBy       String
+  submittedAt    DateTime?
+  servedAt       DateTime?
+  cancelledAt    DateTime?
+  cancellationReason String?
+  restTenant     RestTenant   @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  table          DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  items          OrderItem[]
+  kitchenTickets KitchenTicket[]
+  commandReceipts OrderCommandReceipt[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([branchId, orderNumber])
+  @@index([globalTenantId, branchId, status, createdAt])
+}
+
+model OrderItem {
+  id             String              @id @default(cuid())
+  globalTenantId String
+  orderId        String
+  productId      String
+  skuSnapshot    String
+  nameSnapshot   String
+  quantity       Int
+  unitPrice      Decimal             @db.Decimal(18, 2)
+  modifierTotal  Decimal             @default(0) @db.Decimal(18, 2)
+  lineTotal      Decimal             @db.Decimal(18, 2)
+  course         Int                 @default(1)
+  notes          String?
+  status         String              @default("DRAFT")
+  revision       Int                 @default(1)
+  order          RestaurantOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        MenuProduct         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  modifiers      OrderItemModifier[]
+  kitchenTicket  KitchenTicket?
+  createdAt      DateTime            @default(now())
+
+  @@index([globalTenantId, orderId, status])
+}
+
+model OrderItemModifier {
+  id             String    @id @default(cuid())
+  globalTenantId String
+  orderItemId    String
+  optionId       String
+  nameSnapshot   String
+  quantity       Int
+  unitDelta      Decimal   @db.Decimal(18, 2)
+  totalDelta     Decimal   @db.Decimal(18, 2)
+  orderItem      OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([globalTenantId, orderItemId])
+}
+
+model KitchenStation {
+  id             String                   @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  code           String
+  name           String
+  active         Boolean                  @default(true)
+  restTenant     RestTenant               @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch                   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  categories     KitchenStationCategory[]
+  tickets        KitchenTicket[]
+
+  @@unique([branchId, code])
+  @@index([globalTenantId, branchId, active])
+}
+
+model KitchenStationCategory {
+  id             String         @id @default(cuid())
+  globalTenantId String
+  stationId      String
+  categoryId     String
+  station        KitchenStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  category       MenuCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([stationId, categoryId])
+  @@index([globalTenantId, categoryId])
+}
+
+model KitchenTicket {
+  id             String         @id @default(cuid())
+  globalTenantId String
+  branchId       String
+  orderId        String
+  orderItemId    String         @unique
+  stationId      String
+  status         String         @default("QUEUED")
+  revision       Int            @default(1)
+  queuedAt       DateTime       @default(now())
+  preparingAt    DateTime?
+  readyAt        DateTime?
+  servedAt       DateTime?
+  cancelledAt    DateTime?
+  order          RestaurantOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem      OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  station        KitchenStation  @relation(fields: [stationId], references: [id], onDelete: Restrict)
+  transitions    KitchenTicketTransition[]
+
+  @@index([globalTenantId, branchId, stationId, status, queuedAt])
+}
+
+model KitchenTicketTransition {
+  id             String        @id @default(cuid())
+  globalTenantId String
+  ticketId       String
+  fromStatus     String
+  toStatus       String
+  fromRevision   Int
+  toRevision     Int
+  commandId      String
+  actorId        String
+  ticket         KitchenTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  occurredAt     DateTime      @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([ticketId, occurredAt])
+}
+
+model OrderCommandReceipt {
+  id             String          @id @default(cuid())
+  globalTenantId String
+  orderId        String
+  commandId      String
+  action         String
+  response       Json
+  order          RestaurantOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([orderId, createdAt])
 }
 
 model StaffSession {
