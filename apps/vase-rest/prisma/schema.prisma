@@ -21,6 +21,10 @@ model RestTenant {
   edgeInstallations EdgeInstallation[]
   deviceEnrollments DeviceEnrollment[]
   configurationPolicies ConfigurationPolicy[]
+  categories     MenuCategory[]
+  products       MenuProduct[]
+  ingredients    Ingredient[]
+  modifierGroups ModifierGroup[]
   createdAt      DateTime                     @default(now())
   updatedAt      DateTime                     @updatedAt
 }
@@ -61,6 +65,7 @@ model Branch {
   staffSessions  StaffSession[]
   edgeInstallations EdgeInstallation[]
   deviceEnrollments DeviceEnrollment[]
+  productAvailability ProductBranchAvailability[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -179,6 +184,147 @@ model ConfigurationPolicy {
 
   @@unique([globalTenantId, family, scopeType, scopeId])
   @@index([globalTenantId, family])
+}
+
+model MenuCategory {
+  id             String        @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  sortOrder      Int           @default(0)
+  active         Boolean       @default(true)
+  revision       Int           @default(1)
+  restTenant     RestTenant    @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  products       MenuProduct[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@index([globalTenantId, active, sortOrder])
+}
+
+model MenuProduct {
+  id             String                 @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  categoryId     String
+  sku            String
+  name           String
+  description    String?
+  available      Boolean                @default(true)
+  revision       Int                    @default(1)
+  restTenant     RestTenant             @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  category       MenuCategory           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  recipeItems    RecipeItem[]
+  prices         ProductPrice[]
+  branchAvailability ProductBranchAvailability[]
+  modifierGroups ProductModifierGroup[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([globalTenantId, sku])
+  @@index([globalTenantId, categoryId, available])
+}
+
+model Ingredient {
+  id             String       @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  sku            String
+  name           String
+  baseUnit       String
+  active         Boolean      @default(true)
+  restTenant     RestTenant   @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  recipeItems    RecipeItem[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([globalTenantId, sku])
+}
+
+model RecipeItem {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  productId      String
+  ingredientId   String
+  quantity       Decimal     @db.Decimal(18, 6)
+  unit           String
+  product        MenuProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient     Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, ingredientId])
+  @@index([globalTenantId, ingredientId])
+}
+
+model ProductPrice {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  productId      String
+  scopeType      String
+  scopeId        String
+  amount         Decimal     @db.Decimal(18, 2)
+  currency       String      @default("ARS")
+  revision       Int         @default(1)
+  product        MenuProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([globalTenantId, productId, scopeType, scopeId])
+}
+
+model ProductBranchAvailability {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  productId      String
+  branchId       String
+  available      Boolean
+  revision       Int         @default(1)
+  product        MenuProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branch         Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, branchId])
+  @@index([globalTenantId, branchId, available])
+}
+
+model ModifierGroup {
+  id             String                 @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  minSelections  Int                    @default(0)
+  maxSelections  Int                    @default(1)
+  restTenant     RestTenant             @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  options        ModifierOption[]
+  products       ProductModifierGroup[]
+
+  @@unique([globalTenantId, code])
+}
+
+model ModifierOption {
+  id              String        @id @default(cuid())
+  globalTenantId  String
+  modifierGroupId String
+  code            String
+  name            String
+  priceDelta      Decimal       @default(0) @db.Decimal(18, 2)
+  active          Boolean       @default(true)
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([modifierGroupId, code])
+}
+
+model ProductModifierGroup {
+  id              String        @id @default(cuid())
+  globalTenantId  String
+  productId       String
+  modifierGroupId String
+  sortOrder       Int           @default(0)
+  product         MenuProduct   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, modifierGroupId])
 }
 
 model StaffSession {
