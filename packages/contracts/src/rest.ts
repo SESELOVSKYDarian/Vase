@@ -38,6 +38,8 @@ export const restStaffRoleSchema = z.enum([
 
 export const restSessionContextSchema = z.object({
   globalTenantId: z.string().min(1),
+  tenantSlug: z.string().min(1),
+  tenantName: z.string().min(1),
   actor: z.object({
     kind: z.enum(["GLOBAL_USER", "LOCAL_STAFF"]),
     id: z.string().min(1),

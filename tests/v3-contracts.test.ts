@@ -344,6 +344,8 @@ describe("V3 contracts", () => {
     });
     const session = restSessionContextSchema.parse({
       globalTenantId: "tenant_123",
+      tenantSlug: "norte-equipos",
+      tenantName: "Norte Equipos",
       actor: {
         kind: "LOCAL_STAFF",
         id: "employee_123",

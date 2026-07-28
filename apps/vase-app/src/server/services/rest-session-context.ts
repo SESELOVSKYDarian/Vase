@@ -48,6 +48,8 @@ export function createRestSessionContextService(repository: RestSessionContextRe
 
       return restSessionContextSchema.parse({
         globalTenantId: membership.globalTenantId,
+        tenantSlug: membership.tenantSlug,
+        tenantName: membership.tenantName,
         actor: {
           kind: "GLOBAL_USER",
           id: membership.globalUserId,
