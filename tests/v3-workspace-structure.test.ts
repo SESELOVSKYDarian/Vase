@@ -17,7 +17,7 @@ describe("V3 workspace structure", () => {
   it("registers npm workspaces for apps and packages", () => {
     const packageJson = readJson("package.json");
 
-    expect(packageJson.workspaces).toEqual(["apps/*", "packages/*"]);
+    expect(packageJson.workspaces).toEqual(["apps/*", "packages/*", "services/*"]);
   });
 
   it("defines the expected app extraction targets", () => {
