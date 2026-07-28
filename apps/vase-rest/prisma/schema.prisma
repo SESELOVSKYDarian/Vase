@@ -8,36 +8,39 @@ datasource db {
 }
 
 model RestTenant {
-  id                       String                     @id @default(cuid())
-  globalTenantId           String                     @unique
-  name                     String
-  slug                     String                     @unique
-  entitlement              RestEntitlementProjection?
-  branches                 Branch[]
-  branchGroups             BranchGroup[]
-  auditEvents              AuditEvent[]
-  localEmployees           LocalEmployee[]
-  devices                  Device[]
-  edgeInstallations        EdgeInstallation[]
-  deviceEnrollments        DeviceEnrollment[]
-  configurationPolicies    ConfigurationPolicy[]
-  categories               MenuCategory[]
-  products                 MenuProduct[]
-  ingredients              Ingredient[]
-  modifierGroups           ModifierGroup[]
-  warehouses               Warehouse[]
-  diningFloors             DiningFloor[]
-  reservations             Reservation[]
-  orders                   RestaurantOrder[]
-  kitchenStations          KitchenStation[]
-  edgeAggregates           EdgeAggregateProjection[]
-  edgeEventReceipts        EdgeEventReceipt[]
-  cashDrawers              CashDrawer[]
-  cashMovements            CashMovement[]
-  payments                 Payment[]
-  financialCommandReceipts FinancialCommandReceipt[]
-  createdAt                DateTime                   @default(now())
-  updatedAt                DateTime                   @updatedAt
+  id                           String                        @id @default(cuid())
+  globalTenantId               String                        @unique
+  name                         String
+  slug                         String                        @unique
+  entitlement                  RestEntitlementProjection?
+  branches                     Branch[]
+  branchGroups                 BranchGroup[]
+  auditEvents                  AuditEvent[]
+  localEmployees               LocalEmployee[]
+  devices                      Device[]
+  edgeInstallations            EdgeInstallation[]
+  deviceEnrollments            DeviceEnrollment[]
+  configurationPolicies        ConfigurationPolicy[]
+  categories                   MenuCategory[]
+  products                     MenuProduct[]
+  ingredients                  Ingredient[]
+  modifierGroups               ModifierGroup[]
+  warehouses                   Warehouse[]
+  diningFloors                 DiningFloor[]
+  reservations                 Reservation[]
+  orders                       RestaurantOrder[]
+  kitchenStations              KitchenStation[]
+  edgeAggregates               EdgeAggregateProjection[]
+  edgeEventReceipts            EdgeEventReceipt[]
+  cashDrawers                  CashDrawer[]
+  cashMovements                CashMovement[]
+  payments                     Payment[]
+  financialCommandReceipts     FinancialCommandReceipt[]
+  paymentProviderConnections   PaymentProviderConnection[]
+  providerPaymentAttempts      ProviderPaymentAttempt[]
+  paymentProviderWebhookEvents PaymentProviderWebhookEvent[]
+  createdAt                    DateTime                      @default(now())
+  updatedAt                    DateTime                      @updatedAt
 }
 
 model RestEntitlementProjection {
@@ -60,36 +63,38 @@ model RestEntitlementProjection {
 }
 
 model Branch {
-  id                   String                      @id @default(cuid())
-  restTenantId         String
-  globalTenantId       String
-  code                 String
-  slug                 String
-  name                 String
-  timezone             String                      @default("America/Argentina/Buenos_Aires")
-  active               Boolean                     @default(true)
-  restTenant           RestTenant                  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  groupMembers         BranchGroupMember[]
-  auditEvents          AuditEvent[]
-  staffRoles           StaffBranchRole[]
-  devices              Device[]
-  staffSessions        StaffSession[]
-  edgeInstallations    EdgeInstallation[]
-  deviceEnrollments    DeviceEnrollment[]
-  productAvailability  ProductBranchAvailability[]
-  warehouseLinks       WarehouseBranch[]
-  inventoryAllocations BranchInventoryAllocation[]
-  diningFloors         DiningFloor[]
-  diningTables         DiningTable[]
-  reservations         Reservation[]
-  orders               RestaurantOrder[]
-  kitchenStations      KitchenStation[]
-  orderSequence        BranchOrderSequence?
-  cashDrawers          CashDrawer[]
-  cashMovements        CashMovement[]
-  payments             Payment[]
-  createdAt            DateTime                    @default(now())
-  updatedAt            DateTime                    @updatedAt
+  id                         String                      @id @default(cuid())
+  restTenantId               String
+  globalTenantId             String
+  code                       String
+  slug                       String
+  name                       String
+  timezone                   String                      @default("America/Argentina/Buenos_Aires")
+  active                     Boolean                     @default(true)
+  restTenant                 RestTenant                  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  groupMembers               BranchGroupMember[]
+  auditEvents                AuditEvent[]
+  staffRoles                 StaffBranchRole[]
+  devices                    Device[]
+  staffSessions              StaffSession[]
+  edgeInstallations          EdgeInstallation[]
+  deviceEnrollments          DeviceEnrollment[]
+  productAvailability        ProductBranchAvailability[]
+  warehouseLinks             WarehouseBranch[]
+  inventoryAllocations       BranchInventoryAllocation[]
+  diningFloors               DiningFloor[]
+  diningTables               DiningTable[]
+  reservations               Reservation[]
+  orders                     RestaurantOrder[]
+  kitchenStations            KitchenStation[]
+  orderSequence              BranchOrderSequence?
+  cashDrawers                CashDrawer[]
+  cashMovements              CashMovement[]
+  payments                   Payment[]
+  paymentProviderConnections PaymentProviderConnection[]
+  providerPaymentAttempts    ProviderPaymentAttempt[]
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
 
   @@unique([globalTenantId, code])
   @@unique([globalTenantId, slug])
@@ -588,33 +593,34 @@ model BranchOrderSequence {
 }
 
 model RestaurantOrder {
-  id                 String                @id @default(cuid())
-  restTenantId       String
-  globalTenantId     String
-  branchId           String
-  tableId            String?
-  orderNumber        Int
-  status             String                @default("OPEN")
-  guestCount         Int
-  subtotal           Decimal               @default(0) @db.Decimal(18, 2)
-  discountTotal      Decimal               @default(0) @db.Decimal(18, 2)
-  taxTotal           Decimal               @default(0) @db.Decimal(18, 2)
-  total              Decimal               @default(0) @db.Decimal(18, 2)
-  revision           Int                   @default(1)
-  openedBy           String
-  submittedAt        DateTime?
-  servedAt           DateTime?
-  cancelledAt        DateTime?
-  cancellationReason String?
-  restTenant         RestTenant            @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  branch             Branch                @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  table              DiningTable?          @relation(fields: [tableId], references: [id], onDelete: SetNull)
-  items              OrderItem[]
-  kitchenTickets     KitchenTicket[]
-  commandReceipts    OrderCommandReceipt[]
-  payments           Payment[]
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
+  id                      String                   @id @default(cuid())
+  restTenantId            String
+  globalTenantId          String
+  branchId                String
+  tableId                 String?
+  orderNumber             Int
+  status                  String                   @default("OPEN")
+  guestCount              Int
+  subtotal                Decimal                  @default(0) @db.Decimal(18, 2)
+  discountTotal           Decimal                  @default(0) @db.Decimal(18, 2)
+  taxTotal                Decimal                  @default(0) @db.Decimal(18, 2)
+  total                   Decimal                  @default(0) @db.Decimal(18, 2)
+  revision                Int                      @default(1)
+  openedBy                String
+  submittedAt             DateTime?
+  servedAt                DateTime?
+  cancelledAt             DateTime?
+  cancellationReason      String?
+  restTenant              RestTenant               @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                  Branch                   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  table                   DiningTable?             @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  items                   OrderItem[]
+  kitchenTickets          KitchenTicket[]
+  commandReceipts         OrderCommandReceipt[]
+  payments                Payment[]
+  providerPaymentAttempts ProviderPaymentAttempt[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
 
   @@unique([branchId, orderNumber])
   @@index([globalTenantId, branchId, status, createdAt])
@@ -709,6 +715,75 @@ model FinancialCommandReceipt {
   createdAt      DateTime   @default(now())
 
   @@unique([globalTenantId, commandId])
+}
+
+model PaymentProviderConnection {
+  id                      String                        @id @default(cuid())
+  restTenantId            String
+  globalTenantId          String
+  branchId                String
+  provider                String
+  status                  String                        @default("UNCONFIGURED")
+  environment             String                        @default("SANDBOX")
+  providerAccountId       String?
+  accessTokenCiphertext   String?
+  refreshTokenCiphertext  String?
+  webhookSecretCiphertext String?
+  tokenExpiresAt          DateTime?
+  config                  Json
+  restTenant              RestTenant                    @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                  Branch                        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  attempts                ProviderPaymentAttempt[]
+  webhookEvents           PaymentProviderWebhookEvent[]
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
+
+  @@unique([branchId, provider])
+  @@index([globalTenantId, provider, status])
+}
+
+model ProviderPaymentAttempt {
+  id                String                    @id @default(cuid())
+  restTenantId      String
+  globalTenantId    String
+  branchId          String
+  orderId           String
+  connectionId      String
+  kind              String
+  amount            Decimal                   @db.Decimal(18, 2)
+  status            String                    @default("CREATING")
+  providerOrderId   String?
+  providerPaymentId String?
+  commandId         String
+  response          Json?
+  lastError         String?
+  lastReconciledAt  DateTime?
+  restTenant        RestTenant                @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch            Branch                    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  order             RestaurantOrder           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  connection        PaymentProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@unique([globalTenantId, commandId])
+  @@index([connectionId, status, createdAt])
+  @@index([providerOrderId])
+}
+
+model PaymentProviderWebhookEvent {
+  id              String                    @id @default(cuid())
+  restTenantId    String
+  globalTenantId  String
+  connectionId    String
+  requestId       String
+  providerOrderId String
+  result          Json
+  restTenant      RestTenant                @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  connection      PaymentProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  receivedAt      DateTime                  @default(now())
+
+  @@unique([connectionId, requestId])
+  @@index([globalTenantId, providerOrderId])
 }
 
 model OrderItem {

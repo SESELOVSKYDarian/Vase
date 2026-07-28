@@ -4,6 +4,10 @@ export default function OwnerSettingsPage() {
       <p className="eyebrow">Configuración</p>
       <h1>Operación de sucursales</h1>
       <div className="catalog-grid">
+        <a className="ui-card" href="/owner/settings/payments">
+          <h2>Pagos</h2>
+          <p>Mercado Pago Point y QR por sucursal, OAuth y webhooks.</p>
+        </a>
         <a className="ui-card" href="/owner/settings/printers">
           <h2>Impresoras</h2>
           <p>Conexiones ESC/POS, rutas de cocina, pruebas y trabajos fallidos.</p>
@@ -12,4 +16,3 @@ export default function OwnerSettingsPage() {
     </main>
   );
 }
-
