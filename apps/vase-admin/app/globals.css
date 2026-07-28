@@ -225,3 +225,22 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.admin-composite { display:grid; gap:28px; padding-block:28px; }
+.rest-admin { width:min(1320px,calc(100% - 32px)); margin:0 auto; }
+.rest-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
+.rest-health { padding:8px 11px; border-radius:999px; font:700 .68rem/1 var(--font-plex-mono, monospace); text-transform:uppercase; }
+.rest-health-ok { color:var(--jade); background:#e8f2e8; }.rest-health-degraded,.rest-health-unavailable { color:#93453d; background:#f7e8e5; }
+.rest-plan-editor { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; padding:18px; border:1px solid var(--line); border-radius:20px; background:rgba(255,255,255,.54); }
+.rest-plan-editor label { display:grid; gap:7px; color:var(--slate); font-size:.7rem; font-weight:850; text-transform:uppercase; letter-spacing:.06em; }
+.rest-plan-editor input,.rest-plan-editor select { min-height:42px; padding:0 11px; border:1px solid var(--line); border-radius:10px; background:white; font:650 .82rem/1 Manrope,sans-serif; }
+.rest-plan-editor button { align-self:end; min-height:42px; }
+.rest-message { color:var(--jade); font-size:.78rem; font-weight:750; }
+.rest-version-list { display:grid; gap:9px; margin-top:18px; }
+.rest-version-list article { display:grid; grid-template-columns:minmax(230px,.9fr) minmax(280px,1fr) auto auto; align-items:center; gap:14px; padding:15px 17px; border:1px solid var(--line); border-radius:15px; background:rgba(255,255,255,.66); }
+.rest-version-list article div { display:grid; gap:4px; }.rest-version-list article span,.rest-version-list article p { color:var(--slate); font-size:.72rem; }.rest-version-list article strong { font-size:1rem; }.rest-version-list article p { margin:0; }
+.rest-version-list article button { min-height:34px; padding:0 12px; border:1px solid var(--jade); border-radius:999px; color:white; background:var(--jade); font-weight:750; }
+.rest-version-status { padding:6px 8px; border-radius:999px; background:#edf0ed; color:var(--slate); font-size:.62rem; font-style:normal; font-weight:850; }.status-published { color:var(--jade); background:#e8f2e8; }
+.rest-empty { margin:0; padding:18px; border:1px dashed var(--line); border-radius:14px; color:var(--slate); }
+@media (max-width:900px) { .rest-plan-editor { grid-template-columns:repeat(2,minmax(0,1fr)); }.rest-version-list article { grid-template-columns:1fr; } }
+@media (max-width:560px) { .rest-plan-editor { grid-template-columns:1fr; }.rest-heading { flex-direction:column; } }
