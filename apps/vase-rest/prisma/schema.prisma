@@ -20,6 +20,7 @@ model RestTenant {
   devices        Device[]
   edgeInstallations EdgeInstallation[]
   deviceEnrollments DeviceEnrollment[]
+  configurationPolicies ConfigurationPolicy[]
   createdAt      DateTime                     @default(now())
   updatedAt      DateTime                     @updatedAt
 }
@@ -160,6 +161,24 @@ model DeviceEnrollment {
   createdAt      DateTime   @default(now())
 
   @@index([globalTenantId, branchId, expiresAt])
+}
+
+model ConfigurationPolicy {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  family         String
+  scopeType      String
+  scopeId        String
+  value          Json
+  revision       Int        @default(1)
+  updatedBy      String
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([globalTenantId, family, scopeType, scopeId])
+  @@index([globalTenantId, family])
 }
 
 model StaffSession {
