@@ -20,6 +20,7 @@ describe("Vase Rest Edge foundation", () => {
     expect(database.migrations()).toEqual([
       "001_foundation",
       "002_staff_pin_lockout",
+      "003_runtime_metadata",
     ]);
     database.close();
 
@@ -27,6 +28,7 @@ describe("Vase Rest Edge foundation", () => {
     expect(reopened.migrations()).toEqual([
       "001_foundation",
       "002_staff_pin_lockout",
+      "003_runtime_metadata",
     ]);
     reopened.close();
   });

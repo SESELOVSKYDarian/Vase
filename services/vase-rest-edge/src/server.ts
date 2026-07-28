@@ -45,6 +45,33 @@ const server = createServer({
     response.end(JSON.stringify(health));
     return;
   }
+  if (request.method === "GET" && request.url === "/identity") {
+    const identity = database.raw.prepare(`
+      SELECT installation_id, certificate_fingerprint
+      FROM edge_identity WHERE id = 'current'
+    `).get() as {
+      installation_id: string; certificate_fingerprint: string;
+    } | undefined;
+    if (!identity) {
+      response.writeHead(404, { "content-type": "application/json" });
+      response.end(JSON.stringify({ error: "EDGE_NOT_ENROLLED" }));
+      return;
+    }
+    const sync = database.raw.prepare(
+      "SELECT value FROM edge_runtime WHERE key = 'last_cloud_sync_at'",
+    ).get() as { value: string } | undefined;
+    const pending = database.raw.prepare(
+      "SELECT COUNT(*) AS count FROM outbox WHERE state = 'PENDING'",
+    ).get() as { count: number };
+    response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    response.end(JSON.stringify({
+      installationId: identity.installation_id,
+      certificateFingerprint: identity.certificate_fingerprint,
+      lastCloudSyncAt: sync?.value ?? null,
+      pendingEvents: pending.count,
+    }));
+    return;
+  }
   try {
     if (request.method === "POST" && request.url === "/enroll") {
       const input = await body(request);
@@ -76,6 +103,15 @@ const server = createServer({
         sessionSecret,
       );
       const input = await body(request);
+      const aggregateType = String(input.aggregateType ?? "");
+      const capability = aggregateType === "TABLE" ? "tables:write"
+        : aggregateType === "ORDER" ? "orders:write"
+          : aggregateType === "KITCHEN_TICKET" ? "kds:operate"
+            : aggregateType === "INVENTORY" ? "inventory:write" : null;
+      if (!capability || !session.roles.some((role) =>
+        role.branchId === session.branchId && role.capabilities.includes(capability))) {
+        throw new Error("EDGE_STAFF_CAPABILITY_FORBIDDEN");
+      }
       const result = acceptLocalCommand(database, {
         ...input,
         actorId: session.staffId,
@@ -83,6 +119,33 @@ const server = createServer({
       });
       response.writeHead(202, { "content-type": "application/json", "cache-control": "no-store" });
       response.end(JSON.stringify(result));
+      return;
+    }
+    if (request.method === "GET" && request.url?.startsWith("/state")) {
+      const session = validateOfflineSession(
+        database,
+        request.headers.authorization,
+        sessionSecret,
+      );
+      const url = new URL(request.url, `https://${request.headers.host ?? "edge.local"}`);
+      const aggregateType = url.searchParams.get("aggregateType");
+      if (!aggregateType) throw new Error("EDGE_AGGREGATE_TYPE_REQUIRED");
+      const rows = database.raw.prepare(`
+        SELECT aggregate_id, version, state_json, updated_at
+        FROM aggregate_state WHERE aggregate_type = ? ORDER BY updated_at DESC
+      `).all(aggregateType) as Array<{
+        aggregate_id: string; version: number; state_json: string; updated_at: string;
+      }>;
+      response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      response.end(JSON.stringify({
+        branchId: session.branchId,
+        aggregates: rows.map((row) => ({
+          aggregateId: row.aggregate_id,
+          version: row.version,
+          state: JSON.parse(row.state_json),
+          updatedAt: row.updated_at,
+        })),
+      }));
       return;
     }
   } catch (error) {
@@ -135,12 +198,19 @@ async function backgroundSync() {
       fetcher,
     });
     let cloudResult: Awaited<ReturnType<typeof upload>> | undefined;
-    await syncOnce(database, {
-      upload: async (events) => {
-        cloudResult = await upload(events);
-        return cloudResult;
-      },
-    });
+    const pending = database.raw.prepare(
+      "SELECT COUNT(*) AS count FROM outbox WHERE state = 'PENDING'",
+    ).get() as { count: number };
+    if (pending.count === 0) {
+      cloudResult = await upload([]);
+    } else {
+      await syncOnce(database, {
+        upload: async (events) => {
+          cloudResult = await upload(events);
+          return cloudResult;
+        },
+      });
+    }
     if (cloudResult) {
       applySnapshots(database, cloudResult.snapshots);
       if (cloudResult.configDelta.algorithm !== "Ed25519") {
@@ -162,6 +232,10 @@ async function backgroundSync() {
     }).catch((error) => {
       if (!(error instanceof Error && error.message === "EDGE_STAFF_PROJECTION_STALE")) throw error;
     });
+    database.raw.prepare(`
+      INSERT INTO edge_runtime(key, value, updated_at) VALUES ('last_cloud_sync_at', ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `).run(new Date().toISOString(), new Date().toISOString());
   } catch (error) {
     console.error("Edge sync failed", error instanceof Error ? error.message : "UNKNOWN");
   } finally {

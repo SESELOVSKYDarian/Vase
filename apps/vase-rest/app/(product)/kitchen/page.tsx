@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-function token() {
-  try { return JSON.parse(sessionStorage.getItem("vase-rest-staff-session") ?? "{}").sessionToken ?? ""; }
-  catch { return ""; }
-}
+import { readLocalEdgeClient } from "@/lib/edge/local-edge-client";
 type Ticket = {
   id: string; status: string; revision: number; queuedAt: string;
   station: { name: string };
@@ -17,12 +13,13 @@ export default function KitchenPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [error, setError] = useState("");
   async function refresh() {
-    const response = await fetch("/api/v1/kds", {
-      headers: { authorization: `Bearer ${token()}` }, cache: "no-store",
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error);
-    setTickets(payload.tickets);
+    const payload = await readLocalEdgeClient().state("KITCHEN_TICKET") as {
+      aggregates: Array<{ version: number; state: Ticket }>;
+    };
+    setTickets(payload.aggregates.map((aggregate) => ({
+      ...aggregate.state,
+      revision: aggregate.version,
+    })));
   }
   useEffect(() => {
     void refresh().catch((cause) => setError(String(cause)));
@@ -32,17 +29,20 @@ export default function KitchenPage() {
   async function advance(ticket: Ticket) {
     const to = ticket.status === "QUEUED" ? "PREPARING"
       : ticket.status === "PREPARING" ? "READY" : "SERVED";
-    const response = await fetch("/api/v1/kds", {
-      method: "POST",
-      headers: { authorization: `Bearer ${token()}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        ticketId: ticket.id, expectedRevision: ticket.revision,
-        to, commandId: crypto.randomUUID(),
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok) { setError(payload.error); return; }
-    await refresh();
+    try {
+      await readLocalEdgeClient().command({
+        eventId: crypto.randomUUID(),
+        aggregateType: "KITCHEN_TICKET",
+        aggregateId: ticket.id,
+        expectedVersion: ticket.revision,
+        eventType: `KITCHEN_TICKET_${to}`,
+        idempotencyKey: crypto.randomUUID(),
+        payload: { ...ticket, status: to, revision: ticket.revision + 1 },
+      });
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "REST_EDGE_COMMAND_FAILED");
+    }
   }
   return (
     <main className="product-content kds-screen">

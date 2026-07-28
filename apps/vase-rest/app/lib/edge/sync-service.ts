@@ -4,6 +4,7 @@ import {
 } from "@vase/contracts";
 import { Prisma } from "@prisma/client";
 import { db } from "../db";
+import { z } from "zod";
 
 export type SyncReceipt = {
   eventId: string;
@@ -98,6 +99,92 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
       const current = aggregate?.version ?? 0;
       if (event.aggregateVersion !== current + 1) {
         throw new Error("AGGREGATE_VERSION_CONFLICT");
+      }
+      if (event.aggregateType === "TABLE") {
+        const payload = z.object({
+          status: z.enum(["AVAILABLE", "RESERVED", "OCCUPIED", "DIRTY", "CLEANING", "DISABLED"]),
+        }).passthrough().parse(event.payload);
+        const table = await tx.diningTable.findFirst({
+          where: {
+            id: event.aggregateId,
+            globalTenantId: event.globalTenantId,
+            branchId: event.branchId,
+          },
+        });
+        if (!table || table.revision + 1 !== event.aggregateVersion) {
+          throw new Error("AGGREGATE_VERSION_CONFLICT");
+        }
+        const transitions: Record<string, string[]> = {
+          AVAILABLE: ["RESERVED", "OCCUPIED", "DISABLED"],
+          RESERVED: ["OCCUPIED", "AVAILABLE"],
+          OCCUPIED: ["DIRTY"],
+          DIRTY: ["CLEANING"],
+          CLEANING: ["AVAILABLE"],
+          DISABLED: ["AVAILABLE"],
+        };
+        if (!transitions[table.status]?.includes(payload.status)) {
+          throw new Error("EDGE_EVENT_TRANSITION_INVALID");
+        }
+        await tx.diningTable.update({
+          where: { id: table.id },
+          data: { status: payload.status, revision: event.aggregateVersion },
+        });
+      }
+      if (event.aggregateType === "KITCHEN_TICKET") {
+        const payload = z.object({
+          status: z.enum(["QUEUED", "PREPARING", "READY", "SERVED", "CANCELLED"]),
+        }).passthrough().parse(event.payload);
+        const ticket = await tx.kitchenTicket.findFirst({
+          where: {
+            id: event.aggregateId,
+            globalTenantId: event.globalTenantId,
+            branchId: event.branchId,
+          },
+        });
+        if (!ticket || ticket.revision + 1 !== event.aggregateVersion) {
+          throw new Error("AGGREGATE_VERSION_CONFLICT");
+        }
+        const transitions: Record<string, string[]> = {
+          QUEUED: ["PREPARING", "CANCELLED"],
+          PREPARING: ["READY", "CANCELLED"],
+          READY: ["SERVED"],
+        };
+        if (!transitions[ticket.status]?.includes(payload.status)) {
+          throw new Error("EDGE_EVENT_TRANSITION_INVALID");
+        }
+        await tx.kitchenTicket.update({
+          where: { id: ticket.id },
+          data: {
+            status: payload.status,
+            revision: event.aggregateVersion,
+            ...(payload.status === "PREPARING" ? { preparingAt: new Date() } : {}),
+            ...(payload.status === "READY" ? { readyAt: new Date() } : {}),
+            ...(payload.status === "SERVED" ? { servedAt: new Date() } : {}),
+            ...(payload.status === "CANCELLED" ? { cancelledAt: new Date() } : {}),
+          },
+        });
+        await tx.orderItem.update({
+          where: { id: ticket.orderItemId },
+          data: { status: payload.status, revision: { increment: 1 } },
+        });
+        const pending = await tx.kitchenTicket.count({
+          where: {
+            orderId: ticket.orderId,
+            status: payload.status === "SERVED"
+              ? { notIn: ["SERVED", "CANCELLED"] }
+              : { notIn: ["READY", "SERVED", "CANCELLED"] },
+          },
+        });
+        await tx.restaurantOrder.update({
+          where: { id: ticket.orderId },
+          data: {
+            status: payload.status === "SERVED" && pending === 0 ? "SERVED"
+              : payload.status === "READY" && pending === 0 ? "READY"
+                : payload.status === "READY" ? "PARTIALLY_READY" : undefined,
+            ...(payload.status === "SERVED" && pending === 0 ? { servedAt: new Date() } : {}),
+            revision: { increment: 1 },
+          },
+        });
       }
       await tx.edgeAggregateProjection.upsert({
         where: {

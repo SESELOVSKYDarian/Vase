@@ -40,6 +40,16 @@ export function openEdgeDatabase(input: { dataDir: string }): EdgeDatabase {
           ALTER TABLE staff_projection ADD COLUMN locked_until TEXT;
         `,
       },
+      {
+        version: "003_runtime_metadata",
+        sql: `
+          CREATE TABLE edge_runtime (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+        `,
+      },
     ];
     for (const migration of migrations) {
       const applied = database.prepare(

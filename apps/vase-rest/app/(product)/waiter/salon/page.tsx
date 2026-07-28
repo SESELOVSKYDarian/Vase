@@ -1,49 +1,49 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { readLocalEdgeClient } from "@/lib/edge/local-edge-client";
 
 type Table = {
   id: string; code: string; name: string; capacity: number;
   x: string; y: string; width: string; height: string;
   status: string; revision: number; mergedIntoId: string | null;
 };
-type Floor = { id: string; name: string; tables: Table[] };
-
-function staffToken() {
-  try {
-    return JSON.parse(sessionStorage.getItem("vase-rest-staff-session") ?? "{}").sessionToken ?? "";
-  } catch { return ""; }
-}
+type Floor = { id: string; name: string; tables: Array<Table & { aggregateVersion: number }> };
 
 export default function SalonPage() {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [error, setError] = useState("");
   async function refresh() {
-    const response = await fetch("/api/v1/salon", {
-      headers: { authorization: `Bearer ${staffToken()}` },
-      cache: "no-store",
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error);
-    setFloors(payload.floors);
+    const payload = await readLocalEdgeClient().state("TABLE") as {
+      aggregates: Array<{ version: number; state: Table }>;
+    };
+    setFloors([{
+      id: "edge-floor",
+      name: "Sucursal",
+      tables: payload.aggregates.map((aggregate) => ({
+        ...aggregate.state,
+        aggregateVersion: aggregate.version,
+      })),
+    }]);
   }
   useEffect(() => { void refresh().catch((cause) => setError(String(cause))); }, []);
 
   async function transition(table: Table, to: string) {
-    const response = await fetch("/api/v1/salon", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${staffToken()}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        action: "TRANSITION", tableId: table.id,
-        expectedRevision: table.revision, to,
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok) { setError(payload.error); return; }
-    await refresh();
+    try {
+      const version = (table as Table & { aggregateVersion: number }).aggregateVersion;
+      await readLocalEdgeClient().command({
+        eventId: crypto.randomUUID(),
+        aggregateType: "TABLE",
+        aggregateId: table.id,
+        expectedVersion: version,
+        eventType: `TABLE_${to}`,
+        idempotencyKey: crypto.randomUUID(),
+        payload: { ...table, status: to, revision: version + 1 },
+      });
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "REST_EDGE_COMMAND_FAILED");
+    }
   }
 
   return (

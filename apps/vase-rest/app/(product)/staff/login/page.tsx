@@ -2,6 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import {
+  authenticateLocalStaff,
+  edgePairingSchema,
+} from "@/lib/edge/local-edge-client";
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -16,34 +20,33 @@ export default function StaffLoginPage() {
       setError("Este equipo todavía no fue enrolado por el dueño.");
       return;
     }
-    let device: { globalTenantId: string; branchId: string; deviceId: string };
+    let device;
     try {
-      device = JSON.parse(pairing);
+      device = edgePairingSchema.parse(JSON.parse(pairing));
     } catch {
       setError("La configuración local del dispositivo es inválida.");
       return;
     }
     setBusy(true);
     const form = new FormData(event.currentTarget);
-    const response = await fetch("/api/v1/access/pin", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        ...device,
-        employeeCode: form.get("employeeCode"),
-        pin: form.get("pin"),
-      }),
-    });
-    const payload = await response.json();
-    setBusy(false);
-    if (!response.ok) {
-      setError(payload.error === "REST_PIN_INVALID"
+    try {
+      const payload = await authenticateLocalStaff({
+        pairing: device,
+        employeeCode: String(form.get("employeeCode") ?? ""),
+        pin: String(form.get("pin") ?? ""),
+      });
+      sessionStorage.setItem("vase-rest-staff-session", JSON.stringify(payload));
+      router.replace("/staff");
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "REST_EDGE_STAFF_LOGIN_FAILED";
+      setError(code === "REST_PIN_INVALID"
         ? "Código o PIN incorrecto."
-        : payload.error ?? "No se pudo iniciar el turno.");
-      return;
+        : code === "REST_EDGE_UNAVAILABLE"
+          ? "El servicio local de la sucursal no está disponible."
+          : "No se pudo validar este equipo con el servicio local.");
+    } finally {
+      setBusy(false);
     }
-    sessionStorage.setItem("vase-rest-staff-session", JSON.stringify(payload));
-    router.replace("/staff");
   }
 
   return (
