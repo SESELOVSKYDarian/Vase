@@ -1,0 +1,25 @@
+{
+  "name": "@vase/rest-edge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "node --experimental-sqlite ../../node_modules/tsx/dist/cli.mjs watch src/server.ts",
+    "start": "node --experimental-sqlite ../../node_modules/tsx/dist/cli.mjs src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "cross-env NODE_OPTIONS=--experimental-sqlite vitest run tests"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "cross-env": "^7.0.3",
+    "tsx": "^4.20.3",
+    "typescript": "^5",
+    "vitest": "^4.1.2"
+  }
+}
