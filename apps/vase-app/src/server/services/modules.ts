@@ -2,8 +2,9 @@ import { ModulePricingType, ModuleProduct, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { platformModules } from "@/config/modules";
 
-function toModuleProduct(product: "BUSINESS" | "LABS" | "MANAGEMENT") {
+function toModuleProduct(product: "BUSINESS" | "LABS" | "MANAGEMENT" | "REST") {
   if (product === "MANAGEMENT") return ModuleProduct.MANAGEMENT;
+  if (product === "REST") return ModuleProduct.REST;
   return product === "BUSINESS" ? ModuleProduct.BUSINESS : ModuleProduct.LABS;
 }
 
@@ -113,7 +114,7 @@ export async function ensureModuleCatalogSynced() {
         where: { moduleId: definition.id },
       });
 
-      if (pricingCount === 0) {
+      if (pricingCount === 0 && definition.defaultPricing) {
         await prisma.modulePricing.create({
           data: {
             moduleId: definition.id,

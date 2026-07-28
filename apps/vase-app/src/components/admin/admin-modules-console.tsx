@@ -26,7 +26,7 @@ type ModuleView = {
   id: string;
   name: string;
   description: string | null;
-  product: "BUSINESS" | "LABS" | "MANAGEMENT";
+  product: "BUSINESS" | "LABS" | "MANAGEMENT" | "REST";
   route: string;
   isActive: boolean;
   submodules: SubmoduleView[];

@@ -2,15 +2,16 @@ import {
   Building2,
   FlaskConical,
   Landmark,
+  UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 
-export type PlatformModuleId = "vase_business" | "vase_labs" | "vase_management";
-export type PlatformModuleKey = "business" | "labs" | "management";
+export type PlatformModuleId = "vase_business" | "vase_labs" | "vase_management" | "vase_rest";
+export type PlatformModuleKey = "business" | "labs" | "management" | "rest";
 export type ModuleBillingType = "monthly" | "one_time" | "yearly" | "custom" | "included";
 export type ModuleStatus = "active" | "inactive";
-export type ModuleProduct = "BUSINESS" | "LABS" | "MANAGEMENT";
+export type ModuleProduct = "BUSINESS" | "LABS" | "MANAGEMENT" | "REST";
 
 export type PlatformSubmoduleDefinition = {
   key: string;
@@ -36,14 +37,14 @@ export type PlatformModuleDefinition = {
   icon: LucideIcon;
   product: ModuleProduct;
   featureFlagKey: string;
-  supportedProducts: readonly ("BUSINESS" | "LABS" | "BOTH" | "MANAGEMENT")[];
+  supportedProducts: readonly ("BUSINESS" | "LABS" | "BOTH" | "MANAGEMENT" | "REST")[];
   recommendedFlagPrefixes: readonly string[];
   activationMode: "automatic" | "manual" | "future";
   defaultPricing: {
     price: number;
     currency: string;
     type: Extract<ModuleBillingType, "monthly" | "one_time">;
-  };
+  } | null;
   submodules: readonly PlatformSubmoduleDefinition[];
   billing: {
     type: ModuleBillingType;
@@ -80,6 +81,7 @@ export const MODULE_ICON_MAP: Record<PlatformModuleKey, LucideIcon> = {
   business: Building2,
   labs: FlaskConical,
   management: Landmark,
+  rest: UtensilsCrossed,
 };
 
 export const platformModules: readonly PlatformModuleDefinition[] = [
@@ -216,6 +218,24 @@ export const platformModules: readonly PlatformModuleDefinition[] = [
     defaultPricing: { price: 95000, currency: "ARS", type: "monthly" },
     submodules: [],
     billing: { type: "monthly", monthlyFrom: 95000, setupFrom: 350000, currency: "ARS" },
+  },
+  {
+    id: "vase_rest",
+    key: "rest",
+    name: "vase_rest",
+    description: "Operación gastronómica multi-sucursal con continuidad Edge, cocina, salón, caja e inventario.",
+    summary: "Restaurantes conectados, configurables por sucursal y preparados para operar sin internet.",
+    route: "https://rest.vase.ar",
+    activationRoute: "/precios#rest",
+    icon: UtensilsCrossed,
+    product: "REST",
+    featureFlagKey: "rest_enabled",
+    supportedProducts: ["REST"],
+    recommendedFlagPrefixes: ["rest_", "restaurant_", "edge_"],
+    activationMode: "automatic",
+    defaultPricing: null,
+    submodules: [],
+    billing: { type: "monthly", monthlyFrom: null, currency: "ARS" },
   },
 ] as const;
 

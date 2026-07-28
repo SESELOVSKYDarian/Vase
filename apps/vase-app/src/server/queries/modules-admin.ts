@@ -84,7 +84,7 @@ export async function getAdminModulesCatalog() {
             isActive: currentPricing.isActive,
             updatedAt: currentPricing.updatedAt,
           }
-        : definition
+        : definition?.defaultPricing
           ? {
               id: null,
               price: definition.defaultPricing.price,
