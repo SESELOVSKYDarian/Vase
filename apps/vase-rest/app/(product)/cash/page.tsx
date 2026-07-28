@@ -1,13 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { readCloudStaffToken } from "@/lib/edge/local-edge-client";
 
 function token() {
-  try {
-    return JSON.parse(sessionStorage.getItem("vase-rest-staff-session") ?? "{}").sessionToken ?? "";
-  } catch {
-    return "";
-  }
+  return readCloudStaffToken();
 }
 
 type Drawer = {

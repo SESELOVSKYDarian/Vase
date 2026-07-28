@@ -1,10 +1,10 @@
 "use client";
 
 import { use, useEffect, useState, type FormEvent } from "react";
+import { readCloudStaffToken } from "@/lib/edge/local-edge-client";
 
 function token() {
-  try { return JSON.parse(sessionStorage.getItem("vase-rest-staff-session") ?? "{}").sessionToken ?? ""; }
-  catch { return ""; }
+  return readCloudStaffToken();
 }
 type Product = { id: string; name: string; sku: string };
 type Category = { id: string; name: string; products: Product[] };

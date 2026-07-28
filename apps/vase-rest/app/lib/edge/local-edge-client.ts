@@ -63,6 +63,7 @@ export async function authenticateLocalStaff(input: {
   if (!response.ok) throw new Error(payload.error ?? "REST_EDGE_STAFF_LOGIN_FAILED");
   const session = z.object({
     sessionToken: z.string().min(1),
+    cloudSessionToken: z.string().min(1).optional(),
     branchId: z.string().min(1),
     staffId: z.string().min(1),
   }).passthrough().parse(payload);
@@ -70,6 +71,19 @@ export async function authenticateLocalStaff(input: {
     throw new Error("REST_EDGE_SESSION_SCOPE_MISMATCH");
   }
   return session;
+}
+
+export function readCloudStaffToken() {
+  try {
+    const session = z.object({
+      cloudSessionToken: z.string().min(1),
+    }).passthrough().parse(JSON.parse(
+      sessionStorage.getItem("vase-rest-staff-session") ?? "{}",
+    ));
+    return session.cloudSessionToken;
+  } catch {
+    return "";
+  }
 }
 
 export function createLocalEdgeClient(input: {

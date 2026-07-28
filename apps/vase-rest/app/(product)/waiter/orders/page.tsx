@@ -2,10 +2,10 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { readCloudStaffToken } from "@/lib/edge/local-edge-client";
 
 function sessionToken() {
-  try { return JSON.parse(sessionStorage.getItem("vase-rest-staff-session") ?? "{}").sessionToken ?? ""; }
-  catch { return ""; }
+  return readCloudStaffToken();
 }
 type Order = {
   id: string; orderNumber: number; status: string; total: string;

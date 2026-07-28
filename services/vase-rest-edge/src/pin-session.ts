@@ -66,6 +66,9 @@ export async function authenticateOfflinePin(database: EdgeDatabase, raw: unknow
   return {
     sessionToken: token,
     expiresAt: expiresAt.toISOString(),
+    branchId: input.branchId,
+    staffId: employee.staff_id,
+    deviceId: input.deviceId,
     staff: { id: employee.staff_id, displayName: employee.display_name, roles },
   };
 }

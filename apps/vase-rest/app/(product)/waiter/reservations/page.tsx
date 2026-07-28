@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { readCloudStaffToken } from "@/lib/edge/local-edge-client";
 
 type Reservation = {
   id: string; guestName: string; partySize: number; startsAt: string;
@@ -8,8 +9,7 @@ type Reservation = {
   tables: Array<{ table: { id: string; code: string } }>;
 };
 function token() {
-  try { return JSON.parse(sessionStorage.getItem("vase-rest-staff-session") ?? "{}").sessionToken ?? ""; }
-  catch { return ""; }
+  return readCloudStaffToken();
 }
 
 export default function ReservationsPage() {

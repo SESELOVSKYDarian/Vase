@@ -39,6 +39,11 @@ describe("Rest Edge offline PIN sessions", () => {
     });
     expect(result.staff.roles[0]?.role).toBe("WAITER");
     expect(result.sessionToken.length).toBeGreaterThan(30);
+    expect(result).toMatchObject({
+      branchId: "branch_1",
+      staffId: "staff_1",
+      deviceId: "device_1",
+    });
     database.close();
   });
 

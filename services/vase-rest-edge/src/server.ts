@@ -101,12 +101,63 @@ const server = createServer({
     }
     if (request.method === "POST" && request.url === "/access/pin") {
       const input = await body(request);
+      const identity = database.raw.prepare(`
+        SELECT global_tenant_id, branch_id, installation_id, certificate_fingerprint
+        FROM edge_identity WHERE id = 'current' AND status = 'ACTIVE'
+      `).get() as {
+        global_tenant_id: string;
+        branch_id: string;
+        installation_id: string;
+        certificate_fingerprint: string;
+      } | undefined;
+      if (!identity) throw new Error("EDGE_NOT_ENROLLED");
       const result = await authenticateOfflinePin(database, {
         ...input,
+        branchId: identity.branch_id,
+        deviceId: identity.installation_id,
         sessionSecret,
       });
+      let cloudSessionToken: string | undefined;
+      try {
+        const fetcher = createMtlsFetch({
+          keyPath: config.tlsKeyPath,
+          certPath: config.tlsCertPath,
+        });
+        const cloudResponse = await fetcher(
+          new URL("/api/v1/edge/session", config.cloudBaseUrl),
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-vase-edge-installation-id": identity.installation_id,
+              "x-vase-client-cert-fingerprint": identity.certificate_fingerprint,
+            },
+            body: JSON.stringify({
+              employeeCode: input.employeeCode,
+              pin: input.pin,
+            }),
+            signal: AbortSignal.timeout(10_000),
+          },
+        );
+        const cloud = await cloudResponse.json().catch(() => ({})) as {
+          sessionToken?: string;
+          error?: string;
+        };
+        if (cloudResponse.ok && cloud.sessionToken) {
+          cloudSessionToken = cloud.sessionToken;
+        } else if ([401, 403, 429].includes(cloudResponse.status)) {
+          throw new Error(cloud.error ?? "EDGE_CLOUD_PIN_REJECTED");
+        }
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          (error.message.includes("PIN") ||
+            error.message.includes("FORBIDDEN") ||
+            error.message.includes("LOCKED"))
+        ) throw error;
+      }
       response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-      response.end(JSON.stringify(result));
+      response.end(JSON.stringify({ ...result, cloudSessionToken }));
       return;
     }
     if (request.method === "POST" && request.url === "/commands") {
