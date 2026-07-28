@@ -3,6 +3,7 @@ import { db } from "../db";
 import type { OrderRepository } from "./order-service";
 import type { KitchenRepository } from "../kds/kitchen-service";
 import { splitTax } from "../fiscal/tax-calculation";
+import { effectiveRecipeItems } from "../catalog/effective-recipe";
 
 type Command = Record<string, unknown> & {
   action: string; commandId: string; globalTenantId: string; branchId: string;
@@ -63,6 +64,27 @@ async function consumeRecipes(
     where: { orderId: order.id, status: "DRAFT" },
     include: { product: { include: { recipeItems: true } } },
   });
+  const branchGroupIds = (await tx.branchGroupMember.findMany({
+    where: {
+      globalTenantId: input.globalTenantId,
+      branchId: order.branchId,
+    },
+    select: { branchGroupId: true },
+  })).map((membership) => membership.branchGroupId);
+  const scopedItems = items.map((item) => ({
+    ...item,
+    effectiveRecipe: effectiveRecipeItems({
+      globalTenantId: input.globalTenantId,
+      branchId: order.branchId,
+      branchGroupIds,
+      items: item.product.recipeItems.map((recipe) => ({
+        scopeType: recipe.scopeType,
+        scopeId: recipe.scopeId,
+        scopeRevision: recipe.scopeRevision,
+        value: recipe,
+      })),
+    }),
+  }));
   const warehouseLink = await tx.warehouseBranch.findFirst({
     where: {
       globalTenantId: input.globalTenantId,
@@ -71,11 +93,11 @@ async function consumeRecipes(
     },
     orderBy: { isDefault: "desc" },
   });
-  const requiresInventory = items.some((item) => item.product.recipeItems.length > 0);
+  const requiresInventory = scopedItems.some((item) => item.effectiveRecipe.length > 0);
   if (requiresInventory && !warehouseLink) throw new Error("REST_ORDER_WAREHOUSE_NOT_CONFIGURED");
   const quantities = new Map<string, Prisma.Decimal>();
-  for (const item of items) {
-    for (const recipe of item.product.recipeItems) {
+  for (const item of scopedItems) {
+    for (const recipe of item.effectiveRecipe) {
       const current = quantities.get(recipe.ingredientId) ?? new Prisma.Decimal(0);
       quantities.set(
         recipe.ingredientId,

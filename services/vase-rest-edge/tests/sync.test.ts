@@ -15,6 +15,108 @@ afterEach(async () => {
 });
 
 describe("Rest Edge durable sync", () => {
+  it("validates table and reservation cancellation transitions offline", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    applySnapshots(database, [{
+      aggregateType: "TABLE", aggregateId: "t1", version: 1,
+      state: { id: "t1", status: "AVAILABLE", revision: 1, capacity: 4, code: "1" },
+    }, {
+      aggregateType: "RESERVATION", aggregateId: "r1", version: 1,
+      state: {
+        id: "r1", status: "CONFIRMED", revision: 1, guestName: "Ada",
+        startsAt: "2026-07-28T20:00:00.000Z", endsAt: "2026-07-28T22:00:00.000Z",
+        partySize: 2, tableIds: ["t1"], tables: [{ table: { id: "t1", code: "1" } }],
+      },
+    }]);
+    acceptLocalCommand(database, {
+      eventId: "table-occupied", aggregateType: "TABLE", aggregateId: "t1",
+      expectedVersion: 1, eventType: "TABLE_OCCUPIED", actorId: "staff",
+      deviceId: "device", idempotencyKey: "table-command", payload: {},
+    });
+    acceptLocalCommand(database, {
+      eventId: "reservation-cancelled", aggregateType: "RESERVATION",
+      aggregateId: "r1", expectedVersion: 1,
+      eventType: "RESERVATION_CANCELLED", actorId: "staff", deviceId: "device",
+      idempotencyKey: "reservation-command", payload: { reason: "Cliente canceló" },
+    });
+    const table = database.raw.prepare(
+      "SELECT state_json FROM aggregate_state WHERE aggregate_type = 'TABLE' AND aggregate_id = 't1'",
+    ).get() as { state_json: string };
+    const reservation = database.raw.prepare(
+      "SELECT state_json FROM aggregate_state WHERE aggregate_type = 'RESERVATION' AND aggregate_id = 'r1'",
+    ).get() as { state_json: string };
+    expect(JSON.parse(table.state_json)).toMatchObject({ status: "OCCUPIED", revision: 2 });
+    expect(JSON.parse(reservation.state_json)).toMatchObject({
+      status: "CANCELLED", cancellationReason: "Cliente canceló", revision: 2,
+    });
+    database.close();
+  });
+
+  it("cancels an open order offline without trusting a browser total", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    applySnapshots(database, [{
+      aggregateType: "ORDER", aggregateId: "o-cancel", version: 2,
+      state: {
+        id: "o-cancel", status: "OPEN", revision: 2, total: "100.00",
+        subtotal: "82.64", taxTotal: "17.36", items: [{ id: "i1", status: "DRAFT" }],
+      },
+    }]);
+    acceptLocalCommand(database, {
+      eventId: "order-cancelled", aggregateType: "ORDER", aggregateId: "o-cancel",
+      expectedVersion: 2, eventType: "ORDER_CANCELLED", actorId: "staff",
+      deviceId: "device", idempotencyKey: "cancel-command",
+      payload: { reason: "Error de carga" },
+    });
+    const order = database.raw.prepare(
+      "SELECT state_json FROM aggregate_state WHERE aggregate_type = 'ORDER' AND aggregate_id = 'o-cancel'",
+    ).get() as { state_json: string };
+    expect(JSON.parse(order.state_json)).toMatchObject({
+      status: "CANCELLED", cancellationReason: "Error de carga", revision: 3,
+    });
+    database.close();
+  });
+
+  it("splits and merges draft orders atomically in local Edge state", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    const item = (id: string, amount: string) => ({
+      id, status: "DRAFT", lineTotal: amount, netTotal: amount, taxAmount: "0.00",
+    });
+    applySnapshots(database, [{
+      aggregateType: "ORDER", aggregateId: "source", version: 1,
+      state: {
+        id: "source", status: "OPEN", revision: 1, orderNumber: 1,
+        subtotal: "30.00", taxTotal: "0.00", total: "30.00",
+        items: [item("i1", "10.00"), item("i2", "20.00")],
+      },
+    }]);
+    acceptLocalCommand(database, {
+      eventId: "split", aggregateType: "ORDER", aggregateId: "source",
+      expectedVersion: 1, eventType: "ORDER_SPLIT", actorId: "staff",
+      deviceId: "device", idempotencyKey: "split-command",
+      payload: { itemIds: ["i2"], newOrderId: "split-order" },
+    });
+    acceptLocalCommand(database, {
+      eventId: "merge", aggregateType: "ORDER", aggregateId: "source",
+      expectedVersion: 2, eventType: "ORDER_MERGED", actorId: "staff",
+      deviceId: "device", idempotencyKey: "merge-command",
+      payload: { sourceOrderId: "split-order", sourceExpectedVersion: 2 },
+    });
+    const target = database.raw.prepare(
+      "SELECT state_json FROM aggregate_state WHERE aggregate_type = 'ORDER' AND aggregate_id = 'source'",
+    ).get() as { state_json: string };
+    const merged = database.raw.prepare(
+      "SELECT state_json FROM aggregate_state WHERE aggregate_type = 'ORDER' AND aggregate_id = 'split-order'",
+    ).get() as { state_json: string };
+    expect(JSON.parse(target.state_json)).toMatchObject({ total: "30.00", revision: 3 });
+    expect(JSON.parse(merged.state_json)).toMatchObject({ status: "MERGED", revision: 3 });
+    database.close();
+  });
   it("commits local aggregate and outbox together and orders uploads", async () => {
     const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
     cleanup.push(dir);

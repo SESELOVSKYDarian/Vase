@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { resolveRestOwnerRequest } from "@/lib/request-context";
 import { createStaffService } from "@/lib/staff/staff-service";
 import { prismaStaffRepository } from "@/lib/staff/staff-repository";
+import { resolveRestStaffRequest } from "@/lib/staff/staff-request-context";
+import { db } from "@/lib/db";
 
 const service = createStaffService(prismaStaffRepository);
 
@@ -10,11 +12,29 @@ export async function PATCH(
   { params }: { params: Promise<{ staffId: string }> },
 ) {
   try {
-    const tenant = new URL(request.url).searchParams.get("tenant") ?? undefined;
-    const context = await resolveRestOwnerRequest({
-      cookieHeader: request.headers.get("cookie"),
-      requestedTenantSlug: tenant,
-    });
+    const authorization = request.headers.get("authorization");
+    const context = authorization
+      ? await (async () => {
+        const staff = await resolveRestStaffRequest({
+          authorization,
+          requiredCapability: "staff:write",
+        });
+        const entitlement = await db.restEntitlementProjection.findUniqueOrThrow({
+          where: { globalTenantId: staff.globalTenantId },
+        });
+        return {
+          globalTenantId: staff.globalTenantId,
+          actor: { id: staff.actorId },
+          entitlement: {
+            limits: { localEmployees: entitlement.localEmployeeLimit },
+            status: entitlement.status,
+          },
+        };
+      })()
+      : await resolveRestOwnerRequest({
+        cookieHeader: request.headers.get("cookie"),
+        requestedTenantSlug: new URL(request.url).searchParams.get("tenant") ?? undefined,
+      });
     const { staffId } = await params;
     const staff = await service.update({
       globalTenantId: context.globalTenantId,

@@ -31,6 +31,10 @@ export default function OrderPage({
   const [order, setOrder] = useState<Order | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [mergeCandidates, setMergeCandidates] = useState<Array<{
+    id: string; version: number; orderNumber: number | null;
+  }>>([]);
 
   async function refresh() {
     const client = readLocalEdgeClient();
@@ -46,7 +50,12 @@ export default function OrderPage({
     ];
     const found = orders.aggregates.find((item) => item.aggregateId === orderId);
     if (!found) throw new Error("EDGE_ORDER_NOT_FOUND");
+    sessionStorage.setItem(`vase-rest-order-version:${orderId}`, String(found.version));
     setOrder({ ...found.state, aggregateVersion: found.version });
+    setMergeCandidates(orders.aggregates.flatMap((item) =>
+      item.aggregateId !== orderId && item.state.status === "OPEN"
+        ? [{ id: item.aggregateId, version: item.version, orderNumber: item.state.orderNumber }]
+        : []));
     const snapshot = catalog.aggregates[0]?.state;
     setCategories((snapshot?.categories ?? []).map((category) => ({
       ...category,
@@ -58,7 +67,10 @@ export default function OrderPage({
     void refresh().catch((cause) => setError(String(cause)));
   }, [orderId]);
 
-  async function command(action: "ADD_ITEM" | "SUBMIT", payload: Record<string, unknown>) {
+  async function command(
+    action: "ADD_ITEM" | "SUBMIT" | "SPLIT" | "MERGE",
+    payload: Record<string, unknown>,
+  ) {
     if (!order) return;
     setError("");
     try {
@@ -67,14 +79,17 @@ export default function OrderPage({
         aggregateType: "ORDER",
         aggregateId: orderId,
         expectedVersion: order.aggregateVersion,
-        eventType: action === "ADD_ITEM"
-          ? "ORDER_ITEM_ADDED" : "ORDER_SUBMITTED",
+        eventType: action === "ADD_ITEM" ? "ORDER_ITEM_ADDED"
+          : action === "SUBMIT" ? "ORDER_SUBMITTED"
+            : action === "SPLIT" ? "ORDER_SPLIT" : "ORDER_MERGED",
         idempotencyKey: crypto.randomUUID(),
         payload,
       });
       await refresh();
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "EDGE_ORDER_COMMAND_FAILED");
+      return false;
     }
   }
 
@@ -89,6 +104,25 @@ export default function OrderPage({
       modifiers: [],
     });
     event.currentTarget.reset();
+  }
+  async function cancel() {
+    const reason = prompt("Motivo de cancelación");
+    if (!reason || !order) return;
+    setError("");
+    try {
+      await readLocalEdgeClient().command({
+        eventId: crypto.randomUUID(),
+        aggregateType: "ORDER",
+        aggregateId: order.id,
+        expectedVersion: order.aggregateVersion,
+        eventType: "ORDER_CANCELLED",
+        idempotencyKey: crypto.randomUUID(),
+        payload: { reason },
+      });
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "EDGE_ORDER_CANCEL_FAILED");
+    }
   }
   if (!order) {
     return <main className="product-content"><p>{error || "Cargando pedido…"}</p></main>;
@@ -123,6 +157,15 @@ export default function OrderPage({
       <div className="branch-list">
         {order.items.map((item) => (
           <article key={item.id}>
+            {order.status === "OPEN" ? <input
+              type="checkbox"
+              aria-label={`Separar ${item.nameSnapshot}`}
+              checked={selectedItemIds.includes(item.id)}
+              onChange={(event) => setSelectedItemIds((current) =>
+                event.target.checked
+                  ? [...current, item.id]
+                  : current.filter((id) => id !== item.id))}
+            /> : null}
             <code>{item.status}</code>
             <strong>{item.quantity} × {item.nameSnapshot}</strong>
             <span>ARS {item.lineTotal} {item.notes}</span>
@@ -130,10 +173,44 @@ export default function OrderPage({
         ))}
       </div>
       {order.status === "OPEN" && order.items.length ? (
-        <button className="button button-primary" onClick={() =>
-          void command("SUBMIT", {})}>
-          Enviar a cocina
-        </button>
+        <div className="inline-form">
+          <button className="button button-primary" onClick={() =>
+            void command("SUBMIT", {})}>Enviar a cocina</button>
+          <button className="button" disabled={!selectedItemIds.length} onClick={() => {
+            const newOrderId = crypto.randomUUID();
+            void command("SPLIT", {
+              itemIds: selectedItemIds,
+              newOrderId,
+            }).then((ok) => {
+              if (!ok) return;
+              setSelectedItemIds([]);
+              location.assign(`/waiter/orders/${newOrderId}`);
+            });
+          }}>Separar selección</button>
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            const sourceOrderId = String(form.get("sourceOrderId"));
+            const sourceExpectedVersion = mergeCandidates.find((candidate) =>
+              candidate.id === sourceOrderId)?.version ?? 0;
+            if (!sourceExpectedVersion) {
+              setError("Abrí el pedido origen una vez antes de fusionarlo para validar su versión.");
+              return;
+            }
+            void command("MERGE", { sourceOrderId, sourceExpectedVersion });
+          }}>
+            <label>Pedido a fusionar<select name="sourceOrderId" required>
+              <option value="">Seleccionar</option>
+              {mergeCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>
+                {candidate.orderNumber ? `#${candidate.orderNumber}` : candidate.id}
+              </option>)}
+            </select></label>
+            <button className="button">Fusionar</button>
+          </form>
+        </div>
+      ) : null}
+      {["OPEN", "SUBMITTED", "PARTIALLY_READY"].includes(order.status) ? (
+        <button className="button" onClick={() => void cancel()}>Cancelar pedido</button>
       ) : null}
     </main>
   );

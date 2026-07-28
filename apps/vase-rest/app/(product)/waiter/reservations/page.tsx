@@ -59,6 +59,24 @@ export default function ReservationsPage() {
     }
   }
 
+  async function cancel(row: Reservation) {
+    const reason = prompt("Motivo de cancelación (opcional)") ?? undefined;
+    try {
+      await readLocalEdgeClient().command({
+        eventId: crypto.randomUUID(),
+        aggregateType: "RESERVATION",
+        aggregateId: row.id,
+        expectedVersion: row.revision,
+        eventType: "RESERVATION_CANCELLED",
+        idempotencyKey: crypto.randomUUID(),
+        payload: { ...(reason ? { reason } : {}) },
+      });
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "EDGE_RESERVATION_CANCEL_FAILED");
+    }
+  }
+
   return (
     <main className="product-content">
       <p className="eyebrow">Agenda de sucursal</p>
@@ -86,6 +104,9 @@ export default function ReservationsPage() {
               {new Date(row.startsAt).toLocaleString("es-AR")} ·{" "}
               {row.tables.map((link) => link.table.code).join(", ")}
             </span>
+            {["CONFIRMED", "SEATED"].includes(row.status) ? (
+              <button className="button" onClick={() => void cancel(row)}>Cancelar</button>
+            ) : null}
           </article>
         ))}
       </div>

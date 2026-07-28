@@ -4,6 +4,8 @@ const recipeSchema = z.object({
   globalTenantId: z.string().min(1),
   productId: z.string().min(1),
   expectedRevision: z.number().int().positive(),
+  scopeType: z.enum(["TENANT", "BRANCH_GROUP", "BRANCH"]).default("TENANT"),
+  scopeId: z.string().min(1).optional(),
   items: z.array(z.object({
     ingredientId: z.string().min(1),
     quantity: z.string().regex(/^\d+(?:\.\d{1,6})?$/)

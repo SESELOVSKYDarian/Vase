@@ -43,6 +43,20 @@ type CatalogProduct = {
   }>;
 };
 
+function orderTotals(items: Array<Record<string, unknown>>) {
+  return {
+    subtotal: formatMoney(items.reduce(
+      (sum, item) => sum + cents(String(item.netTotal)), BigInt(0),
+    )),
+    taxTotal: formatMoney(items.reduce(
+      (sum, item) => sum + cents(String(item.taxAmount)), BigInt(0),
+    )),
+    total: formatMoney(items.reduce(
+      (sum, item) => sum + cents(String(item.lineTotal)), BigInt(0),
+    )),
+  };
+}
+
 function catalog(database: EdgeDatabase) {
   const row = database.raw.prepare(`
     SELECT version, state_json FROM aggregate_state
@@ -327,6 +341,200 @@ function orderTransition(
       createdTickets: tickets,
     };
   }
+  if (input.eventType === "ORDER_CANCELLED") {
+    if (!["OPEN", "SUBMITTED", "PARTIALLY_READY"].includes(String(current.status))) {
+      throw new Error("EDGE_ORDER_STATUS_INVALID");
+    }
+    const intent = z.object({
+      reason: z.string().trim().min(2).max(500),
+    }).strict().parse(input.payload);
+    const additionalStates: Array<{
+      aggregateType: string;
+      aggregateId: string;
+      version: number;
+      state: Record<string, unknown>;
+    }> = [];
+    const restorations: Array<{
+      allocationId: string;
+      ingredientId: string;
+      warehouseId: string;
+      quantity: string;
+      restoredAfter: string;
+      expectedRevision: number;
+    }> = [];
+    if (current.status !== "OPEN") {
+      const items = z.array(z.record(z.string(), z.unknown())).parse(current.items ?? []);
+      const required = new Map<string, number>();
+      for (const item of items) {
+        const recipes = z.array(z.object({
+          ingredientId: z.string(),
+          quantity: z.string(),
+        })).parse(item.recipeItems ?? []);
+        for (const recipe of recipes) {
+          required.set(
+            recipe.ingredientId,
+            (required.get(recipe.ingredientId) ?? 0) +
+              Math.round(Number(recipe.quantity) * 1_000_000) * Number(item.quantity),
+          );
+        }
+      }
+      const allocations = database.raw.prepare(`
+        SELECT aggregate_id, version, state_json FROM aggregate_state
+        WHERE aggregate_type = 'INVENTORY_ALLOCATION'
+      `).all() as Array<{ aggregate_id: string; version: number; state_json: string }>;
+      for (const [ingredientId, quantity] of required) {
+        const row = allocations.find((candidate) =>
+          JSON.parse(candidate.state_json).ingredientId === ingredientId);
+        if (!row) throw new Error("EDGE_INVENTORY_ALLOCATION_REQUIRED");
+        const allocation = z.object({
+          id: z.string(), ingredientId: z.string(), warehouseId: z.string(),
+          available: z.string(), revision: z.number().int(),
+        }).passthrough().parse(JSON.parse(row.state_json));
+        const restoredAfter = (
+          Math.round(Number(allocation.available) * 1_000_000) + quantity
+        ) / 1_000_000;
+        restorations.push({
+          allocationId: allocation.id,
+          ingredientId,
+          warehouseId: allocation.warehouseId,
+          quantity: (quantity / 1_000_000).toFixed(6),
+          restoredAfter: restoredAfter.toFixed(6),
+          expectedRevision: row.version,
+        });
+        additionalStates.push({
+          aggregateType: "INVENTORY_ALLOCATION",
+          aggregateId: row.aggregate_id,
+          version: row.version + 1,
+          state: {
+            ...allocation,
+            available: restoredAfter.toFixed(6),
+            revision: row.version + 1,
+          },
+        });
+      }
+      const tickets = database.raw.prepare(`
+        SELECT aggregate_id, version, state_json FROM aggregate_state
+        WHERE aggregate_type = 'KITCHEN_TICKET'
+      `).all() as Array<{ aggregate_id: string; version: number; state_json: string }>;
+      for (const row of tickets) {
+        const ticket = JSON.parse(row.state_json) as Record<string, unknown>;
+        if (
+          ticket.orderId === input.aggregateId &&
+          !["SERVED", "CANCELLED"].includes(String(ticket.status))
+        ) {
+          additionalStates.push({
+            aggregateType: "KITCHEN_TICKET",
+            aggregateId: row.aggregate_id,
+            version: row.version + 1,
+            state: { ...ticket, status: "CANCELLED", revision: row.version + 1 },
+          });
+        }
+      }
+    }
+    const cancelledAt = new Date().toISOString();
+    return {
+      eventPayload: {
+        reason: intent.reason,
+        cancelledAt,
+        restorations,
+        cancelledTicketIds: additionalStates
+          .filter((state) => state.aggregateType === "KITCHEN_TICKET")
+          .map((state) => state.aggregateId),
+      },
+      state: {
+        ...current,
+        status: "CANCELLED",
+        cancelledAt,
+        cancellationReason: intent.reason,
+        revision: nextVersion,
+        items: z.array(z.record(z.string(), z.unknown())).parse(current.items ?? [])
+          .map((item) => ({ ...item, status: item.status === "SERVED" ? "SERVED" : "CANCELLED" })),
+      },
+      additionalStates,
+      createdTickets: [],
+    };
+  }
+  if (input.eventType === "ORDER_SPLIT") {
+    if (current.status !== "OPEN") throw new Error("EDGE_ORDER_STATUS_INVALID");
+    const intent = z.object({
+      itemIds: z.array(z.string().min(1)).min(1),
+      newOrderId: z.string().min(1),
+    }).strict().parse(input.payload);
+    const ids = [...new Set(intent.itemIds)];
+    const items = z.array(z.record(z.string(), z.unknown())).parse(current.items ?? []);
+    const moved = items.filter((item) => ids.includes(String(item.id)));
+    if (moved.length !== ids.length) throw new Error("EDGE_ORDER_SPLIT_ITEM_INVALID");
+    const retained = items.filter((item) => !ids.includes(String(item.id)));
+    const splitState = {
+      ...current,
+      id: intent.newOrderId,
+      orderNumber: null,
+      revision: 2,
+      items: moved,
+      ...orderTotals(moved),
+    };
+    return {
+      eventPayload: {
+        itemIds: ids,
+        newOrderId: intent.newOrderId,
+        sourceTotals: orderTotals(retained),
+        splitTotals: orderTotals(moved),
+      },
+      state: {
+        ...current,
+        revision: nextVersion,
+        items: retained,
+        ...orderTotals(retained),
+      },
+      additionalStates: [{
+        aggregateType: "ORDER",
+        aggregateId: intent.newOrderId,
+        version: 2,
+        state: splitState,
+      }],
+      createdTickets: [],
+    };
+  }
+  if (input.eventType === "ORDER_MERGED") {
+    if (current.status !== "OPEN") throw new Error("EDGE_ORDER_STATUS_INVALID");
+    const intent = z.object({
+      sourceOrderId: z.string().min(1),
+      sourceExpectedVersion: z.number().int().positive(),
+    }).strict().parse(input.payload);
+    if (intent.sourceOrderId === input.aggregateId) throw new Error("EDGE_ORDER_MERGE_INVALID");
+    const sourceRow = database.raw.prepare(`
+      SELECT version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'ORDER' AND aggregate_id = ?
+    `).get(intent.sourceOrderId) as { version: number; state_json: string } | undefined;
+    if (!sourceRow || sourceRow.version !== intent.sourceExpectedVersion) {
+      throw new Error("EDGE_ORDER_MERGE_SOURCE_CONFLICT");
+    }
+    const source = z.record(z.string(), z.unknown()).parse(JSON.parse(sourceRow.state_json));
+    if (source.status !== "OPEN") throw new Error("EDGE_ORDER_MERGE_SOURCE_INVALID");
+    const targetItems = z.array(z.record(z.string(), z.unknown())).parse(current.items ?? []);
+    const sourceItems = z.array(z.record(z.string(), z.unknown())).parse(source.items ?? []);
+    const items = [...targetItems, ...sourceItems];
+    return {
+      eventPayload: {
+        sourceOrderId: intent.sourceOrderId,
+        sourceExpectedVersion: sourceRow.version,
+        totals: orderTotals(items),
+      },
+      state: { ...current, items, revision: nextVersion, ...orderTotals(items) },
+      additionalStates: [{
+        aggregateType: "ORDER",
+        aggregateId: intent.sourceOrderId,
+        version: sourceRow.version + 1,
+        state: {
+          ...source,
+          status: "MERGED",
+          mergedIntoId: input.aggregateId,
+          revision: sourceRow.version + 1,
+        },
+      }],
+      createdTickets: [],
+    };
+  }
   return {
     eventPayload: input.payload,
     state: { ...current, ...input.payload, revision: nextVersion },
@@ -339,6 +547,27 @@ function reservationTransition(
   current: Record<string, unknown> | undefined,
   nextVersion: number,
 ) {
+  if (input.eventType === "RESERVATION_CANCELLED" && current) {
+    if (!["CONFIRMED", "SEATED"].includes(String(current.status))) {
+      throw new Error("EDGE_RESERVATION_STATUS_INVALID");
+    }
+    const intent = z.object({
+      reason: z.string().trim().min(2).max(500).optional(),
+    }).strict().parse(input.payload);
+    const cancelledAt = new Date().toISOString();
+    return {
+      state: {
+        ...current,
+        status: "CANCELLED",
+        cancellationReason: intent.reason ?? null,
+        cancelledAt,
+        revision: nextVersion,
+      },
+      eventPayload: { ...intent, cancelledAt },
+      additionalStates: [],
+      createdTickets: [],
+    };
+  }
   if (input.eventType !== "RESERVATION_CREATED" || current) {
     throw new Error("EDGE_RESERVATION_EVENT_INVALID");
   }
@@ -397,6 +626,32 @@ function reservationTransition(
   return {
     state,
     eventPayload: { ...intent, tableIds },
+    additionalStates: [],
+    createdTickets: [],
+  };
+}
+
+function tableTransition(
+  input: z.infer<typeof commandSchema>,
+  current: Record<string, unknown> | undefined,
+  nextVersion: number,
+) {
+  if (!current) throw new Error("EDGE_TABLE_NOT_FOUND");
+  const to = input.eventType.match(/^TABLE_(AVAILABLE|RESERVED|OCCUPIED|DIRTY|CLEANING|DISABLED)$/)?.[1];
+  if (!to) throw new Error("EDGE_TABLE_EVENT_INVALID");
+  const from = String(current.status);
+  const allowed: Record<string, string[]> = {
+    AVAILABLE: ["RESERVED", "OCCUPIED", "DISABLED"],
+    RESERVED: ["OCCUPIED", "AVAILABLE"],
+    OCCUPIED: ["DIRTY"],
+    DIRTY: ["CLEANING"],
+    CLEANING: ["AVAILABLE"],
+    DISABLED: ["AVAILABLE"],
+  };
+  if (!allowed[from]?.includes(to)) throw new Error("EDGE_TABLE_TRANSITION_INVALID");
+  return {
+    state: { ...current, status: to, revision: nextVersion },
+    eventPayload: { fromStatus: from, toStatus: to },
     additionalStates: [],
     createdTickets: [],
   };
@@ -596,7 +851,7 @@ export function acceptLocalCommand(database: EdgeDatabase, raw: unknown) {
         aggregate ? JSON.parse(aggregate.state_json) as Record<string, unknown> : undefined,
         nextVersion,
       )
-    : input.aggregateType === "RESERVATION"
+      : input.aggregateType === "RESERVATION"
       ? reservationTransition(
           database,
           input,
@@ -605,6 +860,14 @@ export function acceptLocalCommand(database: EdgeDatabase, raw: unknown) {
             : undefined,
           nextVersion,
         )
+      : input.aggregateType === "TABLE"
+        ? tableTransition(
+            input,
+            aggregate
+              ? JSON.parse(aggregate.state_json) as Record<string, unknown>
+              : undefined,
+            nextVersion,
+          )
       : input.aggregateType === "CASH_DRAWER"
         ? cashDrawerTransition(
             database,

@@ -4,6 +4,22 @@ export default function OwnerSettingsPage() {
       <p className="eyebrow">Configuración</p>
       <h1>Operación de sucursales</h1>
       <div className="catalog-grid">
+        <a className="ui-card" href="/owner/settings/devices">
+          <h2>Dispositivos y Edge</h2>
+          <p>Enrolamiento de servidores de sucursal, terminales, estado y revocación.</p>
+        </a>
+        <a className="ui-card" href="/owner/inventory">
+          <h2>Inventario y depósitos</h2>
+          <p>Ingredientes, depósitos compartidos, movimientos y cupos offline por sucursal.</p>
+        </a>
+        <a className="ui-card" href="/owner/settings/scopes">
+          <h2>Herencia por sucursal</h2>
+          <p>Elegí qué familias se comparten para todo el negocio, por grupo o por sucursal.</p>
+        </a>
+        <a className="ui-card" href="/owner/settings/salon">
+          <h2>Salón y cocina</h2>
+          <p>Pisos, zonas, mesas, estaciones KDS y enrutamiento de categorías.</p>
+        </a>
         <a className="ui-card" href="/owner/settings/delivery">
           <h2>Delivery</h2>
           <p>Credenciales, tiendas, webhooks y certificación por proveedor y sucursal.</p>

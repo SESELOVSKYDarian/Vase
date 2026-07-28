@@ -303,12 +303,15 @@ model RecipeItem {
   globalTenantId String
   productId      String
   ingredientId   String
+  scopeType      String      @default("TENANT")
+  scopeId        String
+  scopeRevision  Int         @default(1)
   quantity       Decimal     @db.Decimal(18, 6)
   unit           String
   product        MenuProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
   ingredient     Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
 
-  @@unique([productId, ingredientId])
+  @@unique([productId, ingredientId, scopeType, scopeId])
   @@index([globalTenantId, ingredientId])
 }
 

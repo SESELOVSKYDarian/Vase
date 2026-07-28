@@ -62,6 +62,8 @@ export const prismaRecipeRepository = {
     globalTenantId: string;
     productId: string;
     expectedRevision: number;
+    scopeType: "TENANT" | "BRANCH_GROUP" | "BRANCH";
+    scopeId?: string;
     items: Array<{ ingredientId: string; quantity: string; unit: string }>;
   }) {
     return db.$transaction(async (tx) => {
@@ -73,18 +75,52 @@ export const prismaRecipeRepository = {
         },
       });
       if (!product) throw new Error("REST_CATALOG_REVISION_CONFLICT");
+      const scopeId = input.scopeType === "TENANT"
+        ? input.globalTenantId : input.scopeId;
+      if (!scopeId) throw new Error("REST_RECIPE_SCOPE_REQUIRED");
+      const scopeValid = input.scopeType === "TENANT"
+        ? scopeId === input.globalTenantId
+        : input.scopeType === "BRANCH"
+          ? Boolean(await tx.branch.findFirst({
+            where: { id: scopeId, globalTenantId: input.globalTenantId },
+            select: { id: true },
+          }))
+          : Boolean(await tx.branchGroup.findFirst({
+            where: { id: scopeId, globalTenantId: input.globalTenantId },
+            select: { id: true },
+          }));
+      if (!scopeValid) throw new Error("REST_RECIPE_SCOPE_FORBIDDEN");
       const ingredientIds = [...new Set(input.items.map((item) => item.ingredientId))];
       if (await tx.ingredient.count({
         where: { globalTenantId: input.globalTenantId, id: { in: ingredientIds }, active: true },
       }) !== ingredientIds.length) {
         throw new Error("REST_INGREDIENT_NOT_FOUND");
       }
-      await tx.recipeItem.deleteMany({ where: { productId: input.productId } });
+      const prior = await tx.recipeItem.findFirst({
+        where: {
+          productId: input.productId,
+          scopeType: input.scopeType,
+          scopeId,
+        },
+        orderBy: { scopeRevision: "desc" },
+        select: { scopeRevision: true },
+      });
+      const scopeRevision = (prior?.scopeRevision ?? 0) + 1;
+      await tx.recipeItem.deleteMany({
+        where: {
+          productId: input.productId,
+          scopeType: input.scopeType,
+          scopeId,
+        },
+      });
       await tx.recipeItem.createMany({
         data: input.items.map((item) => ({
           globalTenantId: input.globalTenantId,
           productId: input.productId,
           ingredientId: item.ingredientId,
+          scopeType: input.scopeType,
+          scopeId,
+          scopeRevision,
           quantity: item.quantity,
           unit: item.unit,
         })),

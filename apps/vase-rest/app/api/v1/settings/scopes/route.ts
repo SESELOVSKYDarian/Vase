@@ -91,8 +91,11 @@ export async function POST(request: Request) {
     const context = await owner(request);
     const body = await request.json() as Record<string, unknown>;
     const { action, ...payload } = body;
+    const normalizedScopeId = payload.scopeType === "TENANT"
+      ? context.globalTenantId : payload.scopeId;
     const input = {
       ...payload,
+      scopeId: normalizedScopeId,
       globalTenantId: context.globalTenantId,
       actorId: context.actor.id,
     };

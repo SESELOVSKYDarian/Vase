@@ -9,6 +9,7 @@ import {
   createCloudSyncService,
   prismaCloudSyncRepository,
 } from "@/lib/edge/sync-service";
+import { effectiveRecipeItems } from "@/lib/catalog/effective-recipe";
 
 const service = createCloudSyncService(prismaCloudSyncRepository);
 const batchSchema = z.object({
@@ -227,7 +228,17 @@ export async function POST(request: Request) {
           taxIncluded: product.taxIncluded,
           stationId: stationMappings.find((mapping) =>
             mapping.categoryId === category.id)?.stationId,
-          recipeItems: product.recipeItems.map((recipe) => ({
+          recipeItems: effectiveRecipeItems({
+            globalTenantId: edge.globalTenantId,
+            branchId: edge.branchId,
+            branchGroupIds: groupIds,
+            items: product.recipeItems.map((recipe) => ({
+              scopeType: recipe.scopeType,
+              scopeId: recipe.scopeId,
+              scopeRevision: recipe.scopeRevision,
+              value: recipe,
+            })),
+          }).map((recipe) => ({
             ingredientId: recipe.ingredientId,
             quantity: recipe.quantity.toFixed(6),
           })),

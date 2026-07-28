@@ -35,7 +35,8 @@ async function actor(request: Request) {
 export async function GET(request: Request) {
   try {
     const context = await actor(request);
-    const floors = await db.diningFloor.findMany({
+    const [floors, stations, categories] = await Promise.all([
+      db.diningFloor.findMany({
       where: {
         globalTenantId: context.globalTenantId,
         branchId: context.branchId,
@@ -46,8 +47,22 @@ export async function GET(request: Request) {
         zones: true,
         tables: { orderBy: { code: "asc" } },
       },
-    });
-    return NextResponse.json(JSON.parse(JSON.stringify({ floors }, (_key, value) =>
+      }),
+      db.kitchenStation.findMany({
+        where: {
+          globalTenantId: context.globalTenantId,
+          branchId: context.branchId,
+        },
+        include: { categories: { select: { categoryId: true } } },
+        orderBy: { name: "asc" },
+      }),
+      db.menuCategory.findMany({
+        where: { globalTenantId: context.globalTenantId, active: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+    ]);
+    return NextResponse.json(JSON.parse(JSON.stringify({ floors, stations, categories }, (_key, value) =>
       typeof value === "object" && value &&
       typeof value.toFixed === "function" ? value.toFixed() : value)));
   } catch (error) {
@@ -78,11 +93,63 @@ export async function POST(request: Request) {
           ...input,
         },
       });
+    } else if (action === "CREATE_ZONE") {
+      if (context.role !== "OWNER") throw new Error("REST_STAFF_CAPABILITY_FORBIDDEN");
+      const input = z.object({
+        floorId: z.string().min(1),
+        code: z.string().min(1).max(20).transform((value) => value.toUpperCase()),
+        name: z.string().min(1).max(80),
+        colorToken: z.string().max(40).optional(),
+      }).strict().parse(payload);
+      const floor = await db.diningFloor.findFirst({
+        where: {
+          id: input.floorId,
+          globalTenantId: context.globalTenantId,
+          branchId: context.branchId,
+        },
+        select: { id: true },
+      });
+      if (!floor) throw new Error("REST_FLOOR_NOT_FOUND");
+      result = await db.diningZone.create({
+        data: { globalTenantId: context.globalTenantId, ...input },
+      });
     } else if (action === "CREATE_TABLE") {
       result = await tables.create({
         ...payload,
         globalTenantId: context.globalTenantId,
         branchId: context.branchId,
+      });
+    } else if (action === "CREATE_STATION") {
+      if (context.role !== "OWNER") throw new Error("REST_STAFF_CAPABILITY_FORBIDDEN");
+      const input = z.object({
+        code: z.string().min(1).max(20).transform((value) => value.toUpperCase()),
+        name: z.string().min(1).max(80),
+        categoryIds: z.array(z.string().min(1)).min(1),
+      }).strict().parse(payload);
+      const categories = [...new Set(input.categoryIds)];
+      if (await db.menuCategory.count({
+        where: {
+          globalTenantId: context.globalTenantId,
+          id: { in: categories },
+        },
+      }) !== categories.length) throw new Error("REST_STATION_CATEGORY_FORBIDDEN");
+      const tenant = await db.restTenant.findUniqueOrThrow({
+        where: { globalTenantId: context.globalTenantId },
+      });
+      result = await db.kitchenStation.create({
+        data: {
+          restTenantId: tenant.id,
+          globalTenantId: context.globalTenantId,
+          branchId: context.branchId,
+          code: input.code,
+          name: input.name,
+          categories: {
+            create: categories.map((categoryId) => ({
+              globalTenantId: context.globalTenantId,
+              categoryId,
+            })),
+          },
+        },
       });
     } else if (action === "TRANSITION") {
       result = await tables.transition({

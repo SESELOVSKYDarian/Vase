@@ -23,7 +23,7 @@ async function owner(request: Request) {
 export async function GET(request: Request) {
   try {
     const context = await owner(request);
-    const [warehouses, balances, movements, branchAllocations] = await Promise.all([
+    const [warehouses, balances, movements, branchAllocations, ingredients, branches] = await Promise.all([
       db.warehouse.findMany({
         where: { globalTenantId: context.globalTenantId, active: true },
         include: { branches: { include: { branch: true } } },
@@ -42,9 +42,19 @@ export async function GET(request: Request) {
         where: { globalTenantId: context.globalTenantId },
         include: { branch: true, ingredient: true, warehouse: true },
       }),
+      db.ingredient.findMany({
+        where: { globalTenantId: context.globalTenantId, active: true },
+        orderBy: { name: "asc" },
+      }),
+      db.branch.findMany({
+        where: { globalTenantId: context.globalTenantId, active: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
     ]);
     return NextResponse.json(JSON.parse(JSON.stringify({
       warehouses, balances, movements, allocations: branchAllocations,
+      ingredients, branches,
     }, (_key, value) => typeof value === "object" && value &&
       typeof value.toFixed === "function" ? value.toFixed() : value)));
   } catch (error) {

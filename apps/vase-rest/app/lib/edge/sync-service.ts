@@ -5,6 +5,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { db } from "../db";
 import { z } from "zod";
+import { effectiveRecipeItems } from "../catalog/effective-recipe";
 
 export type SyncReceipt = {
   eventId: string;
@@ -340,8 +341,26 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
             }
           }
           const required = new Map<string, Prisma.Decimal>();
+          const branchGroupIds = (await tx.branchGroupMember.findMany({
+            where: {
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+            },
+            select: { branchGroupId: true },
+          })).map((membership) => membership.branchGroupId);
           for (const item of order.items) {
-            for (const recipe of item.product.recipeItems) {
+            const recipeItems = effectiveRecipeItems({
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              branchGroupIds,
+              items: item.product.recipeItems.map((recipe) => ({
+                scopeType: recipe.scopeType,
+                scopeId: recipe.scopeId,
+                scopeRevision: recipe.scopeRevision,
+                value: recipe,
+              })),
+            });
+            for (const recipe of recipeItems) {
               required.set(
                 recipe.ingredientId,
                 (required.get(recipe.ingredientId) ?? new Prisma.Decimal(0))
@@ -446,14 +465,362 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
               revision: event.aggregateVersion,
             },
           });
+        } else if (event.eventType === "ORDER_CANCELLED") {
+          const payload = z.object({
+            reason: z.string().trim().min(2).max(500),
+            cancelledAt: z.iso.datetime(),
+            restorations: z.array(z.object({
+              allocationId: z.string().min(1),
+              ingredientId: z.string().min(1),
+              warehouseId: z.string().min(1),
+              quantity: z.string(),
+              restoredAfter: z.string(),
+              expectedRevision: z.number().int().positive(),
+            }).strict()),
+            cancelledTicketIds: z.array(z.string().min(1)),
+          }).strict().parse(event.payload);
+          const order = await tx.restaurantOrder.findFirst({
+            where: {
+              id: event.aggregateId,
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              status: { in: ["OPEN", "SUBMITTED", "PARTIALLY_READY"] },
+              revision: event.aggregateVersion - 1,
+            },
+          });
+          if (!order) throw new Error("REST_ORDER_REVISION_CONFLICT");
+          const consumptions = await tx.inventoryMovement.findMany({
+            where: {
+              globalTenantId: event.globalTenantId,
+              referenceType: "ORDER",
+              referenceId: order.id,
+              kind: "RECIPE_CONSUMPTION",
+              reversedBy: null,
+            },
+          });
+          const required = new Map<string, Prisma.Decimal>();
+          for (const movement of consumptions) {
+            const key = `${movement.warehouseId}:${movement.ingredientId}`;
+            required.set(
+              key,
+              (required.get(key) ?? new Prisma.Decimal(0)).add(movement.quantity.abs()),
+            );
+          }
+          if (
+            payload.restorations.length !== required.size ||
+            payload.restorations.some((restoration) =>
+              !required.get(`${restoration.warehouseId}:${restoration.ingredientId}`)
+                ?.equals(restoration.quantity))
+          ) throw new Error("EDGE_INVENTORY_RESTORATION_MISMATCH");
+          for (const restoration of payload.restorations) {
+            const allocation = await tx.branchInventoryAllocation.findFirst({
+              where: {
+                id: restoration.allocationId,
+                globalTenantId: event.globalTenantId,
+                branchId: event.branchId,
+                warehouseId: restoration.warehouseId,
+                ingredientId: restoration.ingredientId,
+                revision: restoration.expectedRevision,
+              },
+            });
+            const balance = await tx.inventoryBalance.findUnique({
+              where: {
+                warehouseId_ingredientId: {
+                  warehouseId: restoration.warehouseId,
+                  ingredientId: restoration.ingredientId,
+                },
+              },
+            });
+            const quantity = new Prisma.Decimal(restoration.quantity);
+            if (
+              !allocation || !balance ||
+              !allocation.available.add(quantity).equals(restoration.restoredAfter)
+            ) throw new Error("EDGE_INVENTORY_RESTORATION_CONFLICT");
+            await tx.branchInventoryAllocation.update({
+              where: { id: allocation.id },
+              data: {
+                available: restoration.restoredAfter,
+                revision: { increment: 1 },
+              },
+            });
+            let nextBalance = balance.onHand;
+            for (const movement of consumptions.filter((candidate) =>
+              candidate.warehouseId === restoration.warehouseId &&
+              candidate.ingredientId === restoration.ingredientId)) {
+              const restored = movement.quantity.abs();
+              nextBalance = nextBalance.add(restored);
+              await tx.inventoryMovement.create({
+                data: {
+                  globalTenantId: event.globalTenantId,
+                  warehouseId: movement.warehouseId,
+                  ingredientId: movement.ingredientId,
+                  kind: "REVERSAL",
+                  quantity: restored,
+                  balanceAfter: nextBalance,
+                  commandId: `${event.idempotencyKey}:reversal:${movement.id}`,
+                  actorId: event.actorId,
+                  referenceType: "ORDER",
+                  referenceId: order.id,
+                  reason: payload.reason,
+                  reversalOfId: movement.id,
+                },
+              });
+            }
+            await tx.inventoryBalance.update({
+              where: { id: balance.id },
+              data: { onHand: nextBalance, revision: { increment: 1 } },
+            });
+          }
+          const cancellableTickets = await tx.kitchenTicket.findMany({
+            where: {
+              orderId: order.id,
+              status: { notIn: ["SERVED", "CANCELLED"] },
+            },
+            select: { id: true },
+          });
+          if (
+            cancellableTickets.length !== payload.cancelledTicketIds.length ||
+            cancellableTickets.some((ticket) =>
+              !payload.cancelledTicketIds.includes(ticket.id))
+          ) throw new Error("EDGE_KITCHEN_CANCELLATION_MISMATCH");
+          await tx.kitchenTicket.updateMany({
+            where: { id: { in: payload.cancelledTicketIds } },
+            data: {
+              status: "CANCELLED",
+              cancelledAt: new Date(payload.cancelledAt),
+              revision: { increment: 1 },
+            },
+          });
+          await tx.orderItem.updateMany({
+            where: { orderId: order.id, status: { not: "SERVED" } },
+            data: { status: "CANCELLED", revision: { increment: 1 } },
+          });
+          await tx.restaurantOrder.update({
+            where: { id: order.id },
+            data: {
+              status: "CANCELLED",
+              cancelledAt: new Date(payload.cancelledAt),
+              cancellationReason: payload.reason,
+              revision: event.aggregateVersion,
+            },
+          });
+        } else if (event.eventType === "ORDER_SPLIT") {
+          const totalsSchema = z.object({
+            subtotal: z.string(), taxTotal: z.string(), total: z.string(),
+          }).strict();
+          const payload = z.object({
+            itemIds: z.array(z.string().min(1)).min(1),
+            newOrderId: z.string().min(1),
+            sourceTotals: totalsSchema,
+            splitTotals: totalsSchema,
+          }).strict().parse(event.payload);
+          const order = await tx.restaurantOrder.findFirst({
+            where: {
+              id: event.aggregateId,
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              status: "OPEN",
+              revision: event.aggregateVersion - 1,
+            },
+          });
+          if (!order) throw new Error("REST_ORDER_REVISION_CONFLICT");
+          const ids = [...new Set(payload.itemIds)];
+          if (await tx.orderItem.count({
+            where: { id: { in: ids }, orderId: order.id, status: "DRAFT" },
+          }) !== ids.length) throw new Error("REST_ORDER_SPLIT_ITEM_INVALID");
+          const sequence = await tx.branchOrderSequence.upsert({
+            where: { branchId: event.branchId },
+            create: {
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              nextNumber: 2,
+            },
+            update: { nextNumber: { increment: 1 } },
+          });
+          const split = await tx.restaurantOrder.create({
+            data: {
+              id: payload.newOrderId,
+              restTenantId: order.restTenantId,
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              tableId: order.tableId,
+              orderNumber: sequence.nextNumber - 1,
+              guestCount: order.guestCount,
+              openedBy: event.actorId,
+            },
+          });
+          await tx.orderItem.updateMany({
+            where: { id: { in: ids }, orderId: order.id },
+            data: { orderId: split.id },
+          });
+          const calculate = async (orderId: string) => {
+            const items = await tx.orderItem.findMany({
+              where: { orderId, status: { not: "CANCELLED" } },
+              select: { lineTotal: true, netTotal: true, taxAmount: true },
+            });
+            return {
+              subtotal: items.reduce((sum, item) =>
+                sum.add(item.netTotal), new Prisma.Decimal(0)),
+              taxTotal: items.reduce((sum, item) =>
+                sum.add(item.taxAmount), new Prisma.Decimal(0)),
+              total: items.reduce((sum, item) =>
+                sum.add(item.lineTotal), new Prisma.Decimal(0)),
+            };
+          };
+          const [sourceTotals, splitTotals] = await Promise.all([
+            calculate(order.id), calculate(split.id),
+          ]);
+          const matches = (actual: typeof sourceTotals, claimed: z.infer<typeof totalsSchema>) =>
+            actual.subtotal.equals(claimed.subtotal) &&
+            actual.taxTotal.equals(claimed.taxTotal) &&
+            actual.total.equals(claimed.total);
+          if (
+            !matches(sourceTotals, payload.sourceTotals) ||
+            !matches(splitTotals, payload.splitTotals)
+          ) throw new Error("EDGE_ORDER_TOTAL_MISMATCH");
+          await tx.restaurantOrder.update({
+            where: { id: order.id },
+            data: { ...sourceTotals, revision: event.aggregateVersion },
+          });
+          await tx.restaurantOrder.update({
+            where: { id: split.id },
+            data: { ...splitTotals, revision: 2 },
+          });
+        } else if (event.eventType === "ORDER_MERGED") {
+          const payload = z.object({
+            sourceOrderId: z.string().min(1),
+            sourceExpectedVersion: z.number().int().positive(),
+            totals: z.object({
+              subtotal: z.string(), taxTotal: z.string(), total: z.string(),
+            }).strict(),
+          }).strict().parse(event.payload);
+          const [target, source] = await Promise.all([
+            tx.restaurantOrder.findFirst({
+              where: {
+                id: event.aggregateId,
+                globalTenantId: event.globalTenantId,
+                branchId: event.branchId,
+                status: "OPEN",
+                revision: event.aggregateVersion - 1,
+              },
+            }),
+            tx.restaurantOrder.findFirst({
+              where: {
+                id: payload.sourceOrderId,
+                globalTenantId: event.globalTenantId,
+                branchId: event.branchId,
+                status: "OPEN",
+                revision: payload.sourceExpectedVersion,
+              },
+            }),
+          ]);
+          if (!target || !source || target.id === source.id) {
+            throw new Error("REST_ORDER_MERGE_CONFLICT");
+          }
+          await tx.orderItem.updateMany({
+            where: { orderId: source.id, status: "DRAFT" },
+            data: { orderId: target.id },
+          });
+          const items = await tx.orderItem.findMany({
+            where: { orderId: target.id, status: { not: "CANCELLED" } },
+            select: { lineTotal: true, netTotal: true, taxAmount: true },
+          });
+          const totals = {
+            subtotal: items.reduce((sum, item) =>
+              sum.add(item.netTotal), new Prisma.Decimal(0)),
+            taxTotal: items.reduce((sum, item) =>
+              sum.add(item.taxAmount), new Prisma.Decimal(0)),
+            total: items.reduce((sum, item) =>
+              sum.add(item.lineTotal), new Prisma.Decimal(0)),
+          };
+          if (
+            !totals.subtotal.equals(payload.totals.subtotal) ||
+            !totals.taxTotal.equals(payload.totals.taxTotal) ||
+            !totals.total.equals(payload.totals.total)
+          ) throw new Error("EDGE_ORDER_TOTAL_MISMATCH");
+          await tx.restaurantOrder.update({
+            where: { id: target.id },
+            data: { ...totals, revision: event.aggregateVersion },
+          });
+          await tx.restaurantOrder.update({
+            where: { id: source.id },
+            data: { status: "MERGED", revision: source.revision + 1 },
+          });
         } else {
           throw new Error("EDGE_ORDER_EVENT_UNSUPPORTED");
         }
       }
-      if (event.aggregateType === "RESERVATION") {
-        if (event.eventType !== "RESERVATION_CREATED") {
-          throw new Error("EDGE_RESERVATION_EVENT_UNSUPPORTED");
+      if (event.aggregateType === "TABLE") {
+        const payload = z.object({
+          fromStatus: z.string().min(1),
+          toStatus: z.enum([
+            "AVAILABLE", "RESERVED", "OCCUPIED", "DIRTY", "CLEANING", "DISABLED",
+          ]),
+        }).strict().parse(event.payload);
+        const table = await tx.diningTable.findFirst({
+          where: {
+            id: event.aggregateId,
+            globalTenantId: event.globalTenantId,
+            branchId: event.branchId,
+            status: payload.fromStatus,
+            revision: event.aggregateVersion - 1,
+          },
+        });
+        if (!table) throw new Error("REST_TABLE_REVISION_CONFLICT");
+        const allowed: Record<string, string[]> = {
+          AVAILABLE: ["RESERVED", "OCCUPIED", "DISABLED"],
+          RESERVED: ["OCCUPIED", "AVAILABLE"],
+          OCCUPIED: ["DIRTY"],
+          DIRTY: ["CLEANING"],
+          CLEANING: ["AVAILABLE"],
+          DISABLED: ["AVAILABLE"],
+        };
+        if (!allowed[payload.fromStatus]?.includes(payload.toStatus)) {
+          throw new Error("REST_TABLE_TRANSITION_INVALID");
         }
+        await tx.diningTable.update({
+          where: { id: table.id },
+          data: { status: payload.toStatus, revision: event.aggregateVersion },
+        });
+        await tx.tableTransition.create({
+          data: {
+            globalTenantId: event.globalTenantId,
+            branchId: event.branchId,
+            tableId: table.id,
+            fromStatus: payload.fromStatus,
+            toStatus: payload.toStatus,
+            fromRevision: event.aggregateVersion - 1,
+            toRevision: event.aggregateVersion,
+            actorId: event.actorId,
+            commandId: event.idempotencyKey,
+          },
+        });
+      }
+      if (event.aggregateType === "RESERVATION") {
+        if (event.eventType === "RESERVATION_CANCELLED") {
+          const payload = z.object({
+            reason: z.string().min(2).max(500).optional(),
+            cancelledAt: z.iso.datetime(),
+          }).strict().parse(event.payload);
+          const changed = await tx.reservation.updateMany({
+            where: {
+              id: event.aggregateId,
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              status: { in: ["CONFIRMED", "SEATED"] },
+              revision: event.aggregateVersion - 1,
+            },
+            data: {
+              status: "CANCELLED",
+              cancellationReason: payload.reason,
+              cancelledAt: new Date(payload.cancelledAt),
+              revision: event.aggregateVersion,
+            },
+          });
+          if (changed.count !== 1) throw new Error("REST_RESERVATION_REVISION_CONFLICT");
+        } else if (event.eventType !== "RESERVATION_CREATED") {
+          throw new Error("EDGE_RESERVATION_EVENT_UNSUPPORTED");
+        } else {
         const payload = z.object({
           guestName: z.string().trim().min(2).max(120),
           guestPhone: z.string().trim().min(6).max(30).optional(),
@@ -514,6 +881,7 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
             },
           },
         });
+        }
       }
       if (event.aggregateType === "CASH_DRAWER") {
         if (event.eventType === "CASH_DRAWER_OPENED") {
