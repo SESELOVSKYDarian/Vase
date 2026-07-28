@@ -44,6 +44,10 @@ model RestTenant {
   customerAccounts             CustomerAccount[]
   customerAccountMovements     CustomerAccountMovement[]
   paymentRefunds               PaymentRefund[]
+  deliveryConnections          DeliveryConnection[]
+  deliveryOrders               DeliveryOrder[]
+  deliveryWebhookEvents        DeliveryWebhookEvent[]
+  deliveryCommandReceipts      DeliveryCommandReceipt[]
   createdAt                    DateTime                      @default(now())
   updatedAt                    DateTime                      @updatedAt
 }
@@ -102,6 +106,8 @@ model Branch {
   fiscalDocuments            FiscalDocument[]
   customerAccountMovements   CustomerAccountMovement[]
   paymentRefunds             PaymentRefund[]
+  deliveryConnections        DeliveryConnection[]
+  deliveryOrders             DeliveryOrder[]
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
 
@@ -631,6 +637,7 @@ model RestaurantOrder {
   payments                Payment[]
   providerPaymentAttempts ProviderPaymentAttempt[]
   fiscalDocuments         FiscalDocument[]
+  deliveryOrders          DeliveryOrder[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 
@@ -792,6 +799,92 @@ model PaymentRefund {
   @@unique([globalTenantId, provider, providerRefundId])
   @@index([paymentId, status])
   @@index([globalTenantId, branchId, createdAt])
+}
+
+model DeliveryConnection {
+  id                        String                 @id @default(cuid())
+  restTenantId              String
+  globalTenantId            String
+  branchId                  String
+  provider                  String
+  environment               String                 @default("SANDBOX")
+  status                    String                 @default("UNCONFIGURED")
+  storeId                   String
+  clientIdCiphertext        String?
+  clientSecretCiphertext    String?
+  webhookSecretCiphertext   String?
+  config                    Json
+  certificationEvidence     Json?
+  lastSuccessfulOperationAt DateTime?
+  lastError                 String?
+  restTenant                RestTenant             @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                    Branch                 @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  orders                    DeliveryOrder[]
+  webhookEvents             DeliveryWebhookEvent[]
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+
+  @@unique([branchId, provider])
+  @@unique([provider, environment, storeId])
+  @@index([globalTenantId, provider, status])
+}
+
+model DeliveryOrder {
+  id                String             @id @default(cuid())
+  restTenantId      String
+  globalTenantId    String
+  branchId          String
+  connectionId      String
+  orderId           String?
+  providerOrderId   String
+  status            String
+  customerName      String?
+  deliveryAddress   String?
+  total             Decimal            @db.Decimal(18, 2)
+  currency          String             @default("ARS")
+  providerCreatedAt DateTime?
+  normalizedPayload Json
+  providerPayload   Json
+  lastError         String?
+  restTenant        RestTenant         @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch            Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  connection        DeliveryConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  order             RestaurantOrder?   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([connectionId, providerOrderId])
+  @@index([globalTenantId, branchId, status, createdAt])
+  @@index([orderId])
+}
+
+model DeliveryWebhookEvent {
+  id              String             @id @default(cuid())
+  restTenantId    String
+  globalTenantId  String
+  connectionId    String
+  providerEventId String
+  eventType       String
+  payloadHash     String
+  result          Json
+  restTenant      RestTenant         @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  connection      DeliveryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  receivedAt      DateTime           @default(now())
+
+  @@unique([connectionId, providerEventId])
+  @@index([globalTenantId, receivedAt])
+}
+
+model DeliveryCommandReceipt {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  commandId      String
+  response       Json
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+
+  @@unique([globalTenantId, commandId])
 }
 
 model FinancialCommandReceipt {
