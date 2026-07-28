@@ -429,4 +429,36 @@ describe("Rest Edge durable sync", () => {
     ]);
     database.close();
   });
+
+  it("records paid-in and paid-out movements offline with exact drawer balance", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    acceptLocalCommand(database, {
+      eventId: "drawer-movement-open", aggregateType: "CASH_DRAWER",
+      aggregateId: "drawer-movement", expectedVersion: 0,
+      eventType: "CASH_DRAWER_OPENED", actorId: "cashier",
+      deviceId: "device", idempotencyKey: "drawer-movement-open-command",
+      payload: { stationId: "POS-2", openingFloat: "500.00" },
+    });
+    acceptLocalCommand(database, {
+      eventId: "drawer-paid-out", aggregateType: "CASH_DRAWER",
+      aggregateId: "drawer-movement", expectedVersion: 1,
+      eventType: "CASH_MOVEMENT_RECORDED", actorId: "cashier",
+      deviceId: "device", idempotencyKey: "drawer-paid-out-command",
+      payload: { type: "PAID_OUT", amount: "125.50", reason: "Compra urgente" },
+    });
+    const drawer = database.raw.prepare(`
+      SELECT version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'CASH_DRAWER' AND aggregate_id = 'drawer-movement'
+    `).get() as { version: number; state_json: string };
+    expect({ version: drawer.version, ...JSON.parse(drawer.state_json) }).toMatchObject({
+      version: 2, expectedCash: "374.50", revision: 2,
+    });
+    expect(pendingOutbox(database)[1]?.payload).toMatchObject({
+      type: "PAID_OUT", amount: "125.50", signedAmount: "-125.50",
+      balanceAfter: "374.50",
+    });
+    database.close();
+  });
 });

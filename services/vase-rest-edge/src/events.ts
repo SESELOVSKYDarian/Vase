@@ -748,6 +748,7 @@ function cashDrawerTransition(
   input: z.infer<typeof commandSchema>,
   current: Record<string, unknown> | undefined,
   nextVersion: number,
+  occurredAt: Date,
 ) {
   if (input.eventType === "CASH_DRAWER_OPENED") {
     if (current) throw new Error("EDGE_CASH_DRAWER_ALREADY_EXISTS");
@@ -765,7 +766,7 @@ function cashDrawerTransition(
       };
       return drawer.stationId === intent.stationId && drawer.status === "OPEN";
     })) throw new Error("EDGE_CASH_DRAWER_ALREADY_OPEN");
-    const openedAt = new Date().toISOString();
+    const openedAt = occurredAt.toISOString();
     const state = {
       id: input.aggregateId,
       stationId: intent.stationId,
@@ -784,11 +785,38 @@ function cashDrawerTransition(
       createdTickets: [],
     };
   }
+  if (input.eventType === "CASH_MOVEMENT_RECORDED" && current) {
+    if (current.status !== "OPEN") throw new Error("EDGE_CASH_DRAWER_NOT_OPEN");
+    const intent = z.object({
+      type: z.enum(["PAID_IN", "PAID_OUT"]),
+      amount: money,
+      reason: z.string().trim().min(2).max(500),
+    }).strict().parse(input.payload);
+    const signed = intent.type === "PAID_OUT"
+      ? -cents(intent.amount) : cents(intent.amount);
+    const balance = cents(String(current.expectedCash)) + signed;
+    if (balance < BigInt(0)) throw new Error("EDGE_CASH_BALANCE_INSUFFICIENT");
+    return {
+      state: {
+        ...current,
+        expectedCash: formatMoney(balance),
+        revision: nextVersion,
+      },
+      eventPayload: {
+        ...intent,
+        signedAmount: formatMoney(signed),
+        balanceAfter: formatMoney(balance),
+        occurredAt: occurredAt.toISOString(),
+      },
+      additionalStates: [],
+      createdTickets: [],
+    };
+  }
   if (input.eventType === "CASH_DRAWER_CLOSED" && current) {
     if (current.status !== "OPEN") throw new Error("EDGE_CASH_DRAWER_NOT_OPEN");
     const intent = z.object({ countedCash: money }).strict().parse(input.payload);
     const variance = cents(intent.countedCash) - cents(String(current.expectedCash));
-    const closedAt = new Date().toISOString();
+    const closedAt = occurredAt.toISOString();
     return {
       state: {
         ...current,
@@ -963,6 +991,7 @@ export function acceptLocalCommand(database: EdgeDatabase, raw: unknown) {
               ? JSON.parse(aggregate.state_json) as Record<string, unknown>
               : undefined,
             nextVersion,
+            new Date(occurredAt),
           )
         : input.aggregateType === "PAYMENT"
           ? paymentTransition(

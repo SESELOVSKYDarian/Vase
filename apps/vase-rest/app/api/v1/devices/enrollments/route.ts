@@ -94,8 +94,25 @@ export async function PATCH(request: Request) {
       id: z.string().min(1),
     }).strict().parse(await request.json());
     const changed = await db.$transaction(async (tx) => {
+      const tenant = await tx.restTenant.findUniqueOrThrow({
+        where: { globalTenantId: context.globalTenantId },
+        select: { id: true },
+      });
+      const audit = () => tx.auditEvent.create({
+        data: {
+          restTenantId: tenant.id,
+          globalTenantId: context.globalTenantId,
+          actorType: "GLOBAL_USER",
+          actorId: context.actor.id,
+          action: `${input.target}_REVOKED`,
+          entityType: input.target === "ENROLLMENT"
+            ? "DeviceEnrollment" : input.target === "EDGE"
+              ? "EdgeInstallation" : "Device",
+          entityId: input.id,
+        },
+      });
       if (input.target === "ENROLLMENT") {
-        return tx.deviceEnrollment.updateMany({
+        const result = await tx.deviceEnrollment.updateMany({
           where: {
             id: input.id,
             globalTenantId: context.globalTenantId,
@@ -104,6 +121,8 @@ export async function PATCH(request: Request) {
           },
           data: { revokedAt: new Date() },
         });
+        if (result.count) await audit();
+        return result;
       }
       if (input.target === "EDGE") {
         const edge = await tx.edgeInstallation.findFirst({
@@ -134,6 +153,7 @@ export async function PATCH(request: Request) {
           },
           data: { revokedAt: new Date() },
         });
+        await audit();
         return { count: 1 };
       }
       const result = await tx.device.updateMany({
@@ -149,6 +169,7 @@ export async function PATCH(request: Request) {
           },
           data: { revokedAt: new Date() },
         });
+        await audit();
       }
       return result;
     });

@@ -1093,6 +1093,55 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
               revision: event.aggregateVersion,
             },
           });
+        } else if (event.eventType === "CASH_MOVEMENT_RECORDED") {
+          const payload = z.object({
+            type: z.enum(["PAID_IN", "PAID_OUT"]),
+            amount: z.string(),
+            signedAmount: z.string(),
+            balanceAfter: z.string(),
+            reason: z.string().min(2).max(500),
+            occurredAt: z.iso.datetime(),
+          }).strict().parse(event.payload);
+          const drawer = await tx.cashDrawer.findFirst({
+            where: {
+              id: event.aggregateId,
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              status: "OPEN",
+              revision: event.aggregateVersion - 1,
+            },
+          });
+          if (!drawer) throw new Error("REST_CASH_REVISION_CONFLICT");
+          const amount = new Prisma.Decimal(payload.amount);
+          const signed = payload.type === "PAID_OUT" ? amount.negated() : amount;
+          if (
+            amount.lessThanOrEqualTo(0) ||
+            !signed.equals(payload.signedAmount) ||
+            !drawer.expectedCash.add(signed).equals(payload.balanceAfter) ||
+            new Prisma.Decimal(payload.balanceAfter).lessThan(0)
+          ) throw new Error("EDGE_CASH_MOVEMENT_AMOUNT_CONFLICT");
+          await tx.cashMovement.create({
+            data: {
+              restTenantId: tenant.id,
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              drawerId: drawer.id,
+              type: payload.type,
+              amount: signed,
+              balanceAfter: payload.balanceAfter,
+              reason: payload.reason,
+              actorId: event.actorId,
+              commandId: event.idempotencyKey,
+              occurredAt: new Date(payload.occurredAt),
+            },
+          });
+          await tx.cashDrawer.update({
+            where: { id: drawer.id },
+            data: {
+              expectedCash: payload.balanceAfter,
+              revision: event.aggregateVersion,
+            },
+          });
         } else if (event.eventType === "CASH_DRAWER_CLOSED") {
           const payload = z.object({
             countedCash: z.string(),

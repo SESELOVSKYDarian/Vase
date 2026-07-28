@@ -176,9 +176,37 @@ export const prismaOrderRepository: OrderRepository = {
           where: { globalTenantId: input.globalTenantId },
         });
         const tableId = input.tableId as string | undefined;
-        if (tableId && !await tx.diningTable.findFirst({
-          where: { id: tableId, globalTenantId: input.globalTenantId, branchId: input.branchId },
-        })) throw new Error("REST_TABLE_NOT_FOUND");
+        const table = tableId ? await tx.diningTable.findFirst({
+          where: {
+            id: tableId,
+            globalTenantId: input.globalTenantId,
+            branchId: input.branchId,
+            status: { in: ["AVAILABLE", "RESERVED"] },
+          },
+        }) : null;
+        if (tableId && !table) throw new Error("REST_TABLE_UNAVAILABLE");
+        if (table && table.capacity < Number(input.guestCount)) {
+          throw new Error("REST_TABLE_CAPACITY_INSUFFICIENT");
+        }
+        if (table) {
+          await tx.diningTable.update({
+            where: { id: table.id },
+            data: { status: "OCCUPIED", revision: { increment: 1 } },
+          });
+          await tx.tableTransition.create({
+            data: {
+              globalTenantId: input.globalTenantId,
+              branchId: input.branchId,
+              tableId: table.id,
+              fromStatus: table.status,
+              toStatus: "OCCUPIED",
+              fromRevision: table.revision,
+              toRevision: table.revision + 1,
+              actorId: input.actorId,
+              commandId: `${input.commandId}:table`,
+            },
+          });
+        }
         const order = await tx.restaurantOrder.create({
           data: {
             restTenantId: tenant.id,

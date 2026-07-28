@@ -31,31 +31,59 @@ type FiscalDocument = {
   cae: string | null;
   qrUrl: string | null;
 };
+type OrderOption = {
+  id: string; orderNumber: number | null; status: string; total: string;
+};
+type PaymentOption = {
+  id: string; tenderType: string; amount: string;
+  status: string; order: { orderNumber: number };
+};
+type AccountOption = { id: string; code: string; name: string };
 
 export default function CashierPage() {
   const [drawers, setDrawers] = useState<Drawer[]>([]);
   const [documents, setDocuments] = useState<FiscalDocument[]>([]);
+  const [orders, setOrders] = useState<OrderOption[]>([]);
+  const [payments, setPayments] = useState<PaymentOption[]>([]);
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [error, setError] = useState("");
   const refresh = useCallback(async () => {
-    const local = await readLocalEdgeClient().state("CASH_DRAWER") as {
+    const client = readLocalEdgeClient();
+    const [local, localOrders] = await Promise.all([
+      client.state("CASH_DRAWER"),
+      client.state("ORDER"),
+    ]) as [{
       aggregates: Array<{ version: number; state: Drawer }>;
-    };
+    }, {
+      aggregates: Array<{ state: OrderOption }>;
+    }];
     setDrawers(local.aggregates.map((item) => ({
       ...item.state,
       revision: item.version,
     })));
+    setOrders(localOrders.aggregates.map((item) => item.state)
+      .filter((order) => !["CANCELLED", "MERGED", "REFUNDED"].includes(order.status))
+      .sort((left, right) => (right.orderNumber ?? 0) - (left.orderNumber ?? 0)));
     const cloudToken = token();
     if (!cloudToken) {
       setDocuments([]);
       return;
     }
-    const fiscalResponse = await fetch("/api/v1/fiscal/documents", {
-      headers: { authorization: `Bearer ${cloudToken}` },
-      cache: "no-store",
-    });
-    const fiscalPayload = await fiscalResponse.json();
+    const headers = { authorization: `Bearer ${cloudToken}` };
+    const [fiscalResponse, paymentResponse, accountResponse] = await Promise.all([
+      fetch("/api/v1/fiscal/documents", { headers, cache: "no-store" }),
+      fetch("/api/v1/payments", { headers, cache: "no-store" }),
+      fetch("/api/v1/accounts", { headers, cache: "no-store" }),
+    ]);
+    const [fiscalPayload, paymentPayload, accountPayload] = await Promise.all([
+      fiscalResponse.json(), paymentResponse.json(), accountResponse.json(),
+    ]);
     if (!fiscalResponse.ok) throw new Error(fiscalPayload.error);
+    if (!paymentResponse.ok) throw new Error(paymentPayload.error);
+    if (!accountResponse.ok) throw new Error(accountPayload.error);
     setDocuments(fiscalPayload.documents);
+    setPayments(paymentPayload.payments);
+    setAccounts(accountPayload.accounts);
   }, []);
   useEffect(() => { void refresh().catch((cause) => setError(String(cause))); }, [refresh]);
 
@@ -87,6 +115,23 @@ export default function CashierPage() {
       eventType: "CASH_DRAWER_CLOSED",
       idempotencyKey: crypto.randomUUID(),
       payload: { countedCash: form.get("countedCash") },
+    });
+    await refresh();
+  }
+
+  async function movement(drawer: Drawer, form: FormData) {
+    await readLocalEdgeClient().command({
+      eventId: crypto.randomUUID(),
+      aggregateType: "CASH_DRAWER",
+      aggregateId: drawer.id,
+      expectedVersion: drawer.revision,
+      eventType: "CASH_MOVEMENT_RECORDED",
+      idempotencyKey: crypto.randomUUID(),
+      payload: {
+        type: form.get("type"),
+        amount: form.get("amount"),
+        reason: form.get("reason"),
+      },
     });
     await refresh();
   }
@@ -199,7 +244,13 @@ export default function CashierPage() {
       </form>
       <form className="inline-form" onSubmit={(event) =>
         void charge(event).catch((cause) => setError(String(cause)))}>
-        <label>ID de orden<input name="orderId" required /></label>
+        <label>Orden<select name="orderId" required><option value="">Seleccionar</option>
+          {orders.filter((order) => order.status !== "PAID").map((order) => (
+            <option key={order.id} value={order.id}>
+              #{order.orderNumber ?? "offline"} Â· ARS {order.total} Â· {order.status}
+            </option>
+          ))}
+        </select></label>
         <label>Importe<input name="amount" inputMode="decimal" required /></label>
         <label>Medio
           <select name="tenderType">
@@ -213,7 +264,11 @@ export default function CashierPage() {
         <label>Proveedor<input name="provider" /></label>
         <label>Referencia<input name="reference" /></label>
         <label>Operador<input name="operator" /></label>
-        <label>Cuenta corriente (ID)<input name="customerAccountId" /></label>
+        <label>Cuenta corriente<select name="customerAccountId"><option value="">No aplica</option>
+          {accounts.map((account) => <option key={account.id} value={account.id}>
+            {account.code} Â· {account.name}
+          </option>)}
+        </select></label>
         <button className="button button-primary">Registrar cobro</button>
       </form>
       <p>
@@ -223,7 +278,11 @@ export default function CashierPage() {
       </p>
       <form className="inline-form" onSubmit={(event) =>
         void chargeMercadoPago(event).catch((cause) => setError(String(cause)))}>
-        <label>ID de orden<input name="orderId" required /></label>
+        <label>Orden<select name="orderId" required><option value="">Seleccionar</option>
+          {orders.filter((order) => order.status !== "PAID").map((order) => (
+            <option key={order.id} value={order.id}>#{order.orderNumber ?? "offline"} Â· ARS {order.total}</option>
+          ))}
+        </select></label>
         <label>Mercado Pago
           <select name="kind">
             <option value="POINT">Point</option>
@@ -234,12 +293,22 @@ export default function CashierPage() {
       </form>
       <form className="inline-form" onSubmit={(event) =>
         void issueFiscalDocument(event).catch((cause) => setError(String(cause)))}>
-        <label>ID de orden pagada<input name="orderId" required /></label>
+        <label>Orden pagada<select name="orderId" required><option value="">Seleccionar</option>
+          {orders.filter((order) => order.status === "PAID").map((order) => (
+            <option key={order.id} value={order.id}>#{order.orderNumber ?? "offline"} Â· ARS {order.total}</option>
+          ))}
+        </select></label>
         <label>Comprobante
           <select name="documentType">
             <option value="INVOICE_B">Factura B</option>
             <option value="INVOICE_A">Factura A</option>
             <option value="INVOICE_C">Factura C</option>
+            <option value="CREDIT_NOTE_A">Nota de crÃ©dito A</option>
+            <option value="CREDIT_NOTE_B">Nota de crÃ©dito B</option>
+            <option value="CREDIT_NOTE_C">Nota de crÃ©dito C</option>
+            <option value="DEBIT_NOTE_A">Nota de dÃ©bito A</option>
+            <option value="DEBIT_NOTE_B">Nota de dÃ©bito B</option>
+            <option value="DEBIT_NOTE_C">Nota de dÃ©bito C</option>
           </select>
         </label>
         <label>Tipo de documento receptor
@@ -254,7 +323,13 @@ export default function CashierPage() {
       </form>
       <form className="inline-form" onSubmit={(event) =>
         void refund(event).catch((cause) => setError(String(cause)))}>
-        <label>ID del pago<input name="paymentId" required /></label>
+        <label>Pago<select name="paymentId" required><option value="">Seleccionar</option>
+          {payments.filter((payment) => payment.status !== "REFUNDED").map((payment) => (
+            <option key={payment.id} value={payment.id}>
+              Orden #{payment.order.orderNumber} Â· {payment.tenderType} Â· ARS {payment.amount}
+            </option>
+          ))}
+        </select></label>
         <label>Importe a devolver<input name="amount" inputMode="decimal" required /></label>
         <label>Motivo<input name="reason" required /></label>
         <label>Referencia externa, si aplica<input name="externalReference" /></label>
@@ -269,14 +344,29 @@ export default function CashierPage() {
             <strong>{drawer.status}</strong>
             <p>Efectivo esperado: ARS {drawer.expectedCash}</p>
             {drawer.status === "OPEN" ? (
-              <form onSubmit={(event) => {
-                event.preventDefault();
-                void close(drawer, new FormData(event.currentTarget))
-                  .catch((cause) => setError(String(cause)));
-              }}>
-                <label>Efectivo contado<input name="countedCash" required /></label>
-                <button className="button">Cerrar y calcular diferencia</button>
-              </form>
+              <>
+                <form onSubmit={(event) => {
+                  event.preventDefault();
+                  void movement(drawer, new FormData(event.currentTarget))
+                    .catch((cause) => setError(String(cause)));
+                }}>
+                  <label>Movimiento<select name="type">
+                    <option value="PAID_IN">Ingreso</option>
+                    <option value="PAID_OUT">Retiro</option>
+                  </select></label>
+                  <label>Importe<input name="amount" inputMode="decimal" required /></label>
+                  <label>Motivo<input name="reason" required /></label>
+                  <button className="button">Registrar movimiento</button>
+                </form>
+                <form onSubmit={(event) => {
+                  event.preventDefault();
+                  void close(drawer, new FormData(event.currentTarget))
+                    .catch((cause) => setError(String(cause)));
+                }}>
+                  <label>Efectivo contado<input name="countedCash" required /></label>
+                  <button className="button">Cerrar y calcular diferencia</button>
+                </form>
+              </>
             ) : <p>Diferencia: ARS {drawer.variance}</p>}
           </article>
         ))}
