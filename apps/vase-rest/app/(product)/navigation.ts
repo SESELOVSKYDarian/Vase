@@ -19,6 +19,7 @@ const navigation: NavigationItem[] = [
   { key: "analytics", label: "Analítica", href: "/owner/analytics", roles: ["OWNER", "MANAGER"] },
   { key: "staff", label: "Equipo", href: "/owner/staff", roles: ["OWNER", "MANAGER"] },
   { key: "settings", label: "Configuración", href: "/owner/settings", roles: ["OWNER"] },
+  { key: "support", label: "Soporte", href: "/support", roles: ["OWNER", "MANAGER", "CASHIER", "WAITER", "KITCHEN", "STOCK", "DELIVERY"] },
 ];
 
 export function navigationForRole(role: RestStaffRole) {

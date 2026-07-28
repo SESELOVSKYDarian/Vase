@@ -6,9 +6,12 @@
     "dev": "next dev --hostname 0.0.0.0 --port 3008",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port 3008",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "prisma generate && tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
+    "@prisma/client": "^6.6.0",
     "@vase/contracts": "file:../../packages/contracts",
     "@vase/internal-api": "file:../../packages/internal-api",
     "next": "16.2.1",
@@ -19,6 +22,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "prisma": "^6.6.0",
     "typescript": "^5"
   }
 }

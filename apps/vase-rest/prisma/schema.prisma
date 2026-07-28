@@ -48,6 +48,7 @@ model RestTenant {
   deliveryOrders               DeliveryOrder[]
   deliveryWebhookEvents        DeliveryWebhookEvent[]
   deliveryCommandReceipts      DeliveryCommandReceipt[]
+  supportTickets               RestSupportTicket[]
   createdAt                    DateTime                      @default(now())
   updatedAt                    DateTime                      @updatedAt
 }
@@ -181,6 +182,11 @@ model EdgeInstallation {
   status                 String     @default("ACTIVE")
   certificateFingerprint String     @unique
   lastSeenAt             DateTime?
+  lastCloudSyncAt        DateTime?
+  agentVersion           String?
+  pendingEventCount      Int        @default(0)
+  failedPrintJobCount    Int        @default(0)
+  lastErrorCode          String?
   restTenant             RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
   branch                 Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
   createdAt              DateTime   @default(now())
@@ -799,6 +805,23 @@ model PaymentRefund {
   @@unique([globalTenantId, provider, providerRefundId])
   @@index([paymentId, status])
   @@index([globalTenantId, branchId, createdAt])
+}
+
+model RestSupportTicket {
+  id               String     @id @default(cuid())
+  restTenantId     String
+  globalTenantId   String
+  requestId        String
+  externalTicketId String
+  status           String
+  createdByActorId String
+  restTenant       RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([globalTenantId, requestId])
+  @@unique([globalTenantId, externalTicketId])
+  @@index([globalTenantId, createdAt])
 }
 
 model DeliveryConnection {
