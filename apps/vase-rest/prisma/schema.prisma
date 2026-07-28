@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model RestTenant {
+  id             String                       @id @default(cuid())
+  globalTenantId String                       @unique
+  name           String
+  slug           String                       @unique
+  entitlement    RestEntitlementProjection?
+  branches       Branch[]
+  branchGroups   BranchGroup[]
+  auditEvents    AuditEvent[]
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+}
+
+model RestEntitlementProjection {
+  id                String     @id @default(cuid())
+  restTenantId      String     @unique
+  globalTenantId    String     @unique
+  plan              String
+  status            String
+  contractVersion   Int
+  branchLimit       Int
+  localEmployeeLimit Int
+  deviceLimit       Int
+  edgeLimit         Int
+  effectiveAt       DateTime
+  restTenant        RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([globalTenantId, status])
+}
+
+model Branch {
+  id             String              @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  timezone       String              @default("America/Argentina/Buenos_Aires")
+  active         Boolean             @default(true)
+  restTenant     RestTenant          @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  groupMembers   BranchGroupMember[]
+  auditEvents    AuditEvent[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@index([globalTenantId, active])
+  @@index([restTenantId])
+}
+
+model BranchGroup {
+  id             String              @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  restTenant     RestTenant          @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  members        BranchGroupMember[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@index([restTenantId])
+}
+
+model BranchGroupMember {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  branchGroupId  String
+  branchId       String
+  branchGroup    BranchGroup @relation(fields: [branchGroupId], references: [id], onDelete: Cascade)
+  branch         Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+
+  @@unique([branchGroupId, branchId])
+  @@index([globalTenantId, branchId])
+}
+
+model AuditEvent {
+  id             String     @id @default(cuid())
+  globalTenantId String
+  restTenantId   String
+  branchId       String?
+  actorType      String
+  actorId        String
+  action         String
+  entityType     String
+  entityId       String
+  payload        Json?
+  occurredAt     DateTime   @default(now())
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([globalTenantId, occurredAt])
+  @@index([globalTenantId, entityType, entityId])
+  @@index([branchId, occurredAt])
+}

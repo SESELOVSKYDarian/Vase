@@ -15,6 +15,7 @@
     "dev:v3:business": "npm run dev --workspace @vase/business",
     "dev:v3:management": "npm run dev --workspace @vase/management",
     "dev:v3:labs": "npm run dev --workspace @vase/labs",
+    "dev:v3:rest": "npm run dev --workspace @vase/rest",
     "dev:v3:workplace": "npm run dev --workspace @vase/workplace",
     "lint": "eslint apps packages tests",
     "typecheck": "npm run typecheck --workspaces",
