@@ -18,14 +18,16 @@ describe("Vase App migration-branch visual source", () => {
   });
 
   it("keeps the fd54455 marketing composition while routing to the public service", () => {
-    const header = source("apps/vase-app/src/components/marketing/header-client.tsx");
+    const header = source("apps/vase-app/src/components/marketing/site-header-client.tsx");
     const footer = source("apps/vase-app/src/components/marketing/site-footer.tsx");
     const menu = source("apps/vase-app/src/components/marketing/staggered-menu.tsx");
+    const navigation = source("apps/vase-app/src/lib/navigation/document-navigation.ts");
 
-    expect(header).toContain("rounded-[28px] bg-white/90 p-3");
+    expect(header).toContain("rounded-full border border-white/60");
     expect(footer).toContain("lg:grid-cols-[0.95fr_0.8fr_0.8fr_0.7fr]");
     expect(menu).toContain("vm-nav-itemLabel");
-    expect(header).toContain("productOrigins.publicSite");
+    expect(header).toContain("resolveAppHomeHref");
+    expect(navigation).toContain("productOrigins.publicSite");
   });
 
   it("renders later Business controls in the established builder language", () => {
