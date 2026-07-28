@@ -16,6 +16,19 @@ import {
 } from "./sync-client.js";
 import { createMtlsFetch } from "./mtls-fetch.js";
 import { syncStaffProjection } from "./staff-projection.js";
+import {
+  listPrinters,
+  queueKitchenTicketPrints,
+  savePrinter,
+} from "./printing/printer-config.js";
+import { NetworkPrinter } from "./printing/network-printer.js";
+import { WindowsSpoolerPrinter } from "./printing/usb-printer.js";
+import {
+  enqueuePrintJob,
+  processPrintQueue,
+  retryPrintJob,
+} from "./printing/print-queue.js";
+import { renderEscPosReceipt } from "./printing/receipt-template.js";
 
 const config = readEdgeConfig(process.env);
 const database = openEdgeDatabase(config);
@@ -148,6 +161,99 @@ const server = createServer({
       }));
       return;
     }
+    if (request.url === "/printers" && ["GET", "PUT"].includes(request.method ?? "")) {
+      const session = validateOfflineSession(
+        database,
+        request.headers.authorization,
+        sessionSecret,
+      );
+      if (!session.roles.some((role) =>
+        role.branchId === session.branchId && role.capabilities.includes("settings:write"))) {
+        throw new Error("EDGE_STAFF_CAPABILITY_FORBIDDEN");
+      }
+      if (request.method === "PUT") savePrinter(database, await body(request));
+      response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      response.end(JSON.stringify({
+        printers: listPrinters(database).map((printer) => ({
+          ...printer,
+          connection: printer.connection.type === "NETWORK"
+            ? printer.connection
+            : {
+                type: printer.connection.type,
+                printerName: printer.connection.printerName,
+              },
+        })),
+      }));
+      return;
+    }
+    if (request.method === "GET" && request.url === "/print/jobs") {
+      const session = validateOfflineSession(
+        database,
+        request.headers.authorization,
+        sessionSecret,
+      );
+      if (!session.roles.some((role) =>
+        role.branchId === session.branchId &&
+        (role.capabilities.includes("settings:write") || role.capabilities.includes("kds:operate")))) {
+        throw new Error("EDGE_STAFF_CAPABILITY_FORBIDDEN");
+      }
+      const jobs = database.raw.prepare(`
+        SELECT id, printer_id, state, attempts, next_attempt_at, printed_at, last_error
+        FROM print_job ORDER BY next_attempt_at DESC LIMIT 100
+      `).all();
+      response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      response.end(JSON.stringify({ jobs }));
+      return;
+    }
+    if (request.method === "POST" && request.url === "/print/test") {
+      const session = validateOfflineSession(
+        database,
+        request.headers.authorization,
+        sessionSecret,
+      );
+      if (!session.roles.some((role) =>
+        role.branchId === session.branchId && role.capabilities.includes("settings:write"))) {
+        throw new Error("EDGE_STAFF_CAPABILITY_FORBIDDEN");
+      }
+      const input = await body(request);
+      const printerId = String(input.printerId ?? "");
+      if (!listPrinters(database).some((printer) => printer.id === printerId && printer.enabled)) {
+        throw new Error("EDGE_PRINTER_NOT_FOUND");
+      }
+      const idempotencyKey = String(input.idempotencyKey ?? "");
+      if (!idempotencyKey) throw new Error("EDGE_PRINT_IDEMPOTENCY_REQUIRED");
+      const result = enqueuePrintJob(database, {
+        id: crypto.randomUUID(),
+        idempotencyKey,
+        printerId,
+        payload: renderEscPosReceipt({
+          title: "VASE REST",
+          lines: [{ quantity: "1", name: "Prueba de impresion" }],
+          footer: new Date().toISOString(),
+        }),
+      });
+      response.writeHead(202, { "content-type": "application/json", "cache-control": "no-store" });
+      response.end(JSON.stringify(result));
+      return;
+    }
+    const retryMatch = request.method === "POST"
+      ? request.url?.match(/^\/print\/jobs\/([^/]+)\/retry$/)
+      : null;
+    if (retryMatch) {
+      const session = validateOfflineSession(
+        database,
+        request.headers.authorization,
+        sessionSecret,
+      );
+      if (!session.roles.some((role) =>
+        role.branchId === session.branchId && role.capabilities.includes("settings:write"))) {
+        throw new Error("EDGE_STAFF_CAPABILITY_FORBIDDEN");
+      }
+      retryPrintJob(database, decodeURIComponent(retryMatch[1]));
+      response.writeHead(204);
+      response.end();
+      return;
+    }
   } catch (error) {
     const code = error instanceof Error ? error.message : "EDGE_REQUEST_FAILED";
     response.writeHead(code.includes("PIN") ? 401 : 400, {
@@ -213,6 +319,11 @@ async function backgroundSync() {
     }
     if (cloudResult) {
       applySnapshots(database, cloudResult.snapshots);
+      for (const snapshot of cloudResult.snapshots) {
+        if (snapshot.aggregateType === "KITCHEN_TICKET") {
+          queueKitchenTicketPrints(database, snapshot.state);
+        }
+      }
       if (cloudResult.configDelta.algorithm !== "Ed25519") {
         throw new Error("EDGE_CONFIG_SIGNATURE_INVALID");
       }
@@ -244,3 +355,27 @@ async function backgroundSync() {
 }
 setInterval(() => void backgroundSync(), 5_000).unref();
 void backgroundSync();
+
+let printing = false;
+async function backgroundPrinting() {
+  if (printing) return;
+  printing = true;
+  try {
+    await processPrintQueue(database, {
+      resolveAdapter(printerId) {
+        const printer = listPrinters(database).find((candidate) =>
+          candidate.id === printerId && candidate.enabled);
+        if (!printer) throw new Error("EDGE_PRINTER_NOT_FOUND");
+        return printer.connection.type === "NETWORK"
+          ? new NetworkPrinter(printer.connection)
+          : new WindowsSpoolerPrinter(printer.connection);
+      },
+    });
+  } catch (error) {
+    console.error("Print queue failed", error instanceof Error ? error.message : "UNKNOWN");
+  } finally {
+    printing = false;
+  }
+}
+setInterval(() => void backgroundPrinting(), 1_000).unref();
+void backgroundPrinting();

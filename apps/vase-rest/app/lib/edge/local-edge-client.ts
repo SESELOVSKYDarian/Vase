@@ -139,6 +139,68 @@ export function createLocalEdgeClient(input: {
       if (!response.ok) throw new Error(payload.error ?? "REST_EDGE_COMMAND_FAILED");
       return payload;
     },
+    async printers() {
+      await identity();
+      const response = await fetcher(new URL("/printers", pairing.edgeUrl), {
+        headers: { authorization: `Bearer ${input.sessionToken}` },
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "REST_EDGE_PRINTERS_FAILED");
+      return payload;
+    },
+    async savePrinter(printer: Record<string, unknown>) {
+      await identity();
+      const response = await fetcher(new URL("/printers", pairing.edgeUrl), {
+        method: "PUT",
+        headers: {
+          authorization: `Bearer ${input.sessionToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(printer),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "REST_EDGE_PRINTER_SAVE_FAILED");
+      return payload;
+    },
+    async testPrinter(printerId: string, idempotencyKey: string) {
+      await identity();
+      const response = await fetcher(new URL("/print/test", pairing.edgeUrl), {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${input.sessionToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ printerId, idempotencyKey }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "REST_EDGE_PRINT_TEST_FAILED");
+      return payload;
+    },
+    async printJobs() {
+      await identity();
+      const response = await fetcher(new URL("/print/jobs", pairing.edgeUrl), {
+        headers: { authorization: `Bearer ${input.sessionToken}` },
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "REST_EDGE_PRINT_JOBS_FAILED");
+      return payload;
+    },
+    async retryPrintJob(jobId: string) {
+      await identity();
+      const response = await fetcher(
+        new URL(`/print/jobs/${encodeURIComponent(jobId)}/retry`, pairing.edgeUrl),
+        {
+          method: "POST",
+          headers: { authorization: `Bearer ${input.sessionToken}` },
+        },
+      );
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error ?? "REST_EDGE_PRINT_RETRY_FAILED");
+      }
+    },
   };
 }
 

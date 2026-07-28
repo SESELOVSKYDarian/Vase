@@ -21,6 +21,7 @@ describe("Vase Rest Edge foundation", () => {
       "001_foundation",
       "002_staff_pin_lockout",
       "003_runtime_metadata",
+      "004_printer_configuration",
     ]);
     database.close();
 
@@ -29,6 +30,7 @@ describe("Vase Rest Edge foundation", () => {
       "001_foundation",
       "002_staff_pin_lockout",
       "003_runtime_metadata",
+      "004_printer_configuration",
     ]);
     reopened.close();
   });

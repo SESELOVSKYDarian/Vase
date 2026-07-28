@@ -50,6 +50,20 @@ export function openEdgeDatabase(input: { dataDir: string }): EdgeDatabase {
           );
         `,
       },
+      {
+        version: "004_printer_configuration",
+        sql: `
+          CREATE TABLE printer (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            connection_type TEXT NOT NULL,
+            connection_json TEXT NOT NULL,
+            routes_json TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            updated_at TEXT NOT NULL
+          );
+        `,
+      },
     ];
     for (const migration of migrations) {
       const applied = database.prepare(
