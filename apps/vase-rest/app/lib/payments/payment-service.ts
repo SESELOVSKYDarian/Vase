@@ -38,6 +38,7 @@ export function createPaymentService(repository: PaymentRepository) {
         provider: z.string().min(1).max(100).optional(),
         reference: z.string().min(1).max(200).optional(),
         operator: z.string().min(1).max(100).optional(),
+        customerAccountId: z.string().min(1).optional(),
         commandId: z.string().min(1),
         actorId: z.string().min(1),
       }).strict().parse(raw);
@@ -58,7 +59,9 @@ export function createPaymentService(repository: PaymentRepository) {
           input.branchId,
         ))?.id;
         if (!drawerId) throw new Error("REST_CASH_DRAWER_REQUIRED");
-      } else if (input.tenderType !== "CUSTOMER_ACCOUNT") {
+      } else if (input.tenderType === "CUSTOMER_ACCOUNT") {
+        if (!input.customerAccountId) throw new Error("REST_CUSTOMER_ACCOUNT_REQUIRED");
+      } else {
         if (!input.provider || !input.reference || !input.operator) {
           throw new Error("REST_PAYMENT_REFERENCE_REQUIRED");
         }

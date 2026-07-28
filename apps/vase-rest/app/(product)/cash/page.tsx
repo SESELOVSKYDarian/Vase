@@ -83,9 +83,14 @@ export default function CashierPage() {
       orderId: form.get("orderId"),
       tenderType,
       amount: form.get("amount"),
-      provider: tenderType === "CASH" ? undefined : form.get("provider"),
-      reference: tenderType === "CASH" ? undefined : form.get("reference"),
-      operator: tenderType === "CASH" ? undefined : form.get("operator"),
+      provider: ["CASH", "CUSTOMER_ACCOUNT"].includes(tenderType)
+        ? undefined : form.get("provider"),
+      reference: ["CASH", "CUSTOMER_ACCOUNT"].includes(tenderType)
+        ? undefined : form.get("reference"),
+      operator: ["CASH", "CUSTOMER_ACCOUNT"].includes(tenderType)
+        ? undefined : form.get("operator"),
+      customerAccountId: tenderType === "CUSTOMER_ACCOUNT"
+        ? form.get("customerAccountId") : undefined,
       commandId: crypto.randomUUID(),
     });
     event.currentTarget.reset();
@@ -111,6 +116,21 @@ export default function CashierPage() {
       documentType: form.get("documentType"),
       recipientDocType: Number(form.get("recipientDocType")),
       recipientDocNumber: String(form.get("recipientDocNumber") ?? "").replace(/\D/g, ""),
+      commandId: crypto.randomUUID(),
+    });
+    event.currentTarget.reset();
+    await refresh();
+  }
+
+  async function refund(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await mutate("/api/v1/payments/refunds", {
+      paymentId: form.get("paymentId"),
+      amount: form.get("amount"),
+      reason: form.get("reason"),
+      externalReference: String(form.get("externalReference") ?? "") || undefined,
+      operator: String(form.get("operator") ?? "") || undefined,
       commandId: crypto.randomUUID(),
     });
     event.currentTarget.reset();
@@ -160,8 +180,14 @@ export default function CashierPage() {
         <label>Proveedor<input name="provider" /></label>
         <label>Referencia<input name="reference" /></label>
         <label>Operador<input name="operator" /></label>
+        <label>Cuenta corriente (ID)<input name="customerAccountId" /></label>
         <button className="button button-primary">Registrar cobro</button>
       </form>
+      <p>
+        <a href="/cash/accounts">Administrar cuentas corrientes</a>
+        {" · "}
+        <a href="/cash/reconciliation">Revisar conciliación</a>
+      </p>
       <form className="inline-form" onSubmit={(event) =>
         void chargeMercadoPago(event).catch((cause) => setError(String(cause)))}>
         <label>ID de orden<input name="orderId" required /></label>
@@ -192,6 +218,15 @@ export default function CashierPage() {
         </label>
         <label>Número de documento<input name="recipientDocNumber" defaultValue="0" inputMode="numeric" required /></label>
         <button className="button button-primary">Emitir en ARCA</button>
+      </form>
+      <form className="inline-form" onSubmit={(event) =>
+        void refund(event).catch((cause) => setError(String(cause)))}>
+        <label>ID del pago<input name="paymentId" required /></label>
+        <label>Importe a devolver<input name="amount" inputMode="decimal" required /></label>
+        <label>Motivo<input name="reason" required /></label>
+        <label>Referencia externa, si aplica<input name="externalReference" /></label>
+        <label>Operador externo, si aplica<input name="operator" /></label>
+        <button className="button">Registrar devolución</button>
       </form>
       {error ? <p role="alert">{error}</p> : null}
       <div className="catalog-grid">

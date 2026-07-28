@@ -68,6 +68,33 @@ export const prismaPaymentRepository: PaymentRepository = {
       const remaining = order.total.sub(paid);
       if (amount.greaterThan(remaining)) throw new Error("REST_PAYMENT_EXCEEDS_BALANCE");
       const drawerId = input.drawerId ? String(input.drawerId) : null;
+      const customerAccountId = input.customerAccountId
+        ? String(input.customerAccountId) : null;
+      const account = customerAccountId
+        ? await tx.customerAccount.findFirstOrThrow({
+            where: {
+              id: customerAccountId,
+              globalTenantId: order.globalTenantId,
+              status: "ACTIVE",
+            },
+            include: { movements: { select: { amount: true } } },
+          })
+        : null;
+      if (String(input.tenderType) === "CUSTOMER_ACCOUNT" && !account) {
+        throw new Error("REST_CUSTOMER_ACCOUNT_REQUIRED");
+      }
+      if (String(input.tenderType) !== "CUSTOMER_ACCOUNT" && account) {
+        throw new Error("REST_CUSTOMER_ACCOUNT_TENDER_MISMATCH");
+      }
+      if (account?.creditLimit) {
+        const balance = account.movements.reduce(
+          (sum, movement) => sum.add(movement.amount),
+          new Prisma.Decimal(0),
+        );
+        if (balance.add(amount).greaterThan(account.creditLimit)) {
+          throw new Error("REST_ACCOUNT_CREDIT_LIMIT_EXCEEDED");
+        }
+      }
       const payment = await tx.payment.create({
         data: {
           restTenantId: tenant.id,
@@ -82,8 +109,30 @@ export const prismaPaymentRepository: PaymentRepository = {
           operator: input.operator ? String(input.operator) : null,
           actorId: String(input.actorId),
           commandId: String(input.commandId),
+          customerAccountId,
         },
       });
+      if (account) {
+        const balance = account.movements.reduce(
+          (sum, movement) => sum.add(movement.amount),
+          new Prisma.Decimal(0),
+        );
+        await tx.customerAccountMovement.create({
+          data: {
+            restTenantId: account.restTenantId,
+            globalTenantId: account.globalTenantId,
+            branchId: order.branchId,
+            accountId: account.id,
+            paymentId: payment.id,
+            type: "CHARGE",
+            amount,
+            balanceAfter: balance.add(amount),
+            reason: `Consumo orden #${order.orderNumber}`,
+            actorId: String(input.actorId),
+            commandId: `${String(input.commandId)}:account`,
+          },
+        });
+      }
       if (drawerId) {
         const drawer = await tx.cashDrawer.findFirstOrThrow({
           where: {
@@ -140,4 +189,3 @@ export const prismaPaymentRepository: PaymentRepository = {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   },
 };
-

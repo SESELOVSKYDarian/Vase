@@ -11,6 +11,12 @@ const orderSchema = z.object({
       amount: z.string(),
       status: z.string(),
     }).passthrough()).optional(),
+    refunds: z.array(z.object({
+      id: z.string().min(1),
+      transaction_id: z.string().min(1),
+      amount: z.string(),
+      status: z.string(),
+    }).passthrough()).optional(),
   }).passthrough().optional(),
 }).passthrough();
 
@@ -117,9 +123,8 @@ export function createMercadoPagoClient(input: {
       return request(`/v1/orders/${encodeURIComponent(orderId)}/refund`, {
         method: "POST",
         idempotencyKey,
-        body: body ?? {},
+        body,
       });
     },
   };
 }
-

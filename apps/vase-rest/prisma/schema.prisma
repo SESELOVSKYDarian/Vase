@@ -41,6 +41,9 @@ model RestTenant {
   paymentProviderWebhookEvents PaymentProviderWebhookEvent[]
   fiscalConnections            FiscalConnection[]
   fiscalDocuments              FiscalDocument[]
+  customerAccounts             CustomerAccount[]
+  customerAccountMovements     CustomerAccountMovement[]
+  paymentRefunds               PaymentRefund[]
   createdAt                    DateTime                      @default(now())
   updatedAt                    DateTime                      @updatedAt
 }
@@ -97,6 +100,8 @@ model Branch {
   providerPaymentAttempts    ProviderPaymentAttempt[]
   fiscalConnection           FiscalConnection?
   fiscalDocuments            FiscalDocument[]
+  customerAccountMovements   CustomerAccountMovement[]
+  paymentRefunds             PaymentRefund[]
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
 
@@ -683,33 +688,109 @@ model CashMovement {
 }
 
 model Payment {
-  id             String          @id @default(cuid())
-  restTenantId   String
-  globalTenantId String
-  branchId       String
-  orderId        String
-  drawerId       String?
-  tenderType     String
-  amount         Decimal         @db.Decimal(18, 2)
-  currency       String          @default("ARS")
-  status         String          @default("APPLIED")
-  provider       String?
-  reference      String?
-  operator       String?
-  actorId        String
-  commandId      String
-  reversedAt     DateTime?
-  reversalReason String?
-  restTenant     RestTenant      @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  branch         Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  order          RestaurantOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  drawer         CashDrawer?     @relation(fields: [drawerId], references: [id], onDelete: Restrict)
-  cashMovement   CashMovement?
-  createdAt      DateTime        @default(now())
+  id                String                    @id @default(cuid())
+  restTenantId      String
+  globalTenantId    String
+  branchId          String
+  orderId           String
+  drawerId          String?
+  tenderType        String
+  amount            Decimal                   @db.Decimal(18, 2)
+  currency          String                    @default("ARS")
+  status            String                    @default("APPLIED")
+  provider          String?
+  reference         String?
+  operator          String?
+  actorId           String
+  commandId         String
+  reversedAt        DateTime?
+  reversalReason    String?
+  customerAccountId String?
+  restTenant        RestTenant                @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch            Branch                    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  order             RestaurantOrder           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  drawer            CashDrawer?               @relation(fields: [drawerId], references: [id], onDelete: Restrict)
+  cashMovement      CashMovement?
+  customerAccount   CustomerAccount?          @relation(fields: [customerAccountId], references: [id], onDelete: Restrict)
+  accountMovements  CustomerAccountMovement[]
+  refunds           PaymentRefund[]
+  createdAt         DateTime                  @default(now())
 
   @@unique([globalTenantId, commandId])
   @@unique([globalTenantId, provider, reference])
   @@index([orderId, status])
+  @@index([globalTenantId, branchId, createdAt])
+}
+
+model CustomerAccount {
+  id             String                    @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  taxId          String?
+  email          String?
+  phone          String?
+  status         String                    @default("ACTIVE")
+  creditLimit    Decimal?                  @db.Decimal(18, 2)
+  restTenant     RestTenant                @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  payments       Payment[]
+  movements      CustomerAccountMovement[]
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@index([globalTenantId, status, name])
+}
+
+model CustomerAccountMovement {
+  id             String          @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String?
+  accountId      String
+  paymentId      String?
+  type           String
+  amount         Decimal         @db.Decimal(18, 2)
+  balanceAfter   Decimal         @db.Decimal(18, 2)
+  reason         String
+  actorId        String
+  commandId      String
+  reversalOfId   String?         @unique
+  restTenant     RestTenant      @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch?         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  account        CustomerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  payment        Payment?        @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  createdAt      DateTime        @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([accountId, createdAt])
+  @@index([globalTenantId, branchId, createdAt])
+}
+
+model PaymentRefund {
+  id               String     @id @default(cuid())
+  restTenantId     String
+  globalTenantId   String
+  branchId         String
+  paymentId        String
+  amount           Decimal    @db.Decimal(18, 2)
+  status           String     @default("PENDING")
+  provider         String?
+  providerRefundId String?
+  providerResponse Json?
+  reason           String
+  commandId        String
+  actorId          String
+  restTenant       RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch           Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  payment          Payment    @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([globalTenantId, commandId])
+  @@unique([globalTenantId, provider, providerRefundId])
+  @@index([paymentId, status])
   @@index([globalTenantId, branchId, createdAt])
 }
 
