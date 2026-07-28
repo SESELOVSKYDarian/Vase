@@ -701,6 +701,7 @@ model Payment {
   createdAt      DateTime        @default(now())
 
   @@unique([globalTenantId, commandId])
+  @@unique([globalTenantId, provider, reference])
   @@index([orderId, status])
   @@index([globalTenantId, branchId, createdAt])
 }
@@ -755,7 +756,9 @@ model ProviderPaymentAttempt {
   providerOrderId   String?
   providerPaymentId String?
   commandId         String
+  actorId           String
   response          Json?
+  result            Json?
   lastError         String?
   lastReconciledAt  DateTime?
   restTenant        RestTenant                @relation(fields: [restTenantId], references: [id], onDelete: Cascade)

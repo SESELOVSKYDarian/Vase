@@ -4,6 +4,7 @@ import {
   encryptSecret,
 } from "../apps/vase-rest/app/lib/secrets/encryption";
 import { createMercadoPagoClient } from "../apps/vase-rest/app/lib/payments/mercado-pago-client";
+import { createMercadoPagoPaymentService } from "../apps/vase-rest/app/lib/payments/mercado-pago-service";
 
 describe("Rest Mercado Pago integration", () => {
   it("encrypts tenant-bound credentials with versioned AES-256-GCM", () => {
@@ -85,5 +86,68 @@ describe("Rest Mercado Pago integration", () => {
       id: "ORD-ambiguous",
       status: "processed",
     });
+  });
+
+  it("persists an attempt before calling Point and finalizes only from provider processed state", async () => {
+    const transitions: string[] = [];
+    const service = createMercadoPagoPaymentService({
+      findAttempt: async () => null,
+      prepareAttempt: async () => ({
+        attemptId: "attempt_1",
+        accessToken: "token",
+        amount: "100.00",
+        externalReference: "order_1",
+        description: "Orden 1",
+        config: { terminalId: "terminal_1" },
+      }),
+      markProviderState: async (_id, state) => { transitions.push(state.status); },
+      finalizeProcessed: async () => {
+        transitions.push("FINALIZED");
+        return { paymentId: "payment_1", status: "APPLIED" };
+      },
+      clientFactory: () => ({
+        createPointOrder: async () => ({
+          id: "ORD1", status: "processed",
+          transactions: { payments: [{ id: "PAY1", amount: "100.00", status: "processed" }] },
+        }),
+        createQrOrder: async () => { throw new Error("unexpected"); },
+        getOrder: async () => { throw new Error("unexpected"); },
+      }),
+    });
+    await expect(service.create({
+      globalTenantId: "tenant_1", branchId: "branch_1", orderId: "order_1",
+      kind: "POINT", commandId: "command_1", actorId: "cashier_1",
+    })).resolves.toEqual({ paymentId: "payment_1", status: "APPLIED" });
+    expect(transitions).toEqual(["processed", "FINALIZED"]);
+  });
+
+  it("keeps ambiguous attempts unresolved and retries with the same provider idempotency key", async () => {
+    const keys: string[] = [];
+    const markProviderState = async () => undefined;
+    const service = createMercadoPagoPaymentService({
+      findAttempt: async () => ({
+        id: "attempt_1", status: "AMBIGUOUS", providerOrderId: null,
+      }),
+      prepareAttempt: async () => ({
+        attemptId: "attempt_1", accessToken: "token", amount: "100.00",
+        externalReference: "order_1", description: "Orden 1",
+        config: { terminalId: "terminal_1" },
+      }),
+      markProviderState,
+      finalizeProcessed: async () => { throw new Error("unexpected"); },
+      clientFactory: () => ({
+        createPointOrder: async (input) => {
+          keys.push(input.idempotencyKey);
+          throw new Error("REST_MP_RESPONSE_AMBIGUOUS");
+        },
+        createQrOrder: async () => { throw new Error("unexpected"); },
+        getOrder: async () => { throw new Error("unexpected"); },
+      }),
+    });
+    await expect(service.create({
+      globalTenantId: "tenant_1", branchId: "branch_1", orderId: "order_1",
+      kind: "POINT", commandId: "command_1", actorId: "cashier_1",
+    })).rejects.toThrow("REST_MP_RESPONSE_AMBIGUOUS");
+    expect(keys).toEqual(["command_1"]);
   });
 });

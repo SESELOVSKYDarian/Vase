@@ -30,7 +30,9 @@ CREATE TABLE "ProviderPaymentAttempt" (
   "providerOrderId" TEXT,
   "providerPaymentId" TEXT,
   "commandId" TEXT NOT NULL,
+  "actorId" TEXT NOT NULL,
   "response" JSONB,
+  "result" JSONB,
   "lastError" TEXT,
   "lastReconciledAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -60,6 +62,8 @@ CREATE INDEX "ProviderPaymentAttempt_connectionId_status_createdAt_idx"
   ON "ProviderPaymentAttempt"("connectionId", "status", "createdAt");
 CREATE INDEX "ProviderPaymentAttempt_providerOrderId_idx"
   ON "ProviderPaymentAttempt"("providerOrderId");
+CREATE UNIQUE INDEX "Payment_globalTenantId_provider_reference_key"
+  ON "Payment"("globalTenantId", "provider", "reference");
 CREATE UNIQUE INDEX "PaymentProviderWebhookEvent_connectionId_requestId_key"
   ON "PaymentProviderWebhookEvent"("connectionId", "requestId");
 CREATE INDEX "PaymentProviderWebhookEvent_globalTenantId_providerOrderId_idx"

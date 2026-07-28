@@ -75,6 +75,17 @@ export default function CashierPage() {
     await refresh();
   }
 
+  async function chargeMercadoPago(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await mutate("/api/v1/payments/mercado-pago", {
+      orderId: form.get("orderId"),
+      kind: form.get("kind"),
+      commandId: crypto.randomUUID(),
+    });
+    event.currentTarget.reset();
+  }
+
   async function mutate(url: string, payload: unknown) {
     setError("");
     const response = await fetch(url, {
@@ -119,6 +130,17 @@ export default function CashierPage() {
         <label>Referencia<input name="reference" /></label>
         <label>Operador<input name="operator" /></label>
         <button className="button button-primary">Registrar cobro</button>
+      </form>
+      <form className="inline-form" onSubmit={(event) =>
+        void chargeMercadoPago(event).catch((cause) => setError(String(cause)))}>
+        <label>ID de orden<input name="orderId" required /></label>
+        <label>Mercado Pago
+          <select name="kind">
+            <option value="POINT">Point</option>
+            <option value="QR">QR</option>
+          </select>
+        </label>
+        <button className="button button-primary">Iniciar cobro integrado</button>
       </form>
       {error ? <p role="alert">{error}</p> : null}
       <div className="catalog-grid">
