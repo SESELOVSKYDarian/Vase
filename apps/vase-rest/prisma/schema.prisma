@@ -8,81 +8,88 @@ datasource db {
 }
 
 model RestTenant {
-  id             String                       @id @default(cuid())
-  globalTenantId String                       @unique
-  name           String
-  slug           String                       @unique
-  entitlement    RestEntitlementProjection?
-  branches       Branch[]
-  branchGroups   BranchGroup[]
-  auditEvents    AuditEvent[]
-  localEmployees LocalEmployee[]
-  devices        Device[]
-  edgeInstallations EdgeInstallation[]
-  deviceEnrollments DeviceEnrollment[]
-  configurationPolicies ConfigurationPolicy[]
-  categories     MenuCategory[]
-  products       MenuProduct[]
-  ingredients    Ingredient[]
-  modifierGroups ModifierGroup[]
-  warehouses     Warehouse[]
-  diningFloors   DiningFloor[]
-  reservations   Reservation[]
-  orders         RestaurantOrder[]
-  kitchenStations KitchenStation[]
-  edgeAggregates  EdgeAggregateProjection[]
-  edgeEventReceipts EdgeEventReceipt[]
-  createdAt      DateTime                     @default(now())
-  updatedAt      DateTime                     @updatedAt
+  id                       String                     @id @default(cuid())
+  globalTenantId           String                     @unique
+  name                     String
+  slug                     String                     @unique
+  entitlement              RestEntitlementProjection?
+  branches                 Branch[]
+  branchGroups             BranchGroup[]
+  auditEvents              AuditEvent[]
+  localEmployees           LocalEmployee[]
+  devices                  Device[]
+  edgeInstallations        EdgeInstallation[]
+  deviceEnrollments        DeviceEnrollment[]
+  configurationPolicies    ConfigurationPolicy[]
+  categories               MenuCategory[]
+  products                 MenuProduct[]
+  ingredients              Ingredient[]
+  modifierGroups           ModifierGroup[]
+  warehouses               Warehouse[]
+  diningFloors             DiningFloor[]
+  reservations             Reservation[]
+  orders                   RestaurantOrder[]
+  kitchenStations          KitchenStation[]
+  edgeAggregates           EdgeAggregateProjection[]
+  edgeEventReceipts        EdgeEventReceipt[]
+  cashDrawers              CashDrawer[]
+  cashMovements            CashMovement[]
+  payments                 Payment[]
+  financialCommandReceipts FinancialCommandReceipt[]
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
 }
 
 model RestEntitlementProjection {
-  id                String     @id @default(cuid())
-  restTenantId      String     @unique
-  globalTenantId    String     @unique
-  plan              String
-  status            String
-  contractVersion   Int
-  branchLimit       Int
+  id                 String     @id @default(cuid())
+  restTenantId       String     @unique
+  globalTenantId     String     @unique
+  plan               String
+  status             String
+  contractVersion    Int
+  branchLimit        Int
   localEmployeeLimit Int
-  deviceLimit       Int
-  edgeLimit         Int
-  effectiveAt       DateTime
-  restTenant        RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  deviceLimit        Int
+  edgeLimit          Int
+  effectiveAt        DateTime
+  restTenant         RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   @@index([globalTenantId, status])
 }
 
 model Branch {
-  id             String              @id @default(cuid())
-  restTenantId   String
-  globalTenantId String
-  code           String
-  slug           String
-  name           String
-  timezone       String              @default("America/Argentina/Buenos_Aires")
-  active         Boolean             @default(true)
-  restTenant     RestTenant          @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  groupMembers   BranchGroupMember[]
-  auditEvents    AuditEvent[]
-  staffRoles     StaffBranchRole[]
-  devices        Device[]
-  staffSessions  StaffSession[]
-  edgeInstallations EdgeInstallation[]
-  deviceEnrollments DeviceEnrollment[]
-  productAvailability ProductBranchAvailability[]
-  warehouseLinks WarehouseBranch[]
+  id                   String                      @id @default(cuid())
+  restTenantId         String
+  globalTenantId       String
+  code                 String
+  slug                 String
+  name                 String
+  timezone             String                      @default("America/Argentina/Buenos_Aires")
+  active               Boolean                     @default(true)
+  restTenant           RestTenant                  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  groupMembers         BranchGroupMember[]
+  auditEvents          AuditEvent[]
+  staffRoles           StaffBranchRole[]
+  devices              Device[]
+  staffSessions        StaffSession[]
+  edgeInstallations    EdgeInstallation[]
+  deviceEnrollments    DeviceEnrollment[]
+  productAvailability  ProductBranchAvailability[]
+  warehouseLinks       WarehouseBranch[]
   inventoryAllocations BranchInventoryAllocation[]
-  diningFloors   DiningFloor[]
-  diningTables   DiningTable[]
-  reservations   Reservation[]
-  orders         RestaurantOrder[]
-  kitchenStations KitchenStation[]
-  orderSequence  BranchOrderSequence?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  diningFloors         DiningFloor[]
+  diningTables         DiningTable[]
+  reservations         Reservation[]
+  orders               RestaurantOrder[]
+  kitchenStations      KitchenStation[]
+  orderSequence        BranchOrderSequence?
+  cashDrawers          CashDrawer[]
+  cashMovements        CashMovement[]
+  payments             Payment[]
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
 
   @@unique([globalTenantId, code])
   @@unique([globalTenantId, slug])
@@ -100,59 +107,59 @@ model LocalEmployee {
   active            Boolean           @default(true)
   failedPinAttempts Int               @default(0)
   lockedUntil       DateTime?
-  pinChangedAt      DateTime           @default(now())
+  pinChangedAt      DateTime          @default(now())
   restTenant        RestTenant        @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
   branchRoles       StaffBranchRole[]
   sessions          StaffSession[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   @@unique([globalTenantId, employeeCode])
   @@index([restTenantId, active])
 }
 
 model StaffBranchRole {
-  id             String        @id @default(cuid())
-  globalTenantId String
+  id              String        @id @default(cuid())
+  globalTenantId  String
   localEmployeeId String
-  branchId       String
-  role           String
-  localEmployee  LocalEmployee @relation(fields: [localEmployeeId], references: [id], onDelete: Cascade)
-  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  branchId        String
+  role            String
+  localEmployee   LocalEmployee @relation(fields: [localEmployeeId], references: [id], onDelete: Cascade)
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@unique([localEmployeeId, branchId])
   @@index([globalTenantId, branchId, role])
 }
 
 model Device {
-  id              String         @id @default(cuid())
-  restTenantId    String
-  globalTenantId  String
-  branchId        String
-  name            String
-  kind            String
-  status          String         @default("ACTIVE")
+  id                     String         @id @default(cuid())
+  restTenantId           String
+  globalTenantId         String
+  branchId               String
+  name                   String
+  kind                   String
+  status                 String         @default("ACTIVE")
   certificateFingerprint String?
-  lastSeenAt      DateTime?
-  restTenant      RestTenant     @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  branch          Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  sessions        StaffSession[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  lastSeenAt             DateTime?
+  restTenant             RestTenant     @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                 Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  sessions               StaffSession[]
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
   @@index([globalTenantId, branchId, status])
 }
 
 model EdgeInstallation {
-  id                     String    @id @default(cuid())
+  id                     String     @id @default(cuid())
   restTenantId           String
   globalTenantId         String
   branchId               String
   name                   String
-  status                 String    @default("ACTIVE")
-  certificateFingerprint String    @unique
+  status                 String     @default("ACTIVE")
+  certificateFingerprint String     @unique
   lastSeenAt             DateTime?
   restTenant             RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
   branch                 Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
@@ -202,63 +209,63 @@ model ConfigurationPolicy {
 }
 
 model MenuCategory {
-  id             String        @id @default(cuid())
-  restTenantId   String
-  globalTenantId String
-  code           String
-  name           String
-  sortOrder      Int           @default(0)
-  active         Boolean       @default(true)
-  revision       Int           @default(1)
-  restTenant     RestTenant    @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  products       MenuProduct[]
+  id              String                   @id @default(cuid())
+  restTenantId    String
+  globalTenantId  String
+  code            String
+  name            String
+  sortOrder       Int                      @default(0)
+  active          Boolean                  @default(true)
+  revision        Int                      @default(1)
+  restTenant      RestTenant               @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  products        MenuProduct[]
   kitchenStations KitchenStationCategory[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
 
   @@unique([globalTenantId, code])
   @@index([globalTenantId, active, sortOrder])
 }
 
 model MenuProduct {
-  id             String                 @id @default(cuid())
-  restTenantId   String
-  globalTenantId String
-  categoryId     String
-  sku            String
-  name           String
-  description    String?
-  available      Boolean                @default(true)
-  revision       Int                    @default(1)
-  restTenant     RestTenant             @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  category       MenuCategory           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  recipeItems    RecipeItem[]
-  prices         ProductPrice[]
+  id                 String                      @id @default(cuid())
+  restTenantId       String
+  globalTenantId     String
+  categoryId         String
+  sku                String
+  name               String
+  description        String?
+  available          Boolean                     @default(true)
+  revision           Int                         @default(1)
+  restTenant         RestTenant                  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  category           MenuCategory                @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  recipeItems        RecipeItem[]
+  prices             ProductPrice[]
   branchAvailability ProductBranchAvailability[]
-  modifierGroups ProductModifierGroup[]
-  orderItems     OrderItem[]
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
+  modifierGroups     ProductModifierGroup[]
+  orderItems         OrderItem[]
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
 
   @@unique([globalTenantId, sku])
   @@index([globalTenantId, categoryId, available])
 }
 
 model Ingredient {
-  id             String       @id @default(cuid())
-  restTenantId   String
-  globalTenantId String
-  sku            String
-  name           String
-  baseUnit       String
-  active         Boolean      @default(true)
-  restTenant     RestTenant   @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  recipeItems    RecipeItem[]
-  inventoryBalances InventoryBalance[]
-  inventoryMovements InventoryMovement[]
+  id                   String                      @id @default(cuid())
+  restTenantId         String
+  globalTenantId       String
+  sku                  String
+  name                 String
+  baseUnit             String
+  active               Boolean                     @default(true)
+  restTenant           RestTenant                  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  recipeItems          RecipeItem[]
+  inventoryBalances    InventoryBalance[]
+  inventoryMovements   InventoryMovement[]
   inventoryAllocations BranchInventoryAllocation[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
 
   @@unique([globalTenantId, sku])
 }
@@ -395,43 +402,43 @@ model InventoryBalance {
 }
 
 model InventoryMovement {
-  id               String              @id @default(cuid())
-  globalTenantId   String
-  warehouseId      String
-  ingredientId     String
-  kind             String
-  quantity         Decimal             @db.Decimal(18, 6)
-  balanceAfter     Decimal             @db.Decimal(18, 6)
-  commandId        String
-  actorId          String
-  referenceType    String?
-  referenceId      String?
-  reason           String?
-  reversalOfId     String?             @unique
-  warehouse        Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  ingredient       Ingredient          @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
-  reversalOf       InventoryMovement?  @relation("InventoryReversal", fields: [reversalOfId], references: [id])
-  reversedBy       InventoryMovement?  @relation("InventoryReversal")
-  occurredAt       DateTime            @default(now())
+  id             String             @id @default(cuid())
+  globalTenantId String
+  warehouseId    String
+  ingredientId   String
+  kind           String
+  quantity       Decimal            @db.Decimal(18, 6)
+  balanceAfter   Decimal            @db.Decimal(18, 6)
+  commandId      String
+  actorId        String
+  referenceType  String?
+  referenceId    String?
+  reason         String?
+  reversalOfId   String?            @unique
+  warehouse      Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  ingredient     Ingredient         @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  reversalOf     InventoryMovement? @relation("InventoryReversal", fields: [reversalOfId], references: [id])
+  reversedBy     InventoryMovement? @relation("InventoryReversal")
+  occurredAt     DateTime           @default(now())
 
   @@unique([globalTenantId, commandId])
   @@index([globalTenantId, warehouseId, ingredientId, occurredAt])
 }
 
 model BranchInventoryAllocation {
-  id             String     @id @default(cuid())
+  id             String                  @id @default(cuid())
   globalTenantId String
   branchId       String
   warehouseId    String
   ingredientId   String
-  available      Decimal    @db.Decimal(18, 6)
-  safetyStock    Decimal    @default(0) @db.Decimal(18, 6)
-  revision       Int        @default(1)
-  branch         Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  warehouse      Warehouse  @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  ingredient     Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  available      Decimal                 @db.Decimal(18, 6)
+  safetyStock    Decimal                 @default(0) @db.Decimal(18, 6)
+  revision       Int                     @default(1)
+  branch         Branch                  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  warehouse      Warehouse               @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  ingredient     Ingredient              @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
   consumptions   AllocationConsumption[]
-  updatedAt      DateTime   @updatedAt
+  updatedAt      DateTime                @updatedAt
 
   @@unique([branchId, ingredientId])
   @@index([globalTenantId, warehouseId])
@@ -452,21 +459,21 @@ model AllocationConsumption {
 }
 
 model DiningFloor {
-  id             String      @id @default(cuid())
+  id             String        @id @default(cuid())
   restTenantId   String
   globalTenantId String
   branchId       String
   code           String
   name           String
-  sortOrder      Int         @default(0)
-  active         Boolean     @default(true)
-  revision       Int         @default(1)
-  restTenant     RestTenant  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  branch         Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  sortOrder      Int           @default(0)
+  active         Boolean       @default(true)
+  revision       Int           @default(1)
+  restTenant     RestTenant    @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
   zones          DiningZone[]
   tables         DiningTable[]
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@unique([branchId, code])
   @@index([globalTenantId, branchId, active])
@@ -486,30 +493,30 @@ model DiningZone {
 }
 
 model DiningTable {
-  id             String             @id @default(cuid())
-  globalTenantId String
-  branchId       String
-  floorId        String
-  zoneId         String?
-  code           String
-  name           String
-  capacity       Int
-  x              Decimal            @db.Decimal(10, 2)
-  y              Decimal            @db.Decimal(10, 2)
-  width          Decimal            @db.Decimal(10, 2)
-  height         Decimal            @db.Decimal(10, 2)
-  status         String             @default("AVAILABLE")
-  revision       Int                @default(1)
-  mergeGroupId   String?
-  mergedIntoId   String?
-  branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  floor          DiningFloor        @relation(fields: [floorId], references: [id], onDelete: Cascade)
-  zone           DiningZone?        @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  id               String             @id @default(cuid())
+  globalTenantId   String
+  branchId         String
+  floorId          String
+  zoneId           String?
+  code             String
+  name             String
+  capacity         Int
+  x                Decimal            @db.Decimal(10, 2)
+  y                Decimal            @db.Decimal(10, 2)
+  width            Decimal            @db.Decimal(10, 2)
+  height           Decimal            @db.Decimal(10, 2)
+  status           String             @default("AVAILABLE")
+  revision         Int                @default(1)
+  mergeGroupId     String?
+  mergedIntoId     String?
+  branch           Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  floor            DiningFloor        @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  zone             DiningZone?        @relation(fields: [zoneId], references: [id], onDelete: SetNull)
   reservationLinks ReservationTable[]
-  transitions    TableTransition[]
-  orders         RestaurantOrder[]
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  transitions      TableTransition[]
+  orders           RestaurantOrder[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   @@unique([branchId, code])
   @@index([globalTenantId, branchId, status])
@@ -535,38 +542,38 @@ model TableTransition {
 }
 
 model Reservation {
-  id             String             @id @default(cuid())
-  restTenantId   String
-  globalTenantId String
-  branchId       String
-  guestName      String
-  guestPhone     String?
-  partySize      Int
-  startsAt       DateTime
-  endsAt         DateTime
-  status         String             @default("CONFIRMED")
-  notes          String?
-  revision       Int                @default(1)
-  createdBy      String
-  cancelledAt    DateTime?
+  id                 String             @id @default(cuid())
+  restTenantId       String
+  globalTenantId     String
+  branchId           String
+  guestName          String
+  guestPhone         String?
+  partySize          Int
+  startsAt           DateTime
+  endsAt             DateTime
+  status             String             @default("CONFIRMED")
+  notes              String?
+  revision           Int                @default(1)
+  createdBy          String
+  cancelledAt        DateTime?
   cancellationReason String?
-  restTenant     RestTenant         @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  branch         Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  tables         ReservationTable[]
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  restTenant         RestTenant         @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch             Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  tables             ReservationTable[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@index([globalTenantId, branchId, startsAt, endsAt])
   @@index([branchId, status, startsAt])
 }
 
 model ReservationTable {
-  id             String       @id @default(cuid())
+  id             String      @id @default(cuid())
   globalTenantId String
   reservationId  String
   tableId        String
-  reservation    Reservation  @relation(fields: [reservationId], references: [id], onDelete: Cascade)
-  table          DiningTable  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  reservation    Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  table          DiningTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@unique([reservationId, tableId])
   @@index([globalTenantId, tableId])
@@ -581,35 +588,127 @@ model BranchOrderSequence {
 }
 
 model RestaurantOrder {
-  id             String       @id @default(cuid())
-  restTenantId   String
-  globalTenantId String
-  branchId       String
-  tableId        String?
-  orderNumber    Int
-  status         String       @default("OPEN")
-  guestCount     Int
-  subtotal       Decimal      @default(0) @db.Decimal(18, 2)
-  discountTotal  Decimal      @default(0) @db.Decimal(18, 2)
-  taxTotal       Decimal      @default(0) @db.Decimal(18, 2)
-  total          Decimal      @default(0) @db.Decimal(18, 2)
-  revision       Int          @default(1)
-  openedBy       String
-  submittedAt    DateTime?
-  servedAt       DateTime?
-  cancelledAt    DateTime?
+  id                 String                @id @default(cuid())
+  restTenantId       String
+  globalTenantId     String
+  branchId           String
+  tableId            String?
+  orderNumber        Int
+  status             String                @default("OPEN")
+  guestCount         Int
+  subtotal           Decimal               @default(0) @db.Decimal(18, 2)
+  discountTotal      Decimal               @default(0) @db.Decimal(18, 2)
+  taxTotal           Decimal               @default(0) @db.Decimal(18, 2)
+  total              Decimal               @default(0) @db.Decimal(18, 2)
+  revision           Int                   @default(1)
+  openedBy           String
+  submittedAt        DateTime?
+  servedAt           DateTime?
+  cancelledAt        DateTime?
   cancellationReason String?
-  restTenant     RestTenant   @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
-  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  table          DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
-  items          OrderItem[]
-  kitchenTickets KitchenTicket[]
-  commandReceipts OrderCommandReceipt[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  restTenant         RestTenant            @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch             Branch                @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  table              DiningTable?          @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  items              OrderItem[]
+  kitchenTickets     KitchenTicket[]
+  commandReceipts    OrderCommandReceipt[]
+  payments           Payment[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
   @@unique([branchId, orderNumber])
   @@index([globalTenantId, branchId, status, createdAt])
+}
+
+model CashDrawer {
+  id             String         @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  stationId      String
+  status         String         @default("OPEN")
+  openingFloat   Decimal        @db.Decimal(18, 2)
+  expectedCash   Decimal        @db.Decimal(18, 2)
+  countedCash    Decimal?       @db.Decimal(18, 2)
+  variance       Decimal?       @db.Decimal(18, 2)
+  revision       Int            @default(1)
+  openedBy       String
+  closedBy       String?
+  openedAt       DateTime       @default(now())
+  closedAt       DateTime?
+  restTenant     RestTenant     @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  movements      CashMovement[]
+  payments       Payment[]
+
+  @@index([globalTenantId, branchId, status])
+  @@index([branchId, stationId, status])
+}
+
+model CashMovement {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  drawerId       String
+  paymentId      String?    @unique
+  type           String
+  amount         Decimal    @db.Decimal(18, 2)
+  balanceAfter   Decimal    @db.Decimal(18, 2)
+  reason         String
+  actorId        String
+  commandId      String
+  reversalOfId   String?
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  drawer         CashDrawer @relation(fields: [drawerId], references: [id], onDelete: Restrict)
+  payment        Payment?   @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  occurredAt     DateTime   @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([drawerId, occurredAt])
+}
+
+model Payment {
+  id             String          @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  orderId        String
+  drawerId       String?
+  tenderType     String
+  amount         Decimal         @db.Decimal(18, 2)
+  currency       String          @default("ARS")
+  status         String          @default("APPLIED")
+  provider       String?
+  reference      String?
+  operator       String?
+  actorId        String
+  commandId      String
+  reversedAt     DateTime?
+  reversalReason String?
+  restTenant     RestTenant      @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  order          RestaurantOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  drawer         CashDrawer?     @relation(fields: [drawerId], references: [id], onDelete: Restrict)
+  cashMovement   CashMovement?
+  createdAt      DateTime        @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([orderId, status])
+  @@index([globalTenantId, branchId, createdAt])
+}
+
+model FinancialCommandReceipt {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  commandId      String
+  response       Json
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+
+  @@unique([globalTenantId, commandId])
 }
 
 model OrderItem {
@@ -680,22 +779,22 @@ model KitchenStationCategory {
 }
 
 model KitchenTicket {
-  id             String         @id @default(cuid())
+  id             String                    @id @default(cuid())
   globalTenantId String
   branchId       String
   orderId        String
-  orderItemId    String         @unique
+  orderItemId    String                    @unique
   stationId      String
-  status         String         @default("QUEUED")
-  revision       Int            @default(1)
-  queuedAt       DateTime       @default(now())
+  status         String                    @default("QUEUED")
+  revision       Int                       @default(1)
+  queuedAt       DateTime                  @default(now())
   preparingAt    DateTime?
   readyAt        DateTime?
   servedAt       DateTime?
   cancelledAt    DateTime?
-  order          RestaurantOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderItem      OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  station        KitchenStation  @relation(fields: [stationId], references: [id], onDelete: Restrict)
+  order          RestaurantOrder           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem      OrderItem                 @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  station        KitchenStation            @relation(fields: [stationId], references: [id], onDelete: Restrict)
   transitions    KitchenTicketTransition[]
 
   @@index([globalTenantId, branchId, stationId, status, queuedAt])
@@ -752,7 +851,7 @@ model EdgeEventReceipt {
   restTenantId     String
   globalTenantId   String
   branchId         String
-  installationId  String
+  installationId   String
   eventId          String
   idempotencyKey   String
   aggregateType    String
