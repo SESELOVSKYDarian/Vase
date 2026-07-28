@@ -16,6 +16,10 @@ model RestTenant {
   branches       Branch[]
   branchGroups   BranchGroup[]
   auditEvents    AuditEvent[]
+  localEmployees LocalEmployee[]
+  devices        Device[]
+  edgeInstallations EdgeInstallation[]
+  deviceEnrollments DeviceEnrollment[]
   createdAt      DateTime                     @default(now())
   updatedAt      DateTime                     @updatedAt
 }
@@ -51,6 +55,11 @@ model Branch {
   restTenant     RestTenant          @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
   groupMembers   BranchGroupMember[]
   auditEvents    AuditEvent[]
+  staffRoles     StaffBranchRole[]
+  devices        Device[]
+  staffSessions  StaffSession[]
+  edgeInstallations EdgeInstallation[]
+  deviceEnrollments DeviceEnrollment[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -58,6 +67,117 @@ model Branch {
   @@unique([globalTenantId, slug])
   @@index([globalTenantId, active])
   @@index([restTenantId])
+}
+
+model LocalEmployee {
+  id                String            @id @default(cuid())
+  restTenantId      String
+  globalTenantId    String
+  employeeCode      String
+  displayName       String
+  pinHash           String
+  active            Boolean           @default(true)
+  failedPinAttempts Int               @default(0)
+  lockedUntil       DateTime?
+  pinChangedAt      DateTime           @default(now())
+  restTenant        RestTenant        @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branchRoles       StaffBranchRole[]
+  sessions          StaffSession[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([globalTenantId, employeeCode])
+  @@index([restTenantId, active])
+}
+
+model StaffBranchRole {
+  id             String        @id @default(cuid())
+  globalTenantId String
+  localEmployeeId String
+  branchId       String
+  role           String
+  localEmployee  LocalEmployee @relation(fields: [localEmployeeId], references: [id], onDelete: Cascade)
+  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([localEmployeeId, branchId])
+  @@index([globalTenantId, branchId, role])
+}
+
+model Device {
+  id              String         @id @default(cuid())
+  restTenantId    String
+  globalTenantId  String
+  branchId        String
+  name            String
+  kind            String
+  status          String         @default("ACTIVE")
+  certificateFingerprint String?
+  lastSeenAt      DateTime?
+  restTenant      RestTenant     @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch          Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  sessions        StaffSession[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([globalTenantId, branchId, status])
+}
+
+model EdgeInstallation {
+  id                     String    @id @default(cuid())
+  restTenantId           String
+  globalTenantId         String
+  branchId               String
+  name                   String
+  status                 String    @default("ACTIVE")
+  certificateFingerprint String    @unique
+  lastSeenAt             DateTime?
+  restTenant             RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                 Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+
+  @@index([globalTenantId, branchId, status])
+}
+
+model DeviceEnrollment {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  kind           String
+  name           String
+  codeHash       String     @unique
+  deviceLimit    Int
+  edgeLimit      Int
+  expiresAt      DateTime
+  usedAt         DateTime?
+  revokedAt      DateTime?
+  createdBy      String
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+
+  @@index([globalTenantId, branchId, expiresAt])
+}
+
+model StaffSession {
+  id              String        @id @default(cuid())
+  globalTenantId  String
+  localEmployeeId String
+  branchId        String
+  deviceId        String
+  tokenHash       String        @unique
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  localEmployee   LocalEmployee @relation(fields: [localEmployeeId], references: [id], onDelete: Cascade)
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  device          Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@index([globalTenantId, branchId, expiresAt])
+  @@index([localEmployeeId, revokedAt])
 }
 
 model BranchGroup {

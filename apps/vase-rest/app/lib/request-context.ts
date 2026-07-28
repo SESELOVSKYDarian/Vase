@@ -12,7 +12,7 @@ export async function resolveRestOwnerRequest(input: {
     secret: process.env.AUTH_SECRET,
   });
   const context = await createRestContextClient({
-    appInternalUrl: process.env.APP_INTERNAL_URL ?? "",
+    appInternalUrl: process.env.VASE_APP_INTERNAL_URL ?? "",
     serviceToken: process.env.SERVICE_TO_SERVICE_TOKEN,
     signingSecret: process.env.REST_CONTEXT_SIGNING_SECRET,
   }).resolve({
