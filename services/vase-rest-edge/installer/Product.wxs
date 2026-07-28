@@ -1,0 +1,88 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:fire="http://wixtoolset.org/schemas/v4/wxs/firewall">
+  <Package Name="Vase Rest Edge"
+           Manufacturer="Vase"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="8E4219A4-9BAA-4A31-86C4-F59DDDE835EA"
+           Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="Ya hay una versión más reciente de Vase Rest Edge." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Feature Id="Main" Title="Vase Rest Edge">
+      <ComponentGroupRef Id="EdgeFiles" />
+      <ComponentRef Id="EdgeData" />
+      <ComponentRef Id="PrivateFirewall" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Vase Rest Edge" />
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="VaseDataRoot" Name="Vase">
+        <Directory Id="EDGEDATADIR" Name="Rest Edge" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="EdgeFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PayloadDir)\**">
+        <Exclude Files="$(var.PayloadDir)\*.pdb" />
+        <Exclude Files="$(var.PayloadDir)\node.exe" />
+      </Files>
+      <Component Id="EdgeService" Bitness="always64">
+        <File Id="NodeRuntime" Source="$(var.PayloadDir)\node.exe" KeyPath="yes" />
+        <ServiceInstall Id="InstallEdgeService"
+                        Name="VaseRestEdge"
+                        DisplayName="Vase Rest Edge"
+                        Description="Servicio local offline y de impresión de Vase Rest."
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Arguments="--experimental-sqlite &quot;[INSTALLFOLDER]node_modules\tsx\dist\cli.mjs&quot; &quot;[INSTALLFOLDER]src\server.ts&quot;"
+                        Account="LocalSystem" />
+        <ServiceControl Id="ControlEdgeService"
+                        Name="VaseRestEdge"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+        <util:ServiceConfig FirstFailureActionType="restart"
+                            SecondFailureActionType="restart"
+                            ThirdFailureActionType="restart"
+                            ResetPeriodInDays="1"
+                            RestartServiceDelayInSeconds="10" />
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="EdgeData" Directory="EDGEDATADIR" NeverOverwrite="yes" Permanent="yes">
+      <CreateFolder>
+        <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+        <util:PermissionEx User="Administrators" GenericAll="yes" />
+      </CreateFolder>
+      <RegistryValue Root="HKLM"
+                     Key="Software\Vase\RestEdge"
+                     Name="DataDirectory"
+                     Type="string"
+                     Value="[EDGEDATADIR]"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="PrivateFirewall" Directory="INSTALLFOLDER">
+      <RegistryValue Root="HKLM"
+                     Key="Software\Vase\RestEdge"
+                     Name="Firewall"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+      <fire:FirewallException Id="EdgePrivateNetwork"
+                              Name="Vase Rest Edge (red privada)"
+                              Description="Acceso LAN a Vase Rest Edge"
+                              Program="[INSTALLFOLDER]node.exe"
+                              Port="3443"
+                              Protocol="tcp"
+                              Profile="private"
+                              Scope="localSubnet"
+                              IgnoreFailure="no" />
+    </Component>
+  </Package>
+</Wix>

@@ -10,10 +10,12 @@
     "dev": "node --experimental-sqlite ../../node_modules/tsx/dist/cli.mjs watch src/server.ts",
     "start": "node --experimental-sqlite ../../node_modules/tsx/dist/cli.mjs src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "cross-env NODE_OPTIONS=--experimental-sqlite vitest run tests"
+    "test": "cross-env NODE_OPTIONS=--experimental-sqlite vitest run tests",
+    "build:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows.ps1"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "tsx": "^4.20.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
