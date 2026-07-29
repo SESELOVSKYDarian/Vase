@@ -5,7 +5,11 @@ import { canTenantUseChannel, createRuntimeEntitlement, type LabsRuntimeEntitlem
 import { resolveMetaWebhookVerifyToken } from "./meta-webhook";
 import { getManualChannelId } from "./channel-manual-setup";
 import { verifyMetaSignature } from "./meta-signature";
-import { resolveChannelConnectionStatus } from "./channel-health";
+import {
+  hasMetaChannelCredentials,
+  isMetaAssetVerified,
+  resolveChannelConnectionStatus,
+} from "./channel-health";
 import { createConversationAnalysisQueue } from "./conversation-analysis-queue";
 import { PrismaConversationAnalysisRepository } from "./conversation-analysis-repository";
 
@@ -479,8 +483,17 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
       const now = new Date();
       const status = resolveChannelConnectionStatus({
         webhookVerified: true,
-        credentialsPresent: channel.secrets.some((item) => item.kind === "META_ACCESS_TOKEN") && (channel.secrets.some((item) => item.kind === "META_APP_SECRET") || Boolean(process.env.META_APP_SECRET?.trim())),
-        assetVerified: Boolean(channel.providerAccountId),
+        credentialsPresent: hasMetaChannelCredentials({
+          secretKinds: channel.secrets.map((item) => item.kind),
+          config,
+          fallbackAppId: process.env.META_APP_ID,
+          fallbackAppSecret: process.env.META_APP_SECRET,
+        }),
+        assetVerified: isMetaAssetVerified({
+          providerAccountId: channel.providerAccountId,
+          config,
+          lastError: channel.lastError,
+        }),
         subscriptionActive: Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0,
       });
       await tx.channel.update({

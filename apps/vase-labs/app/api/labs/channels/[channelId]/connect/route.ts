@@ -11,6 +11,7 @@ import { resolveLabsRequestContext } from "../../../../../lib/request-context";
 const bodySchema = z.object({
   channelType: labsChannelSchema,
   accessToken: z.string().trim().min(1).max(4096).optional(),
+  metaAppId: z.string().trim().min(1).max(160).optional(),
   appSecret: z.string().trim().min(1).max(4096).optional(),
   providerAccountId: z.string().trim().min(1).max(160),
   parentId: z.string().trim().min(1).max(160).nullable(),
@@ -19,7 +20,7 @@ const bodySchema = z.object({
 const safeErrors = new Set([
   "CHANNEL_NOT_FOUND", "CHANNEL_CREDENTIAL_MISSING",
   "META_ASSET_NOT_AUTHORIZED", "META_TOKEN_INVALID", "META_PERMISSIONS_MISSING", "META_GRAPH_REQUEST_FAILED", "META_ASSET_PARENT_MISSING", "META_SUBSCRIPTION_FAILED",
-  "META_APP_SECRET_MISSING", "TOKEN_ENCRYPTION_SECRET_MISSING", "CHANNEL_CREDENTIAL_REENTER_REQUIRED",
+  "META_APP_ID_MISSING", "META_APP_SECRET_MISSING", "TOKEN_ENCRYPTION_SECRET_MISSING", "CHANNEL_CREDENTIAL_REENTER_REQUIRED",
 ]);
 
 export async function POST(request: Request, { params }: { params: Promise<{ channelId: string }> }) {
@@ -29,6 +30,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
     const body = bodySchema.parse(await request.json());
     const secret = process.env.TOKEN_ENCRYPTION_SECRET?.trim();
     if (!secret) throw new Error("TOKEN_ENCRYPTION_SECRET_MISSING");
+    const storedChannel = await labsPrisma.channel.findFirst({
+      where: { id: channelId, assistantId: assistant.id },
+      select: { config: true },
+    });
+    const storedConfig = storedChannel?.config && typeof storedChannel.config === "object" && !Array.isArray(storedChannel.config)
+      ? storedChannel.config as Record<string, unknown>
+      : {};
+    const storedMetaAppId = typeof storedConfig.metaAppId === "string"
+      ? storedConfig.metaAppId.trim()
+      : "";
+    const metaAppId = body.metaAppId
+      ?? (storedMetaAppId || process.env.META_APP_ID?.trim());
+    if (!metaAppId) throw new Error("META_APP_ID_MISSING");
     let accessToken = body.accessToken;
     if (!accessToken) {
       const stored = await labsPrisma.channelSecret.findFirst({
@@ -60,6 +74,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
     if (!appSecret) throw new Error("META_APP_SECRET_MISSING");
     const graph = createMetaGraphClient({
       graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v25.0",
+      appId: metaAppId,
+      appSecret,
     });
     const service = createManualMetaConnectionService({
       graph,
@@ -76,7 +92,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
                 providerAccountId: data.providerAccountId,
                 phoneNumberId: current.type === "WHATSAPP" ? data.providerAccountId : null,
                 wabaId: current.type === "WHATSAPP" ? data.parentId : null,
-                config: { manualWebhook: true, parentId: data.parentId, validationPending: true },
+                config: { manualWebhook: true, parentId: data.parentId, metaAppId: data.metaAppId, validationPending: true },
                 status: "PENDING", connectedAt: null, lastError: null,
               },
             }),
@@ -104,7 +120,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
                 provider: "META_OFFICIAL", providerAccountId: data.providerAccountId,
                 phoneNumberId: data.phoneNumberId, wabaId: data.wabaId,
                 accountLabel: data.accountLabel, externalHandle: data.externalHandle,
-                config: data.config as Prisma.InputJsonValue, status: data.status,
+                config: { ...data.config, metaAppId: data.metaAppId } as Prisma.InputJsonValue, status: data.status,
                 connectedAt: data.status === "CONNECTED" ? now : null,
                 lastSyncedAt: now, lastError: null,
               },
@@ -123,7 +139,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
         },
       },
     });
-    return NextResponse.json(await service.connect({ assistantId: assistant.id, channelId, ...body, accessToken, appSecret }));
+    return NextResponse.json(await service.connect({ assistantId: assistant.id, channelId, ...body, metaAppId, accessToken, appSecret }));
   } catch (error) {
     const code = error instanceof Error && safeErrors.has(error.message) ? error.message : "CHANNEL_CONNECTION_FAILED";
     const status = code === "CHANNEL_NOT_FOUND" ? 404 : code === "CHANNEL_CONNECTION_FAILED" ? 500 : 400;

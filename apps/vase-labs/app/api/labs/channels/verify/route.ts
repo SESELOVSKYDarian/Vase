@@ -4,6 +4,7 @@ import {
   type ManualChannelVerifyResult,
 } from "../../../../lib/channel-manual-setup";
 import { labsPrisma } from "../../../../lib/db";
+import { hasMetaChannelCredentials } from "../../../../lib/channel-health";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 
 const authErrors = new Set(["LABS_SESSION_REQUIRED", "LABS_SESSION_INVALID", "LABS_SESSION_EXPIRED"]);
@@ -39,9 +40,15 @@ const service = createManualChannelSetupService({
       include: { secrets: { where: { kind: { in: ["META_ACCESS_TOKEN", "META_APP_SECRET"] } }, select: { kind: true } } },
     });
     if (!channel) return null;
-    const hasAccessToken = channel.secrets.some((item) => item.kind === "META_ACCESS_TOKEN");
-    const hasAppSecret = channel.secrets.some((item) => item.kind === "META_APP_SECRET") || Boolean(process.env.META_APP_SECRET?.trim());
-    return { ...channel, credentialsPresent: hasAccessToken && hasAppSecret };
+    return {
+      ...channel,
+      credentialsPresent: hasMetaChannelCredentials({
+        secretKinds: channel.secrets.map((item) => item.kind),
+        config: channel.config,
+        fallbackAppId: process.env.META_APP_ID,
+        fallbackAppSecret: process.env.META_APP_SECRET,
+      }),
+    };
   },
 });
 

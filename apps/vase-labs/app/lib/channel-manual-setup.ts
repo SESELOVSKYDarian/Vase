@@ -3,6 +3,7 @@ import { getChannelCapacity } from "./channel-capacity";
 export { getManualChannelId } from "./channel-manual-id";
 import { getManualChannelId } from "./channel-manual-id";
 import { resolveMetaWebhookVerifyToken } from "./meta-webhook";
+import { isMetaAssetVerified } from "./channel-health";
 
 export type ManualChannelRecord = {
   id: string;
@@ -84,7 +85,11 @@ function resolveManualChannelHealth(channel: ManualChannelRecord): ManualChannel
   return {
     webhookVerified: Boolean(channel.webhookVerifiedAt),
     credentialsPresent: channel.credentialsPresent !== false,
-    assetVerified: Boolean(channel.providerAccountId),
+    assetVerified: isMetaAssetVerified({
+      providerAccountId: channel.providerAccountId,
+      config,
+      lastError: channel.lastError,
+    }),
     subscriptionActive: Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0,
   };
 }

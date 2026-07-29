@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildManualChannelSetup, resolveCanonicalLabsOrigin } from "../../../../lib/channel-manual-setup";
+import { hasMetaChannelCredentials, isMetaAssetVerified } from "../../../../lib/channel-health";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 
@@ -23,13 +24,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ chan
       channelId: channel.id, channelType: channel.type, status: channel.status, ...webhook,
       providerAccountId: channel.providerAccountId,
       parentId: channel.type === "WHATSAPP" ? channel.wabaId : typeof config.parentId === "string" ? config.parentId : null,
+      metaAppId: typeof config.metaAppId === "string" ? config.metaAppId : null,
       accountLabel: channel.accountLabel,
       accessTokenMasked: channel.secrets.some((item) => item.kind === "META_ACCESS_TOKEN") ? "••••••••••••" : null,
       appSecretMasked: channel.secrets.some((item) => item.kind === "META_APP_SECRET") ? "••••••••••••" : null,
       health: {
         webhookVerified: Boolean(channel.webhookVerifiedAt),
-        credentialsPresent: channel.secrets.some((item) => item.kind === "META_ACCESS_TOKEN") && (channel.secrets.some((item) => item.kind === "META_APP_SECRET") || Boolean(process.env.META_APP_SECRET?.trim())),
-        assetVerified: Boolean(channel.providerAccountId),
+        credentialsPresent: hasMetaChannelCredentials({
+          secretKinds: channel.secrets.map((item) => item.kind),
+          config,
+          fallbackAppId: process.env.META_APP_ID,
+          fallbackAppSecret: process.env.META_APP_SECRET,
+        }),
+        assetVerified: isMetaAssetVerified({
+          providerAccountId: channel.providerAccountId,
+          config,
+          lastError: channel.lastError,
+        }),
         subscriptionActive: Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0,
       },
     });

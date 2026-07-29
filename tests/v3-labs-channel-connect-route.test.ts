@@ -60,7 +60,7 @@ describe("Labs channel connect route", () => {
     const route = await import("../apps/vase-labs/app/api/labs/channels/[channelId]/connect/route");
 
     const response = await route.POST(
-      request({ channelType: "WHATSAPP", accessToken: "token", appSecret: "client-app-secret", providerAccountId: "phone_1", parentId: "waba_1" }),
+      request({ channelType: "WHATSAPP", accessToken: "token", metaAppId: "client-app-id", appSecret: "client-app-secret", providerAccountId: "phone_1", parentId: "waba_1" }),
       { params: Promise.resolve({ channelId: "channel_1" }) },
     );
     const payload = await response.json();
@@ -68,7 +68,17 @@ describe("Labs channel connect route", () => {
     expect(response.status).toBe(200);
     expect(payload.status).toBe("PENDING");
     expect(graph.resolveManualAsset).toHaveBeenCalledWith(expect.objectContaining({ accessToken: "token", providerAccountId: "phone_1", parentId: "waba_1" }));
+    const { createMetaGraphClient } = await import("../apps/vase-labs/app/lib/meta-graph");
+    expect(createMetaGraphClient).toHaveBeenCalledWith(expect.objectContaining({
+      appId: "client-app-id",
+      appSecret: "client-app-secret",
+    }));
     const { labsPrisma } = await import("../apps/vase-labs/app/lib/db");
+    expect(labsPrisma.channel.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        config: expect.objectContaining({ metaAppId: "client-app-id" }),
+      }),
+    }));
     expect(labsPrisma.channelSecret.upsert).toHaveBeenCalledWith(expect.objectContaining({
       where: { channelId_kind: { channelId: "channel_1", kind: "META_APP_SECRET" } },
     }));
@@ -81,7 +91,7 @@ describe("Labs channel connect route", () => {
     const route = await import("../apps/vase-labs/app/api/labs/channels/[channelId]/connect/route");
 
     const response = await route.POST(
-      request({ channelType: "WHATSAPP", providerAccountId: "phone_1", parentId: "waba_1" }),
+      request({ channelType: "WHATSAPP", metaAppId: "client-app-id", providerAccountId: "phone_1", parentId: "waba_1" }),
       { params: Promise.resolve({ channelId: "channel_1" }) },
     );
     const payload = await response.json();

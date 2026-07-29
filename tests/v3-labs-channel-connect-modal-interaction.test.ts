@@ -63,6 +63,7 @@ describe("ChannelConnectModal interactions", () => {
     await click(button("Configuración avanzada"));
     expect(host.textContent).toContain("Phone Number ID");
     expect(host.textContent).toContain("WABA ID");
+    expect(host.textContent).toContain("Meta App ID");
     expect(host.textContent).toContain("Access Token");
     expect(host.textContent).toContain("Meta App Secret");
   });
@@ -75,12 +76,12 @@ describe("ChannelConnectModal interactions", () => {
     await click(button("Agregar canal")); await click(button("WhatsApp")); await click(button("Continuar"));
     await click(button("Configuración avanzada"));
     const inputs = [...host.querySelectorAll("input")];
-    for (const [input, value] of inputs.map((input, index) => [input, ["phone_1", "waba_1", "token_1", "app_secret_1"][index]!] as const)) {
+    for (const [input, value] of inputs.map((input, index) => [input, ["phone_1", "waba_1", "app_id_1", "token_1", "app_secret_1"][index]!] as const)) {
       await act(async () => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set; setter?.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); });
     }
     await click(button("Guardar y comprobar"));
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/labs/channels/channel_1/connect");
-    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ channelType:"WHATSAPP", accessToken:"token_1", appSecret:"app_secret_1", providerAccountId:"phone_1", parentId:"waba_1" });
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ channelType:"WHATSAPP", accessToken:"token_1", metaAppId:"app_id_1", appSecret:"app_secret_1", providerAccountId:"phone_1", parentId:"waba_1" });
   });
 
   it("explains when Meta rejects the event subscription step", async () => {
@@ -91,7 +92,7 @@ describe("ChannelConnectModal interactions", () => {
     await click(button("Agregar canal")); await click(button("WhatsApp")); await click(button("Continuar"));
     await click(button("Configuración avanzada"));
     const inputs = [...host.querySelectorAll("input")];
-    for (const [input, value] of inputs.map((input, index) => [input, ["phone_1", "waba_1", "token_1", "app_secret_1"][index]!] as const)) {
+    for (const [input, value] of inputs.map((input, index) => [input, ["phone_1", "waba_1", "app_id_1", "token_1", "app_secret_1"][index]!] as const)) {
       await act(async () => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set; setter?.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); });
     }
 
@@ -108,7 +109,7 @@ describe("ChannelConnectModal interactions", () => {
     await click(button("Agregar canal")); await click(button("WhatsApp")); await click(button("Continuar"));
     await click(button("Configuración avanzada"));
     const inputs = [...host.querySelectorAll("input")];
-    for (const [input, value] of inputs.map((input, index) => [input, ["phone_1", "waba_1", "token_1", "app_secret_1"][index]!] as const)) {
+    for (const [input, value] of inputs.map((input, index) => [input, ["phone_1", "waba_1", "app_id_1", "token_1", "app_secret_1"][index]!] as const)) {
       await act(async () => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set; setter?.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); });
     }
 

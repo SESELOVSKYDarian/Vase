@@ -52,6 +52,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
   const [advanced, setAdvanced] = useState(false);
   const [providerAccountId, setProviderAccountId] = useState("");
   const [parentId, setParentId] = useState("");
+  const [metaAppId, setMetaAppId] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [appSecret, setAppSecret] = useState("");
   const openButton = useRef<HTMLButtonElement>(null);
@@ -62,7 +63,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
 
   const reset = useCallback(() => {
     terminalLocked.current = false;
-    setStep(1); setSelected(null); setSetup(null); setNotice(null); setLoading(false); setAdvanced(false); setProviderAccountId(""); setParentId(""); setAccessToken(""); setAppSecret("");
+    setStep(1); setSelected(null); setSetup(null); setNotice(null); setLoading(false); setAdvanced(false); setProviderAccountId(""); setParentId(""); setMetaAppId(""); setAccessToken(""); setAppSecret("");
   }, []);
 
   const close = useCallback((force = false) => {
@@ -133,26 +134,13 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
     }
   }
 
-  async function connectWithMeta() {
-    if (!selected) return;
-    setLoading(true); setNotice(null);
-    try {
-      const response = await fetch("/api/v1/meta/connections/start", {
-        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channelType: selected }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || typeof payload.authorizationUrl !== "string") throw new Error();
-      window.location.assign(payload.authorizationUrl);
-    } catch { setNotice({ kind: "error", message: "No pudimos iniciar la conexión segura con Meta." }); setLoading(false); }
-  }
-
   async function saveAdvancedConnection() {
-    if (!selected || !setup || !providerAccountId.trim() || !accessToken.trim() || !appSecret.trim() || (credentialLabels[selected].parent && !parentId.trim())) return;
+    if (!selected || !setup || !providerAccountId.trim() || !metaAppId.trim() || !accessToken.trim() || !appSecret.trim() || (credentialLabels[selected].parent && !parentId.trim())) return;
     setLoading(true); setNotice(null);
     try {
       const response = await fetch(`/api/labs/channels/${setup.channelId}/connect`, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ channelType: selected, accessToken: accessToken.trim(), appSecret: appSecret.trim(), providerAccountId: providerAccountId.trim(), parentId: credentialLabels[selected].parent ? parentId.trim() : null }),
+        body: JSON.stringify({ channelType: selected, accessToken: accessToken.trim(), metaAppId: metaAppId.trim(), appSecret: appSecret.trim(), providerAccountId: providerAccountId.trim(), parentId: credentialLabels[selected].parent ? parentId.trim() : null }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error);
@@ -213,12 +201,12 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
           </button>;
         })}</div> : <div className="labs-manual-setup">
           {loading && !setup ? <p>Preparando los datos del canal…</p> : setup ? <>
-            <div className="labs-oauth-primary"><strong>Conexión recomendada</strong><p>Ingresá con Meta para descubrir la cuenta, guardar credenciales y activar la suscripción sin copiar datos manuales.</p><button className="labs-button labs-button-primary" type="button" onClick={() => void connectWithMeta()} disabled={loading}>Conectar con Meta</button></div>
+            <div className="labs-oauth-primary"><strong>Aplicación Meta del cliente</strong><p>Cargá los datos de la aplicación y del activo Meta de esta cuenta. Labs cifra las credenciales, valida el acceso y activa la suscripción.</p></div>
             {([["Webhook URL", setup.webhookUrl], ["Webhook Key", setup.webhookKey]] as const).map(([label, value]) => <div key={label}>
               <span>{label}</span><code>{value}</code><button type="button" disabled={notice?.kind === "connected"} aria-label={`Copiar ${label}`} onClick={() => void copy(value, label)}><Copy className="size-4" /></button>
             </div>)}
             <button className="labs-advanced-toggle" type="button" onClick={() => setAdvanced(!advanced)}><Eye className="size-4" /> {advanced ? "Ocultar configuración avanzada" : "Configuración avanzada"}</button>
-            {advanced && selected ? <div className="labs-advanced-fields"><label>{credentialLabels[selected].account}<input value={providerAccountId} onChange={(event) => setProviderAccountId(event.target.value)} /></label>{credentialLabels[selected].parent ? <label>{credentialLabels[selected].parent}<input value={parentId} onChange={(event) => setParentId(event.target.value)} /></label> : null}<label>Access Token<input type="password" autoComplete="off" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} /></label><label>Meta App Secret<input type="password" autoComplete="new-password" value={appSecret} onChange={(event) => setAppSecret(event.target.value)} /></label><button className="labs-button labs-button-secondary" type="button" disabled={loading || !providerAccountId.trim() || !accessToken.trim() || !appSecret.trim() || Boolean(credentialLabels[selected].parent && !parentId.trim())} onClick={() => void saveAdvancedConnection()}>Guardar y comprobar</button></div> : null}
+            {advanced && selected ? <div className="labs-advanced-fields"><label>{credentialLabels[selected].account}<input value={providerAccountId} onChange={(event) => setProviderAccountId(event.target.value)} /></label>{credentialLabels[selected].parent ? <label>{credentialLabels[selected].parent}<input value={parentId} onChange={(event) => setParentId(event.target.value)} /></label> : null}<label>Meta App ID<input inputMode="numeric" value={metaAppId} onChange={(event) => setMetaAppId(event.target.value)} /></label><label>Access Token<input type="password" autoComplete="off" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} /></label><label>Meta App Secret<input type="password" autoComplete="new-password" value={appSecret} onChange={(event) => setAppSecret(event.target.value)} /></label><button className="labs-button labs-button-secondary" type="button" disabled={loading || !providerAccountId.trim() || !metaAppId.trim() || !accessToken.trim() || !appSecret.trim() || Boolean(credentialLabels[selected].parent && !parentId.trim())} onClick={() => void saveAdvancedConnection()}>Guardar y comprobar</button></div> : null}
           </> : <button className="labs-button labs-button-secondary" type="button" onClick={() => void beginSetup()}>Reintentar</button>}
         </div>}
 

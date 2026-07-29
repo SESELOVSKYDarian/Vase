@@ -3,6 +3,7 @@ import {
   redactedChannelSummarySchema,
   type RedactedChannelSummary,
 } from "@vase/contracts";
+import { hasMetaChannelCredentials, isMetaAssetVerified } from "./channel-health";
 
 export async function listRedactedOfficialChannels(
   prisma: PrismaClient,
@@ -16,8 +17,8 @@ export async function listRedactedOfficialChannels(
     },
     include: {
       secrets: {
-        where: { kind: "META_ACCESS_TOKEN" },
-        select: { id: true },
+        where: { kind: { in: ["META_ACCESS_TOKEN", "META_APP_SECRET"] } },
+        select: { id: true, kind: true },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -26,8 +27,17 @@ export async function listRedactedOfficialChannels(
   return channels.map((channel) => {
     const config = channel.config && typeof channel.config === "object" && !Array.isArray(channel.config)
       ? channel.config as Record<string, unknown> : {};
-    const credentialsPresent = channel.secrets.length > 0;
-    const assetVerified = Boolean(channel.providerAccountId);
+    const credentialsPresent = hasMetaChannelCredentials({
+      secretKinds: channel.secrets.map((secret) => secret.kind),
+      config,
+      fallbackAppId: process.env.META_APP_ID,
+      fallbackAppSecret: process.env.META_APP_SECRET,
+    });
+    const assetVerified = isMetaAssetVerified({
+      providerAccountId: channel.providerAccountId,
+      config,
+      lastError: channel.lastError,
+    });
     const subscriptionActive = Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0;
     return redactedChannelSummarySchema.parse({
       id: channel.id,
@@ -40,7 +50,7 @@ export async function listRedactedOfficialChannels(
       connectedAt: channel.connectedAt?.toISOString() ?? null,
       lastSyncedAt: channel.lastSyncedAt?.toISOString() ?? null,
       lastError: channel.lastError,
-      secretStatus: channel.secrets.length ? "CONFIGURED" : "MISSING",
+      secretStatus: credentialsPresent ? "CONFIGURED" : "MISSING",
       webhookVerified: Boolean(channel.webhookVerifiedAt),
       credentialsPresent,
       assetVerified,

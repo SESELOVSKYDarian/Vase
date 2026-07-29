@@ -210,22 +210,40 @@ describe("ChannelEditModal", () => {
 
     expect(host.textContent).toContain("Volvé a pegar el Access Token");
   });
-  it("shows the specific Meta OAuth start error instead of a generic reconnect failure", async () => {
+  it("stores the client Meta App ID when Facebook credentials are updated", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(Response.json({
         channelId: "c", channelType: "FACEBOOK", status: "ERROR",
         webhookUrl: "https://hook", webhookKey: "key",
-        providerAccountId: "page", parentId: null, accessTokenMasked: "masked", appSecretMasked: "masked", accountLabel: "Facebook",
+        providerAccountId: "page", parentId: null, metaAppId: "old-app-id", accessTokenMasked: "masked", appSecretMasked: "masked", accountLabel: "Facebook",
         health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:false },
       }))
-      .mockResolvedValueOnce(Response.json({ error:"META_APP_ID_MISSING" }, { status:400 }));
+      .mockResolvedValueOnce(Response.json({ status:"CONNECTED" }))
+      .mockResolvedValueOnce(Response.json({
+        channelId: "c", channelType: "FACEBOOK", status: "CONNECTED",
+        webhookUrl: "https://hook", webhookKey: "key",
+        providerAccountId: "page", parentId: null, metaAppId: "new-app-id", accessTokenMasked: "masked", appSecretMasked: "masked", accountLabel: "Facebook",
+        health: { webhookVerified:true, credentialsPresent:true, assetVerified:true, subscriptionActive:true },
+      }));
     vi.stubGlobal("fetch", fetchMock);
     await act(async () => root.render(React.createElement(ChannelEditModal, { channel: { id: "c", type: "FACEBOOK", accountLabel: "Facebook" } })));
 
     await click("Editar");
-    await click("Reconectar con Meta");
+    await click("Configuración avanzada");
+    const inputs = [...host.querySelectorAll("input")];
+    const appIdInput = inputs[1]!;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(appIdInput, "new-app-id");
+      appIdInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await click("Comprobar conexión");
 
-    expect(host.textContent).toContain("Falta configurar META_APP_ID");
-    expect(host.textContent).not.toContain("No pudimos iniciar la conexi");
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      channelType: "FACEBOOK",
+      metaAppId: "new-app-id",
+      providerAccountId: "page",
+      parentId: null,
+    });
   });
 });

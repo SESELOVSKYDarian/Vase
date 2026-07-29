@@ -22,9 +22,9 @@ describe("manual Meta connection", () => {
       encrypt: (value) => `encrypted:${value}`,
     });
 
-    await expect(service.connect({ assistantId: "a", channelId: "channel_1", channelType: "WHATSAPP", accessToken: "token", appSecret: "app-secret", providerAccountId: "phone_1", parentId: "waba_1" }))
+    await expect(service.connect({ assistantId: "a", channelId: "channel_1", channelType: "WHATSAPP", accessToken: "token", metaAppId: "app-id", appSecret: "app-secret", providerAccountId: "phone_1", parentId: "waba_1" }))
       .resolves.toEqual({ status: "PENDING" });
-    expect(save).toHaveBeenCalledWith(expect.objectContaining({ status: "PENDING", encryptedAccessToken: "encrypted:token", encryptedAppSecret: "encrypted:app-secret", phoneNumberId: "phone_1", wabaId: "waba_1" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ status: "PENDING", metaAppId: "app-id", encryptedAccessToken: "encrypted:token", encryptedAppSecret: "encrypted:app-secret", phoneNumberId: "phone_1", wabaId: "waba_1" }));
   });
 
   it("rejects identifiers that are not associated with the token", async () => {
@@ -35,9 +35,9 @@ describe("manual Meta connection", () => {
       repository: { find: vi.fn().mockResolvedValue({ id: "channel_1", type: "FACEBOOK", webhookVerifiedAt: new Date() }), stage, save: vi.fn(), fail },
       encrypt: (value) => `encrypted:${value}`,
     });
-    await expect(service.connect({ assistantId: "a", channelId: "channel_1", channelType: "FACEBOOK", accessToken: "token", appSecret: "app-secret", providerAccountId: "page_fake", parentId: null }))
+    await expect(service.connect({ assistantId: "a", channelId: "channel_1", channelType: "FACEBOOK", accessToken: "token", metaAppId: "app-id", appSecret: "app-secret", providerAccountId: "page_fake", parentId: null }))
       .rejects.toThrow("META_ASSET_NOT_AUTHORIZED");
-    expect(stage).toHaveBeenCalledWith(expect.objectContaining({ channelId:"channel_1", providerAccountId:"page_fake", encryptedAccessToken:"encrypted:token" }));
+    expect(stage).toHaveBeenCalledWith(expect.objectContaining({ channelId:"channel_1", metaAppId:"app-id", providerAccountId:"page_fake", encryptedAccessToken:"encrypted:token" }));
     expect(fail).toHaveBeenCalledWith("channel_1", "META_ASSET_NOT_AUTHORIZED");
   });
 });
