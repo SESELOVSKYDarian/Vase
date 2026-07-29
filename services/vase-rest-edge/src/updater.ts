@@ -3,6 +3,7 @@ import {
   verify,
   type KeyLike,
 } from "node:crypto";
+import { spawn } from "node:child_process";
 import {
   mkdir,
   readFile,
@@ -10,7 +11,8 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 const payloadSchema = z.object({
@@ -125,4 +127,64 @@ export async function applyStagedUpdate(input: {
   await input.rollback(previousVersion);
   if (!await input.healthCheck()) throw new Error("EDGE_UPDATE_ROLLBACK_FAILED");
   throw new Error("EDGE_UPDATE_HEALTH_FAILED_ROLLED_BACK");
+}
+
+export function isNewerVersion(candidate: string, installed: string) {
+  const parse = (value: string) => {
+    const match = value.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/);
+    if (!match) throw new Error("EDGE_UPDATE_VERSION_INVALID");
+    return {
+      numbers: match.slice(1, 4).map(Number),
+      prerelease: match[4] ?? null,
+    };
+  };
+  const left = parse(candidate);
+  const right = parse(installed);
+  for (let index = 0; index < 3; index += 1) {
+    if (left.numbers[index] !== right.numbers[index]) {
+      return left.numbers[index]! > right.numbers[index]!;
+    }
+  }
+  if (left.prerelease === right.prerelease) return false;
+  if (left.prerelease === null) return true;
+  if (right.prerelease === null) return false;
+  return left.prerelease.localeCompare(right.prerelease, undefined, {
+    numeric: true,
+  }) > 0;
+}
+
+export function launchWindowsMsiUpdate(input: {
+  artifactPath: string;
+  version: string;
+  stagingDir: string;
+}) {
+  if (process.platform !== "win32") throw new Error("EDGE_UPDATE_WINDOWS_REQUIRED");
+  const scriptPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "scripts",
+    "apply-update.ps1",
+  );
+  const child = spawn("powershell.exe", [
+    "-NoProfile",
+    "-NonInteractive",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    scriptPath,
+    "-MsiPath",
+    input.artifactPath,
+    "-LogPath",
+    join(input.stagingDir, `${input.version}.install.log`),
+    "-TargetVersion",
+    input.version,
+    "-InstalledVersionPath",
+    join(input.stagingDir, "installed.version"),
+  ], {
+    detached: true,
+    windowsHide: true,
+    stdio: "ignore",
+  });
+  child.unref();
+  return { pid: child.pid };
 }

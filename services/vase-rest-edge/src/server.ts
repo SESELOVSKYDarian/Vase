@@ -31,6 +31,12 @@ import {
 } from "./printing/print-queue.js";
 import { renderEscPosReceipt } from "./printing/receipt-template.js";
 import { REST_EDGE_AGENT_VERSION } from "./version.js";
+import {
+  isNewerVersion,
+  launchWindowsMsiUpdate,
+  stageSignedUpdate,
+  verifyUpdateManifest,
+} from "./updater.js";
 
 const config = readEdgeConfig(process.env);
 const database = openEdgeDatabase(config);
@@ -491,3 +497,48 @@ async function backgroundPrinting() {
 }
 setInterval(() => void backgroundPrinting(), 1_000).unref();
 void backgroundPrinting();
+
+let updating = false;
+async function backgroundUpdate() {
+  if (
+    updating ||
+    !config.updateManifestUrl ||
+    process.platform !== "win32"
+  ) return;
+  updating = true;
+  try {
+    const response = await fetch(config.updateManifestUrl, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error(`EDGE_UPDATE_MANIFEST_FAILED:${response.status}`);
+    const manifestBody = await response.json();
+    const publicKey = readFileSync(config.updatePublicKeyPath, "utf8");
+    const manifest = verifyUpdateManifest({
+      manifest: manifestBody,
+      channel: config.updateChannel,
+      publicKey,
+    });
+    if (!isNewerVersion(manifest.version, REST_EDGE_AGENT_VERSION)) {
+      updating = false;
+      return;
+    }
+    const stagingDir = join(config.dataDir, "updates");
+    const staged = await stageSignedUpdate({
+      manifest,
+      channel: config.updateChannel,
+      publicKey,
+      stagingDir,
+    });
+    launchWindowsMsiUpdate({
+      artifactPath: staged.artifactPath,
+      version: manifest.version,
+      stagingDir,
+    });
+    setTimeout(() => process.exit(0), 500).unref();
+  } catch (error) {
+    console.error("Edge update failed", error instanceof Error ? error.message : "UNKNOWN");
+    updating = false;
+  }
+}
+setInterval(() => void backgroundUpdate(), 6 * 60 * 60_000).unref();
+setTimeout(() => void backgroundUpdate(), 30_000).unref();

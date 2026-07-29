@@ -1,9 +1,12 @@
 param(
   [Parameter(Mandatory = $true)][string]$MsiPath,
-  [Parameter(Mandatory = $true)][string]$LogPath
+  [Parameter(Mandatory = $true)][string]$LogPath,
+  [Parameter(Mandatory = $true)][string]$TargetVersion,
+  [Parameter(Mandatory = $true)][string]$InstalledVersionPath
 )
 
 $ErrorActionPreference = "Stop"
+Start-Sleep -Seconds 3
 $resolvedMsi = (Resolve-Path -LiteralPath $MsiPath).Path
 $resolvedLogParent = Split-Path -Parent $LogPath
 if (-not (Test-Path -LiteralPath $resolvedLogParent)) {
@@ -24,3 +27,5 @@ $process = Start-Process -FilePath "msiexec.exe" `
 if ($process.ExitCode -notin @(0, 3010, 1641)) {
   throw "EDGE_UPDATE_MSI_FAILED: $($process.ExitCode)"
 }
+
+Set-Content -LiteralPath $InstalledVersionPath -Value $TargetVersion -NoNewline

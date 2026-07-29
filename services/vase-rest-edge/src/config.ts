@@ -12,6 +12,10 @@ const schema = z.object({
   EDGE_TLS_CERT_PATH: z.string().min(1).optional(),
   EDGE_CLOUD_BASE_URL: z.url().default("https://rest.vase.ar"),
   EDGE_CLOUD_PUBLIC_KEY_PATH: z.string().min(1).optional(),
+  EDGE_UPDATE_MANIFEST_URL: z.url().refine((value) =>
+    value.startsWith("https://")).optional(),
+  EDGE_UPDATE_PUBLIC_KEY_PATH: z.string().min(1).optional(),
+  EDGE_UPDATE_CHANNEL: z.enum(["stable", "beta"]).default("stable"),
 }).passthrough();
 
 export type EdgeConfig = {
@@ -22,6 +26,9 @@ export type EdgeConfig = {
   tlsCertPath: string;
   cloudBaseUrl: string;
   cloudPublicKeyPath: string;
+  updateManifestUrl?: string;
+  updatePublicKeyPath: string;
+  updateChannel: "stable" | "beta";
 };
 
 export function readEdgeConfig(environment: Record<string, string | undefined>): EdgeConfig {
@@ -44,6 +51,13 @@ export function readEdgeConfig(environment: Record<string, string | undefined>):
       parsed.EDGE_CLOUD_PUBLIC_KEY_PATH ??
         resolve(dirname(fileURLToPath(import.meta.url)), "..", "cloud-signing.pub"),
     ),
+    updateManifestUrl: parsed.EDGE_UPDATE_MANIFEST_URL,
+    updatePublicKeyPath: resolve(
+      parsed.EDGE_UPDATE_PUBLIC_KEY_PATH ??
+        parsed.EDGE_CLOUD_PUBLIC_KEY_PATH ??
+        resolve(dirname(fileURLToPath(import.meta.url)), "..", "cloud-signing.pub"),
+    ),
+    updateChannel: parsed.EDGE_UPDATE_CHANNEL,
   };
   if (!existsSync(config.tlsKeyPath) || !existsSync(config.tlsCertPath)) {
     throw new Error("EDGE_TLS_REQUIRED");

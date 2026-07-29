@@ -28,6 +28,8 @@ Copy-Item -LiteralPath $resolvedNode -Destination (Join-Path $payloadDir "node.e
 Copy-Item -LiteralPath (Join-Path $serviceRoot "package.json") -Destination $payloadDir
 Copy-Item -LiteralPath (Join-Path $serviceRoot "src") -Destination $payloadDir -Recurse
 Copy-Item -LiteralPath $resolvedCloudPublicKey -Destination (Join-Path $payloadDir "cloud-signing.pub")
+Set-Content -LiteralPath (Join-Path $payloadDir "src\version.ts") `
+  -Value "export const REST_EDGE_AGENT_VERSION = `"$ProductVersion`";"
 
 Push-Location $payloadDir
 try {

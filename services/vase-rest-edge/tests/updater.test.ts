@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   stageSignedUpdate,
   applyStagedUpdate,
+  isNewerVersion,
   verifyUpdateManifest,
 } from "../src/updater.js";
 
@@ -38,6 +39,12 @@ function signedManifest(input: {
 }
 
 describe("Rest Edge signed updater", () => {
+  it("only schedules versions newer than the running agent", () => {
+    expect(isNewerVersion("1.4.1", "1.4.0")).toBe(true);
+    expect(isNewerVersion("1.4.0", "1.4.0")).toBe(false);
+    expect(isNewerVersion("1.4.0-beta.2", "1.4.0")).toBe(false);
+    expect(isNewerVersion("1.4.0", "1.4.0-beta.2")).toBe(true);
+  });
   it("rejects a wrong channel and a modified signature", () => {
     const keys = generateKeyPairSync("ed25519");
     const manifest = signedManifest({
