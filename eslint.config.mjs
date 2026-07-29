@@ -25,6 +25,14 @@ const eslintConfig = defineConfig([
       "@next/next/no-html-link-for-pages": "off",
     },
   },
+  {
+    files: ["apps/vase-rest/**/*.tsx"],
+    rules: {
+      // Rest client loaders call async refresh functions from effects. State is
+      // updated after I/O, not synchronously in the effect body.
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

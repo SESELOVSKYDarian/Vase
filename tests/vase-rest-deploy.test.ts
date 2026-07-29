@@ -16,7 +16,6 @@ describe("Vase Rest production deploy", () => {
       "VASE_APP_INTERNAL_URL",
       "SERVICE_TO_SERVICE_TOKEN",
       "REST_CREDENTIAL_ENCRYPTION_KEY",
-      "REST_EDGE_SIGNING_KEY",
       "REDIS_URL",
       "NEXT_PUBLIC_APP_URL",
     ]) {

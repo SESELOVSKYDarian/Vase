@@ -58,6 +58,7 @@ open-wa-session*.json
 .env*
 !.env.easypanel.example
 !apps/*/.env.example
+!services/*/.env.example
 !apps/vase-editor/server/.env.example
 !apps/vase-editor/web/.env.example
 

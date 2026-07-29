@@ -727,6 +727,30 @@ function reservationTransition(
   current: Record<string, unknown> | undefined,
   nextVersion: number,
 ) {
+  const statusTransitions: Record<string, { from: string; to: string }> = {
+    RESERVATION_SEATED: { from: "CONFIRMED", to: "SEATED" },
+    RESERVATION_COMPLETED: { from: "SEATED", to: "COMPLETED" },
+    RESERVATION_NO_SHOW: { from: "CONFIRMED", to: "NO_SHOW" },
+  };
+  const transition = statusTransitions[input.eventType];
+  if (transition && current) {
+    if (current.status !== transition.from) {
+      throw new Error("EDGE_RESERVATION_STATUS_INVALID");
+    }
+    z.object({}).strict().parse(input.payload);
+    const transitionedAt = new Date().toISOString();
+    return {
+      state: {
+        ...current,
+        status: transition.to,
+        revision: nextVersion,
+        [`${transition.to.toLowerCase()}At`]: transitionedAt,
+      },
+      eventPayload: { transitionedAt },
+      additionalStates: [],
+      createdTickets: [],
+    };
+  }
   if (input.eventType === "RESERVATION_CANCELLED" && current) {
     if (!["CONFIRMED", "SEATED"].includes(String(current.status))) {
       throw new Error("EDGE_RESERVATION_STATUS_INVALID");

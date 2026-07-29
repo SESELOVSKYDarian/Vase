@@ -70,7 +70,8 @@ export function createCatalogService(repository: CatalogRepository) {
       if (product.revision !== input.expectedRevision) {
         throw new Error("REST_CATALOG_REVISION_CONFLICT");
       }
-      const { sku: _sku, ...changes } = input;
+      const { sku, ...changes } = input;
+      void sku;
       return repository.updateProduct({ globalTenantId, productId, ...changes });
     },
   };

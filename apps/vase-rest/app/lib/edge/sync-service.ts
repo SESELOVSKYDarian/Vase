@@ -1145,7 +1145,29 @@ export const prismaCloudSyncRepository: CloudSyncRepository = {
         }
       }
       if (event.aggregateType === "RESERVATION") {
-        if (event.eventType === "RESERVATION_CANCELLED") {
+        const reservationTransitions: Record<string, { from: string; to: string }> = {
+          RESERVATION_SEATED: { from: "CONFIRMED", to: "SEATED" },
+          RESERVATION_COMPLETED: { from: "SEATED", to: "COMPLETED" },
+          RESERVATION_NO_SHOW: { from: "CONFIRMED", to: "NO_SHOW" },
+        };
+        const transition = reservationTransitions[event.eventType];
+        if (transition) {
+          z.object({ transitionedAt: z.iso.datetime() }).strict().parse(event.payload);
+          const changed = await tx.reservation.updateMany({
+            where: {
+              id: event.aggregateId,
+              globalTenantId: event.globalTenantId,
+              branchId: event.branchId,
+              status: transition.from,
+              revision: event.aggregateVersion - 1,
+            },
+            data: {
+              status: transition.to,
+              revision: event.aggregateVersion,
+            },
+          });
+          if (changed.count !== 1) throw new Error("REST_RESERVATION_REVISION_CONFLICT");
+        } else if (event.eventType === "RESERVATION_CANCELLED") {
           const payload = z.object({
             reason: z.string().min(2).max(500).optional(),
             cancelledAt: z.iso.datetime(),

@@ -22,10 +22,14 @@ function auth(value: ArcaCredentials) {
 function observations(value: unknown): ArcaObservation[] {
   if (!value) return [];
   const raw = Array.isArray(value) ? value : [value];
-  return raw.map((item: any) => ({
-    code: Number(item.Code ?? item.Code),
-    message: String(item.Msg ?? ""),
-  }));
+  return raw.map((item) => {
+    const record = typeof item === "object" && item
+      ? item as Record<string, unknown> : {};
+    return {
+      code: Number(record.Code ?? 0),
+      message: String(record.Msg ?? ""),
+    };
+  });
 }
 
 export function createWsfeClient(input: {

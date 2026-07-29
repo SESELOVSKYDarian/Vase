@@ -506,6 +506,79 @@ describe("Rest Edge durable sync", () => {
     database.close();
   });
 
+  it("tracks the complete offline reservation lifecycle", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
+    cleanup.push(dir);
+    const database = openEdgeDatabase({ dataDir: dir });
+    applySnapshots(database, [{
+      aggregateType: "TABLE",
+      aggregateId: "table_1",
+      version: 1,
+      state: { id: "table_1", code: "M1", capacity: 4, status: "AVAILABLE" },
+    }]);
+    acceptLocalCommand(database, {
+      eventId: "reservation_created",
+      aggregateType: "RESERVATION",
+      aggregateId: "reservation_1",
+      expectedVersion: 0,
+      eventType: "RESERVATION_CREATED",
+      actorId: "staff_1",
+      deviceId: "device_1",
+      idempotencyKey: "reservation_created_cmd",
+      payload: {
+        guestName: "Ana",
+        partySize: 4,
+        startsAt: "2026-07-29T20:00:00.000Z",
+        endsAt: "2026-07-29T22:00:00.000Z",
+        tableIds: ["table_1"],
+      },
+    });
+    acceptLocalCommand(database, {
+      eventId: "reservation_seated",
+      aggregateType: "RESERVATION",
+      aggregateId: "reservation_1",
+      expectedVersion: 1,
+      eventType: "RESERVATION_SEATED",
+      actorId: "staff_1",
+      deviceId: "device_1",
+      idempotencyKey: "reservation_seated_cmd",
+      payload: {},
+    });
+    acceptLocalCommand(database, {
+      eventId: "reservation_completed",
+      aggregateType: "RESERVATION",
+      aggregateId: "reservation_1",
+      expectedVersion: 2,
+      eventType: "RESERVATION_COMPLETED",
+      actorId: "staff_1",
+      deviceId: "device_1",
+      idempotencyKey: "reservation_completed_cmd",
+      payload: {},
+    });
+
+    const state = database.raw.prepare(`
+      SELECT version, state_json FROM aggregate_state
+      WHERE aggregate_type = 'RESERVATION' AND aggregate_id = ?
+    `).get("reservation_1") as { version: number; state_json: string };
+    expect(state.version).toBe(3);
+    expect(JSON.parse(state.state_json)).toMatchObject({
+      status: "COMPLETED",
+      revision: 3,
+    });
+    expect(() => acceptLocalCommand(database, {
+      eventId: "reservation_invalid_no_show",
+      aggregateType: "RESERVATION",
+      aggregateId: "reservation_1",
+      expectedVersion: 3,
+      eventType: "RESERVATION_NO_SHOW",
+      actorId: "staff_1",
+      deviceId: "device_1",
+      idempotencyKey: "reservation_invalid_no_show_cmd",
+      payload: {},
+    })).toThrow("EDGE_RESERVATION_STATUS_INVALID");
+    database.close();
+  });
+
   it("applies an offline cash payment atomically to payment, order, drawer, and outbox", async () => {
     const dir = await mkdtemp(join(tmpdir(), "rest-edge-sync-"));
     cleanup.push(dir);

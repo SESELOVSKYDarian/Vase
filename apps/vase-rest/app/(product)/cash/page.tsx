@@ -247,7 +247,7 @@ export default function CashierPage() {
         <label>Orden<select name="orderId" required><option value="">Seleccionar</option>
           {orders.filter((order) => order.status !== "PAID").map((order) => (
             <option key={order.id} value={order.id}>
-              #{order.orderNumber ?? "offline"} Â· ARS {order.total} Â· {order.status}
+              #{order.orderNumber ?? "offline"} · ARS {order.total} · {order.status}
             </option>
           ))}
         </select></label>
@@ -266,7 +266,7 @@ export default function CashierPage() {
         <label>Operador<input name="operator" /></label>
         <label>Cuenta corriente<select name="customerAccountId"><option value="">No aplica</option>
           {accounts.map((account) => <option key={account.id} value={account.id}>
-            {account.code} Â· {account.name}
+            {account.code} · {account.name}
           </option>)}
         </select></label>
         <button className="button button-primary">Registrar cobro</button>
@@ -280,7 +280,7 @@ export default function CashierPage() {
         void chargeMercadoPago(event).catch((cause) => setError(String(cause)))}>
         <label>Orden<select name="orderId" required><option value="">Seleccionar</option>
           {orders.filter((order) => order.status !== "PAID").map((order) => (
-            <option key={order.id} value={order.id}>#{order.orderNumber ?? "offline"} Â· ARS {order.total}</option>
+            <option key={order.id} value={order.id}>#{order.orderNumber ?? "offline"} · ARS {order.total}</option>
           ))}
         </select></label>
         <label>Mercado Pago
@@ -295,7 +295,7 @@ export default function CashierPage() {
         void issueFiscalDocument(event).catch((cause) => setError(String(cause)))}>
         <label>Orden pagada<select name="orderId" required><option value="">Seleccionar</option>
           {orders.filter((order) => order.status === "PAID").map((order) => (
-            <option key={order.id} value={order.id}>#{order.orderNumber ?? "offline"} Â· ARS {order.total}</option>
+            <option key={order.id} value={order.id}>#{order.orderNumber ?? "offline"} · ARS {order.total}</option>
           ))}
         </select></label>
         <label>Comprobante
@@ -303,12 +303,12 @@ export default function CashierPage() {
             <option value="INVOICE_B">Factura B</option>
             <option value="INVOICE_A">Factura A</option>
             <option value="INVOICE_C">Factura C</option>
-            <option value="CREDIT_NOTE_A">Nota de crÃ©dito A</option>
-            <option value="CREDIT_NOTE_B">Nota de crÃ©dito B</option>
-            <option value="CREDIT_NOTE_C">Nota de crÃ©dito C</option>
-            <option value="DEBIT_NOTE_A">Nota de dÃ©bito A</option>
-            <option value="DEBIT_NOTE_B">Nota de dÃ©bito B</option>
-            <option value="DEBIT_NOTE_C">Nota de dÃ©bito C</option>
+            <option value="CREDIT_NOTE_A">Nota de crédito A</option>
+            <option value="CREDIT_NOTE_B">Nota de crédito B</option>
+            <option value="CREDIT_NOTE_C">Nota de crédito C</option>
+            <option value="DEBIT_NOTE_A">Nota de débito A</option>
+            <option value="DEBIT_NOTE_B">Nota de débito B</option>
+            <option value="DEBIT_NOTE_C">Nota de débito C</option>
           </select>
         </label>
         <label>Tipo de documento receptor
@@ -326,7 +326,7 @@ export default function CashierPage() {
         <label>Pago<select name="paymentId" required><option value="">Seleccionar</option>
           {payments.filter((payment) => payment.status !== "REFUNDED").map((payment) => (
             <option key={payment.id} value={payment.id}>
-              Orden #{payment.order.orderNumber} Â· {payment.tenderType} Â· ARS {payment.amount}
+              Orden #{payment.order.orderNumber} · {payment.tenderType} · ARS {payment.amount}
             </option>
           ))}
         </select></label>

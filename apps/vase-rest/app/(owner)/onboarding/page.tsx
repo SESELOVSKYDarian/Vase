@@ -10,16 +10,20 @@ export default async function RestOnboardingPage({
 }) {
   const requestHeaders = await headers();
   const { tenant } = await searchParams;
+  let context;
   try {
-    const context = await resolveRestOwnerRequest({
+    context = await resolveRestOwnerRequest({
       cookieHeader: requestHeaders.get("cookie"),
       requestedTenantSlug: tenant,
     });
-    return <OnboardingWorkspace tenantSlug={context.tenantSlug} tenantName={context.tenantName} />;
   } catch (error) {
     if (error instanceof Error && error.message.includes("SESSION")) {
       redirect("https://app.vase.ar/signin?redirectTo=https%3A%2F%2Frest.vase.ar%2Fonboarding");
     }
     throw error;
   }
+  return <OnboardingWorkspace
+    tenantSlug={context.tenantSlug}
+    tenantName={context.tenantName}
+  />;
 }

@@ -164,12 +164,15 @@ export function createCloudUploader(input: {
         "x-vase-client-cert-fingerprint": input.certificateFingerprint,
       },
       body: JSON.stringify({
-        events: entries.map(({ sequence: _sequence, ...entry }) => ({
-          ...entry,
-          globalTenantId: input.globalTenantId,
-          branchId: input.branchId,
-          installationId: input.installationId,
-        })),
+        events: entries.map(({ sequence, ...entry }) => {
+          void sequence;
+          return {
+            ...entry,
+            globalTenantId: input.globalTenantId,
+            branchId: input.branchId,
+            installationId: input.installationId,
+          };
+        }),
         heartbeat: input.heartbeat(),
       }),
       signal: AbortSignal.timeout(15_000),

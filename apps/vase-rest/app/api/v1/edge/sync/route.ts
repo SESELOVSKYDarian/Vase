@@ -407,7 +407,10 @@ export async function POST(request: Request) {
     const configPayload = {
       revision: Math.max(1, ...policies.map((policy) => policy.updatedAt.getTime())),
       generatedAt: new Date().toISOString(),
-      policies: policies.map(({ updatedAt: _updatedAt, ...policy }) => policy),
+      policies: policies.map(({ updatedAt, ...policy }) => {
+        void updatedAt;
+        return policy;
+      }),
     };
     const encodedKey = process.env.REST_EDGE_SIGNING_PRIVATE_KEY_B64;
     if (!encodedKey) throw new Error("REST_EDGE_SIGNING_KEY_NOT_CONFIGURED");

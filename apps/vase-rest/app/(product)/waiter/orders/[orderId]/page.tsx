@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, type FormEvent } from "react";
+import { use, useCallback, useEffect, useState, type FormEvent } from "react";
 import { readLocalEdgeClient } from "@/lib/edge/local-edge-client";
 
 type Product = {
@@ -45,7 +45,7 @@ export default function OrderPage({
     id: string; code: string; capacity: number; status: string; mergedIntoId: string | null;
   }>>([]);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const client = readLocalEdgeClient();
     const [orders, catalog, tableState] = await Promise.all([
       client.state("ORDER"),
@@ -76,10 +76,10 @@ export default function OrderPage({
       products: (snapshot?.products ?? []).filter((product) =>
         product.categoryId === category.id),
     })));
-  }
+  }, [orderId]);
   useEffect(() => {
     void refresh().catch((cause) => setError(String(cause)));
-  }, [orderId]);
+  }, [refresh]);
 
   async function command(
     action: "ADD_ITEM" | "UPDATE_DETAILS" | "SUBMIT" | "SPLIT" | "MERGE",
@@ -176,7 +176,7 @@ export default function OrderPage({
           <label>Paso<input name="course" type="number" min="1" defaultValue="1" required /></label>
           <label>Medio previsto
             <select name="paymentMethod" defaultValue="">
-              <option value="">Sin restricciÃ³n</option>
+              <option value="">Sin restricción</option>
               <option value="CASH">Efectivo</option>
               <option value="BANK_TRANSFER">Transferencia</option>
               <option value="EXTERNAL_TERMINAL">Tarjeta externa</option>

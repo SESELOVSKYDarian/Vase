@@ -25,6 +25,7 @@ export default function ReservationsPage() {
   const [tables, setTables] = useState<Table[]>([]);
   const [error, setError] = useState("");
   const [view, setView] = useState<"UPCOMING" | "HISTORY">("UPCOMING");
+  const [now, setNow] = useState(() => Date.now());
   async function refresh() {
     const client = readLocalEdgeClient();
     const [payload, tablePayload] = await Promise.all([
@@ -58,7 +59,11 @@ export default function ReservationsPage() {
   useEffect(() => {
     void refresh().catch((cause) => setError(String(cause)));
     const interval = setInterval(() => void refresh().catch(() => undefined), 15000);
-    return () => clearInterval(interval);
+    const clock = setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(clock);
+    };
   }, []);
 
   async function create(event: FormEvent<HTMLFormElement>) {
@@ -109,6 +114,27 @@ export default function ReservationsPage() {
     }
   }
 
+  async function transition(
+    row: Reservation,
+    eventType: "RESERVATION_SEATED" | "RESERVATION_COMPLETED" | "RESERVATION_NO_SHOW",
+  ) {
+    setError("");
+    try {
+      await readLocalEdgeClient().command({
+        eventId: crypto.randomUUID(),
+        aggregateType: "RESERVATION",
+        aggregateId: row.id,
+        expectedVersion: row.revision,
+        eventType,
+        idempotencyKey: crypto.randomUUID(),
+        payload: {},
+      });
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "EDGE_RESERVATION_STATUS_FAILED");
+    }
+  }
+
   return (
     <main className="product-content">
       <p className="eyebrow">Agenda de sucursal</p>
@@ -134,7 +160,7 @@ export default function ReservationsPage() {
           {tables.map((table) => (
             <label key={table.id}>
               <input type="checkbox" name="tableIds" value={table.id} />
-              {table.code} Â· {table.capacity} personas
+              {table.code} · {table.capacity} personas
             </label>
           ))}
         </fieldset>
@@ -144,9 +170,9 @@ export default function ReservationsPage() {
       <div className="branch-list">
         {rows.filter((row) => view === "UPCOMING"
           ? ["CONFIRMED", "SEATED"].includes(row.status) &&
-            new Date(row.endsAt).getTime() >= Date.now()
+            new Date(row.endsAt).getTime() >= now
           : !["CONFIRMED", "SEATED"].includes(row.status) ||
-            new Date(row.endsAt).getTime() < Date.now()).map((row) => (
+            new Date(row.endsAt).getTime() < now).map((row) => (
           <article key={row.id}>
             <code>{row.status}</code>
             <strong>{row.guestName} · {row.partySize}</strong>
@@ -154,9 +180,23 @@ export default function ReservationsPage() {
               {new Date(row.startsAt).toLocaleString("es-AR")} ·{" "}
               {row.tables.map((link) => link.table.code).join(", ")}
             </span>
-            {["CONFIRMED", "SEATED"].includes(row.status) ? (
-              <button className="button" onClick={() => void cancel(row)}>Cancelar</button>
-            ) : null}
+            <div className="toolbar">
+              {row.status === "CONFIRMED" ? (
+                <>
+                  <button className="button button-primary" onClick={() =>
+                    void transition(row, "RESERVATION_SEATED")}>Sentar</button>
+                  <button className="button" onClick={() =>
+                    void transition(row, "RESERVATION_NO_SHOW")}>No se presentó</button>
+                </>
+              ) : null}
+              {row.status === "SEATED" ? (
+                <button className="button button-primary" onClick={() =>
+                  void transition(row, "RESERVATION_COMPLETED")}>Finalizar</button>
+              ) : null}
+              {["CONFIRMED", "SEATED"].includes(row.status) ? (
+                <button className="button" onClick={() => void cancel(row)}>Cancelar</button>
+              ) : null}
+            </div>
           </article>
         ))}
       </div>

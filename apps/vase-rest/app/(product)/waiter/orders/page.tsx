@@ -80,7 +80,7 @@ export default function OrdersPage() {
             <option value="">Mostrador / retiro</option>
             {tables.map((table) => (
               <option key={table.id} value={table.id}>
-                {table.code} Â· {table.capacity} personas Â· {table.status}
+                {table.code} · {table.capacity} personas · {table.status}
               </option>
             ))}
           </select>
