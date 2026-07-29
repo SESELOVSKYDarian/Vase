@@ -5,7 +5,9 @@ Source snapshot: `apps/vase-rest` before the Vase V3 migration
 
 ## Preservation status
 
-The legacy source is preserved as a migration reference. It is not production-ready and must not be deployed. The original source outside the implementation worktree remains unchanged.
+The legacy source is preserved as a migration reference. It is not production-ready,
+is excluded from the compiled workspace, and is protected by
+`tests/v3-rest-no-legacy-runtime.test.ts`. No production route imports it.
 
 The snapshot contains 283 files (about 1.6 MB excluding generated dependency/build directories) in four roots:
 
@@ -85,7 +87,10 @@ The Supabase-oriented schema/documentation references:
 
 The old Prisma migration history separately models SQLite tables `Mesa`, `Reserva`, `Producto`, `Pedido`, `DetallePedido`, and `Factura`. These histories are references only; they are not a migration source for the new database.
 
-Every production table will be rebuilt in the dedicated `postgres-rest` database with explicit tenant and branch ownership, tenant-scoped uniqueness, audit fields, idempotency, and sync metadata where required. There is no Supabase data import requirement.
+The production tables are implemented in the dedicated PostgreSQL Rest schema with
+explicit tenant and branch ownership, tenant-scoped uniqueness, audit fields,
+idempotency, and sync metadata where required. There is no Supabase runtime or data
+import requirement.
 
 ## Unsafe or simulated behavior that must not survive migration
 
@@ -108,7 +113,7 @@ No simulated success or fallback data is allowed in the production module. Missi
 
 The legacy trees remain read-only reference material until their corresponding production acceptance tests pass. New implementation code must live in the V3 Rest workspace and use:
 
-- Next.js 16.2.1, React 19, TypeScript, Tailwind 4, Prisma 6, and PostgreSQL.
+- Next.js 16.2.12, React 19, TypeScript, Tailwind 4, Prisma 6.19.3, and PostgreSQL.
 - `globalTenantId` plus explicit branch or branch-group scope on all restaurant resources.
 - Vase SSO for owners and individually attributable, revocable staff PIN access on paired devices.
 - Cloud PostgreSQL as the canonical consolidated source.
