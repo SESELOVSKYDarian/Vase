@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { readLocalEdgeClient } from "@/lib/edge/local-edge-client";
+import {
+  readCloudStaffToken,
+  readLocalEdgeClient,
+} from "@/lib/edge/local-edge-client";
 
 type Reservation = {
   id: string;
@@ -21,6 +24,7 @@ export default function ReservationsPage() {
   const [rows, setRows] = useState<Reservation[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [error, setError] = useState("");
+  const [view, setView] = useState<"UPCOMING" | "HISTORY">("UPCOMING");
   async function refresh() {
     const client = readLocalEdgeClient();
     const [payload, tablePayload] = await Promise.all([
@@ -33,12 +37,28 @@ export default function ReservationsPage() {
     }];
     setRows(payload.aggregates.map((item) => item.state)
       .sort((left, right) => left.startsAt.localeCompare(right.startsAt)));
+    const cloudToken = readCloudStaffToken();
+    if (cloudToken) {
+      const response = await fetch("/api/v1/reservations?history=1", {
+        headers: { authorization: `Bearer ${cloudToken}` },
+        cache: "no-store",
+      }).catch(() => null);
+      if (response?.ok) {
+        const cloud = await response.json() as { reservations: Reservation[] };
+        setRows((local) => [...new Map(
+          [...cloud.reservations, ...local].map((reservation) =>
+            [reservation.id, reservation]),
+        ).values()].sort((left, right) => left.startsAt.localeCompare(right.startsAt)));
+      }
+    }
     setTables(tablePayload.aggregates.map((item) => item.state)
       .filter((table) => table.status !== "DISABLED")
       .sort((left, right) => left.code.localeCompare(right.code)));
   }
   useEffect(() => {
     void refresh().catch((cause) => setError(String(cause)));
+    const interval = setInterval(() => void refresh().catch(() => undefined), 15000);
+    return () => clearInterval(interval);
   }, []);
 
   async function create(event: FormEvent<HTMLFormElement>) {
@@ -93,6 +113,14 @@ export default function ReservationsPage() {
     <main className="product-content">
       <p className="eyebrow">Agenda de sucursal</p>
       <h1>Reservas</h1>
+      <div className="toolbar">
+        <button className="button" type="button" onClick={() => setView("UPCOMING")}>
+          Próximas
+        </button>
+        <button className="button" type="button" onClick={() => setView("HISTORY")}>
+          Historial 90 días
+        </button>
+      </div>
       <form className="inline-form" onSubmit={create}>
         <label>Nombre<input name="guestName" required /></label>
         <label>Teléfono<input name="guestPhone" /></label>
@@ -114,7 +142,11 @@ export default function ReservationsPage() {
       </form>
       {error ? <p role="alert">{error}</p> : null}
       <div className="branch-list">
-        {rows.map((row) => (
+        {rows.filter((row) => view === "UPCOMING"
+          ? ["CONFIRMED", "SEATED"].includes(row.status) &&
+            new Date(row.endsAt).getTime() >= Date.now()
+          : !["CONFIRMED", "SEATED"].includes(row.status) ||
+            new Date(row.endsAt).getTime() < Date.now()).map((row) => (
           <article key={row.id}>
             <code>{row.status}</code>
             <strong>{row.guestName} · {row.partySize}</strong>

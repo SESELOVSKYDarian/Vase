@@ -16,15 +16,19 @@ async function context(request: Request) {
 export async function GET(request: Request) {
   try {
     const actor = await context(request);
+    const url = new URL(request.url);
+    const history = url.searchParams.get("history") === "1";
     const rows = await db.reservation.findMany({
       where: {
         globalTenantId: actor.globalTenantId,
         branchId: actor.branchId,
-        startsAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        startsAt: {
+          gte: new Date(Date.now() - (history ? 90 : 1) * 24 * 60 * 60 * 1000),
+        },
       },
       include: { tables: { include: { table: true } } },
       orderBy: { startsAt: "asc" },
-      take: 200,
+      take: history ? 1000 : 200,
     });
     return NextResponse.json({ reservations: rows });
   } catch (error) {

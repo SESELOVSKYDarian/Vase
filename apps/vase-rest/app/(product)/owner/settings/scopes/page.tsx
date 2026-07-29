@@ -19,6 +19,7 @@ export default function ScopeSettingsPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [family, setFamily] = useState("CATALOG");
+  const [selectedScopeType, setSelectedScopeType] = useState("TENANT");
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [error, setError] = useState("");
   const load = useCallback(async (selectedFamily: string) => {
@@ -95,16 +96,14 @@ export default function ScopeSettingsPage() {
     const current = policies.find((policy) =>
       policy.scopeType === scopeType &&
       (scopeType === "TENANT" || policy.scopeId === scopeId));
-    let details: Record<string, unknown> = {};
-    const rawDetails = String(form.get("details") ?? "").trim();
-    if (rawDetails) {
-      try { details = JSON.parse(rawDetails); }
-      catch { setError("El detalle avanzado debe ser JSON válido."); return; }
+    if (scopeType !== "TENANT" && !scopeId) {
+      setError("Elegí el grupo o la sucursal que tendrá esta configuración.");
+      return;
     }
     await api("/api/v1/settings/scopes", {
       action: "SET", family, scopeType, scopeId,
       expectedRevision: current?.revision ?? 0,
-      value: { sharingLevel: scopeType, ...details },
+      value: { sharingLevel: scopeType },
     });
   }
 
@@ -159,20 +158,26 @@ export default function ScopeSettingsPage() {
           <input type="hidden" name="tenantId" value={
             policies.find((policy) => policy.scopeType === "TENANT")?.scopeId ?? "AUTHENTICATED_TENANT"
           } />
-          <label>Compartir en<select name="scopeType" defaultValue="TENANT">
+          <label>Compartir en<select name="scopeType" value={selectedScopeType}
+            onChange={(event) => setSelectedScopeType(event.target.value)}>
             <option value="TENANT">Todo el negocio</option>
             <option value="BRANCH_GROUP">Un grupo</option>
             <option value="BRANCH">Una sucursal</option>
           </select></label>
-          <label>Grupo o sucursal<select name="scopeId"><option value="">Elegir cuando corresponda</option>
-            <optgroup label="Grupos">{groups.map((group) =>
-              <option value={group.id} key={group.id}>{group.name}</option>)}</optgroup>
-            <optgroup label="Sucursales">{branches.map((branch) =>
-              <option value={branch.id} key={branch.id}>{branch.name}</option>)}</optgroup>
-          </select></label>
-          <label>Detalle avanzado opcional
-            <textarea name="details" placeholder={'{"deductInventoryAt":"SUBMIT"}'} />
-          </label>
+          {selectedScopeType === "BRANCH_GROUP"
+            ? <label>Grupo<select name="scopeId" required>
+                <option value="">Elegir grupo</option>
+                {groups.map((group) =>
+                  <option value={group.id} key={group.id}>{group.name}</option>)}
+              </select></label>
+            : null}
+          {selectedScopeType === "BRANCH"
+            ? <label>Sucursal<select name="scopeId" required>
+                <option value="">Elegir sucursal</option>
+                {branches.map((branch) =>
+                  <option value={branch.id} key={branch.id}>{branch.name}</option>)}
+              </select></label>
+            : null}
           <button className="button button-primary">Publicar configuración versionada</button>
         </form>
         <div className="branch-list">{policies.map((policy) => <article key={policy.id}>

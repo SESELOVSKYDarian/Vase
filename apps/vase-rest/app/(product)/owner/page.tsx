@@ -20,10 +20,36 @@ export default async function OwnerDashboard({
       orderBy: { name: "asc" },
     });
     if (branches.length === 0) redirect(`/onboarding?tenant=${context.tenantSlug}`);
-    const [staff, devices] = await Promise.all([
+    const [staff, devices, edges, fiscalIssues, deliveryIssues] = await Promise.all([
       db.localEmployee.count({ where: { globalTenantId: context.globalTenantId, active: true } }),
       db.device.count({ where: { globalTenantId: context.globalTenantId, status: "ACTIVE" } }),
+      db.edgeInstallation.findMany({
+        where: { globalTenantId: context.globalTenantId },
+        include: { branch: { select: { name: true } } },
+        orderBy: { branch: { name: "asc" } },
+      }),
+      db.fiscalDocument.count({
+        where: {
+          globalTenantId: context.globalTenantId,
+          status: { in: ["REJECTED", "PENDING"] },
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) },
+        },
+      }),
+      db.deliveryConnection.count({
+        where: {
+          globalTenantId: context.globalTenantId,
+          OR: [{ lastError: { not: null } }, { status: "DEGRADED" }],
+        },
+      }),
     ]);
+    const now = Date.now();
+    const unhealthyEdges = edges.filter((edge) =>
+      edge.status !== "ACTIVE" ||
+      !edge.lastSeenAt ||
+      now - edge.lastSeenAt.getTime() > 60_000 ||
+      edge.pendingEventCount > 0 ||
+      edge.failedPrintJobCount > 0 ||
+      edge.lastErrorCode);
     return (
         <main className="product-content">
           <p className="eyebrow">Centro operativo</p>
@@ -32,7 +58,31 @@ export default async function OwnerDashboard({
             <article><span>Sucursales</span><strong>{branches.length}</strong><small>de {context.entitlement.limits.branches}</small></article>
             <article><span>Equipo activo</span><strong>{staff}</strong><small>de {context.entitlement.limits.localEmployees}</small></article>
             <article><span>Dispositivos</span><strong>{devices}</strong><small>de {context.entitlement.limits.devices}</small></article>
+            <article><span>Edge con alertas</span><strong>{unhealthyEdges.length}</strong><small>de {edges.length}</small></article>
+            <article><span>Fiscal pendiente/rechazado</span><strong>{fiscalIssues}</strong><small>últimas 24 h</small></article>
+            <article><span>Delivery degradado</span><strong>{deliveryIssues}</strong><small>conexiones</small></article>
           </div>
+          <section className="ui-card">
+            <h2>Continuidad por sucursal</h2>
+            <div className="branch-list">
+              {edges.map((edge) => {
+                const stale = !edge.lastSeenAt ||
+                  now - edge.lastSeenAt.getTime() > 60_000;
+                return <article key={edge.id}>
+                  <strong>{edge.branch.name}</strong>
+                  <code>{stale ? "SIN CONEXIÓN" : edge.status}</code>
+                  <span>
+                    Último contacto: {edge.lastSeenAt
+                      ? edge.lastSeenAt.toLocaleString("es-AR") : "nunca"}
+                    {" · "}{edge.pendingEventCount} eventos pendientes
+                    {" · "}{edge.failedPrintJobCount} impresiones fallidas
+                  </span>
+                  {edge.lastErrorCode ? <small>{edge.lastErrorCode}</small> : null}
+                </article>;
+              })}
+              {!edges.length ? <p>Todavía no hay un Edge enrolado.</p> : null}
+            </div>
+          </section>
         </main>
     );
   } catch (error) {
