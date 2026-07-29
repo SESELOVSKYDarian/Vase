@@ -29,6 +29,9 @@ describe("Meta Graph official channel adapter", () => {
 
   it("validates manually entered Facebook and Instagram assets directly from the Page", async () => {
     const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"app_123", appSecret:"secret", fetcher: async (url) => {
+      if (String(url).includes("/me?fields=")) {
+        return Response.json({ id:"page_1", name:"Vase" });
+      }
       expect(String(url)).toContain("/page_1?fields=");
       return Response.json({ id:"page_1", name:"Vase", username:"vase", instagram_business_account:{ id:"ig_1", name:"Vase IG", username:"vaseig" } });
     }});
@@ -45,7 +48,36 @@ describe("Meta Graph official channel adapter", () => {
 
     await expect(client.resolveManualAsset({ channelType:"FACEBOOK", accessToken:"page-token", providerAccountId:"page_1", parentId:null }))
       .resolves.toMatchObject({ candidate:{ id:"page_1", kind:"FACEBOOK_PAGE" }, accessToken:"page-token" });
-    expect(requestedUrls[0]).toBe("https://graph.facebook.com/v99.0/page_1?fields=id%2Cname");
+    expect(requestedUrls[0]).toBe("https://graph.facebook.com/v99.0/me?fields=id%2Cname");
+  });
+
+  it("derives the Page access token when Facebook receives an authorized user token", async () => {
+    const requestedUrls: string[] = [];
+    const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"app_123", appSecret:"secret", fetcher: async (url) => {
+      requestedUrls.push(String(url));
+      if (String(url).includes("/me?fields=")) {
+        return Response.json({ id:"user_1", name:"Owner" });
+      }
+      return Response.json({
+        data: [
+          { id:"page_1", name:"Vase", access_token:"page-token" },
+        ],
+      });
+    }});
+
+    await expect(client.resolveManualAsset({
+      channelType:"FACEBOOK",
+      accessToken:"user-token",
+      providerAccountId:"page_1",
+      parentId:null,
+    })).resolves.toMatchObject({
+      candidate:{ id:"page_1", kind:"FACEBOOK_PAGE", name:"Vase" },
+      accessToken:"page-token",
+    });
+    expect(requestedUrls).toEqual([
+      "https://graph.facebook.com/v99.0/me?fields=id%2Cname",
+      "https://graph.facebook.com/v99.0/me/accounts?fields=id%2Cname%2Caccess_token",
+    ]);
   });
 
   it("validates an Instagram Login token directly against the Instagram graph", async () => {

@@ -255,23 +255,55 @@ export function createMetaGraphClient(input: {
         };
       }
 
-      const pageId = params.channelType === "FACEBOOK" ? params.providerAccountId : params.parentId;
+      if (params.channelType === "FACEBOOK") {
+        const identity = await graphRequest(
+          `/me?fields=${encodeURIComponent("id,name")}`,
+          params.accessToken,
+          undefined,
+          "META_ASSET_NOT_AUTHORIZED",
+        );
+        if (stringValue(identity.id) === params.providerAccountId) {
+          return {
+            candidate: {
+              id: params.providerAccountId,
+              kind: "FACEBOOK_PAGE",
+              name: stringValue(identity.name) ?? "Facebook Page",
+            },
+            accessToken: params.accessToken,
+          };
+        }
+
+        const accounts = await graphRequest(
+          `/me/accounts?fields=${encodeURIComponent("id,name,access_token")}`,
+          params.accessToken,
+          undefined,
+          "META_ASSET_NOT_AUTHORIZED",
+        );
+        const page = asArray(accounts.data)
+          .map(asRecord)
+          .find((item) => stringValue(item.id) === params.providerAccountId);
+        const pageToken = page ? stringValue(page.access_token) : null;
+        if (!page || !pageToken) throw new Error("META_ASSET_NOT_AUTHORIZED");
+        return {
+          candidate: {
+            id: params.providerAccountId,
+            kind: "FACEBOOK_PAGE",
+            name: stringValue(page.name) ?? "Facebook Page",
+          },
+          accessToken: pageToken,
+        };
+      }
+
+      const pageId = params.parentId;
       if (!pageId) throw new Error("META_ASSET_PARENT_MISSING");
-      const pageFields = params.channelType === "FACEBOOK"
-        ? "id,name"
-        : "id,name,username,instagram_business_account{id,name,username}";
       const page = await graphRequest(
-        `/${encodeURIComponent(pageId)}?fields=${encodeURIComponent(pageFields)}`,
+        `/${encodeURIComponent(pageId)}?fields=${encodeURIComponent("id,name,username,instagram_business_account{id,name,username}")}`,
         params.accessToken,
         undefined,
         "META_ASSET_NOT_AUTHORIZED",
       );
       if (stringValue(page.id) !== pageId) throw new Error("META_ASSET_NOT_AUTHORIZED");
       const pageName = stringValue(page.name) ?? "Facebook Page";
-      if (params.channelType === "FACEBOOK") {
-        const username = stringValue(page.username);
-        return { candidate: { id: pageId, kind: "FACEBOOK_PAGE", name: pageName, ...(username ? { handle: `@${username}` } : {}) }, accessToken: params.accessToken };
-      }
       const instagram = asRecord(page.instagram_business_account);
       if (stringValue(instagram.id) !== params.providerAccountId) throw new Error("META_ASSET_NOT_AUTHORIZED");
       const username = stringValue(instagram.username);
