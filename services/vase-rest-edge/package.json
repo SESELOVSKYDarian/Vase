@@ -1,0 +1,30 @@
+{
+  "name": "@vase/rest-edge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "node --experimental-sqlite ../../node_modules/tsx/dist/cli.mjs watch src/server.ts",
+    "start": "node --experimental-sqlite ../../node_modules/tsx/dist/cli.mjs src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "cross-env NODE_OPTIONS=--experimental-sqlite vitest run tests",
+    "build:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows.ps1"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "node-forge": "^1.4.0",
+    "tsx": "^4.20.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/node-forge": "^1.3.14",
+    "cross-env": "^7.0.3",
+    "tsx": "^4.20.3",
+    "typescript": "^5",
+    "vitest": "^4.1.2"
+  }
+}

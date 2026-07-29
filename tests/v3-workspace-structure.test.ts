@@ -17,7 +17,7 @@ describe("V3 workspace structure", () => {
   it("registers npm workspaces for apps and packages", () => {
     const packageJson = readJson("package.json");
 
-    expect(packageJson.workspaces).toEqual(["apps/*", "packages/*"]);
+    expect(packageJson.workspaces).toEqual(["apps/*", "packages/*", "services/*"]);
   });
 
   it("defines the expected app extraction targets", () => {
@@ -29,8 +29,18 @@ describe("V3 workspace structure", () => {
       "vase-business",
       "vase-management",
       "vase-labs",
+      "vase-rest",
       "vase-workplace",
     ]);
+
+    expect(v3WorkspaceApps.find((app) => app.key === "vase-rest")).toEqual({
+      key: "vase-rest",
+      path: "apps/vase-rest",
+      domain: "rest.vase.ar",
+      packageName: "@vase/rest",
+      databaseService: "postgres-rest",
+      responsibility: "Operacion gastronomica multi-tenant, multi-sucursal y offline-first.",
+    });
   });
 
   it("creates each V3 app with independent deploy files, health routes, and database config", () => {
@@ -93,6 +103,26 @@ describe("V3 workspace structure", () => {
       expect(fs.existsSync(path.join(base, "package.json")), `${pkg.path}/package.json`).toBe(true);
       expect(fs.existsSync(path.join(base, "src", "index.ts")), `${pkg.path}/src/index.ts`).toBe(true);
     }
+  });
+
+  it("configures Rest as an independently deployable Next.js workspace", () => {
+    const rootPackage = readJson("package.json");
+    const restPackage = readJson("apps/vase-rest/package.json");
+    const scripts = restPackage.scripts as Record<string, string>;
+
+    expect(restPackage.name).toBe("@vase/rest");
+    expect(restPackage.private).toBe(true);
+    expect(scripts).toMatchObject({
+      dev: "next dev --hostname 0.0.0.0 --port 3009",
+      build: "next build",
+      start: "next start --hostname 0.0.0.0 --port 3009",
+      typecheck: "tsc --noEmit",
+      "prisma:generate": "prisma generate",
+      "prisma:migrate:deploy": "prisma migrate deploy",
+    });
+    expect(rootPackage.scripts).toMatchObject({
+      "dev:v3:rest": "npm run dev --workspace @vase/rest",
+    });
   });
 
   it("does not keep temporary V3 bootstrap code in the monolith", () => {

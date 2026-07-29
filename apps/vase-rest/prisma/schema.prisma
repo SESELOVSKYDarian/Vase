@@ -1,0 +1,1342 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model RestTenant {
+  id                           String                        @id @default(cuid())
+  globalTenantId               String                        @unique
+  name                         String
+  slug                         String                        @unique
+  entitlement                  RestEntitlementProjection?
+  branches                     Branch[]
+  branchGroups                 BranchGroup[]
+  auditEvents                  AuditEvent[]
+  localEmployees               LocalEmployee[]
+  devices                      Device[]
+  edgeInstallations            EdgeInstallation[]
+  deviceEnrollments            DeviceEnrollment[]
+  configurationPolicies        ConfigurationPolicy[]
+  categories                   MenuCategory[]
+  products                     MenuProduct[]
+  promotions                   Promotion[]
+  ingredients                  Ingredient[]
+  modifierGroups               ModifierGroup[]
+  warehouses                   Warehouse[]
+  diningFloors                 DiningFloor[]
+  reservations                 Reservation[]
+  orders                       RestaurantOrder[]
+  kitchenStations              KitchenStation[]
+  edgeAggregates               EdgeAggregateProjection[]
+  edgeEventReceipts            EdgeEventReceipt[]
+  cashDrawers                  CashDrawer[]
+  cashMovements                CashMovement[]
+  payments                     Payment[]
+  financialCommandReceipts     FinancialCommandReceipt[]
+  paymentProviderConnections   PaymentProviderConnection[]
+  providerPaymentAttempts      ProviderPaymentAttempt[]
+  paymentProviderWebhookEvents PaymentProviderWebhookEvent[]
+  fiscalConnections            FiscalConnection[]
+  fiscalDocuments              FiscalDocument[]
+  customerAccounts             CustomerAccount[]
+  customerAccountMovements     CustomerAccountMovement[]
+  paymentRefunds               PaymentRefund[]
+  deliveryConnections          DeliveryConnection[]
+  deliveryOrders               DeliveryOrder[]
+  deliveryWebhookEvents        DeliveryWebhookEvent[]
+  deliveryCommandReceipts      DeliveryCommandReceipt[]
+  supportTickets               RestSupportTicket[]
+  createdAt                    DateTime                      @default(now())
+  updatedAt                    DateTime                      @updatedAt
+}
+
+model RestEntitlementProjection {
+  id                 String     @id @default(cuid())
+  restTenantId       String     @unique
+  globalTenantId     String     @unique
+  plan               String
+  status             String
+  contractVersion    Int
+  branchLimit        Int
+  localEmployeeLimit Int
+  deviceLimit        Int
+  edgeLimit          Int
+  effectiveAt        DateTime
+  restTenant         RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([globalTenantId, status])
+}
+
+model Branch {
+  id                         String                      @id @default(cuid())
+  restTenantId               String
+  globalTenantId             String
+  code                       String
+  slug                       String
+  name                       String
+  timezone                   String                      @default("America/Argentina/Buenos_Aires")
+  active                     Boolean                     @default(true)
+  restTenant                 RestTenant                  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  groupMembers               BranchGroupMember[]
+  auditEvents                AuditEvent[]
+  staffRoles                 StaffBranchRole[]
+  devices                    Device[]
+  staffSessions              StaffSession[]
+  edgeInstallations          EdgeInstallation[]
+  deviceEnrollments          DeviceEnrollment[]
+  productAvailability        ProductBranchAvailability[]
+  warehouseLinks             WarehouseBranch[]
+  inventoryAllocations       BranchInventoryAllocation[]
+  diningFloors               DiningFloor[]
+  diningTables               DiningTable[]
+  reservations               Reservation[]
+  orders                     RestaurantOrder[]
+  kitchenStations            KitchenStation[]
+  orderSequence              BranchOrderSequence?
+  cashDrawers                CashDrawer[]
+  cashMovements              CashMovement[]
+  payments                   Payment[]
+  paymentProviderConnections PaymentProviderConnection[]
+  providerPaymentAttempts    ProviderPaymentAttempt[]
+  fiscalConnection           FiscalConnection?
+  fiscalDocuments            FiscalDocument[]
+  customerAccountMovements   CustomerAccountMovement[]
+  paymentRefunds             PaymentRefund[]
+  deliveryConnections        DeliveryConnection[]
+  deliveryOrders             DeliveryOrder[]
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@unique([globalTenantId, slug])
+  @@index([globalTenantId, active])
+  @@index([restTenantId])
+}
+
+model LocalEmployee {
+  id                String            @id @default(cuid())
+  restTenantId      String
+  globalTenantId    String
+  employeeCode      String
+  displayName       String
+  pinHash           String
+  active            Boolean           @default(true)
+  failedPinAttempts Int               @default(0)
+  lockedUntil       DateTime?
+  pinChangedAt      DateTime          @default(now())
+  restTenant        RestTenant        @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branchRoles       StaffBranchRole[]
+  sessions          StaffSession[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([globalTenantId, employeeCode])
+  @@index([restTenantId, active])
+}
+
+model StaffBranchRole {
+  id              String        @id @default(cuid())
+  globalTenantId  String
+  localEmployeeId String
+  branchId        String
+  role            String
+  localEmployee   LocalEmployee @relation(fields: [localEmployeeId], references: [id], onDelete: Cascade)
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([localEmployeeId, branchId])
+  @@index([globalTenantId, branchId, role])
+}
+
+model Device {
+  id                     String         @id @default(cuid())
+  restTenantId           String
+  globalTenantId         String
+  branchId               String
+  name                   String
+  kind                   String
+  status                 String         @default("ACTIVE")
+  certificateFingerprint String?
+  lastSeenAt             DateTime?
+  restTenant             RestTenant     @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                 Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  sessions               StaffSession[]
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  @@index([globalTenantId, branchId, status])
+}
+
+model EdgeInstallation {
+  id                     String     @id @default(cuid())
+  restTenantId           String
+  globalTenantId         String
+  branchId               String
+  name                   String
+  status                 String     @default("ACTIVE")
+  certificateFingerprint String     @unique
+  lastSeenAt             DateTime?
+  lastCloudSyncAt        DateTime?
+  agentVersion           String?
+  pendingEventCount      Int        @default(0)
+  failedPrintJobCount    Int        @default(0)
+  lastErrorCode          String?
+  restTenant             RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                 Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+
+  @@index([globalTenantId, branchId, status])
+}
+
+model DeviceEnrollment {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  kind           String
+  name           String
+  codeHash       String     @unique
+  deviceLimit    Int
+  edgeLimit      Int
+  expiresAt      DateTime
+  usedAt         DateTime?
+  revokedAt      DateTime?
+  createdBy      String
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+
+  @@index([globalTenantId, branchId, expiresAt])
+}
+
+model ConfigurationPolicy {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  family         String
+  scopeType      String
+  scopeId        String
+  value          Json
+  revision       Int        @default(1)
+  updatedBy      String
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([globalTenantId, family, scopeType, scopeId])
+  @@index([globalTenantId, family])
+}
+
+model MenuCategory {
+  id              String                   @id @default(cuid())
+  restTenantId    String
+  globalTenantId  String
+  code            String
+  name            String
+  sortOrder       Int                      @default(0)
+  active          Boolean                  @default(true)
+  revision        Int                      @default(1)
+  restTenant      RestTenant               @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  products        MenuProduct[]
+  kitchenStations KitchenStationCategory[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@index([globalTenantId, active, sortOrder])
+}
+
+model MenuProduct {
+  id                 String                      @id @default(cuid())
+  restTenantId       String
+  globalTenantId     String
+  categoryId         String
+  sku                String
+  name               String
+  description        String?
+  available          Boolean                     @default(true)
+  taxRate            Decimal                     @default(21) @db.Decimal(5, 2)
+  taxIncluded        Boolean                     @default(true)
+  revision           Int                         @default(1)
+  restTenant         RestTenant                  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  category           MenuCategory                @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  recipeItems        RecipeItem[]
+  prices             ProductPrice[]
+  branchAvailability ProductBranchAvailability[]
+  modifierGroups     ProductModifierGroup[]
+  orderItems         OrderItem[]
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+
+  @@unique([globalTenantId, sku])
+  @@index([globalTenantId, categoryId, available])
+}
+
+model Ingredient {
+  id                   String                      @id @default(cuid())
+  restTenantId         String
+  globalTenantId       String
+  sku                  String
+  name                 String
+  baseUnit             String
+  active               Boolean                     @default(true)
+  restTenant           RestTenant                  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  recipeItems          RecipeItem[]
+  inventoryBalances    InventoryBalance[]
+  inventoryMovements   InventoryMovement[]
+  inventoryAllocations BranchInventoryAllocation[]
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+
+  @@unique([globalTenantId, sku])
+}
+
+model RecipeItem {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  productId      String
+  ingredientId   String
+  scopeType      String      @default("TENANT")
+  scopeId        String
+  scopeRevision  Int         @default(1)
+  quantity       Decimal     @db.Decimal(18, 6)
+  unit           String
+  product        MenuProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient     Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, ingredientId, scopeType, scopeId])
+  @@index([globalTenantId, ingredientId])
+}
+
+model ProductPrice {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  productId      String
+  scopeType      String
+  scopeId        String
+  amount         Decimal     @db.Decimal(18, 2)
+  currency       String      @default("ARS")
+  revision       Int         @default(1)
+  product        MenuProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([globalTenantId, productId, scopeType, scopeId])
+}
+
+model ProductBranchAvailability {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  productId      String
+  branchId       String
+  available      Boolean
+  revision       Int         @default(1)
+  product        MenuProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branch         Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, branchId])
+  @@index([globalTenantId, branchId, available])
+}
+
+model Promotion {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  scopeType      String
+  scopeId        String
+  discountType   String
+  discountValue  Decimal    @db.Decimal(18, 4)
+  productIds     Json
+  paymentMethods Json
+  weekdays       Json
+  minimumQuantity Int       @default(1)
+  startsAt       DateTime
+  endsAt         DateTime
+  priority       Int        @default(0)
+  active         Boolean    @default(true)
+  revision       Int        @default(1)
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@index([globalTenantId, active, startsAt, endsAt])
+  @@index([globalTenantId, scopeType, scopeId])
+}
+
+model ModifierGroup {
+  id             String                 @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  minSelections  Int                    @default(0)
+  maxSelections  Int                    @default(1)
+  restTenant     RestTenant             @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  options        ModifierOption[]
+  products       ProductModifierGroup[]
+
+  @@unique([globalTenantId, code])
+}
+
+model ModifierOption {
+  id              String        @id @default(cuid())
+  globalTenantId  String
+  modifierGroupId String
+  code            String
+  name            String
+  priceDelta      Decimal       @default(0) @db.Decimal(18, 2)
+  active          Boolean       @default(true)
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([modifierGroupId, code])
+}
+
+model ProductModifierGroup {
+  id              String        @id @default(cuid())
+  globalTenantId  String
+  productId       String
+  modifierGroupId String
+  sortOrder       Int           @default(0)
+  product         MenuProduct   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, modifierGroupId])
+}
+
+model Warehouse {
+  id             String                      @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  active         Boolean                     @default(true)
+  restTenant     RestTenant                  @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branches       WarehouseBranch[]
+  balances       InventoryBalance[]
+  movements      InventoryMovement[]
+  allocations    BranchInventoryAllocation[]
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@index([globalTenantId, active])
+}
+
+model WarehouseBranch {
+  id             String    @id @default(cuid())
+  globalTenantId String
+  warehouseId    String
+  branchId       String
+  isDefault      Boolean   @default(false)
+  warehouse      Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  branch         Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, branchId])
+  @@index([globalTenantId, branchId])
+}
+
+model InventoryBalance {
+  id             String     @id @default(cuid())
+  globalTenantId String
+  warehouseId    String
+  ingredientId   String
+  onHand         Decimal    @default(0) @db.Decimal(18, 6)
+  revision       Int        @default(1)
+  warehouse      Warehouse  @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  ingredient     Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([warehouseId, ingredientId])
+  @@index([globalTenantId, ingredientId])
+}
+
+model InventoryMovement {
+  id             String             @id @default(cuid())
+  globalTenantId String
+  warehouseId    String
+  ingredientId   String
+  kind           String
+  quantity       Decimal            @db.Decimal(18, 6)
+  balanceAfter   Decimal            @db.Decimal(18, 6)
+  commandId      String
+  actorId        String
+  referenceType  String?
+  referenceId    String?
+  reason         String?
+  reversalOfId   String?            @unique
+  warehouse      Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  ingredient     Ingredient         @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  reversalOf     InventoryMovement? @relation("InventoryReversal", fields: [reversalOfId], references: [id])
+  reversedBy     InventoryMovement? @relation("InventoryReversal")
+  occurredAt     DateTime           @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([globalTenantId, warehouseId, ingredientId, occurredAt])
+}
+
+model BranchInventoryAllocation {
+  id             String                  @id @default(cuid())
+  globalTenantId String
+  branchId       String
+  warehouseId    String
+  ingredientId   String
+  available      Decimal                 @db.Decimal(18, 6)
+  safetyStock    Decimal                 @default(0) @db.Decimal(18, 6)
+  revision       Int                     @default(1)
+  branch         Branch                  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  warehouse      Warehouse               @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  ingredient     Ingredient              @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  consumptions   AllocationConsumption[]
+  updatedAt      DateTime                @updatedAt
+
+  @@unique([branchId, ingredientId])
+  @@index([globalTenantId, warehouseId])
+}
+
+model AllocationConsumption {
+  id             String                    @id @default(cuid())
+  globalTenantId String
+  allocationId   String
+  commandId      String
+  quantity       Decimal                   @db.Decimal(18, 6)
+  remainingAfter Decimal                   @db.Decimal(18, 6)
+  allocation     BranchInventoryAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  occurredAt     DateTime                  @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([allocationId, occurredAt])
+}
+
+model DiningFloor {
+  id             String        @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  code           String
+  name           String
+  sortOrder      Int           @default(0)
+  active         Boolean       @default(true)
+  revision       Int           @default(1)
+  restTenant     RestTenant    @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  zones          DiningZone[]
+  tables         DiningTable[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([branchId, code])
+  @@index([globalTenantId, branchId, active])
+}
+
+model DiningZone {
+  id             String        @id @default(cuid())
+  globalTenantId String
+  floorId        String
+  code           String
+  name           String
+  colorToken     String?
+  floor          DiningFloor   @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  tables         DiningTable[]
+
+  @@unique([floorId, code])
+}
+
+model DiningTable {
+  id               String             @id @default(cuid())
+  globalTenantId   String
+  branchId         String
+  floorId          String
+  zoneId           String?
+  code             String
+  name             String
+  capacity         Int
+  x                Decimal            @db.Decimal(10, 2)
+  y                Decimal            @db.Decimal(10, 2)
+  width            Decimal            @db.Decimal(10, 2)
+  height           Decimal            @db.Decimal(10, 2)
+  status           String             @default("AVAILABLE")
+  revision         Int                @default(1)
+  mergeGroupId     String?
+  mergedIntoId     String?
+  branch           Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  floor            DiningFloor        @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  zone             DiningZone?        @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  reservationLinks ReservationTable[]
+  transitions      TableTransition[]
+  orders           RestaurantOrder[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@unique([branchId, code])
+  @@index([globalTenantId, branchId, status])
+  @@index([mergeGroupId])
+}
+
+model TableTransition {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  branchId       String
+  tableId        String
+  fromStatus     String
+  toStatus       String
+  fromRevision   Int
+  toRevision     Int
+  actorId        String
+  commandId      String
+  table          DiningTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  occurredAt     DateTime    @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([tableId, occurredAt])
+}
+
+model Reservation {
+  id                 String             @id @default(cuid())
+  restTenantId       String
+  globalTenantId     String
+  branchId           String
+  guestName          String
+  guestPhone         String?
+  partySize          Int
+  startsAt           DateTime
+  endsAt             DateTime
+  status             String             @default("CONFIRMED")
+  notes              String?
+  revision           Int                @default(1)
+  createdBy          String
+  cancelledAt        DateTime?
+  cancellationReason String?
+  restTenant         RestTenant         @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch             Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  tables             ReservationTable[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([globalTenantId, branchId, startsAt, endsAt])
+  @@index([branchId, status, startsAt])
+}
+
+model ReservationTable {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  reservationId  String
+  tableId        String
+  reservation    Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  table          DiningTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([reservationId, tableId])
+  @@index([globalTenantId, tableId])
+}
+
+model BranchOrderSequence {
+  id             String @id @default(cuid())
+  globalTenantId String
+  branchId       String @unique
+  nextNumber     Int    @default(1)
+  branch         Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+}
+
+model RestaurantOrder {
+  id                      String                   @id @default(cuid())
+  restTenantId            String
+  globalTenantId          String
+  branchId                String
+  tableId                 String?
+  orderNumber             Int
+  status                  String                   @default("OPEN")
+  guestCount              Int
+  subtotal                Decimal                  @default(0) @db.Decimal(18, 2)
+  discountTotal           Decimal                  @default(0) @db.Decimal(18, 2)
+  taxTotal                Decimal                  @default(0) @db.Decimal(18, 2)
+  total                   Decimal                  @default(0) @db.Decimal(18, 2)
+  revision                Int                      @default(1)
+  openedBy                String
+  submittedAt             DateTime?
+  servedAt                DateTime?
+  cancelledAt             DateTime?
+  cancellationReason      String?
+  restTenant              RestTenant               @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                  Branch                   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  table                   DiningTable?             @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  items                   OrderItem[]
+  kitchenTickets          KitchenTicket[]
+  commandReceipts         OrderCommandReceipt[]
+  payments                Payment[]
+  providerPaymentAttempts ProviderPaymentAttempt[]
+  fiscalDocuments         FiscalDocument[]
+  deliveryOrders          DeliveryOrder[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+
+  @@unique([branchId, orderNumber])
+  @@index([globalTenantId, branchId, status, createdAt])
+}
+
+model CashDrawer {
+  id             String         @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  stationId      String
+  status         String         @default("OPEN")
+  openingFloat   Decimal        @db.Decimal(18, 2)
+  expectedCash   Decimal        @db.Decimal(18, 2)
+  countedCash    Decimal?       @db.Decimal(18, 2)
+  variance       Decimal?       @db.Decimal(18, 2)
+  revision       Int            @default(1)
+  openedBy       String
+  closedBy       String?
+  openedAt       DateTime       @default(now())
+  closedAt       DateTime?
+  restTenant     RestTenant     @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  movements      CashMovement[]
+  payments       Payment[]
+
+  @@index([globalTenantId, branchId, status])
+  @@index([branchId, stationId, status])
+}
+
+model CashMovement {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  drawerId       String
+  paymentId      String?    @unique
+  type           String
+  amount         Decimal    @db.Decimal(18, 2)
+  balanceAfter   Decimal    @db.Decimal(18, 2)
+  reason         String
+  actorId        String
+  commandId      String
+  reversalOfId   String?
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  drawer         CashDrawer @relation(fields: [drawerId], references: [id], onDelete: Restrict)
+  payment        Payment?   @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  occurredAt     DateTime   @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([drawerId, occurredAt])
+}
+
+model Payment {
+  id                String                    @id @default(cuid())
+  restTenantId      String
+  globalTenantId    String
+  branchId          String
+  orderId           String
+  drawerId          String?
+  tenderType        String
+  amount            Decimal                   @db.Decimal(18, 2)
+  currency          String                    @default("ARS")
+  status            String                    @default("APPLIED")
+  provider          String?
+  reference         String?
+  operator          String?
+  actorId           String
+  commandId         String
+  reversedAt        DateTime?
+  reversalReason    String?
+  customerAccountId String?
+  restTenant        RestTenant                @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch            Branch                    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  order             RestaurantOrder           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  drawer            CashDrawer?               @relation(fields: [drawerId], references: [id], onDelete: Restrict)
+  cashMovement      CashMovement?
+  customerAccount   CustomerAccount?          @relation(fields: [customerAccountId], references: [id], onDelete: Restrict)
+  accountMovements  CustomerAccountMovement[]
+  refunds           PaymentRefund[]
+  createdAt         DateTime                  @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@unique([globalTenantId, provider, reference])
+  @@index([orderId, status])
+  @@index([globalTenantId, branchId, createdAt])
+}
+
+model CustomerAccount {
+  id             String                    @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  taxId          String?
+  email          String?
+  phone          String?
+  status         String                    @default("ACTIVE")
+  creditLimit    Decimal?                  @db.Decimal(18, 2)
+  restTenant     RestTenant                @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  payments       Payment[]
+  movements      CustomerAccountMovement[]
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@index([globalTenantId, status, name])
+}
+
+model CustomerAccountMovement {
+  id             String          @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String?
+  accountId      String
+  paymentId      String?
+  type           String
+  amount         Decimal         @db.Decimal(18, 2)
+  balanceAfter   Decimal         @db.Decimal(18, 2)
+  reason         String
+  actorId        String
+  commandId      String
+  reversalOfId   String?         @unique
+  restTenant     RestTenant      @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch?         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  account        CustomerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  payment        Payment?        @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  createdAt      DateTime        @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([accountId, createdAt])
+  @@index([globalTenantId, branchId, createdAt])
+}
+
+model PaymentRefund {
+  id               String     @id @default(cuid())
+  restTenantId     String
+  globalTenantId   String
+  branchId         String
+  paymentId        String
+  amount           Decimal    @db.Decimal(18, 2)
+  status           String     @default("PENDING")
+  provider         String?
+  providerRefundId String?
+  providerResponse Json?
+  reason           String
+  commandId        String
+  actorId          String
+  restTenant       RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch           Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  payment          Payment    @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([globalTenantId, commandId])
+  @@unique([globalTenantId, provider, providerRefundId])
+  @@index([paymentId, status])
+  @@index([globalTenantId, branchId, createdAt])
+}
+
+model RestSupportTicket {
+  id               String     @id @default(cuid())
+  restTenantId     String
+  globalTenantId   String
+  requestId        String
+  externalTicketId String
+  status           String
+  createdByActorId String
+  restTenant       RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([globalTenantId, requestId])
+  @@unique([globalTenantId, externalTicketId])
+  @@index([globalTenantId, createdAt])
+}
+
+model DeliveryConnection {
+  id                        String                 @id @default(cuid())
+  restTenantId              String
+  globalTenantId            String
+  branchId                  String
+  provider                  String
+  environment               String                 @default("SANDBOX")
+  status                    String                 @default("UNCONFIGURED")
+  storeId                   String
+  clientIdCiphertext        String?
+  clientSecretCiphertext    String?
+  webhookSecretCiphertext   String?
+  config                    Json
+  certificationEvidence     Json?
+  lastSuccessfulOperationAt DateTime?
+  lastError                 String?
+  restTenant                RestTenant             @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                    Branch                 @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  orders                    DeliveryOrder[]
+  webhookEvents             DeliveryWebhookEvent[]
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+
+  @@unique([branchId, provider])
+  @@unique([provider, environment, storeId])
+  @@index([globalTenantId, provider, status])
+}
+
+model DeliveryOrder {
+  id                String             @id @default(cuid())
+  restTenantId      String
+  globalTenantId    String
+  branchId          String
+  connectionId      String
+  orderId           String?
+  providerOrderId   String
+  status            String
+  customerName      String?
+  deliveryAddress   String?
+  total             Decimal            @db.Decimal(18, 2)
+  currency          String             @default("ARS")
+  providerCreatedAt DateTime?
+  normalizedPayload Json
+  providerPayload   Json
+  lastError         String?
+  restTenant        RestTenant         @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch            Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  connection        DeliveryConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  order             RestaurantOrder?   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([connectionId, providerOrderId])
+  @@index([globalTenantId, branchId, status, createdAt])
+  @@index([orderId])
+}
+
+model DeliveryWebhookEvent {
+  id              String             @id @default(cuid())
+  restTenantId    String
+  globalTenantId  String
+  connectionId    String
+  providerEventId String
+  eventType       String
+  payloadHash     String
+  result          Json
+  restTenant      RestTenant         @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  connection      DeliveryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  receivedAt      DateTime           @default(now())
+
+  @@unique([connectionId, providerEventId])
+  @@index([globalTenantId, receivedAt])
+}
+
+model DeliveryCommandReceipt {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  commandId      String
+  response       Json
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+
+  @@unique([globalTenantId, commandId])
+}
+
+model FinancialCommandReceipt {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  commandId      String
+  response       Json
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+
+  @@unique([globalTenantId, commandId])
+}
+
+model PaymentProviderConnection {
+  id                      String                        @id @default(cuid())
+  restTenantId            String
+  globalTenantId          String
+  branchId                String
+  provider                String
+  status                  String                        @default("UNCONFIGURED")
+  environment             String                        @default("SANDBOX")
+  providerAccountId       String?
+  accessTokenCiphertext   String?
+  refreshTokenCiphertext  String?
+  webhookSecretCiphertext String?
+  tokenExpiresAt          DateTime?
+  config                  Json
+  restTenant              RestTenant                    @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                  Branch                        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  attempts                ProviderPaymentAttempt[]
+  webhookEvents           PaymentProviderWebhookEvent[]
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
+
+  @@unique([branchId, provider])
+  @@index([globalTenantId, provider, status])
+}
+
+model ProviderPaymentAttempt {
+  id                String                    @id @default(cuid())
+  restTenantId      String
+  globalTenantId    String
+  branchId          String
+  orderId           String
+  connectionId      String
+  kind              String
+  amount            Decimal                   @db.Decimal(18, 2)
+  status            String                    @default("CREATING")
+  providerOrderId   String?
+  providerPaymentId String?
+  commandId         String
+  actorId           String
+  response          Json?
+  result            Json?
+  lastError         String?
+  lastReconciledAt  DateTime?
+  restTenant        RestTenant                @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch            Branch                    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  order             RestaurantOrder           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  connection        PaymentProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@unique([globalTenantId, commandId])
+  @@index([connectionId, status, createdAt])
+  @@index([providerOrderId])
+}
+
+model PaymentProviderWebhookEvent {
+  id              String                    @id @default(cuid())
+  restTenantId    String
+  globalTenantId  String
+  connectionId    String
+  requestId       String
+  providerOrderId String
+  result          Json
+  restTenant      RestTenant                @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  connection      PaymentProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  receivedAt      DateTime                  @default(now())
+
+  @@unique([connectionId, requestId])
+  @@index([globalTenantId, providerOrderId])
+}
+
+model FiscalConnection {
+  id                     String               @id @default(cuid())
+  restTenantId           String
+  globalTenantId         String
+  branchId               String               @unique
+  environment            String
+  status                 String               @default("UNCONFIGURED")
+  cuit                   String
+  legalName              String
+  pointOfSale            Int
+  certificateCiphertext  String
+  privateKeyCiphertext   String
+  passphraseCiphertext   String?
+  certificateNotAfter    DateTime
+  authorizedVoucherTypes Json
+  restTenant             RestTenant           @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch                 Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  accessTickets          FiscalAccessTicket[]
+  documents              FiscalDocument[]
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  @@unique([globalTenantId, cuit, pointOfSale])
+  @@index([globalTenantId, status])
+}
+
+model FiscalAccessTicket {
+  id              String           @id @default(cuid())
+  connectionId    String
+  service         String
+  tokenCiphertext String
+  signCiphertext  String
+  expiresAt       DateTime
+  connection      FiscalConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([connectionId, service])
+}
+
+model FiscalDocument {
+  id                 String           @id @default(cuid())
+  restTenantId       String
+  globalTenantId     String
+  branchId           String
+  orderId            String
+  connectionId       String
+  documentType       String
+  voucherType        Int
+  pointOfSale        Int
+  voucherNumber      Int?
+  status             String           @default("PENDING")
+  currency           String           @default("PES")
+  total              Decimal          @db.Decimal(18, 2)
+  net                Decimal          @db.Decimal(18, 2)
+  vat                Decimal          @db.Decimal(18, 2)
+  exempt             Decimal          @default(0) @db.Decimal(18, 2)
+  untaxed            Decimal          @default(0) @db.Decimal(18, 2)
+  recipientDocType   Int
+  recipientDocNumber String
+  cae                String?
+  caeExpiresAt       DateTime?
+  observations       Json
+  qrPayload          Json?
+  request            Json
+  response           Json?
+  commandId          String
+  actorId            String
+  restTenant         RestTenant       @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch             Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  order              RestaurantOrder  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  connection         FiscalConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([globalTenantId, commandId])
+  @@unique([connectionId, voucherType, pointOfSale, voucherNumber])
+  @@index([globalTenantId, branchId, status, createdAt])
+  @@index([orderId])
+}
+
+model OrderItem {
+  id             String              @id @default(cuid())
+  globalTenantId String
+  orderId        String
+  productId      String
+  skuSnapshot    String
+  nameSnapshot   String
+  quantity       Int
+  unitPrice      Decimal             @db.Decimal(18, 2)
+  modifierTotal  Decimal             @default(0) @db.Decimal(18, 2)
+  grossBeforeDiscount Decimal         @default(0) @db.Decimal(18, 2)
+  discountTotal  Decimal             @default(0) @db.Decimal(18, 2)
+  promotionIds   Json                @default("[]")
+  lineTotal      Decimal             @db.Decimal(18, 2)
+  netTotal       Decimal             @db.Decimal(18, 2)
+  taxAmount      Decimal             @db.Decimal(18, 2)
+  taxRate        Decimal             @db.Decimal(5, 2)
+  taxIncluded    Boolean
+  course         Int                 @default(1)
+  notes          String?
+  status         String              @default("DRAFT")
+  revision       Int                 @default(1)
+  order          RestaurantOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        MenuProduct         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  modifiers      OrderItemModifier[]
+  kitchenTicket  KitchenTicket?
+  createdAt      DateTime            @default(now())
+
+  @@index([globalTenantId, orderId, status])
+}
+
+model OrderItemModifier {
+  id             String    @id @default(cuid())
+  globalTenantId String
+  orderItemId    String
+  optionId       String
+  nameSnapshot   String
+  quantity       Int
+  unitDelta      Decimal   @db.Decimal(18, 2)
+  totalDelta     Decimal   @db.Decimal(18, 2)
+  orderItem      OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([globalTenantId, orderItemId])
+}
+
+model KitchenStation {
+  id             String                   @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  branchId       String
+  code           String
+  name           String
+  active         Boolean                  @default(true)
+  restTenant     RestTenant               @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch                   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  categories     KitchenStationCategory[]
+  tickets        KitchenTicket[]
+
+  @@unique([branchId, code])
+  @@index([globalTenantId, branchId, active])
+}
+
+model KitchenStationCategory {
+  id             String         @id @default(cuid())
+  globalTenantId String
+  stationId      String
+  categoryId     String
+  station        KitchenStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  category       MenuCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([stationId, categoryId])
+  @@index([globalTenantId, categoryId])
+}
+
+model KitchenTicket {
+  id             String                    @id @default(cuid())
+  globalTenantId String
+  branchId       String
+  orderId        String
+  orderItemId    String                    @unique
+  stationId      String
+  status         String                    @default("QUEUED")
+  priority       Int                       @default(0)
+  revision       Int                       @default(1)
+  queuedAt       DateTime                  @default(now())
+  preparingAt    DateTime?
+  readyAt        DateTime?
+  servedAt       DateTime?
+  cancelledAt    DateTime?
+  recalledAt     DateTime?
+  recallReason   String?
+  order          RestaurantOrder           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem      OrderItem                 @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  station        KitchenStation            @relation(fields: [stationId], references: [id], onDelete: Restrict)
+  transitions    KitchenTicketTransition[]
+
+  @@index([globalTenantId, branchId, stationId, status, queuedAt])
+}
+
+model KitchenTicketTransition {
+  id             String        @id @default(cuid())
+  globalTenantId String
+  ticketId       String
+  fromStatus     String
+  toStatus       String
+  fromRevision   Int
+  toRevision     Int
+  commandId      String
+  actorId        String
+  ticket         KitchenTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  occurredAt     DateTime      @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([ticketId, occurredAt])
+}
+
+model OrderCommandReceipt {
+  id             String          @id @default(cuid())
+  globalTenantId String
+  orderId        String
+  commandId      String
+  action         String
+  response       Json
+  order          RestaurantOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+
+  @@unique([globalTenantId, commandId])
+  @@index([orderId, createdAt])
+}
+
+model EdgeAggregateProjection {
+  id             String     @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  aggregateType  String
+  aggregateId    String
+  version        Int
+  state          Json
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([globalTenantId, aggregateType, aggregateId])
+  @@index([globalTenantId, aggregateType, updatedAt])
+}
+
+model EdgeEventReceipt {
+  id               String     @id @default(cuid())
+  restTenantId     String
+  globalTenantId   String
+  branchId         String
+  installationId   String
+  eventId          String
+  idempotencyKey   String
+  aggregateType    String
+  aggregateId      String
+  aggregateVersion Int
+  eventType        String
+  payload          Json
+  status           String
+  occurredAt       DateTime
+  acceptedAt       DateTime   @default(now())
+  restTenant       RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+
+  @@unique([globalTenantId, eventId])
+  @@unique([globalTenantId, idempotencyKey])
+  @@index([globalTenantId, aggregateType, aggregateId, aggregateVersion])
+  @@index([installationId, acceptedAt])
+}
+
+model StaffSession {
+  id              String        @id @default(cuid())
+  globalTenantId  String
+  localEmployeeId String
+  branchId        String
+  deviceId        String
+  tokenHash       String        @unique
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  localEmployee   LocalEmployee @relation(fields: [localEmployeeId], references: [id], onDelete: Cascade)
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  device          Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@index([globalTenantId, branchId, expiresAt])
+  @@index([localEmployeeId, revokedAt])
+}
+
+model BranchGroup {
+  id             String              @id @default(cuid())
+  restTenantId   String
+  globalTenantId String
+  code           String
+  name           String
+  restTenant     RestTenant          @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  members        BranchGroupMember[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([globalTenantId, code])
+  @@index([restTenantId])
+}
+
+model BranchGroupMember {
+  id             String      @id @default(cuid())
+  globalTenantId String
+  branchGroupId  String
+  branchId       String
+  branchGroup    BranchGroup @relation(fields: [branchGroupId], references: [id], onDelete: Cascade)
+  branch         Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+
+  @@unique([branchGroupId, branchId])
+  @@index([globalTenantId, branchId])
+}
+
+model AuditEvent {
+  id             String     @id @default(cuid())
+  globalTenantId String
+  restTenantId   String
+  branchId       String?
+  actorType      String
+  actorId        String
+  action         String
+  entityType     String
+  entityId       String
+  payload        Json?
+  occurredAt     DateTime   @default(now())
+  restTenant     RestTenant @relation(fields: [restTenantId], references: [id], onDelete: Cascade)
+  branch         Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([globalTenantId, occurredAt])
+  @@index([globalTenantId, entityType, entityId])
+  @@index([branchId, occurredAt])
+}

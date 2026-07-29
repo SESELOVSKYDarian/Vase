@@ -45,6 +45,9 @@ import * as managementReady from "../apps/vase-management/app/api/health/ready/r
 import * as portalInternalHealth from "../apps/vase-portal/src/app/api/internal/admin/health/route";
 import * as portalLive from "../apps/vase-portal/src/app/api/health/live/route";
 import * as portalReady from "../apps/vase-portal/src/app/api/health/ready/route";
+import * as restInternalHealth from "../apps/vase-rest/app/api/internal/admin/health/route";
+import * as restLive from "../apps/vase-rest/app/api/health/live/route";
+import * as restReady from "../apps/vase-rest/app/api/health/ready/route";
 import * as workplaceInternalHealth from "../apps/vase-workplace/app/api/internal/admin/health/route";
 import * as workplaceLive from "../apps/vase-workplace/app/api/health/live/route";
 import * as workplaceReady from "../apps/vase-workplace/app/api/health/ready/route";
@@ -57,6 +60,7 @@ const routes = {
   "vase-labs": { live: labsLive, ready: labsReady, internal: labsInternalHealth },
   "vase-management": { live: managementLive, ready: managementReady, internal: managementInternalHealth },
   "vase-portal": { live: portalLive, ready: portalReady, internal: portalInternalHealth },
+  "vase-rest": { live: restLive, ready: restReady, internal: restInternalHealth },
   "vase-workplace": { live: workplaceLive, ready: workplaceReady, internal: workplaceInternalHealth },
 };
 
@@ -75,15 +79,19 @@ describe("V3 health routes", () => {
         const readyPayload = await readyResponse.json();
 
         expect(liveResponse.status, `${app.key} live status`).toBe(200);
-        expect(readyResponse.status, `${app.key} ready status`).toBe(200);
+        if (app.key === "vase-rest" && readyPayload.status === "degraded") {
+          expect(readyResponse.status, `${app.key} degraded ready status`).toBe(503);
+        } else {
+          expect(readyResponse.status, `${app.key} ready status`).toBe(200);
+        }
         expect(livePayload.service).toBe(app.key);
         expect(readyPayload.service).toBe(app.key);
         if (app.key === "vase-portal") {
           expect(readyPayload.checks.app).toBe("ok");
-        } else if (
-          app.key === "vase-labs" &&
-          readyPayload.status === "degraded"
-        ) {
+        } else if (app.key === "vase-rest" && readyPayload.status === "degraded") {
+          expect(readyPayload.checks.database).toBe("error");
+          expect(readyPayload.checks.databaseError).toBeUndefined();
+        } else if (app.key === "vase-labs" && readyPayload.status === "degraded") {
           expect(readyPayload.checks.database).toBe("error");
           expect(readyPayload.checks.databaseError).toEqual(
             expect.any(String),

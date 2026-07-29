@@ -9,7 +9,7 @@ import {
 } from "@/server/services/modules";
 
 function resolveProductMatch(
-  moduleProducts: readonly ("BUSINESS" | "LABS" | "BOTH" | "MANAGEMENT")[],
+  moduleProducts: readonly ("BUSINESS" | "LABS" | "BOTH" | "MANAGEMENT" | "REST")[],
   onboardingProduct: "BUSINESS" | "LABS" | "BOTH",
 ) {
   return moduleProducts.includes(onboardingProduct) || onboardingProduct === "BOTH";
@@ -136,11 +136,11 @@ export async function getTenantModulesAccess(tenantId: string, userId?: string) 
             currency: pricing.currency,
             type: serializePricingType(pricing.type),
           }
-        : {
+        : definition.defaultPricing ? {
             price: definition.defaultPricing.price,
             currency: definition.defaultPricing.currency,
             type: definition.defaultPricing.type,
-          },
+          } : null,
       billing: {
         type:
           pricing?.type === "ONE_TIME"

@@ -24,6 +24,16 @@ import {
   managementSsoClaimsSchema,
   managementSyncEventSchema,
   outboundChannelMessageSchema,
+  getRestPlanLimits,
+  REST_PLAN_LIMITS,
+  restEdgeEnrollmentSchema,
+  restEntitlementSchema,
+  restHealthSchema,
+  restPlanLimitsSchema,
+  restPlanSchema,
+  restServiceStatusSchema,
+  restSessionContextSchema,
+  restSyncEventSchema,
   serviceHealthSchema,
   tokenPackSchema,
   tokenUsageSchema,
@@ -305,5 +315,95 @@ describe("V3 contracts", () => {
       payload: { name: "Producto", price: 1200, stock: 8 },
     });
     expect(event.entity).toBe("PRODUCT");
+  });
+
+  it("defines Rest plans with capacity-only defaults and explicit Enterprise limits", () => {
+    expect(restPlanSchema.options).toEqual(["STARTER", "GROWTH", "PRO", "ENTERPRISE"]);
+    expect(REST_PLAN_LIMITS).toEqual({
+      STARTER: { branches: 1, localEmployees: 15, devices: 5, edgeInstallations: 1 },
+      GROWTH: { branches: 3, localEmployees: 60, devices: 20, edgeInstallations: 3 },
+      PRO: { branches: 10, localEmployees: 250, devices: 75, edgeInstallations: 10 },
+    });
+    expect(() => getRestPlanLimits("ENTERPRISE")).toThrow("Enterprise Rest limits must be explicit");
+    expect(getRestPlanLimits("ENTERPRISE", {
+      branches: 40,
+      localEmployees: 1200,
+      devices: 300,
+      edgeInstallations: 40,
+    })).toMatchObject({ branches: 40, localEmployees: 1200 });
+  });
+
+  it("validates Rest entitlements and owner/staff session contexts", () => {
+    const limits = getRestPlanLimits("GROWTH");
+    const entitlement = restEntitlementSchema.parse({
+      globalTenantId: "tenant_123",
+      plan: "GROWTH",
+      status: "ACTIVE",
+      limits,
+      contractVersion: 4,
+    });
+    const session = restSessionContextSchema.parse({
+      globalTenantId: "tenant_123",
+      tenantSlug: "norte-equipos",
+      tenantName: "Norte Equipos",
+      actor: {
+        kind: "LOCAL_STAFF",
+        id: "employee_123",
+        displayName: "Cami",
+      },
+      branchId: "branch_123",
+      branchRoles: [{
+        branchId: "branch_123",
+        role: "WAITER",
+        capabilities: ["ORDER_CREATE", "TABLE_MANAGE"],
+      }],
+      deviceId: "device_123",
+      entitlement,
+    });
+
+    expect(restPlanLimitsSchema.parse(limits).devices).toBe(20);
+    expect(session.actor.kind).toBe("LOCAL_STAFF");
+    expect(session.branchRoles[0].role).toBe("WAITER");
+  });
+
+  it("validates Rest Edge enrollment, sync, service status, and health contracts", () => {
+    const enrollment = restEdgeEnrollmentSchema.parse({
+      enrollmentId: "enroll_123",
+      globalTenantId: "tenant_123",
+      branchId: "branch_123",
+      installationId: "edge_123",
+      certificateThumbprint: "A1B2C3D4",
+      status: "ACTIVE",
+      enrolledAt: "2026-07-28T12:00:00.000Z",
+    });
+    const event = restSyncEventSchema.parse({
+      eventId: "evt_123",
+      globalTenantId: "tenant_123",
+      branchId: "branch_123",
+      installationId: "edge_123",
+      actorId: "employee_123",
+      deviceId: "device_123",
+      aggregateType: "ORDER",
+      aggregateId: "order_123",
+      aggregateVersion: 2,
+      eventType: "ORDER_ITEM_ADDED",
+      idempotencyKey: "device_123:order_123:2",
+      occurredAt: "2026-07-28T12:01:00.000Z",
+      payload: { itemId: "item_123", quantity: 2 },
+    });
+    const health = restHealthSchema.parse({
+      service: "vase-rest",
+      status: "ok",
+      timestamp: "2026-07-28T12:02:00.000Z",
+      checks: {
+        database: "ok",
+        eventLag: "ok",
+        edgeHeartbeat: "degraded",
+      },
+    });
+
+    expect(restServiceStatusSchema.parse("PAUSED")).toBe("PAUSED");
+    expect(enrollment.branchId).toBe(event.branchId);
+    expect(health.checks.edgeHeartbeat).toBe("degraded");
   });
 });

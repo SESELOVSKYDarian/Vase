@@ -149,6 +149,23 @@ enum ModuleProduct {
   BUSINESS
   LABS
   MANAGEMENT
+  REST
+}
+
+enum RestPlan {
+  STARTER
+  GROWTH
+  PRO
+  ENTERPRISE
+}
+
+enum RestContractStatus {
+  ACTIVE
+  TRIAL
+  PAUSED
+  SUSPENDED
+  EXPIRED
+  CANCELLED
 }
 
 enum ModulePricingType {
@@ -576,6 +593,7 @@ model Tenant {
   customProjectMeetingBookings CustomProjectMeetingBooking[]
   tenantSubmodules         TenantSubmodule[]
   managementContract       TenantManagementContract?
+  restContract             TenantRestContract?
   managementIdentityLinks ManagementIdentityLink[]
   managementSsoNonces      ManagementSsoNonce[]
   platformSyncEvents       PlatformSyncEvent[]
@@ -940,6 +958,52 @@ model TenantManagementContract {
   tenant                Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([integrationProvider, provisioningStatus])
+}
+
+model RestPricingVersion {
+  id                 String            @id @default(cuid())
+  plan               RestPlan
+  version            Int
+  currency           String            @default("ARS")
+  monthlyPrice       Decimal           @db.Decimal(12, 2)
+  branchLimit        Int
+  localEmployeeLimit Int
+  deviceLimit        Int
+  edgeLimit          Int
+  status             PublicationStatus @default(DRAFT)
+  effectiveAt        DateTime
+  publishedAt        DateTime?
+  createdById        String?
+  contracts          TenantRestContract[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([plan, version])
+  @@index([status, effectiveAt])
+}
+
+model TenantRestContract {
+  id                 String             @id @default(cuid())
+  tenantId           String             @unique
+  pricingVersionId   String
+  plan               RestPlan
+  status             RestContractStatus @default(ACTIVE)
+  agreedMonthlyPrice Decimal            @db.Decimal(12, 2)
+  currency           String             @default("ARS")
+  branchLimit        Int
+  localEmployeeLimit Int
+  deviceLimit        Int
+  edgeLimit          Int
+  acceptedVersion    Int
+  activatedAt        DateTime           @default(now())
+  suspendedAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pricingVersion     RestPricingVersion @relation(fields: [pricingVersionId], references: [id], onDelete: Restrict)
+
+  @@index([status, plan])
+  @@index([pricingVersionId])
 }
 
 model ManagementIdentityLink {

@@ -1,0 +1,31 @@
+const requiredVariables = [
+  "DATABASE_URL",
+  "AUTH_SECRET",
+  "VASE_APP_INTERNAL_URL",
+  "SERVICE_TO_SERVICE_TOKEN",
+  "REST_CONTEXT_SIGNING_SECRET",
+  "REST_STAFF_SESSION_SECRET",
+  "REST_ENROLLMENT_SIGNING_SECRET",
+  "REST_EDGE_SIGNING_PRIVATE_KEY_B64",
+  "REST_EDGE_MTLS_PROXY_TOKEN",
+  "REST_CREDENTIAL_ENCRYPTION_KEY",
+  "REDIS_URL",
+  "NEXT_PUBLIC_APP_URL",
+];
+
+const missing = requiredVariables.filter((name) => !process.env[name]?.trim());
+
+if (missing.length > 0) {
+  console.error(`vase-rest is missing required runtime variables: ${missing.join(", ")}`);
+  process.exit(1);
+}
+
+if (!process.env.DATABASE_URL.startsWith("postgresql://")) {
+  console.error("vase-rest DATABASE_URL must start with postgresql:// and point to postgres-rest.");
+  process.exit(1);
+}
+
+if (process.env.NEXT_PUBLIC_APP_URL !== "https://rest.vase.ar") {
+  console.error("vase-rest NEXT_PUBLIC_APP_URL must be https://rest.vase.ar in production.");
+  process.exit(1);
+}

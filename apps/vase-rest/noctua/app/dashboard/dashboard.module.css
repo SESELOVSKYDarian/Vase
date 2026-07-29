@@ -1,0 +1,24 @@
+.dashboard {
+  min-height: 100vh;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.main {
+  margin-left: 260px;
+  min-height: 100vh;
+}
+
+.content {
+  padding: 24px;
+}
+
+@media (max-width: 768px) {
+  .main {
+    margin-left: 0;
+  }
+
+  .content {
+    padding: 16px;
+  }
+}

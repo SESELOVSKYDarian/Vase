@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 export * from "./labs-orders";
+export * from "./rest";
+export * from "./rest-support";
+export * from "./rest-promotions";
 
 export const vaseServiceKeySchema = z.enum([
   "vase-portal",
@@ -10,6 +13,7 @@ export const vaseServiceKeySchema = z.enum([
   "vase-business",
   "vase-management",
   "vase-labs",
+  "vase-rest",
   "vase-workplace",
 ]);
 
@@ -18,6 +22,7 @@ export const vaseProductKeySchema = z.enum([
   "business",
   "management",
   "labs",
+  "rest",
   "workplace",
   "help",
 ]);

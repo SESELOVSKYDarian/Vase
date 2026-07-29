@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
 }
 
 datasource db {
@@ -49,8 +50,16 @@ model Ticket {
   assignee       StaffProfile?  @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   worklogs       Worklog[]
   comments       TicketComment[]
+  supportRequest SupportRequestReceipt?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+}
+
+model SupportRequestReceipt {
+  requestId String   @id
+  ticketId  String   @unique
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
 
 model TicketComment {

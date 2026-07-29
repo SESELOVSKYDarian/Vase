@@ -115,7 +115,7 @@ type UserRow = {
 type ModuleOption = {
   id: string;
   name: string;
-  product: "BUSINESS" | "LABS" | "MANAGEMENT";
+  product: "BUSINESS" | "LABS" | "MANAGEMENT" | "REST";
   pricing: Array<{
     price: number;
     currency: string;

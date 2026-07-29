@@ -29,6 +29,7 @@ Ejemplo:
 | Business | `vase-business` | `/apps/vase-editor` | `business.vase.ar` | `3000` | `vase-business-pg` existente |
 | Management | `vase-management-app` | `apps/vase-management/Dockerfile` | `management.vase.ar` | `3006` | `postgres-management` |
 | Labs | `vase-labs-app` | `apps/vase-labs/Dockerfile` | `labs.vase.ar` | `3007` | `vase-db` (MySQL) |
+| Rest | `vase-rest-app` | `apps/vase-rest/Dockerfile` | `rest.vase.ar` | `3009` | `postgres-rest` |
 | Workplace | `vase-workplace-app` | `apps/vase-workplace/Dockerfile` | `workplace.vase.ar` | `3008` | `postgres-workplace` |
 
 ### Transicion de Vase App
@@ -280,6 +281,40 @@ Labs debe manejar:
 - knowledge base
 - training
 - handoff humano
+
+### Rest
+
+```env
+NEXT_PUBLIC_APP_URL=https://rest.vase.ar
+DATABASE_URL=postgresql://vase_rest_user:PASSWORD@postgres-rest:5432/vase_rest
+VASE_APP_INTERNAL_URL=http://app-vase:3002
+VASE_ADMIN_INTERNAL_URL=http://vase-admin:3003
+VASE_WORKPLACE_INTERNAL_URL=http://vase-workplace:3008
+AUTH_SECRET=CHANGE_ME_BASE64_32
+SERVICE_TO_SERVICE_TOKEN=CHANGE_ME_BASE64_32
+REST_CREDENTIAL_ENCRYPTION_KEY=CHANGE_ME_BASE64_32
+REST_EDGE_SIGNING_KEY=CHANGE_ME_BASE64_32
+REDIS_URL=redis://redis-platform:6379
+APP_KEY=rest
+PORT=3009
+```
+
+Crear el App Service `vase-rest-app` desde `apps/vase-rest/Dockerfile`, asociar
+`rest.vase.ar`, exponer el puerto `3009` y conectar exclusivamente la base
+PostgreSQL `postgres-rest`. El comando del contenedor valida las variables,
+aplica `prisma migrate deploy` y recién entonces inicia Next.js.
+
+Antes de habilitar tráfico:
+
+```bash
+curl https://rest.vase.ar/api/health/live
+curl https://rest.vase.ar/api/health/ready
+```
+
+`ready` debe responder `status: "ok"` y `checks.database: "postgres-rest"`.
+Las credenciales de proveedores, certificados fiscales y material de Edge se
+cargan como secretos de runtime; nunca como variables públicas ni archivos del
+repositorio.
 
 ### Workplace
 
