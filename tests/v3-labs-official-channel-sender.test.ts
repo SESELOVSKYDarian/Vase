@@ -326,6 +326,62 @@ describe("official Meta outbound sender", () => {
       providerStatus: 400,
       providerMessage: "(#131030) Recipient phone number not in allowed list",
     });
+    expect(error.message).toContain("(#131030) Recipient phone number not in allowed list");
+  });
+
+  it("does not report a Facebook reply as sent without Meta's message id", async () => {
+    const sender = createOfficialChannelSender({
+      encryptionSecret,
+      graphVersion: "v99.0",
+      repository: {
+        async findDeliveryContext() {
+          return {
+            channelType: "FACEBOOK",
+            providerAccountId: "page_123",
+            encryptedAccessToken: encryptChannelSecret("page-token", encryptionSecret),
+          };
+        },
+      },
+      fetcher: async () => Response.json({ recipient_id: "psid_123" }),
+    });
+
+    await expect(sender.send({
+      globalTenantId: "tenant_123",
+      channelType: "FACEBOOK",
+      recipientId: "psid_123",
+      text: "Hola",
+    })).rejects.toMatchObject({
+      code: "META_SEND_UNCONFIRMED",
+      providerStatus: 200,
+    });
+  });
+
+  it("requests the exact Facebook channel that received the inbound message", async () => {
+    const findDeliveryContext = vi.fn(async () => ({
+      channelType: "FACEBOOK" as const,
+      providerAccountId: "page_123",
+      encryptedAccessToken: encryptChannelSecret("page-token", encryptionSecret),
+    }));
+    const sender = createOfficialChannelSender({
+      encryptionSecret,
+      graphVersion: "v99.0",
+      repository: { findDeliveryContext },
+      fetcher: async () => Response.json({ message_id: "mid_123" }),
+    });
+
+    await sender.send({
+      globalTenantId: "tenant_123",
+      channelId: "facebook_channel_123",
+      channelType: "FACEBOOK",
+      recipientId: "psid_123",
+      text: "Hola",
+    });
+
+    expect(findDeliveryContext).toHaveBeenCalledWith({
+      globalTenantId: "tenant_123",
+      channelId: "facebook_channel_123",
+      channelType: "FACEBOOK",
+    });
   });
 
   it("classifies an incompatible encryption key without exposing ciphertext", async () => {

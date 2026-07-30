@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, Bell, CheckCheck, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
+import { ArrowDown, Bell, CheckCheck, CircleAlert, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LabsStatusPill } from "../labs-ui";
 import {
@@ -11,6 +11,10 @@ import {
   type InboxChannel,
 } from "./inbox-channels";
 import { formatInboxDeliveryError } from "./inbox-delivery-errors";
+import {
+  resolveInboxMessageDelivery,
+  type InboxMessageDelivery,
+} from "./inbox-message-delivery";
 import { isInboxNearBottom, shouldAutoScrollInbox } from "./inbox-scroll-policy";
 import { mergeInboxConversationSummaries } from "./inbox-conversation-merge";
 
@@ -20,6 +24,7 @@ type InboxMessage = {
   direction: "INBOUND" | "OUTBOUND" | null;
   content: string;
   createdAt: string;
+  delivery: InboxMessageDelivery | null;
 };
 
 type InboxHandoff = {
@@ -98,13 +103,27 @@ function normalizeConversation(raw: RawInboxConversation): InboxConversationItem
     lastMessageAt: stringifyNullable(raw.lastMessageAt),
     escalatedToHuman: Boolean(raw.escalatedToHuman),
     summary: stringifyNullable(raw.summary),
-    messages: Array.isArray(raw.messages) ? raw.messages.map((message: RawInboxMessage) => ({
-      id: stringify(message.id),
-      role: stringify(message.role, "customer"),
-      direction: message.direction === "INBOUND" || message.direction === "OUTBOUND" ? message.direction : null,
-      content: stringify(message.content),
-      createdAt: stringify(message.createdAt, new Date().toISOString()),
-    })) : [],
+    messages: Array.isArray(raw.messages) ? raw.messages.map((message: RawInboxMessage) => {
+      const rawDelivery = message.delivery && typeof message.delivery === "object"
+        ? message.delivery as Partial<Record<keyof InboxMessageDelivery, unknown>>
+        : null;
+      return {
+        id: stringify(message.id),
+        role: stringify(message.role, "customer"),
+        direction: message.direction === "INBOUND" || message.direction === "OUTBOUND" ? message.direction : null,
+        content: stringify(message.content),
+        createdAt: stringify(message.createdAt, new Date().toISOString()),
+        delivery: rawDelivery
+          ? {
+              status: rawDelivery.status === "SENT" || rawDelivery.status === "FAILED"
+                ? rawDelivery.status
+                : "PENDING",
+              providerMessageId: stringifyNullable(rawDelivery.providerMessageId),
+              error: stringifyNullable(rawDelivery.error),
+            }
+          : null,
+      };
+    }) : [],
     handoffs: Array.isArray(raw.handoffs) ? raw.handoffs.map((handoff: RawInboxHandoff) => ({
       id: stringify(handoff.id),
       status: stringify(handoff.status, "OPEN"),
@@ -534,24 +553,43 @@ export function InboxWorkstation({
             aria-live="polite"
             onScroll={handleThreadScroll}
           >
-            {activeConversation.messages.map((message) => (
-              <div
-                key={message.id}
-                className={`labs-inbox-bubble ${message.direction === "OUTBOUND" ? "is-outbound" : "is-inbound"}`}
-              >
-                <span>{messageAuthor(message)}</span>
-                <p>{message.content}</p>
-                <div className="labs-inbox-bubble-meta">
-                  <time>{formatDate(message.createdAt)}</time>
-                  {message.direction === "OUTBOUND" ? (
-                    <span>
-                      <CheckCheck aria-hidden="true" />
-                      Entregado
-                    </span>
+            {activeConversation.messages.map((message) => {
+              const delivery = message.direction === "OUTBOUND"
+                ? resolveInboxMessageDelivery(message.delivery)
+                : null;
+              return (
+                <div
+                  key={message.id}
+                  className={`labs-inbox-bubble ${message.direction === "OUTBOUND" ? "is-outbound" : "is-inbound"}`}
+                >
+                  <span>{messageAuthor(message)}</span>
+                  <p>{message.content}</p>
+                  <div className="labs-inbox-bubble-meta">
+                    <time>{formatDate(message.createdAt)}</time>
+                    {delivery ? (
+                      <span
+                        className={`labs-inbox-delivery is-${delivery.tone}`}
+                        title={delivery.detail}
+                      >
+                        {delivery.tone === "sent"
+                          ? <CheckCheck aria-hidden="true" />
+                          : delivery.tone === "failed"
+                            ? <CircleAlert aria-hidden="true" />
+                            : <Clock3 aria-hidden="true" />}
+                        {delivery.label}
+                      </span>
+                    ) : null}
+                  </div>
+                  {delivery?.tone === "failed" ? (
+                    <small className="labs-inbox-delivery-error" role="status">
+                      {formatInboxDeliveryError({
+                        code: message.delivery?.error ?? "META_SEND_FAILED",
+                      })}
+                    </small>
                   ) : null}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {showJumpToLatest ? (
             <button

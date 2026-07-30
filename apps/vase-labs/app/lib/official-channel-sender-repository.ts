@@ -12,10 +12,12 @@ export class PrismaOfficialChannelSenderRepository
 
   async findDeliveryContext(input: {
     globalTenantId: string;
+    channelId?: string;
     channelType: LabsChannel;
   }): Promise<OfficialChannelDeliveryContext | null> {
     const channel = await (this.prisma as any).channel.findFirst({
       where: {
+        ...(input.channelId ? { id: input.channelId } : {}),
         type: input.channelType,
         provider: "META_OFFICIAL",
         status: "CONNECTED",

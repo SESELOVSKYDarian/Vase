@@ -15,6 +15,12 @@ export function formatInboxDeliveryError(input: {
   ) {
     return "No pudimos abrir las credenciales. Volvé a conectar el canal para guardarlas con la clave actual.";
   }
+  if (input.code === "META_SEND_UNCONFIRMED") {
+    return "Meta no devolvió un identificador para el mensaje. El envío no se marcó como exitoso.";
+  }
+  if (input.code?.startsWith("META_SEND_FAILED:")) {
+    return `Meta rechazó el envío: ${input.code.slice("META_SEND_FAILED:".length).trim()}`;
+  }
   if (input.code === "META_SEND_FAILED") {
     const status = input.providerStatus ? ` (HTTP ${input.providerStatus})` : "";
     const detail = input.providerMessage ? `: ${input.providerMessage}` : ".";

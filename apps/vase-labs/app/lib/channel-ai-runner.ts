@@ -66,6 +66,7 @@ type ChannelAiReplyRunnerDeps = {
   }): Promise<{ totalTokens: number }>;
   sendReply(input: {
     globalTenantId: string;
+    channelId?: string;
     channel: LabsChannel;
     conversationId: string;
     recipientId: string;
@@ -210,6 +211,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
       sendReply(reply) {
         return deps.sendReply({
           globalTenantId: input.context.globalTenantId,
+          channelId: input.context.channel?.id,
           channel: reply.channel,
           conversationId: reply.conversationId,
           recipientId,
@@ -386,6 +388,7 @@ export function createPrismaChannelAiReplyRunner(input: {
     sendReply(reply) {
       return sender.send({
         globalTenantId: reply.globalTenantId,
+        channelId: reply.channelId,
         channelType: reply.channel,
         recipientId: reply.recipientId,
         text: reply.text,

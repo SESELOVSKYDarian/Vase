@@ -94,6 +94,7 @@ describe("channel AI reply runner", () => {
     }));
     expect(sendReply).toHaveBeenCalledWith({
       globalTenantId: "tenant_123",
+      channelId: "channel_123",
       channel: "FACEBOOK",
       conversationId: "conversation_123",
       recipientId: "customer_123",

@@ -155,6 +155,11 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
           direction: "OUTBOUND",
           providerMessageId: delivery.providerMessageId,
           createdAt: persisted.createdAt.toISOString(),
+          delivery: {
+            status: "SENT",
+            providerMessageId: delivery.providerMessageId ?? null,
+            error: null,
+          },
         },
         delivery: { status: "SENT" },
       });

@@ -27,7 +27,16 @@ async function getInboxData() {
           status: { in: ["OPEN", "ESCALATED"] },
         },
         include: {
-          messages: { orderBy: { createdAt: "asc" }, take: 80 },
+          messages: {
+            orderBy: { createdAt: "asc" },
+            take: 80,
+            include: {
+              deliveries: {
+                orderBy: { updatedAt: "desc" },
+                take: 1,
+              },
+            },
+          },
           handoffs: {
             where: { status: { in: ["PENDING", "ASSIGNED"] } },
             orderBy: { createdAt: "desc" },
@@ -75,6 +84,13 @@ async function getInboxData() {
           direction: message.direction,
           content: message.content,
           createdAt: message.createdAt.toISOString(),
+          delivery: message.deliveries[0]
+            ? {
+                status: message.deliveries[0].status,
+                providerMessageId: message.deliveries[0].providerMessageId,
+                error: message.deliveries[0].error,
+              }
+            : null,
         })),
         handoffs: conversation.handoffs.map((handoff) => ({
           id: handoff.id,

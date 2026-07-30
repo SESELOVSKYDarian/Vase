@@ -1382,6 +1382,23 @@ a:focus-visible {
   color: var(--accent-strong);
 }
 
+.labs-inbox-bubble-meta .labs-inbox-delivery.is-pending {
+  color: var(--muted-soft);
+}
+
+.labs-inbox-bubble-meta .labs-inbox-delivery.is-failed {
+  color: #b43d2b;
+  font-weight: 750;
+}
+
+.labs-inbox-delivery-error {
+  display: block;
+  margin-top: 0.55rem;
+  color: #9f3324;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .labs-inbox-bubble-meta svg {
   width: 0.8rem;
   height: 0.8rem;

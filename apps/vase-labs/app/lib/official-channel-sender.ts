@@ -11,6 +11,7 @@ export type OfficialChannelDeliveryContext = {
 export interface OfficialChannelSenderRepository {
   findDeliveryContext(input: {
     globalTenantId: string;
+    channelId?: string;
     channelType: LabsChannel;
   }): Promise<OfficialChannelDeliveryContext | null>;
 }
@@ -21,7 +22,11 @@ export class OfficialChannelDeliveryError extends Error {
     public readonly providerStatus?: number,
     public readonly providerMessage?: string,
   ) {
-    super(code);
+    super([
+      code,
+      providerStatus ? `HTTP ${providerStatus}` : null,
+      providerMessage,
+    ].filter(Boolean).join(": "));
     this.name = "OfficialChannelDeliveryError";
   }
 }
@@ -60,6 +65,7 @@ export function createOfficialChannelSender(input: {
   return {
     async send(params: {
       globalTenantId: string;
+      channelId?: string;
       channelType: LabsChannel;
       recipientId: string;
       text: string;
@@ -67,6 +73,7 @@ export function createOfficialChannelSender(input: {
     }) {
       const context = await input.repository.findDeliveryContext({
         globalTenantId: params.globalTenantId,
+        channelId: params.channelId,
         channelType: params.channelType,
       });
       if (!context) {
@@ -113,11 +120,18 @@ export function createOfficialChannelSender(input: {
         const whatsappMessageId = Array.isArray(payload.messages)
           ? payload.messages[0]?.id
           : null;
-        return typeof payload.message_id === "string"
+        const providerMessageId = typeof payload.message_id === "string"
           ? payload.message_id
           : typeof whatsappMessageId === "string"
             ? whatsappMessageId
             : null;
+        if (!providerMessageId) {
+          throw new OfficialChannelDeliveryError(
+            "META_SEND_UNCONFIRMED",
+            response.status,
+          );
+        }
+        return providerMessageId;
       };
       const metaEnvelope = {
         recipient: { id: params.recipientId },

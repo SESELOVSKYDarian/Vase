@@ -16,6 +16,19 @@ describe("Labs Inbox delivery errors", () => {
     })).toBe("Meta rechazó el envío (HTTP 400): Recipient is not allowed");
   });
 
+  it("explains when Meta accepted HTTP but omitted the message confirmation", () => {
+    expect(formatInboxDeliveryError({
+      code: "META_SEND_UNCONFIRMED",
+      providerStatus: 200,
+    })).toContain("no devolvió un identificador");
+  });
+
+  it("shows the safe rejection detail persisted by the AI sender", () => {
+    expect(formatInboxDeliveryError({
+      code: "META_SEND_FAILED: HTTP 400: Recipient is not allowed",
+    })).toContain("Recipient is not allowed");
+  });
+
   it("keeps a useful fallback without exposing internals", () => {
     expect(formatInboxDeliveryError({ code: "UNKNOWN" }))
       .toBe("No pudimos enviar el mensaje. Revisá la conexión del canal.");
