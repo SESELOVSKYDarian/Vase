@@ -28,7 +28,9 @@ export type PublicDocumentDetail = {
 
 export type ContactPayload = {
   fullName: string;
+  company: string;
   email: string;
+  phone: string;
   message: string;
 };
 

@@ -19,6 +19,7 @@ interface SiteHeaderClientProps {
       labs: string;
       management: string;
       integrations: string;
+      contact: string;
     };
   };
 }
@@ -26,7 +27,6 @@ interface SiteHeaderClientProps {
 export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
-  const [featuresSectionActive, setFeaturesSectionActive] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -41,26 +41,8 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
     };
   }, []);
 
-  useEffect(() => {
-    const handleFeaturesVisibility = (event: Event) => {
-      const customEvent = event as CustomEvent<{ hideHeader?: boolean }>;
-      setFeaturesSectionActive(Boolean(customEvent.detail?.hideHeader));
-    };
-
-    window.addEventListener("vase:features-visibility", handleFeaturesVisibility as EventListener);
-
-    return () => {
-      window.removeEventListener("vase:features-visibility", handleFeaturesVisibility as EventListener);
-    };
-  }, []);
-
   return (
-    <header
-      className={[
-        "fixed inset-x-0 top-0 z-50 transition-all duration-500 ease-out",
-        featuresSectionActive ? "pointer-events-none -translate-y-5 opacity-0" : "translate-y-0 opacity-100",
-      ].join(" ")}
-    >
+    <header className="fixed inset-x-0 top-0 z-50 translate-y-0 opacity-100 transition-all duration-500 ease-out">
       {mobileMenuVisible ? (
         <div
           aria-hidden="true"
@@ -125,6 +107,11 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
                   ariaLabel: copy.nav.pricing,
                   link: "/precios",
                 },
+                {
+                  label: copy.nav.contact,
+                  ariaLabel: copy.nav.contact,
+                  link: "/contact",
+                },
               ]}
               onMenuVisibilityChange={setMobileMenuVisible}
             />
@@ -147,10 +134,22 @@ export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
           </Link>
 
           <div className="ml-auto flex items-center gap-5 transition-opacity duration-200">
-            <Link href="/signin" className="hidden text-sm font-medium text-[var(--foreground)] md:inline-flex">
+            <Link
+              href="/signin"
+              prefetch={false}
+              className="hidden text-sm font-medium text-[var(--foreground)] md:inline-flex"
+            >
               {copy.nav.login}
             </Link>
-            <Link href="/register" className={buttonStyles({ tone: "primary", size: "sm", className: "min-w-28" })}>
+            <Link
+              href="/register"
+              prefetch={false}
+              className={buttonStyles({
+                tone: "primary",
+                size: "sm",
+                className: "min-w-28",
+              })}
+            >
               {copy.nav.register}
             </Link>
           </div>

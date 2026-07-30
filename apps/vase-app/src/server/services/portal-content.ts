@@ -101,7 +101,9 @@ export async function deliverPortalContactInquiry(
     userAgent: context.userAgent,
     metadata: {
       fullName: input.fullName,
+      company: input.company,
       email: input.email,
+      phone: input.phone,
     },
   });
 }

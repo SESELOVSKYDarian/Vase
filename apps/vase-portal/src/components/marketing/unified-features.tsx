@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -33,19 +33,6 @@ export function UnifiedFeatures({ locale, t }: UnifiedFeaturesProps) {
       gsap.set(shell, { opacity: 0.22, scale: 0.88, y: 110, transformOrigin: "50% 50%" });
       gsap.set(content, { opacity: 0, y: 72 });
 
-      ScrollTrigger.create({
-        trigger: section,
-        start: "top 82%",
-        end: "bottom top",
-        onToggle: (self) => {
-          window.dispatchEvent(
-            new CustomEvent("vase:features-visibility", {
-              detail: { hideHeader: self.isActive },
-            }),
-          );
-        },
-      });
-
       const timeline = gsap.timeline({
         scrollTrigger: {
           trigger: section,
@@ -62,16 +49,6 @@ export function UnifiedFeatures({ locale, t }: UnifiedFeaturesProps) {
     }, section);
 
     return () => ctx.revert();
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      window.dispatchEvent(
-        new CustomEvent("vase:features-visibility", {
-          detail: { hideHeader: false },
-        }),
-      );
-    };
   }, []);
 
   const businessFeatures = [

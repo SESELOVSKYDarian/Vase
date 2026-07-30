@@ -13,7 +13,9 @@ type FooterContactModalProps = {
   description: string;
   labels: {
     fullName: string;
+    company: string;
     email: string;
+    phone: string;
     message: string;
     close: string;
     submit: string;
@@ -130,6 +132,25 @@ export function FooterContactModal({
                     </div>
 
                     <div className="space-y-2">
+                      <label htmlFor="footer-contact-company" className="text-sm font-medium text-[#000202]">
+                        {labels.company}
+                      </label>
+                      <input
+                        id="footer-contact-company"
+                        name="company"
+                        type="text"
+                        required
+                        minLength={2}
+                        maxLength={120}
+                        autoComplete="organization"
+                        className="h-12 w-full rounded-[1.1rem] bg-white/86 px-4 text-sm text-[#000202] outline-none ring-1 ring-black/8 transition placeholder:text-[#2F3030]/40 focus:ring-[#3B633D]"
+                      />
+                      {state.fieldErrors?.company?.[0] ? (
+                        <p className="text-xs text-[#874b3c]">{state.fieldErrors.company[0]}</p>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-2">
                       <label htmlFor="footer-contact-email" className="text-sm font-medium text-[#000202]">
                         {labels.email}
                       </label>
@@ -148,6 +169,25 @@ export function FooterContactModal({
                       />
                       {state.fieldErrors?.email?.[0] ? (
                         <p className="text-xs text-[#874b3c]">{state.fieldErrors.email[0]}</p>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="footer-contact-phone" className="text-sm font-medium text-[#000202]">
+                        {labels.phone}
+                      </label>
+                      <input
+                        id="footer-contact-phone"
+                        name="phone"
+                        type="tel"
+                        required
+                        minLength={7}
+                        maxLength={30}
+                        autoComplete="tel"
+                        className="h-12 w-full rounded-[1.1rem] bg-white/86 px-4 text-sm text-[#000202] outline-none ring-1 ring-black/8 transition placeholder:text-[#2F3030]/40 focus:ring-[#3B633D]"
+                      />
+                      {state.fieldErrors?.phone?.[0] ? (
+                        <p className="text-xs text-[#874b3c]">{state.fieldErrors.phone[0]}</p>
                       ) : null}
                     </div>
                   </div>

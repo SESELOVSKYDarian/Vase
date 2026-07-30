@@ -26,6 +26,7 @@ export async function SiteFooter() {
           faq: "Preguntas frecuentes",
           integrations: "Integraciones",
           about: "Nosotros",
+          contact: "Contacto",
           pricing: "Planes",
           signin: "Iniciar sesión",
           register: "Registrarse",
@@ -38,7 +39,9 @@ export async function SiteFooter() {
           contactDescription:
             "Dejanos tu consulta y te respondemos por email con el camino más adecuado para implementar Vase.",
           fullName: "Nombre y apellido",
+          companyField: "Empresa",
           emailField: "Email de contacto",
+          phoneField: "Teléfono",
           messageField: "Mensaje",
           close: "Cerrar modal de contacto",
           send: "Enviar consulta",
@@ -57,6 +60,7 @@ export async function SiteFooter() {
           faq: "FAQ",
           integrations: "Integraciones",
           about: "About",
+          contact: "Contact",
           pricing: "Pricing",
           signin: "Log in",
           register: "Sign up",
@@ -69,7 +73,9 @@ export async function SiteFooter() {
           contactDescription:
             "Send us your inquiry and we’ll reply by email with the best path to implement Vase.",
           fullName: "Full name",
+          companyField: "Company",
           emailField: "Contact email",
+          phoneField: "Phone",
           messageField: "Message",
           close: "Close contact modal",
           send: "Send inquiry",
@@ -97,7 +103,9 @@ export async function SiteFooter() {
                 description={labels.contactDescription}
                 labels={{
                   fullName: labels.fullName,
+                  company: labels.companyField,
                   email: labels.emailField,
+                  phone: labels.phoneField,
                   message: labels.messageField,
                   close: labels.close,
                   submit: labels.send,
@@ -180,10 +188,21 @@ export async function SiteFooter() {
                   <Link href="/que-es-vase" className="transition hover:text-[#3B633D]">
                     {labels.about}
                   </Link>
-                  <Link href="/signin" className="transition hover:text-[#3B633D]">
+                  <Link href="/contact" className="transition hover:text-[#3B633D]">
+                    {labels.contact}
+                  </Link>
+                  <Link
+                    href="/signin"
+                    prefetch={false}
+                    className="transition hover:text-[#3B633D]"
+                  >
                     {labels.signin}
                   </Link>
-                  <Link href="/register" className="transition hover:text-[#3B633D]">
+                  <Link
+                    href="/register"
+                    prefetch={false}
+                    className="transition hover:text-[#3B633D]"
+                  >
                     {labels.register}
                   </Link>
                 </div>

@@ -41,7 +41,9 @@ export async function SiteFooter() {
           contactDescription:
             "Dejanos tu consulta y te respondemos por email con el camino más adecuado para implementar Vase.",
           fullName: "Nombre y apellido",
+          companyField: "Empresa",
           emailField: "Email de contacto",
+          phoneField: "Teléfono",
           messageField: "Mensaje",
           close: "Cerrar modal de contacto",
           send: "Enviar consulta",
@@ -72,7 +74,9 @@ export async function SiteFooter() {
           contactDescription:
             "Send us your inquiry and we’ll reply by email with the best path to implement Vase.",
           fullName: "Full name",
+          companyField: "Company",
           emailField: "Contact email",
+          phoneField: "Phone",
           messageField: "Message",
           close: "Close contact modal",
           send: "Send inquiry",
@@ -100,7 +104,9 @@ export async function SiteFooter() {
                 description={labels.contactDescription}
                 labels={{
                   fullName: labels.fullName,
+                  company: labels.companyField,
                   email: labels.emailField,
+                  phone: labels.phoneField,
                   message: labels.messageField,
                   close: labels.close,
                   submit: labels.send,

@@ -8,6 +8,7 @@ export const publicNavigation = [
   { href: "/integraciones", label: "Integraciones" },
   { href: "/developers/api", label: "API" },
   { href: "/precios", label: "Planes" },
+  { href: "/contact", label: "Contacto" },
   { href: "/preguntas-frecuentes", label: "FAQ" },
 ] as const;
 
@@ -316,6 +317,7 @@ const marketingChromeCopy = {
       labs: "Vase Labs",
       management: "Vase Management",
       integrations: "Integraciones",
+      contact: "Contacto",
       login: "Iniciar sesión",
       register: "Registrarse",
     },
@@ -338,6 +340,7 @@ const marketingChromeCopy = {
       labs: "Vase Labs",
       management: "Vase Management",
       integrations: "Integraciones",
+      contact: "Contact",
       login: "Log in",
       register: "Sign up",
     },

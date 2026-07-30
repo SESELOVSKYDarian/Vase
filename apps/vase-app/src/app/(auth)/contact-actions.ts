@@ -25,7 +25,9 @@ export async function submitContactInquiry(
   const requestContext = await getRequestContext();
   const rawData = {
     fullName: sanitizeText(String(formData.get("fullName") ?? "")),
+    company: sanitizeText(String(formData.get("company") ?? "")),
     email: String(formData.get("email") ?? ""),
+    phone: sanitizeText(String(formData.get("phone") ?? "")),
     message: sanitizeText(String(formData.get("message") ?? "")),
   };
 

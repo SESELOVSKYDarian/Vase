@@ -5,6 +5,7 @@ describe("Portal public routes", () => {
   it("publishes the current production route set", () => {
     expect(PUBLIC_ROUTES).toEqual([
       "/",
+      "/contact",
       "/demo",
       "/developers/api",
       "/developers/docs",

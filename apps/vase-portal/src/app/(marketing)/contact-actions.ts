@@ -19,7 +19,9 @@ export async function submitContactInquiry(
 ): Promise<ContactActionState> {
   const parsed = contactInquirySchema.safeParse({
     fullName: String(formData.get("fullName") ?? "").trim(),
+    company: String(formData.get("company") ?? "").trim(),
     email: String(formData.get("email") ?? "").trim(),
+    phone: String(formData.get("phone") ?? "").trim(),
     message: String(formData.get("message") ?? "").trim(),
   });
 
