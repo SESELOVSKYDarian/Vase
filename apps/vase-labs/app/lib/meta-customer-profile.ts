@@ -19,7 +19,7 @@ export function createMetaCustomerProfileResolver(input: {
       channelType: LabsChannel;
       userId: string;
     }): Promise<string | null> {
-      if (params.channelType !== "INSTAGRAM" || !input.encryptionSecret.trim()) return null;
+      if (!["INSTAGRAM", "FACEBOOK"].includes(params.channelType) || !input.encryptionSecret.trim()) return null;
       try {
         const context = await input.repository.findDeliveryContext({
           globalTenantId: params.globalTenantId,
@@ -27,16 +27,27 @@ export function createMetaCustomerProfileResolver(input: {
         });
         if (!context) return null;
         const accessToken = decryptChannelSecret(context.encryptedAccessToken, input.encryptionSecret);
-        const host = accessToken.startsWith("IG")
-          ? "https://graph.instagram.com"
-          : "https://graph.facebook.com";
+        const isInstagramLogin = params.channelType === "INSTAGRAM" && accessToken.startsWith("IG");
+        const host = isInstagramLogin ? "https://graph.instagram.com" : "https://graph.facebook.com";
         const url = new URL(`${host}/${input.graphVersion}/${encodeURIComponent(params.userId)}`);
-        url.searchParams.set("fields", "name,username");
+        url.searchParams.set(
+          "fields",
+          params.channelType === "FACEBOOK" ? "first_name,last_name" : "name,username",
+        );
         const response = await fetcher(url, {
           headers: { authorization: `Bearer ${accessToken}` },
         });
         if (!response.ok) return null;
-        const profile = await response.json().catch(() => ({})) as { name?: unknown; username?: unknown };
+        const profile = await response.json().catch(() => ({})) as {
+          name?: unknown;
+          username?: unknown;
+          first_name?: unknown;
+          last_name?: unknown;
+        };
+        const firstName = profileText(profile.first_name);
+        const lastName = profileText(profile.last_name);
+        const facebookName = [firstName, lastName].filter(Boolean).join(" ").trim();
+        if (params.channelType === "FACEBOOK") return facebookName || null;
         const name = profileText(profile.name);
         const username = profileText(profile.username);
         return name ?? (username ? `@${username.replace(/^@/, "")}` : null);

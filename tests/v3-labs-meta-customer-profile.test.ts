@@ -3,6 +3,33 @@ import { createMetaCustomerProfileResolver } from "../apps/vase-labs/app/lib/met
 import { encryptChannelSecret } from "../apps/vase-labs/app/lib/channel-secrets";
 
 describe("Meta customer profile resolver", () => {
+  it("returns the Facebook Messenger name using the stored Page token", async () => {
+    const resolver = createMetaCustomerProfileResolver({
+      repository: {
+        async findDeliveryContext() {
+          return {
+            channelType: "FACEBOOK",
+            providerAccountId: "page_123",
+            encryptedAccessToken: encryptChannelSecret("page-token", "secret"),
+          };
+        },
+      },
+      encryptionSecret: "secret",
+      graphVersion: "v25.0",
+      fetcher: async (url, init) => {
+        expect(String(url)).toBe("https://graph.facebook.com/v25.0/psid_456?fields=first_name%2Clast_name");
+        expect(init?.headers).toMatchObject({ authorization: "Bearer page-token" });
+        return Response.json({ first_name: "Alexis", last_name: "Vallejos" });
+      },
+    });
+
+    await expect(resolver.resolve({
+      globalTenantId: "tenant_1",
+      channelType: "FACEBOOK",
+      userId: "psid_456",
+    })).resolves.toBe("Alexis Vallejos");
+  });
+
   it("returns the Instagram display name using the stored official credential", async () => {
     const resolver = createMetaCustomerProfileResolver({
       repository: {
