@@ -87,7 +87,7 @@ export function createMetaOAuthService(input: MetaOAuthServiceInput) {
       return decoded;
     },
 
-    async exchangeCodeForAccessToken(code: string) {
+    async exchangeCodeForAccessToken(code: string, channelType: LabsChannel) {
       const fetcher = input.fetcher ?? fetch;
       const url = new URL(`https://graph.facebook.com/${graphVersion}/oauth/access_token`);
       url.searchParams.set("client_id", input.appId);
@@ -99,6 +99,33 @@ export function createMetaOAuthService(input: MetaOAuthServiceInput) {
 
       if (!response.ok || typeof payload.access_token !== "string") {
         throw new Error(typeof payload.error?.message === "string" ? payload.error.message : "META_OAUTH_EXCHANGE_FAILED");
+      }
+
+      if (channelType === "FACEBOOK" || channelType === "INSTAGRAM") {
+        const longLivedUrl = new URL(
+          `https://graph.facebook.com/${graphVersion}/oauth/access_token`,
+        );
+        longLivedUrl.searchParams.set("grant_type", "fb_exchange_token");
+        longLivedUrl.searchParams.set("client_id", input.appId);
+        longLivedUrl.searchParams.set("client_secret", input.appSecret);
+        longLivedUrl.searchParams.set("fb_exchange_token", payload.access_token);
+        const longLivedResponse = await fetcher(longLivedUrl);
+        const longLivedPayload = await longLivedResponse.json().catch(() => ({}));
+        if (
+          !longLivedResponse.ok
+          || typeof longLivedPayload.access_token !== "string"
+        ) {
+          throw new Error("META_LONG_LIVED_TOKEN_EXCHANGE_FAILED");
+        }
+        return {
+          accessToken: longLivedPayload.access_token as string,
+          tokenType: typeof longLivedPayload.token_type === "string"
+            ? longLivedPayload.token_type
+            : null,
+          expiresIn: typeof longLivedPayload.expires_in === "number"
+            ? longLivedPayload.expires_in
+            : null,
+        };
       }
 
       return {

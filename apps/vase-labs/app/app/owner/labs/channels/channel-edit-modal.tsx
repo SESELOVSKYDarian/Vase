@@ -22,6 +22,7 @@ const labels: Record<LabsChannel, { account: string; parent?: string }> = {
 };
 
 function metaConnectionErrorMessage(code: string) {
+  if (code === "META_LONG_LIVED_TOKEN_EXCHANGE_FAILED") return "No pudimos convertir el token en una credencial de larga duracion. Genera un nuevo User Access Token para esta aplicacion y volve a conectar el canal.";
   if (code === "META_TOKEN_INVALID") return "El Access Token es inválido, venció o pertenece a otra aplicación de Meta.";
   if (code === "META_PERMISSIONS_MISSING") return "El token no tiene todos los permisos requeridos.";
   if (code === "META_ASSET_NOT_AUTHORIZED") return "Los identificadores no pertenecen al activo autorizado por el token.";

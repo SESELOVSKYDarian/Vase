@@ -31,6 +31,7 @@ const healthLabels: Array<[keyof ChannelHealth, string]> = [
 ];
 
 function metaConnectionErrorMessage(code: string) {
+  if (code === "META_LONG_LIVED_TOKEN_EXCHANGE_FAILED") return "No pudimos convertir el token en una credencial de larga duracion. Genera un nuevo User Access Token para esta aplicacion y volve a conectar el canal.";
   if (code === "META_TOKEN_INVALID") return "El Access Token es inválido, venció o fue generado para otra aplicación de Meta.";
   if (code === "META_PERMISSIONS_MISSING") return "El token no tiene todos los permisos necesarios.";
   if (code === "META_ASSET_NOT_AUTHORIZED") return "El Phone Number ID, WABA o página no pertenecen a la cuenta autorizada por el token.";

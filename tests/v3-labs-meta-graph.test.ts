@@ -80,6 +80,57 @@ describe("Meta Graph official channel adapter", () => {
     ]);
   });
 
+  it("exchanges a manual Facebook USER token for a long-lived token", async () => {
+    const requestedUrls: string[] = [];
+    const client = createMetaGraphClient({
+      graphVersion: "v99.0",
+      appId: "app_123",
+      appSecret: "app-secret",
+      fetcher: async (url) => {
+        requestedUrls.push(String(url));
+        return requestedUrls.length === 1
+          ? Response.json({
+              data: {
+                is_valid: true,
+                app_id: "app_123",
+                type: "USER",
+              },
+            })
+          : Response.json({
+              access_token: "long-user-token",
+              token_type: "bearer",
+              expires_in: 5_184_000,
+            });
+      },
+    });
+
+    await expect(client.exchangeForLongLivedUserToken("short-user-token"))
+      .resolves.toBe("long-user-token");
+
+    const exchange = new URL(requestedUrls[1]!);
+    expect(exchange.pathname).toBe("/v99.0/oauth/access_token");
+    expect(exchange.searchParams.get("grant_type")).toBe("fb_exchange_token");
+    expect(exchange.searchParams.get("fb_exchange_token")).toBe("short-user-token");
+  });
+
+  it("keeps an authorized Page token because it cannot be exchanged as a USER token", async () => {
+    const client = createMetaGraphClient({
+      graphVersion: "v99.0",
+      appId: "app_123",
+      appSecret: "app-secret",
+      fetcher: async () => Response.json({
+        data: {
+          is_valid: true,
+          app_id: "app_123",
+          type: "PAGE",
+        },
+      }),
+    });
+
+    await expect(client.exchangeForLongLivedUserToken("page-token"))
+      .resolves.toBe("page-token");
+  });
+
   it("validates an Instagram Login token directly against the Instagram graph", async () => {
     const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"1540258407754657", appSecret:"secret", fetcher: async (url) => {
       expect(String(url)).toBe("https://graph.instagram.com/v99.0/me?fields=user_id,username,name");

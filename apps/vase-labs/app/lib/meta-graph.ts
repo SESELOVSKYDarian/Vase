@@ -205,6 +205,52 @@ export function createMetaGraphClient(input: {
   }
 
   return {
+    async exchangeForLongLivedUserToken(accessToken: string): Promise<string> {
+      if (isInstagramLoginToken(accessToken)) return accessToken;
+      if (!input.appId) throw new Error("META_APP_ID_MISSING");
+      if (!input.appSecret) throw new Error("META_APP_SECRET_MISSING");
+
+      const debugUrl = new URL(`${graphBase}/debug_token`);
+      debugUrl.searchParams.set("input_token", accessToken);
+      debugUrl.searchParams.set(
+        "access_token",
+        `${input.appId}|${input.appSecret}`,
+      );
+      const debugResponse = await fetcher(debugUrl, {
+        headers: { accept: "application/json" },
+      });
+      const debugPayload = asRecord(
+        await debugResponse.json().catch(() => ({})),
+      );
+      const debugData = asRecord(debugPayload.data);
+      if (
+        !debugResponse.ok
+        || debugData.is_valid !== true
+        || debugData.app_id !== input.appId
+      ) {
+        throw new Error("META_TOKEN_INVALID");
+      }
+
+      if (debugData.type !== "USER") return accessToken;
+
+      const exchangeUrl = new URL(`${graphBase}/oauth/access_token`);
+      exchangeUrl.searchParams.set("grant_type", "fb_exchange_token");
+      exchangeUrl.searchParams.set("client_id", input.appId);
+      exchangeUrl.searchParams.set("client_secret", input.appSecret);
+      exchangeUrl.searchParams.set("fb_exchange_token", accessToken);
+      const exchangeResponse = await fetcher(exchangeUrl, {
+        headers: { accept: "application/json" },
+      });
+      const exchangePayload = asRecord(
+        await exchangeResponse.json().catch(() => ({})),
+      );
+      const longLivedToken = stringValue(exchangePayload.access_token);
+      if (!exchangeResponse.ok || !longLivedToken) {
+        throw new Error("META_LONG_LIVED_TOKEN_EXCHANGE_FAILED");
+      }
+      return longLivedToken;
+    },
+
     async resolveManualAsset(params: {
       channelType: LabsChannel;
       accessToken: string;

@@ -23,7 +23,7 @@ type MetaOAuthAdapter = {
     scopes: string[];
   };
   verifyState(state: string): OAuthStatePayload;
-  exchangeCodeForAccessToken(code: string): Promise<{
+  exchangeCodeForAccessToken(code: string, channelType: LabsChannel): Promise<{
     accessToken: string;
     tokenType: string | null;
     expiresIn: number | null;
@@ -189,7 +189,10 @@ export function createMetaConnectionService(input: {
         throw new Error("META_OAUTH_STATE_CONSUMED_OR_MISMATCHED");
       }
 
-      const token = await input.oauth.exchangeCodeForAccessToken(params.code);
+      const token = await input.oauth.exchangeCodeForAccessToken(
+        params.code,
+        attempt.channelType,
+      );
       const assets = await input.graph.discoverAssets({
         channelType: attempt.channelType,
         accessToken: token.accessToken,

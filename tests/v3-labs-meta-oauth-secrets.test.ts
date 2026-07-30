@@ -66,4 +66,43 @@ describe("Vase Labs Meta OAuth and channel secrets", () => {
       channelType: "WHATSAPP",
     });
   });
+
+  it("exchanges the short Facebook login token before deriving the Page token", async () => {
+    const requestedUrls: string[] = [];
+    const service = createMetaOAuthService({
+      appId: "app_123",
+      appSecret: "app_secret",
+      redirectUri: "https://labs.vase.ar/api/v1/meta/oauth/callback",
+      stateSecret: "state-secret",
+      graphVersion: "v99.0",
+      fetcher: async (url) => {
+        requestedUrls.push(String(url));
+        return requestedUrls.length === 1
+          ? Response.json({
+              access_token: "short-user-token",
+              token_type: "bearer",
+              expires_in: 3600,
+            })
+          : Response.json({
+              access_token: "long-user-token",
+              token_type: "bearer",
+              expires_in: 5_184_000,
+            });
+      },
+    });
+
+    await expect(
+      service.exchangeCodeForAccessToken("oauth-code", "FACEBOOK"),
+    ).resolves.toEqual({
+      accessToken: "long-user-token",
+      tokenType: "bearer",
+      expiresIn: 5_184_000,
+    });
+
+    expect(requestedUrls).toHaveLength(2);
+    const exchange = new URL(requestedUrls[1]!);
+    expect(exchange.pathname).toBe("/v99.0/oauth/access_token");
+    expect(exchange.searchParams.get("grant_type")).toBe("fb_exchange_token");
+    expect(exchange.searchParams.get("fb_exchange_token")).toBe("short-user-token");
+  });
 });

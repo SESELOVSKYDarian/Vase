@@ -40,4 +40,54 @@ describe("manual Meta connection", () => {
     expect(stage).toHaveBeenCalledWith(expect.objectContaining({ channelId:"channel_1", metaAppId:"app-id", providerAccountId:"page_fake", encryptedAccessToken:"encrypted:token" }));
     expect(fail).toHaveBeenCalledWith("channel_1", "META_ASSET_NOT_AUTHORIZED");
   });
+
+  it("uses a long-lived user token before deriving and saving the Facebook Page token", async () => {
+    const save = vi.fn();
+    const resolveManualAsset = vi.fn().mockResolvedValue({
+      candidate: { id: "page_1", kind: "FACEBOOK_PAGE", name: "Vase" },
+      accessToken: "long-page-token",
+    });
+    const service = createManualMetaConnectionService({
+      graph: {
+        exchangeForLongLivedUserToken: vi.fn().mockResolvedValue("long-user-token"),
+        resolveManualAsset,
+        verifyAndSubscribe: vi.fn().mockResolvedValue({
+          providerAccountId: "page_1",
+          accountLabel: "Vase",
+          externalHandle: null,
+          config: { subscribedFields: ["messages"] },
+          accessToken: "long-page-token",
+        }),
+      },
+      repository: {
+        find: vi.fn().mockResolvedValue({
+          id: "channel_1",
+          type: "FACEBOOK",
+          webhookVerifiedAt: new Date(),
+        }),
+        stage: vi.fn(),
+        fail: vi.fn(),
+        save,
+      },
+      encrypt: (value) => `encrypted:${value}`,
+    });
+
+    await service.connect({
+      assistantId: "a",
+      channelId: "channel_1",
+      channelType: "FACEBOOK",
+      accessToken: "short-user-token",
+      metaAppId: "app-id",
+      appSecret: "app-secret",
+      providerAccountId: "page_1",
+      parentId: null,
+    });
+
+    expect(resolveManualAsset).toHaveBeenCalledWith(expect.objectContaining({
+      accessToken: "long-user-token",
+    }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      encryptedAccessToken: "encrypted:long-page-token",
+    }));
+  });
 });

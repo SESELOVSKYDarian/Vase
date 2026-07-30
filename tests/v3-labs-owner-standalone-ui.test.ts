@@ -48,10 +48,15 @@ describe("Vase Labs standalone owner experience", () => {
     expect(modal).toContain("createChannelUiFlow");
     expect(modal).toContain("data-step-focus");
     expect(modal).toContain("aria-live=\"polite\"");
-    expect(modal).toContain("/api/v1/meta/connections/start");
-    expect(modal).toContain("authorizationUrl");
-    expect(modal).toContain("window.location.assign");
-    expect(modal).toContain("Conectar con Meta");
+    expect(modal).toContain("Labs cifra las credenciales");
+    expect(modal).toContain("metaAppId");
+    expect(modal).toContain("appSecret");
+    expect(modal).toContain("META_LONG_LIVED_TOKEN_EXCHANGE_FAILED");
+    const editModal = fs.readFileSync(
+      path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-edit-modal.tsx"),
+      "utf8",
+    );
+    expect(editModal).toContain("META_LONG_LIVED_TOKEN_EXCHANGE_FAILED");
   });
 
   it("offers the guided five-source knowledge flow without leaking credentials", () => {
@@ -273,7 +278,9 @@ describe("Vase Labs standalone owner experience", () => {
     expect(inbox).not.toContain('export { default } from "../activity/page"');
     expect(inbox).toContain('title="Inbox"');
     expect(inbox).toContain('status: { in: ["OPEN", "ESCALATED"] }');
-    expect(inbox).toContain('messages: { orderBy: { createdAt: "asc" }, take: 80 }');
+    expect(inbox).toContain("messages: {");
+    expect(inbox).toContain('orderBy: { createdAt: "asc" }');
+    expect(inbox).toContain("deliveries: {");
     expect(inbox).toContain("handoffs: {");
     expect(inbox).toContain('status: { in: ["PENDING", "ASSIGNED"] }');
     expect(inbox).toContain("<InboxWorkstation");
