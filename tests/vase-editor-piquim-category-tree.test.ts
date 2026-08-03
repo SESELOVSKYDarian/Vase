@@ -61,4 +61,23 @@ describe("Piquim public category tree", () => {
     });
     expect(fetchPage).toHaveBeenCalledTimes(3);
   });
+
+  it("publishes accumulated products after every catalog page", async () => {
+    const snapshots: string[][] = [];
+    const fetchPage = vi.fn(async (page: number) => ({
+      total_pages: 3,
+      total: 3,
+      items: [{ id: `product-${page}` }],
+    }));
+
+    await fetchAllCatalogPages(fetchPage, (progress) => {
+      snapshots.push(progress.items.map((item: { id: string }) => item.id));
+    });
+
+    expect(snapshots).toEqual([
+      ["product-1"],
+      ["product-1", "product-2"],
+      ["product-1", "product-2", "product-3"],
+    ]);
+  });
 });
