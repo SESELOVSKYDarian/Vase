@@ -14,6 +14,11 @@ import { createPlaceholderImage } from "../../utils/productImage";
 import { PIQUIM_CATALOG_CARDS } from "../../data/piquimBranding";
 import { PIQUIM_SUBCATALOGS } from "../../data/piquimSubcatalogs";
 import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
+import {
+    buildPiquimCategoryGroups,
+    fetchAllCatalogPages,
+    resolvePiquimProductGroups,
+} from "../../utils/piquimCatalogCategories";
 import PriceAccessPrompt from "../../components/PriceAccessPrompt";
 import StoreSkeleton from "../../components/StoreSkeleton";
 const FALLBACK_IMAGE = createPlaceholderImage({ label: "Producto", width: 720, height: 720 });
@@ -364,8 +369,11 @@ export default function CatalogPage() {
             try {
                 setLoading(true);
                 const url = new URL(`${getApiBase()}/public/products`);
-                url.searchParams.set("page", String(page));
-                url.searchParams.set("limit", String(limit));
+                const isPiquimSubcatalog = isPiquimTenant && Boolean(
+                    PIQUIM_SUBCATALOGS[normalizePiquimCatalogSlug(selectedCategory)]
+                );
+                url.searchParams.set("page", String(isPiquimSubcatalog ? 1 : page));
+                url.searchParams.set("limit", String(isPiquimSubcatalog ? 48 : limit));
                 url.searchParams.set("grouped", "true");
                 url.searchParams.set("sort", sort);
 
@@ -388,16 +396,23 @@ export default function CatalogPage() {
                     url.searchParams.set("inStock", "true");
                 }
 
-                const response = await fetch(url.toString(), {
-                    headers: { ...getTenantHeaders(), ...getAuthHeaders() },
-                    signal: controller.signal,
-                });
+                const fetchPage = async (pageNumber) => {
+                    const pageUrl = new URL(url.toString());
+                    pageUrl.searchParams.set("page", String(pageNumber));
+                    const response = await fetch(pageUrl.toString(), {
+                        headers: { ...getTenantHeaders(), ...getAuthHeaders() },
+                        signal: controller.signal,
+                    });
 
-                if (!response.ok) {
-                    throw new Error(`Error al cargar el catalogo: ${response.status}`);
-                }
+                    if (!response.ok) {
+                        throw new Error(`Error al cargar el catalogo: ${response.status}`);
+                    }
+                    return response.json();
+                };
 
-                const data = await response.json();
+                const data = isPiquimSubcatalog
+                    ? await fetchAllCatalogPages(fetchPage)
+                    : await fetchPage(page);
                 if (!active) return;
 
                 const items = Array.isArray(data.items) ? data.items : [];
@@ -688,6 +703,7 @@ export default function CatalogPage() {
             <StoreLayout>
                 <PiquimSubcatalogPage
                     catalog={selectedSubcatalog}
+                    categories={categories}
                     products={products}
                     currency={currency}
                     locale={locale}
@@ -1262,7 +1278,7 @@ function PiquimFooterColumn({ title, links }) {
     );
 }
 
-function PiquimSubcatalogPage({ catalog, products, currency, locale, onProductClick, labels }) {
+function PiquimSubcatalogPage({ catalog, categories, products, currency, locale, onProductClick, labels }) {
     const [query, setQuery] = useState("");
     const [typeFilters, setTypeFilters] = useState([]);
     const [formatFilters, setFormatFilters] = useState([]);
@@ -1270,7 +1286,32 @@ function PiquimSubcatalogPage({ catalog, products, currency, locale, onProductCl
     const [stockOnly, setStockOnly] = useState(false);
     const [recentTerms, setRecentTerms] = useState([]);
     const [expandedSections, setExpandedSections] = useState({});
-    const usesConfiguredGroups = Array.isArray(catalog?.productGroups) && catalog.productGroups.length > 0;
+    const catalogSlug = catalog?.slug;
+    const configuredProductGroups = catalog?.productGroups;
+    const publishedProductGroups = useMemo(
+        () => buildPiquimCategoryGroups(categories, catalogSlug),
+        [catalogSlug, categories]
+    );
+    const hasRootOnlyProducts = useMemo(
+        () => publishedProductGroups.length > 0 && (Array.isArray(products) ? products : [])
+            .some((product) => resolvePiquimProductGroups(publishedProductGroups, product).length === 0),
+        [products, publishedProductGroups]
+    );
+    const productGroups = useMemo(
+        () => publishedProductGroups.length
+            ? [
+                ...publishedProductGroups,
+                ...(hasRootOnlyProducts ? [{ id: `${catalogSlug || 'catalog'}-unclassified`, title: 'Sin subcategoría', categories: [] }] : []),
+            ]
+            : configuredProductGroups,
+        [catalogSlug, configuredProductGroups, hasRootOnlyProducts, publishedProductGroups]
+    );
+    const resolvedCatalog = useMemo(
+        () => ({ ...catalog, productGroups }),
+        [catalog, productGroups]
+    );
+    const usesPublishedGroups = publishedProductGroups.length > 0;
+    const usesConfiguredGroups = Array.isArray(productGroups) && productGroups.length > 0;
 
     useEffect(() => {
         setRecentTerms(readSearchHistory());
@@ -1304,8 +1345,10 @@ function PiquimSubcatalogPage({ catalog, products, currency, locale, onProductCl
                 data?.presentation ||
                 ""
             ).trim();
-            const configuredGroups = usesConfiguredGroups
-                ? resolveConfiguredProductGroups(catalog, product, { category, type, format })
+            const configuredGroups = usesPublishedGroups
+                ? resolvePiquimProductGroups(publishedProductGroups, product, 'Sin subcategoría')
+                : usesConfiguredGroups
+                ? resolveConfiguredProductGroups(resolvedCatalog, product, { category, type, format })
                 : [resolveConfiguredProductGroup(catalog, product, { category, type, format })].filter(Boolean);
 
             if (usesConfiguredGroups && !configuredGroups.length) {
@@ -1350,25 +1393,25 @@ function PiquimSubcatalogPage({ catalog, products, currency, locale, onProductCl
             });
         }).filter((item) => item && item.id && item.name);
         return mapped;
-    }, [catalog, products, usesConfiguredGroups]);
+    }, [catalog, products, publishedProductGroups, resolvedCatalog, usesConfiguredGroups, usesPublishedGroups]);
 
     const availableTypes = useMemo(
         () => {
             if (usesConfiguredGroups) {
-                return getConfiguredGroupTitles(catalog);
+                return getConfiguredGroupTitles(resolvedCatalog);
             }
             return [...new Set(normalizedProducts.map((item) => item.subtype).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
         },
-        [catalog, normalizedProducts, usesConfiguredGroups]
+        [normalizedProducts, resolvedCatalog, usesConfiguredGroups]
     );
     const availableFormats = useMemo(
         () => {
             if (usesConfiguredGroups) {
-                return getConfiguredCategoryTitles(catalog);
+                return getConfiguredCategoryTitles(resolvedCatalog);
             }
             return [...new Set(normalizedProducts.map((item) => item.format).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
         },
-        [catalog, normalizedProducts, usesConfiguredGroups]
+        [normalizedProducts, resolvedCatalog, usesConfiguredGroups]
     );
 
     const queryNormalized = normalizeCatalogLabel(query);
@@ -1405,11 +1448,11 @@ function PiquimSubcatalogPage({ catalog, products, currency, locale, onProductCl
 
     const sections = useMemo(() => {
         if (usesConfiguredGroups) {
-            return getConfiguredGroupTitles(catalog)
+            return getConfiguredGroupTitles(resolvedCatalog)
                 .map((title) => {
                     const sectionProducts = filteredProducts.filter((item) => item.sectionTitle === title);
                     const categories = getConfiguredCategoryTitles({
-                        productGroups: catalog.productGroups.filter((group) => group.title === title),
+                        productGroups: resolvedCatalog.productGroups.filter((group) => group.title === title),
                     })
                         .map((categoryTitle) => ({
                             title: categoryTitle,
@@ -1428,7 +1471,7 @@ function PiquimSubcatalogPage({ catalog, products, currency, locale, onProductCl
             byType.get(item.subtype).push(item);
         });
         return [...byType.entries()].map(([title, items]) => ({ title, products: items, categories: [] }));
-    }, [catalog, filteredProducts, usesConfiguredGroups]);
+    }, [filteredProducts, resolvedCatalog, usesConfiguredGroups]);
 
     useEffect(() => {
         if (!usesConfiguredGroups || !sections.length) return;
@@ -1466,7 +1509,7 @@ function PiquimSubcatalogPage({ catalog, products, currency, locale, onProductCl
         <div className="min-h-screen bg-[#FFFAF6] font-[Inter] text-[#1A1614]">
             <main className="flex w-full items-start justify-center gap-0 bg-[#FFFAF6] px-[60px] pb-10 pt-[104px] max-lg:flex-col max-lg:px-5 max-md:pt-[86px]">
                 <PiquimSubcatalogSidebar
-                    catalog={catalog}
+                    catalog={resolvedCatalog}
                     labels={labels}
                     query={query}
                     setQuery={setQuery}
