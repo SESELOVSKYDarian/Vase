@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildPiquimCategoryGroups,
   fetchAllCatalogPages,
+  paginateCatalogItems,
   resolvePiquimProductGroups,
 } from "../apps/vase-editor/web/src/utils/piquimCatalogCategories.js";
 
@@ -80,6 +81,22 @@ describe("Piquim public category tree", () => {
       ["product-1", "product-2"],
       ["product-1", "product-2", "product-3"],
     ]);
+  });
+
+  it("shows exactly 20 Piquim products per page", () => {
+    const products = Array.from({ length: 45 }, (_, index) => ({ id: `product-${index + 1}` }));
+
+    expect(paginateCatalogItems(products, 2, 20)).toEqual({
+      items: products.slice(20, 40), currentPage: 2, totalPages: 3, totalItems: 45,
+    });
+  });
+
+  it("clamps a Piquim page after filters reduce the result", () => {
+    const products = Array.from({ length: 5 }, (_, index) => ({ id: `product-${index + 1}` }));
+
+    expect(paginateCatalogItems(products, 4, 20)).toEqual({
+      items: products, currentPage: 1, totalPages: 1, totalItems: 5,
+    });
   });
 
   it("renders progressive Piquim loading and retry states", async () => {
