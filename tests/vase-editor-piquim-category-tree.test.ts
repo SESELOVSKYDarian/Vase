@@ -137,4 +137,18 @@ describe("Piquim public category tree", () => {
     expect(source).toContain("No se pudieron cargar algunos productos");
     expect(source).toContain("onRetry");
   });
+
+  it("paginates the filtered Piquim catalog in the interface", async () => {
+    const source = await readFile(
+      new URL("../apps/vase-editor/web/src/pages/store/CatalogPage.jsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).toContain("const PIQUIM_PAGE_SIZE = 20");
+    expect(source).toContain("paginateCatalogItems(filteredProducts, catalogPage, PIQUIM_PAGE_SIZE)");
+    expect(source).toContain('<nav aria-label="Paginacion del catalogo">');
+    const paginationNav = source.match(/<nav aria-label="Paginacion del catalogo">[\s\S]*?<\/nav>/)?.[0];
+    expect(paginationNav).toContain('label="Anterior"');
+    expect(paginationNav).toContain('label="Siguiente"');
+  });
 });
