@@ -118,7 +118,7 @@ export async function getTenantModulesAccess(tenantId: string, userId?: string) 
     return {
       id: definition.id,
       key: definition.key,
-      name: definition.name === "vase_business" ? "Vase Business" : definition.name === "vase_labs" ? "Vase Labs" : "Vase Management",
+      name: `Vase ${definition.product === "REST" ? "Rest" : definition.product.charAt(0) + definition.product.slice(1).toLowerCase()}`,
       description: moduleRow?.description ?? definition.description,
       summary: definition.summary,
       route: moduleRow?.route ?? definition.route,

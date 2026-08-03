@@ -72,7 +72,7 @@ describe("protected app redirects", () => {
 
   it("routes authenticated platform and tenant roles from the app index", () => {
     expect(getAppIndexRedirectPath({ platformRole: "SUPER_ADMIN", tenantRole: null })).toBe(
-      "/app/admin",
+      "/api/admin/launch",
     );
     expect(getAppIndexRedirectPath({ platformRole: "SUPPORT", tenantRole: null })).toBe(
       "/app/support",

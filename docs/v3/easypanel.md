@@ -107,6 +107,7 @@ PORT=3001
 NEXT_PUBLIC_APP_URL=https://app.vase.ar
 DATABASE_URL=mysql://USER:PASSWORD@vase-db:3306/vase
 VASE_PRIMARY_HOST=app.vase.ar
+VASE_ADMIN_PUBLIC_URL=https://admin.vase.ar
 BUSINESS_EDITOR_URL=https://business.vase.ar/admin/evolution
 APP_KEY=app
 PORT=3002
@@ -116,10 +117,20 @@ PORT=3002
 
 ```env
 NEXT_PUBLIC_APP_URL=https://admin.vase.ar
+VASE_APP_PUBLIC_URL=https://app.vase.ar
 DATABASE_URL=postgresql://vase_admin_user:PASSWORD@postgres-admin:5432/vase_admin
+APP_INTERNAL_URL=http://app-vase:3002
+REST_INTERNAL_URL=http://vase-rest:3009
+SERVICE_TO_SERVICE_TOKEN=CHANGE_ME_BASE64_32
 APP_KEY=admin
 PORT=3003
 ```
+
+Admin no usa un `ADMIN_ACTOR_USER_ID` fijo. Recibe la cookie compartida de
+`.vase.ar`, la valida contra Vase App por `APP_INTERNAL_URL` y exige que la
+sesion pertenezca a un `SUPER_ADMIN`. El token de servicio debe ser identico en
+App y Admin. Al iniciar sesion como superadmin, Vase App redirige a
+`VASE_ADMIN_PUBLIC_URL`.
 
 ### Help
 
@@ -293,7 +304,7 @@ VASE_WORKPLACE_INTERNAL_URL=http://vase-workplace:3008
 AUTH_SECRET=CHANGE_ME_BASE64_32
 SERVICE_TO_SERVICE_TOKEN=CHANGE_ME_BASE64_32
 REST_CREDENTIAL_ENCRYPTION_KEY=CHANGE_ME_BASE64_32
-REST_EDGE_SIGNING_KEY=CHANGE_ME_BASE64_32
+REST_EDGE_SIGNING_PRIVATE_KEY_B64=CHANGE_ME_ED25519_PRIVATE_KEY_PEM_BASE64
 REDIS_URL=redis://redis-platform:6379
 APP_KEY=rest
 PORT=3009

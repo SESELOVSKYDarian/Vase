@@ -1,21 +1,37 @@
 import { labsAdminTenantControlSchema } from "@vase/contracts";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { LabsAdminWorkspace } from "./labs-admin-workspace";
 import {
   RestAdminWorkspace,
+  type RestContractTenantView,
   type RestOperationsView,
   type RestPricingView,
 } from "./rest-admin-workspace";
+import { adminSignInUrl, requireAdminSession } from "./lib/admin-session";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
+  const requestHeaders = await headers();
+  let actor: Awaited<ReturnType<typeof requireAdminSession>>;
+  try {
+    actor = await requireAdminSession(requestHeaders.get("cookie"));
+  } catch {
+    redirect(adminSignInUrl());
+  }
   let controls = [];
   let restVersions: RestPricingView[] = [];
+  let restContractTenants: RestContractTenantView[] = [];
   let restHealth: "ok" | "degraded" | "unavailable" = "unavailable";
   let restOperations: RestOperationsView = { tenants: [], edges: [] };
+  const advancedUsersUrl = new URL(
+    "/app/admin/users",
+    process.env.VASE_APP_PUBLIC_URL ?? "https://app.vase.ar",
+  ).toString();
   try {
     const response = await fetch(new URL("/api/internal/admin/labs/tenants", process.env.APP_INTERNAL_URL ?? "http://app-vase:3002"), {
-      headers: { authorization: `Bearer ${process.env.SERVICE_TO_SERVICE_TOKEN ?? ""}`, "x-vase-admin-user-id": process.env.ADMIN_ACTOR_USER_ID ?? "" },
+      headers: { authorization: `Bearer ${process.env.SERVICE_TO_SERVICE_TOKEN ?? ""}`, "x-vase-admin-user-id": actor.id },
       cache: "no-store",
     });
     const payload = await response.json();
@@ -45,6 +61,8 @@ export default async function Page() {
     const tenantsPayload = await tenantsResponse.json();
     const edgesPayload = await edgesResponse.json();
     restVersions = Array.isArray(plansPayload.versions) ? plansPayload.versions : [];
+    restContractTenants = Array.isArray(plansPayload.contractTenants)
+      ? plansPayload.contractTenants : [];
     restHealth = healthPayload.status === "ok" ? "ok" : "degraded";
     if (tenantsResponse.ok && edgesResponse.ok) {
       restOperations = {
@@ -56,5 +74,17 @@ export default async function Page() {
     restVersions = [];
     restHealth = "unavailable";
   }
-  return <div className="admin-composite"><RestAdminWorkspace initialVersions={restVersions} initialHealth={restHealth} initialOperations={restOperations} /><LabsAdminWorkspace initialControls={controls} /></div>;
+  return <div className="admin-composite">
+    <header className="admin-session-bar">
+      <div><strong>Vase Admin</strong><span>{actor.name} · {actor.email}</span></div>
+      <a href={advancedUsersUrl}>Administración avanzada de usuarios</a>
+    </header>
+    <RestAdminWorkspace
+      initialVersions={restVersions}
+      initialHealth={restHealth}
+      initialOperations={restOperations}
+      initialContractTenants={restContractTenants}
+    />
+    <LabsAdminWorkspace initialControls={controls} />
+  </div>;
 }

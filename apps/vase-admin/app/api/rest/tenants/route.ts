@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { adminApiFailure, requireAdminSession } from "../../../lib/admin-session";
 
 function restUrl(path: string) {
   return new URL(path, process.env.REST_INTERNAL_URL ?? "http://vase-rest:3009");
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    await requireAdminSession(request.headers.get("cookie"));
     const headers = {
       authorization: `Bearer ${process.env.SERVICE_TO_SERVICE_TOKEN ?? ""}`,
       accept: "application/json",
@@ -36,9 +38,10 @@ export async function GET() {
       tenants: tenantPayload.tenants,
       edges: edgePayload.edges,
     });
-  } catch {
-    return NextResponse.json({ error: "REST_ADMIN_UPSTREAM_UNAVAILABLE" }, {
-      status: 503,
-    });
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("ADMIN_SESSION_")) {
+      return adminApiFailure(error);
+    }
+    return NextResponse.json({ error: "REST_ADMIN_UPSTREAM_UNAVAILABLE" }, { status: 503 });
   }
 }

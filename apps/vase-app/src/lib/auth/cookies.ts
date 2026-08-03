@@ -1,4 +1,4 @@
-import type { CookiesOptions } from "@auth/core/types";
+import type { NextAuthConfig } from "next-auth";
 import { sharedAuthCookieName } from "@vase/auth";
 
 type AuthCookieEnvironment = {
@@ -68,7 +68,7 @@ export function resolveAuthCookieDomain(env: AuthCookieEnvironment = process.env
 
 export function createAuthCookiesConfig(
   env: AuthCookieEnvironment = process.env,
-): Partial<CookiesOptions> | undefined {
+): NextAuthConfig["cookies"] {
   const domain = resolveAuthCookieDomain(env);
 
   if (!domain) {
