@@ -296,7 +296,7 @@ export async function signInAction(
   }
 
   const effectiveRedirectTo =
-    result.user.platformRole === "SUPER_ADMIN" ? "/app/admin" : redirectTo;
+    result.user.platformRole === "SUPER_ADMIN" ? "/api/admin/launch" : redirectTo;
 
   await createAuditLog({
     action: "auth.signin_succeeded",

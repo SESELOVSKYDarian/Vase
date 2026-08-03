@@ -1,7 +1,7 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminMasterUsersWorkspace } from "@/components/admin/admin-master-users-workspace";
-import { inferUiRoleFromStoredRoles } from "@/lib/admin/user-access";
+import { getUserAccessModuleLabel, inferUiRoleFromStoredRoles } from "@/lib/admin/user-access";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 
@@ -239,7 +239,7 @@ export default async function AdminUsersPage() {
 
   const modules = modulesRaw.map((module) => ({
     id: module.id,
-    name: module.name,
+    name: getUserAccessModuleLabel(module.id),
     product: module.product,
     pricing: module.pricing.map((entry) => ({
       price: Number(entry.price),

@@ -8,6 +8,8 @@ import {
   type RestEntitlementRepository,
   type RestPricingRecord,
 } from "@/server/services/rest-entitlements";
+import { ensureModuleCatalogSynced } from "@/server/services/modules";
+import { getTenantModulesAccess } from "@/server/queries/modules";
 
 const commandSchema = z.discriminatedUnion("action", [
   z.object({
@@ -27,6 +29,12 @@ const commandSchema = z.discriminatedUnion("action", [
     action: z.literal("ACCEPT_CONTRACT"),
     globalTenantId: z.string().min(1),
     pricingVersionId: z.string().min(1),
+  }).strict(),
+  z.object({
+    action: z.literal("SET_USER_ACCESS"),
+    globalTenantId: z.string().min(1),
+    userId: z.string().min(1),
+    isActive: z.boolean(),
   }).strict(),
 ]);
 
@@ -166,10 +174,75 @@ function authorize(request: Request) {
 export async function GET(request: Request) {
   try {
     authorize(request);
-    const records = await prisma.restPricingVersion.findMany({
-      orderBy: [{ plan: "asc" }, { version: "desc" }],
-    });
-    return NextResponse.json({ versions: records.map(mapPricing) });
+    const [records, tenants] = await Promise.all([
+      prisma.restPricingVersion.findMany({
+        orderBy: [{ plan: "asc" }, { version: "desc" }],
+      }),
+      prisma.tenant.findMany({
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          status: true,
+          restContract: {
+            select: {
+              pricingVersionId: true,
+              plan: true,
+              status: true,
+              acceptedVersion: true,
+              agreedMonthlyPrice: true,
+              currency: true,
+            },
+          },
+          memberships: {
+            where: { status: "ACTIVE" },
+            orderBy: { createdAt: "asc" },
+            select: {
+              role: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  moduleAccesses: {
+                    select: { moduleId: true, isActive: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+    const contractTenants = tenants.map((tenant) => ({
+      globalTenantId: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug,
+      status: tenant.status,
+      members: tenant.memberships.map((membership) => {
+        const explicitAccess = membership.user.moduleAccesses;
+        const restAccess = explicitAccess.find((access) => access.moduleId === "vase_rest");
+        return {
+          id: membership.user.id,
+          name: membership.user.name,
+          email: membership.user.email,
+          role: membership.role,
+          hasExplicitModuleAccess: explicitAccess.length > 0,
+          hasRestAccess: tenant.restContract?.status === "ACTIVE" &&
+            (explicitAccess.length === 0 || restAccess?.isActive === true),
+        };
+      }),
+      restContract: tenant.restContract ? {
+        pricingVersionId: tenant.restContract.pricingVersionId,
+        plan: tenant.restContract.plan,
+        status: tenant.restContract.status,
+        contractVersion: tenant.restContract.acceptedVersion,
+        monthlyPrice: Number(tenant.restContract.agreedMonthlyPrice),
+        currency: tenant.restContract.currency,
+      } : null,
+    }));
+    return NextResponse.json({ versions: records.map(mapPricing), contractTenants });
   } catch (error) {
     const message = error instanceof Error ? error.message : "REST_PLANS_LIST_FAILED";
     return NextResponse.json({ error: message }, { status: message === "FORBIDDEN" ? 403 : 500 });
@@ -181,11 +254,63 @@ export async function POST(request: Request) {
     authorize(request);
     const command = commandSchema.parse(await request.json());
     if (command.action === "CREATE_DRAFT") {
-      const { action: _, ...draft } = command;
-      return NextResponse.json(await service.createDraft(draft), { status: 201 });
+      return NextResponse.json(await service.createDraft({
+        plan: command.plan,
+        currency: command.currency,
+        monthlyPrice: command.monthlyPrice,
+        limits: command.limits,
+        effectiveAt: command.effectiveAt,
+        createdById: command.createdById,
+      }), { status: 201 });
     }
     if (command.action === "PUBLISH") {
       return NextResponse.json(await service.publish(command.pricingVersionId));
+    }
+
+    await ensureModuleCatalogSynced();
+    if (command.action === "SET_USER_ACCESS") {
+      const [membership, contract, currentAccess] = await Promise.all([
+        prisma.membership.findFirst({
+          where: {
+            tenantId: command.globalTenantId,
+            userId: command.userId,
+            status: "ACTIVE",
+          },
+          select: { id: true },
+        }),
+        prisma.tenantRestContract.findUnique({
+          where: { tenantId: command.globalTenantId },
+          select: { status: true },
+        }),
+        getTenantModulesAccess(command.globalTenantId, command.userId),
+      ]);
+      if (!membership) throw new Error("REST_TENANT_MEMBER_NOT_FOUND");
+      if (contract?.status !== "ACTIVE") throw new Error("REST_CONTRACT_REQUIRED");
+      if (!currentAccess) throw new Error("REST_TENANT_NOT_FOUND");
+
+      await prisma.$transaction(currentAccess.modules.map((module) =>
+        prisma.userModuleAccess.upsert({
+          where: {
+            userId_moduleId: {
+              userId: command.userId,
+              moduleId: module.id,
+            },
+          },
+          update: {
+            isActive: module.id === "vase_rest" ? command.isActive : module.isActive,
+          },
+          create: {
+            userId: command.userId,
+            moduleId: module.id,
+            isActive: module.id === "vase_rest" ? command.isActive : module.isActive,
+          },
+        }),
+      ));
+      return NextResponse.json({
+        globalTenantId: command.globalTenantId,
+        userId: command.userId,
+        isActive: command.isActive,
+      });
     }
 
     const contract = await service.acceptForTenant(command);
@@ -200,7 +325,7 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : "REST_PLAN_COMMAND_FAILED";
     const status = message === "FORBIDDEN" ? 403
       : message.includes("NOT_FOUND") ? 404
-        : message.includes("ALREADY") || message.includes("NOT_PUBLISHED") ? 409
+        : message.includes("ALREADY") || message.includes("NOT_PUBLISHED") || message.includes("CONTRACT_REQUIRED") ? 409
           : error instanceof z.ZodError ? 400
             : 500;
     return NextResponse.json({ error: message }, { status });

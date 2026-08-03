@@ -227,6 +227,8 @@ button {
 }
 
 .admin-composite { display:grid; gap:28px; padding-block:28px; }
+.admin-session-bar { display:flex; width:min(1320px,calc(100% - 32px)); margin:0 auto; align-items:center; justify-content:space-between; gap:18px; padding:14px 18px; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.72); }
+.admin-session-bar div { display:grid; gap:3px; }.admin-session-bar span { color:var(--slate); font-size:.72rem; }.admin-session-bar a { color:var(--jade); font-size:.76rem; font-weight:850; }
 .rest-admin { width:min(1320px,calc(100% - 32px)); margin:0 auto; }
 .rest-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
 .rest-health { padding:8px 11px; border-radius:999px; font:700 .68rem/1 var(--font-plex-mono, monospace); text-transform:uppercase; }
@@ -242,5 +244,7 @@ button {
 .rest-version-list article button { min-height:34px; padding:0 12px; border:1px solid var(--jade); border-radius:999px; color:white; background:var(--jade); font-weight:750; }
 .rest-version-status { padding:6px 8px; border-radius:999px; background:#edf0ed; color:var(--slate); font-size:.62rem; font-style:normal; font-weight:850; }.status-published { color:var(--jade); background:#e8f2e8; }
 .rest-empty { margin:0; padding:18px; border:1px dashed var(--line); border-radius:14px; color:var(--slate); }
+.rest-contract-card { display:grid; gap:12px; margin-top:14px; padding:18px; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.66); }.rest-contract-card div { display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px; }.rest-contract-card span,.rest-contract-card p,.rest-contract-card li { color:var(--slate); font-size:.76rem; }.rest-contract-card p { margin:0; }.rest-contract-card ul { display:grid; gap:6px; margin:0; padding-left:20px; }
+.rest-member-access-list { padding:0!important; list-style:none; }.rest-member-access-list li { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid var(--line); }.rest-member-access-list button { min-height:34px; padding:0 12px; border:1px solid var(--line); border-radius:999px; color:var(--carbon); background:white; font-weight:800; white-space:nowrap; }.rest-member-access-list button.is-active { border-color:var(--jade); color:white; background:var(--jade); }.rest-member-access-list button:disabled { cursor:not-allowed; opacity:.45; }
 @media (max-width:900px) { .rest-plan-editor { grid-template-columns:repeat(2,minmax(0,1fr)); }.rest-version-list article { grid-template-columns:1fr; } }
 @media (max-width:560px) { .rest-plan-editor { grid-template-columns:1fr; }.rest-heading { flex-direction:column; } }

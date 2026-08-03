@@ -6,6 +6,7 @@ export const userAccessModuleIds = {
   business: "vase_business",
   labs: "vase_labs",
   management: "vase_management",
+  rest: "vase_rest",
 } as const;
 
 type TenantModuleAccess = {
@@ -14,10 +15,7 @@ type TenantModuleAccess = {
 };
 
 const moduleLabels: Map<string, string> = new Map(
-  platformModules.map((module) => [
-    module.id,
-    module.key === "business" ? "Vase Business" : module.key === "labs" ? "Vase Labs" : "Vase Management",
-  ]),
+  platformModules.map((module) => [module.id, `Vase ${module.product === "REST" ? "Rest" : module.product.charAt(0) + module.product.slice(1).toLowerCase()}`]),
 );
 
 export function getUserAccessModuleLabel(moduleId: string) {
