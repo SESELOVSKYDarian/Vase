@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -79,5 +80,17 @@ describe("Piquim public category tree", () => {
       ["product-1", "product-2"],
       ["product-1", "product-2", "product-3"],
     ]);
+  });
+
+  it("renders progressive Piquim loading and retry states", async () => {
+    const source = await readFile(
+      new URL("../apps/vase-editor/web/src/pages/store/CatalogPage.jsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).toContain("Cargando productos...");
+    expect(source).toContain("Cargando más productos...");
+    expect(source).toContain("No se pudieron cargar algunos productos");
+    expect(source).toContain("onRetry");
   });
 });
