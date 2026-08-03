@@ -116,12 +116,23 @@ export function resolvePiquimProductGroups(groups, product, fallbackGroupTitle =
 
 export function paginateCatalogItems(items, requestedPage, pageSize = 20) {
   const normalizedItems = Array.isArray(items) ? items : [];
-  const normalizedPageSize = Math.max(1, Number(pageSize) || 20);
+  const numericPageSize = Number(pageSize);
+  const normalizedPageSize = Math.max(1, Number.isFinite(numericPageSize)
+    ? Math.floor(numericPageSize)
+    : 20);
   const totalItems = normalizedItems.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / normalizedPageSize));
-  const currentPage = Math.min(totalPages, Math.max(1, Number(requestedPage) || 1));
+  const numericRequestedPage = Number(requestedPage);
+  const currentPage = Math.min(totalPages, Math.max(1, Number.isFinite(numericRequestedPage)
+    ? Math.floor(numericRequestedPage)
+    : 1));
   const start = (currentPage - 1) * normalizedPageSize;
-  return { items: normalizedItems.slice(start, start + normalizedPageSize), currentPage, totalPages, totalItems };
+  return {
+    items: normalizedItems.slice(start, start + normalizedPageSize),
+    currentPage,
+    totalPages,
+    totalItems,
+  };
 }
 
 export async function fetchAllCatalogPages(fetchPage, onProgress) {

@@ -99,6 +99,33 @@ describe("Piquim public category tree", () => {
     });
   });
 
+  it("normalizes Piquim pagination inputs", () => {
+    const products = Array.from({ length: 45 }, (_, index) => ({ id: `product-${index + 1}` }));
+
+    expect(paginateCatalogItems(products, 1.5, 2)).toMatchObject({
+      items: products.slice(0, 2), currentPage: 1, totalPages: 23, totalItems: 45,
+    });
+    expect(paginateCatalogItems(products, 2, 2.5)).toMatchObject({
+      items: products.slice(2, 4), currentPage: 2, totalPages: 23, totalItems: 45,
+    });
+    [Infinity, Number.NaN, "invalid"].forEach((pageSize) => {
+      expect(paginateCatalogItems(products, 2, pageSize)).toMatchObject({
+        items: products.slice(20, 40), currentPage: 2, totalPages: 3, totalItems: 45,
+      });
+    });
+    expect(paginateCatalogItems(products, 2, 0)).toMatchObject({
+      items: products.slice(1, 2), currentPage: 2, totalPages: 45, totalItems: 45,
+    });
+    [Infinity, "invalid"].forEach((requestedPage) => {
+      expect(paginateCatalogItems(products, requestedPage, 20)).toMatchObject({
+        items: products.slice(0, 20), currentPage: 1, totalPages: 3, totalItems: 45,
+      });
+    });
+    expect(paginateCatalogItems(null, "invalid", "invalid")).toEqual({
+      items: [], currentPage: 1, totalPages: 1, totalItems: 0,
+    });
+  });
+
   it("renders progressive Piquim loading and retry states", async () => {
     const source = await readFile(
       new URL("../apps/vase-editor/web/src/pages/store/CatalogPage.jsx", import.meta.url),
