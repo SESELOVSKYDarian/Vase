@@ -114,15 +114,22 @@ export function resolvePiquimProductGroups(groups, product, fallbackGroupTitle =
   return matches;
 }
 
-export async function fetchAllCatalogPages(fetchPage) {
+export async function fetchAllCatalogPages(fetchPage, onProgress) {
   const firstPage = await fetchPage(1);
   const pageCount = Math.max(1, Number(firstPage?.total_pages || 1));
   const items = Array.isArray(firstPage?.items) ? [...firstPage.items] : [];
+  const reportedTotal = firstPage?.total === undefined || firstPage?.total === null
+    ? null
+    : Number(firstPage.total);
+  const total = Number.isFinite(reportedTotal) ? Math.max(items.length, reportedTotal) : null;
+
+  onProgress?.({ items: [...items], total: total ?? items.length, page: 1, totalPages: pageCount });
 
   for (let page = 2; page <= pageCount; page += 1) {
     const response = await fetchPage(page);
     if (Array.isArray(response?.items)) items.push(...response.items);
+    onProgress?.({ items: [...items], total: total ?? items.length, page, totalPages: pageCount });
   }
 
-  return { items, total: items.length };
+  return { items, total: total ?? items.length };
 }
