@@ -9,14 +9,22 @@ describe("Vase Admin Rest plans", () => {
   it("proxies plan reads and mutations to Vase App with the service identity", async () => {
     process.env.APP_INTERNAL_URL = "http://app-vase:3002";
     process.env.SERVICE_TO_SERVICE_TOKEN = "service-token";
-    process.env.ADMIN_ACTOR_USER_ID = "admin_123";
     const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({
+        actor: { id: "admin_123", platformRole: "SUPER_ADMIN" },
+      }))
       .mockResolvedValueOnce(Response.json({ versions: [] }))
+      .mockResolvedValueOnce(Response.json({
+        actor: { id: "admin_123", platformRole: "SUPER_ADMIN" },
+      }))
       .mockResolvedValueOnce(Response.json({ id: "price_1" }, { status: 201 }));
 
-    expect((await GET()).status).toBe(200);
+    expect((await GET(new Request("https://admin.vase.ar/api/rest/plans", {
+      headers: { cookie: "__Secure-authjs.session-token=session" },
+    }))).status).toBe(200);
     const response = await POST(new Request("https://admin.vase.ar/api/rest/plans", {
       method: "POST",
+      headers: { cookie: "__Secure-authjs.session-token=session" },
       body: JSON.stringify({
         action: "CREATE_DRAFT",
         plan: "STARTER",
@@ -27,8 +35,13 @@ describe("Vase Admin Rest plans", () => {
       }),
     }));
     expect(response.status).toBe(201);
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({ createdById: "admin_123" });
-    expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({ authorization: "Bearer service-token" });
+    expect(fetchMock.mock.calls[0][0].toString()).toContain("/api/internal/admin/session");
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({
+      authorization: "Bearer service-token",
+      cookie: "__Secure-authjs.session-token=session",
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[3][1]?.body))).toMatchObject({ createdById: "admin_123" });
+    expect(fetchMock.mock.calls[3][1]?.headers).toMatchObject({ authorization: "Bearer service-token" });
   });
 
   it("renders editable prices, all four limits, effective date, and explicit publishing", () => {
@@ -38,5 +51,8 @@ describe("Vase Admin Rest plans", () => {
     }
     expect(source).toContain("CREATE_DRAFT");
     expect(source).toContain("PUBLISH");
+    expect(source).toContain("ACCEPT_CONTRACT");
+    expect(source).toContain("SET_USER_ACCESS");
+    expect(source).toContain("initialContractTenants");
   });
 });

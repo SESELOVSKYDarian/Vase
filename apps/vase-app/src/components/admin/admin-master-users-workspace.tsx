@@ -1426,7 +1426,9 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                   <div className="grid gap-2 md:grid-cols-2">
                     {modules.map((module) => {
                       const checked = selectedModuleIds.includes(module.id);
-                      const isBusiness = module.product === "BUSINESS";
+                      const productLabel = module.product === "REST"
+                        ? "Rest"
+                        : module.product.charAt(0) + module.product.slice(1).toLowerCase();
                       return (
                         <label
                           key={module.id}
@@ -1458,15 +1460,9 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                             }}
                           />
                           <span className="flex-1 text-sm text-[var(--foreground)]">{module.name}</span>
-                          {isBusiness ? (
-                            <span className="rounded-full border border-[var(--border-subtle)] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
-                              Business
-                            </span>
-                          ) : (
-                            <span className="rounded-full border border-[var(--border-subtle)] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
-                              Labs
-                            </span>
-                          )}
+                          <span className="rounded-full border border-[var(--border-subtle)] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
+                            {productLabel}
+                          </span>
                         </label>
                       );
                     })}

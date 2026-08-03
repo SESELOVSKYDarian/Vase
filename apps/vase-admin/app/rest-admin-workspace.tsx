@@ -43,6 +43,29 @@ export type RestOperationsView = {
   }>;
 };
 
+export type RestContractTenantView = {
+  globalTenantId: string;
+  name: string;
+  slug: string;
+  status: string;
+  members: Array<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    hasExplicitModuleAccess: boolean;
+    hasRestAccess: boolean;
+  }>;
+  restContract: null | {
+    pricingVersionId: string;
+    plan: RestPlan;
+    status: string;
+    contractVersion: number;
+    monthlyPrice: number;
+    currency: string;
+  };
+};
+
 const plans: RestPlan[] = ["STARTER", "GROWTH", "PRO", "ENTERPRISE"];
 const initialLimits: RestPlanLimits = {
   branches: 1,
@@ -55,10 +78,12 @@ export function RestAdminWorkspace({
   initialVersions,
   initialHealth,
   initialOperations,
+  initialContractTenants,
 }: {
   initialVersions: RestPricingView[];
   initialHealth: "ok" | "degraded" | "unavailable";
   initialOperations: RestOperationsView;
+  initialContractTenants: RestContractTenantView[];
 }) {
   const [versions, setVersions] = useState(initialVersions);
   const [plan, setPlan] = useState<RestPlan>("STARTER");
@@ -70,6 +95,16 @@ export function RestAdminWorkspace({
   const [saving, setSaving] = useState(false);
   const [operations, setOperations] = useState(initialOperations);
   const [operationalFilter, setOperationalFilter] = useState("ATTENTION");
+  const [contractTenants, setContractTenants] = useState(initialContractTenants);
+  const [selectedTenantId, setSelectedTenantId] = useState(
+    initialContractTenants[0]?.globalTenantId ?? "",
+  );
+  const publishedVersions = versions.filter((version) => version.status === "PUBLISHED");
+  const [selectedPricingVersionId, setSelectedPricingVersionId] = useState(
+    publishedVersions[0]?.id ?? "",
+  );
+  const selectedTenant = contractTenants.find((tenant) =>
+    tenant.globalTenantId === selectedTenantId);
 
   async function refreshOperations() {
     const response = await fetch("/api/rest/tenants", { cache: "no-store" });
@@ -126,6 +161,75 @@ export function RestAdminWorkspace({
     }
   }
 
+  async function acceptContract() {
+    if (!selectedTenantId || !selectedPricingVersionId) {
+      setMessage("Seleccioná una cuenta y una versión publicada.");
+      return;
+    }
+    const pricing = versions.find((version) => version.id === selectedPricingVersionId);
+    if (!pricing || pricing.status !== "PUBLISHED") {
+      setMessage("La versión elegida todavía no está publicada.");
+      return;
+    }
+    if (!window.confirm(
+      `Asignar Vase Rest ${pricing.plan} v${pricing.version} a ${selectedTenant?.name ?? "la cuenta"}?`,
+    )) return;
+    const entitlement = await send({
+      action: "ACCEPT_CONTRACT",
+      globalTenantId: selectedTenantId,
+      pricingVersionId: selectedPricingVersionId,
+    }) as null | {
+      plan: RestPlan;
+      status: string;
+      contractVersion: number;
+    };
+    if (!entitlement) return;
+    setContractTenants((current) => current.map((tenant) =>
+      tenant.globalTenantId === selectedTenantId ? {
+        ...tenant,
+        members: tenant.members.map((member) => ({
+          ...member,
+          hasRestAccess: !member.hasExplicitModuleAccess || member.hasRestAccess,
+        })),
+        restContract: {
+          pricingVersionId: selectedPricingVersionId,
+          plan: entitlement.plan,
+          status: entitlement.status,
+          contractVersion: entitlement.contractVersion,
+          monthlyPrice: pricing.monthlyPrice,
+          currency: pricing.currency,
+        },
+      } : tenant));
+    setMessage(`Vase Rest quedó habilitado para ${selectedTenant?.name ?? "la cuenta"}.`);
+  }
+
+  async function setUserAccess(userId: string, isActive: boolean) {
+    if (!selectedTenantId || !selectedTenant?.restContract) {
+      setMessage("Primero habilitá el contrato de Vase Rest para la cuenta.");
+      return;
+    }
+    const member = selectedTenant.members.find((item) => item.id === userId);
+    if (!member) return;
+    const result = await send({
+      action: "SET_USER_ACCESS",
+      globalTenantId: selectedTenantId,
+      userId,
+      isActive,
+    });
+    if (!result) return;
+    setContractTenants((current) => current.map((tenant) =>
+      tenant.globalTenantId === selectedTenantId ? {
+        ...tenant,
+        members: tenant.members.map((item) =>
+          item.id === userId ? { ...item, hasExplicitModuleAccess: true, hasRestAccess: isActive } : item),
+      } : tenant));
+    setMessage(
+      isActive
+        ? `Vase Rest quedó habilitado para ${member.name}.`
+        : `Se revocó el acceso global a Vase Rest para ${member.name}.`,
+    );
+  }
+
   function updateLimit(field: keyof RestPlanLimits, value: number) {
     setLimits((current) => ({ ...current, [field]: Math.max(1, value || 1) }));
   }
@@ -166,6 +270,66 @@ export function RestAdminWorkspace({
         ))}
         {versions.length === 0 ? <p className="rest-empty">Todavía no hay versiones. Creá el primer borrador con valores comerciales reales.</p> : null}
       </div>
+
+      <div className="section-heading rest-heading">
+        <div>
+          <p className="eyebrow">Contratos y acceso</p>
+          <h2>Asignar Vase Rest</h2>
+        </div>
+      </div>
+      <div className="rest-plan-editor">
+        <label>Cuenta
+          <select value={selectedTenantId} onChange={(event) => setSelectedTenantId(event.target.value)}>
+            <option value="">Seleccionar cuenta</option>
+            {contractTenants.map((tenant) => (
+              <option key={tenant.globalTenantId} value={tenant.globalTenantId}>
+                {tenant.name} · {tenant.slug}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>Plan publicado
+          <select value={selectedPricingVersionId} onChange={(event) => setSelectedPricingVersionId(event.target.value)}>
+            <option value="">Seleccionar versión</option>
+            {publishedVersions.map((version) => (
+              <option key={version.id} value={version.id}>
+                {version.plan} v{version.version} · {version.currency} {version.monthlyPrice.toLocaleString("es-AR")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button className="admin-button-primary" disabled={saving || !selectedTenantId || !selectedPricingVersionId}
+          onClick={() => void acceptContract()}>
+          {selectedTenant?.restContract ? "Actualizar contrato Rest" : "Habilitar Vase Rest"}
+        </button>
+      </div>
+      {selectedTenant ? (
+        <article className="rest-contract-card">
+          <div>
+            <strong>{selectedTenant.name}</strong>
+            <span>{selectedTenant.restContract
+              ? `${selectedTenant.restContract.plan} · ${selectedTenant.restContract.status} · contrato v${selectedTenant.restContract.contractVersion}`
+              : "Vase Rest todavía no está contratado"}</span>
+          </div>
+          <p>El contrato pertenece a la organización. Elegí qué usuarios globales de Vase pueden abrir Rest; cocineros, meseros y cajeros ingresan dentro de Rest con su acceso rápido local.</p>
+          <ul className="rest-member-access-list">
+            {selectedTenant.members.map((member) => (
+              <li key={member.id}>
+                <span><strong>{member.name}</strong> · {member.email} · {member.role}</span>
+                <button
+                  type="button"
+                  disabled={saving || !selectedTenant.restContract}
+                  className={member.hasRestAccess ? "is-active" : ""}
+                  onClick={() => void setUserAccess(member.id, !member.hasRestAccess)}
+                >
+                  {member.hasRestAccess ? "Rest habilitado" : "Habilitar Rest"}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {!selectedTenant.members.length ? <p>No hay usuarios activos vinculados a esta cuenta.</p> : null}
+        </article>
+      ) : null}
 
       <div className="section-heading rest-heading">
         <div><p className="eyebrow">Operación en vivo</p><h2>Tenants y Edge</h2></div>
