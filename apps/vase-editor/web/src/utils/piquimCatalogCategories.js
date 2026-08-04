@@ -114,6 +114,73 @@ export function resolvePiquimProductGroups(groups, product, fallbackGroupTitle =
   return matches;
 }
 
+/**
+ * Selects one stable membership row per product without reordering. Callers filter
+ * membership rows first, making the first remaining published membership canonical.
+ */
+export function selectCanonicalCatalogMemberships(items) {
+  const seenIds = new Set();
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    if (item?.id === undefined || item?.id === null) return true;
+    const identity = String(item.id);
+    if (seenIds.has(identity)) return false;
+    seenIds.add(identity);
+    return true;
+  });
+}
+
+export function paginateCatalogItems(items, requestedPage, pageSize = 20) {
+  const normalizedItems = Array.isArray(items) ? items : [];
+  const numericPageSize = Number(pageSize);
+  const normalizedPageSize = Math.max(1, Number.isFinite(numericPageSize)
+    ? Math.floor(numericPageSize)
+    : 20);
+  const totalItems = normalizedItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / normalizedPageSize));
+  const numericRequestedPage = Number(requestedPage);
+  const currentPage = Math.min(totalPages, Math.max(1, Number.isFinite(numericRequestedPage)
+    ? Math.floor(numericRequestedPage)
+    : 1));
+  const start = (currentPage - 1) * normalizedPageSize;
+  return {
+    items: normalizedItems.slice(start, start + normalizedPageSize),
+    currentPage,
+    totalPages,
+    totalItems,
+  };
+}
+
+export function synchronizeCatalogPageRequest(requestedPage, currentPage) {
+  return requestedPage === currentPage ? requestedPage : currentPage;
+}
+
+export function buildCatalogPaginationModel(currentPage, totalPages) {
+  const numericTotalPages = Number(totalPages);
+  const normalizedTotalPages = Math.max(1, Number.isFinite(numericTotalPages)
+    ? Math.floor(numericTotalPages)
+    : 1);
+  const numericCurrentPage = Number(currentPage);
+  const normalizedCurrentPage = Math.min(normalizedTotalPages, Math.max(1, Number.isFinite(numericCurrentPage)
+    ? Math.floor(numericCurrentPage)
+    : 1));
+  const pageNumbers = [...new Set([
+    1,
+    normalizedCurrentPage - 1,
+    normalizedCurrentPage,
+    normalizedCurrentPage + 1,
+    normalizedTotalPages,
+  ])]
+    .filter((pageNumber) => pageNumber >= 1 && pageNumber <= normalizedTotalPages)
+    .sort((a, b) => a - b);
+
+  return pageNumbers.flatMap((pageNumber, index) => {
+    const previousPage = pageNumbers[index - 1];
+    return index > 0 && pageNumber - previousPage > 1
+      ? ["ellipsis", pageNumber]
+      : [pageNumber];
+  });
+}
+
 export async function fetchAllCatalogPages(fetchPage, onProgress) {
   const firstPage = await fetchPage(1);
   const pageCount = Math.max(1, Number(firstPage?.total_pages || 1));

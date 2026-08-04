@@ -15,13 +15,18 @@ import { PIQUIM_CATALOG_CARDS } from "../../data/piquimBranding";
 import { PIQUIM_SUBCATALOGS } from "../../data/piquimSubcatalogs";
 import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
 import {
+    buildCatalogPaginationModel,
     buildPiquimCategoryGroups,
     fetchAllCatalogPages,
+    paginateCatalogItems,
     resolvePiquimProductGroups,
+    selectCanonicalCatalogMemberships,
+    synchronizeCatalogPageRequest,
 } from "../../utils/piquimCatalogCategories";
 import PriceAccessPrompt from "../../components/PriceAccessPrompt";
 import StoreSkeleton from "../../components/StoreSkeleton";
 const FALLBACK_IMAGE = createPlaceholderImage({ label: "Producto", width: 720, height: 720 });
+const PIQUIM_PAGE_SIZE = 20;
 const EXCLUDED_TERMS = [
     "accesorios de gas",
     "accesorios polietileno",
@@ -737,6 +742,7 @@ export default function CatalogPage() {
         return (
             <StoreLayout>
                 <PiquimSubcatalogPage
+                    key={selectedSubcatalog.slug}
                     catalog={selectedSubcatalog}
                     categories={categories}
                     products={products}
@@ -1322,8 +1328,10 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
     const [formatFilters, setFormatFilters] = useState([]);
     const [flavorFilters, setFlavorFilters] = useState([]);
     const [stockOnly, setStockOnly] = useState(false);
+    const [catalogPage, setCatalogPage] = useState(1);
     const [recentTerms, setRecentTerms] = useState([]);
     const [expandedSections, setExpandedSections] = useState({});
+    const catalogTopRef = useRef(null);
     const catalogSlug = catalog?.slug;
     const configuredProductGroups = catalog?.productGroups;
     const publishedProductGroups = useMemo(
@@ -1471,7 +1479,7 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
     }, [recentTerms]);
 
     const filteredProducts = useMemo(() => {
-        return normalizedProducts.filter((item) => {
+        return selectCanonicalCatalogMemberships(normalizedProducts.filter((item) => {
             const matchText = !queryNormalized || normalizeCatalogLabel(`${item.name} ${item.category} ${item.subtype} ${item.format}`).includes(queryNormalized);
             const matchType = !typeFilters.length || typeFilters.includes(usesConfiguredGroups ? item.sectionTitle : item.subtype);
             const matchFormat = !formatFilters.length || formatFilters.includes(usesConfiguredGroups ? item.familyTitle : item.format);
@@ -1481,14 +1489,31 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
             );
             const matchStock = !stockOnly || Number(item.stock || 0) > 0;
             return matchText && matchType && matchFormat && matchFlavor && matchStock;
-        });
+        }));
     }, [flavorFilters, formatFilters, normalizedProducts, queryNormalized, stockOnly, typeFilters, usesConfiguredGroups]);
+
+    const paginatedProducts = useMemo(
+        () => paginateCatalogItems(filteredProducts, catalogPage, PIQUIM_PAGE_SIZE),
+        [catalogPage, filteredProducts]
+    );
+
+    useEffect(() => {
+        setCatalogPage((currentPage) => synchronizeCatalogPageRequest(currentPage, paginatedProducts.currentPage));
+    }, [paginatedProducts.currentPage]);
+
+    const paginatedItems = paginatedProducts.items;
+    const paginationItems = useMemo(
+        () => buildCatalogPaginationModel(paginatedProducts.currentPage, paginatedProducts.totalPages),
+        [paginatedProducts.currentPage, paginatedProducts.totalPages]
+    );
+    const visibleRangeStart = (paginatedProducts.currentPage - 1) * PIQUIM_PAGE_SIZE + 1;
+    const visibleRangeEnd = Math.min(paginatedProducts.currentPage * PIQUIM_PAGE_SIZE, paginatedProducts.totalItems);
 
     const sections = useMemo(() => {
         if (usesConfiguredGroups) {
             return getConfiguredGroupTitles(resolvedCatalog)
                 .map((title) => {
-                    const sectionProducts = filteredProducts.filter((item) => item.sectionTitle === title);
+                    const sectionProducts = paginatedItems.filter((item) => item.sectionTitle === title);
                     const categories = getConfiguredCategoryTitles({
                         productGroups: resolvedCatalog.productGroups.filter((group) => group.title === title),
                     })
@@ -1504,12 +1529,12 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
         }
 
         const byType = new Map();
-        filteredProducts.forEach((item) => {
+        paginatedItems.forEach((item) => {
             if (!byType.has(item.subtype)) byType.set(item.subtype, []);
             byType.get(item.subtype).push(item);
         });
         return [...byType.entries()].map(([title, items]) => ({ title, products: items, categories: [] }));
-    }, [filteredProducts, resolvedCatalog, usesConfiguredGroups]);
+    }, [paginatedItems, resolvedCatalog, usesConfiguredGroups]);
 
     useEffect(() => {
         if (!usesConfiguredGroups || !sections.length) return;
@@ -1526,7 +1551,31 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
         });
     }, [sections, usesConfiguredGroups]);
 
-    const handleSuggestionPick = (value) => setQuery(value);
+    const handleQueryChange = (value) => {
+        setQuery(value);
+        setCatalogPage(1);
+    };
+
+    const handleSuggestionPick = (value) => {
+        handleQueryChange(value);
+    };
+
+    const toggleFilter = (setter, value) => {
+        setter((prev) => prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]);
+        setCatalogPage(1);
+    };
+
+    const handleStockChange = (value) => {
+        setStockOnly(value);
+        setCatalogPage(1);
+    };
+
+    const handleCatalogPageChange = (nextPage) => {
+        setCatalogPage(nextPage);
+        requestAnimationFrame(() => {
+            catalogTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+    };
 
     const handleSearchCommit = (value) => {
         const term = formatSearchTerm(value);
@@ -1550,24 +1599,24 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                     catalog={resolvedCatalog}
                     labels={labels}
                     query={query}
-                    setQuery={setQuery}
+                    onQueryChange={handleQueryChange}
                     onSearchCommit={handleSearchCommit}
                     trendingSuggestions={trendingSuggestions}
                     productSuggestions={productSuggestions}
                     onSuggestionPick={handleSuggestionPick}
                     availableTypes={availableTypes}
                     selectedTypes={typeFilters}
-                    onToggleType={(value) => setTypeFilters((prev) => prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value])}
+                    onToggleType={(value) => toggleFilter(setTypeFilters, value)}
                     availableFormats={availableFormats}
                     selectedFormats={formatFilters}
-                    onToggleFormat={(value) => setFormatFilters((prev) => prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value])}
+                    onToggleFormat={(value) => toggleFilter(setFormatFilters, value)}
                     selectedFlavors={flavorFilters}
-                    onToggleFlavor={(value) => setFlavorFilters((prev) => prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value])}
+                    onToggleFlavor={(value) => toggleFilter(setFlavorFilters, value)}
                     stockOnly={stockOnly}
-                    setStockOnly={setStockOnly}
+                    onStockChange={handleStockChange}
                 />
                 <section className="flex flex-1 flex-col items-start justify-start gap-[30px] overflow-hidden bg-[#FFFAF6] px-[60px] py-[30px] max-xl:px-8 max-lg:w-full max-md:px-0">
-                    <header className="inline-flex w-full items-end justify-between overflow-hidden">
+                    <header ref={catalogTopRef} className="inline-flex w-full scroll-mt-24 items-end justify-between overflow-hidden">
                         <div className="inline-flex flex-col items-start justify-start gap-4 overflow-hidden">
                             <h1 className="text-[56px] font-black leading-[56px] max-md:text-[40px] max-md:leading-[42px]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
                                 <span className="text-[#1A1614]">{catalog.headingBase} </span>
@@ -1676,6 +1725,54 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                             </section>
                         );
                     })}
+
+                    {paginatedProducts.totalPages > 1 ? (
+                        <nav aria-label="Paginacion del catalogo">
+                            <div className="mb-3 text-center text-sm font-semibold text-[#8A7560]">
+                                {visibleRangeStart}-{visibleRangeEnd} de {paginatedProducts.totalItems} productos
+                            </div>
+                            <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-[#E8DFD8] bg-white/70 p-2 shadow-sm">
+                                <PaginationButton
+                                    label="Anterior"
+                                    onClick={() => handleCatalogPageChange(paginatedProducts.currentPage - 1)}
+                                    disabled={paginatedProducts.currentPage === 1}
+                                />
+
+                                {paginationItems.map((paginationItem, index) => {
+                                    if (paginationItem === "ellipsis") {
+                                        return (
+                                            <span key={`piquim-ellipsis-${index}`} className="px-2 text-sm font-bold text-[#8A7560]" aria-hidden="true">
+                                                ...
+                                            </span>
+                                        );
+                                    }
+                                    const pageNumber = paginationItem;
+
+                                    return (
+                                        <button
+                                            key={`piquim-page-${pageNumber}`}
+                                            type="button"
+                                            onClick={() => handleCatalogPageChange(pageNumber)}
+                                            className={`min-w-[42px] rounded-xl px-4 py-2 text-sm font-bold transition-all ${pageNumber === paginatedProducts.currentPage
+                                                ? "bg-[#FF4D00] text-white"
+                                                : "border border-transparent text-[#1A1614] hover:border-[#FF4D00]/30 hover:bg-[#FF4D00]/10 hover:text-[#FF4D00]"
+                                                }`}
+                                            aria-label={`Pagina ${pageNumber}`}
+                                            aria-current={pageNumber === paginatedProducts.currentPage ? "page" : undefined}
+                                        >
+                                            {pageNumber}
+                                        </button>
+                                    );
+                                })}
+
+                                <PaginationButton
+                                    label="Siguiente"
+                                    onClick={() => handleCatalogPageChange(paginatedProducts.currentPage + 1)}
+                                    disabled={paginatedProducts.currentPage === paginatedProducts.totalPages}
+                                />
+                            </div>
+                        </nav>
+                    ) : null}
                 </section>
             </main>
             <PiquimCatalogFooter />
@@ -1706,7 +1803,7 @@ function PiquimSubcatalogSidebar({
     catalog,
     labels,
     query,
-    setQuery,
+    onQueryChange,
     onSearchCommit,
     trendingSuggestions,
     productSuggestions,
@@ -1720,7 +1817,7 @@ function PiquimSubcatalogSidebar({
     selectedFlavors,
     onToggleFlavor,
     stockOnly,
-    setStockOnly,
+    onStockChange,
 }) {
     const titleLabel = labels?.title || catalog?.filters?.title || "Filtros";
     const subtitleLabel = labels?.subtitle || catalog?.filters?.subtitle || "Refina tu busqueda profesional";
@@ -1748,7 +1845,7 @@ function PiquimSubcatalogSidebar({
                     <div className="relative">
                         <input
                             value={query}
-                            onChange={(event) => setQuery(event.target.value)}
+                            onChange={(event) => onQueryChange(event.target.value)}
                             onBlur={() => onSearchCommit(query)}
                             placeholder={searchPlaceholder}
                             className="w-full rounded-lg bg-[#FFEDDE] py-2.5 pl-3 pr-8 text-sm text-[#6B7280] outline-none ring-0"
@@ -1779,7 +1876,7 @@ function PiquimSubcatalogSidebar({
                 )}
 
                 <label className="inline-flex w-full items-center justify-start gap-2 pb-4">
-                    <input type="checkbox" checked={stockOnly} onChange={(event) => setStockOnly(event.target.checked)} />
+                    <input type="checkbox" checked={stockOnly} onChange={(event) => onStockChange(event.target.checked)} />
                     <span className="text-sm font-normal leading-5 text-[#5A4136]">{stockLabel}</span>
                 </label>
             </div>
