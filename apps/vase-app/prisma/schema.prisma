@@ -54,6 +54,11 @@ enum TenantInvitationStatus {
   EXPIRED
 }
 
+enum TenantInvitationRole {
+  MANAGER
+  MEMBER
+}
+
 enum LabsEntitlementPlan {
   STARTER
   PRO
@@ -965,6 +970,7 @@ model ModuleFeature {
   id            String                 @id @default(cuid())
   moduleId      String
   submoduleId   String?
+  scopeKey      String                 @default("__module__")
   key           String
   name          String
   description   String?
@@ -978,11 +984,13 @@ model ModuleFeature {
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
   module        Module                 @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  submodule     ModuleSubmodule?       @relation(fields: [submoduleId], references: [id], onDelete: Cascade)
+  submodule     ModuleSubmodule?       @relation(fields: [submoduleId, moduleId], references: [id, moduleId], onDelete: Cascade)
   tenantGrants  TenantFeatureGrant[]
 
   @@unique([moduleId, submoduleId, key])
+  @@unique([moduleId, scopeKey, key])
   @@index([moduleId, submoduleId, isActive, sortOrder])
+  @@index([submoduleId, moduleId])
 }
 
 model TenantFeatureGrant {
@@ -1006,7 +1014,7 @@ model TenantInvitation {
   invitedByUserId String
   name            String
   email           String
-  role            TenantRole
+  role            TenantInvitationRole
   moduleIds       Json
   tokenHash       String                 @unique
   status          TenantInvitationStatus @default(PENDING)
@@ -1177,6 +1185,7 @@ model ModuleSubmodule {
   projects    Project[]
 
   @@unique([moduleId, key])
+  @@unique([id, moduleId])
   @@index([moduleId, isActive])
 }
 

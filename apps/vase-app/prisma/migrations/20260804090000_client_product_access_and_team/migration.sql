@@ -15,10 +15,14 @@ ALTER TABLE `Membership`
   ADD COLUMN `createdByUserId` VARCHAR(191) NULL,
   ADD INDEX `Membership_tenantId_createdByUserId_idx`(`tenantId`, `createdByUserId`);
 
+ALTER TABLE `ModuleSubmodule`
+  ADD UNIQUE INDEX `ModuleSubmodule_id_moduleId_key`(`id`, `moduleId`);
+
 CREATE TABLE `ModuleFeature` (
   `id` VARCHAR(191) NOT NULL,
   `moduleId` VARCHAR(191) NOT NULL,
   `submoduleId` VARCHAR(191) NULL,
+  `scopeKey` VARCHAR(191) NOT NULL DEFAULT '__module__',
   `key` VARCHAR(191) NOT NULL,
   `name` VARCHAR(191) NOT NULL,
   `description` VARCHAR(191) NULL,
@@ -32,7 +36,10 @@ CREATE TABLE `ModuleFeature` (
   `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updatedAt` DATETIME(3) NOT NULL,
   UNIQUE INDEX `ModuleFeature_moduleId_submoduleId_key_key`(`moduleId`, `submoduleId`, `key`),
+  UNIQUE INDEX `ModuleFeature_moduleId_scopeKey_key_key`(`moduleId`, `scopeKey`, `key`),
   INDEX `ModuleFeature_moduleId_submoduleId_isActive_sortOrder_idx`(`moduleId`, `submoduleId`, `isActive`, `sortOrder`),
+  INDEX `ModuleFeature_submoduleId_moduleId_idx`(`submoduleId`, `moduleId`),
+  CONSTRAINT `ModuleFeature_scopeKey_matches_submodule_chk` CHECK ((`submoduleId` IS NULL AND `scopeKey` = '__module__') OR (`submoduleId` IS NOT NULL AND `scopeKey` = `submoduleId`)),
   PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -55,7 +62,7 @@ CREATE TABLE `TenantInvitation` (
   `invitedByUserId` VARCHAR(191) NOT NULL,
   `name` VARCHAR(191) NOT NULL,
   `email` VARCHAR(191) NOT NULL,
-  `role` ENUM('OWNER', 'MANAGER', 'MEMBER') NOT NULL,
+  `role` ENUM('MANAGER', 'MEMBER') NOT NULL,
   `moduleIds` JSON NOT NULL,
   `tokenHash` VARCHAR(191) NOT NULL,
   `status` ENUM('PENDING', 'ACCEPTED', 'REVOKED', 'EXPIRED') NOT NULL DEFAULT 'PENDING',
@@ -79,8 +86,8 @@ ALTER TABLE `ModuleFeature`
   ADD CONSTRAINT `ModuleFeature_moduleId_fkey`
   FOREIGN KEY (`moduleId`) REFERENCES `Module`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE `ModuleFeature`
-  ADD CONSTRAINT `ModuleFeature_submoduleId_fkey`
-  FOREIGN KEY (`submoduleId`) REFERENCES `ModuleSubmodule`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `ModuleFeature_submoduleId_moduleId_fkey`
+  FOREIGN KEY (`submoduleId`, `moduleId`) REFERENCES `ModuleSubmodule`(`id`, `moduleId`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE `TenantFeatureGrant`
   ADD CONSTRAINT `TenantFeatureGrant_tenantId_fkey`

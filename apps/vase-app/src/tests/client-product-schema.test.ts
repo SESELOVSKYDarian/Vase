@@ -68,6 +68,30 @@ function expectForeignKey(
   expect(migration).toMatch(statement);
 }
 
+function expectCompositeForeignKey(
+  table: string,
+  columns: [string, string],
+  targetTable: string,
+  targetColumns: [string, string],
+) {
+  const source = columns.map((column) => "`" + column + "`").join(", ");
+  const target = targetColumns.map((column) => "`" + column + "`").join(", ");
+  const statement = new RegExp(
+    "ALTER TABLE `" +
+      table +
+      "`\\s+ADD CONSTRAINT `[^`]+`\\s+FOREIGN KEY \\(" +
+      source +
+      "\\) REFERENCES `" +
+      targetTable +
+      "`\\(" +
+      target +
+      "\\) ON DELETE CASCADE ON UPDATE CASCADE;",
+    "m",
+  );
+
+  expect(migration).toMatch(statement);
+}
+
 function expectLines(block: string, lines: RegExp[]) {
   for (const line of lines) {
     expect(block).toMatch(line);
@@ -95,6 +119,7 @@ describe("client product access schema", () => {
     expectEnumValues("CommercialAccessStatus", ["TRIAL", "ACTIVE", "SUSPENDED"]);
     expectEnumValues("ModuleFeatureValueType", ["BOOLEAN", "INTEGER", "TEXT"]);
     expectEnumValues("TenantInvitationStatus", ["PENDING", "ACCEPTED", "REVOKED", "EXPIRED"]);
+    expectEnumValues("TenantInvitationRole", ["MANAGER", "MEMBER"]);
     expectEnumValues("LabsEntitlementPlan", ["STARTER", "PRO", "GROWTH"]);
   });
 
@@ -136,6 +161,7 @@ describe("client product access schema", () => {
       /^\s*id\s+String\s+@id\s+@default\(cuid\(\)\)\s*$/m,
       /^\s*moduleId\s+String\s*$/m,
       /^\s*submoduleId\s+String\?\s*$/m,
+      /^\s*scopeKey\s+String\s+@default\("__module__"\)\s*$/m,
       /^\s*key\s+String\s*$/m,
       /^\s*name\s+String\s*$/m,
       /^\s*description\s+String\?\s*$/m,
@@ -147,9 +173,11 @@ describe("client product access schema", () => {
       /^\s*maxValue\s+Int\?\s*$/m,
       /^\s*isActive\s+Boolean\s+@default\(true\)\s*$/m,
       /^\s*module\s+Module\s+@relation\(fields: \[moduleId\], references: \[id\], onDelete: Cascade\)\s*$/m,
-      /^\s*submodule\s+ModuleSubmodule\?\s+@relation\(fields: \[submoduleId\], references: \[id\], onDelete: Cascade\)\s*$/m,
+      /^\s*submodule\s+ModuleSubmodule\?\s+@relation\(fields: \[submoduleId, moduleId\], references: \[id, moduleId\], onDelete: Cascade\)\s*$/m,
       /^\s*tenantGrants\s+TenantFeatureGrant\[\]\s*$/m,
       /^\s*@@unique\(\[moduleId, submoduleId, key\]\)\s*$/m,
+      /^\s*@@unique\(\[moduleId, scopeKey, key\]\)\s*$/m,
+      /^\s*@@index\(\[submoduleId, moduleId\]\)\s*$/m,
       /^\s*@@index\(\[moduleId, submoduleId, isActive, sortOrder\]\)\s*$/m,
     ]);
     expectTimestampFields(feature);
@@ -175,7 +203,7 @@ describe("client product access schema", () => {
       /^\s*invitedByUserId\s+String\s*$/m,
       /^\s*name\s+String\s*$/m,
       /^\s*email\s+String\s*$/m,
-      /^\s*role\s+TenantRole\s*$/m,
+      /^\s*role\s+TenantInvitationRole\s*$/m,
       /^\s*moduleIds\s+Json\s*$/m,
       /^\s*tokenHash\s+String\s+@unique\s*$/m,
       /^\s*status\s+TenantInvitationStatus\s+@default\(PENDING\)\s*$/m,
@@ -199,6 +227,7 @@ describe("client product access schema", () => {
     ]);
     expectLines(prismaBlock("model", "ModuleSubmodule"), [
       /^\s*features\s+ModuleFeature\[\]\s*$/m,
+      /^\s*@@unique\(\[id, moduleId\]\)\s*$/m,
     ]);
     expectLines(prismaBlock("model", "User"), [
       /^\s*tenantInvitations\s+TenantInvitation\[\]\s*$/m,
@@ -223,12 +252,16 @@ describe("client product access schema", () => {
       /ADD COLUMN `createdByUserId` VARCHAR\(191\) NULL/,
       /ADD INDEX `Membership_tenantId_createdByUserId_idx`\(`tenantId`, `createdByUserId`\)/,
     ]);
+    expectLines(sqlAlter("ModuleSubmodule"), [
+      /ADD UNIQUE INDEX `ModuleSubmodule_id_moduleId_key`\(`id`, `moduleId`\)/,
+    ]);
 
     const featureTable = sqlTable("ModuleFeature");
     expectLines(featureTable, [
       /`id` VARCHAR\(191\) NOT NULL/,
       /`moduleId` VARCHAR\(191\) NOT NULL/,
       /`submoduleId` VARCHAR\(191\) NULL/,
+      /`scopeKey` VARCHAR\(191\) NOT NULL DEFAULT '__module__'/,
       /`key` VARCHAR\(191\) NOT NULL/,
       /`sortOrder` INTEGER NOT NULL DEFAULT 0/,
       /`valueType` ENUM\('BOOLEAN', 'INTEGER', 'TEXT'\) NOT NULL DEFAULT 'BOOLEAN'/,
@@ -238,7 +271,10 @@ describe("client product access schema", () => {
       /`maxValue` INTEGER NULL/,
       /`isActive` BOOLEAN NOT NULL DEFAULT true/,
       /UNIQUE INDEX `ModuleFeature_moduleId_submoduleId_key_key`\(`moduleId`, `submoduleId`, `key`\)/,
+      /UNIQUE INDEX `ModuleFeature_moduleId_scopeKey_key_key`\(`moduleId`, `scopeKey`, `key`\)/,
       /INDEX `ModuleFeature_moduleId_submoduleId_isActive_sortOrder_idx`\(`moduleId`, `submoduleId`, `isActive`, `sortOrder`\)/,
+      /INDEX `ModuleFeature_submoduleId_moduleId_idx`\(`submoduleId`, `moduleId`\)/,
+      /CONSTRAINT `ModuleFeature_scopeKey_matches_submodule_chk` CHECK \(\(`submoduleId` IS NULL AND `scopeKey` = '__module__'\) OR \(`submoduleId` IS NOT NULL AND `scopeKey` = `submoduleId`\)\)/,
     ]);
 
     const grantTable = sqlTable("TenantFeatureGrant");
@@ -257,7 +293,7 @@ describe("client product access schema", () => {
       /`invitedByUserId` VARCHAR\(191\) NOT NULL/,
       /`name` VARCHAR\(191\) NOT NULL/,
       /`email` VARCHAR\(191\) NOT NULL/,
-      /`role` ENUM\('OWNER', 'MANAGER', 'MEMBER'\) NOT NULL/,
+      /`role` ENUM\('MANAGER', 'MEMBER'\) NOT NULL/,
       /`moduleIds` JSON NOT NULL/,
       /`tokenHash` VARCHAR\(191\) NOT NULL/,
       /`status` ENUM\('PENDING', 'ACCEPTED', 'REVOKED', 'EXPIRED'\) NOT NULL DEFAULT 'PENDING'/,
@@ -267,10 +303,17 @@ describe("client product access schema", () => {
       /INDEX `TenantInvitation_expiresAt_status_idx`\(`expiresAt`, `status`\)/,
     ]);
 
-    expect(migration).not.toMatch(/DROP (?:TABLE|COLUMN)/);
+    expect(migration).not.toMatch(
+      /\b(?:DROP\s+(?:TABLE|COLUMN|INDEX|DATABASE)|TRUNCATE(?:\s+TABLE)?|DELETE\s+FROM|ALTER\s+TABLE\s+[^;]*\b(?:DROP|MODIFY|CHANGE|RENAME)\b)/i,
+    );
     expectForeignKey("Membership", "createdByUserId", "User", "SET NULL");
     expectForeignKey("ModuleFeature", "moduleId", "Module", "CASCADE");
-    expectForeignKey("ModuleFeature", "submoduleId", "ModuleSubmodule", "CASCADE");
+    expectCompositeForeignKey(
+      "ModuleFeature",
+      ["submoduleId", "moduleId"],
+      "ModuleSubmodule",
+      ["id", "moduleId"],
+    );
     expectForeignKey("TenantFeatureGrant", "tenantId", "Tenant", "CASCADE");
     expectForeignKey("TenantFeatureGrant", "featureId", "ModuleFeature", "CASCADE");
     expectForeignKey("TenantInvitation", "tenantId", "Tenant", "CASCADE");
