@@ -11,6 +11,7 @@ import {
   updateModuleSubmoduleAction,
   type AdminGovernanceActionState,
 } from "@/app/(platform)/app/admin/actions";
+import { getAdminModuleAccessPresentation } from "@/lib/admin/user-access";
 import { CrudModal } from "@/components/ui/crud-modal";
 
 type SubmoduleView = {
@@ -138,7 +139,7 @@ export function AdminModulesConsole({ modules }: Props) {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">{module.product === "BUSINESS" ? "Business" : module.product === "LABS" ? "Labs" : "Management"}</td>
+                    <td className="px-4 py-3">{getAdminModuleAccessPresentation(module.product, module.submodules.length, false, 0).productLabel}</td>
                     <td className="px-4 py-3">{module.route}</td>
                     <td className="px-4 py-3">{module.isActive ? "Activo" : "Inactivo"}</td>
                     <td className="px-4 py-3">

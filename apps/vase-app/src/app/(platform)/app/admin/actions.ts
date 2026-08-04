@@ -99,6 +99,7 @@ import {
   buildClientTenantAccessProvisioning,
   buildAdminCreatedUserVerification,
   buildLabsWorkspaceProvisioning,
+  getManagedUserAccessModuleIds,
   getRoleMappingFromUiRole,
   shouldForceAdminCreatedUserPasswordReset,
   userAccessModuleIds,
@@ -4982,7 +4983,7 @@ async function provisionClientWorkspaceFromMasterUser(params: {
   await params.tx.tenantModule.updateMany({
     where: {
       tenantId,
-      moduleId: { in: [userAccessModuleIds.business, userAccessModuleIds.labs] },
+      moduleId: { in: getManagedUserAccessModuleIds() },
       NOT: { moduleId: { in: provisioning.activeModuleIds } },
     },
     data: {

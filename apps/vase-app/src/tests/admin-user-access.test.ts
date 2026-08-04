@@ -5,6 +5,8 @@ import {
   buildLabsWorkspaceProvisioning,
   resolveLabsEntitlementPlanFromSubmoduleAccess,
   buildTenantModuleAccessSummary,
+  getAdminModuleAccessPresentation,
+  getManagedUserAccessModuleIds,
   getRoleMappingFromUiRole,
   inferUiRoleFromStoredRoles,
   shouldForceAdminCreatedUserPasswordReset,
@@ -15,6 +17,31 @@ describe("admin user access helpers", () => {
   it("uses stable module ids for Business and Labs access", () => {
     expect(userAccessModuleIds.business).toBe("vase_business");
     expect(userAccessModuleIds.labs).toBe("vase_labs");
+  });
+
+  it("manages Rest as a first-class account and user permission", () => {
+    expect(getManagedUserAccessModuleIds()).toEqual(expect.arrayContaining([
+      userAccessModuleIds.business,
+      userAccessModuleIds.labs,
+      userAccessModuleIds.management,
+      userAccessModuleIds.rest,
+    ]));
+    expect(buildClientTenantAccessProvisioning({
+      moduleIds: [userAccessModuleIds.rest],
+      tenantPlan: "PRO",
+    }).activeModuleIds).toEqual([userAccessModuleIds.rest]);
+  });
+
+  it("describes Rest as direct account access without submodules or chatbot limits", () => {
+    expect(getAdminModuleAccessPresentation("REST", 0, true, 0)).toEqual({
+      productLabel: "Rest",
+      description: "Al activarlo, la cuenta obtiene acceso a Vase Rest.",
+      selectionLabel: "Acceso habilitado",
+      emptySubmodulesLabel: "Vase Rest no requiere submódulos: el acceso se aplica a toda la cuenta.",
+      limitKind: null,
+    });
+    expect(getAdminModuleAccessPresentation("LABS", 3, true, 1).limitKind).toBe("chatbots");
+    expect(getAdminModuleAccessPresentation("BUSINESS", 2, true, 1).limitKind).toBe("pages");
   });
 
   it("summarizes active tenant modules for admin display", () => {
