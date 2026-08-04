@@ -35,6 +35,31 @@ enum MembershipStatus {
   SUSPENDED
 }
 
+enum CommercialAccessStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+}
+
+enum ModuleFeatureValueType {
+  BOOLEAN
+  INTEGER
+  TEXT
+}
+
+enum TenantInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum LabsEntitlementPlan {
+  STARTER
+  PRO
+  GROWTH
+}
+
 enum TenantStatus {
   ACTIVE
   TRIAL
@@ -451,7 +476,8 @@ model User {
   updatedAt     DateTime     @updatedAt
   accounts      Account[]
   sessions      Session[]
-  memberships   Membership[]
+  memberships   Membership[] @relation("MembershipUser")
+  createdMemberships Membership[] @relation("MembershipCreatedBy")
   auditLogs     AuditLog[]   @relation("AuditActor")
   authTokens    AuthToken[]
   createdSupportTickets SupportTicket[] @relation("SupportTicketCreatedBy")
@@ -502,6 +528,7 @@ model User {
   createdExpenses          Expense[] @relation("ExpenseCreator")
   developerTaskAssignments DevTaskAssignmentHistory[] @relation("DevTaskAssignmentActor")
   moduleArtifactsCreated   ModuleArtifact[]           @relation("ModuleArtifactCreatedBy")
+  tenantInvitations        TenantInvitation[]
   appRoles                UserRole[]
   moduleAccesses          UserModuleAccess[]
   projectAssignments      ProjectAssignee[]
@@ -542,6 +569,8 @@ model Tenant {
   projects          Project[]
   featureFlags      FeatureFlag[]
   tenantModules     TenantModule[]
+  featureGrants     TenantFeatureGrant[]
+  invitations       TenantInvitation[]
   auditLogs         AuditLog[]
   subscription      TenantSubscription?
   storefrontPages   StorefrontPage[]
@@ -731,19 +760,22 @@ enum SupportQueueTieBreaker {
 }
 
 model Membership {
-  id         String           @id @default(cuid())
-  userId     String
-  tenantId   String
-  role       TenantRole
-  status     MembershipStatus @default(ACTIVE)
-  lastSeenAt DateTime?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  userId          String
+  tenantId        String
+  createdByUserId String?
+  role            TenantRole
+  status          MembershipStatus @default(ACTIVE)
+  lastSeenAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User             @relation("MembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdByUser   User?            @relation("MembershipCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([userId, tenantId])
   @@index([tenantId, role])
+  @@index([tenantId, createdByUserId])
 }
 
 model Project {
@@ -875,6 +907,7 @@ model Module {
   tenantLinks  TenantModule[]
   userLinks    UserModuleAccess[]
   submodules   ModuleSubmodule[]
+  features     ModuleFeature[]
   clientPayments ClientPayment[]
   artifacts    ModuleArtifact[]
   projects     Project[]
@@ -909,11 +942,13 @@ model ModulePricing {
 }
 
 model TenantModule {
-  id         String    @id @default(cuid())
-  tenantId    String
-  moduleId    String
-  isActive    Boolean   @default(true)
-  activatedAt DateTime?
+  id               String                 @id @default(cuid())
+  tenantId         String
+  moduleId         String
+  isActive         Boolean                @default(true)
+  commercialStatus CommercialAccessStatus @default(ACTIVE)
+  trialEndsAt      DateTime?
+  activatedAt      DateTime?
   activeArtifactId String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -923,6 +958,69 @@ model TenantModule {
 
   @@unique([tenantId, moduleId])
   @@index([tenantId, isActive])
+  @@index([tenantId, commercialStatus])
+}
+
+model ModuleFeature {
+  id            String                 @id @default(cuid())
+  moduleId      String
+  submoduleId   String?
+  key           String
+  name          String
+  description   String?
+  sortOrder     Int                    @default(0)
+  valueType     ModuleFeatureValueType @default(BOOLEAN)
+  trialDefault  Json?
+  activeDefault Json?
+  minValue      Int?
+  maxValue      Int?
+  isActive      Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  module        Module                 @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  submodule     ModuleSubmodule?       @relation(fields: [submoduleId], references: [id], onDelete: Cascade)
+  tenantGrants  TenantFeatureGrant[]
+
+  @@unique([moduleId, submoduleId, key])
+  @@index([moduleId, submoduleId, isActive, sortOrder])
+}
+
+model TenantFeatureGrant {
+  id        String          @id @default(cuid())
+  tenantId  String
+  featureId String
+  enabled   Boolean         @default(true)
+  value     Json?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  feature   ModuleFeature   @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, featureId])
+  @@index([tenantId, enabled])
+}
+
+model TenantInvitation {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  invitedByUserId String
+  name            String
+  email           String
+  role            TenantRole
+  moduleIds       Json
+  tokenHash       String                 @unique
+  status          TenantInvitationStatus @default(PENDING)
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy       User                   @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@index([email, status])
+  @@index([expiresAt, status])
 }
 
 model ManagementPricingVersion {
@@ -1073,6 +1171,7 @@ model ModuleSubmodule {
   module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   pricing     ModuleSubmodulePricing[]
   tenantLinks TenantSubmodule[]
+  features    ModuleFeature[]
   clientPayments ClientPayment[]
   artifacts   ModuleArtifact[]
   projects    Project[]
@@ -1121,11 +1220,13 @@ model ModuleArtifact {
 }
 
 model TenantSubmodule {
-  id              String   @id @default(cuid())
-  tenantId        String
-  submoduleId     String
-  isActive        Boolean  @default(false)
-  activatedAt     DateTime?
+  id               String                 @id @default(cuid())
+  tenantId         String
+  submoduleId      String
+  isActive         Boolean                @default(false)
+  commercialStatus CommercialAccessStatus @default(ACTIVE)
+  trialEndsAt      DateTime?
+  activatedAt      DateTime?
   activeArtifactId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1135,6 +1236,7 @@ model TenantSubmodule {
 
   @@unique([tenantId, submoduleId])
   @@index([tenantId, isActive])
+  @@index([tenantId, commercialStatus])
 }
 
 model AuditLog {
@@ -1931,6 +2033,7 @@ model TenantAiWorkspace {
   id                      String                 @id @default(cuid())
   tenantId                String                 @unique
   plan                    AiWorkspacePlan        @default(START)
+  entitlementPlan         LabsEntitlementPlan    @default(STARTER)
   assistantDisplayName    String                 @default("Asistente Vase")
   systemPrompt            String?                @db.Text
   modelSlug               String?
