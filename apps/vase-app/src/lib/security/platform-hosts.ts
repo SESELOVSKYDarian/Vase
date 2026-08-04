@@ -93,7 +93,7 @@ export function resolvePlatformHosts(input: PlatformHostsInput = {}) {
   } = input;
   const defaults =
     nodeEnv === "production"
-      ? ["app.vase.ar", "vase.ar", "www.vase.ar"]
+      ? ["app.vase.ar", "admin.vase.ar", "vase.ar", "www.vase.ar"]
       : ["localhost:3002"];
   const hosts = new Set(defaults);
 
