@@ -4,10 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildCatalogPaginationModel,
   buildPiquimCategoryGroups,
-  deduplicateCatalogItems,
   fetchAllCatalogPages,
   paginateCatalogItems,
   resolvePiquimProductGroups,
+  selectCanonicalCatalogMemberships,
   synchronizeCatalogPageRequest,
 } from "../apps/vase-editor/web/src/utils/piquimCatalogCategories.js";
 
@@ -132,13 +132,37 @@ describe("Piquim public category tree", () => {
       ...products.slice(1),
     ];
 
-    const uniqueProducts = deduplicateCatalogItems(membershipRows);
+    const uniqueProducts = selectCanonicalCatalogMemberships(membershipRows);
     const firstPage = paginateCatalogItems(uniqueProducts, 1, 20);
 
     expect(uniqueProducts?.[0]).toBe(products[0]);
     expect(firstPage.totalItems).toBe(21);
     expect(firstPage.items).toHaveLength(20);
     expect(new Set(firstPage.items.map((item) => item.id)).size).toBe(20);
+  });
+
+  it("selects the first stable membership after applying category filters", () => {
+    const primaryMembership = {
+      id: "multi-category-product",
+      sectionTitle: "Primary group",
+      familyTitle: "Primary category",
+    };
+    const secondaryMembership = {
+      id: "multi-category-product",
+      sectionTitle: "Secondary group",
+      familyTitle: "Secondary category",
+    };
+    const orderedMemberships = [primaryMembership, secondaryMembership];
+
+    const unfilteredCards = selectCanonicalCatalogMemberships(orderedMemberships);
+    const secondaryMatches = orderedMemberships.filter(
+      (membership) => membership.familyTitle === "Secondary category",
+    );
+    const filteredCards = selectCanonicalCatalogMemberships(secondaryMatches);
+
+    expect(unfilteredCards).toEqual([primaryMembership]);
+    expect(filteredCards).toEqual([secondaryMembership]);
+    expect(new Set(filteredCards.map((item) => item.id))).toEqual(new Set(["multi-category-product"]));
   });
 
   it("builds a compact Piquim page and ellipsis model", () => {
@@ -201,7 +225,7 @@ describe("Piquim public category tree", () => {
 
     expect(source).toContain("const PIQUIM_PAGE_SIZE = 20");
     expect(source).toContain("paginateCatalogItems(filteredProducts, catalogPage, PIQUIM_PAGE_SIZE)");
-    expect(source).toContain("return deduplicateCatalogItems(normalizedProducts.filter((item) => {");
+    expect(source).toContain("return selectCanonicalCatalogMemberships(normalizedProducts.filter((item) => {");
     expect(source).toContain("synchronizeCatalogPageRequest(currentPage, paginatedProducts.currentPage)");
     expect(source).toContain("buildCatalogPaginationModel(paginatedProducts.currentPage, paginatedProducts.totalPages)");
     expect(source).toContain('<nav aria-label="Paginacion del catalogo">');

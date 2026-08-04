@@ -114,7 +114,11 @@ export function resolvePiquimProductGroups(groups, product, fallbackGroupTitle =
   return matches;
 }
 
-export function deduplicateCatalogItems(items) {
+/**
+ * Selects one stable membership row per product without reordering. Callers filter
+ * membership rows first, making the first remaining published membership canonical.
+ */
+export function selectCanonicalCatalogMemberships(items) {
   const seenIds = new Set();
   return (Array.isArray(items) ? items : []).filter((item) => {
     if (item?.id === undefined || item?.id === null) return true;

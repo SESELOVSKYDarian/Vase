@@ -17,10 +17,10 @@ import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
 import {
     buildCatalogPaginationModel,
     buildPiquimCategoryGroups,
-    deduplicateCatalogItems,
     fetchAllCatalogPages,
     paginateCatalogItems,
     resolvePiquimProductGroups,
+    selectCanonicalCatalogMemberships,
     synchronizeCatalogPageRequest,
 } from "../../utils/piquimCatalogCategories";
 import PriceAccessPrompt from "../../components/PriceAccessPrompt";
@@ -1479,7 +1479,7 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
     }, [recentTerms]);
 
     const filteredProducts = useMemo(() => {
-        return deduplicateCatalogItems(normalizedProducts.filter((item) => {
+        return selectCanonicalCatalogMemberships(normalizedProducts.filter((item) => {
             const matchText = !queryNormalized || normalizeCatalogLabel(`${item.name} ${item.category} ${item.subtype} ${item.format}`).includes(queryNormalized);
             const matchType = !typeFilters.length || typeFilters.includes(usesConfiguredGroups ? item.sectionTitle : item.subtype);
             const matchFormat = !formatFilters.length || formatFilters.includes(usesConfiguredGroups ? item.familyTitle : item.format);
