@@ -15,10 +15,13 @@ import { PIQUIM_CATALOG_CARDS } from "../../data/piquimBranding";
 import { PIQUIM_SUBCATALOGS } from "../../data/piquimSubcatalogs";
 import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
 import {
+    buildCatalogPaginationModel,
     buildPiquimCategoryGroups,
+    deduplicateCatalogItems,
     fetchAllCatalogPages,
     paginateCatalogItems,
     resolvePiquimProductGroups,
+    synchronizeCatalogPageRequest,
 } from "../../utils/piquimCatalogCategories";
 import PriceAccessPrompt from "../../components/PriceAccessPrompt";
 import StoreSkeleton from "../../components/StoreSkeleton";
@@ -1476,7 +1479,7 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
     }, [recentTerms]);
 
     const filteredProducts = useMemo(() => {
-        return normalizedProducts.filter((item) => {
+        return deduplicateCatalogItems(normalizedProducts.filter((item) => {
             const matchText = !queryNormalized || normalizeCatalogLabel(`${item.name} ${item.category} ${item.subtype} ${item.format}`).includes(queryNormalized);
             const matchType = !typeFilters.length || typeFilters.includes(usesConfiguredGroups ? item.sectionTitle : item.subtype);
             const matchFormat = !formatFilters.length || formatFilters.includes(usesConfiguredGroups ? item.familyTitle : item.format);
@@ -1486,14 +1489,23 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
             );
             const matchStock = !stockOnly || Number(item.stock || 0) > 0;
             return matchText && matchType && matchFormat && matchFlavor && matchStock;
-        });
+        }));
     }, [flavorFilters, formatFilters, normalizedProducts, queryNormalized, stockOnly, typeFilters, usesConfiguredGroups]);
 
     const paginatedProducts = useMemo(
         () => paginateCatalogItems(filteredProducts, catalogPage, PIQUIM_PAGE_SIZE),
         [catalogPage, filteredProducts]
     );
+
+    useEffect(() => {
+        setCatalogPage((currentPage) => synchronizeCatalogPageRequest(currentPage, paginatedProducts.currentPage));
+    }, [paginatedProducts.currentPage]);
+
     const paginatedItems = paginatedProducts.items;
+    const paginationItems = useMemo(
+        () => buildCatalogPaginationModel(paginatedProducts.currentPage, paginatedProducts.totalPages),
+        [paginatedProducts.currentPage, paginatedProducts.totalPages]
+    );
     const visibleRangeStart = (paginatedProducts.currentPage - 1) * PIQUIM_PAGE_SIZE + 1;
     const visibleRangeEnd = Math.min(paginatedProducts.currentPage * PIQUIM_PAGE_SIZE, paginatedProducts.totalItems);
 
@@ -1726,21 +1738,15 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                                     disabled={paginatedProducts.currentPage === 1}
                                 />
 
-                                {Array.from({ length: paginatedProducts.totalPages }).map((_, index) => {
-                                    const pageNumber = index + 1;
-                                    const nearCurrent = pageNumber === 1
-                                        || pageNumber === paginatedProducts.totalPages
-                                        || (pageNumber >= paginatedProducts.currentPage - 1 && pageNumber <= paginatedProducts.currentPage + 1);
-                                    if (!nearCurrent) {
-                                        if (pageNumber === paginatedProducts.currentPage - 2 || pageNumber === paginatedProducts.currentPage + 2) {
-                                            return (
-                                                <span key={`piquim-ellipsis-${pageNumber}`} className="px-2 text-sm font-bold text-[#8A7560]">
-                                                    ...
-                                                </span>
-                                            );
-                                        }
-                                        return null;
+                                {paginationItems.map((paginationItem, index) => {
+                                    if (paginationItem === "ellipsis") {
+                                        return (
+                                            <span key={`piquim-ellipsis-${index}`} className="px-2 text-sm font-bold text-[#8A7560]" aria-hidden="true">
+                                                ...
+                                            </span>
+                                        );
                                     }
+                                    const pageNumber = paginationItem;
 
                                     return (
                                         <button
