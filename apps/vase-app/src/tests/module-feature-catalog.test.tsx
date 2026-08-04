@@ -5,7 +5,7 @@ import {
   deleteModuleFeatureSchema,
   updateModuleFeatureSchema,
 } from "@/lib/validators/admin";
-import { AdminModulesConsole, FeatureActionFeedback, FeatureDefaultInput } from "@/components/admin/admin-modules-console";
+import { AdminModulesConsole, FeatureActionFeedback, FeatureDefaultInput, shouldHandleFeatureActionSuccess } from "@/components/admin/admin-modules-console";
 import { getBusinessFeatureScope, parseModuleFeatureDefault } from "@/server/services/module-features";
 import { serializeModuleFeature } from "@/server/queries/modules-admin";
 
@@ -208,6 +208,13 @@ describe("module feature dialog feedback", () => {
   it("marks errors as alerts and pending feedback as live status", () => {
     expect(renderToStaticMarkup(<FeatureActionFeedback state={{ error: "No válido" }} pending={false} />)).toContain('role="alert"');
     expect(renderToStaticMarkup(<FeatureActionFeedback state={{}} pending />)).toContain('aria-live="polite"');
+  });
+
+  it("handles a success once so reopening against the same result stays open", () => {
+    const success = { success: "Característica creada." };
+    expect(shouldHandleFeatureActionSuccess(null, success)).toBe(true);
+    expect(shouldHandleFeatureActionSuccess(success, success)).toBe(false);
+    expect(shouldHandleFeatureActionSuccess(success, { success: "Característica creada." })).toBe(true);
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useActionState, useEffect, useId, useMemo, useState } from "react";
+import { Fragment, useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   createAdminModuleAction,
@@ -95,6 +95,19 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
   const [createFeatureState, createFeatureFormAction, isCreatingFeature] = useActionState(createModuleFeatureAction, initialState);
   const [updateFeatureState, updateFeatureFormAction, isUpdatingFeature] = useActionState(updateModuleFeatureAction, initialState);
   const [deleteFeatureState, deleteFeatureFormAction, isDeletingFeature] = useActionState(deleteModuleFeatureAction, initialState);
+  const handledCreateFeatureState = useRef<AdminGovernanceActionState | null>(null);
+  const handledUpdateFeatureState = useRef<AdminGovernanceActionState | null>(null);
+  const handledDeleteFeatureState = useRef<AdminGovernanceActionState | null>(null);
+  const featureModalModeRef = useRef(featureModalMode);
+  const deleteFeatureTargetRef = useRef(deleteFeatureTarget);
+
+  useEffect(() => {
+    featureModalModeRef.current = featureModalMode;
+  }, [featureModalMode]);
+
+  useEffect(() => {
+    deleteFeatureTargetRef.current = deleteFeatureTarget;
+  }, [deleteFeatureTarget]);
 
   const closeFeatureModal = () => {
     setFeatureModalMode(null);
@@ -104,19 +117,28 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
   };
 
   useEffect(() => {
-    const didSucceed =
-      (featureModalMode === "create" && createFeatureState.success) ||
-      (featureModalMode === "edit" && updateFeatureState.success);
-    if (!didSucceed) return;
+    if (!shouldHandleFeatureActionSuccess(handledCreateFeatureState.current, createFeatureState)) return;
+    handledCreateFeatureState.current = createFeatureState;
+    if (featureModalModeRef.current !== "create") return;
     const timer = window.setTimeout(closeFeatureModal, 0);
     return () => window.clearTimeout(timer);
-  }, [createFeatureState, featureModalMode, updateFeatureState]);
+  }, [createFeatureState]);
 
   useEffect(() => {
-    if (!deleteFeatureState.success || !deleteFeatureTarget) return;
+    if (!shouldHandleFeatureActionSuccess(handledUpdateFeatureState.current, updateFeatureState)) return;
+    handledUpdateFeatureState.current = updateFeatureState;
+    if (featureModalModeRef.current !== "edit") return;
+    const timer = window.setTimeout(closeFeatureModal, 0);
+    return () => window.clearTimeout(timer);
+  }, [updateFeatureState]);
+
+  useEffect(() => {
+    if (!shouldHandleFeatureActionSuccess(handledDeleteFeatureState.current, deleteFeatureState)) return;
+    handledDeleteFeatureState.current = deleteFeatureState;
+    if (!deleteFeatureTargetRef.current) return;
     const timer = window.setTimeout(() => setDeleteFeatureTarget(null), 0);
     return () => window.clearTimeout(timer);
-  }, [deleteFeatureState, deleteFeatureTarget]);
+  }, [deleteFeatureState]);
 
   const actionFeedback = useMemo(() => {
     const states = [
@@ -518,6 +540,13 @@ export function FeatureActionFeedback({ state, pending }: { state: AdminGovernan
   if (state.error) return <p role="alert" className="text-sm text-[var(--danger)]">{state.error}</p>;
   if (state.success) return <p aria-live="polite" className="text-sm text-[var(--success)]">{state.success}</p>;
   return null;
+}
+
+export function shouldHandleFeatureActionSuccess(
+  handledState: AdminGovernanceActionState | null,
+  nextState: AdminGovernanceActionState,
+) {
+  return nextState !== handledState && Boolean(nextState.success);
 }
 
 function FeatureCatalogSection({

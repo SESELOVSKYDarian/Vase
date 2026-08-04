@@ -11,6 +11,10 @@ const migration = readFileSync(
 );
 const migrationRoot = new URL("../../prisma/migrations/", import.meta.url);
 const currentMigration = "20260804090000_client_product_access_and_team";
+const modulePermissionMigration = readFileSync(
+  new URL("../../prisma/migrations/20260804100000_admin_module_permission/migration.sql", import.meta.url),
+  "utf8",
+);
 const laterMigrationSql = readdirSync(migrationRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && entry.name > currentMigration)
   .map((entry) => ({
@@ -285,9 +289,11 @@ describe("client product access schema", () => {
       /ADD COLUMN `createdByUserId` VARCHAR\(191\) NULL/,
       /ADD INDEX `Membership_tenantId_createdByUserId_idx`\(`tenantId`, `createdByUserId`\)/,
     ]);
-    expectLines(sqlAlter("AdminAccessPolicy"), [
-      /ADD COLUMN `canManageModules` BOOLEAN NOT NULL DEFAULT false/,
-    ]);
+    expect(migration).not.toContain("canManageModules");
+    expect(modulePermissionMigration).toMatch(
+      /ALTER TABLE `AdminAccessPolicy`\s+ADD COLUMN `canManageModules` BOOLEAN NOT NULL DEFAULT false;/,
+    );
+    expect(modulePermissionMigration).not.toMatch(/\b(?:DROP|DELETE|TRUNCATE|MODIFY|CHANGE|RENAME)\b/i);
     expectLines(sqlAlter("ModuleSubmodule"), [
       /ADD UNIQUE INDEX `uq_ModuleSubmodule_id_moduleId`\(`id`, `moduleId`\)/,
     ]);
