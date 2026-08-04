@@ -10,6 +10,11 @@ import { resolveLocale } from "@/lib/i18n/locale";
 import { shouldDisablePlatformCache } from "@/lib/security/platform-cache";
 import { getCanonicalOrigin } from "@/lib/security/origin";
 import {
+  buildAdminCanonicalUrl,
+  isAdminHost,
+  resolveAdminAccessDecision,
+} from "@/lib/security/admin-host-routing";
+import {
   buildDefaultPlatformRedirectUrl,
   buildLabsHostRedirectUrl,
   buildPublicSiteRedirectUrl,
@@ -26,6 +31,7 @@ export default auth((request: NextRequest) => {
     auth?: {
       user?: {
         isEmailVerified?: boolean;
+        platformRole?: string;
       };
     } | null;
   };
@@ -33,6 +39,43 @@ export default auth((request: NextRequest) => {
   const url = request.nextUrl;
   const hostname = (request.headers.get("host") || "").trim().toLowerCase();
   const pathname = url.pathname;
+  const isSignedIn = hasActiveSession(authRequest.auth);
+  const isEmailVerified = Boolean(authRequest.auth?.user?.isEmailVerified);
+
+  const adminHostDecision = resolveAdminAccessDecision({
+    hostname,
+    url: request.url,
+    isSignedIn,
+    isEmailVerified,
+    platformRole: authRequest.auth?.user?.platformRole,
+  });
+
+  if (adminHostDecision.type === "redirect") {
+    return NextResponse.redirect(adminHostDecision.url);
+  }
+
+  if (adminHostDecision.type === "reject") {
+    return NextResponse.json(
+      { error: adminHostDecision.status === 403 ? "forbidden" : "not_found" },
+      { status: adminHostDecision.status },
+    );
+  }
+
+  if (adminHostDecision.type === "rewrite") {
+    const response = NextResponse.rewrite(adminHostDecision.url);
+    const locale = resolveLocale(request.headers);
+    response.headers.set("x-vase-locale", locale);
+    response.headers.set("x-vase-pathname", pathname);
+    response.headers.set("x-vase-email-verified", "true");
+    response.headers.set("x-vase-canonical-origin", new URL(request.url).origin);
+    response.headers.set("Cache-Control", "private, no-store, max-age=0");
+    return response;
+  }
+
+  const adminCanonicalUrl = buildAdminCanonicalUrl({ url: request.url });
+  if (!isAdminHost(hostname) && adminCanonicalUrl) {
+    return NextResponse.redirect(adminCanonicalUrl);
+  }
 
   // 1. Identificar los hosts internos de plataforma para no tratarlos como storefronts
   const editorHost = resolveEditorHost();
@@ -101,8 +144,6 @@ export default auth((request: NextRequest) => {
   }
 
   // 4. Lógica de Autenticación y Sesión (App estándar)
-  const isSignedIn = hasActiveSession(authRequest.auth);
-  const isEmailVerified = Boolean(authRequest.auth?.user?.isEmailVerified);
   const authPageRedirectPath = getAuthPageRedirectPath({
     pathname,
     redirectTo: defaultPlatformPath,

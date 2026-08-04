@@ -5,6 +5,13 @@ export type AdminHostInput = {
 };
 
 const ADMIN_INTERNAL_PREFIX = "/app/admin";
+const AUTH_PATHS = new Set([
+  "/signin",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+]);
 const ADMIN_SECTIONS = new Set([
   "users",
   "modules",
@@ -52,6 +59,14 @@ export function resolveAdminHost(input: AdminHostInput = {}) {
 
 export function isAdminHost(hostname: string, input: AdminHostInput = {}) {
   return normalizeHost(hostname, input.nodeEnv) === resolveAdminHost(input);
+}
+
+function resolvePrimaryHost(input: AdminHostInput) {
+  return normalizeHost(
+    input.primaryHost ?? process.env.VASE_PRIMARY_HOST ??
+      ((input.nodeEnv ?? process.env.NODE_ENV) === "production" ? "app.vase.ar" : "localhost:3002"),
+    input.nodeEnv,
+  );
 }
 
 function firstSegment(pathname: string) {
@@ -104,6 +119,7 @@ export function resolveAdminHostRequest({
   input?: AdminHostInput;
 }):
   | { type: "allow" }
+  | { type: "redirect"; url: string }
   | { type: "rewrite"; url: string }
   | { type: "reject"; status: 404 } {
   if (!isAdminHost(hostname, input)) return { type: "allow" };
@@ -117,9 +133,58 @@ export function resolveAdminHostRequest({
       ? { type: "allow" }
       : { type: "reject", status: 404 };
   }
+  if (AUTH_PATHS.has(target.pathname)) {
+    target.host = resolvePrimaryHost(input);
+    if ((input.nodeEnv ?? process.env.NODE_ENV) === "production") {
+      target.protocol = "https:";
+      target.port = "";
+    }
+    return { type: "redirect", url: target.toString() };
+  }
 
   const internalPath = toInternalAdminPath(target.pathname);
   if (!internalPath) return { type: "reject", status: 404 };
   target.pathname = internalPath;
   return { type: "rewrite", url: target.toString() };
+}
+
+export function resolveAdminAccessDecision({
+  hostname,
+  url,
+  isSignedIn,
+  isEmailVerified,
+  platformRole,
+  input = {},
+}: {
+  hostname: string;
+  url: string;
+  isSignedIn: boolean;
+  isEmailVerified: boolean;
+  platformRole: string | null | undefined;
+  input?: AdminHostInput;
+}):
+  | { type: "allow" }
+  | { type: "redirect"; url: string }
+  | { type: "rewrite"; url: string }
+  | { type: "reject"; status: 403 | 404 } {
+  if (!isAdminHost(hostname, input)) return { type: "allow" };
+
+  const routeDecision = resolveAdminHostRequest({ hostname, url, input });
+  if (routeDecision.type !== "rewrite") return routeDecision;
+
+  if (!isSignedIn || !isEmailVerified) {
+    const target = new URL(url);
+    const redirectUrl = new URL(
+      isSignedIn ? "/verify-email" : "/signin",
+      `${(input.nodeEnv ?? process.env.NODE_ENV) === "production" ? "https" : target.protocol.slice(0, -1)}://${resolvePrimaryHost(input)}`,
+    );
+    redirectUrl.searchParams.set("redirectTo", target.toString());
+    return { type: "redirect", url: redirectUrl.toString() };
+  }
+
+  if (platformRole !== "SUPER_ADMIN") {
+    return { type: "reject", status: 403 };
+  }
+
+  return routeDecision;
 }

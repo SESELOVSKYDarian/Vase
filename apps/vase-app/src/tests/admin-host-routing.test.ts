@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAdminCanonicalUrl,
   isAdminHost,
+  resolveAdminAccessDecision,
   resolveAdminHostRequest,
   toInternalAdminPath,
   toPublicAdminPath,
@@ -88,6 +89,17 @@ describe("admin host routing", () => {
     })).toEqual({ type: "reject", status: 404 });
   });
 
+  it("keeps authentication pages on the primary App host", () => {
+    expect(resolveAdminHostRequest({
+      hostname: "admin.vase.ar",
+      url: "https://admin.vase.ar/signin?redirectTo=https%3A%2F%2Fadmin.vase.ar%2Fusers",
+      input: { nodeEnv: "production" },
+    })).toEqual({
+      type: "redirect",
+      url: "https://app.vase.ar/signin?redirectTo=https%3A%2F%2Fadmin.vase.ar%2Fusers",
+    });
+  });
+
   it("builds the canonical clean URL for legacy App routes", () => {
     expect(buildAdminCanonicalUrl({
       url: "https://app.vase.ar/app/admin/users?status=active",
@@ -97,5 +109,69 @@ describe("admin host routing", () => {
       url: "https://app.vase.ar/app/help",
       input: { nodeEnv: "production" },
     })).toBeNull();
+  });
+
+  it("sends signed-out users once to the canonical App login", () => {
+    expect(resolveAdminAccessDecision({
+      hostname: "admin.vase.ar",
+      url: "https://admin.vase.ar/users?status=active",
+      isSignedIn: false,
+      isEmailVerified: false,
+      platformRole: null,
+      input: { nodeEnv: "production" },
+    })).toEqual({
+      type: "redirect",
+      url: "https://app.vase.ar/signin?redirectTo=https%3A%2F%2Fadmin.vase.ar%2Fusers%3Fstatus%3Dactive",
+    });
+  });
+
+  it("keeps verification on App and returns to the clean Admin URL", () => {
+    expect(resolveAdminAccessDecision({
+      hostname: "admin.vase.ar",
+      url: "https://admin.vase.ar/",
+      isSignedIn: true,
+      isEmailVerified: false,
+      platformRole: "SUPER_ADMIN",
+      input: { nodeEnv: "production" },
+    })).toEqual({
+      type: "redirect",
+      url: "https://app.vase.ar/verify-email?redirectTo=https%3A%2F%2Fadmin.vase.ar%2F",
+    });
+  });
+
+  it("returns forbidden for verified users without the Super Admin role", () => {
+    expect(resolveAdminAccessDecision({
+      hostname: "admin.vase.ar",
+      url: "https://admin.vase.ar/users",
+      isSignedIn: true,
+      isEmailVerified: true,
+      platformRole: "USER",
+      input: { nodeEnv: "production" },
+    })).toEqual({ type: "reject", status: 403 });
+  });
+
+  it("rewrites a verified Super Admin clean route", () => {
+    expect(resolveAdminAccessDecision({
+      hostname: "admin.vase.ar",
+      url: "https://admin.vase.ar/users",
+      isSignedIn: true,
+      isEmailVerified: true,
+      platformRole: "SUPER_ADMIN",
+      input: { nodeEnv: "production" },
+    })).toEqual({
+      type: "rewrite",
+      url: "https://admin.vase.ar/app/admin/users",
+    });
+  });
+
+  it("does not apply Admin access decisions to other hosts", () => {
+    expect(resolveAdminAccessDecision({
+      hostname: "app.vase.ar",
+      url: "https://app.vase.ar/app",
+      isSignedIn: false,
+      isEmailVerified: false,
+      platformRole: null,
+      input: { nodeEnv: "production" },
+    })).toEqual({ type: "allow" });
   });
 });
