@@ -124,7 +124,10 @@ export function buildAdminCanonicalUrl({
 }
 
 function isAllowedAdminApi(pathname: string) {
-  return pathname.startsWith("/api/auth/") || pathname.startsWith("/api/admin/");
+  return pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/admin/") ||
+    pathname === "/api/health/live" ||
+    pathname === "/api/health/ready";
 }
 
 export function resolveAdminHostRequest({

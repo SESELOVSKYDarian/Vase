@@ -8,6 +8,11 @@ import {
 } from "../apps/vase-app/src/lib/admin/user-access";
 
 describe("Vase Rest module registration", () => {
+  const readRestAdminService = () => fs.readFileSync(
+    path.resolve("apps/vase-app/src/server/services/rest-admin.ts"),
+    "utf8",
+  );
+
   it("registers the automatic Rest launcher in Vase App", () => {
     expect(getPlatformModuleByKey("rest")).toMatchObject({
       id: "vase_rest",
@@ -26,14 +31,11 @@ describe("Vase Rest module registration", () => {
   });
 
   it("activates the tenant module when a Rest contract is accepted", () => {
-    const route = fs.readFileSync(
-      path.resolve("apps/vase-app/src/app/api/internal/admin/rest/plans/route.ts"),
-      "utf8",
-    );
-    expect(route).toContain("tenantModule.upsert");
-    expect(route).toContain('moduleId: "vase_rest"');
-    expect(route).toContain("activatedAt: new Date()");
-    expect(route).toContain("ensureModuleCatalogSynced");
+    const service = readRestAdminService();
+    expect(service).toContain("tenantModule.upsert");
+    expect(service).toContain('moduleId: "vase_rest"');
+    expect(service).toContain("activatedAt: new Date()");
+    expect(service).toContain("ensureModuleCatalogSynced");
   });
 
   it("registers Rest as an assignable user module with its own label", () => {
@@ -42,30 +44,30 @@ describe("Vase Rest module registration", () => {
   });
 
   it("allows a superadmin to grant and revoke Rest for an active tenant member", () => {
-    const route = fs.readFileSync(
-      path.resolve("apps/vase-app/src/app/api/internal/admin/rest/plans/route.ts"),
-      "utf8",
-    );
-    expect(route).toContain('action: z.literal("SET_USER_ACCESS")');
-    expect(route).toContain("userModuleAccess.upsert");
-    expect(route).toContain('moduleId: "vase_rest"');
-    expect(route).toContain("REST_CONTRACT_REQUIRED");
+    const service = readRestAdminService();
+    expect(service).toContain('action: z.literal("SET_USER_ACCESS")');
+    expect(service).toContain("userModuleAccess.upsert");
+    expect(service).toContain('moduleId: "vase_rest"');
+    expect(service).toContain("REST_CONTRACT_REQUIRED");
   });
 
   it("exposes assignable tenants and their users to authenticated Vase Admin", () => {
-    const route = fs.readFileSync(
-      path.resolve("apps/vase-app/src/app/api/internal/admin/rest/plans/route.ts"),
+    const service = readRestAdminService();
+    expect(service).toContain("contractTenants");
+    expect(service).toContain("memberships");
+    expect(service).toContain("restContract");
+
+    const browserRoute = fs.readFileSync(
+      path.resolve("apps/vase-app/src/app/api/admin/rest/plans/route.ts"),
       "utf8",
     );
-    expect(route).toContain("contractTenants");
-    expect(route).toContain("memberships");
-    expect(route).toContain("restContract");
+    expect(browserRoute).toContain('requireVerifiedPlatformRole("SUPER_ADMIN")');
+    expect(browserRoute).not.toContain("ADMIN_ACTOR_USER_ID");
 
     const adminPage = fs.readFileSync(
-      path.resolve("apps/vase-admin/app/page.tsx"),
+      path.resolve("apps/vase-app/src/app/(platform)/app/admin/rest/page.tsx"),
       "utf8",
     );
-    expect(adminPage).toContain("requireAdminSession");
-    expect(adminPage).not.toContain("ADMIN_ACTOR_USER_ID");
+    expect(adminPage).toContain("RestAdminWorkspace");
   });
 });

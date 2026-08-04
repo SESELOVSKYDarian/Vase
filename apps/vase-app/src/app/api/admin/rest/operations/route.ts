@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { requireVerifiedPlatformRole } from "@/lib/auth/guards";
 import { getRestAdminOperations } from "@/server/services/rest-admin";
 
-export async function GET(_request: Request) {
+export async function GET(request: Request) {
+  void request;
   try {
     await requireVerifiedPlatformRole("SUPER_ADMIN");
     return NextResponse.json(await getRestAdminOperations());

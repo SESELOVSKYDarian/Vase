@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import { forbidden } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
@@ -41,11 +42,11 @@ export default async function AdminPage() {
         description="Mira finanzas, soporte, entregas y accesos bloqueados en una sola vista. Las alertas importantes quedan arriba para accionar rapido."
         actions={
           <>
-            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]" href="/users">
+            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]" href={"/users" as Route}>
               <UserCog className="h-4 w-4" />
               Gestionar usuarios
             </Link>
-            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition hover:opacity-90" href="/tickets">
+            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition hover:opacity-90" href={"/tickets" as Route}>
               <LifeBuoy className="h-4 w-4" />
               Ver soporte
             </Link>
@@ -110,7 +111,7 @@ export default async function AdminPage() {
           title="Accesos bloqueados"
           description="Ultimas cuentas deshabilitadas desde super admin."
           actions={
-            <Link className="text-sm font-semibold text-[var(--accent-strong)] hover:underline" href="/users">
+            <Link className="text-sm font-semibold text-[var(--accent-strong)] hover:underline" href={"/users" as Route}>
               Resolver
             </Link>
           }

@@ -11,7 +11,8 @@ function failure(error: unknown) {
   return NextResponse.json({ error: message }, { status: restAdminErrorStatus(error) });
 }
 
-export async function GET(_request: Request) {
+export async function GET(request: Request) {
+  void request;
   try {
     await requireVerifiedPlatformRole("SUPER_ADMIN");
     return NextResponse.json(await listRestAdminData());

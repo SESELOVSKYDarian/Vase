@@ -23,8 +23,8 @@ Ejemplo:
 | Producto | Servicio EasyPanel | Dockerfile | Dominio | Puerto | Base de datos |
 | --- | --- | --- | --- | --- | --- |
 | Portal | `vase-portal-app` | `apps/vase-portal/Dockerfile` | `vase.ar` | `3001` | `postgres-portal` |
-| App | `vase-app-next` | `apps/vase-app/Dockerfile` | `app.vase.ar` | `3002` | `vase-db` (MySQL transitorio) |
-| Admin | `vase-admin-app` | `apps/vase-admin/Dockerfile` | `admin.vase.ar` | `3003` | `postgres-admin` |
+| App + Super Admin | `vase-app-next` | `apps/vase-app/Dockerfile` | `app.vase.ar`, `admin.vase.ar` | `3002` | `vase-db` (MySQL transitorio) |
+| Admin anterior (rollback temporal) | `vase-admin-app` | `apps/vase-admin/Dockerfile` | sin dominio despues del corte | `3003` | `postgres-admin` (sin uso nuevo) |
 | Help | `vase-help-app` | `apps/vase-help/Dockerfile` | `help.vase.ar` | `3004` | `postgres-help` |
 | Business | `vase-business` | `/apps/vase-editor` | `business.vase.ar` | `3000` | `vase-business-pg` existente |
 | Management | `vase-management-app` | `apps/vase-management/Dockerfile` | `management.vase.ar` | `3006` | `postgres-management` |
@@ -107,13 +107,21 @@ PORT=3001
 NEXT_PUBLIC_APP_URL=https://app.vase.ar
 DATABASE_URL=mysql://USER:PASSWORD@vase-db:3306/vase
 VASE_PRIMARY_HOST=app.vase.ar
+VASE_ADMIN_HOST=admin.vase.ar
 VASE_ADMIN_PUBLIC_URL=https://admin.vase.ar
 BUSINESS_EDITOR_URL=https://business.vase.ar/admin/evolution
+LABS_INTERNAL_URL=http://vase-labs:3007
+REST_INTERNAL_URL=http://vase-rest:3009
+SERVICE_TO_SERVICE_TOKEN=CHANGE_ME_BASE64_32
 APP_KEY=app
 PORT=3002
 ```
 
-### Admin
+`admin.vase.ar` es un segundo dominio del mismo servicio App. Muestra el Super
+Admin completo con URLs limpias (`/users`, `/rest`, `/labs`, etc.) y reutiliza
+la misma sesion y base MySQL de Vase App. No se crea otra base para esta ruta.
+
+### Admin anterior (solo rollback)
 
 ```env
 NEXT_PUBLIC_APP_URL=https://admin.vase.ar
@@ -126,11 +134,29 @@ APP_KEY=admin
 PORT=3003
 ```
 
-Admin no usa un `ADMIN_ACTOR_USER_ID` fijo. Recibe la cookie compartida de
-`.vase.ar`, la valida contra Vase App por `APP_INTERNAL_URL` y exige que la
-sesion pertenezca a un `SUPER_ADMIN`. El token de servicio debe ser identico en
-App y Admin. Al iniciar sesion como superadmin, Vase App redirige a
-`VASE_ADMIN_PUBLIC_URL`.
+Este servicio deja de recibir trafico una vez que `admin.vase.ar` se mueve a
+`vase-app-next`. Mantenerlo detenido y recuperable durante la ventana de
+rollback; no ejecutar Prisma ni migraciones sobre `postgres-admin`, porque el
+Super Admin integrado usa la base y el Prisma de Vase App.
+
+### Corte de `admin.vase.ar` en EasyPanel
+
+1. En `app-vase`/`vase-app-next` conservar `Build Path: /`, seleccionar
+   `Dockerfile` y usar `apps/vase-app/Dockerfile`; el puerto interno sigue
+   siendo `3002`.
+2. Cargar en App `VASE_ADMIN_HOST=admin.vase.ar`,
+   `VASE_ADMIN_PUBLIC_URL=https://admin.vase.ar`,
+   `VASE_PRIMARY_HOST=app.vase.ar`, `AUTH_COOKIE_DOMAIN=.vase.ar` y agregar
+   ambos dominios a `TRUSTED_ORIGINS`.
+3. Confirmar que `REST_INTERNAL_URL`, `LABS_INTERNAL_URL` y
+   `SERVICE_TO_SERVICE_TOKEN` usan los nombres internos de EasyPanel y el mismo
+   token que Rest/Labs.
+4. Desplegar primero App. Luego quitar `admin.vase.ar` del servicio
+   `vase-admin-app` y agregarlo al servicio App con HTTPS y puerto `3002`.
+5. Probar `/`, `/users`, `/rest`, `/labs`, mutaciones y cierre de sesion. El
+   login permanece en `https://app.vase.ar/signin` y vuelve a la URL limpia.
+6. Mantener `vase-admin-app` y `postgres-admin` sin dominio durante el rollback.
+   Solo retirarlos cuando termine la verificacion productiva.
 
 ### Help
 
