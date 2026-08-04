@@ -102,7 +102,7 @@ export default async function AdminDevelopmentPage({ searchParams }: AdminDevelo
       tenantLabel="Admin Master"
     >
       <PanelCard title="Filtros" description="Busca por texto, estado, prioridad, developer y vencimiento.">
-        <form action="/app/admin/development" className="grid gap-3 md:grid-cols-6">
+        <form action="/development" className="grid gap-3 md:grid-cols-6">
           <input name="q" defaultValue={q ?? ""} placeholder="Buscar tarea..." className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm" />
           <select name="status" defaultValue={status ?? ""} className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm">
             <option value="">Todos los estados</option>
@@ -147,7 +147,7 @@ export default async function AdminDevelopmentPage({ searchParams }: AdminDevelo
           ) : null}
           {dueFilter ? <span className="rounded-full bg-[var(--surface-strong)] px-3 py-1 text-xs">Vencimiento: {dueFilter}</span> : null}
           {hasFilters ? (
-            <a href="/app/admin/development" className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold text-[var(--foreground)]">
+            <a href="/development" className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold text-[var(--foreground)]">
               Limpiar filtros
             </a>
           ) : null}

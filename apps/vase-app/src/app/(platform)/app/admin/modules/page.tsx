@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
@@ -29,7 +30,7 @@ export default async function AdminModulesPage() {
               V1 segura: sube ZIP, publícalo y activa por tenant sin ejecutar código dinámico.
             </p>
           </div>
-          <Link href="/app/admin" className="inline-flex min-h-10 items-center rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--surface)]">
+          <Link href={"/" as Route} className="inline-flex min-h-10 items-center rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--surface)]">
             Volver al inicio admin
           </Link>
         </div>
