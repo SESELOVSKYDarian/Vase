@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useActionState, useMemo, useState } from "react";
+import { Fragment, useActionState, useId, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   createAdminModuleAction,
@@ -563,14 +563,18 @@ function FeatureNullableDefaultInput({
   defaultValue: ModuleFeatureView["trialDefault"];
 }) {
   const [mode, setMode] = useState<"null" | "value">(defaultValue === null ? "null" : "value");
+  const inputId = useId();
+  const modeId = `${inputId}-mode`;
+  const valueId = `${inputId}-value`;
   return (
-    <label className="grid gap-1 text-sm text-[var(--foreground)]">
-      {label}
-      <select name={`${field}Mode`} value={mode} onChange={(event) => setMode(event.target.value as "null" | "value")} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]">
+    <div className="grid gap-1 text-sm text-[var(--foreground)]">
+      <label htmlFor={modeId}>{label}: modo</label>
+      <select id={modeId} name={`${field}Mode`} value={mode} onChange={(event) => setMode(event.target.value as "null" | "value")} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]">
         <option value="null">Sin valor</option>
         <option value="value">Usar valor</option>
       </select>
-      <input name={field} disabled={mode === "null"} type={valueType === "INTEGER" ? "number" : "text"} step={valueType === "INTEGER" ? "1" : undefined} defaultValue={formatFeatureDefault(defaultValue)} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] disabled:opacity-60" />
-    </label>
+      <label htmlFor={valueId}>{label}: valor</label>
+      <input id={valueId} name={field} disabled={mode === "null"} required={valueType === "INTEGER" && mode === "value"} type={valueType === "INTEGER" ? "number" : "text"} step={valueType === "INTEGER" ? "1" : undefined} defaultValue={formatFeatureDefault(defaultValue)} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] disabled:opacity-60" />
+    </div>
   );
 }

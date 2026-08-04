@@ -167,6 +167,14 @@ describe("module feature FormData defaults", () => {
       moduleId, key: "invalid-mode", name: "Modo", valueType: "INTEGER", trialDefault: invalidMode,
       activeDefault: 0, minValue: null, maxValue: null, sortOrder: 0, isActive: true,
     }).success).toBe(false);
+    defaults.set("integerMode", "value");
+    defaults.delete("integer");
+    const missingInteger = parseModuleFeatureDefault(defaults, "integer", "INTEGER");
+    expect(missingInteger).toBeUndefined();
+    expect(createModuleFeatureSchema.safeParse({
+      moduleId, key: "missing-integer", name: "Entero", valueType: "INTEGER", trialDefault: missingInteger,
+      activeDefault: 0, minValue: null, maxValue: null, sortOrder: 0, isActive: true,
+    }).success).toBe(false);
   });
 });
 
@@ -181,8 +189,18 @@ describe("module feature default input", () => {
 
     expect(nullMarkup).toContain('name="trialDefaultMode"');
     expect(nullMarkup).toContain('value="null" selected=""');
+    expect(nullMarkup).toContain("disabled=\"\"");
     expect(emptyMarkup).toContain('value="value" selected=""');
     expect(emptyMarkup).toContain('name="trialDefault"');
+    expect(emptyMarkup).toContain("Trial: modo");
+    expect(emptyMarkup).toContain("Trial: valor");
+    expect(emptyMarkup).toMatch(/<label for="[^"]+">Trial: modo<\/label>/);
+    expect(emptyMarkup).toMatch(/<label for="[^"]+">Trial: valor<\/label>/);
+
+    const integerMarkup = renderToStaticMarkup(
+      <FeatureDefaultInput label="Cantidad" field="activeDefault" valueType="INTEGER" defaultValue={0} />,
+    );
+    expect(integerMarkup).toContain("required=\"\"");
   });
 });
 

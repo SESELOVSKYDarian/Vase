@@ -33,6 +33,9 @@ export function parseModuleFeatureDefault(
   }
 
   const rawValue = formData.get(field);
+  if (mode === "value" && valueType === "INTEGER" && (rawValue === null || rawValue === "")) {
+    return undefined;
+  }
   if (rawValue === null) return null;
   const value = String(rawValue);
 
