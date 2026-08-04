@@ -161,7 +161,7 @@ describe("admin user access helpers", () => {
     });
   });
 
-  it("builds the default Labs workspace when Labs is selected", () => {
+  it("retains legacy Labs START/PREMIUM provisioning defaults", () => {
     expect(
       buildLabsWorkspaceProvisioning({
         moduleIds: ["vase_labs"],
