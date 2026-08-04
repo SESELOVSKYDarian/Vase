@@ -21,6 +21,26 @@ type FeatureScopeInput = {
 
 const businessFeatureSubmoduleKeys = new Set(["plantilla", "personalizado"]);
 
+export function parseModuleFeatureDefault(
+  formData: FormData,
+  field: string,
+  valueType: unknown,
+): boolean | number | string | null {
+  const rawValue = formData.get(field);
+  if (rawValue === null) return null;
+  const value = String(rawValue);
+
+  if (valueType === "TEXT") return value;
+  if (value === "") return null;
+  if (valueType === "BOOLEAN") {
+    return value === "true" ? true : value === "false" ? false : value;
+  }
+  if (valueType === "INTEGER") {
+    return /^-?\d+$/.test(value) ? Number(value) : value;
+  }
+  return value;
+}
+
 export async function getBusinessFeatureScope(
   database: FeatureScopeDatabase,
   input: FeatureScopeInput,

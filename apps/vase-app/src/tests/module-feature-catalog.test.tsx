@@ -2,10 +2,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   createModuleFeatureSchema,
+  deleteModuleFeatureSchema,
   updateModuleFeatureSchema,
 } from "@/lib/validators/admin";
 import { AdminModulesConsole } from "@/components/admin/admin-modules-console";
-import { getBusinessFeatureScope } from "@/server/services/module-features";
+import { getBusinessFeatureScope, parseModuleFeatureDefault } from "@/server/services/module-features";
 import { serializeModuleFeature } from "@/server/queries/modules-admin";
 
 vi.mock("@/app/(platform)/app/admin/actions", () => ({
@@ -96,6 +97,54 @@ describe("module feature catalog validation", () => {
       sortOrder: 0,
       isActive: true,
     }).success).toBe(false);
+  });
+
+  it("rejects unknown fields on every feature mutation schema", () => {
+    const values = {
+      name: "Catálogo",
+      valueType: "BOOLEAN" as const,
+      trialDefault: true,
+      activeDefault: false,
+      minValue: null,
+      maxValue: null,
+      sortOrder: 0,
+      isActive: true,
+      unexpected: "nope",
+    };
+    expect(createModuleFeatureSchema.safeParse({ moduleId, key: "catalog", ...values }).success).toBe(false);
+    expect(updateModuleFeatureSchema.safeParse({ featureId: submoduleId, ...values }).success).toBe(false);
+    expect(deleteModuleFeatureSchema.safeParse({ featureId: submoduleId, unexpected: "nope" }).success).toBe(false);
+  });
+});
+
+describe("module feature FormData defaults", () => {
+  it("keeps invalid boolean and integer values invalid while preserving an explicit empty TEXT default", () => {
+    const defaults = new FormData();
+    defaults.set("boolean", "not-a-boolean");
+    defaults.set("integer", "2.5");
+    defaults.set("text", "");
+
+    const invalidBoolean = parseModuleFeatureDefault(defaults, "boolean", "BOOLEAN");
+    const invalidInteger = parseModuleFeatureDefault(defaults, "integer", "INTEGER");
+    const emptyText = parseModuleFeatureDefault(defaults, "text", "TEXT");
+    expect(invalidBoolean).toBe("not-a-boolean");
+    expect(invalidInteger).toBe("2.5");
+    expect(emptyText).toBe("");
+    expect(parseModuleFeatureDefault(new FormData(), "missing", "TEXT")).toBeNull();
+    expect(createModuleFeatureSchema.safeParse({
+      moduleId, key: "flag", name: "Flag", valueType: "BOOLEAN", trialDefault: invalidBoolean,
+      activeDefault: false, minValue: null, maxValue: null, sortOrder: 0, isActive: true,
+    }).success).toBe(false);
+    expect(createModuleFeatureSchema.safeParse({
+      moduleId, key: "integer", name: "Entero", valueType: "INTEGER", trialDefault: invalidInteger,
+      activeDefault: 1, minValue: null, maxValue: null, sortOrder: 0, isActive: true,
+    }).success).toBe(false);
+    const textResult = createModuleFeatureSchema.safeParse({
+      moduleId, key: "text", name: "Texto", valueType: "TEXT", trialDefault: emptyText,
+      activeDefault: "", minValue: null, maxValue: null, sortOrder: 0, isActive: true,
+    });
+    expect(textResult.success).toBe(true);
+    if (textResult.success) expect(textResult.data.trialDefault).toBe("");
   });
 });
 

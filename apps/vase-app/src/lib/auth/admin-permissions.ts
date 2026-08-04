@@ -39,7 +39,10 @@ export async function requireAdminPermission(permission: AdminPermission) {
     (permission === "FAQS" && policy.canManageFaqs) ||
     (permission === "WIKI" && policy.canManageWiki) ||
     (permission === "AUDIT" && policy.canViewAudit) ||
-    (permission === "NOTIFICATIONS" && policy.canManageNotifications);
+    (permission === "NOTIFICATIONS" && policy.canManageNotifications) ||
+    // MODULES intentionally reuses the closest existing support grant until
+    // adminAccessPolicy receives a dedicated canManageModules column.
+    (permission === "MODULES" && policy.canManageUsers);
 
   if (!allowed) {
     throw new Error("FORBIDDEN");

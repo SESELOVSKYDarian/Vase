@@ -379,8 +379,8 @@ const moduleFeatureValueFields = {
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(1000).nullable().optional(),
   valueType: moduleFeatureValueTypeSchema,
-  trialDefault: z.union([z.boolean(), z.number().int(), z.string().trim().max(2000), z.null()]),
-  activeDefault: z.union([z.boolean(), z.number().int(), z.string().trim().max(2000), z.null()]),
+  trialDefault: z.union([z.boolean(), z.number().int(), z.string().max(2000), z.null()]),
+  activeDefault: z.union([z.boolean(), z.number().int(), z.string().max(2000), z.null()]),
   minValue: z.coerce.number().int().nullable(),
   maxValue: z.coerce.number().int().nullable(),
   sortOrder: z.coerce.number().int().min(-10000).max(10000),
@@ -433,25 +433,25 @@ function validateModuleFeatureValues(value: ModuleFeatureValues, context: z.Refi
   }
 }
 
-const moduleFeatureValuesSchema = z.object(moduleFeatureValueFields).superRefine(validateModuleFeatureValues);
-
 export const createModuleFeatureSchema = z.object({
   moduleId: z.string().trim().min(3).max(80),
   submoduleId: z.string().trim().cuid().nullable().optional(),
   key: moduleFeatureKeySchema,
-}).extend(moduleFeatureValuesSchema.shape).superRefine((value, context) => {
+  ...moduleFeatureValueFields,
+}).strict().superRefine((value, context) => {
   validateModuleFeatureValues(value, context);
 });
 
 export const updateModuleFeatureSchema = z.object({
   featureId: z.string().trim().cuid(),
-}).extend(moduleFeatureValuesSchema.shape).superRefine((value, context) => {
+  ...moduleFeatureValueFields,
+}).strict().superRefine((value, context) => {
   validateModuleFeatureValues(value, context);
 });
 
 export const deleteModuleFeatureSchema = z.object({
   featureId: z.string().trim().cuid(),
-});
+}).strict();
 
 export const updateModuleSubmodulePricingSchema = z.object({
   submoduleId: z.string().trim().cuid(),

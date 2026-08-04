@@ -98,7 +98,7 @@ import {
 import { createAuditLog } from "@/server/services/audit-log";
 import { createAutoAdminNotification } from "@/server/services/admin-notifications-auto";
 import { ensureModuleCatalogSynced, normalizePricingType } from "@/server/services/modules";
-import { getBusinessFeatureScope } from "@/server/services/module-features";
+import { getBusinessFeatureScope, parseModuleFeatureDefault } from "@/server/services/module-features";
 import {
   buildClientTenantAccessProvisioning,
   buildAdminCreatedUserVerification,
@@ -1892,14 +1892,6 @@ export async function deleteModuleSubmoduleAction(
   }
 }
 
-function parseModuleFeatureDefault(formData: FormData, field: "trialDefault" | "activeDefault", valueType: unknown) {
-  const rawValue = String(formData.get(field) ?? "").trim();
-  if (!rawValue) return null;
-  if (valueType === "BOOLEAN") return rawValue === "true";
-  if (valueType === "INTEGER") return Number(rawValue);
-  return rawValue;
-}
-
 function parseNullableInteger(formData: FormData, field: "minValue" | "maxValue") {
   const rawValue = String(formData.get(field) ?? "").trim();
   return rawValue ? Number(rawValue) : null;
@@ -1911,6 +1903,23 @@ function toModuleFeatureJsonValue(value: boolean | number | string | null): Pris
 
 function isPrismaUniqueConflict(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+function mapModuleFeatureActionError(error: unknown, fallback: string) {
+  if (isPrismaUniqueConflict(error)) return "Ya existe una característica con esa clave en este alcance.";
+  if (error instanceof Error) {
+    if (error.message === "FORBIDDEN") return "No tienes permisos para gestionar características.";
+    if (error.message === "Las características solo están disponibles para Vase Business.") {
+      return "Las características solo están disponibles para Vase Business.";
+    }
+    if (error.message === "El submódulo no pertenece al módulo Business seleccionado.") {
+      return "El submódulo seleccionado no pertenece a Vase Business.";
+    }
+    if (error.message === "Las características solo pueden asignarse a Plantilla o Personalizado.") {
+      return "Las características solo pueden asignarse a Plantilla o Personalizado.";
+    }
+  }
+  return fallback;
 }
 
 export async function createModuleFeatureAction(
@@ -1969,8 +1978,7 @@ export async function createModuleFeatureAction(
     revalidatePath("/modules");
     return { success: "Característica creada." };
   } catch (error) {
-    if (isPrismaUniqueConflict(error)) return { error: "Ya existe una característica con esa clave en este alcance." };
-    return { error: error instanceof Error ? error.message : "No pudimos crear la característica." };
+    return { error: mapModuleFeatureActionError(error, "No pudimos crear la característica.") };
   }
 }
 
@@ -2030,7 +2038,7 @@ export async function updateModuleFeatureAction(
     revalidatePath("/modules");
     return { success: "Característica actualizada." };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "No pudimos actualizar la característica." };
+    return { error: mapModuleFeatureActionError(error, "No pudimos actualizar la característica.") };
   }
 }
 
@@ -2064,7 +2072,7 @@ export async function deleteModuleFeatureAction(
     revalidatePath("/modules");
     return { success: "Característica eliminada." };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "No pudimos eliminar la característica." };
+    return { error: mapModuleFeatureActionError(error, "No pudimos eliminar la característica.") };
   }
 }
 
