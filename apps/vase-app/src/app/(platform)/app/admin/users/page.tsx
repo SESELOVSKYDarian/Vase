@@ -2,6 +2,10 @@ import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminMasterUsersWorkspace } from "@/components/admin/admin-master-users-workspace";
 import { getUserAccessModuleLabel, inferUiRoleFromStoredRoles } from "@/lib/admin/user-access";
+import {
+  parseStoredClientProductAccess,
+  projectClientProductAccessToLegacy,
+} from "@/lib/admin/client-product-access";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 
@@ -163,10 +167,15 @@ export default async function AdminUsersPage() {
           moduleLimits?: Record<string, { pages?: number | null; chatbots?: number | null }>;
         }
       | null;
+    const storedProductAccess = parseStoredClientProductAccess(user.clientAccessConfig);
+    const projectedV2Config = storedProductAccess
+      ? projectClientProductAccessToLegacy(storedProductAccess)
+      : null;
     const clientAccessConfig = rawClientAccessConfig
         ? {
-          tenantPlan: rawClientAccessConfig.tenantPlan ?? "TRIAL",
+          tenantPlan: projectedV2Config?.tenantPlan ?? rawClientAccessConfig.tenantPlan ?? "TRIAL",
           proSubmoduleIds:
+            projectedV2Config?.proSubmoduleIds ??
             rawClientAccessConfig.proSubmoduleIds ??
             (rawClientAccessConfig.proSubmoduleId ? [rawClientAccessConfig.proSubmoduleId] : []),
           tenantName: rawClientAccessConfig.tenantName ?? primaryMembership?.tenant.name ?? "",
@@ -176,7 +185,7 @@ export default async function AdminUsersPage() {
           tenantStatus: rawClientAccessConfig.tenantStatus ?? primaryMembership?.tenant.status ?? "TRIAL",
           tenantRole: rawClientAccessConfig.tenantRole ?? primaryMembership?.role ?? "OWNER",
           membershipStatus: rawClientAccessConfig.membershipStatus ?? primaryMembership?.status ?? "ACTIVE",
-          moduleLimits: Object.fromEntries(
+          moduleLimits: projectedV2Config?.moduleLimits ?? Object.fromEntries(
             Object.entries(rawClientAccessConfig.moduleLimits ?? {}).map(([moduleId, limits]) => [
               moduleId,
               {

@@ -62,6 +62,34 @@ export const clientProductAccessSchema = z.object({
 
 export type ClientProductAccess = z.infer<typeof clientProductAccessSchema>;
 
+export const clientProductAccessEnvelopeSchema = z.object({
+  version: z.literal(2),
+  productAccess: clientProductAccessSchema,
+}).strict();
+
+export function parseStoredClientProductAccess(value: unknown): ClientProductAccess | null {
+  const parsed = clientProductAccessEnvelopeSchema.safeParse(value);
+  return parsed.success ? parsed.data.productAccess : null;
+}
+
+export function projectClientProductAccessToLegacy(access: ClientProductAccess) {
+  const statuses = [
+    ...(access.business?.submodules.map((submodule) => submodule.status) ?? []),
+    access.labs?.status,
+    access.rest?.status,
+    access.management?.status,
+  ].filter((status): status is CommercialStatus => status === "TRIAL" || status === "ACTIVE");
+
+  return {
+    tenantPlan: statuses.includes("ACTIVE") ? "PRO" as const : "TRIAL" as const,
+    proSubmoduleIds: [
+      ...(access.business?.submodules.map((submodule) => submodule.id) ?? []),
+      ...(access.labs ? [access.labs.submoduleId] : []),
+    ],
+    moduleLimits: {} as Record<string, { pages: number | null; chatbots: number | null }>,
+  };
+}
+
 type LabsEntitlement = {
   channels: {
     whatsapp: number;

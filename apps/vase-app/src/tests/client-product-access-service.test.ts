@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it } from "vitest";
 import {
+  clientProductAccessSchema,
+  parseStoredClientProductAccess,
+  projectClientProductAccessToLegacy,
+} from "@/lib/admin/client-product-access";
+import {
   adaptLegacyClientProductAccessWithTx,
   applyClientProductAccess,
 } from "@/server/services/client-product-access";
@@ -320,6 +325,25 @@ describe("applyClientProductAccess", () => {
     expect(state.grants.find((grant) => grant.featureId === "custom-label")).toMatchObject({ value: "Preserve me" });
   });
 
+  it("does not mutate any Business grants in legacy PRESERVE mode", async () => {
+    const { tx, state } = createStatefulTx();
+    state.grants.push({ tenantId: "tenant-1", featureId: "template-pages", enabled: true, value: 9 });
+    const before = structuredClone(state.grants);
+
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      businessFeatureMode: "PRESERVE",
+      access: {
+        business: { submodules: [{ id: "business-template", key: "plantilla", status: "ACTIVE", features: [] }] },
+        labs: null,
+        rest: null,
+        management: null,
+      },
+    });
+    expect(state.grants).toEqual(before);
+  });
+
   it("rejects cross-scope features and invalid feature values before writes", async () => {
     const crossScope = createStatefulTx();
     await expect(applyClientProductAccess({
@@ -405,6 +429,31 @@ describe("applyClientProductAccess", () => {
 });
 
 describe("adaptLegacyClientProductAccessWithTx", () => {
+  it("preserves every selected product from stored v2 through projection and legacy resubmission", async () => {
+    const storedAccess = clientProductAccessSchema.parse({
+      business: { submodules: [
+        { id: "business-template", key: "plantilla", status: "ACTIVE", features: [{ featureId: "template-pages", enabled: true, value: 6 }] },
+        { id: "business-custom", key: "personalizado", status: "TRIAL", features: [{ featureId: "custom-label", enabled: false, value: "Keep" }] },
+      ] },
+      labs: { submoduleId: "labs-growth", plan: "GROWTH", status: "TRIAL" },
+      rest: { pricingVersionId: "rest-existing", status: "ACTIVE" },
+      management: { status: "TRIAL" },
+    });
+    const reloadedAccess = parseStoredClientProductAccess({ version: 2, productAccess: storedAccess });
+    expect(reloadedAccess).toEqual(storedAccess);
+    const projected = projectClientProductAccessToLegacy(reloadedAccess!);
+    const { tx } = createStatefulTx();
+
+    const roundTripped = await adaptLegacyClientProductAccessWithTx({
+      tx,
+      ownerUserId: "owner-1",
+      moduleIds: ["vase_business", "vase_labs", "vase_rest", "vase_management"],
+      rawConfig: projected,
+      storedAccess,
+    });
+    expect(roundTripped).toEqual(storedAccess);
+  });
+
   it("maps the current form shape to authoritative Business, one Labs plan, and Management access", async () => {
     const { tx } = createStatefulTx();
     const access = await adaptLegacyClientProductAccessWithTx({
@@ -477,14 +526,42 @@ describe("adaptLegacyClientProductAccessWithTx", () => {
     })).rejects.toThrow("CLIENT_LEGACY_REST_PLAN_REQUIRED");
   });
 
-  it("rejects selected legacy products when their authoritative catalog is unavailable", async () => {
-    const missing = createStatefulTx();
-    missing.tx.moduleSubmodule.findMany = async () => submodules.filter((item) => item.moduleId === "vase_labs");
-    await expect(adaptLegacyClientProductAccessWithTx({
-      tx: missing.tx,
+  it("does not overgrant Business when a new legacy selection has no submodule ids", async () => {
+    const fresh = createStatefulTx({ existingTenant: false });
+    const freshAccess = await adaptLegacyClientProductAccessWithTx({
+      tx: fresh.tx,
+      ownerUserId: "new-owner",
+      moduleIds: ["vase_business"],
+      rawConfig: { tenantPlan: "TRIAL", proSubmoduleIds: [] },
+    });
+    expect(freshAccess.business).toEqual({ submodules: [] });
+    await applyClientProductAccess({
+      ...baseInput,
+      tx: fresh.tx,
+      ownerUserId: "new-owner",
+      access: freshAccess,
+      businessFeatureMode: "PRESERVE",
+    });
+    expect(fresh.state.tenantModules).toEqual(expect.arrayContaining([
+      expect.objectContaining({ moduleId: "vase_business", isActive: true }),
+    ]));
+    expect(fresh.state.tenantSubmodules).toEqual([]);
+
+    const existing = createStatefulTx();
+    existing.state.tenantSubmodules.push({ tenantId: "tenant-1", submoduleId: "business-template", isActive: true, commercialStatus: "TRIAL", trialEndsAt: null });
+    const existingAccess = await adaptLegacyClientProductAccessWithTx({
+      tx: existing.tx,
       ownerUserId: "owner-1",
       moduleIds: ["vase_business"],
       rawConfig: { tenantPlan: "TRIAL", proSubmoduleIds: [] },
-    })).rejects.toThrow("CLIENT_BUSINESS_SUBMODULE_INVALID");
+    });
+    expect(existingAccess.business).toEqual({
+      submodules: [{ id: "business-template", key: "plantilla", status: "TRIAL", features: [] }],
+    });
+    await applyClientProductAccess({ ...baseInput, tx: existing.tx, access: existingAccess, businessFeatureMode: "PRESERVE" });
+    expect(existing.state.tenantSubmodules.find((item) => item.submoduleId === "business-template")).toMatchObject({
+      isActive: true,
+      commercialStatus: "TRIAL",
+    });
   });
 });

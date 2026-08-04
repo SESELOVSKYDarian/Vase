@@ -41,7 +41,7 @@ const legacyClientAccessSchema = z.object({
 
 type LegacyAdapterTransaction = Pick<
   Prisma.TransactionClient,
-  "membership" | "moduleSubmodule" | "tenantRestContract" | "restPricingVersion"
+  "membership" | "moduleSubmodule" | "tenantSubmodule" | "tenantRestContract" | "restPricingVersion"
 >;
 
 export async function adaptLegacyClientProductAccessWithTx(input: {
@@ -49,6 +49,7 @@ export async function adaptLegacyClientProductAccessWithTx(input: {
   ownerUserId: string;
   moduleIds: string[];
   rawConfig: unknown;
+  storedAccess?: ClientProductAccess | null;
   now?: Date;
 }): Promise<ClientProductAccess> {
   const legacy = legacyClientAccessSchema.parse(input.rawConfig);
@@ -79,8 +80,6 @@ export async function adaptLegacyClientProductAccessWithTx(input: {
     item.moduleId === userAccessModuleIds.business &&
     (item.key === "plantilla" || item.key === "personalizado"));
   const selectedBusiness = managedBusinessCatalog.filter((item) => selectedLegacyIds.includes(item.id));
-  const businessCatalog = selectedBusiness.length ? selectedBusiness : managedBusinessCatalog;
-  if (wantsBusiness && businessCatalog.length === 0) throw new Error("CLIENT_BUSINESS_SUBMODULE_INVALID");
 
   const labsPlanByKey = new Map<string, "STARTER" | "PRO" | "GROWTH">([
     ["starter", "STARTER"],
@@ -92,50 +91,84 @@ export async function adaptLegacyClientProductAccessWithTx(input: {
     .filter((item) => item.isActive && item.moduleId === userAccessModuleIds.labs && selectedLegacyIds.includes(item.id) && labsPlanByKey.has(item.key))
     .sort((left, right) => (labsRank.get(labsPlanByKey.get(right.key)!) ?? 0) - (labsRank.get(labsPlanByKey.get(left.key)!) ?? 0))[0]
     ?? catalog.find((item) => item.isActive && item.moduleId === userAccessModuleIds.labs && item.key === "starter");
-  if (wantsLabs && !selectedLabsCatalog) throw new Error("CLIENT_LABS_PLAN_INVALID");
+  if (wantsLabs && !input.storedAccess?.labs && !selectedLabsCatalog) throw new Error("CLIENT_LABS_PLAN_INVALID");
+
+  const needsMembership = (wantsRest && !input.storedAccess?.rest) ||
+    (wantsBusiness && !input.storedAccess?.business && selectedBusiness.length === 0);
+  const membership = needsMembership
+    ? await input.tx.membership.findFirst({
+        where: { userId: input.ownerUserId },
+        orderBy: [{ role: "asc" }, { status: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+        select: { tenantId: true },
+      })
+    : null;
+  const activeBusinessLinks = wantsBusiness && !input.storedAccess?.business && selectedBusiness.length === 0 && membership
+    ? await input.tx.tenantSubmodule.findMany({
+        where: {
+          tenantId: membership.tenantId,
+          submoduleId: { in: managedBusinessCatalog.map((item) => item.id) },
+          isActive: true,
+        },
+        select: { submoduleId: true, commercialStatus: true },
+      })
+    : [];
+  const activeBusinessById = new Map(activeBusinessLinks.map((link) => [link.submoduleId, link]));
+  const synthesizedBusiness = selectedBusiness.length
+    ? selectedBusiness.map((item) => ({ id: item.id, key: item.key, status, features: [] }))
+    : managedBusinessCatalog
+        .filter((item) => activeBusinessById.has(item.id))
+        .map((item) => ({
+          id: item.id,
+          key: item.key,
+          status: activeBusinessById.get(item.id)?.commercialStatus === "ACTIVE" ? "ACTIVE" as const : "TRIAL" as const,
+          features: [],
+        }));
 
   let rest: ClientProductAccess["rest"] = null;
   if (wantsRest) {
-    const membership = await input.tx.membership.findFirst({
-      where: { userId: input.ownerUserId },
-      orderBy: [{ role: "asc" }, { status: "asc" }, { createdAt: "asc" }, { id: "asc" }],
-      select: { tenantId: true },
-    });
-    const existingContract = membership
-      ? await input.tx.tenantRestContract.findUnique({
-          where: { tenantId: membership.tenantId },
-          select: { pricingVersionId: true, status: true },
-        })
-      : null;
-    if (existingContract) {
-      rest = {
-        pricingVersionId: existingContract.pricingVersionId,
-        status: existingContract.status === "TRIAL" ? "TRIAL" : "ACTIVE",
-      };
+    if (input.storedAccess?.rest) {
+      rest = input.storedAccess.rest;
     } else {
-      const eligible = await input.tx.restPricingVersion.findMany({
-        where: {
-          plan: "STARTER",
-          status: "PUBLISHED",
-          effectiveAt: { lte: input.now ?? new Date() },
-        },
-        select: { id: true },
-        take: 2,
-      });
-      if (eligible.length !== 1) throw new Error("CLIENT_LEGACY_REST_PLAN_REQUIRED");
-      rest = { pricingVersionId: eligible[0].id, status };
+      const existingContract = membership
+        ? await input.tx.tenantRestContract.findUnique({
+            where: { tenantId: membership.tenantId },
+            select: { pricingVersionId: true, status: true },
+          })
+        : null;
+      if (existingContract) {
+        rest = {
+          pricingVersionId: existingContract.pricingVersionId,
+          status: existingContract.status === "TRIAL" ? "TRIAL" : "ACTIVE",
+        };
+      } else {
+        const eligible = await input.tx.restPricingVersion.findMany({
+          where: {
+            plan: "STARTER",
+            status: "PUBLISHED",
+            effectiveAt: { lte: input.now ?? new Date() },
+          },
+          select: { id: true },
+          take: 2,
+        });
+        if (eligible.length !== 1) throw new Error("CLIENT_LEGACY_REST_PLAN_REQUIRED");
+        rest = { pricingVersionId: eligible[0].id, status };
+      }
     }
   }
 
   return clientProductAccessSchema.parse({
     business: wantsBusiness
-      ? { submodules: businessCatalog.map((item) => ({ id: item.id, key: item.key, status, features: [] })) }
+      ? input.storedAccess?.business ?? { submodules: synthesizedBusiness }
       : null,
-    labs: wantsLabs && selectedLabsCatalog
-      ? { submoduleId: selectedLabsCatalog.id, plan: labsPlanByKey.get(selectedLabsCatalog.key), status }
+    labs: wantsLabs
+      ? input.storedAccess?.labs ?? (selectedLabsCatalog
+        ? { submoduleId: selectedLabsCatalog.id, plan: labsPlanByKey.get(selectedLabsCatalog.key), status }
+        : null)
       : null,
     rest,
-    management: input.moduleIds.includes(userAccessModuleIds.management) ? { status } : null,
+    management: input.moduleIds.includes(userAccessModuleIds.management)
+      ? input.storedAccess?.management ?? { status }
+      : null,
   });
 }
 
@@ -167,6 +200,7 @@ export async function applyClientProductAccess(input: {
   ownerName: string;
   ownerEmail: string;
   access: ClientProductAccess;
+  businessFeatureMode?: "REPLACE" | "PRESERVE";
   tenantSlugSeed?: string;
   now?: Date;
 }) {
@@ -180,7 +214,7 @@ export async function applyClientProductAccess(input: {
     ...(access.labs ? [access.labs.submoduleId] : []),
   ];
   const selectedModuleIds = [
-    ...(requestedBusinessIds.length ? [userAccessModuleIds.business] : []),
+    ...(access.business ? [userAccessModuleIds.business] : []),
     ...(access.labs ? [userAccessModuleIds.labs] : []),
     ...(access.management ? [userAccessModuleIds.management] : []),
     ...(access.rest ? [userAccessModuleIds.rest] : []),
@@ -334,7 +368,7 @@ export async function applyClientProductAccess(input: {
   });
 
   const ordinaryModuleStates: Array<{ moduleId: string; status: "TRIAL" | "ACTIVE" }> = [];
-  if (requestedBusinessIds.length) ordinaryModuleStates.push({
+  if (access.business) ordinaryModuleStates.push({
     moduleId: userAccessModuleIds.business,
     status: moduleCommercialStatus(access.business!.submodules.map((item) => item.status)),
   });
@@ -377,27 +411,29 @@ export async function applyClientProductAccess(input: {
     });
   }
 
-  const explicitlySubmittedFeatureIds = new Set(requestedFeatureIds);
-  const businessFeatureIds = businessFeatures
-    .filter((feature) =>
-      (feature.submoduleId !== null && requestedBusinessIds.includes(feature.submoduleId)) ||
-      (feature.submoduleId === null && explicitlySubmittedFeatureIds.has(feature.id)))
-    .map((feature) => feature.id);
-  if (businessFeatureIds.length) {
-    await input.tx.tenantFeatureGrant.deleteMany({
-      where: { tenantId, featureId: { in: businessFeatureIds } },
-    });
-  }
-  for (const submitted of access.business?.submodules.flatMap((submodule) => submodule.features) ?? []) {
-    const data = {
-      enabled: submitted.enabled,
-      value: submitted.value === null ? Prisma.JsonNull : submitted.value,
-    };
-    await input.tx.tenantFeatureGrant.upsert({
-      where: { tenantId_featureId: { tenantId, featureId: submitted.featureId } },
-      update: data,
-      create: { tenantId, featureId: submitted.featureId, ...data },
-    });
+  if (input.businessFeatureMode !== "PRESERVE") {
+    const explicitlySubmittedFeatureIds = new Set(requestedFeatureIds);
+    const businessFeatureIds = businessFeatures
+      .filter((feature) =>
+        (feature.submoduleId !== null && requestedBusinessIds.includes(feature.submoduleId)) ||
+        (feature.submoduleId === null && explicitlySubmittedFeatureIds.has(feature.id)))
+      .map((feature) => feature.id);
+    if (businessFeatureIds.length) {
+      await input.tx.tenantFeatureGrant.deleteMany({
+        where: { tenantId, featureId: { in: businessFeatureIds } },
+      });
+    }
+    for (const submitted of access.business?.submodules.flatMap((submodule) => submodule.features) ?? []) {
+      const data = {
+        enabled: submitted.enabled,
+        value: submitted.value === null ? Prisma.JsonNull : submitted.value,
+      };
+      await input.tx.tenantFeatureGrant.upsert({
+        where: { tenantId_featureId: { tenantId, featureId: submitted.featureId } },
+        update: data,
+        create: { tenantId, featureId: submitted.featureId, ...data },
+      });
+    }
   }
 
   await input.tx.tenantSubmodule.updateMany({

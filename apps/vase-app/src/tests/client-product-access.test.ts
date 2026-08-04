@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clientProductAccessSchema,
   getLabsEntitlement,
+  projectClientProductAccessToLegacy,
 } from "@/lib/admin/client-product-access";
 
 const disabledProducts = {
@@ -154,5 +155,23 @@ describe("client product access", () => {
         },
       }).success,
     ).toBe(false);
+  });
+
+  it("projects a v2 snapshot to the current legacy form without losing selected submodules", () => {
+    const access = clientProductAccessSchema.parse({
+      business: { submodules: [
+        { id: "business-template", key: "plantilla", status: "ACTIVE", features: [{ featureId: "pages", enabled: true, value: 7 }] },
+        { id: "business-custom", key: "personalizado", status: "TRIAL", features: [] },
+      ] },
+      labs: { submoduleId: "labs-growth", plan: "GROWTH", status: "TRIAL" },
+      rest: { pricingVersionId: "rest-9", status: "ACTIVE" },
+      management: { status: "TRIAL" },
+    });
+
+    expect(projectClientProductAccessToLegacy(access)).toEqual({
+      tenantPlan: "PRO",
+      proSubmoduleIds: ["business-template", "business-custom", "labs-growth"],
+      moduleLimits: {},
+    });
   });
 });

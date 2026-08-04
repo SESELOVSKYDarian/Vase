@@ -105,7 +105,11 @@ import {
   shouldForceAdminCreatedUserPasswordReset,
   userAccessModuleIds,
 } from "@/lib/admin/user-access";
-import { clientProductAccessSchema, type ClientProductAccess } from "@/lib/admin/client-product-access";
+import {
+  clientProductAccessSchema,
+  parseStoredClientProductAccess,
+  type ClientProductAccess,
+} from "@/lib/admin/client-product-access";
 import {
   adaptLegacyClientProductAccessWithTx,
   applyClientProductAccess,
@@ -5126,6 +5130,13 @@ export async function upsertMasterUserWithStateAction(
         where: { email: parsed.data.email },
         select: { id: true },
       });
+      const existingTargetUser = parsed.data.userId
+        ? await tx.user.findUnique({
+            where: { id: parsed.data.userId },
+            select: { clientAccessConfig: true },
+          })
+        : null;
+      const storedClientProductAccess = parseStoredClientProductAccess(existingTargetUser?.clientAccessConfig);
 
       const resolveClientProductAccess = async (ownerUserId: string) => {
         if (!clientAccessPayload) return null;
@@ -5135,6 +5146,7 @@ export async function upsertMasterUserWithStateAction(
           ownerUserId,
           moduleIds: requestedModuleIds,
           rawConfig: clientAccessPayload.rawConfig,
+          storedAccess: storedClientProductAccess,
         });
       };
 
@@ -5213,6 +5225,7 @@ export async function upsertMasterUserWithStateAction(
             ownerName: createdUser.name,
             ownerEmail: createdUser.email,
             access: resolvedClientProductAccess,
+            businessFeatureMode: clientAccessPayload?.kind === "legacy" ? "PRESERVE" : "REPLACE",
             tenantSlugSeed: createdUser.name || createdUser.email.split("@")[0],
           })
           : null;
@@ -5296,6 +5309,7 @@ export async function upsertMasterUserWithStateAction(
           ownerName: updatedUser.name,
           ownerEmail: updatedUser.email,
           access: resolvedClientProductAccess,
+          businessFeatureMode: clientAccessPayload?.kind === "legacy" ? "PRESERVE" : "REPLACE",
           tenantSlugSeed: updatedUser.name || updatedUser.email.split("@")[0],
         })
         : null;

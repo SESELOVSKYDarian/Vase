@@ -45,8 +45,11 @@ import { upsertMasterUserWithStateAction } from "@/app/(platform)/app/admin/acti
 
 const userId = "ckabcdefghijklmnopqrstuv";
 const convertedAccess = {
-  business: { submodules: [{ id: "business-template", key: "plantilla", status: "ACTIVE", features: [] }] },
-  labs: { submoduleId: "labs-starter", plan: "STARTER", status: "ACTIVE" },
+  business: { submodules: [
+    { id: "business-template", key: "plantilla", status: "ACTIVE", features: [{ featureId: "pages", enabled: true, value: 4 }] },
+    { id: "business-custom", key: "personalizado", status: "TRIAL", features: [] },
+  ] },
+  labs: { submoduleId: "labs-growth", plan: "GROWTH", status: "TRIAL" },
   rest: null,
   management: { status: "ACTIVE" },
 } as const;
@@ -81,7 +84,9 @@ describe("upsertMasterUserWithStateAction legacy client compatibility", () => {
   const tx = {
     role: { upsert: vi.fn().mockResolvedValue({ id: "role-client" }) },
     user: {
-      findUnique: vi.fn().mockResolvedValue({ id: userId }),
+      findUnique: vi.fn().mockImplementation(async ({ where }: { where: { id?: string; email?: string } }) => where.id
+        ? { id: userId, clientAccessConfig: { version: 2, productAccess: convertedAccess } }
+        : { id: userId }),
       update: mocks.updateUser,
     },
     userRole: { deleteMany: vi.fn(), create: vi.fn() },
@@ -120,9 +125,14 @@ describe("upsertMasterUserWithStateAction legacy client compatibility", () => {
       ownerUserId: userId,
       moduleIds: ["vase_business", "vase_labs", "vase_management"],
       rawConfig: expect.objectContaining({ tenantName: "Ignored tenant", tenantRole: "MEMBER" }),
+      storedAccess: convertedAccess,
     }));
     expect(state.clientAccessConfig).toEqual({ version: 2, productAccess: convertedAccess });
-    expect(mocks.applyAccess).toHaveBeenCalledWith(expect.objectContaining({ tx, access: convertedAccess }));
+    expect(mocks.applyAccess).toHaveBeenCalledWith(expect.objectContaining({
+      tx,
+      access: convertedAccess,
+      businessFeatureMode: "PRESERVE",
+    }));
     expect(mocks.persistAuditLog).toHaveBeenCalledTimes(1);
   });
 
@@ -145,5 +155,17 @@ describe("upsertMasterUserWithStateAction legacy client compatibility", () => {
     });
     expect(mocks.applyAccess).not.toHaveBeenCalled();
     expect(mocks.persistAuditLog).not.toHaveBeenCalled();
+  });
+
+  it("uses scoped REPLACE behavior for an explicit v2 submission", async () => {
+    const form = currentLegacyForm();
+    form.set("clientAccessConfig", JSON.stringify({ version: 2, productAccess: convertedAccess }));
+
+    await expect(upsertMasterUserWithStateAction({}, form)).resolves.toEqual({ success: "Usuario actualizado." });
+    expect(mocks.adaptLegacy).not.toHaveBeenCalled();
+    expect(mocks.applyAccess).toHaveBeenCalledWith(expect.objectContaining({
+      access: convertedAccess,
+      businessFeatureMode: "REPLACE",
+    }));
   });
 });
