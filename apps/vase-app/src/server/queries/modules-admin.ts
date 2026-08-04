@@ -53,7 +53,12 @@ export async function getAdminModulesCatalog() {
   return modules.map((module) => {
     const definition =
       platformModules.find((entry) => entry.id === module.id) ??
-      getPlatformModuleByKey(module.product === "BUSINESS" ? "business" : module.product === "LABS" ? "labs" : "management");
+      getPlatformModuleByKey(
+        module.product === "BUSINESS" ? "business"
+          : module.product === "LABS" ? "labs"
+            : module.product === "REST" ? "rest"
+              : "management",
+      );
     const currentPricing =
       module.pricing.find((pricing) => pricing.isActive) ?? module.pricing[0] ?? null;
 

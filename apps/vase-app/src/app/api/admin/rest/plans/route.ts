@@ -1,25 +1,20 @@
-import { assertServiceToken } from "@vase/internal-api";
 import { NextResponse } from "next/server";
+import { requireVerifiedPlatformRole } from "@/lib/auth/guards";
 import {
   executeRestAdminCommand,
   listRestAdminData,
   restAdminErrorStatus,
 } from "@/server/services/rest-admin";
 
-function authorize(request: Request) {
-  assertServiceToken(request.headers.get("authorization"), process.env.SERVICE_TO_SERVICE_TOKEN);
-}
-
 function failure(error: unknown) {
   const message = error instanceof Error ? error.message : "REST_ADMIN_FAILED";
-  return NextResponse.json({ error: message }, {
-    status: message === "FORBIDDEN" ? 403 : restAdminErrorStatus(error),
-  });
+  return NextResponse.json({ error: message }, { status: restAdminErrorStatus(error) });
 }
 
 export async function GET(request: Request) {
+  void request;
   try {
-    authorize(request);
+    await requireVerifiedPlatformRole("SUPER_ADMIN");
     return NextResponse.json(await listRestAdminData());
   } catch (error) {
     return failure(error);
@@ -28,8 +23,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    authorize(request);
-    return NextResponse.json(await executeRestAdminCommand(await request.json()));
+    const session = await requireVerifiedPlatformRole("SUPER_ADMIN");
+    const result = await executeRestAdminCommand(await request.json(), session.user.id);
+    return NextResponse.json(result);
   } catch (error) {
     return failure(error);
   }

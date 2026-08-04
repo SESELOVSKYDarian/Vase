@@ -29,6 +29,10 @@ describe("platform host resolution", () => {
     expect(isPlatformHost("demo.vase.ar", input)).toBe(false);
   });
 
+  it("treats the dedicated Admin domain as a platform host", () => {
+    expect(isPlatformHost("admin.vase.ar", { nodeEnv: "production" })).toBe(true);
+  });
+
   it("routes the dedicated labs host to the Labs workspace by default", () => {
     const input = {
       nodeEnv: "production",

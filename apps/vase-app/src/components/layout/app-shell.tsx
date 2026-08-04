@@ -59,6 +59,10 @@ import { DashboardSupportWidget } from "@/components/support/dashboard-support-w
 import { SupportChatProvider } from "@/components/support/support-chat-context";
 import { BUSINESS_LAUNCH_PATH, BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
 import {
+  toInternalAdminPath,
+  toPublicAdminPath,
+} from "@/lib/security/admin-host-routing";
+import {
   requiresFullDocumentNavigation,
   resolveAppHomeHref,
   resolveLabsHomeHref,
@@ -250,7 +254,9 @@ export function AppShell({
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const activeSection = inferActiveSection(pathname);
-  const isAdminShell = pathname.startsWith("/app/admin");
+  const cleanInternalAdminPath = toInternalAdminPath(pathname);
+  const isAdminShell = pathname.startsWith("/app/admin") || cleanInternalAdminPath !== null;
+  const activeAdminPath = cleanInternalAdminPath ?? pathname;
   const accountDisplayName =
     currentUserName?.trim() ||
     (isAdminShell ? "Admin Vase" : tenantLabel?.trim() || "Cuenta");
@@ -356,60 +362,69 @@ export function AppShell({
     { id: "profile", href: "/app/settings", label: "Perfil", icon: Settings2, description: "Cuenta y configuración" },
   ];
 
+  const adminHref = (internalPath: string) => toPublicAdminPath(internalPath) ?? internalPath;
   const adminNavGroups: NavGroup[] = [
     {
       id: "overview",
       label: "Super Admin",
-      items: [{ id: "admin-home", href: "/app/admin", label: "Panel", icon: Shield, description: "Vista ejecutiva de plataforma" }],
+      items: [{ id: "admin-home", href: adminHref("/app/admin"), label: "Panel", icon: Shield, description: "Vista ejecutiva de plataforma" }],
     },
     {
       id: "access",
       label: "Acceso",
       items: [
-        { id: "admin-users", href: "/app/admin/users", label: "Usuarios", icon: UserCog, description: "Roles, modulos y cobros por cliente" },
-        { id: "admin-modules", href: "/app/admin/modules", label: "Modulos", icon: Blocks, description: "Catalogo, planes y precios" },
-        { id: "admin-management", href: "/app/admin/management", label: "Management", icon: Building2, description: "Precios, cuentas y sincronizacion" },
+        { id: "admin-users", href: adminHref("/app/admin/users"), label: "Usuarios", icon: UserCog, description: "Roles, modulos y cobros por cliente" },
+        { id: "admin-modules", href: adminHref("/app/admin/modules"), label: "Modulos", icon: Blocks, description: "Catalogo, planes y precios" },
+        { id: "admin-management", href: adminHref("/app/admin/management"), label: "Management", icon: Building2, description: "Precios, cuentas y sincronizacion" },
+      ],
+    },
+    {
+      id: "products",
+      label: "Productos",
+      items: [
+        { id: "admin-rest", href: adminHref("/app/admin/rest"), label: "Vase Rest", icon: Building2, description: "Planes, contratos y operacion gastronomica" },
+        { id: "admin-labs", href: adminHref("/app/admin/labs"), label: "Vase Labs", icon: FlaskConical, description: "Entitlements, limites y sincronizacion" },
       ],
     },
     {
       id: "money",
       label: "Finanzas",
       items: [
-        { id: "admin-finance", href: "/app/admin/finance", label: "Resumen", icon: Wallet, description: "Ingresos, cobros y saldos" },
-        { id: "admin-expenses", href: "/app/admin/expenses", label: "Gastos", icon: Receipt, description: "Egresos y vencimientos" },
+        { id: "admin-finance", href: adminHref("/app/admin/finance"), label: "Resumen", icon: Wallet, description: "Ingresos, cobros y saldos" },
+        { id: "admin-expenses", href: adminHref("/app/admin/expenses"), label: "Gastos", icon: Receipt, description: "Egresos y vencimientos" },
       ],
     },
     {
       id: "operations",
       label: "Operaciones",
       items: [
-        { id: "admin-meetings", href: "/app/admin/meetings", label: "Reuniones", icon: CalendarDays, description: "Agenda y notas de clientes" },
-        { id: "admin-quotes", href: "/app/admin/customizations", label: "Presupuestos", icon: FileBarChart2, description: "Pipeline de cotizaciones" },
-        { id: "admin-development", href: "/app/admin/development", label: "Delivery", icon: Wrench, description: "Tareas y equipo dev" },
+        { id: "admin-meetings", href: adminHref("/app/admin/meetings"), label: "Reuniones", icon: CalendarDays, description: "Agenda y notas de clientes" },
+        { id: "admin-quotes", href: adminHref("/app/admin/customizations"), label: "Presupuestos", icon: FileBarChart2, description: "Pipeline de cotizaciones" },
+        { id: "admin-development", href: adminHref("/app/admin/development"), label: "Delivery", icon: Wrench, description: "Tareas y equipo dev" },
       ],
     },
     {
       id: "support",
       label: "Soporte",
       items: [
-        { id: "admin-tickets", href: "/app/admin/tickets", label: "Soporte", icon: MessageSquareWarning, description: "Gestor de incidencias" },
-        { id: "admin-support", href: "/app/admin/support", label: "Equipo", icon: LifeBuoy, description: "Base de soporte y equipo" },
+        { id: "admin-tickets", href: adminHref("/app/admin/tickets"), label: "Soporte", icon: MessageSquareWarning, description: "Gestor de incidencias" },
+        { id: "admin-support", href: adminHref("/app/admin/support"), label: "Equipo", icon: LifeBuoy, description: "Base de soporte y equipo" },
       ],
     },
     {
       id: "knowledge",
       label: "Conocimiento",
       items: [
-        { id: "admin-faqs", href: "/app/admin/faqs", label: "FAQs", icon: ClipboardCheck, description: "Base de respuestas" },
-        { id: "admin-wiki", href: "/app/admin/wiki", label: "Wiki", icon: FileBarChart2, description: "Documentacion publica" },
+        { id: "admin-faqs", href: adminHref("/app/admin/faqs"), label: "FAQs", icon: ClipboardCheck, description: "Base de respuestas" },
+        { id: "admin-wiki", href: adminHref("/app/admin/wiki"), label: "Wiki", icon: FileBarChart2, description: "Documentacion publica" },
       ],
     },
     {
       id: "settings",
       label: "Ajustes",
       items: [
-        { id: "admin-settings", href: "/app/admin/settings", label: "Ajustes", icon: SlidersHorizontal, description: "Reglas financieras y plataforma" },
-        { id: "admin-audit", href: "/app/admin/audit", label: "Auditoria", icon: ScrollText, description: "Eventos y trazabilidad" },
+        { id: "admin-settings", href: adminHref("/app/admin/settings"), label: "Ajustes", icon: SlidersHorizontal, description: "Reglas financieras y plataforma" },
+        { id: "admin-audit", href: adminHref("/app/admin/audit"), label: "Auditoria", icon: ScrollText, description: "Eventos y trazabilidad" },
       ],
     },
   ];
@@ -463,7 +478,8 @@ export function AppShell({
                   </p>
                   {group.items.map((item) => {
                     const Icon = item.icon;
-                    const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    const internalHref = toInternalAdminPath(item.href) ?? item.href;
+                    const active = activeAdminPath === internalHref || activeAdminPath.startsWith(`${internalHref}/`);
                     return (
                       <Link
                         key={item.id}

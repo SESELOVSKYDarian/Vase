@@ -129,7 +129,7 @@ export default async function AdminTicketsPage({ searchParams }: AdminTicketsPag
       tenantLabel="Admin Master"
     >
       <PanelCard title="Filtros" description="Filtra por estado, prioridad, origen, agente, vencimiento o texto libre.">
-        <form action="/app/admin/tickets" className="grid gap-3 md:grid-cols-7">
+        <form action="/tickets" className="grid gap-3 md:grid-cols-7">
           <input name="q" defaultValue={q ?? ""} placeholder="Buscar ticket..." className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm" />
           <select name="status" defaultValue={status ?? ""} className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm">
             <option value="">Todos los estados</option>
@@ -179,7 +179,7 @@ export default async function AdminTicketsPage({ searchParams }: AdminTicketsPag
           ) : null}
           {dueFilter ? <span className="rounded-full bg-[var(--surface-strong)] px-3 py-1 text-xs">Demora: {dueFilter}</span> : null}
           {hasFilters ? (
-            <a href="/app/admin/tickets" className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold text-[var(--foreground)]">
+            <a href="/tickets" className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold text-[var(--foreground)]">
               Limpiar filtros
             </a>
           ) : null}

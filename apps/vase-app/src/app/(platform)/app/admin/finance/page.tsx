@@ -48,13 +48,13 @@ export default async function AdminFinancePage() {
       </section>
 
       <section className="grid gap-3 md:grid-cols-3">
-        <a href="/app/admin/clients" className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm font-semibold text-[var(--foreground)]">
+        <a href="/users" className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm font-semibold text-[var(--foreground)]">
           Gestionar clientes y pagos
         </a>
-        <a href="/app/admin/expenses" className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm font-semibold text-[var(--foreground)]">
+        <a href="/expenses" className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm font-semibold text-[var(--foreground)]">
           Gestionar gastos y vencimientos
         </a>
-        <a href="/app/admin/settings" className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm font-semibold text-[var(--foreground)]">
+        <a href="/settings" className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm font-semibold text-[var(--foreground)]">
           Ajustes financieros
         </a>
       </section>

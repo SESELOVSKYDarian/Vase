@@ -9,6 +9,48 @@ export const userAccessModuleIds = {
   rest: "vase_rest",
 } as const;
 
+export function getManagedUserAccessModuleIds() {
+  return Object.values(userAccessModuleIds);
+}
+
+type AdminModuleProduct = "BUSINESS" | "LABS" | "MANAGEMENT" | "REST";
+
+export function getAdminModuleAccessPresentation(
+  product: AdminModuleProduct,
+  submoduleCount: number,
+  moduleSelected: boolean,
+  selectedSubmoduleCount: number,
+) {
+  if (product === "REST") {
+    return {
+      productLabel: "Rest",
+      description: "Al activarlo, la cuenta obtiene acceso a Vase Rest.",
+      selectionLabel: moduleSelected ? "Acceso habilitado" : "Inactivo",
+      emptySubmodulesLabel: "Vase Rest no requiere submódulos: el acceso se aplica a toda la cuenta.",
+      limitKind: null,
+    } as const;
+  }
+  if (product === "MANAGEMENT") {
+    return {
+      productLabel: "Management",
+      description: "Al activarlo, la cuenta obtiene acceso a Vase Management.",
+      selectionLabel: moduleSelected ? "Acceso habilitado" : "Inactivo",
+      emptySubmodulesLabel: "Este módulo no requiere submódulos.",
+      limitKind: null,
+    } as const;
+  }
+  const isBusiness = product === "BUSINESS";
+  return {
+    productLabel: isBusiness ? "Business" : "Labs",
+    description: submoduleCount > 0
+      ? `${submoduleCount} submódulos disponibles`
+      : "Este módulo no tiene submódulos cargados.",
+    selectionLabel: moduleSelected ? `${selectedSubmoduleCount} elegidos` : "Inactivo",
+    emptySubmodulesLabel: "No hay submódulos para seleccionar.",
+    limitKind: isBusiness ? "pages" as const : "chatbots" as const,
+  };
+}
+
 type TenantModuleAccess = {
   moduleId: string;
   isActive: boolean;

@@ -46,6 +46,7 @@ import {
 } from "@/components/admin/admin-ui";
 import { ActionToast } from "@/components/ui/action-toast";
 import { CrudModal } from "@/components/ui/crud-modal";
+import { getAdminModuleAccessPresentation } from "@/lib/admin/user-access";
 
 type UiRole = "cliente" | "admin" | "developer" | "designer" | "tester" | "soporte";
 type TenantPlan = "TRIAL" | "PRO";
@@ -368,6 +369,12 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
     [modules, selectedModuleIds],
   );
 
+  const configurableLimitModules = useMemo(
+    () => clientModules.filter((module) =>
+      getAdminModuleAccessPresentation(module.product, module.submodules.length, true, 0).limitKind !== null),
+    [clientModules],
+  );
+
   const availableSubmodules = useMemo(
     () => clientModules.flatMap((module) => module.submodules.map((submodule) => ({ ...submodule, moduleName: module.name }))),
     [clientModules],
@@ -675,10 +682,10 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
     );
 
     const moduleLimits = Object.fromEntries(
-      selectedModuleIds.map((moduleId) => {
-        const values = moduleLimitState[moduleId] ?? { pages: "", chatbots: "" };
+      configurableLimitModules.map((module) => {
+        const values = moduleLimitState[module.id] ?? { pages: "", chatbots: "" };
         return [
-          moduleId,
+          module.id,
           {
             pages: values.pages.trim().length > 0 ? Number(values.pages) : null,
             chatbots: values.chatbots.trim().length > 0 ? Number(values.chatbots) : null,
@@ -1058,6 +1065,12 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                         const selectedSubmoduleCount = moduleSubmoduleIds.filter((submoduleId) =>
                           selectedSubmoduleIds.includes(submoduleId),
                         ).length;
+                        const presentation = getAdminModuleAccessPresentation(
+                          module.product,
+                          module.submodules.length,
+                          moduleSelected,
+                          selectedSubmoduleCount,
+                        );
 
                         return (
                           <article
@@ -1085,7 +1098,7 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                                       setModuleLimitState((limitsCurrent) => {
                                         const nextLimits = { ...limitsCurrent };
                                         if (!nextChecked) delete nextLimits[module.id];
-                                        else if (!nextLimits[module.id]) {
+                                        else if (presentation.limitKind && !nextLimits[module.id]) {
                                           nextLimits[module.id] = { pages: "", chatbots: "" };
                                         }
                                         return nextLimits;
@@ -1107,25 +1120,23 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                                   <div className="flex flex-wrap items-center gap-2">
                                     <p className="text-sm font-semibold text-[var(--foreground)]">{module.name}</p>
                                     <span className="rounded-full border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-                                      {module.product === "BUSINESS" ? "Business" : "Labs"}
+                                      {presentation.productLabel}
                                     </span>
                                   </div>
                                   <p className="mt-1 text-xs text-[var(--muted)]">
-                                    {module.submodules.length > 0
-                                      ? `${module.submodules.length} submodulos disponibles`
-                                      : "Este modulo no tiene submodulos cargados."}
+                                    {presentation.description}
                                   </p>
                                 </div>
                               </label>
                               <span className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                                {moduleSelected ? `${selectedSubmoduleCount} elegidos` : "Inactivo"}
+                                {presentation.selectionLabel}
                               </span>
                             </div>
 
                             <div className="mt-4 grid gap-2">
                               {module.submodules.length === 0 ? (
                                 <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--muted)]">
-                                  No hay submodulos para seleccionar.
+                                  {presentation.emptySubmodulesLabel}
                                 </div>
                               ) : (
                                 module.submodules.map((submodule) => {
@@ -1358,10 +1369,17 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                   <div className="grid gap-3 md:grid-cols-2">
                     {clientModules.length === 0 ? (
                       <p className="text-sm text-[var(--muted)]">Selecciona al menos un modulo para definir limites.</p>
+                    ) : configurableLimitModules.length === 0 ? (
+                      <p className="text-sm text-[var(--muted)]">
+                        {clientModules.some((module) => module.product === "REST")
+                          ? "Vase Rest otorga acceso directo a la cuenta y no usa límites de páginas ni chatbots."
+                          : "Los módulos seleccionados otorgan acceso directo a la cuenta y no requieren límites adicionales."}
+                      </p>
                     ) : (
-                      clientModules.map((module) => {
+                      configurableLimitModules.map((module) => {
                         const currentLimit = moduleLimitState[module.id] ?? { pages: "", chatbots: "" };
-                        const isBusiness = module.product === "BUSINESS";
+                        const limitKind = getAdminModuleAccessPresentation(module.product, module.submodules.length, true, 0).limitKind;
+                        const isBusiness = limitKind === "pages";
                         const label = isBusiness ? "Paginas habilitadas" : "Chatbots habilitados";
                         const helper = isBusiness
                           ? "Cuantas paginas podra publicar dentro de este modulo."
@@ -1450,7 +1468,10 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                                 setModuleLimitState((limitsCurrent) => {
                                   const nextLimits = { ...limitsCurrent };
                                   if (!event.target.checked) delete nextLimits[module.id];
-                                  else if (!nextLimits[module.id]) {
+                                  else if (
+                                    getAdminModuleAccessPresentation(module.product, module.submodules.length, true, 0).limitKind &&
+                                    !nextLimits[module.id]
+                                  ) {
                                     nextLimits[module.id] = { pages: "", chatbots: "" };
                                   }
                                   return nextLimits;
