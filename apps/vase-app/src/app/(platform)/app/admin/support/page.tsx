@@ -100,7 +100,7 @@ export default async function AdminSupportKnowledgePage({
         items={items}
         categories={categories}
         tenants={tenants}
-        currentPath="/app/admin/support"
+        currentPath="/support"
         currentQuery={q}
         currentCategory={category}
         currentTenantId={tenantId}

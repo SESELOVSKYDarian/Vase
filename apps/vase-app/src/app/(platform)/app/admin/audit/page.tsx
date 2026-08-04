@@ -90,7 +90,7 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
       tenantLabel="Master Admin"
     >
       <PanelCard title="Filtros" description="Busca por accion, actor o entidad.">
-        <form action="/app/admin/audit" className="grid gap-3 md:grid-cols-5">
+        <form action="/audit" className="grid gap-3 md:grid-cols-5">
           <input name="q" defaultValue={q ?? ""} placeholder="Buscar..." className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
           <input name="action" defaultValue={action ?? ""} placeholder="Accion exacta" className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
           <input name="targetType" defaultValue={targetType ?? ""} placeholder="Tipo de destino" className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />

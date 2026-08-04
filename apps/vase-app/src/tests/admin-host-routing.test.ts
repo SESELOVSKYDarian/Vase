@@ -3,6 +3,8 @@ import {
   buildAdminCanonicalUrl,
   isAdminHost,
   resolveAdminAccessDecision,
+  resolveAdminNavigationPath,
+  normalizeAdminPathForActiveState,
   resolveAdminHostRequest,
   toInternalAdminPath,
   toPublicAdminPath,
@@ -173,5 +175,23 @@ describe("admin host routing", () => {
       platformRole: null,
       input: { nodeEnv: "production" },
     })).toEqual({ type: "allow" });
+  });
+
+  it("generates clean navigation only on the Admin host", () => {
+    expect(resolveAdminNavigationPath("/app/admin/users", "admin.vase.ar", {
+      nodeEnv: "production",
+    })).toBe("/users");
+    expect(resolveAdminNavigationPath("/app/admin/users", "app.vase.ar", {
+      nodeEnv: "production",
+    })).toBe("/app/admin/users");
+  });
+
+  it("normalizes clean paths for active Admin navigation", () => {
+    expect(normalizeAdminPathForActiveState("/users/customer-1", "admin.vase.ar", {
+      nodeEnv: "production",
+    })).toBe("/app/admin/users/customer-1");
+    expect(normalizeAdminPathForActiveState("/app/admin/users", "app.vase.ar", {
+      nodeEnv: "production",
+    })).toBe("/app/admin/users");
   });
 });

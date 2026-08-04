@@ -41,11 +41,11 @@ export default async function AdminPage() {
         description="Mira finanzas, soporte, entregas y accesos bloqueados en una sola vista. Las alertas importantes quedan arriba para accionar rapido."
         actions={
           <>
-            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]" href="/app/admin/users">
+            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]" href="/users">
               <UserCog className="h-4 w-4" />
               Gestionar usuarios
             </Link>
-            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition hover:opacity-90" href="/app/admin/tickets">
+            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition hover:opacity-90" href="/tickets">
               <LifeBuoy className="h-4 w-4" />
               Ver soporte
             </Link>
@@ -110,7 +110,7 @@ export default async function AdminPage() {
           title="Accesos bloqueados"
           description="Ultimas cuentas deshabilitadas desde super admin."
           actions={
-            <Link className="text-sm font-semibold text-[var(--accent-strong)] hover:underline" href="/app/admin/users">
+            <Link className="text-sm font-semibold text-[var(--accent-strong)] hover:underline" href="/users">
               Resolver
             </Link>
           }

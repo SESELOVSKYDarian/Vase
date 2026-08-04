@@ -31,7 +31,7 @@ const ADMIN_SECTIONS = new Set([
   "audit",
 ]);
 
-function normalizeHost(value: string, nodeEnv = process.env.NODE_ENV) {
+function normalizeHost(value: string, nodeEnv: string | undefined = process.env.NODE_ENV) {
   const normalized = value.trim().toLowerCase().replace(/\/+$/, "");
   if (!normalized) return "";
 
@@ -84,6 +84,24 @@ export function toPublicAdminPath(pathname: string) {
   if (!pathname.startsWith(`${ADMIN_INTERNAL_PREFIX}/`)) return null;
   const publicPath = pathname.slice(ADMIN_INTERNAL_PREFIX.length);
   return ADMIN_SECTIONS.has(firstSegment(publicPath)) ? publicPath : null;
+}
+
+export function resolveAdminNavigationPath(
+  internalPath: string,
+  hostname: string | null,
+  input: AdminHostInput = {},
+) {
+  if (!hostname || !isAdminHost(hostname, input)) return internalPath;
+  return toPublicAdminPath(internalPath) ?? internalPath;
+}
+
+export function normalizeAdminPathForActiveState(
+  pathname: string,
+  hostname: string | null,
+  input: AdminHostInput = {},
+) {
+  if (!hostname || !isAdminHost(hostname, input)) return pathname;
+  return toInternalAdminPath(pathname) ?? pathname;
 }
 
 export function buildAdminCanonicalUrl({
