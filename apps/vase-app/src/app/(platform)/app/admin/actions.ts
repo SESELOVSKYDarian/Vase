@@ -106,7 +106,10 @@ import {
   userAccessModuleIds,
 } from "@/lib/admin/user-access";
 import { clientProductAccessSchema, type ClientProductAccess } from "@/lib/admin/client-product-access";
-import { applyClientProductAccess } from "@/server/services/client-product-access";
+import {
+  adaptLegacyClientProductAccessWithTx,
+  applyClientProductAccess,
+} from "@/server/services/client-product-access";
 import { validateUpload } from "@/lib/security/upload";
 import { saveLocalUpload } from "@/lib/storage/local-upload";
 import {
@@ -4908,13 +4911,21 @@ function parseModuleIds(rawValue: FormDataEntryValue | null) {
     .filter(Boolean);
 }
 
-function parseClientProductAccessV2(rawValue: FormDataEntryValue | null): ClientProductAccess | null {
+type ParsedClientAccessPayload =
+  | { kind: "v2"; access: ClientProductAccess }
+  | { kind: "legacy"; rawConfig: unknown };
+
+function parseClientAccessPayload(rawValue: FormDataEntryValue | null): ParsedClientAccessPayload | null {
   if (typeof rawValue !== "string" || rawValue.trim().length === 0) return null;
   try {
-    const envelope = JSON.parse(rawValue) as { version?: unknown; productAccess?: unknown } | null;
-    if (!envelope || envelope.version !== 2) return null;
-    const parsed = clientProductAccessSchema.safeParse(envelope.productAccess);
-    return parsed.success ? parsed.data : null;
+    const parsedJson = JSON.parse(rawValue) as { version?: unknown; productAccess?: unknown } | null;
+    if (!parsedJson || typeof parsedJson !== "object") return null;
+    if (parsedJson.version === 2) {
+      const parsed = clientProductAccessSchema.safeParse(parsedJson.productAccess);
+      return parsed.success ? { kind: "v2", access: parsed.data } : null;
+    }
+    if ("version" in parsedJson) return null;
+    return { kind: "legacy", rawConfig: parsedJson };
   } catch {
     return null;
   }
@@ -5075,13 +5086,14 @@ export async function upsertMasterUserWithStateAction(
       temporaryPassword: parsed.data.temporaryPassword,
       rawPassword,
     });
-    const moduleIds = roleMap.appRole === "ADMIN" || parsed.data.uiRole === "cliente" ? [] : parsed.data.moduleIds;
-    const clientProductAccess = parsed.data.uiRole === "cliente"
-      ? parseClientProductAccessV2(formData.get("clientAccessConfig"))
+    const requestedModuleIds = parsed.data.moduleIds;
+    const moduleIds = roleMap.appRole === "ADMIN" || parsed.data.uiRole === "cliente" ? [] : requestedModuleIds;
+    const clientAccessPayload = parsed.data.uiRole === "cliente"
+      ? parseClientAccessPayload(formData.get("clientAccessConfig"))
       : null;
 
-    if (parsed.data.uiRole === "cliente" && !clientProductAccess) {
-      return { error: "La configuracion de productos del cliente debe usar la version 2 y tener valores validos." };
+    if (parsed.data.uiRole === "cliente" && !clientAccessPayload) {
+      return { error: "La configuracion de productos del cliente no es valida." };
     }
 
     const selectedModules = moduleIds.length
@@ -5094,10 +5106,6 @@ export async function upsertMasterUserWithStateAction(
     if (moduleIds.length !== selectedModules.length) {
       return { error: "Uno o mas modulos seleccionados no son validos." };
     }
-
-    const clientAccessConfigValue = clientProductAccess
-      ? ({ version: 2, productAccess: clientProductAccess } as Prisma.InputJsonValue)
-      : Prisma.JsonNull;
 
     const result = await prisma.$transaction(async (tx) => {
       const roleRecord = await tx.role.upsert({
@@ -5119,6 +5127,17 @@ export async function upsertMasterUserWithStateAction(
         select: { id: true },
       });
 
+      const resolveClientProductAccess = async (ownerUserId: string) => {
+        if (!clientAccessPayload) return null;
+        if (clientAccessPayload.kind === "v2") return clientAccessPayload.access;
+        return adaptLegacyClientProductAccessWithTx({
+          tx,
+          ownerUserId,
+          moduleIds: requestedModuleIds,
+          rawConfig: clientAccessPayload.rawConfig,
+        });
+      };
+
       if (createFlow) {
         if (existingByEmail) throw new Error("EMAIL_ALREADY_EXISTS");
 
@@ -5130,7 +5149,9 @@ export async function upsertMasterUserWithStateAction(
             passwordHash: passwordHash ?? undefined,
             platformRole: roleMap.platformRole,
             locale: "es",
-            clientAccessConfig: clientAccessConfigValue,
+            clientAccessConfig: clientAccessPayload?.kind === "v2"
+              ? ({ version: 2, productAccess: clientAccessPayload.access } as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
             ...buildAdminCreatedUserVerification(now),
             forcePasswordChange: shouldForcePasswordReset,
             tempPasswordIssuedAt: shouldForcePasswordReset ? now : null,
@@ -5172,14 +5193,26 @@ export async function upsertMasterUserWithStateAction(
           });
         }
 
-        const productAccessResult = clientProductAccess
+        const resolvedClientProductAccess = await resolveClientProductAccess(createdUser.id);
+        if (resolvedClientProductAccess && clientAccessPayload?.kind === "legacy") {
+          await tx.user.update({
+            where: { id: createdUser.id },
+            data: {
+              clientAccessConfig: {
+                version: 2,
+                productAccess: resolvedClientProductAccess,
+              } as Prisma.InputJsonValue,
+            },
+          });
+        }
+        const productAccessResult = resolvedClientProductAccess
           ? await applyClientProductAccess({
             tx,
             actorUserId: adminSession.user.id,
             ownerUserId: createdUser.id,
             ownerName: createdUser.name,
             ownerEmail: createdUser.email,
-            access: clientProductAccess,
+            access: resolvedClientProductAccess,
             tenantSlugSeed: createdUser.name || createdUser.email.split("@")[0],
           })
           : null;
@@ -5203,13 +5236,18 @@ export async function upsertMasterUserWithStateAction(
         throw new Error("EMAIL_ALREADY_EXISTS");
       }
 
+      if (!parsed.data.userId) throw new Error("CLIENT_USER_ID_REQUIRED");
+      const resolvedClientProductAccess = await resolveClientProductAccess(parsed.data.userId);
+
       const updatedUser = await tx.user.update({
         where: { id: parsed.data.userId },
         data: {
           name: parsed.data.name,
           email: parsed.data.email,
           platformRole: roleMap.platformRole,
-          clientAccessConfig: clientAccessConfigValue,
+          clientAccessConfig: resolvedClientProductAccess
+            ? ({ version: 2, productAccess: resolvedClientProductAccess } as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
           ...(!parsed.data.temporaryPassword
             ? {
                 forcePasswordChange: false,
@@ -5236,7 +5274,7 @@ export async function upsertMasterUserWithStateAction(
         },
       });
 
-      if (!clientProductAccess) {
+      if (!resolvedClientProductAccess) {
         await tx.userModuleAccess.deleteMany({ where: { userId: updatedUser.id } });
         if (selectedModules.length > 0) {
           await tx.userModuleAccess.createMany({
@@ -5250,14 +5288,14 @@ export async function upsertMasterUserWithStateAction(
         }
       }
 
-      const productAccessResult = clientProductAccess
+      const productAccessResult = resolvedClientProductAccess
         ? await applyClientProductAccess({
           tx,
           actorUserId: adminSession.user.id,
           ownerUserId: updatedUser.id,
           ownerName: updatedUser.name,
           ownerEmail: updatedUser.email,
-          access: clientProductAccess,
+          access: resolvedClientProductAccess,
           tenantSlugSeed: updatedUser.name || updatedUser.email.split("@")[0],
         })
         : null;
@@ -5320,6 +5358,9 @@ export async function upsertMasterUserWithStateAction(
     }
     if (error instanceof Error && error.message === "REST_PRICING_NOT_PUBLISHED") {
       return { error: "El precio de Vase Rest seleccionado no esta publicado." };
+    }
+    if (error instanceof Error && error.message === "CLIENT_LEGACY_REST_PLAN_REQUIRED") {
+      return { error: "Para activar Vase Rest, elegí un plan Rest publicado." };
     }
     if (error instanceof Error && error.message === "CLIENT_LABS_PLAN_INVALID") {
       return { error: "El plan de Vase Labs no coincide con el submodulo seleccionado." };

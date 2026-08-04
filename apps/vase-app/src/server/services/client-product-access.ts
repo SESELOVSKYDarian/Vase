@@ -1,4 +1,5 @@
 import { Prisma, type CommercialAccessStatus } from "@prisma/client";
+import { z } from "zod";
 import {
   clientProductAccessSchema,
   getLabsEntitlement,
@@ -14,24 +15,128 @@ function trialExpiry(status: "TRIAL" | "ACTIVE", current: Date | null | undefine
   return current && current > now ? current : new Date(now.getTime() + TRIAL_DURATION_MS);
 }
 
-function normalizeSlug(value: string) {
+function normalizeSlugPart(value: string) {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48) || "cliente";
+    .replace(/^-+|-+$/g, "");
 }
 
-async function uniqueTenantSlug(tx: Prisma.TransactionClient, seed: string) {
-  const base = normalizeSlug(seed);
-  for (let suffix = 0; suffix < 10_000; suffix++) {
-    const slug = suffix === 0 ? base : `${base}-${suffix + 1}`;
-    const existing = await tx.tenant.findUnique({ where: { slug }, select: { id: true } });
-    if (!existing) return slug;
+function deterministicTenantSlug(seed: string, ownerUserId: string) {
+  const ownerSuffix = normalizeSlugPart(ownerUserId);
+  if (!ownerSuffix) throw new Error("CLIENT_OWNER_ID_INVALID");
+  const maximumLength = 191;
+  const baseLimit = Math.max(1, maximumLength - ownerSuffix.length - 1);
+  const base = (normalizeSlugPart(seed) || "cliente").slice(0, baseLimit).replace(/-+$/g, "") || "c";
+  return `${base}-${ownerSuffix}`;
+}
+
+const legacyClientAccessSchema = z.object({
+  tenantPlan: z.enum(["TRIAL", "PRO"]),
+  proSubmoduleIds: z.array(z.string().min(1)).default([]),
+  proSubmoduleId: z.string().min(1).nullable().optional(),
+}).passthrough();
+
+type LegacyAdapterTransaction = Pick<
+  Prisma.TransactionClient,
+  "membership" | "moduleSubmodule" | "tenantRestContract" | "restPricingVersion"
+>;
+
+export async function adaptLegacyClientProductAccessWithTx(input: {
+  tx: LegacyAdapterTransaction;
+  ownerUserId: string;
+  moduleIds: string[];
+  rawConfig: unknown;
+  now?: Date;
+}): Promise<ClientProductAccess> {
+  const legacy = legacyClientAccessSchema.parse(input.rawConfig);
+  const status = legacy.tenantPlan === "PRO" ? "ACTIVE" as const : "TRIAL" as const;
+  const selectedLegacyIds = Array.from(new Set([
+    ...legacy.proSubmoduleIds,
+    ...(legacy.proSubmoduleId ? [legacy.proSubmoduleId] : []),
+  ]));
+  const wantsBusiness = input.moduleIds.includes(userAccessModuleIds.business);
+  const wantsLabs = input.moduleIds.includes(userAccessModuleIds.labs);
+  const wantsRest = input.moduleIds.includes(userAccessModuleIds.rest);
+
+  const catalog = wantsBusiness || wantsLabs
+    ? await input.tx.moduleSubmodule.findMany({
+        where: {
+          moduleId: { in: [
+            ...(wantsBusiness ? [userAccessModuleIds.business] : []),
+            ...(wantsLabs ? [userAccessModuleIds.labs] : []),
+          ] },
+          isActive: true,
+        },
+        select: { id: true, moduleId: true, key: true, isActive: true },
+      })
+    : [];
+
+  const managedBusinessCatalog = catalog.filter((item) =>
+    item.isActive &&
+    item.moduleId === userAccessModuleIds.business &&
+    (item.key === "plantilla" || item.key === "personalizado"));
+  const selectedBusiness = managedBusinessCatalog.filter((item) => selectedLegacyIds.includes(item.id));
+  const businessCatalog = selectedBusiness.length ? selectedBusiness : managedBusinessCatalog;
+  if (wantsBusiness && businessCatalog.length === 0) throw new Error("CLIENT_BUSINESS_SUBMODULE_INVALID");
+
+  const labsPlanByKey = new Map<string, "STARTER" | "PRO" | "GROWTH">([
+    ["starter", "STARTER"],
+    ["pro", "PRO"],
+    ["growth", "GROWTH"],
+  ]);
+  const labsRank = new Map([["STARTER", 1], ["GROWTH", 2], ["PRO", 3]]);
+  const selectedLabsCatalog = catalog
+    .filter((item) => item.isActive && item.moduleId === userAccessModuleIds.labs && selectedLegacyIds.includes(item.id) && labsPlanByKey.has(item.key))
+    .sort((left, right) => (labsRank.get(labsPlanByKey.get(right.key)!) ?? 0) - (labsRank.get(labsPlanByKey.get(left.key)!) ?? 0))[0]
+    ?? catalog.find((item) => item.isActive && item.moduleId === userAccessModuleIds.labs && item.key === "starter");
+  if (wantsLabs && !selectedLabsCatalog) throw new Error("CLIENT_LABS_PLAN_INVALID");
+
+  let rest: ClientProductAccess["rest"] = null;
+  if (wantsRest) {
+    const membership = await input.tx.membership.findFirst({
+      where: { userId: input.ownerUserId },
+      orderBy: [{ role: "asc" }, { status: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+      select: { tenantId: true },
+    });
+    const existingContract = membership
+      ? await input.tx.tenantRestContract.findUnique({
+          where: { tenantId: membership.tenantId },
+          select: { pricingVersionId: true, status: true },
+        })
+      : null;
+    if (existingContract) {
+      rest = {
+        pricingVersionId: existingContract.pricingVersionId,
+        status: existingContract.status === "TRIAL" ? "TRIAL" : "ACTIVE",
+      };
+    } else {
+      const eligible = await input.tx.restPricingVersion.findMany({
+        where: {
+          plan: "STARTER",
+          status: "PUBLISHED",
+          effectiveAt: { lte: input.now ?? new Date() },
+        },
+        select: { id: true },
+        take: 2,
+      });
+      if (eligible.length !== 1) throw new Error("CLIENT_LEGACY_REST_PLAN_REQUIRED");
+      rest = { pricingVersionId: eligible[0].id, status };
+    }
   }
-  throw new Error("CLIENT_TENANT_SLUG_UNAVAILABLE");
+
+  return clientProductAccessSchema.parse({
+    business: wantsBusiness
+      ? { submodules: businessCatalog.map((item) => ({ id: item.id, key: item.key, status, features: [] })) }
+      : null,
+    labs: wantsLabs && selectedLabsCatalog
+      ? { submoduleId: selectedLabsCatalog.id, plan: labsPlanByKey.get(selectedLabsCatalog.key), status }
+      : null,
+    rest,
+    management: input.moduleIds.includes(userAccessModuleIds.management) ? { status } : null,
+  });
 }
 
 function assertFeatureValue(
@@ -84,7 +189,7 @@ export async function applyClientProductAccess(input: {
   const [membership, moduleCatalog, submoduleCatalog, businessFeatures, publishedRestPricing] = await Promise.all([
     input.tx.membership.findFirst({
       where: { userId: input.ownerUserId },
-      orderBy: [{ role: "asc" }, { status: "asc" }, { createdAt: "asc" }],
+      orderBy: [{ role: "asc" }, { status: "asc" }, { createdAt: "asc" }, { id: "asc" }],
       select: { tenantId: true },
     }),
     input.tx.module.findMany({
@@ -162,7 +267,7 @@ export async function applyClientProductAccess(input: {
       data: {
         name: input.ownerName,
         accountName: input.ownerName,
-        slug: await uniqueTenantSlug(input.tx, slugSeed),
+        slug: deterministicTenantSlug(slugSeed, input.ownerUserId),
         billingEmail: input.ownerEmail,
         industry: "General",
         onboardingProduct: selectedModuleIds.includes(userAccessModuleIds.labs)
@@ -272,8 +377,11 @@ export async function applyClientProductAccess(input: {
     });
   }
 
+  const explicitlySubmittedFeatureIds = new Set(requestedFeatureIds);
   const businessFeatureIds = businessFeatures
-    .filter((feature) => feature.submoduleId === null || businessCatalogIds.includes(feature.submoduleId))
+    .filter((feature) =>
+      (feature.submoduleId !== null && requestedBusinessIds.includes(feature.submoduleId)) ||
+      (feature.submoduleId === null && explicitlySubmittedFeatureIds.has(feature.id)))
     .map((feature) => feature.id);
   if (businessFeatureIds.length) {
     await input.tx.tenantFeatureGrant.deleteMany({

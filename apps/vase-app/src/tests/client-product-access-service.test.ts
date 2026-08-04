@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it } from "vitest";
-import { applyClientProductAccess } from "@/server/services/client-product-access";
+import {
+  adaptLegacyClientProductAccessWithTx,
+  applyClientProductAccess,
+} from "@/server/services/client-product-access";
 
 type Row = Record<string, any>;
 
@@ -45,11 +48,15 @@ function createStatefulTx(seed: {
     grants: [
       { tenantId: "tenant-1", featureId: "labs-feature", enabled: true, value: true },
       { tenantId: "tenant-1", featureId: "future-business-feature", enabled: true, value: true },
+      { tenantId: "tenant-1", featureId: "business-enabled", enabled: true, value: true },
+      { tenantId: "tenant-1", featureId: "custom-label", enabled: true, value: "Preserve me" },
     ] as Row[],
     workspaces: [] as Row[],
     contracts: [] as Row[],
     userAccess: [{ userId: "owner-1", moduleId: "future_module", isActive: true }] as Row[],
     writes: 0,
+    slugLookups: 0,
+    membershipOrderBy: null as unknown,
   };
 
   const findLink = (rows: Row[], tenantId: string, key: string, value: string) => rows.find((row) => row.tenantId === tenantId && row[key] === value);
@@ -77,9 +84,13 @@ function createStatefulTx(seed: {
       findFirst: async ({ where }: any) => where.id === "rest-published" && seed.restPublished !== false
         ? { id: "rest-published", plan: "PRO", version: 7, currency: "ARS", monthlyPrice: 12500, branchLimit: 4, localEmployeeLimit: 25, deviceLimit: 8, edgeLimit: 2, status: "PUBLISHED" }
         : null,
+      findMany: async () => [{ id: "starter-published" }],
     },
     tenant: {
-      findUnique: async ({ where }: any) => state.tenants.find((tenant) => tenant.slug === where.slug) ?? null,
+      findUnique: async ({ where }: any) => {
+        state.slugLookups++;
+        return state.tenants.find((tenant) => tenant.slug === where.slug) ?? null;
+      },
       create: async ({ data }: any) => {
         state.writes++;
         const row = { id: "tenant-created", ...data };
@@ -92,7 +103,10 @@ function createStatefulTx(seed: {
       },
     },
     membership: {
-      findFirst: async ({ where }: any) => state.memberships.find((membership) => membership.userId === where.userId) ?? null,
+      findFirst: async ({ where, orderBy }: any) => {
+        state.membershipOrderBy = orderBy;
+        return state.memberships.find((membership) => membership.userId === where.userId) ?? null;
+      },
       upsert: async ({ where, update, create }: any) => {
         state.writes++;
         const key = where.userId_tenantId;
@@ -153,6 +167,7 @@ function createStatefulTx(seed: {
       },
     },
     tenantRestContract: {
+      findUnique: async ({ where }: any) => state.contracts.find((row) => row.tenantId === where.tenantId) ?? null,
       upsert: async ({ where, update, create }: any) => {
         if (seed.failRestWrite) throw new Error("SIMULATED_REST_FAILURE");
         state.writes++;
@@ -219,7 +234,8 @@ describe("applyClientProductAccess", () => {
     const { tx, state } = createStatefulTx({ existingTenant: false });
     await applyClientProductAccess({ ...baseInput, tx, tenantSlugSeed: "ACME !!", access: { business: null, labs: null, rest: null, management: null } });
 
-    expect(state.tenants[0]).toMatchObject({ slug: "acme", industry: "General", status: "ACTIVE" });
+    expect(state.tenants[0]).toMatchObject({ slug: "acme-owner-1", industry: "General", status: "ACTIVE" });
+    expect(state.slugLookups).toBe(0);
     expect(state.memberships[0]).toMatchObject({ role: "OWNER", status: "ACTIVE", createdByUserId: "admin-1" });
   });
 
@@ -248,7 +264,60 @@ describe("applyClientProductAccess", () => {
       expect.objectContaining({ featureId: "custom-label", value: "Plus" }),
       expect.objectContaining({ featureId: "labs-feature", value: true }),
       expect.objectContaining({ featureId: "future-business-feature", value: true }),
+      expect.objectContaining({ featureId: "business-enabled", value: true }),
     ]));
+  });
+
+  it("replaces only submitted Business feature scopes and preserves grants while Business is disabled", async () => {
+    const { tx, state } = createStatefulTx();
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: {
+        business: { submodules: [{
+          id: "business-template",
+          key: "plantilla",
+          status: "ACTIVE",
+          features: [{ featureId: "template-pages", enabled: true, value: 3 }],
+        }] },
+        labs: null,
+        rest: null,
+        management: null,
+      },
+    });
+    expect(state.grants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ featureId: "template-pages", value: 3 }),
+      expect.objectContaining({ featureId: "custom-label", value: "Preserve me" }),
+      expect.objectContaining({ featureId: "business-enabled", value: true }),
+    ]));
+
+    await applyClientProductAccess({ ...baseInput, tx, access: { business: null, labs: null, rest: null, management: null } });
+    expect(state.grants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ featureId: "template-pages", value: 3 }),
+      expect.objectContaining({ featureId: "custom-label", value: "Preserve me" }),
+      expect.objectContaining({ featureId: "business-enabled", value: true }),
+    ]));
+  });
+
+  it("updates an explicitly submitted module-wide Business override without touching omitted grants", async () => {
+    const { tx, state } = createStatefulTx();
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: {
+        business: { submodules: [{
+          id: "business-template",
+          key: "plantilla",
+          status: "ACTIVE",
+          features: [{ featureId: "business-enabled", enabled: false, value: false }],
+        }] },
+        labs: null,
+        rest: null,
+        management: null,
+      },
+    });
+    expect(state.grants.find((grant) => grant.featureId === "business-enabled")).toMatchObject({ enabled: false, value: false });
+    expect(state.grants.find((grant) => grant.featureId === "custom-label")).toMatchObject({ value: "Preserve me" });
   });
 
   it("rejects cross-scope features and invalid feature values before writes", async () => {
@@ -311,11 +380,111 @@ describe("applyClientProductAccess", () => {
     expect(state.tenantSubmodules.find((row) => row.submoduleId === "business-template")?.trialEndsAt).toEqual(new Date("2026-08-18T12:00:00.000Z"));
   });
 
+  it("uses deterministic collision-safe slugs and a unique membership ordering tie-breaker", async () => {
+    const first = createStatefulTx({ existingTenant: false });
+    const second = createStatefulTx({ existingTenant: false });
+    await Promise.all([
+      applyClientProductAccess({ ...baseInput, tx: first.tx, ownerUserId: "owner-alpha", tenantSlugSeed: "Same Seed", access: { business: null, labs: null, rest: null, management: null } }),
+      applyClientProductAccess({ ...baseInput, tx: second.tx, ownerUserId: "owner-beta", tenantSlugSeed: "Same Seed", access: { business: null, labs: null, rest: null, management: null } }),
+    ]);
+
+    expect(first.state.tenants[0].slug).toBe("same-seed-owner-alpha");
+    expect(second.state.tenants[0].slug).toBe("same-seed-owner-beta");
+    expect(first.state.tenants[0].slug).not.toBe(second.state.tenants[0].slug);
+    expect(first.state.slugLookups).toBe(0);
+    expect(first.state.membershipOrderBy).toEqual([{ role: "asc" }, { status: "asc" }, { createdAt: "asc" }, { id: "asc" }]);
+  });
+
   it("lets the caller transaction roll back every write when Rest persistence fails", async () => {
     const { state, transaction } = createStatefulTx({ failRestWrite: true });
     const snapshot = structuredClone(state);
 
     await expect(transaction((transactionClient) => applyClientProductAccess({ ...baseInput, tx: transactionClient, access: { business: null, labs: null, rest: { pricingVersionId: "rest-published", status: "ACTIVE" }, management: { status: "ACTIVE" } } }))).rejects.toThrow("SIMULATED_REST_FAILURE");
     expect(state).toEqual(snapshot);
+  });
+});
+
+describe("adaptLegacyClientProductAccessWithTx", () => {
+  it("maps the current form shape to authoritative Business, one Labs plan, and Management access", async () => {
+    const { tx } = createStatefulTx();
+    const access = await adaptLegacyClientProductAccessWithTx({
+      tx,
+      ownerUserId: "owner-1",
+      moduleIds: ["vase_business", "vase_labs", "vase_management"],
+      rawConfig: {
+        tenantPlan: "PRO",
+        proSubmoduleIds: ["business-template", "business-custom", "labs-growth", "labs-pro"],
+        tenantName: "Untrusted tenant",
+        tenantSlug: "untrusted-slug",
+        accountName: "Untrusted account",
+        industry: "Untrusted industry",
+        tenantStatus: "SUSPENDED",
+        tenantRole: "MEMBER",
+        membershipStatus: "SUSPENDED",
+        moduleLimits: { vase_labs: { chatbots: 99 } },
+      },
+    });
+
+    expect(access).toEqual({
+      business: {
+        submodules: [
+          { id: "business-template", key: "plantilla", status: "ACTIVE", features: [] },
+          { id: "business-custom", key: "personalizado", status: "ACTIVE", features: [] },
+        ],
+      },
+      labs: { submoduleId: "labs-pro", plan: "PRO", status: "ACTIVE" },
+      rest: null,
+      management: { status: "ACTIVE" },
+    });
+  });
+
+  it("falls back to Starter for selected Labs and requires an explicit Rest choice when pricing is ambiguous", async () => {
+    const starter = createStatefulTx();
+    const labs = await adaptLegacyClientProductAccessWithTx({
+      tx: starter.tx,
+      ownerUserId: "owner-1",
+      moduleIds: ["vase_labs"],
+      rawConfig: { tenantPlan: "TRIAL", proSubmoduleIds: [] },
+    });
+    expect(labs.labs).toEqual({ submoduleId: "labs-starter", plan: "STARTER", status: "TRIAL" });
+
+    const existingRest = createStatefulTx();
+    existingRest.state.contracts.push({ tenantId: "tenant-1", pricingVersionId: "rest-existing", status: "TRIAL" });
+    const reused = await adaptLegacyClientProductAccessWithTx({
+      tx: existingRest.tx,
+      ownerUserId: "owner-1",
+      moduleIds: ["vase_rest"],
+      rawConfig: { tenantPlan: "PRO", proSubmoduleIds: [] },
+    });
+    expect(reused.rest).toEqual({ pricingVersionId: "rest-existing", status: "TRIAL" });
+
+    const unambiguous = createStatefulTx({ existingTenant: false });
+    const bridged = await adaptLegacyClientProductAccessWithTx({
+      tx: unambiguous.tx,
+      ownerUserId: "new-owner",
+      moduleIds: ["vase_rest"],
+      rawConfig: { tenantPlan: "PRO", proSubmoduleIds: [] },
+    });
+    expect(bridged.rest).toEqual({ pricingVersionId: "starter-published", status: "ACTIVE" });
+
+    const ambiguous = createStatefulTx();
+    ambiguous.tx.restPricingVersion.findMany = async () => [{ id: "starter-1" }, { id: "starter-2" }];
+    await expect(adaptLegacyClientProductAccessWithTx({
+      tx: ambiguous.tx,
+      ownerUserId: "new-owner",
+      moduleIds: ["vase_rest"],
+      rawConfig: { tenantPlan: "PRO", proSubmoduleIds: [] },
+    })).rejects.toThrow("CLIENT_LEGACY_REST_PLAN_REQUIRED");
+  });
+
+  it("rejects selected legacy products when their authoritative catalog is unavailable", async () => {
+    const missing = createStatefulTx();
+    missing.tx.moduleSubmodule.findMany = async () => submodules.filter((item) => item.moduleId === "vase_labs");
+    await expect(adaptLegacyClientProductAccessWithTx({
+      tx: missing.tx,
+      ownerUserId: "owner-1",
+      moduleIds: ["vase_business"],
+      rawConfig: { tenantPlan: "TRIAL", proSubmoduleIds: [] },
+    })).rejects.toThrow("CLIENT_BUSINESS_SUBMODULE_INVALID");
   });
 });
