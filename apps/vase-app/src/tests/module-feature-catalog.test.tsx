@@ -5,7 +5,7 @@ import {
   deleteModuleFeatureSchema,
   updateModuleFeatureSchema,
 } from "@/lib/validators/admin";
-import { AdminModulesConsole } from "@/components/admin/admin-modules-console";
+import { AdminModulesConsole, FeatureDefaultInput } from "@/components/admin/admin-modules-console";
 import { getBusinessFeatureScope, parseModuleFeatureDefault } from "@/server/services/module-features";
 import { serializeModuleFeature } from "@/server/queries/modules-admin";
 
@@ -145,6 +145,44 @@ describe("module feature FormData defaults", () => {
     });
     expect(textResult.success).toBe(true);
     if (textResult.success) expect(textResult.data.trialDefault).toBe("");
+  });
+
+  it("round-trips explicit null, empty TEXT, and zero INTEGER values through default modes", () => {
+    const defaults = new FormData();
+    defaults.set("textMode", "null");
+    defaults.set("text", "");
+    defaults.set("integerMode", "value");
+    defaults.set("integer", "0");
+    expect(parseModuleFeatureDefault(defaults, "text", "TEXT")).toBeNull();
+    expect(parseModuleFeatureDefault(defaults, "integer", "INTEGER")).toBe(0);
+
+    defaults.set("textMode", "value");
+    expect(parseModuleFeatureDefault(defaults, "text", "TEXT")).toBe("");
+    defaults.set("integerMode", "null");
+    expect(parseModuleFeatureDefault(defaults, "integer", "INTEGER")).toBeNull();
+    defaults.set("integerMode", "invalid");
+    const invalidMode = parseModuleFeatureDefault(defaults, "integer", "INTEGER");
+    expect(invalidMode).toBeUndefined();
+    expect(createModuleFeatureSchema.safeParse({
+      moduleId, key: "invalid-mode", name: "Modo", valueType: "INTEGER", trialDefault: invalidMode,
+      activeDefault: 0, minValue: null, maxValue: null, sortOrder: 0, isActive: true,
+    }).success).toBe(false);
+  });
+});
+
+describe("module feature default input", () => {
+  it("renders null and explicit empty TEXT defaults with different modes", () => {
+    const nullMarkup = renderToStaticMarkup(
+      <FeatureDefaultInput label="Trial" field="trialDefault" valueType="TEXT" defaultValue={null} />,
+    );
+    const emptyMarkup = renderToStaticMarkup(
+      <FeatureDefaultInput label="Trial" field="trialDefault" valueType="TEXT" defaultValue="" />,
+    );
+
+    expect(nullMarkup).toContain('name="trialDefaultMode"');
+    expect(nullMarkup).toContain('value="null" selected=""');
+    expect(emptyMarkup).toContain('value="value" selected=""');
+    expect(emptyMarkup).toContain('name="trialDefault"');
   });
 });
 

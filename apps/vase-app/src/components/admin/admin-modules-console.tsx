@@ -534,7 +534,7 @@ function FeatureCatalogSection({
   );
 }
 
-function FeatureDefaultInput({
+export function FeatureDefaultInput({
   label,
   field,
   valueType,
@@ -548,5 +548,29 @@ function FeatureDefaultInput({
   if (valueType === "BOOLEAN") {
     return <label className="grid gap-1 text-sm text-[var(--foreground)]">{label}<select name={field} defaultValue={defaultValue === null ? "" : String(defaultValue)} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]"><option value="">Sin valor</option><option value="true">Verdadero</option><option value="false">Falso</option></select></label>;
   }
-  return <label className="grid gap-1 text-sm text-[var(--foreground)]">{label}<input name={field} type={valueType === "INTEGER" ? "number" : "text"} step={valueType === "INTEGER" ? "1" : undefined} defaultValue={formatFeatureDefault(defaultValue)} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>;
+  return <FeatureNullableDefaultInput label={label} field={field} valueType={valueType} defaultValue={defaultValue} />;
+}
+
+function FeatureNullableDefaultInput({
+  label,
+  field,
+  valueType,
+  defaultValue,
+}: {
+  label: string;
+  field: "trialDefault" | "activeDefault";
+  valueType: "INTEGER" | "TEXT";
+  defaultValue: ModuleFeatureView["trialDefault"];
+}) {
+  const [mode, setMode] = useState<"null" | "value">(defaultValue === null ? "null" : "value");
+  return (
+    <label className="grid gap-1 text-sm text-[var(--foreground)]">
+      {label}
+      <select name={`${field}Mode`} value={mode} onChange={(event) => setMode(event.target.value as "null" | "value")} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]">
+        <option value="null">Sin valor</option>
+        <option value="value">Usar valor</option>
+      </select>
+      <input name={field} disabled={mode === "null"} type={valueType === "INTEGER" ? "number" : "text"} step={valueType === "INTEGER" ? "1" : undefined} defaultValue={formatFeatureDefault(defaultValue)} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] disabled:opacity-60" />
+    </label>
+  );
 }

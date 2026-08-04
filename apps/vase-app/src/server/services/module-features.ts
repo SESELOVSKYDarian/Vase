@@ -25,7 +25,13 @@ export function parseModuleFeatureDefault(
   formData: FormData,
   field: string,
   valueType: unknown,
-): boolean | number | string | null {
+): boolean | number | string | null | undefined {
+  const mode = formData.get(`${field}Mode`);
+  if (mode !== null) {
+    if (mode === "null") return null;
+    if (mode !== "value") return undefined;
+  }
+
   const rawValue = formData.get(field);
   if (rawValue === null) return null;
   const value = String(rawValue);
