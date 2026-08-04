@@ -5,7 +5,7 @@ import {
   deleteModuleFeatureSchema,
   updateModuleFeatureSchema,
 } from "@/lib/validators/admin";
-import { AdminModulesConsole, FeatureDefaultInput } from "@/components/admin/admin-modules-console";
+import { AdminModulesConsole, FeatureActionFeedback, FeatureDefaultInput } from "@/components/admin/admin-modules-console";
 import { getBusinessFeatureScope, parseModuleFeatureDefault } from "@/server/services/module-features";
 import { serializeModuleFeature } from "@/server/queries/modules-admin";
 
@@ -204,10 +204,17 @@ describe("module feature default input", () => {
   });
 });
 
+describe("module feature dialog feedback", () => {
+  it("marks errors as alerts and pending feedback as live status", () => {
+    expect(renderToStaticMarkup(<FeatureActionFeedback state={{ error: "No válido" }} pending={false} />)).toContain('role="alert"');
+    expect(renderToStaticMarkup(<FeatureActionFeedback state={{}} pending />)).toContain('aria-live="polite"');
+  });
+});
+
 describe("Business feature catalog console", () => {
   it("renders characteristics exclusively for Business modules", () => {
     const html = renderToStaticMarkup(
-      <AdminModulesConsole initialExpandedModuleIds={[moduleId]} modules={[
+      <AdminModulesConsole initialExpandedModuleIds={[moduleId, "labs", "rest"]} modules={[
         {
           id: "business",
           name: "Business",
@@ -234,7 +241,33 @@ describe("Business feature catalog console", () => {
           route: "/labs",
           isActive: true,
           features: [],
-          submodules: [],
+          submodules: [{
+            id: "ckbbbbbbbbbbbbbbbbbbbbbb",
+            key: "automation",
+            name: "Automatización Labs",
+            description: null,
+            route: "/labs/automation",
+            isActive: true,
+            features: [],
+          }],
+        },
+        {
+          id: "rest",
+          name: "Rest",
+          description: null,
+          product: "REST",
+          route: "/rest",
+          isActive: true,
+          features: [],
+          submodules: [{
+            id: "ckcccccccccccccccccccccc",
+            key: "api",
+            name: "API Rest",
+            description: null,
+            route: "/rest/api",
+            isActive: true,
+            features: [],
+          }],
         },
       ]}
     />,
@@ -243,6 +276,7 @@ describe("Business feature catalog console", () => {
     expect(html).toContain("Características");
     expect(html).toContain("Crear característica");
     expect(html).not.toContain("Características de Labs");
+    expect(html).not.toContain("Características de Rest");
   });
 });
 

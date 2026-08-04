@@ -14,7 +14,8 @@ import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permi
 
 const supportSession = { user: { id: "support-1", platformRole: "SUPPORT" } };
 const policy = {
-  canManageUsers: true,
+  canManageUsers: false,
+  canManageModules: true,
   canManageBilling: false,
   canManageFaqs: false,
   canManageWiki: false,
@@ -28,13 +29,13 @@ describe("MODULES admin permission", () => {
     mocks.findUnique.mockReset();
   });
 
-  it("allows SUPPORT users through the intentional canManageUsers fallback", async () => {
+  it("allows SUPPORT users with the dedicated modules grant", async () => {
     mocks.findUnique.mockResolvedValue(policy);
     await expect(requireAdminPermission(adminPermissions.MODULES)).resolves.toEqual(supportSession);
   });
 
-  it("denies SUPPORT users without the fallback grant", async () => {
-    mocks.findUnique.mockResolvedValue({ ...policy, canManageUsers: false });
+  it("denies SUPPORT users without the dedicated modules grant", async () => {
+    mocks.findUnique.mockResolvedValue({ ...policy, canManageModules: false });
     await expect(requireAdminPermission(adminPermissions.MODULES)).rejects.toThrow("FORBIDDEN");
   });
 });

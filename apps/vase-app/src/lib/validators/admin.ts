@@ -182,6 +182,7 @@ export const deleteFaqItemSchema = z.object({
 export const updateAdminAccessPolicySchema = z.object({
   userId: z.string().trim().cuid(),
   canManageUsers: z.boolean().default(false),
+  canManageModules: z.boolean().default(false),
   canManageBilling: z.boolean().default(false),
   canManageFaqs: z.boolean().default(false),
   canManageWiki: z.boolean().default(false),

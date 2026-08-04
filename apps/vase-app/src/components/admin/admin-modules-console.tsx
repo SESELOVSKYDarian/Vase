@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useActionState, useId, useMemo, useState } from "react";
+import { Fragment, useActionState, useEffect, useId, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   createAdminModuleAction,
@@ -15,6 +15,7 @@ import {
   type AdminGovernanceActionState,
 } from "@/app/(platform)/app/admin/actions";
 import { getAdminModuleAccessPresentation } from "@/lib/admin/user-access";
+import { isBusinessFeatureSubmoduleKey } from "@/lib/admin/module-features";
 import { CrudModal } from "@/components/ui/crud-modal";
 
 type SubmoduleView = {
@@ -63,8 +64,6 @@ type ModuleModalMode = "create" | "edit";
 type SubmoduleModalMode = "create" | "edit";
 type FeatureModalMode = "create" | "edit";
 
-const featureSubmoduleKeys = new Set(["plantilla", "personalizado"]);
-
 function formatFeatureDefault(value: ModuleFeatureView["trialDefault"]) {
   return value === null ? "" : String(value);
 }
@@ -96,6 +95,28 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
   const [createFeatureState, createFeatureFormAction, isCreatingFeature] = useActionState(createModuleFeatureAction, initialState);
   const [updateFeatureState, updateFeatureFormAction, isUpdatingFeature] = useActionState(updateModuleFeatureAction, initialState);
   const [deleteFeatureState, deleteFeatureFormAction, isDeletingFeature] = useActionState(deleteModuleFeatureAction, initialState);
+
+  const closeFeatureModal = () => {
+    setFeatureModalMode(null);
+    setSelectedFeature(null);
+    setFeatureParentModule(null);
+    setFeatureParentSubmodule(null);
+  };
+
+  useEffect(() => {
+    const didSucceed =
+      (featureModalMode === "create" && createFeatureState.success) ||
+      (featureModalMode === "edit" && updateFeatureState.success);
+    if (!didSucceed) return;
+    const timer = window.setTimeout(closeFeatureModal, 0);
+    return () => window.clearTimeout(timer);
+  }, [createFeatureState, featureModalMode, updateFeatureState]);
+
+  useEffect(() => {
+    if (!deleteFeatureState.success || !deleteFeatureTarget) return;
+    const timer = window.setTimeout(() => setDeleteFeatureTarget(null), 0);
+    return () => window.clearTimeout(timer);
+  }, [deleteFeatureState, deleteFeatureTarget]);
 
   const actionFeedback = useMemo(() => {
     const states = [
@@ -291,7 +312,7 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
                                   </button>
                                 </div>
                                 </div>
-                                {module.product === "BUSINESS" && featureSubmoduleKeys.has(submodule.key) ? (
+                                {module.product === "BUSINESS" && isBusinessFeatureSubmoduleKey(submodule.key) ? (
                                   <FeatureCatalogSection
                                     title={`Características de ${submodule.name}`}
                                     features={submodule.features}
@@ -374,10 +395,7 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
         open={featureModalMode === "create" || featureModalMode === "edit"}
         title={featureModalMode === "edit" ? "Editar característica" : "Crear característica"}
         onClose={() => {
-          setFeatureModalMode(null);
-          setSelectedFeature(null);
-          setFeatureParentModule(null);
-          setFeatureParentSubmodule(null);
+          closeFeatureModal();
         }}
       >
         <form action={featureModalMode === "edit" ? updateFeatureFormAction : createFeatureFormAction} className="grid gap-3">
@@ -415,6 +433,7 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
           <button disabled={isCreatingFeature || isUpdatingFeature} className="min-h-11 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-60">
             {isCreatingFeature || isUpdatingFeature ? "Guardando…" : featureModalMode === "edit" ? "Guardar cambios" : "Crear característica"}
           </button>
+          <FeatureActionFeedback state={featureModalMode === "edit" ? updateFeatureState : createFeatureState} pending={isCreatingFeature || isUpdatingFeature} />
         </form>
       </CrudModal>
 
@@ -423,6 +442,7 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
           <input type="hidden" name="featureId" value={deleteFeatureTarget?.id ?? ""} />
           <p className="text-sm text-[var(--foreground)]">Confirma la eliminación de <strong>{deleteFeatureTarget?.name}</strong>.</p>
           <button disabled={isDeletingFeature} className="min-h-11 rounded-lg bg-[var(--danger)] px-4 text-sm font-semibold text-white disabled:opacity-60">{isDeletingFeature ? "Eliminando…" : "Eliminar característica"}</button>
+          <FeatureActionFeedback state={deleteFeatureState} pending={isDeletingFeature} />
         </form>
       </CrudModal>
 
@@ -491,6 +511,13 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
       </CrudModal>
     </section>
   );
+}
+
+export function FeatureActionFeedback({ state, pending }: { state: AdminGovernanceActionState; pending: boolean }) {
+  if (pending) return <p aria-live="polite" className="text-sm text-[var(--muted)]">Guardando cambios…</p>;
+  if (state.error) return <p role="alert" className="text-sm text-[var(--danger)]">{state.error}</p>;
+  if (state.success) return <p aria-live="polite" className="text-sm text-[var(--success)]">{state.success}</p>;
+  return null;
 }
 
 function FeatureCatalogSection({

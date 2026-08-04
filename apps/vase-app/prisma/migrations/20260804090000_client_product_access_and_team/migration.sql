@@ -21,6 +21,9 @@ ALTER TABLE `Membership`
 ALTER TABLE `ModuleSubmodule`
   ADD UNIQUE INDEX `uq_ModuleSubmodule_id_moduleId`(`id`, `moduleId`);
 
+ALTER TABLE `AdminAccessPolicy`
+  ADD COLUMN `canManageModules` BOOLEAN NOT NULL DEFAULT false;
+
 CREATE TABLE `ModuleFeature` (
   `id` VARCHAR(191) NOT NULL,
   `moduleId` VARCHAR(191) NOT NULL,

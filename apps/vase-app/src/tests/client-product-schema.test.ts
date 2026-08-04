@@ -285,6 +285,9 @@ describe("client product access schema", () => {
       /ADD COLUMN `createdByUserId` VARCHAR\(191\) NULL/,
       /ADD INDEX `Membership_tenantId_createdByUserId_idx`\(`tenantId`, `createdByUserId`\)/,
     ]);
+    expectLines(sqlAlter("AdminAccessPolicy"), [
+      /ADD COLUMN `canManageModules` BOOLEAN NOT NULL DEFAULT false/,
+    ]);
     expectLines(sqlAlter("ModuleSubmodule"), [
       /ADD UNIQUE INDEX `uq_ModuleSubmodule_id_moduleId`\(`id`, `moduleId`\)/,
     ]);
@@ -307,6 +310,9 @@ describe("client product access schema", () => {
       /UNIQUE INDEX `uq_ModuleFeature_scope_key`\(`moduleId`, \(IF\(`submoduleId` IS NULL, 'M:', CONCAT\('S:', `submoduleId`\)\)\), `key`\)/,
       /INDEX `ModuleFeature_moduleId_submoduleId_isActive_sortOrder_idx`\(`moduleId`, `submoduleId`, `isActive`, `sortOrder`\)/,
       /INDEX `ModuleFeature_submoduleId_moduleId_idx`\(`submoduleId`, `moduleId`\)/,
+    ]);
+    expectLines(prismaBlock("model", "AdminAccessPolicy"), [
+      /^\s*canManageModules\s+Boolean\s+@default\(false\)\s*$/m,
     ]);
 
     const grantTable = sqlTable("TenantFeatureGrant");

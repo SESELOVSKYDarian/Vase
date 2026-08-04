@@ -543,6 +543,7 @@ model AdminAccessPolicy {
   id               String   @id @default(cuid())
   userId           String   @unique
   canManageUsers   Boolean  @default(false)
+  canManageModules Boolean  @default(false)
   canManageBilling Boolean  @default(false)
   canManageFaqs    Boolean  @default(false)
   canManageWiki    Boolean  @default(false)

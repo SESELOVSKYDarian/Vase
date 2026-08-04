@@ -95,7 +95,7 @@ import {
   sendCustomizationQuoteSchema,
   upsertCustomizationQuoteSchema,
 } from "@/lib/validators/custom-quotes";
-import { createAuditLog } from "@/server/services/audit-log";
+import { createAuditLog, emitAuditLogEvent, persistAuditLog } from "@/server/services/audit-log";
 import { createAutoAdminNotification } from "@/server/services/admin-notifications-auto";
 import { ensureModuleCatalogSynced, normalizePricingType } from "@/server/services/modules";
 import { getBusinessFeatureScope, parseModuleFeatureDefault } from "@/server/services/module-features";
@@ -1909,6 +1909,7 @@ function mapModuleFeatureActionError(error: unknown, fallback: string) {
   if (isPrismaUniqueConflict(error)) return "Ya existe una característica con esa clave en este alcance.";
   if (error instanceof Error) {
     if (error.message === "FORBIDDEN") return "No tienes permisos para gestionar características.";
+    if (error.message === "MODULE_FEATURE_NOT_FOUND") return "La característica ya no existe.";
     if (error.message === "Las características solo están disponibles para Vase Business.") {
       return "Las características solo están disponibles para Vase Business.";
     }
@@ -1946,34 +1947,39 @@ export async function createModuleFeatureAction(
     });
     if (!parsed.success) return { error: "Revisa los valores y límites de la característica." };
 
-    const scope = await getBusinessFeatureScope(prisma, parsed.data);
-    const created = await prisma.moduleFeature.create({
-      data: {
-        // scopeKey is deliberately omitted: it is migration-only and is not
-        // represented by the Prisma ModuleFeature public contract.
-        moduleId: scope.moduleId,
-        submoduleId: scope.submoduleId,
-        key: parsed.data.key,
-        name: parsed.data.name,
-        description: parsed.data.description ?? null,
-        valueType: parsed.data.valueType,
-        trialDefault: toModuleFeatureJsonValue(parsed.data.trialDefault),
-        activeDefault: toModuleFeatureJsonValue(parsed.data.activeDefault),
-        minValue: parsed.data.minValue,
-        maxValue: parsed.data.maxValue,
-        sortOrder: parsed.data.sortOrder,
-        isActive: parsed.data.isActive,
-      },
+    const result = await prisma.$transaction(async (tx) => {
+      const scope = await getBusinessFeatureScope(tx, parsed.data);
+      const created = await tx.moduleFeature.create({
+        data: {
+          // scopeKey is deliberately omitted: it is migration-only and is not
+          // represented by the Prisma ModuleFeature public contract.
+          moduleId: scope.moduleId,
+          submoduleId: scope.submoduleId,
+          key: parsed.data.key,
+          name: parsed.data.name,
+          description: parsed.data.description ?? null,
+          valueType: parsed.data.valueType,
+          trialDefault: toModuleFeatureJsonValue(parsed.data.trialDefault),
+          activeDefault: toModuleFeatureJsonValue(parsed.data.activeDefault),
+          minValue: parsed.data.minValue,
+          maxValue: parsed.data.maxValue,
+          sortOrder: parsed.data.sortOrder,
+          isActive: parsed.data.isActive,
+        },
+      });
+      const auditPayload = {
+        action: "platform.module_feature_created",
+        targetType: "module_feature",
+        targetId: created.id,
+        actorUserId: adminSession.user.id,
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        metadata: { moduleId: created.moduleId, submoduleId: created.submoduleId, key: created.key },
+      };
+      await persistAuditLog(tx, auditPayload);
+      return { auditPayload };
     });
-    await createAuditLog({
-      action: "platform.module_feature_created",
-      targetType: "module_feature",
-      targetId: created.id,
-      actorUserId: adminSession.user.id,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      metadata: { moduleId: created.moduleId, submoduleId: created.submoduleId, key: created.key },
-    });
+    emitAuditLogEvent(result.auditPayload);
     revalidatePath("/app/admin/modules");
     revalidatePath("/modules");
     return { success: "Característica creada." };
@@ -2004,36 +2010,40 @@ export async function updateModuleFeatureAction(
     });
     if (!parsed.success) return { error: "Revisa los valores y límites de la característica." };
 
-    const existing = await prisma.moduleFeature.findUnique({
-      where: { id: parsed.data.featureId },
-      select: { id: true, moduleId: true, submoduleId: true, key: true },
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.moduleFeature.findUnique({
+        where: { id: parsed.data.featureId },
+        select: { id: true, moduleId: true, submoduleId: true, key: true },
+      });
+      if (!existing) throw new Error("MODULE_FEATURE_NOT_FOUND");
+      await getBusinessFeatureScope(tx, existing);
+      const updated = await tx.moduleFeature.update({
+        where: { id: existing.id },
+        data: {
+          name: parsed.data.name,
+          description: parsed.data.description ?? null,
+          valueType: parsed.data.valueType,
+          trialDefault: toModuleFeatureJsonValue(parsed.data.trialDefault),
+          activeDefault: toModuleFeatureJsonValue(parsed.data.activeDefault),
+          minValue: parsed.data.minValue,
+          maxValue: parsed.data.maxValue,
+          sortOrder: parsed.data.sortOrder,
+          isActive: parsed.data.isActive,
+        },
+      });
+      const auditPayload = {
+        action: "platform.module_feature_updated",
+        targetType: "module_feature",
+        targetId: updated.id,
+        actorUserId: adminSession.user.id,
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        metadata: { moduleId: updated.moduleId, submoduleId: updated.submoduleId, key: updated.key },
+      };
+      await persistAuditLog(tx, auditPayload);
+      return { auditPayload };
     });
-    if (!existing) return { error: "La característica ya no existe." };
-    await getBusinessFeatureScope(prisma, existing);
-
-    const updated = await prisma.moduleFeature.update({
-      where: { id: existing.id },
-      data: {
-        name: parsed.data.name,
-        description: parsed.data.description ?? null,
-        valueType: parsed.data.valueType,
-        trialDefault: toModuleFeatureJsonValue(parsed.data.trialDefault),
-        activeDefault: toModuleFeatureJsonValue(parsed.data.activeDefault),
-        minValue: parsed.data.minValue,
-        maxValue: parsed.data.maxValue,
-        sortOrder: parsed.data.sortOrder,
-        isActive: parsed.data.isActive,
-      },
-    });
-    await createAuditLog({
-      action: "platform.module_feature_updated",
-      targetType: "module_feature",
-      targetId: updated.id,
-      actorUserId: adminSession.user.id,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      metadata: { moduleId: updated.moduleId, submoduleId: updated.submoduleId, key: updated.key },
-    });
+    emitAuditLogEvent(result.auditPayload);
     revalidatePath("/app/admin/modules");
     revalidatePath("/modules");
     return { success: "Característica actualizada." };
@@ -2052,22 +2062,27 @@ export async function deleteModuleFeatureAction(
     const parsed = deleteModuleFeatureSchema.safeParse({ featureId: formData.get("featureId") });
     if (!parsed.success) return { error: "Característica inválida." };
 
-    const existing = await prisma.moduleFeature.findUnique({
-      where: { id: parsed.data.featureId },
-      select: { id: true, moduleId: true, submoduleId: true, key: true },
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.moduleFeature.findUnique({
+        where: { id: parsed.data.featureId },
+        select: { id: true, moduleId: true, submoduleId: true, key: true },
+      });
+      if (!existing) throw new Error("MODULE_FEATURE_NOT_FOUND");
+      await getBusinessFeatureScope(tx, existing);
+      await tx.moduleFeature.delete({ where: { id: existing.id } });
+      const auditPayload = {
+        action: "platform.module_feature_deleted",
+        targetType: "module_feature",
+        targetId: existing.id,
+        actorUserId: adminSession.user.id,
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        metadata: { moduleId: existing.moduleId, submoduleId: existing.submoduleId, key: existing.key },
+      };
+      await persistAuditLog(tx, auditPayload);
+      return { auditPayload };
     });
-    if (!existing) return { error: "La característica ya no existe." };
-    await getBusinessFeatureScope(prisma, existing);
-    await prisma.moduleFeature.delete({ where: { id: existing.id } });
-    await createAuditLog({
-      action: "platform.module_feature_deleted",
-      targetType: "module_feature",
-      targetId: existing.id,
-      actorUserId: adminSession.user.id,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      metadata: { moduleId: existing.moduleId, submoduleId: existing.submoduleId, key: existing.key },
-    });
+    emitAuditLogEvent(result.auditPayload);
     revalidatePath("/app/admin/modules");
     revalidatePath("/modules");
     return { success: "Característica eliminada." };
@@ -3692,6 +3707,7 @@ export async function updateAdminAccessPolicyAction(
     const parsed = updateAdminAccessPolicySchema.safeParse({
       userId: formData.get("userId"),
       canManageUsers: formData.get("canManageUsers") === "on",
+      canManageModules: formData.get("canManageModules") === "on",
       canManageBilling: formData.get("canManageBilling") === "on",
       canManageFaqs: formData.get("canManageFaqs") === "on",
       canManageWiki: formData.get("canManageWiki") === "on",
@@ -3708,6 +3724,7 @@ export async function updateAdminAccessPolicyAction(
       where: { userId: parsed.data.userId },
       update: {
         canManageUsers: parsed.data.canManageUsers,
+        canManageModules: parsed.data.canManageModules,
         canManageBilling: parsed.data.canManageBilling,
         canManageFaqs: parsed.data.canManageFaqs,
         canManageWiki: parsed.data.canManageWiki,
@@ -3717,6 +3734,7 @@ export async function updateAdminAccessPolicyAction(
       create: {
         userId: parsed.data.userId,
         canManageUsers: parsed.data.canManageUsers,
+        canManageModules: parsed.data.canManageModules,
         canManageBilling: parsed.data.canManageBilling,
         canManageFaqs: parsed.data.canManageFaqs,
         canManageWiki: parsed.data.canManageWiki,

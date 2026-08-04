@@ -19,8 +19,6 @@ type FeatureScopeInput = {
   submoduleId?: string | null;
 };
 
-const businessFeatureSubmoduleKeys = new Set(["plantilla", "personalizado"]);
-
 export function parseModuleFeatureDefault(
   formData: FormData,
   field: string,
@@ -76,9 +74,10 @@ export async function getBusinessFeatureScope(
     throw new Error("El submódulo no pertenece al módulo Business seleccionado.");
   }
 
-  if (!businessFeatureSubmoduleKeys.has(submodule.key)) {
+  if (!isBusinessFeatureSubmoduleKey(submodule.key)) {
     throw new Error("Las características solo pueden asignarse a Plantilla o Personalizado.");
   }
 
   return { moduleId: parentModule.id, submoduleId: submodule.id };
 }
+import { isBusinessFeatureSubmoduleKey } from "@/lib/admin/module-features";
