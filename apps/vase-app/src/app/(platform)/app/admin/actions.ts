@@ -756,8 +756,7 @@ export async function createAdminModuleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = createAdminModuleSchema.safeParse({
       id: sanitizeText(String(formData.get("id") ?? "")),
@@ -812,8 +811,7 @@ export async function updateAdminModuleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = updateAdminModuleSchema.safeParse({
       moduleId: formData.get("moduleId"),
@@ -864,8 +862,7 @@ export async function deleteAdminModuleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = deleteAdminModuleSchema.safeParse({
       moduleId: formData.get("moduleId"),
@@ -1757,8 +1754,7 @@ export async function createModuleSubmoduleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = createModuleSubmoduleSchema.safeParse({
       moduleId: formData.get("moduleId"),
@@ -1806,8 +1802,7 @@ export async function updateModuleSubmoduleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = updateModuleSubmoduleSchema.safeParse({
       submoduleId: formData.get("submoduleId"),
@@ -1853,8 +1848,7 @@ export async function deleteModuleSubmoduleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = deleteModuleSubmoduleSchema.safeParse({
       submoduleId: formData.get("submoduleId"),

@@ -5,7 +5,14 @@ import {
   deleteModuleFeatureSchema,
   updateModuleFeatureSchema,
 } from "@/lib/validators/admin";
-import { AdminModulesConsole, FeatureActionFeedback, FeatureDefaultInput, shouldHandleFeatureActionSuccess } from "@/components/admin/admin-modules-console";
+import {
+  AdminModulesConsole,
+  FeatureActionFeedback,
+  FeatureDefaultInput,
+  featureDialogKey,
+  nextFeatureDialogGeneration,
+  shouldCloseFeatureDialogForResult,
+} from "@/components/admin/admin-modules-console";
 import { getBusinessFeatureScope, parseModuleFeatureDefault } from "@/server/services/module-features";
 import { serializeModuleFeature } from "@/server/queries/modules-admin";
 
@@ -210,11 +217,29 @@ describe("module feature dialog feedback", () => {
     expect(renderToStaticMarkup(<FeatureActionFeedback state={{}} pending />)).toContain('aria-live="polite"');
   });
 
-  it("handles a success once so reopening against the same result stays open", () => {
-    const success = { success: "Característica creada." };
-    expect(shouldHandleFeatureActionSuccess(null, success)).toBe(true);
-    expect(shouldHandleFeatureActionSuccess(success, success)).toBe(false);
-    expect(shouldHandleFeatureActionSuccess(success, { success: "Característica creada." })).toBe(true);
+  it("starts every invocation clean and rejects late results from a previous dialog", () => {
+    const firstGeneration = nextFeatureDialogGeneration(0);
+    const reopenedGeneration = nextFeatureDialogGeneration(firstGeneration);
+
+    expect(featureDialogKey(firstGeneration, "feature-a")).not.toBe(featureDialogKey(reopenedGeneration, "feature-b"));
+    expect(shouldCloseFeatureDialogForResult({
+      activeGeneration: reopenedGeneration,
+      resultGeneration: firstGeneration,
+      pending: false,
+      success: true,
+    })).toBe(false);
+    expect(shouldCloseFeatureDialogForResult({
+      activeGeneration: reopenedGeneration,
+      resultGeneration: reopenedGeneration,
+      pending: true,
+      success: true,
+    })).toBe(false);
+    expect(shouldCloseFeatureDialogForResult({
+      activeGeneration: reopenedGeneration,
+      resultGeneration: reopenedGeneration,
+      pending: false,
+      success: false,
+    })).toBe(false);
   });
 });
 

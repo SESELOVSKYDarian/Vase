@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useActionState, useEffect, useId, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   createAdminModuleAction,
@@ -28,7 +28,7 @@ type SubmoduleView = {
   features: ModuleFeatureView[];
 };
 
-type ModuleFeatureView = {
+export type ModuleFeatureView = {
   id: string;
   key: string;
   name: string;
@@ -84,7 +84,7 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
   const [featureParentModule, setFeatureParentModule] = useState<ModuleView | null>(null);
   const [featureParentSubmodule, setFeatureParentSubmodule] = useState<SubmoduleView | null>(null);
   const [deleteFeatureTarget, setDeleteFeatureTarget] = useState<ModuleFeatureView | null>(null);
-  const [featureValueType, setFeatureValueType] = useState<ModuleFeatureView["valueType"]>("BOOLEAN");
+  const [featureDialogGeneration, setFeatureDialogGeneration] = useState(0);
 
   const [createModuleState, createModuleFormAction] = useActionState(createAdminModuleAction, initialState);
   const [updateModuleState, updateModuleFormAction] = useActionState(updateAdminModuleAction, initialState);
@@ -92,53 +92,12 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
   const [createSubmoduleState, createSubmoduleFormAction] = useActionState(createModuleSubmoduleAction, initialState);
   const [updateSubmoduleState, updateSubmoduleFormAction] = useActionState(updateModuleSubmoduleAction, initialState);
   const [deleteSubmoduleState, deleteSubmoduleFormAction] = useActionState(deleteModuleSubmoduleAction, initialState);
-  const [createFeatureState, createFeatureFormAction, isCreatingFeature] = useActionState(createModuleFeatureAction, initialState);
-  const [updateFeatureState, updateFeatureFormAction, isUpdatingFeature] = useActionState(updateModuleFeatureAction, initialState);
-  const [deleteFeatureState, deleteFeatureFormAction, isDeletingFeature] = useActionState(deleteModuleFeatureAction, initialState);
-  const handledCreateFeatureState = useRef<AdminGovernanceActionState | null>(null);
-  const handledUpdateFeatureState = useRef<AdminGovernanceActionState | null>(null);
-  const handledDeleteFeatureState = useRef<AdminGovernanceActionState | null>(null);
-  const featureModalModeRef = useRef(featureModalMode);
-  const deleteFeatureTargetRef = useRef(deleteFeatureTarget);
-
-  useEffect(() => {
-    featureModalModeRef.current = featureModalMode;
-  }, [featureModalMode]);
-
-  useEffect(() => {
-    deleteFeatureTargetRef.current = deleteFeatureTarget;
-  }, [deleteFeatureTarget]);
-
   const closeFeatureModal = () => {
     setFeatureModalMode(null);
     setSelectedFeature(null);
     setFeatureParentModule(null);
     setFeatureParentSubmodule(null);
   };
-
-  useEffect(() => {
-    if (!shouldHandleFeatureActionSuccess(handledCreateFeatureState.current, createFeatureState)) return;
-    handledCreateFeatureState.current = createFeatureState;
-    if (featureModalModeRef.current !== "create") return;
-    const timer = window.setTimeout(closeFeatureModal, 0);
-    return () => window.clearTimeout(timer);
-  }, [createFeatureState]);
-
-  useEffect(() => {
-    if (!shouldHandleFeatureActionSuccess(handledUpdateFeatureState.current, updateFeatureState)) return;
-    handledUpdateFeatureState.current = updateFeatureState;
-    if (featureModalModeRef.current !== "edit") return;
-    const timer = window.setTimeout(closeFeatureModal, 0);
-    return () => window.clearTimeout(timer);
-  }, [updateFeatureState]);
-
-  useEffect(() => {
-    if (!shouldHandleFeatureActionSuccess(handledDeleteFeatureState.current, deleteFeatureState)) return;
-    handledDeleteFeatureState.current = deleteFeatureState;
-    if (!deleteFeatureTargetRef.current) return;
-    const timer = window.setTimeout(() => setDeleteFeatureTarget(null), 0);
-    return () => window.clearTimeout(timer);
-  }, [deleteFeatureState]);
 
   const actionFeedback = useMemo(() => {
     const states = [
@@ -148,9 +107,6 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
       createSubmoduleState,
       updateSubmoduleState,
       deleteSubmoduleState,
-      createFeatureState,
-      updateFeatureState,
-      deleteFeatureState,
     ];
     const lastError = states.map((state) => state.error).filter(Boolean).at(-1);
     const lastSuccess = states.map((state) => state.success).filter(Boolean).at(-1);
@@ -162,9 +118,6 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
     createSubmoduleState,
     updateSubmoduleState,
     deleteSubmoduleState,
-    createFeatureState,
-    updateFeatureState,
-    deleteFeatureState,
   ]);
 
   const toggleExpanded = (moduleId: string) => {
@@ -280,17 +233,20 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
                                 setFeatureParentModule(module);
                                 setFeatureParentSubmodule(null);
                                 setSelectedFeature(null);
-                                setFeatureValueType("BOOLEAN");
+                                setFeatureDialogGeneration(nextFeatureDialogGeneration);
                                 setFeatureModalMode("create");
                               }}
                               onEdit={(feature) => {
                                 setFeatureParentModule(module);
                                 setFeatureParentSubmodule(null);
                                 setSelectedFeature(feature);
-                                setFeatureValueType(feature.valueType);
+                                setFeatureDialogGeneration(nextFeatureDialogGeneration);
                                 setFeatureModalMode("edit");
                               }}
-                              onDelete={setDeleteFeatureTarget}
+                              onDelete={(feature) => {
+                                setFeatureDialogGeneration(nextFeatureDialogGeneration);
+                                setDeleteFeatureTarget(feature);
+                              }}
                             />
                           ) : null}
                           {module.submodules.length === 0 ? (
@@ -342,17 +298,20 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
                                       setFeatureParentModule(module);
                                       setFeatureParentSubmodule(submodule);
                                       setSelectedFeature(null);
-                                      setFeatureValueType("BOOLEAN");
+                                      setFeatureDialogGeneration(nextFeatureDialogGeneration);
                                       setFeatureModalMode("create");
                                     }}
                                     onEdit={(feature) => {
                                       setFeatureParentModule(module);
                                       setFeatureParentSubmodule(submodule);
                                       setSelectedFeature(feature);
-                                      setFeatureValueType(feature.valueType);
+                                      setFeatureDialogGeneration(nextFeatureDialogGeneration);
                                       setFeatureModalMode("edit");
                                     }}
-                                    onDelete={setDeleteFeatureTarget}
+                                    onDelete={(feature) => {
+                                      setFeatureDialogGeneration(nextFeatureDialogGeneration);
+                                      setDeleteFeatureTarget(feature);
+                                    }}
                                   />
                                 ) : null}
                               </div>
@@ -413,60 +372,26 @@ export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: 
         </form>
       </CrudModal>
 
-      <CrudModal
-        open={featureModalMode === "create" || featureModalMode === "edit"}
-        title={featureModalMode === "edit" ? "Editar característica" : "Crear característica"}
-        onClose={() => {
-          closeFeatureModal();
-        }}
-      >
-        <form action={featureModalMode === "edit" ? updateFeatureFormAction : createFeatureFormAction} className="grid gap-3">
-          {featureModalMode === "edit" ? (
-            <>
-              <input type="hidden" name="featureId" value={selectedFeature?.id ?? ""} />
-              <label className="grid gap-1 text-sm text-[var(--foreground)]">Clave estable<input value={selectedFeature?.key ?? ""} readOnly className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--muted)]" /></label>
-            </>
-          ) : (
-            <>
-              <input type="hidden" name="moduleId" value={featureParentModule?.id ?? ""} />
-              <input type="hidden" name="submoduleId" value={featureParentSubmodule?.id ?? ""} />
-              <label className="grid gap-1 text-sm text-[var(--foreground)]">Clave estable<input name="key" required placeholder="catalog_enabled" className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
-            </>
-          )}
-          <label className="grid gap-1 text-sm text-[var(--foreground)]">Nombre<input name="name" required defaultValue={selectedFeature?.name ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
-          <label className="grid gap-1 text-sm text-[var(--foreground)]">Descripción<textarea name="description" rows={2} defaultValue={selectedFeature?.description ?? ""} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]" /></label>
-          <label className="grid gap-1 text-sm text-[var(--foreground)]">Tipo de valor
-            <select name="valueType" value={featureValueType} onChange={(event) => setFeatureValueType(event.target.value as ModuleFeatureView["valueType"])} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]">
-              <option value="BOOLEAN">Booleano</option><option value="INTEGER">Entero</option><option value="TEXT">Texto</option>
-            </select>
-          </label>
-          <div className="grid gap-3 md:grid-cols-2">
-            <FeatureDefaultInput label="Default trial" field="trialDefault" valueType={featureValueType} defaultValue={selectedFeature?.trialDefault ?? null} />
-            <FeatureDefaultInput label="Default activo" field="activeDefault" valueType={featureValueType} defaultValue={selectedFeature?.activeDefault ?? null} />
-          </div>
-          {featureValueType === "INTEGER" ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="grid gap-1 text-sm text-[var(--foreground)]">Mínimo<input name="minValue" type="number" step="1" defaultValue={selectedFeature?.minValue ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
-              <label className="grid gap-1 text-sm text-[var(--foreground)]">Máximo<input name="maxValue" type="number" step="1" defaultValue={selectedFeature?.maxValue ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
-            </div>
-          ) : null}
-          <label className="grid gap-1 text-sm text-[var(--foreground)]">Orden<input name="sortOrder" type="number" step="1" defaultValue={selectedFeature?.sortOrder ?? 0} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
-          <label className="inline-flex items-center gap-2 text-sm text-[var(--foreground)]"><input name="isActive" type="checkbox" defaultChecked={selectedFeature?.isActive ?? true} /> Activa</label>
-          <button disabled={isCreatingFeature || isUpdatingFeature} className="min-h-11 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-60">
-            {isCreatingFeature || isUpdatingFeature ? "Guardando…" : featureModalMode === "edit" ? "Guardar cambios" : "Crear característica"}
-          </button>
-          <FeatureActionFeedback state={featureModalMode === "edit" ? updateFeatureState : createFeatureState} pending={isCreatingFeature || isUpdatingFeature} />
-        </form>
-      </CrudModal>
+      {featureModalMode ? (
+        <ModuleFeatureEditorDialog
+          key={featureDialogKey(featureDialogGeneration, "editor")}
+          generation={featureDialogGeneration}
+          mode={featureModalMode}
+          feature={selectedFeature}
+          moduleId={featureParentModule?.id ?? ""}
+          submoduleId={featureParentSubmodule?.id ?? ""}
+          onClose={closeFeatureModal}
+        />
+      ) : null}
 
-      <CrudModal open={Boolean(deleteFeatureTarget)} title="Eliminar característica" onClose={() => setDeleteFeatureTarget(null)}>
-        <form action={deleteFeatureFormAction} className="grid gap-4">
-          <input type="hidden" name="featureId" value={deleteFeatureTarget?.id ?? ""} />
-          <p className="text-sm text-[var(--foreground)]">Confirma la eliminación de <strong>{deleteFeatureTarget?.name}</strong>.</p>
-          <button disabled={isDeletingFeature} className="min-h-11 rounded-lg bg-[var(--danger)] px-4 text-sm font-semibold text-white disabled:opacity-60">{isDeletingFeature ? "Eliminando…" : "Eliminar característica"}</button>
-          <FeatureActionFeedback state={deleteFeatureState} pending={isDeletingFeature} />
-        </form>
-      </CrudModal>
+      {deleteFeatureTarget ? (
+        <ModuleFeatureDeleteDialog
+          key={featureDialogKey(featureDialogGeneration, deleteFeatureTarget.id)}
+          generation={featureDialogGeneration}
+          feature={deleteFeatureTarget}
+          onClose={() => setDeleteFeatureTarget(null)}
+        />
+      ) : null}
 
       <CrudModal
         open={submoduleModalMode === "create" || submoduleModalMode === "edit"}
@@ -542,11 +467,138 @@ export function FeatureActionFeedback({ state, pending }: { state: AdminGovernan
   return null;
 }
 
-export function shouldHandleFeatureActionSuccess(
-  handledState: AdminGovernanceActionState | null,
-  nextState: AdminGovernanceActionState,
-) {
-  return nextState !== handledState && Boolean(nextState.success);
+export function nextFeatureDialogGeneration(currentGeneration: number) {
+  return currentGeneration + 1;
+}
+
+export function featureDialogKey(generation: number, target: string) {
+  return `feature-dialog-${generation}-${target}`;
+}
+
+export function shouldCloseFeatureDialogForResult({
+  activeGeneration,
+  resultGeneration,
+  pending,
+  success,
+}: {
+  activeGeneration: number;
+  resultGeneration: number;
+  pending: boolean;
+  success: boolean;
+}) {
+  return success && !pending && activeGeneration === resultGeneration;
+}
+
+function ModuleFeatureEditorDialog({
+  generation,
+  mode,
+  feature,
+  moduleId,
+  submoduleId,
+  onClose,
+}: {
+  generation: number;
+  mode: FeatureModalMode;
+  feature: ModuleFeatureView | null;
+  moduleId: string;
+  submoduleId: string;
+  onClose: () => void;
+}) {
+  const [state, formAction, isPending] = useActionState(
+    mode === "edit" ? updateModuleFeatureAction : createModuleFeatureAction,
+    initialState,
+  );
+  const [valueType, setValueType] = useState<ModuleFeatureView["valueType"]>(feature?.valueType ?? "BOOLEAN");
+
+  useEffect(() => {
+    if (!shouldCloseFeatureDialogForResult({
+      activeGeneration: generation,
+      resultGeneration: generation,
+      pending: isPending,
+      success: Boolean(state.success),
+    })) return;
+    onClose();
+  }, [generation, isPending, onClose, state.success]);
+
+  return (
+    <CrudModal
+      open
+      title={mode === "edit" ? "Editar característica" : "Crear característica"}
+      onClose={onClose}
+      disableClose={isPending}
+    >
+      <form action={formAction} className="grid gap-3">
+        {mode === "edit" ? (
+          <>
+            <input type="hidden" name="featureId" value={feature?.id ?? ""} />
+            <label className="grid gap-1 text-sm text-[var(--foreground)]">Clave estable<input value={feature?.key ?? ""} readOnly className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--muted)]" /></label>
+          </>
+        ) : (
+          <>
+            <input type="hidden" name="moduleId" value={moduleId} />
+            <input type="hidden" name="submoduleId" value={submoduleId} />
+            <label className="grid gap-1 text-sm text-[var(--foreground)]">Clave estable<input name="key" required placeholder="catalog_enabled" className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
+          </>
+        )}
+        <label className="grid gap-1 text-sm text-[var(--foreground)]">Nombre<input name="name" required defaultValue={feature?.name ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
+        <label className="grid gap-1 text-sm text-[var(--foreground)]">Descripción<textarea name="description" rows={2} defaultValue={feature?.description ?? ""} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]" /></label>
+        <label className="grid gap-1 text-sm text-[var(--foreground)]">Tipo de valor
+          <select name="valueType" value={valueType} onChange={(event) => setValueType(event.target.value as ModuleFeatureView["valueType"])} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]">
+            <option value="BOOLEAN">Booleano</option><option value="INTEGER">Entero</option><option value="TEXT">Texto</option>
+          </select>
+        </label>
+        <div className="grid gap-3 md:grid-cols-2">
+          <FeatureDefaultInput label="Default trial" field="trialDefault" valueType={valueType} defaultValue={feature?.trialDefault ?? null} />
+          <FeatureDefaultInput label="Default activo" field="activeDefault" valueType={valueType} defaultValue={feature?.activeDefault ?? null} />
+        </div>
+        {valueType === "INTEGER" ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1 text-sm text-[var(--foreground)]">Mínimo<input name="minValue" type="number" step="1" defaultValue={feature?.minValue ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
+            <label className="grid gap-1 text-sm text-[var(--foreground)]">Máximo<input name="maxValue" type="number" step="1" defaultValue={feature?.maxValue ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
+          </div>
+        ) : null}
+        <label className="grid gap-1 text-sm text-[var(--foreground)]">Orden<input name="sortOrder" type="number" step="1" defaultValue={feature?.sortOrder ?? 0} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
+        <label className="inline-flex items-center gap-2 text-sm text-[var(--foreground)]"><input name="isActive" type="checkbox" defaultChecked={feature?.isActive ?? true} /> Activa</label>
+        <button disabled={isPending} className="min-h-11 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-60">
+          {isPending ? "Guardando…" : mode === "edit" ? "Guardar cambios" : "Crear característica"}
+        </button>
+        <FeatureActionFeedback state={state} pending={isPending} />
+      </form>
+    </CrudModal>
+  );
+}
+
+function ModuleFeatureDeleteDialog({
+  generation,
+  feature,
+  onClose,
+}: {
+  generation: number;
+  feature: ModuleFeatureView;
+  onClose: () => void;
+}) {
+  const [state, formAction, isPending] = useActionState(deleteModuleFeatureAction, initialState);
+
+  useEffect(() => {
+    if (!shouldCloseFeatureDialogForResult({
+      activeGeneration: generation,
+      resultGeneration: generation,
+      pending: isPending,
+      success: Boolean(state.success),
+    })) return;
+    onClose();
+  }, [generation, isPending, onClose, state.success]);
+
+  return (
+    <CrudModal open title="Eliminar característica" onClose={onClose} disableClose={isPending}>
+      <form action={formAction} className="grid gap-4">
+        <input type="hidden" name="featureId" value={feature.id} />
+        <p className="text-sm text-[var(--foreground)]">Confirma la eliminación de <strong>{feature.name}</strong>.</p>
+        <button disabled={isPending} className="min-h-11 rounded-lg bg-[var(--danger)] px-4 text-sm font-semibold text-white disabled:opacity-60">{isPending ? "Eliminando…" : "Eliminar característica"}</button>
+        <FeatureActionFeedback state={state} pending={isPending} />
+      </form>
+    </CrudModal>
+  );
 }
 
 function FeatureCatalogSection({
