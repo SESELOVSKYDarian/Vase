@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clientProductAccessSchema,
+  clientProductAccessEnvelopeSchema,
   getLabsEntitlement,
   projectClientProductAccessToLegacy,
 } from "@/lib/admin/client-product-access";
@@ -174,4 +175,15 @@ describe("client product access", () => {
       moduleLimits: {},
     });
   });
+
+  it.each(["tenantSlug", "tenantStatus", "unknownRoot"])(
+    "rejects the extra v2 envelope root field %s",
+    (field) => {
+      expect(clientProductAccessEnvelopeSchema.safeParse({
+        version: 2,
+        productAccess: disabledProducts,
+        [field]: "technical-value",
+      }).success).toBe(false);
+    },
+  );
 });

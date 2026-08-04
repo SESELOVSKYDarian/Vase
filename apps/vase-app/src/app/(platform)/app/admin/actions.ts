@@ -106,7 +106,7 @@ import {
   userAccessModuleIds,
 } from "@/lib/admin/user-access";
 import {
-  clientProductAccessSchema,
+  clientProductAccessEnvelopeSchema,
   parseStoredClientProductAccess,
   type ClientProductAccess,
 } from "@/lib/admin/client-product-access";
@@ -4922,13 +4922,12 @@ type ParsedClientAccessPayload =
 function parseClientAccessPayload(rawValue: FormDataEntryValue | null): ParsedClientAccessPayload | null {
   if (typeof rawValue !== "string" || rawValue.trim().length === 0) return null;
   try {
-    const parsedJson = JSON.parse(rawValue) as { version?: unknown; productAccess?: unknown } | null;
-    if (!parsedJson || typeof parsedJson !== "object") return null;
-    if (parsedJson.version === 2) {
-      const parsed = clientProductAccessSchema.safeParse(parsedJson.productAccess);
-      return parsed.success ? { kind: "v2", access: parsed.data } : null;
+    const parsedJson: unknown = JSON.parse(rawValue);
+    if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) return null;
+    if ("version" in parsedJson) {
+      const parsed = clientProductAccessEnvelopeSchema.safeParse(parsedJson);
+      return parsed.success ? { kind: "v2", access: parsed.data.productAccess } : null;
     }
-    if ("version" in parsedJson) return null;
     return { kind: "legacy", rawConfig: parsedJson };
   } catch {
     return null;

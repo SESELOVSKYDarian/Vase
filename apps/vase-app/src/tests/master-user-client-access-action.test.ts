@@ -168,4 +168,22 @@ describe("upsertMasterUserWithStateAction legacy client compatibility", () => {
       businessFeatureMode: "REPLACE",
     }));
   });
+
+  it.each(["tenantSlug", "tenantStatus", "unknownRoot"])(
+    "rejects a v2 envelope containing the extra root field %s",
+    async (field) => {
+      const form = currentLegacyForm();
+      form.set("clientAccessConfig", JSON.stringify({
+        version: 2,
+        productAccess: convertedAccess,
+        [field]: "must-not-be-accepted",
+      }));
+
+      await expect(upsertMasterUserWithStateAction({}, form)).resolves.toEqual({
+        error: "La configuracion de productos del cliente no es valida.",
+      });
+      expect(mocks.transaction).not.toHaveBeenCalled();
+      expect(mocks.applyAccess).not.toHaveBeenCalled();
+    },
+  );
 });
