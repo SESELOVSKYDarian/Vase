@@ -30,7 +30,10 @@ import {
   toggleFeatureFlagSchema,
   updateAdminModulePricingSchema,
   createModuleSubmoduleSchema,
+  createModuleFeatureSchema,
+  deleteModuleFeatureSchema,
   deleteModuleSubmoduleSchema,
+  updateModuleFeatureSchema,
   updateModuleSubmoduleSchema,
   updateModuleSubmodulePricingSchema,
   setTenantModuleActivationSchema,
@@ -95,6 +98,7 @@ import {
 import { createAuditLog } from "@/server/services/audit-log";
 import { createAutoAdminNotification } from "@/server/services/admin-notifications-auto";
 import { ensureModuleCatalogSynced, normalizePricingType } from "@/server/services/modules";
+import { getBusinessFeatureScope } from "@/server/services/module-features";
 import {
   buildClientTenantAccessProvisioning,
   buildAdminCreatedUserVerification,
@@ -1885,6 +1889,182 @@ export async function deleteModuleSubmoduleAction(
     return { success: "Submodulo eliminado definitivamente." };
   } catch {
     return { error: "No pudimos eliminar el submodulo." };
+  }
+}
+
+function parseModuleFeatureDefault(formData: FormData, field: "trialDefault" | "activeDefault", valueType: unknown) {
+  const rawValue = String(formData.get(field) ?? "").trim();
+  if (!rawValue) return null;
+  if (valueType === "BOOLEAN") return rawValue === "true";
+  if (valueType === "INTEGER") return Number(rawValue);
+  return rawValue;
+}
+
+function parseNullableInteger(formData: FormData, field: "minValue" | "maxValue") {
+  const rawValue = String(formData.get(field) ?? "").trim();
+  return rawValue ? Number(rawValue) : null;
+}
+
+function toModuleFeatureJsonValue(value: boolean | number | string | null): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+  return value === null ? Prisma.JsonNull : value;
+}
+
+function isPrismaUniqueConflict(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+export async function createModuleFeatureAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
+    const valueType = formData.get("valueType");
+    const parsed = createModuleFeatureSchema.safeParse({
+      moduleId: formData.get("moduleId"),
+      submoduleId: String(formData.get("submoduleId") ?? "").trim() || null,
+      key: String(formData.get("key") ?? ""),
+      name: sanitizeText(String(formData.get("name") ?? "")),
+      description: sanitizeNullableText(String(formData.get("description") ?? "")) ?? null,
+      valueType,
+      trialDefault: parseModuleFeatureDefault(formData, "trialDefault", valueType),
+      activeDefault: parseModuleFeatureDefault(formData, "activeDefault", valueType),
+      minValue: parseNullableInteger(formData, "minValue"),
+      maxValue: parseNullableInteger(formData, "maxValue"),
+      sortOrder: formData.get("sortOrder"),
+      isActive: formData.get("isActive") === "on",
+    });
+    if (!parsed.success) return { error: "Revisa los valores y límites de la característica." };
+
+    const scope = await getBusinessFeatureScope(prisma, parsed.data);
+    const created = await prisma.moduleFeature.create({
+      data: {
+        // scopeKey is deliberately omitted: it is migration-only and is not
+        // represented by the Prisma ModuleFeature public contract.
+        moduleId: scope.moduleId,
+        submoduleId: scope.submoduleId,
+        key: parsed.data.key,
+        name: parsed.data.name,
+        description: parsed.data.description ?? null,
+        valueType: parsed.data.valueType,
+        trialDefault: toModuleFeatureJsonValue(parsed.data.trialDefault),
+        activeDefault: toModuleFeatureJsonValue(parsed.data.activeDefault),
+        minValue: parsed.data.minValue,
+        maxValue: parsed.data.maxValue,
+        sortOrder: parsed.data.sortOrder,
+        isActive: parsed.data.isActive,
+      },
+    });
+    await createAuditLog({
+      action: "platform.module_feature_created",
+      targetType: "module_feature",
+      targetId: created.id,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { moduleId: created.moduleId, submoduleId: created.submoduleId, key: created.key },
+    });
+    revalidatePath("/app/admin/modules");
+    revalidatePath("/modules");
+    return { success: "Característica creada." };
+  } catch (error) {
+    if (isPrismaUniqueConflict(error)) return { error: "Ya existe una característica con esa clave en este alcance." };
+    return { error: error instanceof Error ? error.message : "No pudimos crear la característica." };
+  }
+}
+
+export async function updateModuleFeatureAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
+    const valueType = formData.get("valueType");
+    const parsed = updateModuleFeatureSchema.safeParse({
+      featureId: formData.get("featureId"),
+      name: sanitizeText(String(formData.get("name") ?? "")),
+      description: sanitizeNullableText(String(formData.get("description") ?? "")) ?? null,
+      valueType,
+      trialDefault: parseModuleFeatureDefault(formData, "trialDefault", valueType),
+      activeDefault: parseModuleFeatureDefault(formData, "activeDefault", valueType),
+      minValue: parseNullableInteger(formData, "minValue"),
+      maxValue: parseNullableInteger(formData, "maxValue"),
+      sortOrder: formData.get("sortOrder"),
+      isActive: formData.get("isActive") === "on",
+    });
+    if (!parsed.success) return { error: "Revisa los valores y límites de la característica." };
+
+    const existing = await prisma.moduleFeature.findUnique({
+      where: { id: parsed.data.featureId },
+      select: { id: true, moduleId: true, submoduleId: true, key: true },
+    });
+    if (!existing) return { error: "La característica ya no existe." };
+    await getBusinessFeatureScope(prisma, existing);
+
+    const updated = await prisma.moduleFeature.update({
+      where: { id: existing.id },
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description ?? null,
+        valueType: parsed.data.valueType,
+        trialDefault: toModuleFeatureJsonValue(parsed.data.trialDefault),
+        activeDefault: toModuleFeatureJsonValue(parsed.data.activeDefault),
+        minValue: parsed.data.minValue,
+        maxValue: parsed.data.maxValue,
+        sortOrder: parsed.data.sortOrder,
+        isActive: parsed.data.isActive,
+      },
+    });
+    await createAuditLog({
+      action: "platform.module_feature_updated",
+      targetType: "module_feature",
+      targetId: updated.id,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { moduleId: updated.moduleId, submoduleId: updated.submoduleId, key: updated.key },
+    });
+    revalidatePath("/app/admin/modules");
+    revalidatePath("/modules");
+    return { success: "Característica actualizada." };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "No pudimos actualizar la característica." };
+  }
+}
+
+export async function deleteModuleFeatureAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
+    const parsed = deleteModuleFeatureSchema.safeParse({ featureId: formData.get("featureId") });
+    if (!parsed.success) return { error: "Característica inválida." };
+
+    const existing = await prisma.moduleFeature.findUnique({
+      where: { id: parsed.data.featureId },
+      select: { id: true, moduleId: true, submoduleId: true, key: true },
+    });
+    if (!existing) return { error: "La característica ya no existe." };
+    await getBusinessFeatureScope(prisma, existing);
+    await prisma.moduleFeature.delete({ where: { id: existing.id } });
+    await createAuditLog({
+      action: "platform.module_feature_deleted",
+      targetType: "module_feature",
+      targetId: existing.id,
+      actorUserId: adminSession.user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      metadata: { moduleId: existing.moduleId, submoduleId: existing.submoduleId, key: existing.key },
+    });
+    revalidatePath("/app/admin/modules");
+    revalidatePath("/modules");
+    return { success: "Característica eliminada." };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "No pudimos eliminar la característica." };
   }
 }
 

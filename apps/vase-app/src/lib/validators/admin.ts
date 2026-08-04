@@ -364,6 +364,95 @@ export const deleteModuleSubmoduleSchema = z.object({
   submoduleId: z.string().trim().cuid(),
 });
 
+const moduleFeatureValueTypeSchema = z.enum(["BOOLEAN", "INTEGER", "TEXT"]);
+
+const moduleFeatureKeySchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(80)
+  .regex(/^[A-Za-z0-9 _-]+$/)
+  .transform((value) => value.toLowerCase().replace(/[\s-]+/g, "-").replace(/_+/g, "_").replace(/^-+|-+$/g, ""))
+  .pipe(z.string().min(2).max(80).regex(/^[a-z0-9_-]+$/));
+
+const moduleFeatureValueFields = {
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(1000).nullable().optional(),
+  valueType: moduleFeatureValueTypeSchema,
+  trialDefault: z.union([z.boolean(), z.number().int(), z.string().trim().max(2000), z.null()]),
+  activeDefault: z.union([z.boolean(), z.number().int(), z.string().trim().max(2000), z.null()]),
+  minValue: z.coerce.number().int().nullable(),
+  maxValue: z.coerce.number().int().nullable(),
+  sortOrder: z.coerce.number().int().min(-10000).max(10000),
+  isActive: z.boolean(),
+};
+
+type ModuleFeatureValues = {
+  name: string;
+  description?: string | null;
+  valueType: "BOOLEAN" | "INTEGER" | "TEXT";
+  trialDefault: boolean | number | string | null;
+  activeDefault: boolean | number | string | null;
+  minValue: number | null;
+  maxValue: number | null;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+function validateModuleFeatureValues(value: ModuleFeatureValues, context: z.RefinementCtx) {
+  const defaults = ["trialDefault", "activeDefault"] as const;
+  const isCorrectValueType = (defaultValue: unknown) =>
+    defaultValue === null ||
+    (value.valueType === "BOOLEAN" && typeof defaultValue === "boolean") ||
+    (value.valueType === "INTEGER" && typeof defaultValue === "number" && Number.isInteger(defaultValue)) ||
+    (value.valueType === "TEXT" && typeof defaultValue === "string");
+
+  for (const field of defaults) {
+    if (!isCorrectValueType(value[field])) {
+      context.addIssue({ code: "custom", path: [field], message: "El valor por defecto no coincide con el tipo." });
+    }
+  }
+
+  if (value.valueType !== "INTEGER" && (value.minValue !== null || value.maxValue !== null)) {
+    context.addIssue({ code: "custom", path: ["minValue"], message: "Los límites solo aplican a valores enteros." });
+  }
+
+  if (value.minValue !== null && value.maxValue !== null && value.minValue > value.maxValue) {
+    context.addIssue({ code: "custom", path: ["minValue"], message: "El mínimo no puede superar al máximo." });
+  }
+
+  if (value.valueType === "INTEGER") {
+    for (const field of defaults) {
+      const defaultValue = value[field];
+      if (typeof defaultValue === "number" &&
+        ((value.minValue !== null && defaultValue < value.minValue) ||
+          (value.maxValue !== null && defaultValue > value.maxValue))) {
+        context.addIssue({ code: "custom", path: [field], message: "El valor por defecto debe respetar los límites." });
+      }
+    }
+  }
+}
+
+const moduleFeatureValuesSchema = z.object(moduleFeatureValueFields).superRefine(validateModuleFeatureValues);
+
+export const createModuleFeatureSchema = z.object({
+  moduleId: z.string().trim().min(3).max(80),
+  submoduleId: z.string().trim().cuid().nullable().optional(),
+  key: moduleFeatureKeySchema,
+}).extend(moduleFeatureValuesSchema.shape).superRefine((value, context) => {
+  validateModuleFeatureValues(value, context);
+});
+
+export const updateModuleFeatureSchema = z.object({
+  featureId: z.string().trim().cuid(),
+}).extend(moduleFeatureValuesSchema.shape).superRefine((value, context) => {
+  validateModuleFeatureValues(value, context);
+});
+
+export const deleteModuleFeatureSchema = z.object({
+  featureId: z.string().trim().cuid(),
+});
+
 export const updateModuleSubmodulePricingSchema = z.object({
   submoduleId: z.string().trim().cuid(),
   price: z.coerce.number().nonnegative().max(999999),

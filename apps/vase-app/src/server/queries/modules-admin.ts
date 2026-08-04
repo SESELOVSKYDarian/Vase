@@ -6,6 +6,40 @@ import {
   serializePricingType,
 } from "@/server/services/modules";
 
+function serializeFeatureDefault(value: unknown): boolean | number | string | null {
+  return typeof value === "boolean" || typeof value === "number" || typeof value === "string"
+    ? value
+    : null;
+}
+
+export function serializeModuleFeature(feature: {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  valueType: "BOOLEAN" | "INTEGER" | "TEXT";
+  trialDefault: unknown;
+  activeDefault: unknown;
+  minValue: number | null;
+  maxValue: number | null;
+  sortOrder: number;
+  isActive: boolean;
+}) {
+  return {
+    id: feature.id,
+    key: feature.key,
+    name: feature.name,
+    description: feature.description,
+    valueType: feature.valueType,
+    trialDefault: serializeFeatureDefault(feature.trialDefault),
+    activeDefault: serializeFeatureDefault(feature.activeDefault),
+    minValue: feature.minValue,
+    maxValue: feature.maxValue,
+    sortOrder: feature.sortOrder,
+    isActive: feature.isActive,
+  };
+}
+
 export async function getAdminModulesCatalog() {
   await ensureModuleCatalogSynced();
 
@@ -18,6 +52,10 @@ export async function getAdminModulesCatalog() {
       tenantLinks: {
         select: { id: true, tenantId: true, isActive: true, activeArtifactId: true },
       },
+      features: {
+        where: { submoduleId: null },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
       submodules: {
         include: {
           pricing: {
@@ -29,6 +67,9 @@ export async function getAdminModulesCatalog() {
           artifacts: {
             orderBy: [{ isPublished: "desc" }, { createdAt: "desc" }],
             take: 10,
+          },
+          features: {
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
           },
         },
         orderBy: { createdAt: "asc" },
@@ -71,14 +112,15 @@ export async function getAdminModulesCatalog() {
       isActive: module.isActive,
       activeTenants: module.tenantLinks.length,
       tenants,
+      features: module.features.map(serializeModuleFeature),
       artifacts: module.artifacts.map((artifact) => ({
         id: artifact.id,
         version: artifact.version,
         fileName: artifact.fileName,
         sizeBytes: artifact.sizeBytes,
         isPublished: artifact.isPublished,
-        publishedAt: artifact.publishedAt,
-        createdAt: artifact.createdAt,
+        publishedAt: artifact.publishedAt?.toISOString() ?? null,
+        createdAt: artifact.createdAt.toISOString(),
       })),
       currentPricing: currentPricing
         ? {
@@ -87,7 +129,7 @@ export async function getAdminModulesCatalog() {
             currency: currentPricing.currency,
             type: serializePricingType(currentPricing.type),
             isActive: currentPricing.isActive,
-            updatedAt: currentPricing.updatedAt,
+            updatedAt: currentPricing.updatedAt.toISOString(),
           }
         : definition?.defaultPricing
           ? {
@@ -96,7 +138,7 @@ export async function getAdminModulesCatalog() {
               currency: definition.defaultPricing.currency,
               type: definition.defaultPricing.type,
               isActive: true,
-              updatedAt: null,
+            updatedAt: null,
             }
           : null,
       pricingHistory: module.pricing.slice(0, 5).map((pricing) => ({
@@ -105,7 +147,7 @@ export async function getAdminModulesCatalog() {
         currency: pricing.currency,
         type: serializePricingType(pricing.type),
         isActive: pricing.isActive,
-        createdAt: pricing.createdAt,
+        createdAt: pricing.createdAt.toISOString(),
       })),
       submodules: module.submodules.map((submodule) => {
         const currentSubPricing = submodule.pricing.find((pricing) => pricing.isActive) ?? submodule.pricing[0] ?? null;
@@ -117,6 +159,7 @@ export async function getAdminModulesCatalog() {
           route: submodule.route,
           isActive: submodule.isActive,
           activeTenants: submodule.tenantLinks.filter((link) => link.isActive).length,
+          features: submodule.features.map(serializeModuleFeature),
           currentPricing: currentSubPricing
             ? {
                 id: currentSubPricing.id,
@@ -124,7 +167,7 @@ export async function getAdminModulesCatalog() {
                 currency: currentSubPricing.currency,
                 type: serializePricingType(currentSubPricing.type),
                 isActive: currentSubPricing.isActive,
-                updatedAt: currentSubPricing.updatedAt,
+                updatedAt: currentSubPricing.updatedAt.toISOString(),
               }
             : null,
           artifacts: submodule.artifacts.map((artifact) => ({
@@ -133,8 +176,8 @@ export async function getAdminModulesCatalog() {
             fileName: artifact.fileName,
             sizeBytes: artifact.sizeBytes,
             isPublished: artifact.isPublished,
-            publishedAt: artifact.publishedAt,
-            createdAt: artifact.createdAt,
+            publishedAt: artifact.publishedAt?.toISOString() ?? null,
+            createdAt: artifact.createdAt.toISOString(),
           })),
         };
       }),

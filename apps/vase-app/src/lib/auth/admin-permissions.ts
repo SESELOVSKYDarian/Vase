@@ -1,4 +1,4 @@
-import { requireAppRole, requireVerifiedUser } from "@/lib/auth/guards";
+import { requireAppRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 
 export const adminPermissions = {
@@ -8,6 +8,7 @@ export const adminPermissions = {
   WIKI: "WIKI",
   AUDIT: "AUDIT",
   NOTIFICATIONS: "NOTIFICATIONS",
+  MODULES: "MODULES",
 } as const;
 
 export type AdminPermission = (typeof adminPermissions)[keyof typeof adminPermissions];

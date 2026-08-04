@@ -4,10 +4,13 @@ import { Fragment, useActionState, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   createAdminModuleAction,
+  createModuleFeatureAction,
   createModuleSubmoduleAction,
   deleteAdminModuleAction,
+  deleteModuleFeatureAction,
   deleteModuleSubmoduleAction,
   updateAdminModuleAction,
+  updateModuleFeatureAction,
   updateModuleSubmoduleAction,
   type AdminGovernanceActionState,
 } from "@/app/(platform)/app/admin/actions";
@@ -21,6 +24,21 @@ type SubmoduleView = {
   description: string | null;
   route: string;
   isActive: boolean;
+  features: ModuleFeatureView[];
+};
+
+type ModuleFeatureView = {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  valueType: "BOOLEAN" | "INTEGER" | "TEXT";
+  trialDefault: boolean | number | string | null;
+  activeDefault: boolean | number | string | null;
+  minValue: number | null;
+  maxValue: number | null;
+  sortOrder: number;
+  isActive: boolean;
 };
 
 type ModuleView = {
@@ -30,20 +48,31 @@ type ModuleView = {
   product: "BUSINESS" | "LABS" | "MANAGEMENT" | "REST";
   route: string;
   isActive: boolean;
+  features: ModuleFeatureView[];
   submodules: SubmoduleView[];
 };
 
 type Props = {
   modules: ModuleView[];
+  initialExpandedModuleIds?: string[];
 };
 
 const initialState: AdminGovernanceActionState = {};
 
 type ModuleModalMode = "create" | "edit";
 type SubmoduleModalMode = "create" | "edit";
+type FeatureModalMode = "create" | "edit";
 
-export function AdminModulesConsole({ modules }: Props) {
-  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+const featureSubmoduleKeys = new Set(["plantilla", "personalizado"]);
+
+function formatFeatureDefault(value: ModuleFeatureView["trialDefault"]) {
+  return value === null ? "" : String(value);
+}
+
+export function AdminModulesConsole({ modules, initialExpandedModuleIds = [] }: Props) {
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(initialExpandedModuleIds.map((id) => [id, true])),
+  );
   const [moduleModalMode, setModuleModalMode] = useState<ModuleModalMode | null>(null);
   const [selectedModule, setSelectedModule] = useState<ModuleView | null>(null);
   const [deleteModuleTarget, setDeleteModuleTarget] = useState<ModuleView | null>(null);
@@ -51,6 +80,12 @@ export function AdminModulesConsole({ modules }: Props) {
   const [selectedSubmodule, setSelectedSubmodule] = useState<SubmoduleView | null>(null);
   const [submoduleParentModule, setSubmoduleParentModule] = useState<ModuleView | null>(null);
   const [deleteSubmoduleTarget, setDeleteSubmoduleTarget] = useState<SubmoduleView | null>(null);
+  const [featureModalMode, setFeatureModalMode] = useState<FeatureModalMode | null>(null);
+  const [selectedFeature, setSelectedFeature] = useState<ModuleFeatureView | null>(null);
+  const [featureParentModule, setFeatureParentModule] = useState<ModuleView | null>(null);
+  const [featureParentSubmodule, setFeatureParentSubmodule] = useState<SubmoduleView | null>(null);
+  const [deleteFeatureTarget, setDeleteFeatureTarget] = useState<ModuleFeatureView | null>(null);
+  const [featureValueType, setFeatureValueType] = useState<ModuleFeatureView["valueType"]>("BOOLEAN");
 
   const [createModuleState, createModuleFormAction] = useActionState(createAdminModuleAction, initialState);
   const [updateModuleState, updateModuleFormAction] = useActionState(updateAdminModuleAction, initialState);
@@ -58,6 +93,9 @@ export function AdminModulesConsole({ modules }: Props) {
   const [createSubmoduleState, createSubmoduleFormAction] = useActionState(createModuleSubmoduleAction, initialState);
   const [updateSubmoduleState, updateSubmoduleFormAction] = useActionState(updateModuleSubmoduleAction, initialState);
   const [deleteSubmoduleState, deleteSubmoduleFormAction] = useActionState(deleteModuleSubmoduleAction, initialState);
+  const [createFeatureState, createFeatureFormAction, isCreatingFeature] = useActionState(createModuleFeatureAction, initialState);
+  const [updateFeatureState, updateFeatureFormAction, isUpdatingFeature] = useActionState(updateModuleFeatureAction, initialState);
+  const [deleteFeatureState, deleteFeatureFormAction, isDeletingFeature] = useActionState(deleteModuleFeatureAction, initialState);
 
   const actionFeedback = useMemo(() => {
     const states = [
@@ -67,6 +105,9 @@ export function AdminModulesConsole({ modules }: Props) {
       createSubmoduleState,
       updateSubmoduleState,
       deleteSubmoduleState,
+      createFeatureState,
+      updateFeatureState,
+      deleteFeatureState,
     ];
     const lastError = states.map((state) => state.error).filter(Boolean).at(-1);
     const lastSuccess = states.map((state) => state.success).filter(Boolean).at(-1);
@@ -78,6 +119,9 @@ export function AdminModulesConsole({ modules }: Props) {
     createSubmoduleState,
     updateSubmoduleState,
     deleteSubmoduleState,
+    createFeatureState,
+    updateFeatureState,
+    deleteFeatureState,
   ]);
 
   const toggleExpanded = (moduleId: string) => {
@@ -184,15 +228,38 @@ export function AdminModulesConsole({ modules }: Props) {
                   {isExpanded ? (
                     <tr className="border-t border-[var(--border-subtle)] bg-[var(--surface)]">
                       <td colSpan={5} className="px-4 py-3">
-                        {module.submodules.length === 0 ? (
+                        <div className="space-y-4">
+                          {module.product === "BUSINESS" ? (
+                            <FeatureCatalogSection
+                              title="Características"
+                              features={module.features}
+                              onCreate={() => {
+                                setFeatureParentModule(module);
+                                setFeatureParentSubmodule(null);
+                                setSelectedFeature(null);
+                                setFeatureValueType("BOOLEAN");
+                                setFeatureModalMode("create");
+                              }}
+                              onEdit={(feature) => {
+                                setFeatureParentModule(module);
+                                setFeatureParentSubmodule(null);
+                                setSelectedFeature(feature);
+                                setFeatureValueType(feature.valueType);
+                                setFeatureModalMode("edit");
+                              }}
+                              onDelete={setDeleteFeatureTarget}
+                            />
+                          ) : null}
+                          {module.submodules.length === 0 ? (
                           <p className="text-sm text-[var(--muted)]">Sin submódulos.</p>
                         ) : (
                           <div className="space-y-2">
                             {module.submodules.map((submodule) => (
                               <div
                                 key={submodule.id}
-                                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_96px_108px] items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-3 py-2"
+                                className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-3 py-2"
                               >
+                                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_96px_108px] items-center gap-3">
                                 <div>
                                   <p className="font-medium text-[var(--foreground)]">{submodule.name}</p>
                                   <p className="text-xs text-[var(--muted)]">{submodule.description ?? "Sin descripción"}</p>
@@ -223,10 +290,33 @@ export function AdminModulesConsole({ modules }: Props) {
                                     <Trash2 className="h-4 w-4" />
                                   </button>
                                 </div>
+                                </div>
+                                {module.product === "BUSINESS" && featureSubmoduleKeys.has(submodule.key) ? (
+                                  <FeatureCatalogSection
+                                    title={`Características de ${submodule.name}`}
+                                    features={submodule.features}
+                                    onCreate={() => {
+                                      setFeatureParentModule(module);
+                                      setFeatureParentSubmodule(submodule);
+                                      setSelectedFeature(null);
+                                      setFeatureValueType("BOOLEAN");
+                                      setFeatureModalMode("create");
+                                    }}
+                                    onEdit={(feature) => {
+                                      setFeatureParentModule(module);
+                                      setFeatureParentSubmodule(submodule);
+                                      setSelectedFeature(feature);
+                                      setFeatureValueType(feature.valueType);
+                                      setFeatureModalMode("edit");
+                                    }}
+                                    onDelete={setDeleteFeatureTarget}
+                                  />
+                                ) : null}
                               </div>
                             ))}
                           </div>
-                        )}
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ) : null}
@@ -277,6 +367,62 @@ export function AdminModulesConsole({ modules }: Props) {
           <button className="min-h-11 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)]">
             {moduleModalMode === "edit" ? "Guardar cambios" : "Crear módulo"}
           </button>
+        </form>
+      </CrudModal>
+
+      <CrudModal
+        open={featureModalMode === "create" || featureModalMode === "edit"}
+        title={featureModalMode === "edit" ? "Editar característica" : "Crear característica"}
+        onClose={() => {
+          setFeatureModalMode(null);
+          setSelectedFeature(null);
+          setFeatureParentModule(null);
+          setFeatureParentSubmodule(null);
+        }}
+      >
+        <form action={featureModalMode === "edit" ? updateFeatureFormAction : createFeatureFormAction} className="grid gap-3">
+          {featureModalMode === "edit" ? (
+            <>
+              <input type="hidden" name="featureId" value={selectedFeature?.id ?? ""} />
+              <label className="grid gap-1 text-sm text-[var(--foreground)]">Clave estable<input value={selectedFeature?.key ?? ""} readOnly className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[var(--muted)]" /></label>
+            </>
+          ) : (
+            <>
+              <input type="hidden" name="moduleId" value={featureParentModule?.id ?? ""} />
+              <input type="hidden" name="submoduleId" value={featureParentSubmodule?.id ?? ""} />
+              <label className="grid gap-1 text-sm text-[var(--foreground)]">Clave estable<input name="key" required placeholder="catalog_enabled" className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
+            </>
+          )}
+          <label className="grid gap-1 text-sm text-[var(--foreground)]">Nombre<input name="name" required defaultValue={selectedFeature?.name ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
+          <label className="grid gap-1 text-sm text-[var(--foreground)]">Descripción<textarea name="description" rows={2} defaultValue={selectedFeature?.description ?? ""} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]" /></label>
+          <label className="grid gap-1 text-sm text-[var(--foreground)]">Tipo de valor
+            <select name="valueType" value={featureValueType} onChange={(event) => setFeatureValueType(event.target.value as ModuleFeatureView["valueType"])} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]">
+              <option value="BOOLEAN">Booleano</option><option value="INTEGER">Entero</option><option value="TEXT">Texto</option>
+            </select>
+          </label>
+          <div className="grid gap-3 md:grid-cols-2">
+            <FeatureDefaultInput label="Default trial" field="trialDefault" valueType={featureValueType} defaultValue={selectedFeature?.trialDefault ?? null} />
+            <FeatureDefaultInput label="Default activo" field="activeDefault" valueType={featureValueType} defaultValue={selectedFeature?.activeDefault ?? null} />
+          </div>
+          {featureValueType === "INTEGER" ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1 text-sm text-[var(--foreground)]">Mínimo<input name="minValue" type="number" step="1" defaultValue={selectedFeature?.minValue ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
+              <label className="grid gap-1 text-sm text-[var(--foreground)]">Máximo<input name="maxValue" type="number" step="1" defaultValue={selectedFeature?.maxValue ?? ""} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
+            </div>
+          ) : null}
+          <label className="grid gap-1 text-sm text-[var(--foreground)]">Orden<input name="sortOrder" type="number" step="1" defaultValue={selectedFeature?.sortOrder ?? 0} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>
+          <label className="inline-flex items-center gap-2 text-sm text-[var(--foreground)]"><input name="isActive" type="checkbox" defaultChecked={selectedFeature?.isActive ?? true} /> Activa</label>
+          <button disabled={isCreatingFeature || isUpdatingFeature} className="min-h-11 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-60">
+            {isCreatingFeature || isUpdatingFeature ? "Guardando…" : featureModalMode === "edit" ? "Guardar cambios" : "Crear característica"}
+          </button>
+        </form>
+      </CrudModal>
+
+      <CrudModal open={Boolean(deleteFeatureTarget)} title="Eliminar característica" onClose={() => setDeleteFeatureTarget(null)}>
+        <form action={deleteFeatureFormAction} className="grid gap-4">
+          <input type="hidden" name="featureId" value={deleteFeatureTarget?.id ?? ""} />
+          <p className="text-sm text-[var(--foreground)]">Confirma la eliminación de <strong>{deleteFeatureTarget?.name}</strong>.</p>
+          <button disabled={isDeletingFeature} className="min-h-11 rounded-lg bg-[var(--danger)] px-4 text-sm font-semibold text-white disabled:opacity-60">{isDeletingFeature ? "Eliminando…" : "Eliminar característica"}</button>
         </form>
       </CrudModal>
 
@@ -345,4 +491,62 @@ export function AdminModulesConsole({ modules }: Props) {
       </CrudModal>
     </section>
   );
+}
+
+function FeatureCatalogSection({
+  title,
+  features,
+  onCreate,
+  onEdit,
+  onDelete,
+}: {
+  title: string;
+  features: ModuleFeatureView[];
+  onCreate: () => void;
+  onEdit: (feature: ModuleFeatureView) => void;
+  onDelete: (feature: ModuleFeatureView) => void;
+}) {
+  return (
+    <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-medium text-[var(--foreground)]">{title}</h3>
+        <button type="button" onClick={onCreate} className="rounded-md border border-[var(--border-subtle)] px-2 py-1 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--surface)]" aria-label={`Crear característica en ${title}`}>
+          Crear característica
+        </button>
+      </div>
+      {features.length === 0 ? <p className="mt-2 text-xs text-[var(--muted)]">Sin características configuradas.</p> : (
+        <ul className="mt-2 space-y-2">
+          {features.map((feature) => (
+            <li key={feature.id} className="flex items-center justify-between gap-3 rounded-md border border-[var(--border-subtle)] px-2 py-2 text-sm">
+              <div>
+                <p className="font-medium text-[var(--foreground)]">{feature.name} <span className="text-xs font-normal text-[var(--muted)]">({feature.key})</span></p>
+                <p className="text-xs text-[var(--muted)]">{feature.valueType} · Trial: {formatFeatureDefault(feature.trialDefault) || "—"} · Activo: {formatFeatureDefault(feature.activeDefault) || "—"}</p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => onEdit(feature)} className="grid h-8 w-8 place-items-center rounded-md border border-[var(--border-subtle)] text-[var(--foreground)]" aria-label={`Editar característica ${feature.name}`}><Pencil className="h-4 w-4" /></button>
+                <button type="button" onClick={() => onDelete(feature)} className="grid h-8 w-8 place-items-center rounded-md border border-[var(--border-subtle)] text-[var(--danger)]" aria-label={`Eliminar característica ${feature.name}`}><Trash2 className="h-4 w-4" /></button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function FeatureDefaultInput({
+  label,
+  field,
+  valueType,
+  defaultValue,
+}: {
+  label: string;
+  field: "trialDefault" | "activeDefault";
+  valueType: ModuleFeatureView["valueType"];
+  defaultValue: ModuleFeatureView["trialDefault"];
+}) {
+  if (valueType === "BOOLEAN") {
+    return <label className="grid gap-1 text-sm text-[var(--foreground)]">{label}<select name={field} defaultValue={defaultValue === null ? "" : String(defaultValue)} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]"><option value="">Sin valor</option><option value="true">Verdadero</option><option value="false">Falso</option></select></label>;
+  }
+  return <label className="grid gap-1 text-sm text-[var(--foreground)]">{label}<input name={field} type={valueType === "INTEGER" ? "number" : "text"} step={valueType === "INTEGER" ? "1" : undefined} defaultValue={formatFeatureDefault(defaultValue)} className="min-h-11 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]" /></label>;
 }
