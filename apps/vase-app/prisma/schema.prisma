@@ -961,6 +961,9 @@ model TenantModule {
   @@index([tenantId, commercialStatus])
 }
 
+/// DB integrity warning: migration `20260804090000_client_product_access_and_team` defines
+/// `uq_ModuleFeature_scope_key` (functional unique index) and `fk_ModuleFeature_submodule_module` (composite FK).
+/// Prisma cannot express these while this public relation remains direct; every future migration must preserve them.
 model ModuleFeature {
   id            String                 @id @default(cuid())
   moduleId      String
@@ -1158,6 +1161,9 @@ model PlatformSyncEvent {
   @@index([tenantId, entity, externalId, version])
 }
 
+/// DB integrity warning: migration `20260804090000_client_product_access_and_team` defines
+/// `uq_ModuleSubmodule_id_moduleId` to support the migration-only ModuleFeature composite FK.
+/// Every future migration must preserve this custom constraint.
 model ModuleSubmodule {
   id          String   @id @default(cuid())
   moduleId    String

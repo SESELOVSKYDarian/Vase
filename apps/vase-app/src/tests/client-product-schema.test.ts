@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
@@ -9,6 +9,14 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const migrationRoot = new URL("../../prisma/migrations/", import.meta.url);
+const currentMigration = "20260804090000_client_product_access_and_team";
+const laterMigrationSql = readdirSync(migrationRoot, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && entry.name > currentMigration)
+  .map((entry) => ({
+    name: entry.name,
+    sql: readFileSync(new URL(entry.name + "/migration.sql", migrationRoot), "utf8"),
+  }));
 
 function prismaBlock(kind: "enum" | "model", name: string) {
   const match = new RegExp(
@@ -114,6 +122,30 @@ function expectEnumValues(name: string, values: string[]) {
   expect(valuesInSchema).toEqual(values);
 }
 
+function expectCustomObjectsPreservedInLaterMigrations() {
+  const customObjects = [
+    "uq_ModuleFeature_scope_key",
+    "uq_ModuleSubmodule_id_moduleId",
+    "fk_ModuleFeature_submodule_module",
+  ];
+
+  for (const { name, sql } of laterMigrationSql) {
+    for (const objectName of customObjects) {
+      const escapedName = objectName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const mutation = new RegExp(
+        "\\b(?:DROP\\s+(?:INDEX|CONSTRAINT|FOREIGN\\s+KEY)|RENAME\\s+(?:INDEX|CONSTRAINT))\\s+(?:IF\\s+EXISTS\\s+)?`?" +
+          escapedName +
+          "`?\\b|\\b" +
+          escapedName +
+          "\\b\\s+RENAME\\s+TO\\b",
+        "i",
+      );
+
+      expect(sql, `${name} must preserve ${objectName}`).not.toMatch(mutation);
+    }
+  }
+}
+
 describe("client product access schema", () => {
   it("defines every commercial access enum with its supported values", () => {
     expectEnumValues("CommercialAccessStatus", ["TRIAL", "ACTIVE", "SUSPENDED"]);
@@ -158,6 +190,7 @@ describe("client product access schema", () => {
   it("defines normalized feature grants and tenant invitations with inverse relations", () => {
     const feature = prismaBlock("model", "ModuleFeature");
     expect(feature).not.toMatch(/\bscopeKey\b/);
+    expect(schema).toContain("/// Prisma cannot express these while this public relation remains direct; every future migration must preserve them.");
     expectLines(feature, [
       /^\s*id\s+String\s+@id\s+@default\(cuid\(\)\)\s*$/m,
       /^\s*moduleId\s+String\s*$/m,
@@ -228,6 +261,7 @@ describe("client product access schema", () => {
       /^\s*features\s+ModuleFeature\[\]\s*$/m,
     ]);
     expect(submodule).not.toMatch(/@@unique\(\[id, moduleId\]\)/);
+    expect(schema).toContain("/// Every future migration must preserve this custom constraint.");
     expectLines(prismaBlock("model", "User"), [
       /^\s*tenantInvitations\s+TenantInvitation\[\]\s*$/m,
     ]);
@@ -252,7 +286,7 @@ describe("client product access schema", () => {
       /ADD INDEX `Membership_tenantId_createdByUserId_idx`\(`tenantId`, `createdByUserId`\)/,
     ]);
     expectLines(sqlAlter("ModuleSubmodule"), [
-      /ADD UNIQUE INDEX `ModuleSubmodule_id_moduleId_key`\(`id`, `moduleId`\)/,
+      /ADD UNIQUE INDEX `uq_ModuleSubmodule_id_moduleId`\(`id`, `moduleId`\)/,
     ]);
 
     const featureTable = sqlTable("ModuleFeature");
@@ -270,7 +304,7 @@ describe("client product access schema", () => {
       /`maxValue` INTEGER NULL/,
       /`isActive` BOOLEAN NOT NULL DEFAULT true/,
       /UNIQUE INDEX `ModuleFeature_moduleId_submoduleId_key_key`\(`moduleId`, `submoduleId`, `key`\)/,
-      /UNIQUE INDEX `ModuleFeature_moduleId_submoduleScope_key_key`\(`moduleId`, \(COALESCE\(`submoduleId`, '__module__'\)\), `key`\)/,
+      /UNIQUE INDEX `uq_ModuleFeature_scope_key`\(`moduleId`, \(IF\(`submoduleId` IS NULL, 'M:', CONCAT\('S:', `submoduleId`\)\)\), `key`\)/,
       /INDEX `ModuleFeature_moduleId_submoduleId_isActive_sortOrder_idx`\(`moduleId`, `submoduleId`, `isActive`, `sortOrder`\)/,
       /INDEX `ModuleFeature_submoduleId_moduleId_idx`\(`submoduleId`, `moduleId`\)/,
     ]);
@@ -302,6 +336,9 @@ describe("client product access schema", () => {
       /INDEX `TenantInvitation_expiresAt_status_idx`\(`expiresAt`, `status`\)/,
     ]);
 
+    expect(migration).toContain("-- IMPORTANT: Requires MySQL >= 8.0.16 for functional indexes and enforced CHECK constraints.");
+    expect(migration).toContain("uq_ModuleFeature_scope_key, uq_ModuleSubmodule_id_moduleId, and fk_ModuleFeature_submodule_module");
+
     expect(migration).not.toMatch(
       /\b(?:DROP\s+(?:TABLE|COLUMN|INDEX|DATABASE)|TRUNCATE(?:\s+TABLE)?|DELETE\s+FROM|ALTER\s+TABLE\s+[^;]*\b(?:DROP|MODIFY|CHANGE|RENAME)\b)/i,
     );
@@ -314,9 +351,11 @@ describe("client product access schema", () => {
       "ModuleSubmodule",
       ["id", "moduleId"],
     );
+    expect(migration).toMatch(/ADD CONSTRAINT `fk_ModuleFeature_submodule_module`/);
     expectForeignKey("TenantFeatureGrant", "tenantId", "Tenant", "CASCADE");
     expectForeignKey("TenantFeatureGrant", "featureId", "ModuleFeature", "CASCADE");
     expectForeignKey("TenantInvitation", "tenantId", "Tenant", "CASCADE");
     expectForeignKey("TenantInvitation", "invitedByUserId", "User", "CASCADE");
+    expectCustomObjectsPreservedInLaterMigrations();
   });
 });

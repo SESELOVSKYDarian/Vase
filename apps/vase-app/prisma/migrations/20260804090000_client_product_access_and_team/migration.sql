@@ -1,3 +1,6 @@
+-- IMPORTANT: Requires MySQL >= 8.0.16 for functional indexes and enforced CHECK constraints.
+-- Custom migration-only objects uq_ModuleFeature_scope_key, uq_ModuleSubmodule_id_moduleId, and fk_ModuleFeature_submodule_module must be preserved by every future Prisma migration.
+
 ALTER TABLE `TenantModule`
   ADD COLUMN `commercialStatus` ENUM('TRIAL', 'ACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'ACTIVE',
   ADD COLUMN `trialEndsAt` DATETIME(3) NULL,
@@ -16,7 +19,7 @@ ALTER TABLE `Membership`
   ADD INDEX `Membership_tenantId_createdByUserId_idx`(`tenantId`, `createdByUserId`);
 
 ALTER TABLE `ModuleSubmodule`
-  ADD UNIQUE INDEX `ModuleSubmodule_id_moduleId_key`(`id`, `moduleId`);
+  ADD UNIQUE INDEX `uq_ModuleSubmodule_id_moduleId`(`id`, `moduleId`);
 
 CREATE TABLE `ModuleFeature` (
   `id` VARCHAR(191) NOT NULL,
@@ -35,8 +38,7 @@ CREATE TABLE `ModuleFeature` (
   `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updatedAt` DATETIME(3) NOT NULL,
   UNIQUE INDEX `ModuleFeature_moduleId_submoduleId_key_key`(`moduleId`, `submoduleId`, `key`),
-  -- CUID-generated submodule IDs cannot equal this module-level sentinel.
-  UNIQUE INDEX `ModuleFeature_moduleId_submoduleScope_key_key`(`moduleId`, (COALESCE(`submoduleId`, '__module__')), `key`),
+  UNIQUE INDEX `uq_ModuleFeature_scope_key`(`moduleId`, (IF(`submoduleId` IS NULL, 'M:', CONCAT('S:', `submoduleId`))), `key`),
   INDEX `ModuleFeature_moduleId_submoduleId_isActive_sortOrder_idx`(`moduleId`, `submoduleId`, `isActive`, `sortOrder`),
   INDEX `ModuleFeature_submoduleId_moduleId_idx`(`submoduleId`, `moduleId`),
   PRIMARY KEY (`id`)
@@ -89,7 +91,7 @@ ALTER TABLE `ModuleFeature`
   ADD CONSTRAINT `ModuleFeature_submoduleId_fkey`
   FOREIGN KEY (`submoduleId`) REFERENCES `ModuleSubmodule`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE `ModuleFeature`
-  ADD CONSTRAINT `ModuleFeature_submoduleId_moduleId_fkey`
+  ADD CONSTRAINT `fk_ModuleFeature_submodule_module`
   FOREIGN KEY (`submoduleId`, `moduleId`) REFERENCES `ModuleSubmodule`(`id`, `moduleId`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE `TenantFeatureGrant`
