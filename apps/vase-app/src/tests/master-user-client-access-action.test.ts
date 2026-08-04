@@ -167,6 +167,15 @@ describe("upsertMasterUserWithStateAction legacy client compatibility", () => {
       access: convertedAccess,
       businessFeatureMode: "REPLACE",
     }));
+    expect(mocks.persistAuditLog).toHaveBeenCalledWith(tx, expect.objectContaining({
+      metadata: expect.objectContaining({
+        clientProductAccessChange: expect.objectContaining({
+          before: expect.objectContaining({ labs: { plan: "GROWTH", status: "TRIAL" } }),
+          after: expect.objectContaining({ labs: { plan: "GROWTH", status: "TRIAL" } }),
+          featureChanges: [],
+        }),
+      }),
+    }));
   });
 
   it.each(["tenantSlug", "tenantStatus", "unknownRoot"])(

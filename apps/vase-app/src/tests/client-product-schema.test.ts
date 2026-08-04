@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
@@ -15,6 +15,13 @@ const modulePermissionMigration = readFileSync(
   new URL("../../prisma/migrations/20260804100000_admin_module_permission/migration.sql", import.meta.url),
   "utf8",
 );
+const primaryOwnerMigrationUrl = new URL(
+  "../../prisma/migrations/20260804110000_tenant_primary_owner/migration.sql",
+  import.meta.url,
+);
+const primaryOwnerMigration = existsSync(primaryOwnerMigrationUrl)
+  ? readFileSync(primaryOwnerMigrationUrl, "utf8")
+  : "";
 const laterMigrationSql = readdirSync(migrationRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && entry.name > currentMigration)
   .map((entry) => ({
@@ -188,7 +195,20 @@ describe("client product access schema", () => {
     ]);
     expectLines(prismaBlock("model", "Tenant"), [
       /^\s*subscription\s+TenantSubscription\?\s*$/m,
+      /^\s*primaryOwnerUserId\s+String\?\s+@unique\s*$/m,
+      /^\s*primaryOwner\s+User\?\s+@relation\("TenantPrimaryOwner", fields: \[primaryOwnerUserId\], references: \[id\], onDelete: SetNull\)\s*$/m,
     ]);
+    expectLines(prismaBlock("model", "User"), [
+      /^\s*primaryOwnedTenant\s+Tenant\?\s+@relation\("TenantPrimaryOwner"\)\s*$/m,
+    ]);
+  });
+
+  it("adds the primary owner invariant in a forward-only migration with conservative backfill", () => {
+    expect(primaryOwnerMigration).toMatch(/ALTER TABLE `Tenant`\s+ADD COLUMN `primaryOwnerUserId` VARCHAR\(191\) NULL;/);
+    expect(primaryOwnerMigration).toMatch(/HAVING COUNT\(\*\) = 1/);
+    expect(primaryOwnerMigration).toMatch(/CREATE UNIQUE INDEX `Tenant_primaryOwnerUserId_key` ON `Tenant`\(`primaryOwnerUserId`\);/);
+    expect(primaryOwnerMigration).toMatch(/FOREIGN KEY \(`primaryOwnerUserId`\) REFERENCES `User`\(`id`\) ON DELETE SET NULL ON UPDATE CASCADE/);
+    expect(primaryOwnerMigration).not.toMatch(/\b(?:DROP\s+(?:TABLE|COLUMN|INDEX)|TRUNCATE(?:\s+TABLE)?|DELETE\s+FROM)\b/i);
   });
 
   it("defines normalized feature grants and tenant invitations with inverse relations", () => {

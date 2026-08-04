@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clientProductAccessSchema,
   clientProductAccessEnvelopeSchema,
+  buildClientProductAccessAuditChange,
   getLabsEntitlement,
   projectClientProductAccessToLegacy,
 } from "@/lib/admin/client-product-access";
@@ -186,4 +187,52 @@ describe("client product access", () => {
       }).success).toBe(false);
     },
   );
+
+  it("builds a safe, reconstructable access diff without exposing feature values", () => {
+    const before = clientProductAccessSchema.parse({
+      business: { submodules: [{
+        id: "business-template",
+        key: "plantilla",
+        status: "TRIAL",
+        features: [{ featureId: "headline", enabled: true, value: "secret-before" }],
+      }] },
+      labs: { submoduleId: "labs-pro", plan: "PRO", status: "TRIAL" },
+      rest: { pricingVersionId: "pricing-1", status: "TRIAL" },
+      management: null,
+    });
+    const after = clientProductAccessSchema.parse({
+      business: { submodules: [{
+        id: "business-template",
+        key: "plantilla",
+        status: "ACTIVE",
+        features: [{ featureId: "headline", enabled: false, value: "secret-after" }],
+      }] },
+      labs: { submoduleId: "labs-growth", plan: "GROWTH", status: "ACTIVE" },
+      rest: { pricingVersionId: "pricing-2", status: "ACTIVE" },
+      management: null,
+    });
+
+    const change = buildClientProductAccessAuditChange(before, after);
+
+    expect(change.before).toMatchObject({
+      business: [{ submoduleId: "business-template", status: "TRIAL" }],
+      labs: { plan: "PRO", status: "TRIAL" },
+      rest: { pricingVersionId: "pricing-1", status: "TRIAL" },
+    });
+    expect(change.after).toMatchObject({
+      business: [{ submoduleId: "business-template", status: "ACTIVE" }],
+      labs: { plan: "GROWTH", status: "ACTIVE" },
+      rest: { pricingVersionId: "pricing-2", status: "ACTIVE" },
+    });
+    expect(change.featureChanges).toEqual([{
+      submoduleId: "business-template",
+      featureId: "headline",
+      change: "STATE_AND_VALUE_CHANGED",
+      beforeEnabled: true,
+      afterEnabled: false,
+      valueChanged: true,
+    }]);
+    expect(JSON.stringify(change)).not.toContain("secret-before");
+    expect(JSON.stringify(change)).not.toContain("secret-after");
+  });
 });

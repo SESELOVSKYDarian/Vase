@@ -478,6 +478,7 @@ model User {
   sessions      Session[]
   memberships   Membership[] @relation("MembershipUser")
   createdMemberships Membership[] @relation("MembershipCreatedBy")
+  primaryOwnedTenant Tenant? @relation("TenantPrimaryOwner")
   auditLogs     AuditLog[]   @relation("AuditActor")
   authTokens    AuthToken[]
   createdSupportTickets SupportTicket[] @relation("SupportTicketCreatedBy")
@@ -556,6 +557,7 @@ model AdminAccessPolicy {
 
 model Tenant {
   id                String            @id @default(cuid())
+  primaryOwnerUserId String?           @unique
   name              String
   slug              String            @unique
   accountName       String
@@ -567,6 +569,7 @@ model Tenant {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   memberships       Membership[]
+  primaryOwner      User?             @relation("TenantPrimaryOwner", fields: [primaryOwnerUserId], references: [id], onDelete: SetNull)
   projects          Project[]
   featureFlags      FeatureFlag[]
   tenantModules     TenantModule[]

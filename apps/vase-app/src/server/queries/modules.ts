@@ -7,6 +7,7 @@ import {
   ensureModuleCatalogSynced,
   serializePricingType,
 } from "@/server/services/modules";
+import { isRestContractEntitled } from "@/lib/rest/contract-entitlement";
 
 function resolveProductMatch(
   moduleProducts: readonly ("BUSINESS" | "LABS" | "BOTH" | "MANAGEMENT" | "REST")[],
@@ -37,6 +38,9 @@ export async function getTenantModulesAccess(tenantId: string, userId?: string) 
         },
         aiWorkspace: {
           select: { id: true },
+        },
+        restContract: {
+          select: { status: true },
         },
         tenantModules: {
           select: {
@@ -103,6 +107,7 @@ export async function getTenantModulesAccess(tenantId: string, userId?: string) 
     const isActive =
       userCanAccessModule(definition.id) &&
       Boolean(moduleRow?.isActive) &&
+      (definition.key !== "rest" || isRestContractEntitled(tenant.restContract?.status)) &&
       (hasExplicitTenantModuleAccess
         ? tenantModuleActive
         : flagActive || (productActive && resourceActive));

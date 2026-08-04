@@ -94,8 +94,8 @@ const labsSubmodulePlanPriority: Record<string, LabsEntitlementPlanFromAccess> =
 
 const labsPlanRank: Record<LabsEntitlementPlanFromAccess, number> = {
   STARTER: 1,
-  GROWTH: 2,
-  PRO: 3,
+  PRO: 2,
+  GROWTH: 3,
 };
 
 export function resolveLabsEntitlementPlanFromSubmoduleAccess(

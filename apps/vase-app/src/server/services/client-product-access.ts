@@ -2,7 +2,7 @@ import { Prisma, type CommercialAccessStatus } from "@prisma/client";
 import { z } from "zod";
 import {
   clientProductAccessSchema,
-  getLabsEntitlement,
+  buildLabsWorkspaceEntitlementData,
   type ClientProductAccess,
 } from "@/lib/admin/client-product-access";
 import { getManagedUserAccessModuleIds, userAccessModuleIds } from "@/lib/admin/user-access";
@@ -41,8 +41,30 @@ const legacyClientAccessSchema = z.object({
 
 type LegacyAdapterTransaction = Pick<
   Prisma.TransactionClient,
-  "membership" | "moduleSubmodule" | "tenantSubmodule" | "tenantRestContract" | "restPricingVersion"
+  "tenant" | "membership" | "moduleSubmodule" | "tenantSubmodule" | "tenantRestContract" | "restPricingVersion"
 >;
+
+async function resolveExistingOwnerTenantId(
+  tx: Pick<Prisma.TransactionClient, "tenant" | "membership">,
+  ownerUserId: string,
+) {
+  const primaryTenant = await tx.tenant.findUnique({
+    where: { primaryOwnerUserId: ownerUserId },
+    select: { id: true },
+  });
+  if (primaryTenant) return { tenantId: primaryTenant.id, legacy: false as const };
+
+  const legacyOwnerMemberships = await tx.membership.findMany({
+    where: { userId: ownerUserId, role: "OWNER" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    take: 2,
+    select: { tenantId: true },
+  });
+  if (legacyOwnerMemberships.length > 1) throw new Error("CLIENT_OWNER_TENANT_AMBIGUOUS");
+  return legacyOwnerMemberships[0]
+    ? { tenantId: legacyOwnerMemberships[0].tenantId, legacy: true as const }
+    : null;
+}
 
 export async function adaptLegacyClientProductAccessWithTx(input: {
   tx: LegacyAdapterTransaction;
@@ -86,7 +108,7 @@ export async function adaptLegacyClientProductAccessWithTx(input: {
     ["pro", "PRO"],
     ["growth", "GROWTH"],
   ]);
-  const labsRank = new Map([["STARTER", 1], ["GROWTH", 2], ["PRO", 3]]);
+  const labsRank = new Map([["STARTER", 1], ["PRO", 2], ["GROWTH", 3]]);
   const selectedLabsCatalog = catalog
     .filter((item) => item.isActive && item.moduleId === userAccessModuleIds.labs && selectedLegacyIds.includes(item.id) && labsPlanByKey.has(item.key))
     .sort((left, right) => (labsRank.get(labsPlanByKey.get(right.key)!) ?? 0) - (labsRank.get(labsPlanByKey.get(left.key)!) ?? 0))[0]
@@ -95,17 +117,13 @@ export async function adaptLegacyClientProductAccessWithTx(input: {
 
   const needsMembership = (wantsRest && !input.storedAccess?.rest) ||
     (wantsBusiness && !input.storedAccess?.business && selectedBusiness.length === 0);
-  const membership = needsMembership
-    ? await input.tx.membership.findFirst({
-        where: { userId: input.ownerUserId },
-        orderBy: [{ role: "asc" }, { status: "asc" }, { createdAt: "asc" }, { id: "asc" }],
-        select: { tenantId: true },
-      })
+  const ownerTenant = needsMembership
+    ? await resolveExistingOwnerTenantId(input.tx, input.ownerUserId)
     : null;
-  const activeBusinessLinks = wantsBusiness && !input.storedAccess?.business && selectedBusiness.length === 0 && membership
+  const activeBusinessLinks = wantsBusiness && !input.storedAccess?.business && selectedBusiness.length === 0 && ownerTenant
     ? await input.tx.tenantSubmodule.findMany({
         where: {
-          tenantId: membership.tenantId,
+          tenantId: ownerTenant.tenantId,
           submoduleId: { in: managedBusinessCatalog.map((item) => item.id) },
           isActive: true,
         },
@@ -129,9 +147,9 @@ export async function adaptLegacyClientProductAccessWithTx(input: {
     if (input.storedAccess?.rest) {
       rest = input.storedAccess.rest;
     } else {
-      const existingContract = membership
+      const existingContract = ownerTenant
         ? await input.tx.tenantRestContract.findUnique({
-            where: { tenantId: membership.tenantId },
+            where: { tenantId: ownerTenant.tenantId },
             select: { pricingVersionId: true, status: true },
           })
         : null;
@@ -193,6 +211,16 @@ function moduleCommercialStatus(statuses: Array<"TRIAL" | "ACTIVE">) {
   return statuses.includes("ACTIVE") ? "ACTIVE" as const : "TRIAL" as const;
 }
 
+function nextActivatedAt(
+  current: { isActive: boolean; commercialStatus: CommercialAccessStatus; activatedAt: Date | null } | undefined,
+  status: "TRIAL" | "ACTIVE",
+  now: Date,
+) {
+  return current?.isActive && current.commercialStatus === status && current.activatedAt
+    ? current.activatedAt
+    : now;
+}
+
 export async function applyClientProductAccess(input: {
   tx: Prisma.TransactionClient;
   actorUserId: string;
@@ -220,12 +248,8 @@ export async function applyClientProductAccess(input: {
     ...(access.rest ? [userAccessModuleIds.rest] : []),
   ];
 
-  const [membership, moduleCatalog, submoduleCatalog, businessFeatures, publishedRestPricing] = await Promise.all([
-    input.tx.membership.findFirst({
-      where: { userId: input.ownerUserId },
-      orderBy: [{ role: "asc" }, { status: "asc" }, { createdAt: "asc" }, { id: "asc" }],
-      select: { tenantId: true },
-    }),
+  const existingOwnerTenant = await resolveExistingOwnerTenantId(input.tx, input.ownerUserId);
+  const [moduleCatalog, submoduleCatalog, businessFeatures, publishedRestPricing] = await Promise.all([
     input.tx.module.findMany({
       where: { id: { in: managedModuleIds } },
       select: { id: true, product: true, isActive: true },
@@ -294,11 +318,22 @@ export async function applyClientProductAccess(input: {
     }
   }
 
-  let tenantId = membership?.tenantId;
+  let tenantId = existingOwnerTenant?.tenantId;
   if (!tenantId) {
     const slugSeed = input.tenantSlugSeed ?? input.ownerName ?? input.ownerEmail.split("@")[0];
-    const tenant = await input.tx.tenant.create({
-      data: {
+    const tenant = await input.tx.tenant.upsert({
+      where: { primaryOwnerUserId: input.ownerUserId },
+      update: {
+        name: input.ownerName,
+        accountName: input.ownerName,
+        billingEmail: input.ownerEmail,
+        onboardingProduct: selectedModuleIds.includes(userAccessModuleIds.labs)
+          ? selectedModuleIds.includes(userAccessModuleIds.business) ? "BOTH" : "LABS"
+          : "BUSINESS",
+        status: "ACTIVE",
+      },
+      create: {
+        primaryOwnerUserId: input.ownerUserId,
         name: input.ownerName,
         accountName: input.ownerName,
         slug: deterministicTenantSlug(slugSeed, input.ownerUserId),
@@ -313,6 +348,21 @@ export async function applyClientProductAccess(input: {
     });
     tenantId = tenant.id;
   } else {
+    if (existingOwnerTenant?.legacy) {
+      const claimed = await input.tx.tenant.updateMany({
+        where: { id: tenantId, primaryOwnerUserId: null },
+        data: { primaryOwnerUserId: input.ownerUserId },
+      });
+      if (claimed.count !== 1) {
+        const current = await input.tx.tenant.findUnique({
+          where: { id: tenantId },
+          select: { primaryOwnerUserId: true },
+        });
+        if (current?.primaryOwnerUserId !== input.ownerUserId) {
+          throw new Error("CLIENT_PRIMARY_OWNER_CONFLICT");
+        }
+      }
+    }
     await input.tx.tenant.update({
       where: { id: tenantId },
       data: {
@@ -346,17 +396,19 @@ export async function applyClientProductAccess(input: {
   const [existingModules, existingSubmodules] = await Promise.all([
     input.tx.tenantModule.findMany({
       where: { tenantId, moduleId: { in: managedModuleIds } },
-      select: { moduleId: true, trialEndsAt: true },
+      select: { moduleId: true, isActive: true, commercialStatus: true, trialEndsAt: true, activatedAt: true },
     }),
     requestedSubmoduleIds.length
       ? input.tx.tenantSubmodule.findMany({
           where: { tenantId, submoduleId: { in: requestedSubmoduleIds } },
-          select: { submoduleId: true, trialEndsAt: true },
+          select: { submoduleId: true, isActive: true, commercialStatus: true, trialEndsAt: true, activatedAt: true },
         })
       : Promise.resolve([]),
   ]);
   const moduleExpiry = new Map(existingModules.map((item) => [item.moduleId, item.trialEndsAt]));
   const submoduleExpiry = new Map(existingSubmodules.map((item) => [item.submoduleId, item.trialEndsAt]));
+  const moduleState = new Map(existingModules.map((item) => [item.moduleId, item]));
+  const submoduleState = new Map(existingSubmodules.map((item) => [item.submoduleId, item]));
 
   await input.tx.tenantModule.updateMany({
     where: {
@@ -380,7 +432,7 @@ export async function applyClientProductAccess(input: {
       isActive: true,
       commercialStatus: selected.status as CommercialAccessStatus,
       trialEndsAt: trialExpiry(selected.status, moduleExpiry.get(selected.moduleId), now),
-      activatedAt: now,
+      activatedAt: nextActivatedAt(moduleState.get(selected.moduleId), selected.status, now),
     };
     await input.tx.tenantModule.upsert({
       where: { tenantId_moduleId: { tenantId, moduleId: selected.moduleId } },
@@ -402,7 +454,7 @@ export async function applyClientProductAccess(input: {
       isActive: true,
       commercialStatus: selected.status as CommercialAccessStatus,
       trialEndsAt: trialExpiry(selected.status, submoduleExpiry.get(selected.id), now),
-      activatedAt: now,
+      activatedAt: nextActivatedAt(submoduleState.get(selected.id), selected.status, now),
     };
     await input.tx.tenantSubmodule.upsert({
       where: { tenantId_submoduleId: { tenantId, submoduleId: selected.id } },
@@ -449,7 +501,7 @@ export async function applyClientProductAccess(input: {
       isActive: true,
       commercialStatus: access.labs.status as CommercialAccessStatus,
       trialEndsAt: trialExpiry(access.labs.status, submoduleExpiry.get(access.labs.submoduleId), now),
-      activatedAt: now,
+      activatedAt: nextActivatedAt(submoduleState.get(access.labs.submoduleId), access.labs.status, now),
     };
     await input.tx.tenantSubmodule.upsert({
       where: { tenantId_submoduleId: { tenantId, submoduleId: access.labs.submoduleId } },
@@ -457,16 +509,13 @@ export async function applyClientProductAccess(input: {
       create: { tenantId, submoduleId: access.labs.submoduleId, ...data },
     });
 
-    const entitlement = getLabsEntitlement(access.labs.plan);
+    const workspaceEntitlement = buildLabsWorkspaceEntitlementData(access.labs.plan);
     const workspaceData = {
-      entitlementPlan: access.labs.plan,
-      plan: entitlement.legacyPlan,
-      monthlyConversationLimit: entitlement.monthlyConversationLimit,
-      monthlyKnowledgeItemLimit: entitlement.maxKnowledgeItems,
-      maxChannels: entitlement.maxChannels,
-      channelLimits: entitlement.channels as Prisma.InputJsonValue,
-      maxFiles: entitlement.maxFiles,
-      maxUrls: entitlement.maxUrls,
+      ...workspaceEntitlement,
+      channelLimits: workspaceEntitlement.channelLimits as Prisma.InputJsonValue,
+      channelOverrideReason: null,
+      channelOverrideBy: null,
+      channelOverrideAt: null,
     };
     await input.tx.tenantAiWorkspace.upsert({
       where: { tenantId },

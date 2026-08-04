@@ -46,8 +46,8 @@ function createStatefulTx(seed: {
   failRestWrite?: boolean;
 } = {}) {
   const state = {
-    tenants: seed.existingTenant === false ? [] as Row[] : [{ id: "tenant-1", name: "Old", status: "TRIAL", slug: "old" }],
-    memberships: seed.existingTenant === false ? [] as Row[] : [{ id: "membership-1", userId: "owner-1", tenantId: "tenant-1", role: "MEMBER", status: "SUSPENDED", createdByUserId: "original-actor", createdAt: new Date("2025-01-01") }],
+    tenants: seed.existingTenant === false ? [] as Row[] : [{ id: "tenant-1", name: "Old", status: "TRIAL", slug: "old", primaryOwnerUserId: "owner-1" }],
+    memberships: seed.existingTenant === false ? [] as Row[] : [{ id: "membership-1", userId: "owner-1", tenantId: "tenant-1", role: "OWNER", status: "SUSPENDED", createdByUserId: "original-actor", createdAt: new Date("2025-01-01") }],
     tenantModules: [] as Row[],
     tenantSubmodules: [] as Row[],
     grants: [
@@ -93,8 +93,11 @@ function createStatefulTx(seed: {
     },
     tenant: {
       findUnique: async ({ where }: any) => {
-        state.slugLookups++;
-        return state.tenants.find((tenant) => tenant.slug === where.slug) ?? null;
+        if (where.slug) state.slugLookups++;
+        return state.tenants.find((tenant) =>
+          (where.slug && tenant.slug === where.slug) ||
+          (where.id && tenant.id === where.id) ||
+          (where.primaryOwnerUserId && tenant.primaryOwnerUserId === where.primaryOwnerUserId)) ?? null;
       },
       create: async ({ data }: any) => {
         state.writes++;
@@ -102,9 +105,25 @@ function createStatefulTx(seed: {
         state.tenants.push(row);
         return row;
       },
+      upsert: async ({ where, update, create }: any) => {
+        state.writes++;
+        const current = state.tenants.find((tenant) => tenant.primaryOwnerUserId === where.primaryOwnerUserId);
+        if (current) return Object.assign(current, update);
+        const row = { id: "tenant-created", ...create };
+        state.tenants.push(row);
+        return row;
+      },
       update: async ({ where, data }: any) => {
         state.writes++;
         return Object.assign(state.tenants.find((tenant) => tenant.id === where.id)!, data);
+      },
+      updateMany: async ({ where, data }: any) => {
+        state.writes++;
+        const rows = state.tenants.filter((tenant) =>
+          tenant.id === where.id &&
+          (where.primaryOwnerUserId === undefined || tenant.primaryOwnerUserId === where.primaryOwnerUserId));
+        rows.forEach((tenant) => Object.assign(tenant, data));
+        return { count: rows.length };
       },
     },
     membership: {
@@ -112,6 +131,9 @@ function createStatefulTx(seed: {
         state.membershipOrderBy = orderBy;
         return state.memberships.find((membership) => membership.userId === where.userId) ?? null;
       },
+      findMany: async ({ where, take }: any) => state.memberships
+        .filter((membership) => membership.userId === where.userId && (!where.role || membership.role === where.role))
+        .slice(0, take),
       upsert: async ({ where, update, create }: any) => {
         state.writes++;
         const key = where.userId_tenantId;
@@ -227,7 +249,7 @@ const baseInput = {
 };
 
 describe("applyClientProductAccess", () => {
-  it("forces the tenant and membership active while preserving the membership creator", async () => {
+  it("reactivates the primary owner's membership while preserving its creator", async () => {
     const { tx, state } = createStatefulTx();
     await applyClientProductAccess({ ...baseInput, tx, access: { business: null, labs: null, rest: null, management: { status: "ACTIVE" } } });
 
@@ -239,9 +261,40 @@ describe("applyClientProductAccess", () => {
     const { tx, state } = createStatefulTx({ existingTenant: false });
     await applyClientProductAccess({ ...baseInput, tx, tenantSlugSeed: "ACME !!", access: { business: null, labs: null, rest: null, management: null } });
 
-    expect(state.tenants[0]).toMatchObject({ slug: "acme-owner-1", industry: "General", status: "ACTIVE" });
+    expect(state.tenants[0]).toMatchObject({ slug: "acme-owner-1", industry: "General", status: "ACTIVE", primaryOwnerUserId: "owner-1" });
     expect(state.slugLookups).toBe(0);
     expect(state.memberships[0]).toMatchObject({ role: "OWNER", status: "ACTIVE", createdByUserId: "admin-1" });
+  });
+
+  it("never promotes an unrelated MEMBER membership and creates a separate primary tenant", async () => {
+    const { tx, state } = createStatefulTx();
+    state.tenants[0].primaryOwnerUserId = null;
+    state.memberships[0].role = "MEMBER";
+
+    const result = await applyClientProductAccess({ ...baseInput, tx, access: { business: null, labs: null, rest: null, management: null } });
+
+    expect(result.tenantId).not.toBe("tenant-1");
+    expect(state.memberships.find((membership) => membership.id === "membership-1")).toMatchObject({ role: "MEMBER" });
+    expect(state.tenants.find((tenant) => tenant.id === result.tenantId)).toMatchObject({ primaryOwnerUserId: "owner-1" });
+  });
+
+  it("rejects ambiguous legacy OWNER memberships instead of choosing one", async () => {
+    const { tx, state } = createStatefulTx();
+    state.tenants[0].primaryOwnerUserId = null;
+    state.tenants.push({ id: "tenant-2", name: "Other", slug: "other", primaryOwnerUserId: null });
+    state.memberships.push({ id: "membership-2", userId: "owner-1", tenantId: "tenant-2", role: "OWNER", status: "ACTIVE", createdAt: new Date("2025-02-01") });
+
+    await expect(applyClientProductAccess({ ...baseInput, tx, access: { business: null, labs: null, rest: null, management: null } }))
+      .rejects.toThrow("CLIENT_OWNER_TENANT_AMBIGUOUS");
+  });
+
+  it("claims exactly one legacy OWNER tenant as its primary owner", async () => {
+    const { tx, state } = createStatefulTx();
+    state.tenants[0].primaryOwnerUserId = null;
+
+    await applyClientProductAccess({ ...baseInput, tx, access: { business: null, labs: null, rest: null, management: null } });
+
+    expect(state.tenants[0].primaryOwnerUserId).toBe("owner-1");
   });
 
   it("keeps independent Business commercial states and replaces only Business grants", async () => {
@@ -368,8 +421,28 @@ describe("applyClientProductAccess", () => {
     expect(invalid.state.writes).toBe(0);
 
     const { tx, state } = createStatefulTx();
+    state.workspaces.push({
+      id: "workspace-1",
+      tenantId: "tenant-1",
+      channelLimits: { WHATSAPP: 9, INSTAGRAM: 9, FACEBOOK: 9 },
+      channelOverrideReason: "A legacy manual override",
+      channelOverrideBy: "admin-old",
+      channelOverrideAt: new Date("2026-07-01T00:00:00.000Z"),
+    });
     await applyClientProductAccess({ ...baseInput, tx, access: { business: null, labs: { submoduleId: "labs-pro", plan: "PRO", status: "ACTIVE" }, rest: null, management: null } });
-    expect(state.workspaces[0]).toMatchObject({ entitlementPlan: "PRO", plan: "PREMIUM", monthlyConversationLimit: 2500, monthlyKnowledgeItemLimit: 80, maxFiles: 25, maxUrls: 20, maxChannels: 2, channelLimits: { whatsapp: 1, instagram: 1, messenger: 0 } });
+    expect(state.workspaces[0]).toMatchObject({
+      entitlementPlan: "PRO",
+      plan: "PREMIUM",
+      monthlyConversationLimit: 2500,
+      monthlyKnowledgeItemLimit: 80,
+      maxFiles: 25,
+      maxUrls: 20,
+      maxChannels: 2,
+      channelLimits: { WHATSAPP: 1, INSTAGRAM: 1, FACEBOOK: 0 },
+      channelOverrideReason: null,
+      channelOverrideBy: null,
+      channelOverrideAt: null,
+    });
   });
 
   it("copies only published Rest pricing and suspends the preserved contract when Rest is removed", async () => {
@@ -404,7 +477,70 @@ describe("applyClientProductAccess", () => {
     expect(state.tenantSubmodules.find((row) => row.submoduleId === "business-template")?.trialEndsAt).toEqual(new Date("2026-08-18T12:00:00.000Z"));
   });
 
-  it("uses deterministic collision-safe slugs and a unique membership ordering tie-breaker", async () => {
+  it("preserves activatedAt on no-op resubmission and changes it on reactivation", async () => {
+    const { tx, state } = createStatefulTx();
+    const originalActivation = new Date("2026-07-01T00:00:00.000Z");
+    state.tenantModules.push({
+      tenantId: "tenant-1",
+      moduleId: "vase_management",
+      isActive: true,
+      commercialStatus: "ACTIVE",
+      trialEndsAt: null,
+      activatedAt: originalActivation,
+    });
+
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: null, rest: null, management: { status: "ACTIVE" } },
+    });
+    expect(state.tenantModules[0].activatedAt).toEqual(originalActivation);
+
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      now: new Date("2026-08-05T12:00:00.000Z"),
+      access: { business: null, labs: null, rest: null, management: null },
+    });
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      now: new Date("2026-08-06T12:00:00.000Z"),
+      access: { business: null, labs: null, rest: null, management: { status: "ACTIVE" } },
+    });
+    expect(state.tenantModules[0].activatedAt).toEqual(new Date("2026-08-06T12:00:00.000Z"));
+  });
+
+  it("preserves Rest contract and module activatedAt on an exact resubmission", async () => {
+    const { tx, state } = createStatefulTx();
+    const originalActivation = new Date("2026-07-01T00:00:00.000Z");
+    state.tenantModules.push({
+      tenantId: "tenant-1",
+      moduleId: "vase_rest",
+      isActive: true,
+      commercialStatus: "TRIAL",
+      trialEndsAt: new Date("2026-08-10T00:00:00.000Z"),
+      activatedAt: originalActivation,
+    });
+    state.contracts.push({
+      id: "contract-1",
+      tenantId: "tenant-1",
+      pricingVersionId: "rest-published",
+      status: "TRIAL",
+      activatedAt: originalActivation,
+    });
+
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: null, rest: { pricingVersionId: "rest-published", status: "TRIAL" }, management: null },
+    });
+
+    expect(state.tenantModules[0].activatedAt).toEqual(originalActivation);
+    expect(state.contracts[0].activatedAt).toEqual(originalActivation);
+  });
+
+  it("uses deterministic collision-safe slugs for different primary owners", async () => {
     const first = createStatefulTx({ existingTenant: false });
     const second = createStatefulTx({ existingTenant: false });
     await Promise.all([
@@ -416,7 +552,7 @@ describe("applyClientProductAccess", () => {
     expect(second.state.tenants[0].slug).toBe("same-seed-owner-beta");
     expect(first.state.tenants[0].slug).not.toBe(second.state.tenants[0].slug);
     expect(first.state.slugLookups).toBe(0);
-    expect(first.state.membershipOrderBy).toEqual([{ role: "asc" }, { status: "asc" }, { createdAt: "asc" }, { id: "asc" }]);
+    expect(first.state.membershipOrderBy).toBeNull();
   });
 
   it("lets the caller transaction roll back every write when Rest persistence fails", async () => {
@@ -481,7 +617,7 @@ describe("adaptLegacyClientProductAccessWithTx", () => {
           { id: "business-custom", key: "personalizado", status: "ACTIVE", features: [] },
         ],
       },
-      labs: { submoduleId: "labs-pro", plan: "PRO", status: "ACTIVE" },
+      labs: { submoduleId: "labs-growth", plan: "GROWTH", status: "ACTIVE" },
       rest: null,
       management: { status: "ACTIVE" },
     });

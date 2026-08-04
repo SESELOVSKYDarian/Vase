@@ -9,6 +9,7 @@ import {
 import { ensureModuleCatalogSynced } from "@/server/services/modules";
 import { getTenantModulesAccess } from "@/server/queries/modules";
 import type { CommercialAccessStatus, Prisma } from "@prisma/client";
+import { isRestContractEntitled } from "@/lib/rest/contract-entitlement";
 
 type RestContractTransaction = Pick<
   Prisma.TransactionClient,
@@ -30,20 +31,41 @@ export async function applyRestContractWithTx(
   });
   if (!pricing) throw new Error("REST_PRICING_NOT_PUBLISHED");
 
-  const currentModule = await tx.tenantModule.findUnique({
-    where: {
-      tenantId_moduleId: {
-        tenantId: input.globalTenantId,
-        moduleId: "vase_rest",
+  const [currentModule, currentContract] = await Promise.all([
+    tx.tenantModule.findUnique({
+      where: {
+        tenantId_moduleId: {
+          tenantId: input.globalTenantId,
+          moduleId: "vase_rest",
+        },
       },
-    },
-    select: { trialEndsAt: true },
-  });
+      select: { trialEndsAt: true, isActive: true, commercialStatus: true, activatedAt: true },
+    }),
+    tx.tenantRestContract.findUnique({
+      where: { tenantId: input.globalTenantId },
+      select: { pricingVersionId: true, status: true, activatedAt: true },
+    }),
+  ]);
   const trialEndsAt = input.status === "TRIAL"
     ? currentModule?.trialEndsAt && currentModule.trialEndsAt > now
       ? currentModule.trialEndsAt
       : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
     : null;
+  const materialContractTransition =
+    !currentContract ||
+    !isRestContractEntitled(currentContract.status) ||
+    currentContract.status !== input.status ||
+    currentContract.pricingVersionId !== pricing.id;
+  const contractActivatedAt = materialContractTransition || !currentContract.activatedAt
+    ? now
+    : currentContract.activatedAt;
+  const materialModuleTransition =
+    !currentModule?.isActive ||
+    currentModule.commercialStatus !== input.status ||
+    currentContract?.pricingVersionId !== pricing.id;
+  const moduleActivatedAt = materialModuleTransition || !currentModule?.activatedAt
+    ? now
+    : currentModule.activatedAt;
 
   await tx.tenantRestContract.upsert({
     where: { tenantId: input.globalTenantId },
@@ -58,7 +80,7 @@ export async function applyRestContractWithTx(
       deviceLimit: pricing.deviceLimit,
       edgeLimit: pricing.edgeLimit,
       acceptedVersion: pricing.version,
-      activatedAt: now,
+      activatedAt: contractActivatedAt,
       suspendedAt: null,
     },
     create: {
@@ -73,7 +95,7 @@ export async function applyRestContractWithTx(
       deviceLimit: pricing.deviceLimit,
       edgeLimit: pricing.edgeLimit,
       acceptedVersion: pricing.version,
-      activatedAt: now,
+      activatedAt: contractActivatedAt,
       suspendedAt: null,
     },
   });
@@ -84,7 +106,7 @@ export async function applyRestContractWithTx(
       isActive: true,
       commercialStatus: input.status,
       trialEndsAt,
-      activatedAt: now,
+      activatedAt: moduleActivatedAt,
     },
     create: {
       tenantId: input.globalTenantId,
@@ -92,7 +114,7 @@ export async function applyRestContractWithTx(
       isActive: true,
       commercialStatus: input.status,
       trialEndsAt,
-      activatedAt: now,
+      activatedAt: moduleActivatedAt,
     },
   });
 
@@ -273,7 +295,7 @@ export async function listRestAdminData() {
           email: membership.user.email,
           role: membership.role,
           hasExplicitModuleAccess: explicitAccess.length > 0,
-          hasRestAccess: tenant.restContract?.status === "ACTIVE" &&
+          hasRestAccess: isRestContractEntitled(tenant.restContract?.status) &&
             (explicitAccess.length === 0 || restAccess?.isActive === true),
         };
       }),
@@ -311,7 +333,7 @@ export async function executeRestAdminCommand(rawCommand: unknown, actorUserId?:
       getTenantModulesAccess(command.globalTenantId, command.userId),
     ]);
     if (!membership) throw new Error("REST_TENANT_MEMBER_NOT_FOUND");
-    if (contract?.status !== "ACTIVE") throw new Error("REST_CONTRACT_REQUIRED");
+    if (!isRestContractEntitled(contract?.status)) throw new Error("REST_CONTRACT_REQUIRED");
     if (!currentAccess) throw new Error("REST_TENANT_NOT_FOUND");
 
     await prisma.$transaction(currentAccess.modules.map((moduleItem) =>

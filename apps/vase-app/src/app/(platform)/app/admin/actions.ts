@@ -106,6 +106,7 @@ import {
   userAccessModuleIds,
 } from "@/lib/admin/user-access";
 import {
+  buildClientProductAccessAuditChange,
   clientProductAccessEnvelopeSchema,
   parseStoredClientProductAccess,
   type ClientProductAccess,
@@ -5238,6 +5239,10 @@ export async function upsertMasterUserWithStateAction(
           metadata: {
             uiRole: parsed.data.uiRole,
             moduleIds: productAccessResult?.activeModuleIds ?? moduleIds,
+            clientProductAccessChange: buildClientProductAccessAuditChange(
+              null,
+              resolvedClientProductAccess,
+            ),
           },
         };
         await persistAuditLog(tx, auditPayload);
@@ -5352,6 +5357,10 @@ export async function upsertMasterUserWithStateAction(
         metadata: {
           uiRole: parsed.data.uiRole,
           moduleIds: productAccessResult?.activeModuleIds ?? moduleIds,
+          clientProductAccessChange: buildClientProductAccessAuditChange(
+            storedClientProductAccess,
+            resolvedClientProductAccess,
+          ),
         },
       };
       await persistAuditLog(tx, auditPayload);

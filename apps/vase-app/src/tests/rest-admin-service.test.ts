@@ -33,6 +33,7 @@ describe("Rest admin contract acceptance", () => {
       upsert: mocks.moduleUpsert,
     },
     tenantRestContract: {
+      findUnique: vi.fn().mockResolvedValue(null),
       upsert: mocks.contractUpsert,
     },
   };

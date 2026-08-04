@@ -228,4 +228,14 @@ describe("admin user access helpers", () => {
       maxChannels: 1,
     });
   });
+
+  it("ranks conflicting legacy Labs selections as Growth, Pro, then Starter", () => {
+    const selected = ["starter", "pro", "growth"].map((key) => ({
+      moduleId: userAccessModuleIds.labs,
+      key,
+      isActive: true,
+    }));
+
+    expect(resolveLabsEntitlementPlanFromSubmoduleAccess(selected, "STARTER")).toBe("GROWTH");
+  });
 });
