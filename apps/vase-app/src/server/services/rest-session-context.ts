@@ -6,6 +6,7 @@ import {
   type RestServiceStatus,
   type RestSessionContext,
 } from "@vase/contracts";
+import { isRestContractEntitled } from "@/lib/rest/contract-entitlement";
 
 type RestMembershipProjection = {
   globalUserId: string;
@@ -42,7 +43,7 @@ export function createRestSessionContextService(repository: RestSessionContextRe
       ) {
         throw new Error("REST_TENANT_FORBIDDEN");
       }
-      if (!membership.contract || !["ACTIVE", "TRIAL"].includes(membership.contract.status)) {
+      if (!membership.contract || !isRestContractEntitled(membership.contract.status)) {
         throw new Error("REST_CONTRACT_INACTIVE");
       }
 

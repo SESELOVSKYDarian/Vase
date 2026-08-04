@@ -18,7 +18,6 @@ import {
 } from "@/lib/business/custom-project";
 import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/db/prisma";
-import { generateUniqueTenantSlug } from "@/lib/tenancy/slug";
 import { getRequestContext } from "@/lib/security/request";
 import { sanitizeNullableText, sanitizeText } from "@/lib/security/sanitize";
 import {
@@ -30,7 +29,10 @@ import {
   toggleFeatureFlagSchema,
   updateAdminModulePricingSchema,
   createModuleSubmoduleSchema,
+  createModuleFeatureSchema,
+  deleteModuleFeatureSchema,
   deleteModuleSubmoduleSchema,
+  updateModuleFeatureSchema,
   updateModuleSubmoduleSchema,
   updateModuleSubmodulePricingSchema,
   setTenantModuleActivationSchema,
@@ -92,18 +94,27 @@ import {
   sendCustomizationQuoteSchema,
   upsertCustomizationQuoteSchema,
 } from "@/lib/validators/custom-quotes";
-import { createAuditLog } from "@/server/services/audit-log";
+import { createAuditLog, emitAuditLogEvent, persistAuditLog } from "@/server/services/audit-log";
 import { createAutoAdminNotification } from "@/server/services/admin-notifications-auto";
 import { ensureModuleCatalogSynced, normalizePricingType } from "@/server/services/modules";
+import { getBusinessFeatureScope, parseModuleFeatureDefault } from "@/server/services/module-features";
 import {
-  buildClientTenantAccessProvisioning,
   buildAdminCreatedUserVerification,
   buildLabsWorkspaceProvisioning,
-  getManagedUserAccessModuleIds,
   getRoleMappingFromUiRole,
   shouldForceAdminCreatedUserPasswordReset,
   userAccessModuleIds,
 } from "@/lib/admin/user-access";
+import {
+  buildClientProductAccessAuditChange,
+  clientProductAccessEnvelopeSchema,
+  parseStoredClientProductAccess,
+  type ClientProductAccess,
+} from "@/lib/admin/client-product-access";
+import {
+  adaptLegacyClientProductAccessWithTx,
+  applyClientProductAccess,
+} from "@/server/services/client-product-access";
 import { validateUpload } from "@/lib/security/upload";
 import { saveLocalUpload } from "@/lib/storage/local-upload";
 import {
@@ -752,8 +763,7 @@ export async function createAdminModuleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = createAdminModuleSchema.safeParse({
       id: sanitizeText(String(formData.get("id") ?? "")),
@@ -808,8 +818,7 @@ export async function updateAdminModuleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = updateAdminModuleSchema.safeParse({
       moduleId: formData.get("moduleId"),
@@ -860,8 +869,7 @@ export async function deleteAdminModuleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = deleteAdminModuleSchema.safeParse({
       moduleId: formData.get("moduleId"),
@@ -1753,8 +1761,7 @@ export async function createModuleSubmoduleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = createModuleSubmoduleSchema.safeParse({
       moduleId: formData.get("moduleId"),
@@ -1802,8 +1809,7 @@ export async function updateModuleSubmoduleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = updateModuleSubmoduleSchema.safeParse({
       submoduleId: formData.get("submoduleId"),
@@ -1849,8 +1855,7 @@ export async function deleteModuleSubmoduleAction(
 ): Promise<AdminGovernanceActionState> {
   try {
     const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
 
     const parsed = deleteModuleSubmoduleSchema.safeParse({
       submoduleId: formData.get("submoduleId"),
@@ -1885,6 +1890,205 @@ export async function deleteModuleSubmoduleAction(
     return { success: "Submodulo eliminado definitivamente." };
   } catch {
     return { error: "No pudimos eliminar el submodulo." };
+  }
+}
+
+function parseNullableInteger(formData: FormData, field: "minValue" | "maxValue") {
+  const rawValue = String(formData.get(field) ?? "").trim();
+  return rawValue ? Number(rawValue) : null;
+}
+
+function toModuleFeatureJsonValue(value: boolean | number | string | null): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+  return value === null ? Prisma.JsonNull : value;
+}
+
+function isPrismaUniqueConflict(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+function mapModuleFeatureActionError(error: unknown, fallback: string) {
+  if (isPrismaUniqueConflict(error)) return "Ya existe una característica con esa clave en este alcance.";
+  if (error instanceof Error) {
+    if (error.message === "FORBIDDEN") return "No tienes permisos para gestionar características.";
+    if (error.message === "MODULE_FEATURE_NOT_FOUND") return "La característica ya no existe.";
+    if (error.message === "Las características solo están disponibles para Vase Business.") {
+      return "Las características solo están disponibles para Vase Business.";
+    }
+    if (error.message === "El submódulo no pertenece al módulo Business seleccionado.") {
+      return "El submódulo seleccionado no pertenece a Vase Business.";
+    }
+    if (error.message === "Las características solo pueden asignarse a Plantilla o Personalizado.") {
+      return "Las características solo pueden asignarse a Plantilla o Personalizado.";
+    }
+  }
+  return fallback;
+}
+
+export async function createModuleFeatureAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
+    const valueType = formData.get("valueType");
+    const parsed = createModuleFeatureSchema.safeParse({
+      moduleId: formData.get("moduleId"),
+      submoduleId: String(formData.get("submoduleId") ?? "").trim() || null,
+      key: String(formData.get("key") ?? ""),
+      name: sanitizeText(String(formData.get("name") ?? "")),
+      description: sanitizeNullableText(String(formData.get("description") ?? "")) ?? null,
+      valueType,
+      trialDefault: parseModuleFeatureDefault(formData, "trialDefault", valueType),
+      activeDefault: parseModuleFeatureDefault(formData, "activeDefault", valueType),
+      minValue: parseNullableInteger(formData, "minValue"),
+      maxValue: parseNullableInteger(formData, "maxValue"),
+      sortOrder: formData.get("sortOrder"),
+      isActive: formData.get("isActive") === "on",
+    });
+    if (!parsed.success) return { error: "Revisa los valores y límites de la característica." };
+
+    const result = await prisma.$transaction(async (tx) => {
+      const scope = await getBusinessFeatureScope(tx, parsed.data);
+      const created = await tx.moduleFeature.create({
+        data: {
+          // scopeKey is deliberately omitted: it is migration-only and is not
+          // represented by the Prisma ModuleFeature public contract.
+          moduleId: scope.moduleId,
+          submoduleId: scope.submoduleId,
+          key: parsed.data.key,
+          name: parsed.data.name,
+          description: parsed.data.description ?? null,
+          valueType: parsed.data.valueType,
+          trialDefault: toModuleFeatureJsonValue(parsed.data.trialDefault),
+          activeDefault: toModuleFeatureJsonValue(parsed.data.activeDefault),
+          minValue: parsed.data.minValue,
+          maxValue: parsed.data.maxValue,
+          sortOrder: parsed.data.sortOrder,
+          isActive: parsed.data.isActive,
+        },
+      });
+      const auditPayload = {
+        action: "platform.module_feature_created",
+        targetType: "module_feature",
+        targetId: created.id,
+        actorUserId: adminSession.user.id,
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        metadata: { moduleId: created.moduleId, submoduleId: created.submoduleId, key: created.key },
+      };
+      await persistAuditLog(tx, auditPayload);
+      return { auditPayload };
+    });
+    emitAuditLogEvent(result.auditPayload);
+    revalidatePath("/app/admin/modules");
+    revalidatePath("/modules");
+    return { success: "Característica creada." };
+  } catch (error) {
+    return { error: mapModuleFeatureActionError(error, "No pudimos crear la característica.") };
+  }
+}
+
+export async function updateModuleFeatureAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
+    const valueType = formData.get("valueType");
+    const parsed = updateModuleFeatureSchema.safeParse({
+      featureId: formData.get("featureId"),
+      name: sanitizeText(String(formData.get("name") ?? "")),
+      description: sanitizeNullableText(String(formData.get("description") ?? "")) ?? null,
+      valueType,
+      trialDefault: parseModuleFeatureDefault(formData, "trialDefault", valueType),
+      activeDefault: parseModuleFeatureDefault(formData, "activeDefault", valueType),
+      minValue: parseNullableInteger(formData, "minValue"),
+      maxValue: parseNullableInteger(formData, "maxValue"),
+      sortOrder: formData.get("sortOrder"),
+      isActive: formData.get("isActive") === "on",
+    });
+    if (!parsed.success) return { error: "Revisa los valores y límites de la característica." };
+
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.moduleFeature.findUnique({
+        where: { id: parsed.data.featureId },
+        select: { id: true, moduleId: true, submoduleId: true, key: true },
+      });
+      if (!existing) throw new Error("MODULE_FEATURE_NOT_FOUND");
+      await getBusinessFeatureScope(tx, existing);
+      const updated = await tx.moduleFeature.update({
+        where: { id: existing.id },
+        data: {
+          name: parsed.data.name,
+          description: parsed.data.description ?? null,
+          valueType: parsed.data.valueType,
+          trialDefault: toModuleFeatureJsonValue(parsed.data.trialDefault),
+          activeDefault: toModuleFeatureJsonValue(parsed.data.activeDefault),
+          minValue: parsed.data.minValue,
+          maxValue: parsed.data.maxValue,
+          sortOrder: parsed.data.sortOrder,
+          isActive: parsed.data.isActive,
+        },
+      });
+      const auditPayload = {
+        action: "platform.module_feature_updated",
+        targetType: "module_feature",
+        targetId: updated.id,
+        actorUserId: adminSession.user.id,
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        metadata: { moduleId: updated.moduleId, submoduleId: updated.submoduleId, key: updated.key },
+      };
+      await persistAuditLog(tx, auditPayload);
+      return { auditPayload };
+    });
+    emitAuditLogEvent(result.auditPayload);
+    revalidatePath("/app/admin/modules");
+    revalidatePath("/modules");
+    return { success: "Característica actualizada." };
+  } catch (error) {
+    return { error: mapModuleFeatureActionError(error, "No pudimos actualizar la característica.") };
+  }
+}
+
+export async function deleteModuleFeatureAction(
+  _: AdminGovernanceActionState,
+  formData: FormData,
+): Promise<AdminGovernanceActionState> {
+  try {
+    const requestContext = await getRequestContext();
+    const adminSession = await requireAdminPermission(adminPermissions.MODULES);
+    const parsed = deleteModuleFeatureSchema.safeParse({ featureId: formData.get("featureId") });
+    if (!parsed.success) return { error: "Característica inválida." };
+
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.moduleFeature.findUnique({
+        where: { id: parsed.data.featureId },
+        select: { id: true, moduleId: true, submoduleId: true, key: true },
+      });
+      if (!existing) throw new Error("MODULE_FEATURE_NOT_FOUND");
+      await getBusinessFeatureScope(tx, existing);
+      await tx.moduleFeature.delete({ where: { id: existing.id } });
+      const auditPayload = {
+        action: "platform.module_feature_deleted",
+        targetType: "module_feature",
+        targetId: existing.id,
+        actorUserId: adminSession.user.id,
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        metadata: { moduleId: existing.moduleId, submoduleId: existing.submoduleId, key: existing.key },
+      };
+      await persistAuditLog(tx, auditPayload);
+      return { auditPayload };
+    });
+    emitAuditLogEvent(result.auditPayload);
+    revalidatePath("/app/admin/modules");
+    revalidatePath("/modules");
+    return { success: "Característica eliminada." };
+  } catch (error) {
+    return { error: mapModuleFeatureActionError(error, "No pudimos eliminar la característica.") };
   }
 }
 
@@ -3504,6 +3708,7 @@ export async function updateAdminAccessPolicyAction(
     const parsed = updateAdminAccessPolicySchema.safeParse({
       userId: formData.get("userId"),
       canManageUsers: formData.get("canManageUsers") === "on",
+      canManageModules: formData.get("canManageModules") === "on",
       canManageBilling: formData.get("canManageBilling") === "on",
       canManageFaqs: formData.get("canManageFaqs") === "on",
       canManageWiki: formData.get("canManageWiki") === "on",
@@ -3520,6 +3725,7 @@ export async function updateAdminAccessPolicyAction(
       where: { userId: parsed.data.userId },
       update: {
         canManageUsers: parsed.data.canManageUsers,
+        canManageModules: parsed.data.canManageModules,
         canManageBilling: parsed.data.canManageBilling,
         canManageFaqs: parsed.data.canManageFaqs,
         canManageWiki: parsed.data.canManageWiki,
@@ -3529,6 +3735,7 @@ export async function updateAdminAccessPolicyAction(
       create: {
         userId: parsed.data.userId,
         canManageUsers: parsed.data.canManageUsers,
+        canManageModules: parsed.data.canManageModules,
         canManageBilling: parsed.data.canManageBilling,
         canManageFaqs: parsed.data.canManageFaqs,
         canManageWiki: parsed.data.canManageWiki,
@@ -4709,67 +4916,20 @@ function parseModuleIds(rawValue: FormDataEntryValue | null) {
     .filter(Boolean);
 }
 
-type ClientAccessConfigInput = {
-  tenantPlan: "TRIAL" | "PRO";
-  proSubmoduleIds: string[];
-  proSubmoduleId?: string | null;
-  tenantName: string;
-  tenantSlug: string;
-  accountName: string;
-  industry: string;
-  tenantStatus: "ACTIVE" | "TRIAL" | "SUSPENDED";
-  tenantRole: "OWNER" | "MANAGER" | "MEMBER";
-  membershipStatus: "ACTIVE" | "INVITED" | "SUSPENDED";
-  moduleLimits: Record<string, { pages?: number | null; chatbots?: number | null }>;
-};
+type ParsedClientAccessPayload =
+  | { kind: "v2"; access: ClientProductAccess }
+  | { kind: "legacy"; rawConfig: unknown };
 
-function parseClientAccessConfig(rawValue: FormDataEntryValue | null): ClientAccessConfigInput | null {
+function parseClientAccessPayload(rawValue: FormDataEntryValue | null): ParsedClientAccessPayload | null {
   if (typeof rawValue !== "string" || rawValue.trim().length === 0) return null;
   try {
-    const parsed = JSON.parse(rawValue) as Partial<ClientAccessConfigInput> | null;
-    if (!parsed || (parsed.tenantPlan !== "TRIAL" && parsed.tenantPlan !== "PRO")) return null;
-    const moduleLimits = parsed.moduleLimits && typeof parsed.moduleLimits === "object" ? parsed.moduleLimits : {};
-    const legacySubmoduleId = typeof parsed.proSubmoduleId === "string" && parsed.proSubmoduleId.trim().length > 0
-      ? parsed.proSubmoduleId.trim()
-      : null;
-    return {
-      tenantPlan: parsed.tenantPlan,
-      proSubmoduleIds: Array.isArray(parsed.proSubmoduleIds)
-        ? parsed.proSubmoduleIds
-            .filter((value): value is string => typeof value === "string")
-            .map((value) => value.trim())
-            .filter(Boolean)
-        : legacySubmoduleId
-          ? [legacySubmoduleId]
-          : [],
-      tenantName: typeof parsed.tenantName === "string" ? parsed.tenantName.trim() : "",
-      tenantSlug: typeof parsed.tenantSlug === "string" ? parsed.tenantSlug.trim() : "",
-      accountName: typeof parsed.accountName === "string" ? parsed.accountName.trim() : "",
-      industry: typeof parsed.industry === "string" ? parsed.industry.trim() : "",
-      tenantStatus:
-        parsed.tenantStatus === "ACTIVE" || parsed.tenantStatus === "TRIAL" || parsed.tenantStatus === "SUSPENDED"
-          ? parsed.tenantStatus
-          : "TRIAL",
-      tenantRole:
-        parsed.tenantRole === "OWNER" || parsed.tenantRole === "MANAGER" || parsed.tenantRole === "MEMBER"
-          ? parsed.tenantRole
-          : "OWNER",
-      membershipStatus:
-        parsed.membershipStatus === "ACTIVE" ||
-        parsed.membershipStatus === "INVITED" ||
-        parsed.membershipStatus === "SUSPENDED"
-          ? parsed.membershipStatus
-          : "ACTIVE",
-      moduleLimits: Object.fromEntries(
-        Object.entries(moduleLimits).map(([moduleId, limits]) => [
-          moduleId,
-          {
-            pages: typeof limits?.pages === "number" && Number.isFinite(limits.pages) ? limits.pages : null,
-            chatbots: typeof limits?.chatbots === "number" && Number.isFinite(limits.chatbots) ? limits.chatbots : null,
-          },
-        ]),
-      ),
-    };
+    const parsedJson: unknown = JSON.parse(rawValue);
+    if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) return null;
+    if ("version" in parsedJson) {
+      const parsed = clientProductAccessEnvelopeSchema.safeParse(parsedJson);
+      return parsed.success ? { kind: "v2", access: parsed.data.productAccess } : null;
+    }
+    return { kind: "legacy", rawConfig: parsedJson };
   } catch {
     return null;
   }
@@ -4887,193 +5047,6 @@ async function syncTenantProductAndLabsWorkspace(params: {
   });
 }
 
-async function provisionClientWorkspaceFromMasterUser(params: {
-  tx: Prisma.TransactionClient;
-  userId: string;
-  userName: string;
-  userEmail: string;
-  moduleIds: string[];
-  clientAccessConfig: ClientAccessConfigInput;
-  tenantSlugSeed: string;
-}) {
-  const provisioning = buildClientTenantAccessProvisioning({
-    moduleIds: params.moduleIds,
-    tenantPlan: params.clientAccessConfig.tenantPlan,
-    proSubmoduleIds: params.clientAccessConfig.proSubmoduleIds,
-  });
-
-  const existingMembership = await params.tx.membership.findFirst({
-    where: { userId: params.userId },
-    orderBy: [{ status: "asc" }, { createdAt: "asc" }],
-    select: { tenantId: true },
-  });
-
-  let tenantId = existingMembership?.tenantId ?? null;
-
-  if (!tenantId) {
-    const tenant = await params.tx.tenant.create({
-      data: {
-        name: params.clientAccessConfig.tenantName || params.userName,
-        accountName: params.clientAccessConfig.accountName || params.userName,
-        slug: params.clientAccessConfig.tenantSlug || params.tenantSlugSeed,
-        billingEmail: params.userEmail,
-        industry: params.clientAccessConfig.industry || "General",
-        onboardingProduct: provisioning.onboardingProduct,
-        status: params.clientAccessConfig.tenantStatus || provisioning.tenantStatus,
-      },
-      select: { id: true },
-    });
-    tenantId = tenant.id;
-  } else {
-    await params.tx.tenant.update({
-      where: { id: tenantId },
-      data: {
-        name: params.clientAccessConfig.tenantName || params.userName,
-        accountName: params.clientAccessConfig.accountName || params.userName,
-        billingEmail: params.userEmail,
-        slug: params.clientAccessConfig.tenantSlug || undefined,
-        industry: params.clientAccessConfig.industry || undefined,
-        onboardingProduct: provisioning.onboardingProduct,
-        status: params.clientAccessConfig.tenantStatus || provisioning.tenantStatus,
-      },
-    });
-  }
-
-  await params.tx.membership.upsert({
-    where: {
-      userId_tenantId: {
-        userId: params.userId,
-        tenantId,
-      },
-    },
-    update: {
-      role: params.clientAccessConfig.tenantRole,
-      status: params.clientAccessConfig.membershipStatus,
-    },
-    create: {
-      userId: params.userId,
-      tenantId,
-      role: params.clientAccessConfig.tenantRole,
-      status: params.clientAccessConfig.membershipStatus,
-    },
-  });
-
-  await params.tx.tenantSubscription.upsert({
-    where: { tenantId },
-    update: {
-      plan: provisioning.subscriptionPlan,
-      billingStatus: provisioning.billingStatus,
-      premiumEnabled: params.clientAccessConfig.tenantPlan === "PRO",
-    },
-    create: {
-      tenantId,
-      plan: provisioning.subscriptionPlan,
-      billingStatus: provisioning.billingStatus,
-      premiumEnabled: params.clientAccessConfig.tenantPlan === "PRO",
-      temporaryPagesEnabled: true,
-      businessProjectLimit: params.clientAccessConfig.tenantPlan === "PRO" ? 3 : 1,
-      labsAssistantLimit: params.clientAccessConfig.tenantPlan === "PRO" ? 2 : 1,
-      trialStartedAt: new Date(),
-      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-      graceEndsAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-      currentPeriodEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    },
-  });
-
-  await params.tx.tenantModule.updateMany({
-    where: {
-      tenantId,
-      moduleId: { in: getManagedUserAccessModuleIds() },
-      NOT: { moduleId: { in: provisioning.activeModuleIds } },
-    },
-    data: {
-      isActive: false,
-      activatedAt: null,
-    },
-  });
-
-  for (const moduleId of provisioning.activeModuleIds) {
-    await params.tx.tenantModule.upsert({
-      where: {
-        tenantId_moduleId: {
-          tenantId,
-          moduleId,
-        },
-      },
-      update: {
-        isActive: true,
-        activatedAt: new Date(),
-      },
-      create: {
-        tenantId,
-        moduleId,
-        isActive: true,
-        activatedAt: new Date(),
-      },
-    });
-  }
-
-  const selectedSubmodules = await params.tx.moduleSubmodule.findMany({
-    where: { moduleId: { in: [userAccessModuleIds.business, userAccessModuleIds.labs] } },
-    select: { id: true, moduleId: true, key: true },
-  });
-  const selectedSubmoduleIds = selectedSubmodules.map((submodule) => submodule.id);
-  const activeSubmoduleIdSet = new Set(provisioning.activeSubmoduleIds);
-
-  await syncTenantProductAndLabsWorkspace({
-    tx: params.tx,
-    tenantId,
-    moduleIds: provisioning.activeModuleIds,
-    tenantPlan: params.clientAccessConfig.tenantPlan,
-    labsSubmodules: selectedSubmodules
-      .filter((submodule) => activeSubmoduleIdSet.has(submodule.id))
-      .map((submodule) => ({
-        moduleId: submodule.moduleId,
-        key: submodule.key,
-        isActive: true,
-      })),
-    tenantName: params.clientAccessConfig.tenantName || params.userName,
-    userEmail: params.userEmail,
-  });
-
-  if (selectedSubmoduleIds.length > 0) {
-    await params.tx.tenantSubmodule.updateMany({
-      where: {
-        tenantId,
-        submoduleId: { in: selectedSubmoduleIds },
-        NOT: { submoduleId: { in: provisioning.activeSubmoduleIds } },
-      },
-      data: {
-        isActive: false,
-        activatedAt: null,
-      },
-    });
-  }
-
-  for (const submoduleId of provisioning.activeSubmoduleIds) {
-    await params.tx.tenantSubmodule.upsert({
-      where: {
-        tenantId_submoduleId: {
-          tenantId,
-          submoduleId,
-        },
-      },
-      update: {
-        isActive: true,
-        activatedAt: new Date(),
-      },
-      create: {
-        tenantId,
-        submoduleId,
-        isActive: true,
-        activatedAt: new Date(),
-      },
-    });
-  }
-
-  return tenantId;
-}
-
 export async function upsertMasterUserWithStateAction(
   _: AdminGovernanceActionState,
   formData: FormData,
@@ -5117,12 +5090,14 @@ export async function upsertMasterUserWithStateAction(
       temporaryPassword: parsed.data.temporaryPassword,
       rawPassword,
     });
-    const moduleIds = roleMap.appRole === "ADMIN" ? [] : parsed.data.moduleIds;
-    const clientAccessConfig =
-      parsed.data.uiRole === "cliente" ? parseClientAccessConfig(formData.get("clientAccessConfig")) : null;
+    const requestedModuleIds = parsed.data.moduleIds;
+    const moduleIds = roleMap.appRole === "ADMIN" || parsed.data.uiRole === "cliente" ? [] : requestedModuleIds;
+    const clientAccessPayload = parsed.data.uiRole === "cliente"
+      ? parseClientAccessPayload(formData.get("clientAccessConfig"))
+      : null;
 
-    if (parsed.data.uiRole === "cliente" && !clientAccessConfig) {
-      return { error: "Completa el acceso de cliente: tenant, submodulos y limites." };
+    if (parsed.data.uiRole === "cliente" && !clientAccessPayload) {
+      return { error: "La configuracion de productos del cliente no es valida." };
     }
 
     const selectedModules = moduleIds.length
@@ -5135,28 +5110,6 @@ export async function upsertMasterUserWithStateAction(
     if (moduleIds.length !== selectedModules.length) {
       return { error: "Uno o mas modulos seleccionados no son validos." };
     }
-
-    if (clientAccessConfig?.proSubmoduleIds.length) {
-      const selectedSubmodules = await prisma.moduleSubmodule.findMany({
-        where: { id: { in: clientAccessConfig.proSubmoduleIds } },
-        select: { id: true, moduleId: true },
-      });
-
-      if (selectedSubmodules.length !== clientAccessConfig.proSubmoduleIds.length) {
-        return { error: "Uno o mas submodulos Pro no son validos." };
-      }
-
-      if (selectedSubmodules.some((submodule) => !moduleIds.includes(submodule.moduleId))) {
-        return { error: "Uno o mas submodulos Pro no pertenecen a los modulos seleccionados." };
-      }
-    }
-
-    const clientAccessConfigValue = clientAccessConfig
-      ? (clientAccessConfig as Prisma.InputJsonValue)
-      : Prisma.JsonNull;
-    const tenantSlugSeed = parsed.data.uiRole === "cliente"
-      ? await generateUniqueTenantSlug(parsed.data.name || parsed.data.email.split("@")[0] || "cliente")
-      : "";
 
     const result = await prisma.$transaction(async (tx) => {
       const roleRecord = await tx.role.upsert({
@@ -5177,6 +5130,25 @@ export async function upsertMasterUserWithStateAction(
         where: { email: parsed.data.email },
         select: { id: true },
       });
+      const existingTargetUser = parsed.data.userId
+        ? await tx.user.findUnique({
+            where: { id: parsed.data.userId },
+            select: { clientAccessConfig: true },
+          })
+        : null;
+      const storedClientProductAccess = parseStoredClientProductAccess(existingTargetUser?.clientAccessConfig);
+
+      const resolveClientProductAccess = async (ownerUserId: string) => {
+        if (!clientAccessPayload) return null;
+        if (clientAccessPayload.kind === "v2") return clientAccessPayload.access;
+        return adaptLegacyClientProductAccessWithTx({
+          tx,
+          ownerUserId,
+          moduleIds: requestedModuleIds,
+          rawConfig: clientAccessPayload.rawConfig,
+          storedAccess: storedClientProductAccess,
+        });
+      };
 
       if (createFlow) {
         if (existingByEmail) throw new Error("EMAIL_ALREADY_EXISTS");
@@ -5189,7 +5161,9 @@ export async function upsertMasterUserWithStateAction(
             passwordHash: passwordHash ?? undefined,
             platformRole: roleMap.platformRole,
             locale: "es",
-            clientAccessConfig: clientAccessConfigValue,
+            clientAccessConfig: clientAccessPayload?.kind === "v2"
+              ? ({ version: 2, productAccess: clientAccessPayload.access } as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
             ...buildAdminCreatedUserVerification(now),
             forcePasswordChange: shouldForcePasswordReset,
             tempPasswordIssuedAt: shouldForcePasswordReset ? now : null,
@@ -5231,24 +5205,56 @@ export async function upsertMasterUserWithStateAction(
           });
         }
 
-        if (clientAccessConfig) {
-          await provisionClientWorkspaceFromMasterUser({
-            tx,
-            userId: createdUser.id,
-            userName: parsed.data.name,
-            userEmail: parsed.data.email,
-            moduleIds,
-            clientAccessConfig,
-            tenantSlugSeed,
+        const resolvedClientProductAccess = await resolveClientProductAccess(createdUser.id);
+        if (resolvedClientProductAccess && clientAccessPayload?.kind === "legacy") {
+          await tx.user.update({
+            where: { id: createdUser.id },
+            data: {
+              clientAccessConfig: {
+                version: 2,
+                productAccess: resolvedClientProductAccess,
+              } as Prisma.InputJsonValue,
+            },
           });
         }
-
-        return { userId: createdUser.id, created: true as const };
+        const productAccessResult = resolvedClientProductAccess
+          ? await applyClientProductAccess({
+            tx,
+            actorUserId: adminSession.user.id,
+            ownerUserId: createdUser.id,
+            ownerName: createdUser.name,
+            ownerEmail: createdUser.email,
+            access: resolvedClientProductAccess,
+            businessFeatureMode: clientAccessPayload?.kind === "legacy" ? "PRESERVE" : "REPLACE",
+            tenantSlugSeed: createdUser.name || createdUser.email.split("@")[0],
+          })
+          : null;
+        const auditPayload = {
+          action: "platform.master_user_created",
+          targetType: "user",
+          targetId: createdUser.id,
+          actorUserId: adminSession.user.id,
+          ipAddress: requestContext.ipAddress,
+          userAgent: requestContext.userAgent,
+          metadata: {
+            uiRole: parsed.data.uiRole,
+            moduleIds: productAccessResult?.activeModuleIds ?? moduleIds,
+            clientProductAccessChange: buildClientProductAccessAuditChange(
+              null,
+              resolvedClientProductAccess,
+            ),
+          },
+        };
+        await persistAuditLog(tx, auditPayload);
+        return { userId: createdUser.id, created: true as const, auditPayload };
       }
 
       if (existingByEmail && existingByEmail.id !== parsed.data.userId) {
         throw new Error("EMAIL_ALREADY_EXISTS");
       }
+
+      if (!parsed.data.userId) throw new Error("CLIENT_USER_ID_REQUIRED");
+      const resolvedClientProductAccess = await resolveClientProductAccess(parsed.data.userId);
 
       const updatedUser = await tx.user.update({
         where: { id: parsed.data.userId },
@@ -5256,7 +5262,9 @@ export async function upsertMasterUserWithStateAction(
           name: parsed.data.name,
           email: parsed.data.email,
           platformRole: roleMap.platformRole,
-          clientAccessConfig: clientAccessConfigValue,
+          clientAccessConfig: resolvedClientProductAccess
+            ? ({ version: 2, productAccess: resolvedClientProductAccess } as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
           ...(!parsed.data.temporaryPassword
             ? {
                 forcePasswordChange: false,
@@ -5283,29 +5291,32 @@ export async function upsertMasterUserWithStateAction(
         },
       });
 
-      await tx.userModuleAccess.deleteMany({ where: { userId: updatedUser.id } });
-      if (selectedModules.length > 0) {
-        await tx.userModuleAccess.createMany({
-          data: selectedModules.map((module) => ({
-            userId: updatedUser.id,
-            moduleId: module.id,
-            isActive: true,
-          })),
-          skipDuplicates: true,
-        });
+      if (!resolvedClientProductAccess) {
+        await tx.userModuleAccess.deleteMany({ where: { userId: updatedUser.id } });
+        if (selectedModules.length > 0) {
+          await tx.userModuleAccess.createMany({
+            data: selectedModules.map((module) => ({
+              userId: updatedUser.id,
+              moduleId: module.id,
+              isActive: true,
+            })),
+            skipDuplicates: true,
+          });
+        }
       }
 
-      if (clientAccessConfig) {
-        await provisionClientWorkspaceFromMasterUser({
+      const productAccessResult = resolvedClientProductAccess
+        ? await applyClientProductAccess({
           tx,
-          userId: updatedUser.id,
-          userName: parsed.data.name,
-          userEmail: parsed.data.email,
-          moduleIds,
-          clientAccessConfig,
-          tenantSlugSeed,
-        });
-      }
+          actorUserId: adminSession.user.id,
+          ownerUserId: updatedUser.id,
+          ownerName: updatedUser.name,
+          ownerEmail: updatedUser.email,
+          access: resolvedClientProductAccess,
+          businessFeatureMode: clientAccessPayload?.kind === "legacy" ? "PRESERVE" : "REPLACE",
+          tenantSlugSeed: updatedUser.name || updatedUser.email.split("@")[0],
+        })
+        : null;
 
       if (parsed.data.uiRole === "soporte" || parsed.data.uiRole === "developer") {
         await tx.internalUserProfile.upsert({
@@ -5336,21 +5347,27 @@ export async function upsertMasterUserWithStateAction(
         await tx.internalUserProfile.deleteMany({ where: { userId: updatedUser.id } });
       }
 
-      return { userId: updatedUser.id, created: false as const };
+      const auditPayload = {
+        action: "platform.master_user_updated",
+        targetType: "user",
+        targetId: updatedUser.id,
+        actorUserId: adminSession.user.id,
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        metadata: {
+          uiRole: parsed.data.uiRole,
+          moduleIds: productAccessResult?.activeModuleIds ?? moduleIds,
+          clientProductAccessChange: buildClientProductAccessAuditChange(
+            storedClientProductAccess,
+            resolvedClientProductAccess,
+          ),
+        },
+      };
+      await persistAuditLog(tx, auditPayload);
+      return { userId: updatedUser.id, created: false as const, auditPayload };
     });
 
-    await createAuditLog({
-      action: result.created ? "platform.master_user_created" : "platform.master_user_updated",
-      targetType: "user",
-      targetId: result.userId,
-      actorUserId: adminSession.user.id,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      metadata: {
-        uiRole: parsed.data.uiRole,
-        moduleIds,
-      },
-    });
+    emitAuditLogEvent(result.auditPayload);
 
     revalidatePath("/app/admin/users");
     return { success: result.created ? "Usuario creado." : "Usuario actualizado." };
@@ -5360,6 +5377,24 @@ export async function upsertMasterUserWithStateAction(
     }
     if (error instanceof Error && error.message === "EMAIL_ALREADY_EXISTS") {
       return { error: "Ya existe un usuario con ese email." };
+    }
+    if (error instanceof Error && error.message === "REST_PRICING_NOT_PUBLISHED") {
+      return { error: "El precio de Vase Rest seleccionado no esta publicado." };
+    }
+    if (error instanceof Error && error.message === "CLIENT_LEGACY_REST_PLAN_REQUIRED") {
+      return { error: "Para activar Vase Rest, elegí un plan Rest publicado." };
+    }
+    if (error instanceof Error && error.message === "CLIENT_LABS_PLAN_INVALID") {
+      return { error: "El plan de Vase Labs no coincide con el submodulo seleccionado." };
+    }
+    if (error instanceof Error && error.message === "CLIENT_BUSINESS_SUBMODULE_INVALID") {
+      return { error: "Uno de los submodulos de Vase Business no es valido." };
+    }
+    if (error instanceof Error && (error.message === "CLIENT_FEATURE_SCOPE_INVALID" || error.message === "CLIENT_FEATURE_VALUE_INVALID")) {
+      return { error: "Una caracteristica de Vase Business no pertenece al alcance indicado o tiene un valor invalido." };
+    }
+    if (error instanceof Error && error.message === "CLIENT_MODULE_CATALOG_INVALID") {
+      return { error: "Uno de los productos seleccionados no esta disponible." };
     }
     return { error: "No pudimos guardar el usuario." };
   }

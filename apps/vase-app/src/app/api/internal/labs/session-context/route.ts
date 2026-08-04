@@ -1,24 +1,14 @@
 import { assertServiceToken } from "@vase/internal-api";
 import { NextResponse } from "next/server";
 import type { AiWorkspacePlan } from "@prisma/client";
-import type { LabsChannel, LabsPlan } from "@vase/contracts";
+import type { LabsPlan } from "@vase/contracts";
 import { labsSessionContextSchema } from "@vase/contracts";
 import { prisma } from "@/lib/db/prisma";
-import { getEffectiveLabsEntitlement, type LabsChannelLimits } from "@vase/contracts";
 import { resolveLabsEntitlementPlanFromSubmoduleAccess } from "@/lib/admin/user-access";
+import { resolveLabsWorkspaceEntitlement } from "@/server/services/labs-entitlement-state";
 
 function mapWorkspacePlan(plan: AiWorkspacePlan | null | undefined): LabsPlan {
   return plan === "PREMIUM" ? "PRO" : "STARTER";
-}
-
-function parseChannelLimits(value: unknown, fallback: LabsChannelLimits): LabsChannelLimits {
-  if (!value || typeof value !== "object") return fallback;
-  const current = value as Partial<Record<LabsChannel, unknown>>;
-  return {
-    WHATSAPP: Math.max(0, Number(current.WHATSAPP) || 0),
-    INSTAGRAM: Math.max(0, Number(current.INSTAGRAM) || 0),
-    FACEBOOK: Math.max(0, Number(current.FACEBOOK) || 0),
-  };
 }
 
 function mapTenantStatus(status: string) {
@@ -107,10 +97,13 @@ export async function GET(request: Request) {
       })),
       mapWorkspacePlan(workspace?.plan),
     );
-    const planLimits = getEffectiveLabsEntitlement({ paidPlan }).channelLimits;
-    const channelLimits = parseChannelLimits(workspace?.channelLimits, planLimits);
-    const enabledChannels = (["WHATSAPP", "INSTAGRAM", "FACEBOOK"] as LabsChannel[])
-      .filter((channel) => channelLimits[channel] > 0);
+    const { channelLimits, enabledChannels } = resolveLabsWorkspaceEntitlement({
+      paidPlan,
+      channelLimits: workspace?.channelLimits,
+      channelOverrideReason: workspace?.channelOverrideReason,
+      channelOverrideBy: workspace?.channelOverrideBy,
+      channelOverrideAt: workspace?.channelOverrideAt,
+    });
     const payload = labsSessionContextSchema.parse({
       globalUserId: userId,
       globalTenantId: membership.tenant.id,

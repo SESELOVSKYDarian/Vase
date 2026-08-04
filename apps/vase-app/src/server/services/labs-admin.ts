@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { resolveLabsEntitlementPlanFromSubmoduleAccess } from "@/lib/admin/user-access";
+import { resolveLabsWorkspaceEntitlement } from "@/server/services/labs-entitlement-state";
 
 export const labsAdminUpdateSchema = z.object({
   globalTenantId: z.string().min(1),
@@ -47,10 +48,14 @@ export async function listLabsAdminTenants() {
       key: item.submodule.key,
       isActive: item.isActive,
     })));
-    const planLimits = getEffectiveLabsEntitlement({ paidPlan: plan }).channelLimits;
-    const channelLimits = workspace?.channelLimits
-      ? labsChannelLimitsSchema.parse(workspace.channelLimits)
-      : planLimits;
+    const resolved = resolveLabsWorkspaceEntitlement({
+      paidPlan: plan,
+      channelLimits: workspace?.channelLimits,
+      channelOverrideReason: workspace?.channelOverrideReason,
+      channelOverrideBy: workspace?.channelOverrideBy,
+      channelOverrideAt: workspace?.channelOverrideAt,
+    });
+    const { channelLimits, planChannelLimits: planLimits } = resolved;
     return {
       globalTenantId: tenant.id,
       companyName: tenant.name,
@@ -67,10 +72,10 @@ export async function listLabsAdminTenants() {
       serviceStatus: tenant.status === "SUSPENDED" ? "SUSPENDED" as const
         : tenant.status === "TRIAL" ? "TRIAL" as const
           : "ACTIVE" as const,
-      manualOverride: Boolean(workspace?.channelLimits),
-      overrideReason: workspace?.channelOverrideReason ?? null,
-      overrideUpdatedBy: workspace?.channelOverrideBy ?? null,
-      overrideUpdatedAt: workspace?.channelOverrideAt?.toISOString() ?? null,
+      manualOverride: resolved.manualOverride,
+      overrideReason: resolved.overrideReason,
+      overrideUpdatedBy: resolved.overrideUpdatedBy,
+      overrideUpdatedAt: resolved.overrideUpdatedAt,
       syncStatus: workspace?.labsSyncStatus ?? "SYNCED",
     };
   });

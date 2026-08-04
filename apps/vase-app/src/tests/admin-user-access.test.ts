@@ -161,7 +161,7 @@ describe("admin user access helpers", () => {
     });
   });
 
-  it("builds the default Labs workspace when Labs is selected", () => {
+  it("retains legacy Labs START/PREMIUM provisioning defaults", () => {
     expect(
       buildLabsWorkspaceProvisioning({
         moduleIds: ["vase_labs"],
@@ -227,5 +227,15 @@ describe("admin user access helpers", () => {
       monthlyConversationLimit: 300,
       maxChannels: 1,
     });
+  });
+
+  it("ranks conflicting legacy Labs selections as Growth, Pro, then Starter", () => {
+    const selected = ["starter", "pro", "growth"].map((key) => ({
+      moduleId: userAccessModuleIds.labs,
+      key,
+      isActive: true,
+    }));
+
+    expect(resolveLabsEntitlementPlanFromSubmoduleAccess(selected, "STARTER")).toBe("GROWTH");
   });
 });

@@ -10,6 +10,7 @@ const initialState: AdminGovernanceActionState = {};
 
 type Policy = {
   canManageUsers: boolean;
+  canManageModules: boolean;
   canManageBilling: boolean;
   canManageFaqs: boolean;
   canManageWiki: boolean;
@@ -31,6 +32,7 @@ export function AdminAccessPolicyForm({
       <input type="hidden" name="userId" value={userId} />
       <p className="text-xs font-semibold text-[var(--foreground)]">Permisos modulares</p>
       <label className="text-xs"><input name="canManageUsers" type="checkbox" defaultChecked={policy?.canManageUsers ?? false} /> Usuarios</label>
+      <label className="text-xs"><input name="canManageModules" type="checkbox" defaultChecked={policy?.canManageModules ?? false} /> Módulos</label>
       <label className="text-xs"><input name="canManageBilling" type="checkbox" defaultChecked={policy?.canManageBilling ?? false} /> Billing</label>
       <label className="text-xs"><input name="canManageFaqs" type="checkbox" defaultChecked={policy?.canManageFaqs ?? false} /> FAQs</label>
       <label className="text-xs"><input name="canManageWiki" type="checkbox" defaultChecked={policy?.canManageWiki ?? false} /> Wiki</label>

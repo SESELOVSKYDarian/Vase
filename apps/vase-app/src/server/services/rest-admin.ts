@@ -8,6 +8,132 @@ import {
 } from "@/server/services/rest-entitlements";
 import { ensureModuleCatalogSynced } from "@/server/services/modules";
 import { getTenantModulesAccess } from "@/server/queries/modules";
+import type { CommercialAccessStatus, Prisma } from "@prisma/client";
+import { isRestContractEntitled } from "@/lib/rest/contract-entitlement";
+
+type RestContractTransaction = Pick<
+  Prisma.TransactionClient,
+  "restPricingVersion" | "tenantRestContract" | "tenantModule"
+>;
+
+export async function applyRestContractWithTx(
+  tx: RestContractTransaction,
+  input: {
+    globalTenantId: string;
+    pricingVersionId: string;
+    status: Extract<CommercialAccessStatus, "TRIAL" | "ACTIVE">;
+    now?: Date;
+  },
+) {
+  const now = input.now ?? new Date();
+  const pricing = await tx.restPricingVersion.findFirst({
+    where: { id: input.pricingVersionId, status: "PUBLISHED" },
+  });
+  if (!pricing) throw new Error("REST_PRICING_NOT_PUBLISHED");
+
+  const [currentModule, currentContract] = await Promise.all([
+    tx.tenantModule.findUnique({
+      where: {
+        tenantId_moduleId: {
+          tenantId: input.globalTenantId,
+          moduleId: "vase_rest",
+        },
+      },
+      select: { trialEndsAt: true, isActive: true, commercialStatus: true, activatedAt: true },
+    }),
+    tx.tenantRestContract.findUnique({
+      where: { tenantId: input.globalTenantId },
+      select: { pricingVersionId: true, status: true, activatedAt: true },
+    }),
+  ]);
+  const trialEndsAt = input.status === "TRIAL"
+    ? currentModule?.trialEndsAt && currentModule.trialEndsAt > now
+      ? currentModule.trialEndsAt
+      : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+    : null;
+  const materialContractTransition =
+    !currentContract ||
+    !isRestContractEntitled(currentContract.status) ||
+    currentContract.status !== input.status ||
+    currentContract.pricingVersionId !== pricing.id;
+  const contractActivatedAt = materialContractTransition || !currentContract.activatedAt
+    ? now
+    : currentContract.activatedAt;
+  const materialModuleTransition =
+    !currentModule?.isActive ||
+    currentModule.commercialStatus !== input.status ||
+    currentContract?.pricingVersionId !== pricing.id;
+  const moduleActivatedAt = materialModuleTransition || !currentModule?.activatedAt
+    ? now
+    : currentModule.activatedAt;
+
+  await tx.tenantRestContract.upsert({
+    where: { tenantId: input.globalTenantId },
+    update: {
+      pricingVersionId: pricing.id,
+      plan: pricing.plan,
+      status: input.status,
+      agreedMonthlyPrice: pricing.monthlyPrice,
+      currency: pricing.currency,
+      branchLimit: pricing.branchLimit,
+      localEmployeeLimit: pricing.localEmployeeLimit,
+      deviceLimit: pricing.deviceLimit,
+      edgeLimit: pricing.edgeLimit,
+      acceptedVersion: pricing.version,
+      activatedAt: contractActivatedAt,
+      suspendedAt: null,
+    },
+    create: {
+      tenantId: input.globalTenantId,
+      pricingVersionId: pricing.id,
+      plan: pricing.plan,
+      status: input.status,
+      agreedMonthlyPrice: pricing.monthlyPrice,
+      currency: pricing.currency,
+      branchLimit: pricing.branchLimit,
+      localEmployeeLimit: pricing.localEmployeeLimit,
+      deviceLimit: pricing.deviceLimit,
+      edgeLimit: pricing.edgeLimit,
+      acceptedVersion: pricing.version,
+      activatedAt: contractActivatedAt,
+      suspendedAt: null,
+    },
+  });
+
+  await tx.tenantModule.upsert({
+    where: { tenantId_moduleId: { tenantId: input.globalTenantId, moduleId: "vase_rest" } },
+    update: {
+      isActive: true,
+      commercialStatus: input.status,
+      trialEndsAt,
+      activatedAt: moduleActivatedAt,
+    },
+    create: {
+      tenantId: input.globalTenantId,
+      moduleId: "vase_rest",
+      isActive: true,
+      commercialStatus: input.status,
+      trialEndsAt,
+      activatedAt: moduleActivatedAt,
+    },
+  });
+
+  return {
+    globalTenantId: input.globalTenantId,
+    pricingVersionId: pricing.id,
+    plan: pricing.plan,
+    status: input.status,
+    monthlyPrice: Number(pricing.monthlyPrice),
+    currency: pricing.currency,
+    limits: {
+      branches: pricing.branchLimit,
+      localEmployees: pricing.localEmployeeLimit,
+      devices: pricing.deviceLimit,
+      edgeInstallations: pricing.edgeLimit,
+    },
+    acceptedVersion: pricing.version,
+  };
+}
 
 export const restAdminCommandSchema = z.discriminatedUnion("action", [
   z.object({
@@ -104,43 +230,11 @@ const repository: RestEntitlementRepository = {
     return record ? mapPricing(record) : null;
   },
   async upsertTenantContract(input) {
-    await prisma.$transaction(async (tx) => {
-      await tx.tenantRestContract.upsert({
-        where: { tenantId: input.globalTenantId },
-        update: {
-          pricingVersionId: input.pricingVersionId,
-          plan: input.plan,
-          status: input.status,
-          agreedMonthlyPrice: input.monthlyPrice,
-          currency: input.currency,
-          branchLimit: input.limits.branches,
-          localEmployeeLimit: input.limits.localEmployees,
-          deviceLimit: input.limits.devices,
-          edgeLimit: input.limits.edgeInstallations,
-          acceptedVersion: input.acceptedVersion,
-          suspendedAt: null,
-        },
-        create: {
-          tenantId: input.globalTenantId,
-          pricingVersionId: input.pricingVersionId,
-          plan: input.plan,
-          status: input.status,
-          agreedMonthlyPrice: input.monthlyPrice,
-          currency: input.currency,
-          branchLimit: input.limits.branches,
-          localEmployeeLimit: input.limits.localEmployees,
-          deviceLimit: input.limits.devices,
-          edgeLimit: input.limits.edgeInstallations,
-          acceptedVersion: input.acceptedVersion,
-        },
-      });
-      await tx.tenantModule.upsert({
-        where: { tenantId_moduleId: { tenantId: input.globalTenantId, moduleId: "vase_rest" } },
-        update: { isActive: true, activatedAt: new Date() },
-        create: { tenantId: input.globalTenantId, moduleId: "vase_rest", isActive: true, activatedAt: new Date() },
-      });
-    });
-    return input;
+    return prisma.$transaction((tx) => applyRestContractWithTx(tx, {
+      globalTenantId: input.globalTenantId,
+      pricingVersionId: input.pricingVersionId,
+      status: input.status === "TRIAL" ? "TRIAL" : "ACTIVE",
+    }));
   },
 };
 
@@ -201,7 +295,7 @@ export async function listRestAdminData() {
           email: membership.user.email,
           role: membership.role,
           hasExplicitModuleAccess: explicitAccess.length > 0,
-          hasRestAccess: tenant.restContract?.status === "ACTIVE" &&
+          hasRestAccess: isRestContractEntitled(tenant.restContract?.status) &&
             (explicitAccess.length === 0 || restAccess?.isActive === true),
         };
       }),
@@ -239,7 +333,7 @@ export async function executeRestAdminCommand(rawCommand: unknown, actorUserId?:
       getTenantModulesAccess(command.globalTenantId, command.userId),
     ]);
     if (!membership) throw new Error("REST_TENANT_MEMBER_NOT_FOUND");
-    if (contract?.status !== "ACTIVE") throw new Error("REST_CONTRACT_REQUIRED");
+    if (!isRestContractEntitled(contract?.status)) throw new Error("REST_CONTRACT_REQUIRED");
     if (!currentAccess) throw new Error("REST_TENANT_NOT_FOUND");
 
     await prisma.$transaction(currentAccess.modules.map((moduleItem) =>
@@ -252,7 +346,11 @@ export async function executeRestAdminCommand(rawCommand: unknown, actorUserId?:
     return { globalTenantId: command.globalTenantId, userId: command.userId, isActive: command.isActive };
   }
 
-  const contract = await entitlementService.acceptForTenant(command);
+  const contract = await prisma.$transaction((tx) => applyRestContractWithTx(tx, {
+    globalTenantId: command.globalTenantId,
+    pricingVersionId: command.pricingVersionId,
+    status: "ACTIVE",
+  }));
   return restEntitlementSchema.parse({
     globalTenantId: contract.globalTenantId,
     plan: contract.plan,

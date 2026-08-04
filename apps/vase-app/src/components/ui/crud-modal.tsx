@@ -10,6 +10,7 @@ type CrudModalProps = {
   onClose: () => void;
   children: React.ReactNode;
   widthClassName?: string;
+  disableClose?: boolean;
 };
 
 export function CrudModal({
@@ -19,6 +20,7 @@ export function CrudModal({
   onClose,
   children,
   widthClassName = "max-w-2xl",
+  disableClose = false,
 }: CrudModalProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -31,11 +33,11 @@ export function CrudModal({
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCloseRef.current();
+      if (event.key === "Escape" && !disableClose) onCloseRef.current();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, [disableClose, open]);
 
   if (!open) return null;
 
@@ -43,7 +45,7 @@ export function CrudModal({
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (!disableClose && event.target === event.currentTarget) onClose();
       }}
       role="presentation"
     >
@@ -63,6 +65,7 @@ export function CrudModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={disableClose}
             className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full border border-[var(--border-subtle)] text-[var(--muted)] transition hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-strong)]"
             aria-label="Cerrar modal"
           >

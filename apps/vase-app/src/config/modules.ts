@@ -161,7 +161,7 @@ export const platformModules: readonly PlatformModuleDefinition[] = [
       {
         key: "starter",
         name: "Starter",
-        description: "Entrada simple para automatizacion inicial.",
+        description: "1 canal de WhatsApp.",
         route: "/app/labs/starter",
         pricing: {
           development: 0,
@@ -173,7 +173,7 @@ export const platformModules: readonly PlatformModuleDefinition[] = [
       {
         key: "growth",
         name: "Growth",
-        description: "IA con mayor capacidad operativa.",
+        description: "1 canal de WhatsApp + 1 canal de Instagram + 1 canal de Facebook Messenger.",
         route: "/app/labs/growth",
         pricing: {
           development: 0,
@@ -185,7 +185,7 @@ export const platformModules: readonly PlatformModuleDefinition[] = [
       {
         key: "pro",
         name: "Pro",
-        description: "Capacidad avanzada para operaciones intensivas.",
+        description: "1 canal de WhatsApp + 1 canal de Instagram.",
         route: "/app/labs/pro",
         pricing: {
           development: 0,

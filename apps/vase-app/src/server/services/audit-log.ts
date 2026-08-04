@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { logEvent } from "@/lib/observability/logger";
 
-type AuditPayload = {
+export type AuditPayload = {
   action: string;
   targetType: string;
   targetId?: string;
@@ -13,20 +13,27 @@ type AuditPayload = {
   metadata?: Record<string, unknown>;
 };
 
-export async function createAuditLog(payload: AuditPayload) {
-  await prisma.auditLog.create({
-    data: {
-      action: payload.action,
-      targetType: payload.targetType,
-      targetId: payload.targetId,
-      tenantId: payload.tenantId,
-      actorUserId: payload.actorUserId,
-      ipAddress: payload.ipAddress ?? undefined,
-      userAgent: payload.userAgent ?? undefined,
-      metadata: payload.metadata as Prisma.InputJsonValue | undefined,
-    },
-  });
+function auditLogData(payload: AuditPayload) {
+  return {
+    action: payload.action,
+    targetType: payload.targetType,
+    targetId: payload.targetId,
+    tenantId: payload.tenantId,
+    actorUserId: payload.actorUserId,
+    ipAddress: payload.ipAddress ?? undefined,
+    userAgent: payload.userAgent ?? undefined,
+    metadata: payload.metadata as Prisma.InputJsonValue | undefined,
+  };
+}
 
+export async function persistAuditLog(
+  client: Pick<Prisma.TransactionClient, "auditLog">,
+  payload: AuditPayload,
+) {
+  await client.auditLog.create({ data: auditLogData(payload) });
+}
+
+export function emitAuditLogEvent(payload: AuditPayload) {
   logEvent({
     event: "audit.log_created",
     message: `Audit event persisted: ${payload.action}`,
@@ -38,4 +45,9 @@ export async function createAuditLog(payload: AuditPayload) {
       targetId: payload.targetId,
     },
   });
+}
+
+export async function createAuditLog(payload: AuditPayload) {
+  await persistAuditLog(prisma, payload);
+  emitAuditLogEvent(payload);
 }

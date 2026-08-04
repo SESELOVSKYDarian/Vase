@@ -3,12 +3,12 @@ import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminModulesConsole } from "@/components/admin/admin-modules-console";
-import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
+import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { getAdminModulesCatalog } from "@/server/queries/modules-admin";
 
 export default async function AdminModulesPage() {
   try {
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    await requireAdminPermission(adminPermissions.MODULES);
   } catch {
     forbidden();
   }
