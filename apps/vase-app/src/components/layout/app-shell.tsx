@@ -339,6 +339,7 @@ export function AppShell({
   }, [unreadNotifications]);
   const businessModuleActive = modules.some((module) => module.key === "business" && module.isActive);
   const labsModuleActive = modules.some((module) => module.key === "labs" && module.isActive);
+  const restModuleActive = modules.some((module) => module.key === "rest" && module.isActive);
   const labsHomeHref = resolveLabsHomeHref();
   const projectsHref = businessModuleActive ? BUSINESS_WORKSPACE_PATH : labsModuleActive ? labsHomeHref : "/app";
 
@@ -353,6 +354,7 @@ export function AppShell({
       children: [
         businessModuleActive ? { id: "projects-business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business" } : null,
         labsModuleActive ? { id: "projects-labs", href: labsHomeHref, label: "Vase Labs", forceDocumentNavigation: true } : null,
+        restModuleActive ? { id: "projects-rest", href: "https://rest.vase.ar", label: "Vase Rest", forceDocumentNavigation: true } : null,
       ].filter((item): item is { id: string; href: string; label: string; forceDocumentNavigation?: boolean } => Boolean(item)),
     },
     { id: "tickets", href: "/app/help", label: "Tickets", icon: MessageSquareWarning, description: "Soporte y seguimiento" },
