@@ -5,7 +5,7 @@ import type { LabsPlan } from "@vase/contracts";
 import { labsSessionContextSchema } from "@vase/contracts";
 import { prisma } from "@/lib/db/prisma";
 import { resolveLabsEntitlementPlanFromSubmoduleAccess } from "@/lib/admin/user-access";
-import { resolveLabsWorkspaceEntitlement } from "@/server/services/labs-entitlement-state";
+import { resolveLabsSessionWorkspaceEntitlement } from "@/server/services/labs-session-context";
 
 function mapWorkspacePlan(plan: AiWorkspacePlan | null | undefined): LabsPlan {
   return plan === "PREMIUM" ? "PRO" : "STARTER";
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
       })),
       mapWorkspacePlan(workspace?.plan),
     );
-    const { channelLimits, enabledChannels } = resolveLabsWorkspaceEntitlement({
+    const { channelLimits, enabledChannels } = resolveLabsSessionWorkspaceEntitlement({
       paidPlan,
       channelLimits: workspace?.channelLimits,
       channelOverrideReason: workspace?.channelOverrideReason,

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it } from "vitest";
+import { Prisma } from "@prisma/client";
 import {
   clientProductAccessSchema,
   parseStoredClientProductAccess,
@@ -44,6 +45,7 @@ function createStatefulTx(seed: {
   existingTenant?: boolean;
   restPublished?: boolean;
   failRestWrite?: boolean;
+  racePrimaryOwnerUpsert?: "same-owner" | "unresolved";
 } = {}) {
   const state = {
     tenants: seed.existingTenant === false ? [] as Row[] : [{ id: "tenant-1", name: "Old", status: "TRIAL", slug: "old", primaryOwnerUserId: "owner-1" }],
@@ -109,6 +111,16 @@ function createStatefulTx(seed: {
         state.writes++;
         const current = state.tenants.find((tenant) => tenant.primaryOwnerUserId === where.primaryOwnerUserId);
         if (current) return Object.assign(current, update);
+        if (seed.racePrimaryOwnerUpsert) {
+          if (seed.racePrimaryOwnerUpsert === "same-owner") {
+            state.tenants.push({ id: "tenant-race-winner", ...create });
+          }
+          throw new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+            code: "P2002",
+            clientVersion: "6.6.0",
+            meta: { target: ["primaryOwnerUserId"] },
+          });
+        }
         const row = { id: "tenant-created", ...create };
         state.tenants.push(row);
         return row;
@@ -132,8 +144,15 @@ function createStatefulTx(seed: {
         return state.memberships.find((membership) => membership.userId === where.userId) ?? null;
       },
       findMany: async ({ where, take }: any) => state.memberships
-        .filter((membership) => membership.userId === where.userId && (!where.role || membership.role === where.role))
+        .filter((membership) =>
+          (!where.userId || membership.userId === where.userId) &&
+          (!where.tenantId || membership.tenantId === where.tenantId) &&
+          (!where.role || membership.role === where.role))
         .slice(0, take),
+      count: async ({ where }: any) => state.memberships.filter((membership) =>
+        (!where.userId || membership.userId === where.userId) &&
+        (!where.tenantId || membership.tenantId === where.tenantId) &&
+        (!where.role || membership.role === where.role)).length,
       upsert: async ({ where, update, create }: any) => {
         state.writes++;
         const key = where.userId_tenantId;
@@ -295,6 +314,54 @@ describe("applyClientProductAccess", () => {
     await applyClientProductAccess({ ...baseInput, tx, access: { business: null, labs: null, rest: null, management: null } });
 
     expect(state.tenants[0].primaryOwnerUserId).toBe("owner-1");
+  });
+
+  it("rejects a legacy tenant with multiple OWNERs before claiming its primary owner", async () => {
+    const { tx, state } = createStatefulTx();
+    state.tenants[0].primaryOwnerUserId = null;
+    state.memberships.push({
+      id: "membership-co-owner",
+      userId: "owner-2",
+      tenantId: "tenant-1",
+      role: "OWNER",
+      status: "ACTIVE",
+      createdAt: new Date("2025-02-01"),
+    });
+    const writesBefore = state.writes;
+
+    await expect(applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: null, rest: null, management: null },
+    })).rejects.toThrow("CLIENT_TENANT_OWNER_AMBIGUOUS");
+
+    expect(state.tenants[0].primaryOwnerUserId).toBeNull();
+    expect(state.writes).toBe(writesBefore);
+  });
+
+  it("recovers a concurrent primary-owner upsert only from the winning owner key", async () => {
+    const { tx, state } = createStatefulTx({ existingTenant: false, racePrimaryOwnerUpsert: "same-owner" });
+
+    const result = await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: null, rest: null, management: null },
+    });
+
+    expect(result.tenantId).toBe("tenant-race-winner");
+    expect(state.memberships).toEqual(expect.arrayContaining([
+      expect.objectContaining({ tenantId: "tenant-race-winner", userId: "owner-1", role: "OWNER" }),
+    ]));
+  });
+
+  it("returns a domain error when a P2002 race has no tenant for the owner key", async () => {
+    const { tx } = createStatefulTx({ existingTenant: false, racePrimaryOwnerUpsert: "unresolved" });
+
+    await expect(applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: null, rest: null, management: null },
+    })).rejects.toThrow("CLIENT_PRIMARY_OWNER_RACE_CONFLICT");
   });
 
   it("keeps independent Business commercial states and replaces only Business grants", async () => {

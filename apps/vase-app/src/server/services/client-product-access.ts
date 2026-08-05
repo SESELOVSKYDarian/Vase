@@ -61,9 +61,19 @@ async function resolveExistingOwnerTenantId(
     select: { tenantId: true },
   });
   if (legacyOwnerMemberships.length > 1) throw new Error("CLIENT_OWNER_TENANT_AMBIGUOUS");
+  if (legacyOwnerMemberships[0]) {
+    const tenantOwnerCount = await tx.membership.count({
+      where: { tenantId: legacyOwnerMemberships[0].tenantId, role: "OWNER" },
+    });
+    if (tenantOwnerCount !== 1) throw new Error("CLIENT_TENANT_OWNER_AMBIGUOUS");
+  }
   return legacyOwnerMemberships[0]
     ? { tenantId: legacyOwnerMemberships[0].tenantId, legacy: true as const }
     : null;
+}
+
+function isPrismaUniqueConflict(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 export async function adaptLegacyClientProductAccessWithTx(input: {
@@ -321,32 +331,44 @@ export async function applyClientProductAccess(input: {
   let tenantId = existingOwnerTenant?.tenantId;
   if (!tenantId) {
     const slugSeed = input.tenantSlugSeed ?? input.ownerName ?? input.ownerEmail.split("@")[0];
-    const tenant = await input.tx.tenant.upsert({
-      where: { primaryOwnerUserId: input.ownerUserId },
-      update: {
-        name: input.ownerName,
-        accountName: input.ownerName,
-        billingEmail: input.ownerEmail,
-        onboardingProduct: selectedModuleIds.includes(userAccessModuleIds.labs)
-          ? selectedModuleIds.includes(userAccessModuleIds.business) ? "BOTH" : "LABS"
-          : "BUSINESS",
-        status: "ACTIVE",
-      },
-      create: {
-        primaryOwnerUserId: input.ownerUserId,
-        name: input.ownerName,
-        accountName: input.ownerName,
-        slug: deterministicTenantSlug(slugSeed, input.ownerUserId),
-        billingEmail: input.ownerEmail,
-        industry: "General",
-        onboardingProduct: selectedModuleIds.includes(userAccessModuleIds.labs)
-          ? selectedModuleIds.includes(userAccessModuleIds.business) ? "BOTH" : "LABS"
-          : "BUSINESS",
-        status: "ACTIVE",
-      },
-      select: { id: true },
-    });
-    tenantId = tenant.id;
+    try {
+      const tenant = await input.tx.tenant.upsert({
+        where: { primaryOwnerUserId: input.ownerUserId },
+        update: {
+          name: input.ownerName,
+          accountName: input.ownerName,
+          billingEmail: input.ownerEmail,
+          onboardingProduct: selectedModuleIds.includes(userAccessModuleIds.labs)
+            ? selectedModuleIds.includes(userAccessModuleIds.business) ? "BOTH" : "LABS"
+            : "BUSINESS",
+          status: "ACTIVE",
+        },
+        create: {
+          primaryOwnerUserId: input.ownerUserId,
+          name: input.ownerName,
+          accountName: input.ownerName,
+          slug: deterministicTenantSlug(slugSeed, input.ownerUserId),
+          billingEmail: input.ownerEmail,
+          industry: "General",
+          onboardingProduct: selectedModuleIds.includes(userAccessModuleIds.labs)
+            ? selectedModuleIds.includes(userAccessModuleIds.business) ? "BOTH" : "LABS"
+            : "BUSINESS",
+          status: "ACTIVE",
+        },
+        select: { id: true },
+      });
+      tenantId = tenant.id;
+    } catch (error) {
+      if (!isPrismaUniqueConflict(error)) throw error;
+      const concurrentTenant = await input.tx.tenant.findUnique({
+        where: { primaryOwnerUserId: input.ownerUserId },
+        select: { id: true, primaryOwnerUserId: true },
+      });
+      if (!concurrentTenant || concurrentTenant.primaryOwnerUserId !== input.ownerUserId) {
+        throw new Error("CLIENT_PRIMARY_OWNER_RACE_CONFLICT");
+      }
+      tenantId = concurrentTenant.id;
+    }
   } else {
     if (existingOwnerTenant?.legacy) {
       const claimed = await input.tx.tenant.updateMany({

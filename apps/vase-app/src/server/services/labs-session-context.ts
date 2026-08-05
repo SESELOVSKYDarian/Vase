@@ -1,4 +1,7 @@
 import { labsSessionContextSchema, type LabsChannelLimits, type LabsPlan } from "@vase/contracts";
+import { resolveLabsWorkspaceEntitlement } from "@/server/services/labs-entitlement-state";
+
+export const resolveLabsSessionWorkspaceEntitlement = resolveLabsWorkspaceEntitlement;
 
 export interface LabsSessionContextRepository {
   findActiveMembership(userId: string, requestedTenantSlug?: string): Promise<{

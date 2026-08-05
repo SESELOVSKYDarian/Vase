@@ -4,11 +4,12 @@ import {
   labsChannelLimitsSchema,
   labsPlanSchema,
 } from "@vase/contracts";
-import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { resolveLabsEntitlementPlanFromSubmoduleAccess } from "@/lib/admin/user-access";
 import { resolveLabsWorkspaceEntitlement } from "@/server/services/labs-entitlement-state";
+
+export const resolveLabsAdminWorkspaceEntitlement = resolveLabsWorkspaceEntitlement;
 
 export const labsAdminUpdateSchema = z.object({
   globalTenantId: z.string().min(1),
@@ -48,7 +49,7 @@ export async function listLabsAdminTenants() {
       key: item.submodule.key,
       isActive: item.isActive,
     })));
-    const resolved = resolveLabsWorkspaceEntitlement({
+    const resolved = resolveLabsAdminWorkspaceEntitlement({
       paidPlan: plan,
       channelLimits: workspace?.channelLimits,
       channelOverrideReason: workspace?.channelOverrideReason,
@@ -109,7 +110,7 @@ export async function updateLabsAdminTenant(rawInput: unknown, actorUserId: stri
       updatedAt: new Date().toISOString(),
     } : null,
   });
-  const persistedChannelLimits = input.channelLimits ?? Prisma.DbNull;
+  const persistedChannelLimits = effective.channelLimits;
   const workspace = await prisma.tenantAiWorkspace.upsert({
     where: { tenantId: tenant.id },
     create: {
