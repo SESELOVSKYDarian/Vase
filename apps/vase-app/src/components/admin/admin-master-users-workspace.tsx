@@ -33,7 +33,10 @@ import {
   upsertMasterUserWithStateAction,
 } from "@/app/(platform)/app/admin/actions";
 import { AdminUserPasswordResetForm } from "@/components/admin/admin-user-password-reset-form";
-import { ClientProductAccessEditor } from "@/components/admin/client-product-access-editor";
+import {
+  ClientProductAccessEditor,
+  serializeClientProductAccessEnvelope,
+} from "@/components/admin/client-product-access-editor";
 import {
   AdminDataTable,
   AdminEmptyState,
@@ -592,7 +595,7 @@ export function AdminMasterUsersWorkspace({ users, modules, restPricingVersions 
 
   const buildClientAccessPayload = () => {
     if (selectedRole !== "cliente") return "";
-    return JSON.stringify({ version: 2, productAccess });
+    return serializeClientProductAccessEnvelope(productAccess);
   };
 
   const selectedUserPaymentHistory = useMemo(() => paymentUser?.paymentHistory ?? [], [paymentUser]);
@@ -602,6 +605,7 @@ export function AdminMasterUsersWorkspace({ users, modules, restPricingVersions 
   const clientWizardCanAdvance = true;
   const businessSubmodules = (modules.find((module) => module.product === "BUSINESS")?.submodules ?? [])
     .filter((submodule): submodule is typeof submodule & { key: "plantilla" | "personalizado" } => submodule.key === "plantilla" || submodule.key === "personalizado");
+  const businessGeneralFeatures = modules.find((module) => module.product === "BUSINESS")?.features ?? [];
   const labsPlans = (modules.find((module) => module.product === "LABS")?.submodules ?? [])
     .filter((submodule) => ["starter", "pro", "growth"].includes(submodule.key.toLowerCase()))
     .map((submodule) => ({
@@ -939,6 +943,7 @@ export function AdminMasterUsersWorkspace({ users, modules, restPricingVersions 
                     name: submodule.name,
                     features: submodule.features,
                   }))}
+                  businessGeneralFeatures={businessGeneralFeatures}
                   labsPlans={labsPlans}
                   restPricingVersions={restPricingVersions}
                   managementAvailable={modules.some((module) => module.product === "MANAGEMENT")}

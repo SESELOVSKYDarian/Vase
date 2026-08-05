@@ -1,7 +1,15 @@
+// @vitest-environment jsdom
+
+import { act, useState, type ComponentProps } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-import { ClientProductAccessEditor } from "@/components/admin/client-product-access-editor";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  ClientProductAccessEditor,
+  serializeClientProductAccessEnvelope,
+} from "@/components/admin/client-product-access-editor";
 import { mergeBusinessFeatureOverride } from "@/components/admin/business-feature-editor";
+import type { ClientProductAccess } from "@/lib/admin/client-product-access";
 
 const props = {
   owner: { name: "Ana Owner", email: "ana@example.com" },
@@ -30,6 +38,17 @@ const props = {
     },
     { id: "business-custom", key: "personalizado" as const, name: "Personalizado", features: [] },
   ],
+  businessGeneralFeatures: [{
+    id: "feature-domains",
+    key: "domains",
+    name: "Dominios",
+    description: "Dominios conectados",
+    valueType: "INTEGER" as const,
+    trialDefault: 1,
+    activeDefault: 3,
+    minValue: 1,
+    maxValue: 5,
+  }],
   labsPlans: [
     { submoduleId: "labs-starter", plan: "STARTER" as const, label: "Starter" },
     { submoduleId: "labs-pro", plan: "PRO" as const, label: "Pro" },
@@ -49,6 +68,61 @@ const props = {
   managementAvailable: true,
   onChange: vi.fn(),
 };
+
+let root: Root | null = null;
+let container: HTMLDivElement | null = null;
+
+beforeEach(() => {
+  (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+});
+
+afterEach(() => {
+  act(() => root?.unmount());
+  container?.remove();
+  root = null;
+  container = null;
+});
+
+function change(element: HTMLInputElement | HTMLSelectElement, value: string) {
+  act(() => {
+    const setter = Object.getOwnPropertyDescriptor(
+      element.tagName === "SELECT" ? HTMLSelectElement.prototype : HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(element, value);
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function click(element: HTMLElement) {
+  act(() => element.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+}
+
+function renderInteractive(
+  initial: ClientProductAccess = props.value as ClientProductAccess,
+  extra: Partial<ComponentProps<typeof ClientProductAccessEditor>> = {},
+) {
+  let latest = initial;
+  function Harness() {
+    const [value, setValue] = useState(initial);
+    return (
+      <ClientProductAccessEditor
+        {...props}
+        {...extra}
+        value={value}
+        onChange={(next) => {
+          latest = next;
+          setValue(next);
+        }}
+      />
+    );
+  }
+  act(() => root?.render(<Harness />));
+  return { getLatest: () => latest };
+}
 
 describe("client product access editor", () => {
   it("stores only the changed Business feature as an override", () => {
@@ -73,6 +147,87 @@ describe("client product access editor", () => {
     expect(html).toContain("Vase Labs");
     expect(html).toContain("Vase Rest");
     expect(html.toLowerCase()).not.toContain("chatbots");
+  });
+
+  it("enables, changes, and disables Business independently", () => {
+    const state = renderInteractive();
+    const businessStatus = container!.querySelector<HTMLSelectElement>('[aria-label="Estado de Plantilla"]')!;
+
+    change(businessStatus, "TRIAL");
+    expect(state.getLatest().business?.submodules[0]).toMatchObject({ id: "business-template", status: "TRIAL" });
+    change(businessStatus, "ACTIVE");
+    expect(state.getLatest().business?.submodules[0].status).toBe("ACTIVE");
+    change(businessStatus, "OFF");
+    expect(state.getLatest().business).toBeNull();
+  });
+
+  it("orders Labs by plan key, enables STARTER by default, and changes the selected plan", () => {
+    const state = renderInteractive(props.value, {
+      labsPlans: [props.labsPlans[2], props.labsPlans[0], props.labsPlans[1]],
+    });
+    click(container!.querySelector<HTMLButtonElement>('[aria-controls$="-labs"]')!);
+    const labsStatus = container!.querySelector<HTMLSelectElement>('[aria-label="Estado comercial de Vase Labs"]')!;
+
+    change(labsStatus, "TRIAL");
+    expect(state.getLatest().labs).toEqual({ submoduleId: "labs-starter", plan: "STARTER", status: "TRIAL" });
+    const radios = [...container!.querySelectorAll<HTMLInputElement>('input[name="labs-plan"]')];
+    expect(radios.map((radio) => radio.value)).toEqual(["STARTER", "PRO", "GROWTH"]);
+    click(radios.find((radio) => radio.value === "PRO")!);
+    expect(state.getLatest().labs).toEqual({ submoduleId: "labs-pro", plan: "PRO", status: "TRIAL" });
+  });
+
+  it("enables Rest with a published version and changes that version", () => {
+    const secondVersion = { ...props.restPricingVersions[0], id: "rest-v2", version: 2 };
+    const state = renderInteractive(props.value, { restPricingVersions: [...props.restPricingVersions, secondVersion] });
+    click(container!.querySelector<HTMLButtonElement>('[aria-controls$="-rest"]')!);
+    const status = container!.querySelector<HTMLSelectElement>('[aria-label="Estado comercial de Vase Rest"]')!;
+    const version = container!.querySelector<HTMLSelectElement>('[aria-label="Plan publicado de Vase Rest"]')!;
+
+    change(status, "ACTIVE");
+    expect(state.getLatest().rest).toEqual({ pricingVersionId: "rest-v1", status: "ACTIVE" });
+    change(version, "rest-v2");
+    expect(state.getLatest().rest).toEqual({ pricingVersionId: "rest-v2", status: "ACTIVE" });
+  });
+
+  it("shows module-wide Business features under Generales and emits bounded numeric overrides", () => {
+    const state = renderInteractive({
+      ...props.value,
+      business: { submodules: [{ id: "business-template", key: "plantilla", status: "ACTIVE", features: [] }] },
+    });
+    const generalInput = container!.querySelector<HTMLInputElement>('#business-feature-feature-domains')!;
+
+    expect(container!.textContent).toContain("Generales");
+    expect(generalInput.min).toBe("1");
+    expect(generalInput.max).toBe("5");
+    change(generalInput, "4");
+    expect(state.getLatest().business?.submodules[0].features).toContainEqual({
+      featureId: "feature-domains",
+      enabled: true,
+      value: 4,
+    });
+  });
+
+  it("serializes the exact v2 envelope", () => {
+    const access: ClientProductAccess = {
+      business: null,
+      labs: { submoduleId: "labs-starter", plan: "STARTER", status: "ACTIVE" },
+      rest: null,
+      management: null,
+    };
+    expect(JSON.parse(serializeClientProductAccessEnvelope(access))).toEqual({ version: 2, productAccess: access });
+  });
+
+  it("retains edited local state while showing a server error and disabling pending submit", () => {
+    const initial: ClientProductAccess = {
+      ...props.value,
+      labs: { submoduleId: "labs-starter", plan: "STARTER", status: "TRIAL" },
+    };
+    renderInteractive(initial, { pending: true, error: "No se pudo guardar" });
+
+    click(container!.querySelector<HTMLInputElement>('input[value="PRO"]')!);
+    expect(container!.textContent).toContain("No se pudo guardar");
+    expect(container!.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+    expect(container!.querySelector<HTMLInputElement>('input[value="PRO"]')?.checked).toBe(true);
   });
 
   it("uses one Labs radio group and published Rest pricing options", () => {

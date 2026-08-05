@@ -3,6 +3,7 @@ import { getUserAccessModuleLabel, inferUiRoleFromStoredRoles } from "@/lib/admi
 import { parseStoredClientProductAccess } from "@/lib/admin/client-product-access";
 import { prisma } from "@/lib/db/prisma";
 import { serializeModuleFeature } from "@/server/queries/modules-admin";
+import { hasCompatibleUserModuleAccess } from "@/server/services/user-module-access-policy";
 
 const emptyProductAccess: ClientProductAccess = {
   business: null,
@@ -10,6 +11,142 @@ const emptyProductAccess: ClientProductAccess = {
   rest: null,
   management: null,
 };
+
+type CanonicalCommercialStatus = "TRIAL" | "ACTIVE" | "SUSPENDED";
+type CanonicalProductAccessInput = {
+  tenantStatus: "ACTIVE" | "TRIAL" | "SUSPENDED" | null;
+  membershipStatus: "ACTIVE" | "INVITED" | "SUSPENDED" | null;
+  modules: Array<{ id: string; product: "BUSINESS" | "LABS" | "MANAGEMENT" | "REST" }>;
+  ownerModuleAccesses: Array<{ moduleId: string; isActive: boolean }>;
+  tenantModules: Array<{ moduleId: string; isActive: boolean; commercialStatus: CanonicalCommercialStatus }>;
+  tenantSubmodules: Array<{
+    submoduleId: string;
+    moduleId: string;
+    key: string;
+    isActive: boolean;
+    commercialStatus: CanonicalCommercialStatus;
+  }>;
+  featureGrants: Array<{
+    featureId: string;
+    enabled: boolean;
+    value: unknown;
+    submoduleId: string | null;
+  }>;
+  businessFeatures: Array<{ id: string; submoduleId: string | null }>;
+  restContract: { pricingVersionId: string; status: string; pricingStatus: string } | null;
+  storedAccess: ClientProductAccess | null;
+};
+
+const entitledCommercialStatuses = new Set<CanonicalCommercialStatus>(["TRIAL", "ACTIVE"]);
+const businessSubmoduleOrder = new Map([["plantilla", 0], ["personalizado", 1]]);
+
+function scalarGrantValue(value: unknown) {
+  return typeof value === "boolean" || typeof value === "number" || typeof value === "string" ? value : null;
+}
+
+/**
+ * Projects the editor value from live entitlement relations. The stored v2 JSON
+ * may fill a missing feature override, but it can never enable a product or
+ * override a suspended tenant, module, submodule, user grant, or Rest contract.
+ */
+export function deriveCanonicalClientProductAccess(input: CanonicalProductAccessInput): ClientProductAccess {
+  if (
+    (input.tenantStatus !== "ACTIVE" && input.tenantStatus !== "TRIAL") ||
+    input.membershipStatus !== "ACTIVE"
+  ) return emptyProductAccess;
+
+  const moduleFor = (product: CanonicalProductAccessInput["modules"][number]["product"]) =>
+    input.modules.find((module) => module.product === product);
+  const moduleIsEntitled = (product: CanonicalProductAccessInput["modules"][number]["product"]) => {
+    const catalogModule = moduleFor(product);
+    if (!catalogModule || !hasCompatibleUserModuleAccess(input.ownerModuleAccesses, catalogModule.id)) return false;
+    const relation = input.tenantModules.find((row) => row.moduleId === catalogModule.id);
+    return Boolean(relation?.isActive && entitledCommercialStatuses.has(relation.commercialStatus));
+  };
+
+  const businessModule = moduleFor("BUSINESS");
+  const activeBusinessSubmodules = moduleIsEntitled("BUSINESS") && businessModule
+    ? input.tenantSubmodules
+        .filter((row) =>
+          row.moduleId === businessModule.id &&
+          (row.key === "plantilla" || row.key === "personalizado") &&
+          row.isActive &&
+          entitledCommercialStatuses.has(row.commercialStatus))
+        .sort((left, right) =>
+          (businessSubmoduleOrder.get(left.key) ?? 99) - (businessSubmoduleOrder.get(right.key) ?? 99))
+    : [];
+  const activeBusinessIds = new Set(activeBusinessSubmodules.map((row) => row.submoduleId));
+  const featureCatalog = new Map(input.businessFeatures.map((feature) => [feature.id, feature]));
+  const relationalGrantIds = new Set(input.featureGrants.map((grant) => grant.featureId));
+  const storedFeatureOverrides = input.storedAccess?.business?.submodules.flatMap((submodule) =>
+    submodule.features.map((feature) => ({ ...feature, storedSubmoduleId: submodule.id }))) ?? [];
+
+  const business = activeBusinessSubmodules.length ? {
+    submodules: activeBusinessSubmodules.map((row, index) => {
+      const grants = input.featureGrants
+        .filter((grant) => {
+          const catalog = featureCatalog.get(grant.featureId);
+          return Boolean(catalog) && (
+            (catalog?.submoduleId === row.submoduleId && grant.submoduleId === row.submoduleId) ||
+            (catalog?.submoduleId === null && grant.submoduleId === null && index === 0)
+          );
+        })
+        .map((grant) => ({
+          featureId: grant.featureId,
+          enabled: grant.enabled,
+          value: scalarGrantValue(grant.value),
+        }));
+      const fallback = storedFeatureOverrides.filter((override) => {
+        if (relationalGrantIds.has(override.featureId)) return false;
+        const catalog = featureCatalog.get(override.featureId);
+        if (!catalog) return false;
+        return catalog.submoduleId === row.submoduleId ||
+          (catalog.submoduleId === null && index === 0 && activeBusinessIds.has(override.storedSubmoduleId));
+      }).map((override) => ({
+        featureId: override.featureId,
+        enabled: override.enabled,
+        value: override.value,
+      }));
+      return {
+        id: row.submoduleId,
+        key: row.key as "plantilla" | "personalizado",
+        status: row.commercialStatus === "TRIAL" ? "TRIAL" as const : "ACTIVE" as const,
+        features: [...grants, ...fallback],
+      };
+    }),
+  } : null;
+
+  const labsModule = moduleFor("LABS");
+  const labsRelation = moduleIsEntitled("LABS") && labsModule
+    ? ["growth", "pro", "starter"].map((plan) => input.tenantSubmodules.find((row) =>
+        row.moduleId === labsModule.id &&
+        row.key.toLowerCase() === plan &&
+        row.isActive &&
+        entitledCommercialStatuses.has(row.commercialStatus))).find(Boolean)
+    : undefined;
+  const labs = labsRelation ? {
+    submoduleId: labsRelation.submoduleId,
+    plan: labsRelation.key.toUpperCase() as "STARTER" | "PRO" | "GROWTH",
+    status: labsRelation.commercialStatus === "TRIAL" ? "TRIAL" as const : "ACTIVE" as const,
+  } : null;
+
+  const restContractEntitled = (input.restContract?.status === "ACTIVE" || input.restContract?.status === "TRIAL") &&
+    input.restContract.pricingStatus === "PUBLISHED";
+  const rest = moduleIsEntitled("REST") && input.restContract && restContractEntitled
+    ? {
+        pricingVersionId: input.restContract.pricingVersionId,
+        status: input.restContract.status as "ACTIVE" | "TRIAL",
+      }
+    : null;
+  const managementModuleRelation = moduleIsEntitled("MANAGEMENT")
+    ? input.tenantModules.find((row) => row.moduleId === moduleFor("MANAGEMENT")?.id)
+    : undefined;
+  const management = managementModuleRelation ? {
+    status: managementModuleRelation.commercialStatus === "TRIAL" ? "TRIAL" as const : "ACTIVE" as const,
+  } : null;
+
+  return { business, labs, rest, management };
+}
 
 export async function getAdminUsersWorkspaceData() {
   const [usersRaw, modulesRaw, clientAccountsRaw, restPricingRaw] = await Promise.all([
@@ -24,7 +161,7 @@ export async function getAdminUsersWorkspaceData() {
         platformRole: true,
         clientAccessConfig: true,
         appRoles: { select: { role: { select: { key: true } } } },
-        moduleAccesses: { where: { isActive: true }, select: { moduleId: true } },
+        moduleAccesses: { select: { moduleId: true, isActive: true } },
         memberships: {
           orderBy: [{ updatedAt: "desc" }],
           select: {
@@ -41,12 +178,11 @@ export async function getAdminUsersWorkspaceData() {
                 memberships: { select: { userId: true, role: true, status: true } },
                 invitations: { where: { status: "PENDING" }, select: { id: true } },
                 tenantModules: {
-                  where: { isActive: true, commercialStatus: { in: ["TRIAL", "ACTIVE"] } },
-                  select: { moduleId: true, commercialStatus: true },
+                  select: { moduleId: true, isActive: true, commercialStatus: true },
                 },
                 tenantSubmodules: {
-                  where: { isActive: true, commercialStatus: { in: ["TRIAL", "ACTIVE"] } },
                   select: {
+                    isActive: true,
                     commercialStatus: true,
                     submodule: { select: { id: true, moduleId: true, key: true } },
                   },
@@ -59,7 +195,13 @@ export async function getAdminUsersWorkspaceData() {
                     feature: { select: { moduleId: true, submoduleId: true } },
                   },
                 },
-                restContract: { select: { pricingVersionId: true, status: true } },
+                restContract: {
+                  select: {
+                    pricingVersionId: true,
+                    status: true,
+                    pricingVersion: { select: { status: true } },
+                  },
+                },
               },
             },
           },
@@ -161,66 +303,42 @@ export async function getAdminUsersWorkspaceData() {
       ?? user.memberships[0]
       ?? null;
     const teamMembers = primaryMembership?.tenant.memberships.filter((membership) => membership.role !== "OWNER") ?? [];
-    const storedProductAccess = parseStoredClientProductAccess(user.clientAccessConfig);
     const tenant = primaryMembership?.tenant;
-    const activeModuleIds = new Set([
-      ...user.moduleAccesses.map((entry) => entry.moduleId),
-      ...(tenant?.tenantModules.map((entry) => entry.moduleId) ?? []),
-    ]);
-    const businessModule = modulesRaw.find((module) => module.product === "BUSINESS");
-    const labsModule = modulesRaw.find((module) => module.product === "LABS");
-    const restModule = modulesRaw.find((module) => module.product === "REST");
-    const managementModule = modulesRaw.find((module) => module.product === "MANAGEMENT");
-    const activeBusinessSubmodules = (tenant?.tenantSubmodules ?? []).filter((entry) =>
-      entry.submodule.moduleId === businessModule?.id &&
-      (entry.submodule.key === "plantilla" || entry.submodule.key === "personalizado"));
-    const businessSubmoduleIds = new Set(activeBusinessSubmodules.map((entry) => entry.submodule.id));
-    const scalarGrantValue = (grantValue: unknown) =>
-      typeof grantValue === "boolean" || typeof grantValue === "number" || typeof grantValue === "string" ? grantValue : null;
-    const derivedBusiness = activeModuleIds.has(businessModule?.id ?? "")
-      ? {
-          submodules: activeBusinessSubmodules.map((entry) => ({
-            id: entry.submodule.id,
-            key: entry.submodule.key as "plantilla" | "personalizado",
-            status: entry.commercialStatus === "TRIAL" ? "TRIAL" as const : "ACTIVE" as const,
-            features: (tenant?.featureGrants ?? [])
-              .filter((grant) => grant.feature.moduleId === businessModule?.id && (
-                grant.feature.submoduleId === entry.submodule.id ||
-                (grant.feature.submoduleId === null && businessSubmoduleIds.size === 1)
-              ))
-              .map((grant) => ({
-                featureId: grant.featureId,
-                enabled: grant.enabled,
-                value: scalarGrantValue(grant.value),
-              })),
+    const derivedProductAccess = uiRole === "cliente" && tenant
+      ? deriveCanonicalClientProductAccess({
+          tenantStatus: tenant.status,
+          membershipStatus: primaryMembership?.status ?? null,
+          modules: modulesRaw.map((module) => ({ id: module.id, product: module.product })),
+          ownerModuleAccesses: user.moduleAccesses,
+          tenantModules: tenant.tenantModules,
+          tenantSubmodules: tenant.tenantSubmodules.map((entry) => ({
+            submoduleId: entry.submodule.id,
+            moduleId: entry.submodule.moduleId,
+            key: entry.submodule.key,
+            isActive: entry.isActive,
+            commercialStatus: entry.commercialStatus,
           })),
-        }
-      : null;
-    const activeLabsSubmodule = (tenant?.tenantSubmodules ?? []).find((entry) =>
-      entry.submodule.moduleId === labsModule?.id && ["starter", "pro", "growth"].includes(entry.submodule.key.toLowerCase()));
-    const derivedLabs = activeModuleIds.has(labsModule?.id ?? "") && activeLabsSubmodule
-      ? {
-          submoduleId: activeLabsSubmodule.submodule.id,
-          plan: activeLabsSubmodule.submodule.key.toUpperCase() as "STARTER" | "PRO" | "GROWTH",
-          status: activeLabsSubmodule.commercialStatus === "TRIAL" ? "TRIAL" as const : "ACTIVE" as const,
-        }
-      : null;
-    const derivedRest = activeModuleIds.has(restModule?.id ?? "") && tenant?.restContract &&
-      (tenant.restContract.status === "ACTIVE" || tenant.restContract.status === "TRIAL")
-      ? {
-          pricingVersionId: tenant.restContract.pricingVersionId,
-          status: tenant.restContract.status,
-        }
-      : null;
-    const managementState = tenant?.tenantModules.find((entry) => entry.moduleId === managementModule?.id);
-    const derivedProductAccess: ClientProductAccess = uiRole === "cliente" ? {
-      business: derivedBusiness,
-      labs: derivedLabs,
-      rest: derivedRest,
-      management: managementState ? {
-        status: managementState.commercialStatus === "TRIAL" ? "TRIAL" as const : "ACTIVE" as const,
-      } : null,
-    } : emptyProductAccess;
+          featureGrants: tenant.featureGrants.map((grant) => ({
+            featureId: grant.featureId,
+            enabled: grant.enabled,
+            value: grant.value,
+            submoduleId: grant.feature.submoduleId,
+          })),
+          businessFeatures: modulesRaw
+            .filter((module) => module.product === "BUSINESS")
+            .flatMap((module) => [
+              ...module.features.map((feature) => ({ id: feature.id, submoduleId: null })),
+              ...module.submodules.flatMap((submodule) =>
+                submodule.features.map((feature) => ({ id: feature.id, submoduleId: submodule.id }))),
+            ]),
+          restContract: tenant.restContract ? {
+            pricingVersionId: tenant.restContract.pricingVersionId,
+            status: tenant.restContract.status,
+            pricingStatus: tenant.restContract.pricingVersion.status,
+          } : null,
+          storedAccess: parseStoredClientProductAccess(user.clientAccessConfig),
+        })
+      : emptyProductAccess;
 
     return {
       id: user.id,
@@ -230,7 +348,7 @@ export async function getAdminUsersWorkspaceData() {
       disabledAt: user.disabledAt,
       disabledReason: user.disabledReason,
       uiRole,
-      moduleIds: user.moduleAccesses.map((entry) => entry.moduleId),
+      moduleIds: user.moduleAccesses.filter((entry) => entry.isActive).map((entry) => entry.moduleId),
       tenantId: primaryMembership?.tenant.id ?? null,
       tenantName: primaryMembership?.tenant.name ?? null,
       tenantSlug: primaryMembership?.tenant.slug ?? null,
@@ -260,7 +378,7 @@ export async function getAdminUsersWorkspaceData() {
         paidAt: payment.paidAt,
         createdAt: payment.createdAt,
       }))).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 20),
-      productAccess: storedProductAccess ?? derivedProductAccess,
+      productAccess: derivedProductAccess,
       teamSummary: {
         members: teamMembers.length,
         active: teamMembers.filter((membership) => membership.status === "ACTIVE").length,

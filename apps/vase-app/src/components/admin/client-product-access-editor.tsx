@@ -34,6 +34,7 @@ type Props = {
   owner: { name: string; email: string };
   value: ClientProductAccess;
   businessSubmodules: BusinessSubmoduleCatalogItem[];
+  businessGeneralFeatures: BusinessFeatureCatalogItem[];
   labsPlans: LabsPlanCatalogItem[];
   restPricingVersions: RestPricingVersionOption[];
   managementAvailable: boolean;
@@ -41,6 +42,12 @@ type Props = {
   pending?: boolean;
   error?: string;
 };
+
+const labsPlanOrder: LabsEntitlementPlan[] = ["STARTER", "PRO", "GROWTH"];
+
+export function serializeClientProductAccessEnvelope(access: ClientProductAccess) {
+  return JSON.stringify({ version: 2, productAccess: access });
+}
 
 const productCardClass = "overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface)] shadow-sm";
 const inputClass = "min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent-strong)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent-strong)_18%,transparent)]";
@@ -68,6 +75,7 @@ export function ClientProductAccessEditor({
   owner,
   value,
   businessSubmodules,
+  businessGeneralFeatures,
   labsPlans,
   restPricingVersions,
   managementAvailable,
@@ -77,6 +85,9 @@ export function ClientProductAccessEditor({
 }: Props) {
   const baseId = useId();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ business: true, labs: false, rest: false, management: false });
+  const orderedLabsPlans = labsPlanOrder
+    .map((plan) => labsPlans.find((option) => option.plan === plan))
+    .filter((option): option is LabsPlanCatalogItem => Boolean(option));
 
   const setProduct = <Key extends keyof ClientProductAccess>(key: Key, product: ClientProductAccess[Key]) => {
     onChange({ ...value, [key]: product });
@@ -84,17 +95,52 @@ export function ClientProductAccessEditor({
 
   const toggleBusiness = (catalog: BusinessSubmoduleCatalogItem, nextStatus: "OFF" | CommercialStatus) => {
     const current = value.business?.submodules ?? [];
+    const generalFeatureIds = new Set(businessGeneralFeatures.map((feature) => feature.id));
+    const generalOverrides = current.flatMap((submodule) =>
+      submodule.features.filter((feature) => generalFeatureIds.has(feature.featureId)));
+    const placeGeneralOverrides = (submodules: typeof current) => {
+      const ordered = businessSubmodules
+        .map((option) => submodules.find((submodule) => submodule.id === option.id))
+        .filter((submodule): submodule is typeof current[number] => Boolean(submodule));
+      return ordered.map((submodule, index) => ({
+        ...submodule,
+        features: [
+          ...submodule.features.filter((feature) => !generalFeatureIds.has(feature.featureId)),
+          ...(index === 0 ? generalOverrides : []),
+        ],
+      }));
+    };
     if (nextStatus === "OFF") {
-      const submodules = current.filter((item) => item.id !== catalog.id);
+      const submodules = placeGeneralOverrides(current.filter((item) => item.id !== catalog.id));
       setProduct("business", submodules.length ? { submodules } : null);
       return;
     }
     const existing = current.find((item) => item.id === catalog.id);
     const features = existing?.features ?? [];
     const selected = { id: catalog.id, key: catalog.key, status: nextStatus, features };
-    const submodules = [...current.filter((item) => item.id !== catalog.id), selected]
-      .sort((a, b) => a.key.localeCompare(b.key));
+    const submodules = placeGeneralOverrides([...current.filter((item) => item.id !== catalog.id), selected]);
     setProduct("business", { submodules });
+  };
+
+  const selectedBusinessSubmodules = value.business?.submodules ?? [];
+  const generalFeatureIds = new Set(businessGeneralFeatures.map((feature) => feature.id));
+  const generalFeatureValue = selectedBusinessSubmodules.flatMap((submodule) =>
+    submodule.features.filter((feature) => generalFeatureIds.has(feature.featureId)));
+  const generalFeatureOwner = businessSubmodules
+    .map((catalog) => selectedBusinessSubmodules.find((submodule) => submodule.id === catalog.id))
+    .find(Boolean);
+
+  const updateGeneralFeatures = (features: NonNullable<ClientProductAccess["business"]>["submodules"][number]["features"]) => {
+    if (!generalFeatureOwner) return;
+    setProduct("business", {
+      submodules: selectedBusinessSubmodules.map((submodule) => ({
+        ...submodule,
+        features: [
+          ...submodule.features.filter((feature) => !generalFeatureIds.has(feature.featureId)),
+          ...(submodule.id === generalFeatureOwner.id ? features : []),
+        ],
+      })),
+    });
   };
 
   const cards = [
@@ -108,6 +154,19 @@ export function ClientProductAccessEditor({
       body: (
         <div className="grid gap-4">
           <p className="text-sm text-[var(--muted)]">Plantilla y Personalizado se administran por separado. Cada uno puede estar apagado, en Trial o Activo.</p>
+          {generalFeatureOwner && businessGeneralFeatures.length ? (
+            <details open className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-[var(--foreground)]">Generales</summary>
+              <p className="mb-3 mt-1 text-xs text-[var(--muted)]">Características que se aplican a Vase Business completo.</p>
+              <BusinessFeatureEditor
+                submoduleName="Generales"
+                status={generalFeatureOwner.status}
+                features={businessGeneralFeatures}
+                value={generalFeatureValue}
+                onChange={updateGeneralFeatures}
+              />
+            </details>
+          ) : null}
           {businessSubmodules.map((catalog) => {
             const selected = value.business?.submodules.find((item) => item.id === catalog.id);
             return (
@@ -120,6 +179,7 @@ export function ClientProductAccessEditor({
                   <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
                     Estado
                     <select
+                      aria-label={`Estado de ${catalog.name}`}
                       value={selected?.status ?? "OFF"}
                       onChange={(event) => toggleBusiness(catalog, event.target.value as "OFF" | CommercialStatus)}
                       className={inputClass}
@@ -162,10 +222,11 @@ export function ClientProductAccessEditor({
           <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
             Estado comercial
             <select
+              aria-label="Estado comercial de Vase Labs"
               value={value.labs?.status ?? "OFF"}
               onChange={(event) => {
                 if (event.target.value === "OFF") return setProduct("labs", null);
-                const fallback = value.labs ?? labsPlans[0];
+                const fallback = value.labs ?? orderedLabsPlans.find((option) => option.plan === "STARTER");
                 if (fallback) setProduct("labs", { submoduleId: fallback.submoduleId, plan: fallback.plan, status: event.target.value as CommercialStatus });
               }}
               className={inputClass}
@@ -177,7 +238,7 @@ export function ClientProductAccessEditor({
           </label>
           <fieldset className="grid gap-2" disabled={!value.labs}>
             <legend className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Un único plan</legend>
-            {labsPlans.map((option) => (
+            {orderedLabsPlans.map((option) => (
               <label key={option.plan} className="flex items-start gap-3 rounded-2xl border border-[var(--border-subtle)] p-3 transition has-[:checked]:border-[var(--accent-strong)] has-[:checked]:bg-[color-mix(in_srgb,var(--accent-strong)_7%,transparent)]">
                 <input
                   type="radio"
@@ -207,6 +268,7 @@ export function ClientProductAccessEditor({
           <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
             Estado comercial
             <select
+              aria-label="Estado comercial de Vase Rest"
               value={value.rest?.status ?? "OFF"}
               onChange={(event) => {
                 if (event.target.value === "OFF") return setProduct("rest", null);
@@ -223,6 +285,7 @@ export function ClientProductAccessEditor({
           <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
             Plan publicado
             <select
+              aria-label="Plan publicado de Vase Rest"
               value={value.rest?.pricingVersionId ?? ""}
               disabled={!value.rest}
               onChange={(event) => setProduct("rest", { pricingVersionId: event.target.value, status: value.rest?.status ?? "TRIAL" })}
