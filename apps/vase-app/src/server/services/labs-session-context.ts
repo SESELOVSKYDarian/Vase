@@ -5,6 +5,7 @@ import {
   resolveLabsWorkspaceEntitlement,
   resolveStoredLabsEntitlementPlan,
 } from "@/server/services/labs-entitlement-state";
+import { buildCompatibleUserModuleAccessWhere } from "@/server/services/user-module-access-policy";
 
 export const resolveLabsSessionWorkspaceEntitlement = resolveLabsWorkspaceEntitlement;
 
@@ -16,11 +17,7 @@ export async function findAuthorizedLabsMembership(
     where: {
       userId: input.userId,
       status: "ACTIVE",
-      user: {
-        moduleAccesses: {
-          some: { moduleId: "vase_labs", isActive: true },
-        },
-      },
+      user: buildCompatibleUserModuleAccessWhere("vase_labs"),
       tenant: {
         ...(input.requestedTenantSlug ? { slug: input.requestedTenantSlug } : {}),
         status: { in: ["ACTIVE", "TRIAL"] },

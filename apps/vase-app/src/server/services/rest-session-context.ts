@@ -8,6 +8,7 @@ import {
 } from "@vase/contracts";
 import type { PrismaClient } from "@prisma/client";
 import { isRestContractEntitled } from "@/lib/rest/contract-entitlement";
+import { buildCompatibleUserModuleAccessWhere } from "@/server/services/user-module-access-policy";
 
 type RestMembershipProjection = {
   globalUserId: string;
@@ -84,11 +85,7 @@ export function findAuthorizedRestMembership(
     where: {
       userId: input.globalUserId,
       status: "ACTIVE",
-      user: {
-        moduleAccesses: {
-          some: { moduleId: "vase_rest", isActive: true },
-        },
-      },
+      user: buildCompatibleUserModuleAccessWhere("vase_rest"),
       tenant: {
         ...(input.requestedTenantSlug ? { slug: input.requestedTenantSlug } : {}),
         status: { in: ["ACTIVE", "TRIAL"] },
