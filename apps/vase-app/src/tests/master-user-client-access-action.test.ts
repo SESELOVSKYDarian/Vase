@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   ensureModuleCatalogSynced: vi.fn(),
   adaptLegacy: vi.fn(),
   applyAccess: vi.fn(),
+  lockOwner: vi.fn(),
   persistAuditLog: vi.fn(),
   emitAuditLogEvent: vi.fn(),
   revalidatePath: vi.fn(),
@@ -39,6 +40,7 @@ vi.mock("@/server/services/modules", () => ({
 vi.mock("@/server/services/client-product-access", () => ({
   adaptLegacyClientProductAccessWithTx: mocks.adaptLegacy,
   applyClientProductAccess: mocks.applyAccess,
+  lockClientOwnerWithTx: mocks.lockOwner,
 }));
 
 import { upsertMasterUserWithStateAction } from "@/app/(platform)/app/admin/actions";
@@ -134,6 +136,8 @@ describe("upsertMasterUserWithStateAction legacy client compatibility", () => {
       businessFeatureMode: "PRESERVE",
     }));
     expect(mocks.persistAuditLog).toHaveBeenCalledTimes(1);
+    expect(mocks.lockOwner).toHaveBeenCalledWith(tx, userId);
+    expect(mocks.lockOwner.mock.invocationCallOrder[0]).toBeLessThan(tx.role.upsert.mock.invocationCallOrder[0]);
   });
 
   it("rolls back the user config and does not audit when product provisioning fails", async () => {

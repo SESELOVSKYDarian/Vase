@@ -41,8 +41,18 @@ const legacyClientAccessSchema = z.object({
 
 type LegacyAdapterTransaction = Pick<
   Prisma.TransactionClient,
-  "tenant" | "membership" | "moduleSubmodule" | "tenantSubmodule" | "tenantRestContract" | "restPricingVersion"
+  "$queryRaw" | "tenant" | "membership" | "moduleSubmodule" | "tenantSubmodule" | "tenantRestContract" | "restPricingVersion"
 >;
+
+export async function lockClientOwnerWithTx(
+  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  ownerUserId: string,
+) {
+  const rows = await tx.$queryRaw<Array<{ id: string }>>(
+    Prisma.sql`SELECT \`id\` FROM \`User\` WHERE \`id\` = ${ownerUserId} FOR UPDATE`,
+  );
+  if (rows.length !== 1 || rows[0].id !== ownerUserId) throw new Error("CLIENT_OWNER_NOT_FOUND");
+}
 
 async function resolveExistingOwnerTenantId(
   tx: Pick<Prisma.TransactionClient, "tenant" | "membership">,
@@ -84,6 +94,7 @@ export async function adaptLegacyClientProductAccessWithTx(input: {
   storedAccess?: ClientProductAccess | null;
   now?: Date;
 }): Promise<ClientProductAccess> {
+  await lockClientOwnerWithTx(input.tx, input.ownerUserId);
   const legacy = legacyClientAccessSchema.parse(input.rawConfig);
   const status = legacy.tenantPlan === "PRO" ? "ACTIVE" as const : "TRIAL" as const;
   const selectedLegacyIds = Array.from(new Set([
@@ -243,6 +254,7 @@ export async function applyClientProductAccess(input: {
   now?: Date;
 }) {
   const access = clientProductAccessSchema.parse(input.access);
+  await lockClientOwnerWithTx(input.tx, input.ownerUserId);
   const now = input.now ?? new Date();
   const managedModuleIds = getManagedUserAccessModuleIds();
   const requestedBusinessIds = access.business?.submodules.map((submodule) => submodule.id) ?? [];
@@ -359,15 +371,8 @@ export async function applyClientProductAccess(input: {
       });
       tenantId = tenant.id;
     } catch (error) {
-      if (!isPrismaUniqueConflict(error)) throw error;
-      const concurrentTenant = await input.tx.tenant.findUnique({
-        where: { primaryOwnerUserId: input.ownerUserId },
-        select: { id: true, primaryOwnerUserId: true },
-      });
-      if (!concurrentTenant || concurrentTenant.primaryOwnerUserId !== input.ownerUserId) {
-        throw new Error("CLIENT_PRIMARY_OWNER_RACE_CONFLICT");
-      }
-      tenantId = concurrentTenant.id;
+      if (isPrismaUniqueConflict(error)) throw new Error("CLIENT_PRIMARY_OWNER_RACE_CONFLICT");
+      throw error;
     }
   } else {
     if (existingOwnerTenant?.legacy) {

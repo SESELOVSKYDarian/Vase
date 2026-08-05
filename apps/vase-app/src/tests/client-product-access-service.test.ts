@@ -10,6 +10,7 @@ import {
   adaptLegacyClientProductAccessWithTx,
   applyClientProductAccess,
 } from "@/server/services/client-product-access";
+import { resolveLabsCommercialStatus } from "@/server/services/labs-entitlement-state";
 
 type Row = Record<string, any>;
 
@@ -64,6 +65,7 @@ function createStatefulTx(seed: {
     writes: 0,
     slugLookups: 0,
     membershipOrderBy: null as unknown,
+    ownerLocks: [] as string[],
   };
 
   const findLink = (rows: Row[], tenantId: string, key: string, value: string) => rows.find((row) => row.tenantId === tenantId && row[key] === value);
@@ -78,6 +80,10 @@ function createStatefulTx(seed: {
   };
 
   const tx: any = {
+    $queryRaw: async (query: { strings?: string[]; values?: unknown[] }) => {
+      state.ownerLocks.push(query.strings?.join("?") ?? String(query));
+      return [{ id: String(query.values?.[0] ?? baseInput.ownerUserId) }];
+    },
     module: {
       findMany: async () => modules.map((row) => ({ ...row })),
     },
@@ -339,19 +345,16 @@ describe("applyClientProductAccess", () => {
     expect(state.writes).toBe(writesBefore);
   });
 
-  it("recovers a concurrent primary-owner upsert only from the winning owner key", async () => {
+  it("returns a domain error on P2002 instead of rereading a repeatable-read snapshot", async () => {
     const { tx, state } = createStatefulTx({ existingTenant: false, racePrimaryOwnerUpsert: "same-owner" });
 
-    const result = await applyClientProductAccess({
+    await expect(applyClientProductAccess({
       ...baseInput,
       tx,
       access: { business: null, labs: null, rest: null, management: null },
-    });
+    })).rejects.toThrow("CLIENT_PRIMARY_OWNER_RACE_CONFLICT");
 
-    expect(result.tenantId).toBe("tenant-race-winner");
-    expect(state.memberships).toEqual(expect.arrayContaining([
-      expect.objectContaining({ tenantId: "tenant-race-winner", userId: "owner-1", role: "OWNER" }),
-    ]));
+    expect(state.memberships).toEqual([]);
   });
 
   it("returns a domain error when a P2002 race has no tenant for the owner key", async () => {
@@ -362,6 +365,19 @@ describe("applyClientProductAccess", () => {
       tx,
       access: { business: null, labs: null, rest: null, management: null },
     })).rejects.toThrow("CLIENT_PRIMARY_OWNER_RACE_CONFLICT");
+  });
+
+  it("locks the owner User row with SELECT FOR UPDATE before tenant resolution", async () => {
+    const { tx, state } = createStatefulTx();
+
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: null, rest: null, management: null },
+    });
+
+    expect(state.ownerLocks).toHaveLength(1);
+    expect(state.ownerLocks[0]).toMatch(/SELECT\s+`?id`?\s+FROM\s+`?User`?.*FOR UPDATE/i);
   });
 
   it("keeps independent Business commercial states and replaces only Business grants", async () => {
@@ -510,6 +526,27 @@ describe("applyClientProductAccess", () => {
       channelOverrideBy: null,
       channelOverrideAt: null,
     });
+  });
+
+  it("round-trips a provisioned Labs Trial through the consumer commercial status", async () => {
+    const { tx, state } = createStatefulTx();
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: {
+        business: null,
+        labs: { submoduleId: "labs-pro", plan: "PRO", status: "TRIAL" },
+        rest: null,
+        management: null,
+      },
+    });
+
+    const labsModule = state.tenantModules.find((row) => row.moduleId === "vase_labs")!;
+    const submodule = state.tenantSubmodules.find((row) => row.submoduleId === "labs-pro")!;
+    expect(resolveLabsCommercialStatus({
+      module: { isActive: Boolean(labsModule.isActive), commercialStatus: String(labsModule.commercialStatus) },
+      submodule: { isActive: Boolean(submodule.isActive), commercialStatus: String(submodule.commercialStatus) },
+    })).toBe("TRIAL");
   });
 
   it("copies only published Rest pricing and suspends the preserved contract when Rest is removed", async () => {

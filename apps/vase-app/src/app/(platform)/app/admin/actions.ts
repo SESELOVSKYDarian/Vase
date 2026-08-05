@@ -114,6 +114,7 @@ import {
 import {
   adaptLegacyClientProductAccessWithTx,
   applyClientProductAccess,
+  lockClientOwnerWithTx,
 } from "@/server/services/client-product-access";
 import { validateUpload } from "@/lib/security/upload";
 import { saveLocalUpload } from "@/lib/storage/local-upload";
@@ -5112,6 +5113,9 @@ export async function upsertMasterUserWithStateAction(
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      if (!createFlow && clientAccessPayload && parsed.data.userId) {
+        await lockClientOwnerWithTx(tx, parsed.data.userId);
+      }
       const roleRecord = await tx.role.upsert({
         where: { key: roleMap.appRole },
         update: {

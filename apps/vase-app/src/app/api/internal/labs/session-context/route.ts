@@ -1,27 +1,15 @@
 import { assertServiceToken } from "@vase/internal-api";
 import { NextResponse } from "next/server";
-import type { AiWorkspacePlan } from "@prisma/client";
-import type { LabsPlan } from "@vase/contracts";
 import { labsSessionContextSchema } from "@vase/contracts";
 import { prisma } from "@/lib/db/prisma";
-import { resolveLabsEntitlementPlanFromSubmoduleAccess } from "@/lib/admin/user-access";
-import { resolveLabsSessionWorkspaceEntitlement } from "@/server/services/labs-session-context";
-
-function mapWorkspacePlan(plan: AiWorkspacePlan | null | undefined): LabsPlan {
-  return plan === "PREMIUM" ? "PRO" : "STARTER";
-}
-
-function mapTenantStatus(status: string) {
-  if (status === "SUSPENDED") {
-    return "SUSPENDED";
-  }
-
-  if (status === "TRIAL") {
-    return "TRIAL";
-  }
-
-  return "ACTIVE";
-}
+import {
+  findAuthorizedLabsMembership,
+  resolveLabsSessionWorkspaceEntitlement,
+} from "@/server/services/labs-session-context";
+import {
+  resolveLabsCommercialStatus,
+  resolveStoredLabsEntitlementPlan,
+} from "@/server/services/labs-entitlement-state";
 
 export async function GET(request: Request) {
   try {
@@ -38,50 +26,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "USER_ID_REQUIRED" }, { status: 400 });
     }
 
-    const membership = await prisma.membership.findFirst({
-      where: {
-        userId,
-        status: "ACTIVE",
-        tenant: {
-          ...(requestedTenantSlug ? { slug: requestedTenantSlug } : {}),
-          status: {
-            in: ["ACTIVE", "TRIAL"],
-          },
-          tenantModules: {
-            some: {
-              isActive: true,
-              moduleId: "vase_labs",
-            },
-          },
-        },
-      },
-      include: {
-        tenant: {
-          include: {
-            aiWorkspace: true,
-            tenantSubmodules: {
-              where: {
-                isActive: true,
-                submodule: {
-                  moduleId: "vase_labs",
-                },
-              },
-              select: {
-                isActive: true,
-                submodule: {
-                  select: {
-                    moduleId: true,
-                    key: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
+    const membership = await findAuthorizedLabsMembership(prisma, {
+      userId,
+      requestedTenantSlug: requestedTenantSlug || undefined,
     });
 
     if (!membership) {
@@ -89,14 +36,20 @@ export async function GET(request: Request) {
     }
 
     const workspace = membership.tenant.aiWorkspace;
-    const paidPlan = resolveLabsEntitlementPlanFromSubmoduleAccess(
-      membership.tenant.tenantSubmodules.map((item) => ({
-        moduleId: item.submodule.moduleId,
-        key: item.submodule.key,
-        isActive: item.isActive,
-      })),
-      mapWorkspacePlan(workspace?.plan),
+    const paidPlan = resolveStoredLabsEntitlementPlan({
+      entitlementPlan: workspace?.entitlementPlan,
+      legacyPlan: workspace?.plan,
+    });
+    const selectedSubmodule = membership.tenant.tenantSubmodules.find(
+      (item) => item.submodule.key?.toUpperCase() === paidPlan,
     );
+    const commercialStatus = resolveLabsCommercialStatus({
+      module: membership.tenant.tenantModules[0],
+      submodule: selectedSubmodule,
+    });
+    if (commercialStatus === "SUSPENDED") {
+      return NextResponse.json({ error: "LABS_TENANT_FORBIDDEN" }, { status: 403 });
+    }
     const { channelLimits, enabledChannels } = resolveLabsSessionWorkspaceEntitlement({
       paidPlan,
       channelLimits: workspace?.channelLimits,
@@ -112,7 +65,7 @@ export async function GET(request: Request) {
       role: membership.role,
       entitlement: {
         plan: paidPlan,
-        status: mapTenantStatus(membership.tenant.status),
+        status: commercialStatus,
         enabledChannels,
         channelLimits,
       },

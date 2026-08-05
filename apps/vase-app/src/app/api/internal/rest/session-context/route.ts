@@ -3,27 +3,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import {
   createRestSessionContextService,
+  findAuthorizedRestMembership,
   signRestSessionContext,
 } from "@/server/services/rest-session-context";
 
 const service = createRestSessionContextService({
   async findMembership({ globalUserId, requestedTenantSlug }) {
-    const membership = await prisma.membership.findFirst({
-      where: {
-        userId: globalUserId,
-        ...(requestedTenantSlug ? { tenant: { slug: requestedTenantSlug } } : {}),
-      },
-      include: {
-        user: { select: { id: true, name: true } },
-        tenant: {
-          include: {
-            restContract: {
-              include: { pricingVersion: true },
-            },
-          },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
+    const membership = await findAuthorizedRestMembership(prisma, {
+      globalUserId,
+      requestedTenantSlug,
     });
 
     if (!membership) return null;
@@ -38,6 +26,8 @@ const service = createRestSessionContextService({
       tenantSlug: membership.tenant.slug,
       tenantName: membership.tenant.name,
       tenantStatus: membership.tenant.status,
+      tenantModuleEntitled: true,
+      userModuleAccessActive: true,
       contract: contract ? {
         status: contract.status,
         plan: contract.plan,
