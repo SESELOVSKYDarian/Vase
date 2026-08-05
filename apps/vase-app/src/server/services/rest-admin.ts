@@ -26,12 +26,10 @@ export async function applyRestContractWithTx(
   },
 ) {
   const now = input.now ?? new Date();
-  const pricing = await tx.restPricingVersion.findFirst({
-    where: { id: input.pricingVersionId, status: "PUBLISHED" },
-  });
-  if (!pricing) throw new Error("REST_PRICING_NOT_PUBLISHED");
-
-  const [currentModule, currentContract] = await Promise.all([
+  const [pricing, currentModule, currentContract] = await Promise.all([
+    tx.restPricingVersion.findFirst({
+      where: { id: input.pricingVersionId },
+    }),
     tx.tenantModule.findUnique({
       where: {
         tenantId_moduleId: {
@@ -46,6 +44,11 @@ export async function applyRestContractWithTx(
       select: { pricingVersionId: true, status: true, activatedAt: true },
     }),
   ]);
+  if (!pricing || (
+    pricing.status !== "PUBLISHED" && !(
+      pricing.status === "ARCHIVED" && currentContract?.pricingVersionId === pricing.id
+    )
+  )) throw new Error("REST_PRICING_NOT_PUBLISHED");
   const trialEndsAt = input.status === "TRIAL"
     ? currentModule?.trialEndsAt && currentModule.trialEndsAt > now
       ? currentModule.trialEndsAt

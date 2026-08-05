@@ -28,6 +28,7 @@ export type RestPricingVersionOption = {
   localEmployeeLimit: number;
   deviceLimit: number;
   edgeLimit: number;
+  status: "PUBLISHED" | "ARCHIVED";
 };
 
 type Props = {
@@ -49,6 +50,23 @@ export function serializeClientProductAccessEnvelope(access: ClientProductAccess
   return JSON.stringify({ version: 2, productAccess: access });
 }
 
+export function canEditOwnerCommercialAccess(
+  existingUserId: string,
+  clientAccountKind: "OWNER" | "TEAM" | "UNASSIGNED",
+) {
+  return existingUserId.length === 0 || clientAccountKind === "OWNER";
+}
+
+export function serializeClientProductAccessForUser(
+  existingUserId: string,
+  clientAccountKind: "OWNER" | "TEAM" | "UNASSIGNED",
+  access: ClientProductAccess,
+) {
+  return canEditOwnerCommercialAccess(existingUserId, clientAccountKind)
+    ? serializeClientProductAccessEnvelope(access)
+    : "";
+}
+
 const productCardClass = "overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface)] shadow-sm";
 const inputClass = "min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent-strong)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent-strong)_18%,transparent)]";
 
@@ -62,13 +80,30 @@ function channelsForPlan(plan: LabsEntitlementPlan) {
   return "WhatsApp + Instagram + Facebook Messenger";
 }
 
-function pricingLabel(option: RestPricingVersionOption) {
+function pricingLabel(option: RestPricingVersionOption, isCurrent: boolean) {
   const price = new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: option.currency,
     maximumFractionDigits: 0,
   }).format(option.monthlyPrice);
-  return `${option.plan.charAt(0) + option.plan.slice(1).toLowerCase()} · versión ${option.version} · ${price}/mes`;
+  const base = `${option.plan.charAt(0) + option.plan.slice(1).toLowerCase()} · versión ${option.version} · ${price}/mes`;
+  if (option.status === "PUBLISHED") return base;
+  return `${base} · ${isCurrent ? "Actual · " : ""}no disponible`;
+}
+
+export function ClientTeamCommercialAccessNotice({ tenantName }: { tenantName: string | null }) {
+  return (
+    <section className="grid gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5" aria-label="Acceso comercial gestionado por el Owner">
+      <h3 className="text-lg font-semibold text-[var(--foreground)]">Acceso gestionado por el Owner</h3>
+      <p className="text-sm text-[var(--muted)]">
+        Este usuario es miembro del equipo{tenantName ? ` de ${tenantName}` : ""}. Sus productos se asignan desde la cuenta Owner y no se editan desde este formulario.
+      </p>
+      <a href="/users" className="w-fit text-sm font-semibold text-[var(--accent-strong)] underline-offset-4 hover:underline">Ver equipo</a>
+      <button type="submit" className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]">
+        Guardar identidad
+      </button>
+    </section>
+  );
 }
 
 export function ClientProductAccessEditor({
@@ -90,6 +125,7 @@ export function ClientProductAccessEditor({
     .filter((option): option is LabsPlanCatalogItem => Boolean(option));
   const defaultLabsPlan = orderedLabsPlans[0];
   const starterPlanMissing = orderedLabsPlans.length > 0 && !orderedLabsPlans.some((option) => option.plan === "STARTER");
+  const publishedRestPricingVersions = restPricingVersions.filter((option) => option.status === "PUBLISHED");
 
   const setProduct = <Key extends keyof ClientProductAccess>(key: Key, product: ClientProductAccess[Key]) => {
     onChange({ ...value, [key]: product });
@@ -285,7 +321,7 @@ export function ClientProductAccessEditor({
               value={value.rest?.status ?? "OFF"}
               onChange={(event) => {
                 if (event.target.value === "OFF") return setProduct("rest", null);
-                const pricingVersionId = value.rest?.pricingVersionId ?? restPricingVersions[0]?.id;
+                const pricingVersionId = value.rest?.pricingVersionId ?? publishedRestPricingVersions[0]?.id;
                 if (pricingVersionId) setProduct("rest", { pricingVersionId, status: event.target.value as CommercialStatus });
               }}
               className={inputClass}
@@ -305,10 +341,13 @@ export function ClientProductAccessEditor({
               className={inputClass}
             >
               <option value="">Elegí una versión</option>
-              {restPricingVersions.map((option) => <option key={option.id} value={option.id}>{pricingLabel(option)}</option>)}
+              {restPricingVersions.map((option) => {
+                const isCurrent = option.id === value.rest?.pricingVersionId;
+                return <option key={option.id} value={option.id} disabled={option.status !== "PUBLISHED" && !isCurrent}>{pricingLabel(option, isCurrent)}</option>;
+              })}
             </select>
           </label>
-          {restPricingVersions.length === 0 ? <p className="sm:col-span-2 text-sm text-[var(--danger)]">No hay planes publicados. Publicá uno en Vase Rest antes de habilitar el acceso.</p> : null}
+          {publishedRestPricingVersions.length === 0 ? <p className="sm:col-span-2 text-sm text-[var(--danger)]">No hay planes publicados. Publicá uno en Vase Rest antes de habilitar un acceso nuevo.</p> : null}
           {value.rest ? <p className="sm:col-span-2 text-sm text-[var(--muted)]">Al guardar se sincronizan contrato, límites del plan y acceso real desde Proyectos.</p> : null}
         </div>
       ),

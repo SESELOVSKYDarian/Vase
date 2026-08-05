@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveCanonicalClientProductAccess,
+  resolveAdminClientAccountContext,
   resolveAdminOwnerTenantContext,
 } from "@/server/queries/admin-users";
 
@@ -53,12 +54,22 @@ describe("admin user canonical product access", () => {
     }])).toBeNull();
   });
 
-  it("does not let stale JSON or user access re-enable a suspended tenant", () => {
+  it("classifies team users separately without exposing their tenant as an Owner context", () => {
+    const tenant = { id: "tenant-team", primaryOwnerUserId: "owner-2" };
+    expect(resolveAdminClientAccountContext(null, [{ role: "MEMBER", status: "ACTIVE", tenant }])).toEqual({
+      kind: "TEAM",
+      tenant,
+      membership: { role: "MEMBER", status: "ACTIVE", tenant },
+    });
+    expect(resolveAdminClientAccountContext(null, [])).toEqual({ kind: "UNASSIGNED", tenant: null, membership: null });
+  });
+
+  it("projects configured products for a suspended Owner without using runtime eligibility gates", () => {
     const access = deriveCanonicalClientProductAccess({
       tenantStatus: "SUSPENDED",
       membershipStatus: "ACTIVE",
       modules: Object.values(modules),
-      ownerModuleAccesses: Object.values(modules).map((module) => ({ moduleId: module.id, isActive: true })),
+      ownerModuleAccesses: Object.values(modules).map((module) => ({ moduleId: module.id, isActive: false })),
       tenantModules: Object.values(modules).map((module) => ({ moduleId: module.id, isActive: true, commercialStatus: "ACTIVE" as const })),
       tenantSubmodules: [
         { submoduleId: "business-template", moduleId: modules.business.id, key: "plantilla", isActive: true, commercialStatus: "ACTIVE" },
@@ -66,14 +77,19 @@ describe("admin user canonical product access", () => {
       ],
       featureGrants: [],
       businessFeatures: [],
-      restContract: { pricingVersionId: "rest-v1", status: "ACTIVE", pricingStatus: "PUBLISHED" },
+      restContract: { pricingVersionId: "rest-v1", status: "ACTIVE", pricingStatus: "ARCHIVED" },
       storedAccess: staleStoredAccess,
     });
 
-    expect(access).toEqual({ business: null, labs: null, rest: null, management: null });
+    expect(access).toEqual({
+      business: { submodules: [{ id: "business-template", key: "plantilla", status: "ACTIVE", features: [] }] },
+      labs: { submoduleId: "labs-starter", plan: "STARTER", status: "ACTIVE" },
+      rest: { pricingVersionId: "rest-v1", status: "ACTIVE" },
+      management: { status: "ACTIVE" },
+    });
   });
 
-  it("uses conjunctive relational gates and keeps a suspended Rest contract disabled", () => {
+  it("uses commercial relations for configuration and keeps a removed Rest contract disabled", () => {
     const access = deriveCanonicalClientProductAccess({
       tenantStatus: "ACTIVE",
       membershipStatus: "ACTIVE",
@@ -99,7 +115,7 @@ describe("admin user canonical product access", () => {
     });
 
     expect(access.business?.submodules).toEqual([{ id: "business-template", key: "plantilla", status: "TRIAL", features: [] }]);
-    expect(access.labs).toBeNull();
+    expect(access.labs).toEqual({ submoduleId: "labs-starter", plan: "STARTER", status: "ACTIVE" });
     expect(access.rest).toBeNull();
     expect(access.management).toBeNull();
   });

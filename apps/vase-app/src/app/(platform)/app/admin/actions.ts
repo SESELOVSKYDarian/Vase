@@ -5093,11 +5093,12 @@ export async function upsertMasterUserWithStateAction(
     });
     const requestedModuleIds = parsed.data.moduleIds;
     const moduleIds = roleMap.appRole === "ADMIN" || parsed.data.uiRole === "cliente" ? [] : requestedModuleIds;
-    const clientAccessPayload = parsed.data.uiRole === "cliente"
-      ? parseClientAccessPayload(formData.get("clientAccessConfig"))
+    const rawClientAccessPayload = String(formData.get("clientAccessConfig") ?? "").trim();
+    const clientAccessPayload = parsed.data.uiRole === "cliente" && rawClientAccessPayload
+      ? parseClientAccessPayload(rawClientAccessPayload)
       : null;
 
-    if (parsed.data.uiRole === "cliente" && !clientAccessPayload) {
+    if (parsed.data.uiRole === "cliente" && ((rawClientAccessPayload && !clientAccessPayload) || (createFlow && !clientAccessPayload))) {
       return { error: "La configuracion de productos del cliente no es valida." };
     }
 
@@ -5137,9 +5138,24 @@ export async function upsertMasterUserWithStateAction(
       const existingTargetUser = parsed.data.userId
         ? await tx.user.findUnique({
             where: { id: parsed.data.userId },
-            select: { clientAccessConfig: true },
+            select: {
+              clientAccessConfig: true,
+              primaryOwnedTenant: { select: { id: true } },
+              memberships: {
+                select: {
+                  role: true,
+                  tenant: { select: { primaryOwnerUserId: true } },
+                },
+              },
+            },
           })
         : null;
+      if (!createFlow && clientAccessPayload && existingTargetUser) {
+        const legacyOwnerMemberships = existingTargetUser.memberships.filter((membership) =>
+          membership.role === "OWNER" && membership.tenant.primaryOwnerUserId == null);
+        const isExistingOwner = Boolean(existingTargetUser.primaryOwnedTenant) || legacyOwnerMemberships.length === 1;
+        if (!isExistingOwner) throw new Error("CLIENT_TEAM_MEMBER_OWNER_PROVISIONING_FORBIDDEN");
+      }
       const storedClientProductAccess = parseStoredClientProductAccess(existingTargetUser?.clientAccessConfig);
 
       const resolveClientProductAccess = async (ownerUserId: string) => {
@@ -5266,9 +5282,11 @@ export async function upsertMasterUserWithStateAction(
           name: parsed.data.name,
           email: parsed.data.email,
           platformRole: roleMap.platformRole,
-          clientAccessConfig: resolvedClientProductAccess
-            ? ({ version: 2, productAccess: resolvedClientProductAccess } as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
+          ...(parsed.data.uiRole === "cliente"
+            ? resolvedClientProductAccess
+              ? { clientAccessConfig: { version: 2, productAccess: resolvedClientProductAccess } as Prisma.InputJsonValue }
+              : {}
+            : { clientAccessConfig: Prisma.JsonNull }),
           ...(!parsed.data.temporaryPassword
             ? {
                 forcePasswordChange: false,
@@ -5295,7 +5313,7 @@ export async function upsertMasterUserWithStateAction(
         },
       });
 
-      if (!resolvedClientProductAccess) {
+      if (!resolvedClientProductAccess && parsed.data.uiRole !== "cliente") {
         await tx.userModuleAccess.deleteMany({ where: { userId: updatedUser.id } });
         if (selectedModules.length > 0) {
           await tx.userModuleAccess.createMany({
@@ -5399,6 +5417,9 @@ export async function upsertMasterUserWithStateAction(
     }
     if (error instanceof Error && error.message === "CLIENT_MODULE_CATALOG_INVALID") {
       return { error: "Uno de los productos seleccionados no esta disponible." };
+    }
+    if (error instanceof Error && error.message === "CLIENT_TEAM_MEMBER_OWNER_PROVISIONING_FORBIDDEN") {
+      return { error: "Los accesos comerciales se gestionan desde el Owner de la cuenta." };
     }
     return { error: "No pudimos guardar el usuario." };
   }

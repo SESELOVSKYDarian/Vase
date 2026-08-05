@@ -77,6 +77,14 @@ async function resolveExistingOwnerTenantId(
     });
     if (tenantOwnerCount !== 1) throw new Error("CLIENT_TENANT_OWNER_AMBIGUOUS");
   }
+  if (legacyOwnerMemberships.length === 0) {
+    const teamMemberships = await tx.membership.findMany({
+      where: { userId: ownerUserId, role: { in: ["MANAGER", "MEMBER"] } },
+      take: 1,
+      select: { id: true },
+    });
+    if (teamMemberships.length > 0) throw new Error("CLIENT_TEAM_MEMBER_OWNER_PROVISIONING_FORBIDDEN");
+  }
   return legacyOwnerMemberships[0]
     ? { tenantId: legacyOwnerMemberships[0].tenantId, legacy: true as const }
     : null;
@@ -271,7 +279,7 @@ export async function applyClientProductAccess(input: {
   ];
 
   const existingOwnerTenant = await resolveExistingOwnerTenantId(input.tx, input.ownerUserId);
-  const [moduleCatalog, submoduleCatalog, businessFeatures, publishedRestPricing] = await Promise.all([
+  const [moduleCatalog, submoduleCatalog, businessFeatures, selectedRestPricing, currentRestContract] = await Promise.all([
     input.tx.module.findMany({
       where: { id: { in: managedModuleIds } },
       select: { id: true, product: true, isActive: true },
@@ -285,7 +293,10 @@ export async function applyClientProductAccess(input: {
       select: { id: true, moduleId: true, submoduleId: true, valueType: true, minValue: true, maxValue: true, isActive: true },
     }),
     access.rest
-      ? input.tx.restPricingVersion.findFirst({ where: { id: access.rest.pricingVersionId, status: "PUBLISHED" }, select: { id: true } })
+      ? input.tx.restPricingVersion.findFirst({ where: { id: access.rest.pricingVersionId }, select: { id: true, status: true } })
+      : Promise.resolve(null),
+    access.rest && existingOwnerTenant
+      ? input.tx.tenantRestContract.findUnique({ where: { tenantId: existingOwnerTenant.tenantId }, select: { pricingVersionId: true } })
       : Promise.resolve(null),
   ]);
 
@@ -302,7 +313,12 @@ export async function applyClientProductAccess(input: {
       throw new Error("CLIENT_MODULE_CATALOG_INVALID");
     }
   }
-  if (access.rest && !publishedRestPricing) throw new Error("REST_PRICING_NOT_PUBLISHED");
+  if (access.rest && (
+    !selectedRestPricing ||
+    (selectedRestPricing.status !== "PUBLISHED" && !(
+      selectedRestPricing.status === "ARCHIVED" && currentRestContract?.pricingVersionId === selectedRestPricing.id
+    ))
+  )) throw new Error("REST_PRICING_NOT_PUBLISHED");
 
   const submodulesById = new Map(submoduleCatalog.map((submodule) => [submodule.id, submodule]));
   for (const requested of access.business?.submodules ?? []) {
@@ -353,7 +369,6 @@ export async function applyClientProductAccess(input: {
           onboardingProduct: selectedModuleIds.includes(userAccessModuleIds.labs)
             ? selectedModuleIds.includes(userAccessModuleIds.business) ? "BOTH" : "LABS"
             : "BUSINESS",
-          status: "ACTIVE",
         },
         create: {
           primaryOwnerUserId: input.ownerUserId,
@@ -399,14 +414,13 @@ export async function applyClientProductAccess(input: {
         onboardingProduct: selectedModuleIds.includes(userAccessModuleIds.labs)
           ? selectedModuleIds.includes(userAccessModuleIds.business) ? "BOTH" : "LABS"
           : "BUSINESS",
-        status: "ACTIVE",
       },
     });
   }
 
   await input.tx.membership.upsert({
     where: { userId_tenantId: { userId: input.ownerUserId, tenantId } },
-    update: { role: "OWNER", status: "ACTIVE" },
+    update: { role: "OWNER" },
     create: {
       userId: input.ownerUserId,
       tenantId,

@@ -94,9 +94,15 @@ function createStatefulTx(seed: {
       findMany: async ({ where }: any) => features.filter((row) => row.moduleId === where.moduleId).map((row) => ({ ...row })),
     },
     restPricingVersion: {
-      findFirst: async ({ where }: any) => where.id === "rest-published" && seed.restPublished !== false
-        ? { id: "rest-published", plan: "PRO", version: 7, currency: "ARS", monthlyPrice: 12500, branchLimit: 4, localEmployeeLimit: 25, deviceLimit: 8, edgeLimit: 2, status: "PUBLISHED" }
-        : null,
+      findFirst: async ({ where }: any) => {
+        const pricingById: Record<string, Row> = {
+          "rest-published": { id: "rest-published", plan: "PRO", version: 7, currency: "ARS", monthlyPrice: 12500, branchLimit: 4, localEmployeeLimit: 25, deviceLimit: 8, edgeLimit: 2, status: seed.restPublished === false ? "DRAFT" : "PUBLISHED" },
+          "rest-archived": { id: "rest-archived", plan: "PRO", version: 6, currency: "ARS", monthlyPrice: 11000, branchLimit: 3, localEmployeeLimit: 20, deviceLimit: 6, edgeLimit: 1, status: "ARCHIVED" },
+          "rest-other-archived": { id: "rest-other-archived", plan: "GROWTH", version: 4, currency: "ARS", monthlyPrice: 9000, branchLimit: 2, localEmployeeLimit: 15, deviceLimit: 4, edgeLimit: 1, status: "ARCHIVED" },
+        };
+        const pricing = pricingById[where.id];
+        return pricing && (!where.status || pricing.status === where.status) ? { ...pricing } : null;
+      },
       findMany: async () => [{ id: "starter-published" }],
     },
     tenant: {
@@ -153,7 +159,7 @@ function createStatefulTx(seed: {
         .filter((membership) =>
           (!where.userId || membership.userId === where.userId) &&
           (!where.tenantId || membership.tenantId === where.tenantId) &&
-          (!where.role || membership.role === where.role))
+          (!where.role || (typeof where.role === "string" ? membership.role === where.role : where.role.in?.includes(membership.role))))
         .slice(0, take),
       count: async ({ where }: any) => state.memberships.filter((membership) =>
         (!where.userId || membership.userId === where.userId) &&
@@ -274,12 +280,13 @@ const baseInput = {
 };
 
 describe("applyClientProductAccess", () => {
-  it("reactivates the primary owner's membership while preserving its creator", async () => {
+  it("preserves an existing tenant and Owner membership suspension while updating commercial access", async () => {
     const { tx, state } = createStatefulTx();
+    state.tenants[0].status = "SUSPENDED";
     await applyClientProductAccess({ ...baseInput, tx, access: { business: null, labs: null, rest: null, management: { status: "ACTIVE" } } });
 
-    expect(state.tenants[0]).toMatchObject({ name: "Acme Owner", accountName: "Acme Owner", billingEmail: "owner@acme.test", status: "ACTIVE" });
-    expect(state.memberships[0]).toMatchObject({ role: "OWNER", status: "ACTIVE", createdByUserId: "original-actor" });
+    expect(state.tenants[0]).toMatchObject({ name: "Acme Owner", accountName: "Acme Owner", billingEmail: "owner@acme.test", status: "SUSPENDED" });
+    expect(state.memberships[0]).toMatchObject({ role: "OWNER", status: "SUSPENDED", createdByUserId: "original-actor" });
   });
 
   it("creates a tenant from owner identity and records the actor as membership creator", async () => {
@@ -291,16 +298,17 @@ describe("applyClientProductAccess", () => {
     expect(state.memberships[0]).toMatchObject({ role: "OWNER", status: "ACTIVE", createdByUserId: "admin-1" });
   });
 
-  it("never promotes an unrelated MEMBER membership and creates a separate primary tenant", async () => {
+  it.each(["MEMBER", "MANAGER"])("rejects provisioning an existing %s as a new Owner", async (role) => {
     const { tx, state } = createStatefulTx();
     state.tenants[0].primaryOwnerUserId = null;
-    state.memberships[0].role = "MEMBER";
+    state.memberships[0].role = role;
+    const before = structuredClone(state);
 
-    const result = await applyClientProductAccess({ ...baseInput, tx, access: { business: null, labs: null, rest: null, management: null } });
+    await expect(applyClientProductAccess({ ...baseInput, tx, access: { business: null, labs: null, rest: null, management: null } }))
+      .rejects.toThrow("CLIENT_TEAM_MEMBER_OWNER_PROVISIONING_FORBIDDEN");
 
-    expect(result.tenantId).not.toBe("tenant-1");
-    expect(state.memberships.find((membership) => membership.id === "membership-1")).toMatchObject({ role: "MEMBER" });
-    expect(state.tenants.find((tenant) => tenant.id === result.tenantId)).toMatchObject({ primaryOwnerUserId: "owner-1" });
+    expect(state.tenants).toEqual(before.tenants);
+    expect(state.memberships).toEqual(before.memberships);
   });
 
   it("rejects ambiguous legacy OWNER memberships instead of choosing one", async () => {
@@ -560,6 +568,40 @@ describe("applyClientProductAccess", () => {
 
     await applyClientProductAccess({ ...baseInput, tx, now: new Date("2026-08-05T12:00:00.000Z"), access: { business: null, labs: null, rest: null, management: null } });
     expect(state.contracts[0]).toMatchObject({ status: "SUSPENDED", suspendedAt: new Date("2026-08-05T12:00:00.000Z") });
+  });
+
+  it("preserves the current archived Rest version but rejects a different archived version", async () => {
+    const { tx, state } = createStatefulTx();
+    state.contracts.push({
+      id: "contract-1",
+      tenantId: "tenant-1",
+      pricingVersionId: "rest-archived",
+      status: "ACTIVE",
+      activatedAt: new Date("2026-06-01T00:00:00.000Z"),
+    });
+    state.tenantModules.push({
+      tenantId: "tenant-1",
+      moduleId: "vase_rest",
+      isActive: true,
+      commercialStatus: "ACTIVE",
+      trialEndsAt: null,
+      activatedAt: new Date("2026-06-01T00:00:00.000Z"),
+    });
+
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: null, rest: { pricingVersionId: "rest-archived", status: "ACTIVE" }, management: null },
+    });
+    expect(state.contracts[0]).toMatchObject({ pricingVersionId: "rest-archived", status: "ACTIVE" });
+
+    const writesBefore = state.writes;
+    await expect(applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: null, rest: { pricingVersionId: "rest-other-archived", status: "ACTIVE" }, management: null },
+    })).rejects.toThrow("REST_PRICING_NOT_PUBLISHED");
+    expect(state.writes).toBe(writesBefore);
   });
 
   it("updates only managed owner module access and preserves a future module", async () => {

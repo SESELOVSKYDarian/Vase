@@ -34,8 +34,10 @@ import {
 } from "@/app/(platform)/app/admin/actions";
 import { AdminUserPasswordResetForm } from "@/components/admin/admin-user-password-reset-form";
 import {
+  ClientTeamCommercialAccessNotice,
   ClientProductAccessEditor,
-  serializeClientProductAccessEnvelope,
+  canEditOwnerCommercialAccess,
+  serializeClientProductAccessForUser,
 } from "@/components/admin/client-product-access-editor";
 import {
   AdminDataTable,
@@ -60,6 +62,7 @@ type UserRow = {
   disabledAt: Date | null;
   disabledReason: string | null;
   uiRole: UiRole;
+  clientAccountKind: "OWNER" | "TEAM" | "UNASSIGNED";
   moduleIds: string[];
   tenantId: string | null;
   tenantName: string | null;
@@ -157,6 +160,7 @@ type Props = {
     localEmployeeLimit: number;
     deviceLimit: number;
     edgeLimit: number;
+    status: "PUBLISHED" | "ARCHIVED";
   }>;
 };
 
@@ -367,6 +371,7 @@ export function AdminMasterUsersWorkspace({ users, modules, restPricingVersions 
       disabledAt: null,
       disabledReason: null,
       uiRole: "cliente",
+      clientAccountKind: "UNASSIGNED",
       moduleIds: [],
       tenantId: null,
       tenantName: null,
@@ -595,13 +600,21 @@ export function AdminMasterUsersWorkspace({ users, modules, restPricingVersions 
 
   const buildClientAccessPayload = () => {
     if (selectedRole !== "cliente") return "";
-    return serializeClientProductAccessEnvelope(productAccess);
+    return serializeClientProductAccessForUser(
+      editingUser?.id ?? "",
+      editingUser?.clientAccountKind ?? "UNASSIGNED",
+      productAccess,
+    );
   };
 
   const selectedUserPaymentHistory = useMemo(() => paymentUser?.paymentHistory ?? [], [paymentUser]);
   const modulesDisabled = selectedRole === "admin";
   const isClientRole = selectedRole === "cliente";
   const isClientWizard = isClientRole;
+  const ownerCommercialAccessEditable = canEditOwnerCommercialAccess(
+    editingUser?.id ?? "",
+    editingUser?.clientAccountKind ?? "UNASSIGNED",
+  );
   const clientWizardCanAdvance = true;
   const businessSubmodules = (modules.find((module) => module.product === "BUSINESS")?.submodules ?? [])
     .filter((submodule): submodule is typeof submodule & { key: "plantilla" | "personalizado" } => submodule.key === "plantilla" || submodule.key === "personalizado");
@@ -934,23 +947,27 @@ export function AdminMasterUsersWorkspace({ users, modules, restPricingVersions 
 
             {isClientRole ? (
               <div hidden={userWizardStep !== 2}>
-                <ClientProductAccessEditor
-                  owner={{ name: editingUser.name, email: editingUser.email }}
-                  value={productAccess}
-                  businessSubmodules={businessSubmodules.map((submodule) => ({
-                    id: submodule.id,
-                    key: submodule.key as "plantilla" | "personalizado",
-                    name: submodule.name,
-                    features: submodule.features,
-                  }))}
-                  businessGeneralFeatures={businessGeneralFeatures}
-                  labsPlans={labsPlans}
-                  restPricingVersions={restPricingVersions}
-                  managementAvailable={modules.some((module) => module.product === "MANAGEMENT")}
-                  onChange={setProductAccess}
-                  pending={upsertPending}
-                  error={upsertState.error}
-                />
+                {ownerCommercialAccessEditable ? (
+                  <ClientProductAccessEditor
+                    owner={{ name: editingUser.name, email: editingUser.email }}
+                    value={productAccess}
+                    businessSubmodules={businessSubmodules.map((submodule) => ({
+                      id: submodule.id,
+                      key: submodule.key as "plantilla" | "personalizado",
+                      name: submodule.name,
+                      features: submodule.features,
+                    }))}
+                    businessGeneralFeatures={businessGeneralFeatures}
+                    labsPlans={labsPlans}
+                    restPricingVersions={restPricingVersions}
+                    managementAvailable={modules.some((module) => module.product === "MANAGEMENT")}
+                    onChange={setProductAccess}
+                    pending={upsertPending}
+                    error={upsertState.error}
+                  />
+                ) : (
+                  <ClientTeamCommercialAccessNotice tenantName={editingUser.tenantName} />
+                )}
               </div>
             ) : null}
 

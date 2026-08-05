@@ -4,7 +4,6 @@ import { getUserAccessModuleLabel, inferUiRoleFromStoredRoles } from "@/lib/admi
 import { parseStoredClientProductAccess } from "@/lib/admin/client-product-access";
 import { prisma } from "@/lib/db/prisma";
 import { serializeModuleFeature } from "@/server/queries/modules-admin";
-import { hasCompatibleUserModuleAccess } from "@/server/services/user-module-access-policy";
 
 const emptyProductAccess: ClientProductAccess = {
   business: null,
@@ -46,27 +45,22 @@ function scalarGrantValue(value: unknown) {
 }
 
 /**
- * Projects the editor value from live entitlement relations. The stored v2 JSON
- * may fill a missing feature override, but it can never enable a product or
- * override a suspended tenant, module, submodule, user grant, or Rest contract.
+ * Projects the commercial editor value from configured entitlement relations.
+ * Runtime suspension is intentionally independent: it blocks product use without
+ * erasing the Owner's configured products, plans, limits, or feature overrides.
  */
 export function deriveCanonicalClientProductAccess(input: CanonicalProductAccessInput): ClientProductAccess {
-  if (
-    (input.tenantStatus !== "ACTIVE" && input.tenantStatus !== "TRIAL") ||
-    input.membershipStatus !== "ACTIVE"
-  ) return emptyProductAccess;
-
   const moduleFor = (product: CanonicalProductAccessInput["modules"][number]["product"]) =>
     input.modules.find((module) => module.product === product);
-  const moduleIsEntitled = (product: CanonicalProductAccessInput["modules"][number]["product"]) => {
+  const moduleIsConfigured = (product: CanonicalProductAccessInput["modules"][number]["product"]) => {
     const catalogModule = moduleFor(product);
-    if (!catalogModule || !hasCompatibleUserModuleAccess(input.ownerModuleAccesses, catalogModule.id)) return false;
+    if (!catalogModule) return false;
     const relation = input.tenantModules.find((row) => row.moduleId === catalogModule.id);
     return Boolean(relation?.isActive && entitledCommercialStatuses.has(relation.commercialStatus));
   };
 
   const businessModule = moduleFor("BUSINESS");
-  const activeBusinessSubmodules = moduleIsEntitled("BUSINESS") && businessModule
+  const activeBusinessSubmodules = moduleIsConfigured("BUSINESS") && businessModule
     ? input.tenantSubmodules
         .filter((row) =>
           row.moduleId === businessModule.id &&
@@ -118,7 +112,7 @@ export function deriveCanonicalClientProductAccess(input: CanonicalProductAccess
   } : null;
 
   const labsModule = moduleFor("LABS");
-  const labsRelation = moduleIsEntitled("LABS") && labsModule
+  const labsRelation = moduleIsConfigured("LABS") && labsModule
     ? ["growth", "pro", "starter"].map((plan) => input.tenantSubmodules.find((row) =>
         row.moduleId === labsModule.id &&
         row.key.toLowerCase() === plan &&
@@ -131,15 +125,14 @@ export function deriveCanonicalClientProductAccess(input: CanonicalProductAccess
     status: labsRelation.commercialStatus === "TRIAL" ? "TRIAL" as const : "ACTIVE" as const,
   } : null;
 
-  const restContractEntitled = (input.restContract?.status === "ACTIVE" || input.restContract?.status === "TRIAL") &&
-    input.restContract.pricingStatus === "PUBLISHED";
-  const rest = moduleIsEntitled("REST") && input.restContract && restContractEntitled
+  const restContractConfigured = input.restContract?.status === "ACTIVE" || input.restContract?.status === "TRIAL";
+  const rest = moduleIsConfigured("REST") && input.restContract && restContractConfigured
     ? {
         pricingVersionId: input.restContract.pricingVersionId,
         status: input.restContract.status as "ACTIVE" | "TRIAL",
       }
     : null;
-  const managementModuleRelation = moduleIsEntitled("MANAGEMENT")
+  const managementModuleRelation = moduleIsConfigured("MANAGEMENT")
     ? input.tenantModules.find((row) => row.moduleId === moduleFor("MANAGEMENT")?.id)
     : undefined;
   const management = managementModuleRelation ? {
@@ -172,6 +165,21 @@ export function resolveAdminOwnerTenantContext<Tenant extends { id: string; prim
     tenant: legacyOwnerMemberships[0].tenant,
     membership: legacyOwnerMemberships[0],
   };
+}
+
+export function resolveAdminClientAccountContext<Tenant extends { id: string; primaryOwnerUserId?: string | null }>(
+  primaryOwnedTenant: Tenant | null,
+  memberships: readonly OwnerTenantMembership<Tenant>[],
+) {
+  const ownerContext = resolveAdminOwnerTenantContext(primaryOwnedTenant, memberships);
+  if (ownerContext) return { kind: "OWNER" as const, ...ownerContext };
+  if (memberships.some((membership) => membership.role === "OWNER")) {
+    return { kind: "UNASSIGNED" as const, tenant: null, membership: null };
+  }
+  const teamMembership = memberships.find((membership) =>
+    membership.role === "MANAGER" || membership.role === "MEMBER") ?? null;
+  if (teamMembership) return { kind: "TEAM" as const, tenant: teamMembership.tenant, membership: teamMembership };
+  return { kind: "UNASSIGNED" as const, tenant: null, membership: null };
 }
 
 const adminOwnerTenantSelect = Prisma.validator<Prisma.TenantSelect>()({
@@ -300,11 +308,11 @@ export async function getAdminUsersWorkspaceData() {
       },
     }),
     prisma.restPricingVersion.findMany({
-      where: { status: "PUBLISHED" },
+      where: { status: { in: ["PUBLISHED", "ARCHIVED"] } },
       orderBy: [{ plan: "asc" }, { version: "desc" }],
       select: {
         id: true, plan: true, version: true, currency: true, monthlyPrice: true,
-        branchLimit: true, localEmployeeLimit: true, deviceLimit: true, edgeLimit: true,
+        branchLimit: true, localEmployeeLimit: true, deviceLimit: true, edgeLimit: true, status: true,
       },
     }),
   ]);
@@ -326,14 +334,15 @@ export async function getAdminUsersWorkspaceData() {
       : debt <= 0
         ? "100% pagado"
         : `${paidPercent}% pagado · falta ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(debt)}`;
-    const ownerContext = resolveAdminOwnerTenantContext(user.primaryOwnedTenant, user.memberships);
-    const ownerMembership = ownerContext?.membership ?? null;
-    const tenant = ownerContext?.tenant;
+    const clientAccountContext = resolveAdminClientAccountContext(user.primaryOwnedTenant, user.memberships);
+    const ownerContext = clientAccountContext.kind === "OWNER" ? clientAccountContext : null;
+    const displayMembership = clientAccountContext.membership;
+    const tenant = clientAccountContext.tenant;
     const teamMembers = tenant?.memberships.filter((membership) => membership.role !== "OWNER") ?? [];
-    const derivedProductAccess = uiRole === "cliente" && tenant
+    const derivedProductAccess = uiRole === "cliente" && ownerContext && tenant
       ? deriveCanonicalClientProductAccess({
           tenantStatus: tenant.status,
-          membershipStatus: ownerMembership?.status ?? null,
+          membershipStatus: ownerContext.membership?.status ?? null,
           modules: modulesRaw.map((module) => ({ id: module.id, product: module.product })),
           ownerModuleAccesses: user.moduleAccesses,
           tenantModules: tenant.tenantModules,
@@ -374,6 +383,7 @@ export async function getAdminUsersWorkspaceData() {
       disabledAt: user.disabledAt,
       disabledReason: user.disabledReason,
       uiRole,
+      clientAccountKind: clientAccountContext.kind,
       moduleIds: user.moduleAccesses.filter((entry) => entry.isActive).map((entry) => entry.moduleId),
       tenantId: tenant?.id ?? null,
       tenantName: tenant?.name ?? null,
@@ -381,8 +391,8 @@ export async function getAdminUsersWorkspaceData() {
       accountName: tenant?.accountName ?? null,
       industry: tenant?.industry ?? null,
       tenantStatus: tenant?.status ?? null,
-      tenantRole: ownerMembership?.role ?? null,
-      membershipStatus: ownerMembership?.status ?? null,
+      tenantRole: displayMembership?.role ?? null,
+      membershipStatus: displayMembership?.status ?? null,
       paymentSummary,
       primaryClientAccountId: primaryAccount?.id ?? null,
       paymentHistory: userAccounts.flatMap((account) => account.payments.map((payment) => ({
@@ -435,6 +445,7 @@ export async function getAdminUsersWorkspaceData() {
     restPricingVersions: restPricingRaw.map((version) => ({
       ...version,
       monthlyPrice: Number(version.monthlyPrice),
+      status: version.status as "PUBLISHED" | "ARCHIVED",
     })),
   };
 }

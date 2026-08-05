@@ -5,7 +5,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ClientTeamCommercialAccessNotice,
   ClientProductAccessEditor,
+  canEditOwnerCommercialAccess,
   serializeClientProductAccessEnvelope,
 } from "@/components/admin/client-product-access-editor";
 import { mergeBusinessFeatureOverride } from "@/components/admin/business-feature-editor";
@@ -64,6 +66,7 @@ const props = {
     localEmployeeLimit: 15,
     deviceLimit: 5,
     edgeLimit: 1,
+    status: "PUBLISHED" as const,
   }],
   managementAvailable: true,
   onChange: vi.fn(),
@@ -200,6 +203,48 @@ describe("client product access editor", () => {
     expect(state.getLatest().rest).toEqual({ pricingVersionId: "rest-v1", status: "ACTIVE" });
     change(version, "rest-v2");
     expect(state.getLatest().rest).toEqual({ pricingVersionId: "rest-v2", status: "ACTIVE" });
+  });
+
+  it("keeps the current archived Rest version visible and disables other archived versions", () => {
+    const archivedCurrent = { ...props.restPricingVersions[0], id: "rest-archived", version: 6, status: "ARCHIVED" as const };
+    const archivedOther = { ...props.restPricingVersions[0], id: "rest-other", version: 5, status: "ARCHIVED" as const };
+    renderInteractive({
+      ...props.value,
+      rest: { pricingVersionId: "rest-archived", status: "ACTIVE" },
+    }, { restPricingVersions: [archivedCurrent, archivedOther] });
+    click(container!.querySelector<HTMLButtonElement>('[aria-controls$="-rest"]')!);
+
+    const current = container!.querySelector<HTMLOptionElement>('option[value="rest-archived"]')!;
+    const other = container!.querySelector<HTMLOptionElement>('option[value="rest-other"]')!;
+    expect(current.textContent).toContain("Actual · no disponible");
+    expect(current.disabled).toBe(false);
+    expect(other.disabled).toBe(true);
+    expect(container!.querySelector<HTMLSelectElement>('[aria-label="Plan publicado de Vase Rest"]')?.value).toBe("rest-archived");
+  });
+
+  it("does not select an archived Rest version for a new entitlement", () => {
+    const archived = { ...props.restPricingVersions[0], id: "rest-archived", status: "ARCHIVED" as const };
+    const state = renderInteractive(props.value, { restPricingVersions: [archived] });
+    click(container!.querySelector<HTMLButtonElement>('[aria-controls$="-rest"]')!);
+    change(container!.querySelector<HTMLSelectElement>('[aria-label="Estado comercial de Vase Rest"]')!, "ACTIVE");
+
+    expect(state.getLatest().rest).toBeNull();
+    expect(container!.textContent).toContain("No hay planes publicados");
+  });
+
+  it("renders a team access notice without an Owner header", () => {
+    const html = renderToStaticMarkup(<ClientTeamCommercialAccessNotice tenantName="Cuenta Norte" />);
+    expect(html).toContain("miembro del equipo");
+    expect(html).toContain("Cuenta Norte");
+    expect(html).toContain("Ver equipo");
+    expect(html).not.toContain("Owner de la cuenta");
+  });
+
+  it("opens the Owner editor only for new clients or existing Owners", () => {
+    expect(canEditOwnerCommercialAccess("", "UNASSIGNED")).toBe(true);
+    expect(canEditOwnerCommercialAccess("user-owner", "OWNER")).toBe(true);
+    expect(canEditOwnerCommercialAccess("user-member", "TEAM")).toBe(false);
+    expect(canEditOwnerCommercialAccess("user-orphan", "UNASSIGNED")).toBe(false);
   });
 
   it("shows module-wide Business features under Generales and emits bounded numeric overrides", () => {
