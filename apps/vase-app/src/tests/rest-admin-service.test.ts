@@ -5,14 +5,16 @@ const mocks = vi.hoisted(() => ({
   ensureModuleCatalogSynced: vi.fn(),
   contractUpsert: vi.fn(),
   moduleUpsert: vi.fn(),
+  pricingAggregate: vi.fn(),
+  pricingCreate: vi.fn(),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     $transaction: mocks.transaction,
     restPricingVersion: {
-      aggregate: vi.fn(),
-      create: vi.fn(),
+      aggregate: mocks.pricingAggregate,
+      create: mocks.pricingCreate,
       findUnique: vi.fn(),
       updateMany: vi.fn(),
     },
@@ -41,6 +43,22 @@ describe("Rest admin contract acceptance", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.transaction.mockImplementation(async (callback) => callback(tx));
+    mocks.pricingAggregate.mockResolvedValue({ _max: { version: 0 } });
+    mocks.pricingCreate.mockResolvedValue({
+      id: "pricing-draft-1",
+      plan: "STARTER",
+      version: 1,
+      currency: "ARS",
+      monthlyPrice: 30000,
+      branchLimit: 1,
+      localEmployeeLimit: 15,
+      deviceLimit: 5,
+      edgeLimit: 1,
+      effectiveAt: new Date("2026-08-05T00:00:00.000Z"),
+      status: "DRAFT",
+      publishedAt: null,
+      createdById: "admin-1",
+    });
     tx.restPricingVersion.findFirst.mockResolvedValue({
       id: "pricing-1",
       plan: "STARTER",
@@ -83,5 +101,24 @@ describe("Rest admin contract acceptance", () => {
     expect(mocks.transaction).toHaveBeenCalledTimes(1);
     expect(mocks.contractUpsert).not.toHaveBeenCalled();
     expect(mocks.moduleUpsert).not.toHaveBeenCalled();
+  });
+
+  it("creates a draft without forwarding the command action to the strict draft schema", async () => {
+    const result = await executeRestAdminCommand({
+      action: "CREATE_DRAFT",
+      plan: "STARTER",
+      currency: "ARS",
+      monthlyPrice: 30000,
+      limits: { branches: 1, localEmployees: 15, devices: 5, edgeInstallations: 1 },
+      effectiveAt: "2026-08-05T00:00:00.000Z",
+    }, "admin-1");
+
+    expect(result).toMatchObject({ id: "pricing-draft-1", status: "DRAFT" });
+    expect(mocks.pricingCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        plan: "STARTER",
+        createdById: "admin-1",
+      }),
+    }));
   });
 });

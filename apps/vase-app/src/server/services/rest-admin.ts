@@ -319,7 +319,8 @@ export async function executeRestAdminCommand(rawCommand: unknown, actorUserId?:
   if (command.action === "CREATE_DRAFT") {
     const createdById = actorUserId ?? command.createdById;
     if (!createdById) throw new Error("REST_ADMIN_ACTOR_REQUIRED");
-    return entitlementService.createDraft({ ...command, createdById });
+    const { action: _action, createdById: _clientCreatedById, ...draftInput } = command;
+    return entitlementService.createDraft({ ...draftInput, createdById });
   }
   if (command.action === "PUBLISH") {
     return entitlementService.publish(command.pricingVersionId);
