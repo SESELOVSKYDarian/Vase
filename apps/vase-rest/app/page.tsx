@@ -7,6 +7,9 @@ import {
   RadioTower,
   ShieldCheck,
 } from "lucide-react";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { resolveRestOwnerRequest } from "@/lib/request-context";
 
 const capabilities = [
   {
@@ -29,7 +32,15 @@ const capabilities = [
   },
 ] as const;
 
-export default function RestHomePage() {
+export default async function RestHomePage() {
+  try {
+    const requestHeaders = await headers();
+    await resolveRestOwnerRequest({ cookieHeader: requestHeaders.get("cookie") });
+    redirect("/owner");
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("SESSION")) throw error;
+  }
+
   return (
     <main className="rest-shell">
       <nav className="topbar" aria-label="Navegación principal">
