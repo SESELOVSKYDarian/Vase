@@ -88,6 +88,8 @@ export function ClientProductAccessEditor({
   const orderedLabsPlans = labsPlanOrder
     .map((plan) => labsPlans.find((option) => option.plan === plan))
     .filter((option): option is LabsPlanCatalogItem => Boolean(option));
+  const defaultLabsPlan = orderedLabsPlans[0];
+  const starterPlanMissing = orderedLabsPlans.length > 0 && !orderedLabsPlans.some((option) => option.plan === "STARTER");
 
   const setProduct = <Key extends keyof ClientProductAccess>(key: Key, product: ClientProductAccess[Key]) => {
     onChange({ ...value, [key]: product });
@@ -223,10 +225,11 @@ export function ClientProductAccessEditor({
             Estado comercial
             <select
               aria-label="Estado comercial de Vase Labs"
+              disabled={!value.labs && orderedLabsPlans.length === 0}
               value={value.labs?.status ?? "OFF"}
               onChange={(event) => {
                 if (event.target.value === "OFF") return setProduct("labs", null);
-                const fallback = value.labs ?? orderedLabsPlans.find((option) => option.plan === "STARTER");
+                const fallback = value.labs ?? defaultLabsPlan;
                 if (fallback) setProduct("labs", { submoduleId: fallback.submoduleId, plan: fallback.plan, status: event.target.value as CommercialStatus });
               }}
               className={inputClass}
@@ -236,6 +239,16 @@ export function ClientProductAccessEditor({
               <option value="ACTIVE">Activo</option>
             </select>
           </label>
+          {starterPlanMissing ? (
+            <p role="status" className="rounded-2xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3 text-sm text-[var(--foreground)]">
+              Starter no está disponible en el catálogo. Al habilitar Vase Labs se usará {defaultLabsPlan?.label}, el primer plan disponible en el orden oficial.
+            </p>
+          ) : null}
+          {orderedLabsPlans.length === 0 ? (
+            <p role="alert" className="rounded-2xl border border-[var(--danger)]/30 bg-[var(--danger)]/10 p-3 text-sm text-[var(--danger)]">
+              No hay planes de Vase Labs disponibles. Corregí el catálogo antes de habilitar el producto.
+            </p>
+          ) : null}
           <fieldset className="grid gap-2" disabled={!value.labs}>
             <legend className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Un único plan</legend>
             {orderedLabsPlans.map((option) => (

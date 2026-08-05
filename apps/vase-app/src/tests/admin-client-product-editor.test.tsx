@@ -176,6 +176,19 @@ describe("client product access editor", () => {
     expect(state.getLatest().labs).toEqual({ submoduleId: "labs-pro", plan: "PRO", status: "TRIAL" });
   });
 
+  it("explains a missing STARTER plan and enables the first available canonical plan", () => {
+    const state = renderInteractive(props.value, {
+      labsPlans: [props.labsPlans[2], props.labsPlans[1]],
+    });
+    click(container!.querySelector<HTMLButtonElement>('[aria-controls$="-labs"]')!);
+
+    expect(container!.textContent).toContain("Starter no está disponible");
+    expect([...container!.querySelectorAll<HTMLInputElement>('input[name="labs-plan"]')]
+      .map((radio) => radio.value)).toEqual(["PRO", "GROWTH"]);
+    change(container!.querySelector<HTMLSelectElement>('[aria-label="Estado comercial de Vase Labs"]')!, "ACTIVE");
+    expect(state.getLatest().labs).toEqual({ submoduleId: "labs-pro", plan: "PRO", status: "ACTIVE" });
+  });
+
   it("enables Rest with a published version and changes that version", () => {
     const secondVersion = { ...props.restPricingVersions[0], id: "rest-v2", version: 2 };
     const state = renderInteractive(props.value, { restPricingVersions: [...props.restPricingVersions, secondVersion] });

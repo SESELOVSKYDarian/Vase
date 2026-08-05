@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { deriveCanonicalClientProductAccess } from "@/server/queries/admin-users";
+import {
+  deriveCanonicalClientProductAccess,
+  resolveAdminOwnerTenantContext,
+} from "@/server/queries/admin-users";
 
 const modules = {
   business: { id: "vase_business", product: "BUSINESS" as const },
@@ -16,6 +19,40 @@ const staleStoredAccess = {
 };
 
 describe("admin user canonical product access", () => {
+  it("keeps the primary owned tenant when its Owner membership is suspended", () => {
+    const tenantA = { id: "tenant-a", name: "Owner account" };
+    const tenantB = { id: "tenant-b", name: "Managed account" };
+
+    const context = resolveAdminOwnerTenantContext(tenantA, [
+      { role: "MANAGER", status: "ACTIVE", tenant: tenantB },
+      { role: "OWNER", status: "SUSPENDED", tenant: tenantA },
+    ]);
+
+    expect(context).toEqual({
+      tenant: tenantA,
+      membership: { role: "OWNER", status: "SUSPENDED", tenant: tenantA },
+    });
+  });
+
+  it("uses only one unambiguous legacy Owner membership and never a Manager membership", () => {
+    const tenantA = { id: "tenant-a" };
+    const tenantB = { id: "tenant-b" };
+    const manager = { role: "MANAGER" as const, status: "ACTIVE" as const, tenant: tenantB };
+    const owner = { role: "OWNER" as const, status: "SUSPENDED" as const, tenant: tenantA };
+
+    expect(resolveAdminOwnerTenantContext(null, [manager, owner])).toEqual({ tenant: tenantA, membership: owner });
+    expect(resolveAdminOwnerTenantContext(null, [manager])).toBeNull();
+    expect(resolveAdminOwnerTenantContext(null, [
+      owner,
+      { role: "OWNER", status: "ACTIVE", tenant: tenantB },
+    ])).toBeNull();
+    expect(resolveAdminOwnerTenantContext(null, [{
+      role: "OWNER",
+      status: "ACTIVE",
+      tenant: { id: "claimed", primaryOwnerUserId: "another-owner" },
+    }])).toBeNull();
+  });
+
   it("does not let stale JSON or user access re-enable a suspended tenant", () => {
     const access = deriveCanonicalClientProductAccess({
       tenantStatus: "SUSPENDED",

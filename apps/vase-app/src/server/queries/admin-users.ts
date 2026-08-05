@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import type { ClientProductAccess } from "@/lib/admin/client-product-access";
 import { getUserAccessModuleLabel, inferUiRoleFromStoredRoles } from "@/lib/admin/user-access";
 import { parseStoredClientProductAccess } from "@/lib/admin/client-product-access";
@@ -148,6 +149,68 @@ export function deriveCanonicalClientProductAccess(input: CanonicalProductAccess
   return { business, labs, rest, management };
 }
 
+type OwnerTenantMembership<Tenant extends { id: string; primaryOwnerUserId?: string | null }> = {
+  role: "OWNER" | "MANAGER" | "MEMBER";
+  status: "ACTIVE" | "INVITED" | "SUSPENDED";
+  tenant: Tenant;
+};
+
+export function resolveAdminOwnerTenantContext<Tenant extends { id: string; primaryOwnerUserId?: string | null }>(
+  primaryOwnedTenant: Tenant | null,
+  memberships: readonly OwnerTenantMembership<Tenant>[],
+) {
+  if (primaryOwnedTenant) {
+    const membership = memberships.find((entry) =>
+      entry.role === "OWNER" && entry.tenant.id === primaryOwnedTenant.id) ?? null;
+    return { tenant: primaryOwnedTenant, membership };
+  }
+
+  const legacyOwnerMemberships = memberships.filter((entry) =>
+    entry.role === "OWNER" && entry.tenant.primaryOwnerUserId == null);
+  if (legacyOwnerMemberships.length !== 1) return null;
+  return {
+    tenant: legacyOwnerMemberships[0].tenant,
+    membership: legacyOwnerMemberships[0],
+  };
+}
+
+const adminOwnerTenantSelect = Prisma.validator<Prisma.TenantSelect>()({
+  id: true,
+  primaryOwnerUserId: true,
+  name: true,
+  slug: true,
+  accountName: true,
+  industry: true,
+  status: true,
+  memberships: { select: { userId: true, role: true, status: true } },
+  invitations: { where: { status: "PENDING" }, select: { id: true } },
+  tenantModules: {
+    select: { moduleId: true, isActive: true, commercialStatus: true },
+  },
+  tenantSubmodules: {
+    select: {
+      isActive: true,
+      commercialStatus: true,
+      submodule: { select: { id: true, moduleId: true, key: true } },
+    },
+  },
+  featureGrants: {
+    select: {
+      featureId: true,
+      enabled: true,
+      value: true,
+      feature: { select: { moduleId: true, submoduleId: true } },
+    },
+  },
+  restContract: {
+    select: {
+      pricingVersionId: true,
+      status: true,
+      pricingVersion: { select: { status: true } },
+    },
+  },
+});
+
 export async function getAdminUsersWorkspaceData() {
   const [usersRaw, modulesRaw, clientAccountsRaw, restPricingRaw] = await Promise.all([
     prisma.user.findMany({
@@ -162,48 +225,13 @@ export async function getAdminUsersWorkspaceData() {
         clientAccessConfig: true,
         appRoles: { select: { role: { select: { key: true } } } },
         moduleAccesses: { select: { moduleId: true, isActive: true } },
+        primaryOwnedTenant: { select: adminOwnerTenantSelect },
         memberships: {
           orderBy: [{ updatedAt: "desc" }],
           select: {
             role: true,
             status: true,
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                accountName: true,
-                industry: true,
-                status: true,
-                memberships: { select: { userId: true, role: true, status: true } },
-                invitations: { where: { status: "PENDING" }, select: { id: true } },
-                tenantModules: {
-                  select: { moduleId: true, isActive: true, commercialStatus: true },
-                },
-                tenantSubmodules: {
-                  select: {
-                    isActive: true,
-                    commercialStatus: true,
-                    submodule: { select: { id: true, moduleId: true, key: true } },
-                  },
-                },
-                featureGrants: {
-                  select: {
-                    featureId: true,
-                    enabled: true,
-                    value: true,
-                    feature: { select: { moduleId: true, submoduleId: true } },
-                  },
-                },
-                restContract: {
-                  select: {
-                    pricingVersionId: true,
-                    status: true,
-                    pricingVersion: { select: { status: true } },
-                  },
-                },
-              },
-            },
+            tenant: { select: adminOwnerTenantSelect },
           },
         },
       },
@@ -298,16 +326,14 @@ export async function getAdminUsersWorkspaceData() {
       : debt <= 0
         ? "100% pagado"
         : `${paidPercent}% pagado · falta ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(debt)}`;
-    const primaryMembership = user.memberships.find((entry) => entry.role === "OWNER" && entry.status === "ACTIVE")
-      ?? user.memberships.find((entry) => entry.status === "ACTIVE")
-      ?? user.memberships[0]
-      ?? null;
-    const teamMembers = primaryMembership?.tenant.memberships.filter((membership) => membership.role !== "OWNER") ?? [];
-    const tenant = primaryMembership?.tenant;
+    const ownerContext = resolveAdminOwnerTenantContext(user.primaryOwnedTenant, user.memberships);
+    const ownerMembership = ownerContext?.membership ?? null;
+    const tenant = ownerContext?.tenant;
+    const teamMembers = tenant?.memberships.filter((membership) => membership.role !== "OWNER") ?? [];
     const derivedProductAccess = uiRole === "cliente" && tenant
       ? deriveCanonicalClientProductAccess({
           tenantStatus: tenant.status,
-          membershipStatus: primaryMembership?.status ?? null,
+          membershipStatus: ownerMembership?.status ?? null,
           modules: modulesRaw.map((module) => ({ id: module.id, product: module.product })),
           ownerModuleAccesses: user.moduleAccesses,
           tenantModules: tenant.tenantModules,
@@ -349,14 +375,14 @@ export async function getAdminUsersWorkspaceData() {
       disabledReason: user.disabledReason,
       uiRole,
       moduleIds: user.moduleAccesses.filter((entry) => entry.isActive).map((entry) => entry.moduleId),
-      tenantId: primaryMembership?.tenant.id ?? null,
-      tenantName: primaryMembership?.tenant.name ?? null,
-      tenantSlug: primaryMembership?.tenant.slug ?? null,
-      accountName: primaryMembership?.tenant.accountName ?? null,
-      industry: primaryMembership?.tenant.industry ?? null,
-      tenantStatus: primaryMembership?.tenant.status ?? null,
-      tenantRole: primaryMembership?.role ?? null,
-      membershipStatus: primaryMembership?.status ?? null,
+      tenantId: tenant?.id ?? null,
+      tenantName: tenant?.name ?? null,
+      tenantSlug: tenant?.slug ?? null,
+      accountName: tenant?.accountName ?? null,
+      industry: tenant?.industry ?? null,
+      tenantStatus: tenant?.status ?? null,
+      tenantRole: ownerMembership?.role ?? null,
+      membershipStatus: ownerMembership?.status ?? null,
       paymentSummary,
       primaryClientAccountId: primaryAccount?.id ?? null,
       paymentHistory: userAccounts.flatMap((account) => account.payments.map((payment) => ({
@@ -383,7 +409,7 @@ export async function getAdminUsersWorkspaceData() {
         members: teamMembers.length,
         active: teamMembers.filter((membership) => membership.status === "ACTIVE").length,
         suspended: teamMembers.filter((membership) => membership.status === "SUSPENDED").length,
-        pendingInvitations: primaryMembership?.tenant.invitations.length ?? 0,
+        pendingInvitations: tenant?.invitations.length ?? 0,
       },
     };
   });
