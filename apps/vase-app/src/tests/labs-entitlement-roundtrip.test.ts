@@ -87,7 +87,7 @@ describe("Labs entitlement producer and consumers", () => {
 
   it("uses entitlementPlan as authority and limits legacy fallback to an explicit missing value", () => {
     expect(resolveStoredLabsEntitlementPlan({ entitlementPlan: "GROWTH", legacyPlan: "START" })).toBe("GROWTH");
-    expect(resolveStoredLabsEntitlementPlan({ entitlementPlan: null, legacyPlan: "PREMIUM" })).toBe("PRO");
+    expect(resolveStoredLabsEntitlementPlan({ entitlementPlan: null, legacyPlan: "PREMIUM" })).toBe("GROWTH");
     expect(resolveStoredLabsEntitlementPlan({ entitlementPlan: null, legacyPlan: "START" })).toBe("STARTER");
   });
 
@@ -102,6 +102,14 @@ describe("Labs entitlement producer and consumers", () => {
     })).toBe("ACTIVE");
     expect(resolveLabsCommercialStatus({
       module: { isActive: false, commercialStatus: "ACTIVE" },
+      submodule: { isActive: true, commercialStatus: "ACTIVE" },
+    })).toBe("SUSPENDED");
+    expect(resolveLabsCommercialStatus({
+      module: { isActive: true, commercialStatus: "ACTIVE" },
+      submodule: { isActive: true, commercialStatus: "SUSPENDED" },
+    })).toBe("SUSPENDED");
+    expect(resolveLabsCommercialStatus({
+      module: { isActive: true, commercialStatus: "INACTIVE" },
       submodule: { isActive: true, commercialStatus: "ACTIVE" },
     })).toBe("SUSPENDED");
   });

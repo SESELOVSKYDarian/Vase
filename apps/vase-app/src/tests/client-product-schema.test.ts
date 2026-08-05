@@ -22,6 +22,13 @@ const primaryOwnerMigrationUrl = new URL(
 const primaryOwnerMigration = existsSync(primaryOwnerMigrationUrl)
   ? readFileSync(primaryOwnerMigrationUrl, "utf8")
   : "";
+const labsPlanBackfillMigrationUrl = new URL(
+  "../../prisma/migrations/20260804120000_labs_entitlement_plan_backfill/migration.sql",
+  import.meta.url,
+);
+const labsPlanBackfillMigration = existsSync(labsPlanBackfillMigrationUrl)
+  ? readFileSync(labsPlanBackfillMigrationUrl, "utf8")
+  : "";
 const laterMigrationSql = readdirSync(migrationRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && entry.name > currentMigration)
   .map((entry) => ({
@@ -209,6 +216,18 @@ describe("client product access schema", () => {
     expect(primaryOwnerMigration).toMatch(/CREATE UNIQUE INDEX `Tenant_primaryOwnerUserId_key` ON `Tenant`\(`primaryOwnerUserId`\);/);
     expect(primaryOwnerMigration).toMatch(/FOREIGN KEY \(`primaryOwnerUserId`\) REFERENCES `User`\(`id`\) ON DELETE SET NULL ON UPDATE CASCADE/);
     expect(primaryOwnerMigration).not.toMatch(/\b(?:DROP\s+(?:TABLE|COLUMN|INDEX)|TRUNCATE(?:\s+TABLE)?|DELETE\s+FROM)\b/i);
+  });
+
+  it("backfills legacy Labs plans in a later forward migration without editing the column migration", () => {
+    expect(labsPlanBackfillMigration).toContain("Deployment assumption:");
+    expect(labsPlanBackfillMigration).toMatch(/UPDATE `TenantAiWorkspace`/);
+    expect(labsPlanBackfillMigration).toMatch(/WHEN 'PREMIUM' THEN 'GROWTH'/);
+    expect(labsPlanBackfillMigration).toMatch(/WHEN 'START' THEN 'STARTER'/);
+    expect(labsPlanBackfillMigration).toMatch(/WHERE `entitlementPlan` = 'STARTER'/);
+    expect(labsPlanBackfillMigration).toMatch(/`plan` IN \('START', 'PREMIUM'\)/);
+    expect(labsPlanBackfillMigration).not.toMatch(/\b(?:ALTER|DROP|DELETE|TRUNCATE|RENAME)\b/i);
+    expect(migration).not.toMatch(/UPDATE `TenantAiWorkspace`/);
+    expect("20260804120000_labs_entitlement_plan_backfill" > currentMigration).toBe(true);
   });
 
   it("defines normalized feature grants and tenant invitations with inverse relations", () => {

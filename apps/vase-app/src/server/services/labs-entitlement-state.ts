@@ -13,7 +13,7 @@ export function resolveStoredLabsEntitlementPlan(input: {
   if (input.entitlementPlan === "STARTER" || input.entitlementPlan === "PRO" || input.entitlementPlan === "GROWTH") {
     return input.entitlementPlan;
   }
-  return input.legacyPlan === "PREMIUM" ? "PRO" : "STARTER";
+  return input.legacyPlan === "PREMIUM" ? "GROWTH" : "STARTER";
 }
 
 type CommercialLink = {
@@ -26,6 +26,11 @@ export function resolveLabsCommercialStatus(input: {
   submodule: CommercialLink;
 }): "TRIAL" | "ACTIVE" | "SUSPENDED" {
   if (!input.module?.isActive || !input.submodule?.isActive) return "SUSPENDED";
+  const entitledStatuses = new Set(["ACTIVE", "TRIAL"]);
+  if (
+    !entitledStatuses.has(input.module.commercialStatus) ||
+    !entitledStatuses.has(input.submodule.commercialStatus)
+  ) return "SUSPENDED";
   return input.module.commercialStatus === "ACTIVE" && input.submodule.commercialStatus === "ACTIVE"
     ? "ACTIVE"
     : "TRIAL";

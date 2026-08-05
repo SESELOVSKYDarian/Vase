@@ -1,14 +1,18 @@
 import { labsSessionContextSchema, type LabsChannelLimits, type LabsPlan } from "@vase/contracts";
 import type { PrismaClient } from "@prisma/client";
-import { resolveLabsWorkspaceEntitlement } from "@/server/services/labs-entitlement-state";
+import {
+  resolveLabsCommercialStatus,
+  resolveLabsWorkspaceEntitlement,
+  resolveStoredLabsEntitlementPlan,
+} from "@/server/services/labs-entitlement-state";
 
 export const resolveLabsSessionWorkspaceEntitlement = resolveLabsWorkspaceEntitlement;
 
-export function findAuthorizedLabsMembership(
+export async function findAuthorizedLabsMembership(
   db: Pick<PrismaClient, "membership">,
   input: { userId: string; requestedTenantSlug?: string },
 ) {
-  return db.membership.findFirst({
+  const membership = await db.membership.findFirst({
     where: {
       userId: input.userId,
       status: "ACTIVE",
@@ -25,13 +29,6 @@ export function findAuthorizedLabsMembership(
             moduleId: "vase_labs",
             isActive: true,
             commercialStatus: { in: ["ACTIVE", "TRIAL"] },
-          },
-        },
-        tenantSubmodules: {
-          some: {
-            isActive: true,
-            commercialStatus: { in: ["ACTIVE", "TRIAL"] },
-            submodule: { moduleId: "vase_labs" },
           },
         },
       },
@@ -57,6 +54,21 @@ export function findAuthorizedLabsMembership(
     },
     orderBy: { updatedAt: "desc" },
   });
+  if (!membership) return null;
+
+  const paidPlan = resolveStoredLabsEntitlementPlan({
+    entitlementPlan: membership.tenant.aiWorkspace?.entitlementPlan,
+    legacyPlan: membership.tenant.aiWorkspace?.plan,
+  });
+  const selectedSubmodule = membership.tenant.tenantSubmodules.find(
+    (item) => item.submodule.key?.toUpperCase() === paidPlan,
+  );
+  return resolveLabsCommercialStatus({
+    module: membership.tenant.tenantModules[0],
+    submodule: selectedSubmodule,
+  }) === "SUSPENDED"
+    ? null
+    : membership;
 }
 
 export interface LabsSessionContextRepository {
