@@ -34,7 +34,7 @@ describe("Vase Rest module registration", () => {
     const service = readRestAdminService();
     expect(service).toContain("tenantModule.upsert");
     expect(service).toContain('moduleId: "vase_rest"');
-    expect(service).toContain("activatedAt: new Date()");
+    expect(service).toContain("activatedAt: moduleActivatedAt");
     expect(service).toContain("ensureModuleCatalogSynced");
   });
 

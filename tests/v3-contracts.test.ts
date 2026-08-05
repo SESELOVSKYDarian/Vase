@@ -113,11 +113,11 @@ describe("V3 contracts", () => {
       globalTenantId: "tenant_123",
       plan: "GROWTH",
       status: "ACTIVE",
-      monthlyTokenLimit: 250000,
+      monthlyTokenLimit: 1000000,
       monthlyTokenUsed: 0,
       tokenPackBalance: 0,
     });
-    expect(entitlement.enabledChannels).toEqual(["WHATSAPP", "INSTAGRAM"]);
+    expect(entitlement.enabledChannels).toEqual(["WHATSAPP", "INSTAGRAM", "FACEBOOK"]);
   });
 
   it("checks Labs channel access from entitlement status and enabled channels", () => {
@@ -137,8 +137,9 @@ describe("V3 contracts", () => {
       monthlyTokenLimit: 50000,
       includedChannels: ["WHATSAPP"],
     });
-    expect(getLabsPlanLimits("GROWTH").includedChannels).toEqual(["WHATSAPP", "INSTAGRAM"]);
-    expect(getLabsPlanLimits("PRO").monthlyTokenLimit).toBe(1000000);
+    expect(getLabsPlanLimits("PRO").includedChannels).toEqual(["WHATSAPP", "INSTAGRAM"]);
+    expect(getLabsPlanLimits("GROWTH").includedChannels).toEqual(["WHATSAPP", "INSTAGRAM", "FACEBOOK"]);
+    expect(getLabsPlanLimits("GROWTH").monthlyTokenLimit).toBe(1000000);
     expect(getTokenPackTokens("BASIC")).toBe(500000);
     expect(getTokenPackTokens("MEDIUM")).toBe(1200000);
     expect(getTokenPackTokens("PRO")).toBe(3000000);

@@ -22,6 +22,13 @@ const primaryOwnerMigrationUrl = new URL(
 const primaryOwnerMigration = existsSync(primaryOwnerMigrationUrl)
   ? readFileSync(primaryOwnerMigrationUrl, "utf8")
   : "";
+const labsPlanBackfillMigrationUrl = new URL(
+  "../../prisma/migrations/20260804120000_labs_entitlement_plan_backfill/migration.sql",
+  import.meta.url,
+);
+const labsPlanBackfillMigration = existsSync(labsPlanBackfillMigrationUrl)
+  ? readFileSync(labsPlanBackfillMigrationUrl, "utf8")
+  : "";
 const laterMigrationSql = readdirSync(migrationRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && entry.name > currentMigration)
   .map((entry) => ({
@@ -209,6 +216,43 @@ describe("client product access schema", () => {
     expect(primaryOwnerMigration).toMatch(/CREATE UNIQUE INDEX `Tenant_primaryOwnerUserId_key` ON `Tenant`\(`primaryOwnerUserId`\);/);
     expect(primaryOwnerMigration).toMatch(/FOREIGN KEY \(`primaryOwnerUserId`\) REFERENCES `User`\(`id`\) ON DELETE SET NULL ON UPDATE CASCADE/);
     expect(primaryOwnerMigration).not.toMatch(/\b(?:DROP\s+(?:TABLE|COLUMN|INDEX)|TRUNCATE(?:\s+TABLE)?|DELETE\s+FROM)\b/i);
+  });
+
+  it("backfills legacy Labs plans in a later forward migration without editing the column migration", () => {
+    expect(labsPlanBackfillMigration).toContain("Deployment assumption:");
+    expect(labsPlanBackfillMigration).toMatch(/UPDATE `TenantAiWorkspace`/);
+    expect(labsPlanBackfillMigration).toMatch(/JOIN `ModuleSubmodule`/);
+    expect(labsPlanBackfillMigration).toMatch(/`moduleId` = 'vase_labs'/);
+    expect(labsPlanBackfillMigration).toMatch(/`submoduleId`/);
+    expect(labsPlanBackfillMigration).toMatch(/`isActive` = TRUE/);
+    expect(labsPlanBackfillMigration).toMatch(/`commercialStatus` IN \('ACTIVE', 'TRIAL'\)/);
+    expect(labsPlanBackfillMigration).toMatch(/LOWER\([^)]*`key`[^)]*\)/);
+    expect(labsPlanBackfillMigration).toMatch(/WHEN 'growth' THEN 3/);
+    expect(labsPlanBackfillMigration).toMatch(/WHEN 'pro' THEN 2/);
+    expect(labsPlanBackfillMigration).toMatch(/WHEN 'starter' THEN 1/);
+    expect(labsPlanBackfillMigration).toMatch(/MAX\s*\(/);
+    expect(labsPlanBackfillMigration).toMatch(/WHEN 3 THEN 'GROWTH'/);
+    expect(labsPlanBackfillMigration).toMatch(/WHEN 2 THEN 'PRO'/);
+    expect(labsPlanBackfillMigration).toMatch(/WHEN 1 THEN 'STARTER'/);
+    expect(labsPlanBackfillMigration).toMatch(/WHEN 'PREMIUM' THEN 'GROWTH'/);
+    expect(labsPlanBackfillMigration).toMatch(/WHEN 'START' THEN 'STARTER'/);
+    expect(labsPlanBackfillMigration).toMatch(/WHERE `workspace`\.`entitlementPlan` = 'STARTER'/);
+    expect(labsPlanBackfillMigration).not.toMatch(/\b(?:ALTER|DROP|DELETE|TRUNCATE|RENAME)\b/i);
+    expect(migration).not.toMatch(/UPDATE `TenantAiWorkspace`/);
+    expect("20260804120000_labs_entitlement_plan_backfill" > currentMigration).toBe(true);
+  });
+
+  it.each([
+    { name: "pro-only", keys: ["pro"], legacy: "PREMIUM", expected: "PRO" },
+    { name: "growth wins over pro", keys: ["pro", "growth"], legacy: "PREMIUM", expected: "GROWTH" },
+    { name: "starter", keys: ["starter"], legacy: "PREMIUM", expected: "STARTER" },
+    { name: "no selection premium fallback", keys: [], legacy: "PREMIUM", expected: "GROWTH" },
+    { name: "no selection start fallback", keys: [], legacy: "START", expected: "STARTER" },
+  ])("documents deterministic Labs backfill fixture: $name", ({ keys, legacy, expected }) => {
+    const rank = Math.max(0, ...keys.map((key) => ({ starter: 1, pro: 2, growth: 3 })[key as "starter" | "pro" | "growth"]));
+    const resolved = rank === 3 ? "GROWTH" : rank === 2 ? "PRO" : rank === 1 ? "STARTER"
+      : legacy === "PREMIUM" ? "GROWTH" : "STARTER";
+    expect(resolved).toBe(expected);
   });
 
   it("defines normalized feature grants and tenant invitations with inverse relations", () => {

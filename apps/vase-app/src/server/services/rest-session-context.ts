@@ -6,7 +6,9 @@ import {
   type RestServiceStatus,
   type RestSessionContext,
 } from "@vase/contracts";
+import type { PrismaClient } from "@prisma/client";
 import { isRestContractEntitled } from "@/lib/rest/contract-entitlement";
+import { buildCompatibleUserModuleAccessWhere } from "@/server/services/user-module-access-policy";
 
 type RestMembershipProjection = {
   globalUserId: string;
@@ -17,6 +19,8 @@ type RestMembershipProjection = {
   tenantSlug: string;
   tenantName: string;
   tenantStatus: string;
+  tenantModuleEntitled: boolean;
+  userModuleAccessActive: boolean;
   contract: {
     status: RestServiceStatus;
     plan: RestPlan;
@@ -39,6 +43,8 @@ export function createRestSessionContextService(repository: RestSessionContextRe
       if (
         !membership ||
         membership.membershipStatus !== "ACTIVE" ||
+        !membership.tenantModuleEntitled ||
+        !membership.userModuleAccessActive ||
         !["ACTIVE", "TRIAL"].includes(membership.tenantStatus)
       ) {
         throw new Error("REST_TENANT_FORBIDDEN");
@@ -69,6 +75,39 @@ export function createRestSessionContextService(repository: RestSessionContextRe
       });
     },
   };
+}
+
+export function findAuthorizedRestMembership(
+  db: Pick<PrismaClient, "membership">,
+  input: { globalUserId: string; requestedTenantSlug?: string },
+) {
+  return db.membership.findFirst({
+    where: {
+      userId: input.globalUserId,
+      status: "ACTIVE",
+      user: buildCompatibleUserModuleAccessWhere("vase_rest"),
+      tenant: {
+        ...(input.requestedTenantSlug ? { slug: input.requestedTenantSlug } : {}),
+        status: { in: ["ACTIVE", "TRIAL"] },
+        tenantModules: {
+          some: {
+            moduleId: "vase_rest",
+            isActive: true,
+            commercialStatus: { in: ["ACTIVE", "TRIAL"] },
+          },
+        },
+      },
+    },
+    include: {
+      user: { select: { id: true, name: true } },
+      tenant: {
+        include: {
+          restContract: { include: { pricingVersion: true } },
+        },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
 }
 
 export function signRestSessionContext(payload: string, secret: string) {

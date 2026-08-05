@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -122,6 +121,8 @@ describe("Rest Trial entitlement", () => {
         tenantSlug: "trial-restaurant",
         tenantName: "Trial Restaurant",
         tenantStatus: "TRIAL",
+        tenantModuleEntitled: true,
+        userModuleAccessActive: true,
         contract: {
           status: "TRIAL",
           plan: "STARTER",
@@ -134,5 +135,34 @@ describe("Rest Trial entitlement", () => {
     await expect(service.resolve({ globalUserId: "owner-1" })).resolves.toMatchObject({
       entitlement: { status: "TRIAL" },
     });
+  });
+
+  it.each([
+    { membershipStatus: "SUSPENDED", tenantModuleEntitled: true, userModuleAccessActive: true },
+    { membershipStatus: "ACTIVE", tenantModuleEntitled: false, userModuleAccessActive: true },
+    { membershipStatus: "ACTIVE", tenantModuleEntitled: true, userModuleAccessActive: false },
+  ])("requires all three Rest access gates: $membershipStatus/$tenantModuleEntitled/$userModuleAccessActive", async (gates) => {
+    const service = createRestSessionContextService({
+      findMembership: async () => ({
+        globalUserId: "member-1",
+        userName: "Member",
+        membershipStatus: gates.membershipStatus,
+        tenantRole: "MEMBER",
+        globalTenantId: "tenant-1",
+        tenantSlug: "trial-restaurant",
+        tenantName: "Trial Restaurant",
+        tenantStatus: "ACTIVE",
+        tenantModuleEntitled: gates.tenantModuleEntitled,
+        userModuleAccessActive: gates.userModuleAccessActive,
+        contract: {
+          status: "TRIAL",
+          plan: "STARTER",
+          pricingVersion: 1,
+          limits: { branches: 1, localEmployees: 15, devices: 5, edgeInstallations: 1 },
+        },
+      }),
+    });
+
+    await expect(service.resolve({ globalUserId: "member-1" })).rejects.toThrow("REST_TENANT_FORBIDDEN");
   });
 });

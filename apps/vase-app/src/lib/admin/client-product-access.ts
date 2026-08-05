@@ -1,4 +1,5 @@
 import type { AiWorkspacePlan } from "@prisma/client";
+import { getLabsPlanLimits } from "@vase/contracts";
 import { z } from "zod";
 
 export type CommercialStatus = "TRIAL" | "ACTIVE";
@@ -91,11 +92,6 @@ export function projectClientProductAccessToLegacy(access: ClientProductAccess) 
 }
 
 type LabsEntitlement = {
-  channels: {
-    whatsapp: number;
-    instagram: number;
-    messenger: number;
-  };
   maxKnowledgeItems: number;
   maxFiles: number;
   maxUrls: number;
@@ -106,7 +102,6 @@ type LabsEntitlement = {
 
 const labsEntitlements: Record<LabsEntitlementPlan, LabsEntitlement> = {
   STARTER: {
-    channels: { whatsapp: 1, instagram: 0, messenger: 0 },
     maxKnowledgeItems: 25,
     maxFiles: 8,
     maxUrls: 5,
@@ -115,7 +110,6 @@ const labsEntitlements: Record<LabsEntitlementPlan, LabsEntitlement> = {
     legacyPlan: "START",
   },
   PRO: {
-    channels: { whatsapp: 1, instagram: 1, messenger: 0 },
     maxKnowledgeItems: 80,
     maxFiles: 25,
     maxUrls: 20,
@@ -124,7 +118,6 @@ const labsEntitlements: Record<LabsEntitlementPlan, LabsEntitlement> = {
     legacyPlan: "PREMIUM",
   },
   GROWTH: {
-    channels: { whatsapp: 1, instagram: 1, messenger: 1 },
     maxKnowledgeItems: 120,
     maxFiles: 40,
     maxUrls: 30,
@@ -135,22 +128,28 @@ const labsEntitlements: Record<LabsEntitlementPlan, LabsEntitlement> = {
 };
 
 export function getLabsEntitlement(plan: LabsEntitlementPlan) {
-  return labsEntitlements[plan];
+  const entitlement = labsEntitlements[plan];
+  const channels = getLabsPlanLimits(plan).channelLimits;
+  return {
+    ...entitlement,
+    channels: {
+      whatsapp: channels.WHATSAPP,
+      instagram: channels.INSTAGRAM,
+      messenger: channels.FACEBOOK,
+    },
+  };
 }
 
 export function buildLabsWorkspaceEntitlementData(plan: LabsEntitlementPlan) {
   const entitlement = getLabsEntitlement(plan);
+  const canonicalChannels = getLabsPlanLimits(plan).channelLimits;
   return {
     entitlementPlan: plan,
     plan: entitlement.legacyPlan,
     monthlyConversationLimit: entitlement.monthlyConversationLimit,
     monthlyKnowledgeItemLimit: entitlement.maxKnowledgeItems,
     maxChannels: entitlement.maxChannels,
-    channelLimits: {
-      WHATSAPP: entitlement.channels.whatsapp,
-      INSTAGRAM: entitlement.channels.instagram,
-      FACEBOOK: entitlement.channels.messenger,
-    },
+    channelLimits: canonicalChannels,
     maxFiles: entitlement.maxFiles,
     maxUrls: entitlement.maxUrls,
   } as const;

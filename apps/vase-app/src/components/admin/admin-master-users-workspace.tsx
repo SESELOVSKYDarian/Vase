@@ -4,7 +4,6 @@ import { useActionState, useCallback, useEffect, useMemo, useState } from "react
 import {
   BadgeInfo,
   Banknote,
-  Bot,
   Building2,
   CalendarCheck,
   CreditCard,
@@ -35,6 +34,12 @@ import {
 } from "@/app/(platform)/app/admin/actions";
 import { AdminUserPasswordResetForm } from "@/components/admin/admin-user-password-reset-form";
 import {
+  ClientTeamCommercialAccessNotice,
+  ClientProductAccessEditor,
+  canEditOwnerCommercialAccess,
+  serializeClientProductAccessForUser,
+} from "@/components/admin/client-product-access-editor";
+import {
   AdminDataTable,
   AdminEmptyState,
   AdminMetricCard,
@@ -46,34 +51,9 @@ import {
 } from "@/components/admin/admin-ui";
 import { ActionToast } from "@/components/ui/action-toast";
 import { CrudModal } from "@/components/ui/crud-modal";
-import { getAdminModuleAccessPresentation } from "@/lib/admin/user-access";
+import type { ClientProductAccess } from "@/lib/admin/client-product-access";
 
 type UiRole = "cliente" | "admin" | "developer" | "designer" | "tester" | "soporte";
-type TenantPlan = "TRIAL" | "PRO";
-type TenantStatus = "ACTIVE" | "TRIAL" | "SUSPENDED";
-type TenantRole = "OWNER" | "MANAGER" | "MEMBER";
-type MembershipStatus = "ACTIVE" | "INVITED" | "SUSPENDED";
-
-type ModuleLimitState = {
-  pages: string;
-  chatbots: string;
-};
-
-type ClientAccessConfigData = {
-  tenantPlan: TenantPlan;
-  proSubmoduleIds: string[];
-  tenantName: string;
-  tenantSlug: string;
-  accountName: string;
-  industry: string;
-  tenantStatus: TenantStatus;
-  tenantRole: TenantRole;
-  membershipStatus: MembershipStatus;
-  moduleLimits: Record<string, { pages: number | null; chatbots: number | null }>;
-};
-
-type ClientAccessConfig = ClientAccessConfigData | null;
-
 type UserRow = {
   id: string;
   name: string;
@@ -82,6 +62,7 @@ type UserRow = {
   disabledAt: Date | null;
   disabledReason: string | null;
   uiRole: UiRole;
+  clientAccountKind: "OWNER" | "TEAM" | "UNASSIGNED";
   moduleIds: string[];
   tenantId: string | null;
   tenantName: string | null;
@@ -110,7 +91,8 @@ type UserRow = {
     paidAt: Date | null;
     createdAt: Date;
   }>;
-  clientAccessConfig: ClientAccessConfig;
+  productAccess: ClientProductAccess;
+  teamSummary: { members: number; active: number; suspended: number; pendingInvitations: number };
 };
 
 type ModuleOption = {
@@ -123,10 +105,24 @@ type ModuleOption = {
     type: "ONE_TIME" | "MONTHLY" | "YEARLY";
     isActive: boolean;
   }>;
+  features: Array<{
+    id: string;
+    key: string;
+    name: string;
+    description: string | null;
+    valueType: "BOOLEAN" | "INTEGER" | "TEXT";
+    trialDefault: boolean | number | string | null;
+    activeDefault: boolean | number | string | null;
+    minValue: number | null;
+    maxValue: number | null;
+    sortOrder: number;
+    isActive: boolean;
+  }>;
   submodules: Array<{
     id: string;
     key: string;
     name: string;
+    features: ModuleOption["features"];
     pricing: Array<{
       price: number;
       currency: string;
@@ -154,6 +150,18 @@ type PaymentDraft = {
 type Props = {
   users: UserRow[];
   modules: ModuleOption[];
+  restPricingVersions: Array<{
+    id: string;
+    plan: string;
+    version: number;
+    currency: string;
+    monthlyPrice: number;
+    branchLimit: number;
+    localEmployeeLimit: number;
+    deviceLimit: number;
+    edgeLimit: number;
+    status: "PUBLISHED" | "ARCHIVED";
+  }>;
 };
 
 type UserAccessFilter = "all" | "active" | "disabled" | "tenant-suspended" | "membership-suspended" | "with-debt";
@@ -227,33 +235,6 @@ function getUserAccessLabel(user: UserRow) {
   return "Activo";
 }
 
-function createEmptyClientAccessConfig(): ClientAccessConfigData {
-  return {
-    tenantPlan: "TRIAL",
-    proSubmoduleIds: [],
-    tenantName: "",
-    tenantSlug: "",
-    accountName: "",
-    industry: "",
-    tenantStatus: "TRIAL",
-    tenantRole: "OWNER",
-    membershipStatus: "ACTIVE",
-    moduleLimits: {},
-  };
-}
-
-function serializeClientAccessConfig(config: ClientAccessConfig): string {
-  if (!config) return "";
-  return JSON.stringify(config);
-}
-
-function toLimitState(value?: { pages?: number | string | null; chatbots?: number | string | null } | null): ModuleLimitState {
-  return {
-    pages: value?.pages == null ? "" : String(value.pages),
-    chatbots: value?.chatbots == null ? "" : String(value.chatbots),
-  };
-}
-
 function pickActivePrice(
   pricing: Array<{ price: number; currency: string; type: "ONE_TIME" | "MONTHLY" | "YEARLY"; isActive: boolean }>,
   type: "ONE_TIME" | "MONTHLY" | "YEARLY",
@@ -261,23 +242,9 @@ function pickActivePrice(
   return pricing.find((entry) => entry.isActive && entry.type === type) ?? pricing.find((entry) => entry.type === type) ?? null;
 }
 
-function normalizeClientAccessConfig(user?: UserRow | null): ClientAccessConfigData {
-  const currentConfig = user?.clientAccessConfig ?? createEmptyClientAccessConfig();
-  return {
-    tenantPlan: currentConfig.tenantPlan,
-    proSubmoduleIds: currentConfig.proSubmoduleIds,
-    tenantName: currentConfig.tenantName || user?.tenantName || "",
-    tenantSlug: currentConfig.tenantSlug || user?.tenantSlug || "",
-    accountName: currentConfig.accountName || user?.accountName || user?.tenantName || "",
-    industry: currentConfig.industry || user?.industry || "",
-    tenantStatus: currentConfig.tenantStatus || user?.tenantStatus || "TRIAL",
-    tenantRole: currentConfig.tenantRole || user?.tenantRole || "OWNER",
-    membershipStatus: currentConfig.membershipStatus || user?.membershipStatus || "ACTIVE",
-    moduleLimits: currentConfig.moduleLimits,
-  };
-}
+const emptyProductAccess: ClientProductAccess = { business: null, labs: null, rest: null, management: null };
 
-export function AdminMasterUsersWorkspace({ users, modules }: Props) {
+export function AdminMasterUsersWorkspace({ users, modules, restPricingVersions }: Props) {
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [deletingUser, setDeletingUser] = useState<UserRow | null>(null);
   const [paymentUser, setPaymentUser] = useState<UserRow | null>(null);
@@ -294,8 +261,7 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
   const [autoGeneratePassword, setAutoGeneratePassword] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState("");
-  const [clientAccessConfig, setClientAccessConfig] = useState<ClientAccessConfig>(createEmptyClientAccessConfig());
-  const [moduleLimitState, setModuleLimitState] = useState<Record<string, ModuleLimitState>>({});
+  const [productAccess, setProductAccess] = useState<ClientProductAccess>(emptyProductAccess);
   const [paymentDraft, setPaymentDraft] = useState<PaymentDraft>({
     paymentId: "",
     concept: "",
@@ -312,7 +278,7 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
   });
   const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
 
-  const [upsertState, upsertAction] = useActionState(upsertMasterUserWithStateAction, initialState);
+  const [upsertState, upsertAction, upsertPending] = useActionState(upsertMasterUserWithStateAction, initialState);
   const [deleteState, deleteAction] = useActionState(deleteMasterUserWithStateAction, initialState);
   const [paymentState, paymentAction] = useActionState(createUserClientPaymentWithStateAction, initialState);
   const [updatePaymentState, updatePaymentAction] = useActionState(updateClientPaymentWithStateAction, initialState);
@@ -364,60 +330,17 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
     });
   }, [accessFilter, roleFilter, searchQuery, users]);
 
-  const clientModules = useMemo(
-    () => modules.filter((module) => selectedModuleIds.includes(module.id)),
-    [modules, selectedModuleIds],
-  );
-
-  const configurableLimitModules = useMemo(
-    () => clientModules.filter((module) =>
-      getAdminModuleAccessPresentation(module.product, module.submodules.length, true, 0).limitKind !== null),
-    [clientModules],
-  );
-
-  const availableSubmodules = useMemo(
-    () => clientModules.flatMap((module) => module.submodules.map((submodule) => ({ ...submodule, moduleName: module.name }))),
-    [clientModules],
-  );
-
-  const effectiveLabsPlanLabel = useMemo(() => {
-    if (!selectedModuleIds.includes("vase_labs")) return null;
-    const selectedSubmoduleIds = new Set(clientAccessConfig?.proSubmoduleIds ?? []);
-    const labsSubmodules = modules.find((module) => module.id === "vase_labs")?.submodules ?? [];
-    const selectedLabsSubmodules = labsSubmodules.filter((submodule) => selectedSubmoduleIds.has(submodule.id));
-    const priority = ["pro", "growth", "starter"];
-    return priority
-      .map((key) => selectedLabsSubmodules.find((submodule) => submodule.key === key)?.name)
-      .find(Boolean) ?? (clientAccessConfig?.tenantPlan === "PRO" ? "Pro" : "Starter");
-  }, [clientAccessConfig?.proSubmoduleIds, clientAccessConfig?.tenantPlan, modules, selectedModuleIds]);
-
   const generatePassword = () => {
     const random = Math.random().toString(36).slice(2, 8);
     setGeneratedPassword(`Vase-${random}#${Math.floor(100 + Math.random() * 900)}`);
     setAutoGeneratePassword(true);
   };
 
-  const updateClientAccessConfig = useCallback(
-    (updater: (current: ClientAccessConfigData) => ClientAccessConfigData) => {
-      setClientAccessConfig((current) => updater(current ?? createEmptyClientAccessConfig()));
-    },
-    [],
-  );
-
   const resetClientAccessState = (nextUser?: UserRow | null) => {
     const currentSelectedModules = nextUser?.moduleIds ?? [];
-    const currentConfig = normalizeClientAccessConfig(nextUser);
 
     setSelectedModuleIds(currentSelectedModules);
-    setClientAccessConfig(currentConfig);
-
-    const limits: Record<string, ModuleLimitState> = {};
-    for (const accessModule of modules) {
-      if (currentSelectedModules.includes(accessModule.id)) {
-        limits[accessModule.id] = toLimitState(currentConfig?.moduleLimits?.[accessModule.id]);
-      }
-    }
-    setModuleLimitState(limits);
+    setProductAccess(nextUser?.productAccess ?? emptyProductAccess);
   };
 
   const resetPaymentDraft = (nextUser?: UserRow | null) => {
@@ -448,6 +371,7 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
       disabledAt: null,
       disabledReason: null,
       uiRole: "cliente",
+      clientAccountKind: "UNASSIGNED",
       moduleIds: [],
       tenantId: null,
       tenantName: null,
@@ -460,7 +384,8 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
       paymentSummary: "Sin pagos",
       primaryClientAccountId: null,
       paymentHistory: [],
-      clientAccessConfig: createEmptyClientAccessConfig(),
+      productAccess: emptyProductAccess,
+      teamSummary: { members: 0, active: 0, suspended: 0, pendingInvitations: 0 },
     });
     setSelectedRole("cliente");
     setUserWizardStep(1);
@@ -577,8 +502,7 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
         setGeneratedPassword("");
         setAutoGeneratePassword(false);
         setTemporaryPassword(false);
-        setClientAccessConfig(createEmptyClientAccessConfig());
-        setModuleLimitState({});
+        setProductAccess(emptyProductAccess);
       }, 0);
       return () => window.clearTimeout(timerId);
     }
@@ -676,46 +600,32 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
 
   const buildClientAccessPayload = () => {
     if (selectedRole !== "cliente") return "";
-    const currentConfig = clientAccessConfig ?? createEmptyClientAccessConfig();
-    const validProSubmoduleIds = currentConfig.proSubmoduleIds.filter((submoduleId) =>
-      availableSubmodules.some((submodule) => submodule.id === submoduleId),
+    return serializeClientProductAccessForUser(
+      editingUser?.id ?? "",
+      editingUser?.clientAccountKind ?? "UNASSIGNED",
+      productAccess,
     );
-
-    const moduleLimits = Object.fromEntries(
-      configurableLimitModules.map((module) => {
-        const values = moduleLimitState[module.id] ?? { pages: "", chatbots: "" };
-        return [
-          module.id,
-          {
-            pages: values.pages.trim().length > 0 ? Number(values.pages) : null,
-            chatbots: values.chatbots.trim().length > 0 ? Number(values.chatbots) : null,
-          },
-        ];
-      }),
-    );
-
-    return serializeClientAccessConfig({
-      tenantPlan: currentConfig.tenantPlan,
-      proSubmoduleIds: currentConfig.tenantPlan === "PRO" ? validProSubmoduleIds : [],
-      tenantName: currentConfig.tenantName.trim(),
-      tenantSlug: currentConfig.tenantSlug.trim(),
-      accountName: currentConfig.accountName.trim(),
-      industry: currentConfig.industry.trim(),
-      tenantStatus: currentConfig.tenantStatus,
-      tenantRole: currentConfig.tenantRole,
-      membershipStatus: currentConfig.membershipStatus,
-      moduleLimits,
-    });
   };
 
   const selectedUserPaymentHistory = useMemo(() => paymentUser?.paymentHistory ?? [], [paymentUser]);
   const modulesDisabled = selectedRole === "admin";
   const isClientRole = selectedRole === "cliente";
   const isClientWizard = isClientRole;
-  const clientWizardCanAdvance = isClientWizard ? (userWizardStep === 1 ? true : userWizardStep === 2 ? selectedModuleIds.length > 0 : true) : true;
-  const showClientSection = isClientRole;
-  const showSubmoduleCards = modules.length > 0 && isClientRole;
-  const canSelectSubmodule = false;
+  const ownerCommercialAccessEditable = canEditOwnerCommercialAccess(
+    editingUser?.id ?? "",
+    editingUser?.clientAccountKind ?? "UNASSIGNED",
+  );
+  const clientWizardCanAdvance = true;
+  const businessSubmodules = (modules.find((module) => module.product === "BUSINESS")?.submodules ?? [])
+    .filter((submodule): submodule is typeof submodule & { key: "plantilla" | "personalizado" } => submodule.key === "plantilla" || submodule.key === "personalizado");
+  const businessGeneralFeatures = modules.find((module) => module.product === "BUSINESS")?.features ?? [];
+  const labsPlans = (modules.find((module) => module.product === "LABS")?.submodules ?? [])
+    .filter((submodule) => ["starter", "pro", "growth"].includes(submodule.key.toLowerCase()))
+    .map((submodule) => ({
+      submoduleId: submodule.id,
+      plan: submodule.key.toUpperCase() as "STARTER" | "PRO" | "GROWTH",
+      label: submodule.key.charAt(0).toUpperCase() + submodule.key.slice(1).toLowerCase(),
+    }));
 
   return (
     <section className="grid gap-5">
@@ -902,7 +812,7 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
         open={Boolean(editingUser)}
         onClose={() => setEditingUser(null)}
         title={editingUser?.id ? "Editar usuario" : "Crear usuario"}
-        description="Define identidad, acceso, plan de cliente y limites operativos desde un solo formulario."
+        description="Define la identidad y los accesos comerciales de cada producto desde un flujo claro."
         widthClassName="max-w-4xl"
       >
         {editingUser ? (
@@ -913,11 +823,10 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
             <input type="hidden" name="clientAccessConfig" value={buildClientAccessPayload()} />
 
             {isClientWizard ? (
-              <div className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-3 sm:grid-cols-3">
+              <div className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-3 sm:grid-cols-2">
                 {[
                   { step: 1, title: "Identidad", description: "Nombre, email y clave" },
-                  { step: 2, title: "Módulos", description: "Accesos y límites" },
-                  { step: 3, title: "Cliente", description: "Tenant y plan" },
+                  { step: 2, title: "Cliente", description: "Productos y planes" },
                 ].map((step) => (
                   <button
                     key={step.step}
@@ -960,7 +869,8 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                   <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Nombre de usuario</span>
                   <input
                     name="name"
-                    defaultValue={editingUser.name}
+                    value={editingUser.name}
+                    onChange={(event) => setEditingUser((current) => current ? { ...current, name: event.target.value } : current)}
                     placeholder="Nombre de usuario"
                     className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
                   />
@@ -970,7 +880,8 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                   <input
                     name="email"
                     type="email"
-                    defaultValue={editingUser.email}
+                    value={editingUser.email}
+                    onChange={(event) => setEditingUser((current) => current ? { ...current, email: event.target.value } : current)}
                     placeholder="email@cliente.com"
                     className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
                   />
@@ -1019,8 +930,7 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                     setUserWizardStep(1);
                     if (nextRole === "admin") {
                       setSelectedModuleIds([]);
-                      setClientAccessConfig(createEmptyClientAccessConfig());
-                      setModuleLimitState({});
+                      setProductAccess(emptyProductAccess);
                     }
                   }}
                   className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
@@ -1035,394 +945,35 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
               </div>
             </div>
 
-            {showClientSection ? (
-              <div
-                className="grid gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4"
-                hidden={isClientWizard ? userWizardStep !== 3 : false}
-              >
-                <div className="flex items-start gap-3">
-                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--accent-strong)_12%,transparent)] text-[var(--accent-strong)]">
-                    <Building2 className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[var(--foreground)]">Tenant y acceso de cliente</p>
-                    <p className="text-sm text-[var(--muted)]">Trial para prueba, Pro para cliente confirmado. Pro habilita submodulo y limites ampliados.</p>
-                  </div>
-                </div>
-
-                {showSubmoduleCards ? (
-                  <div className="grid gap-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">
-                      <Layers3 className="h-4 w-4" />
-                      Modulos y submodulos
-                    </div>
-
-                    <div className="grid gap-4 xl:grid-cols-2">
-                      {modules.map((module) => {
-                        const moduleSelected = selectedModuleIds.includes(module.id);
-                        const selectedSubmoduleIds = clientAccessConfig?.proSubmoduleIds ?? [];
-                        const moduleSubmoduleIds = module.submodules.map((submodule) => submodule.id);
-                        const selectedSubmoduleCount = moduleSubmoduleIds.filter((submoduleId) =>
-                          selectedSubmoduleIds.includes(submoduleId),
-                        ).length;
-                        const presentation = getAdminModuleAccessPresentation(
-                          module.product,
-                          module.submodules.length,
-                          moduleSelected,
-                          selectedSubmoduleCount,
-                        );
-
-                        return (
-                          <article
-                            key={module.id}
-                            className={[
-                              "rounded-3xl border p-4 shadow-sm transition",
-                              moduleSelected
-                                ? "border-[var(--accent-strong)]/30 bg-[color-mix(in_srgb,var(--accent-strong)_4%,var(--surface))]"
-                                : "border-[var(--border-subtle)] bg-[var(--surface)] hover:border-[var(--accent-strong)]/20",
-                            ].join(" ")}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-                                <input
-                                  type="checkbox"
-                                  checked={moduleSelected}
-                                  onChange={(event) => {
-                                    const nextChecked = event.target.checked;
-
-                                    setSelectedModuleIds((current) => {
-                                      const next = nextChecked
-                                        ? Array.from(new Set([...current, module.id]))
-                                        : current.filter((moduleId) => moduleId !== module.id);
-
-                                      setModuleLimitState((limitsCurrent) => {
-                                        const nextLimits = { ...limitsCurrent };
-                                        if (!nextChecked) delete nextLimits[module.id];
-                                        else if (presentation.limitKind && !nextLimits[module.id]) {
-                                          nextLimits[module.id] = { pages: "", chatbots: "" };
-                                        }
-                                        return nextLimits;
-                                      });
-
-                                      return next;
-                                    });
-
-                                    if (!nextChecked) {
-                                      updateClientAccessConfig((current) => ({
-                                        ...current,
-                                        proSubmoduleIds: current.proSubmoduleIds.filter((submoduleId) => !moduleSubmoduleIds.includes(submoduleId)),
-                                      }));
-                                    }
-                                  }}
-                                  className="mt-1 h-4 w-4 rounded border-[var(--border-subtle)] text-[var(--accent-strong)]"
-                                />
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-sm font-semibold text-[var(--foreground)]">{module.name}</p>
-                                    <span className="rounded-full border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-                                      {presentation.productLabel}
-                                    </span>
-                                  </div>
-                                  <p className="mt-1 text-xs text-[var(--muted)]">
-                                    {presentation.description}
-                                  </p>
-                                </div>
-                              </label>
-                              <span className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                                {presentation.selectionLabel}
-                              </span>
-                            </div>
-
-                            <div className="mt-4 grid gap-2">
-                              {module.submodules.length === 0 ? (
-                                <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--muted)]">
-                                  {presentation.emptySubmodulesLabel}
-                                </div>
-                              ) : (
-                                module.submodules.map((submodule) => {
-                                  const checked = (clientAccessConfig?.proSubmoduleIds ?? []).includes(submodule.id);
-
-                                  return (
-                                    <label
-                                      key={submodule.id}
-                                      className={[
-                                        "flex items-center gap-3 rounded-2xl border px-3 py-3 transition",
-                                        moduleSelected
-                                          ? checked
-                                            ? "border-[var(--accent-strong)]/35 bg-[color-mix(in_srgb,var(--accent-strong)_8%,var(--surface))]"
-                                            : "border-[var(--border-subtle)] bg-[var(--surface)] hover:border-[var(--accent-strong)]/20"
-                                          : "cursor-not-allowed border-[var(--border-subtle)] bg-[var(--surface-strong)] opacity-60",
-                                      ].join(" ")}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        disabled={!moduleSelected}
-                                        onChange={(event) =>
-                                          updateClientAccessConfig((current) => {
-                                            const nextIds = event.target.checked
-                                              ? Array.from(new Set([...current.proSubmoduleIds, submodule.id]))
-                                              : current.proSubmoduleIds.filter((submoduleId) => submoduleId !== submodule.id);
-
-                                            return {
-                                              ...current,
-                                              proSubmoduleIds: nextIds,
-                                            };
-                                          })
-                                        }
-                                        className="h-4 w-4 rounded border-[var(--border-subtle)] text-[var(--accent-strong)] disabled:cursor-not-allowed"
-                                      />
-                                      <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-medium text-[var(--foreground)]">{submodule.name}</p>
-                                        <p className="text-xs text-[var(--muted)]">Submodulo de {module.name}</p>
-                                      </div>
-                                    </label>
-                                  );
-                                })
-                              )}
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Plan base del cliente</span>
-                    <select
-                      value={clientAccessConfig?.tenantPlan ?? "TRIAL"}
-                      onChange={(event) =>
-                        updateClientAccessConfig((current) => ({
-                          ...(current ?? createEmptyClientAccessConfig()),
-                          tenantPlan: event.target.value as TenantPlan,
-                          proSubmoduleIds: current?.proSubmoduleIds ?? [],
-                          moduleLimits: current?.moduleLimits ?? {},
-                        }))
-                      }
-                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
-                    >
-                      <option value="TRIAL">Trial</option>
-                      <option value="PRO">Pro</option>
-                    </select>
-                    {effectiveLabsPlanLabel ? (
-                      <span className="text-xs text-[var(--muted)]">
-                        Labs efectivo: <strong className="text-[var(--foreground)]">{effectiveLabsPlanLabel}</strong>
-                      </span>
-                    ) : null}
-                  </label>
-                  <div className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Estado base</span>
-                    <div className="flex min-h-11 items-center rounded-xl border border-[var(--border-subtle)] px-3 text-sm text-[var(--muted)]">
-                      {clientAccessConfig?.tenantPlan === "PRO"
-                        ? "Cliente confirmado o pago verificado"
-                        : "Cliente de prueba con limites reducidos"}
-                    </div>
-                  </div>
-                </div>
-
-                {canSelectSubmodule ? (
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Submodulos permitidos</span>
-                    <select
-                      multiple
-                      value={(clientAccessConfig?.proSubmoduleIds ?? []).filter((submoduleId) =>
-                        availableSubmodules.some((submodule) => submodule.id === submoduleId),
-                      )}
-                      onChange={(event) =>
-                        updateClientAccessConfig((current) => ({
-                          ...(current ?? createEmptyClientAccessConfig()),
-                          proSubmoduleIds: Array.from(event.currentTarget.selectedOptions, (option) => option.value),
-                          moduleLimits: current?.moduleLimits ?? {},
-                        }))
-                      }
-                      className="min-h-24 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2"
-                    >
-                      {availableSubmodules.map((submodule) => (
-                        <option key={submodule.id} value={submodule.id}>
-                          {submodule.moduleName} · {submodule.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Nombre del tenant</span>
-                    <input
-                      value={clientAccessConfig?.tenantName ?? ""}
-                      onChange={(event) =>
-                        updateClientAccessConfig((current) => ({
-                          ...(current ?? createEmptyClientAccessConfig()),
-                          tenantName: event.target.value,
-                        }))
-                      }
-                      placeholder="Vase Cliente"
-                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
-                    />
-                  </label>
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Slug del tenant</span>
-                    <input
-                      value={clientAccessConfig?.tenantSlug ?? ""}
-                      onChange={(event) =>
-                        updateClientAccessConfig((current) => ({
-                          ...(current ?? createEmptyClientAccessConfig()),
-                          tenantSlug: event.target.value,
-                        }))
-                      }
-                      placeholder="cliente-prueba"
-                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
-                    />
-                  </label>
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Nombre comercial</span>
-                    <input
-                      value={clientAccessConfig?.accountName ?? ""}
-                      onChange={(event) =>
-                        updateClientAccessConfig((current) => ({
-                          ...(current ?? createEmptyClientAccessConfig()),
-                          accountName: event.target.value,
-                        }))
-                      }
-                      placeholder="Cuenta Vase"
-                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
-                    />
-                  </label>
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Industria</span>
-                    <input
-                      value={clientAccessConfig?.industry ?? ""}
-                      onChange={(event) =>
-                        updateClientAccessConfig((current) => ({
-                          ...(current ?? createEmptyClientAccessConfig()),
-                          industry: event.target.value,
-                        }))
-                      }
-                      placeholder="General"
-                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
-                    />
-                  </label>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Estado del tenant</span>
-                    <select
-                      value={clientAccessConfig?.tenantStatus ?? "TRIAL"}
-                      onChange={(event) =>
-                        updateClientAccessConfig((current) => ({
-                          ...(current ?? createEmptyClientAccessConfig()),
-                          tenantStatus: event.target.value as TenantStatus,
-                        }))
-                      }
-                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
-                    >
-                      <option value="TRIAL">Trial</option>
-                      <option value="ACTIVE">Activo</option>
-                      <option value="SUSPENDED">Suspendido</option>
-                    </select>
-                  </label>
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Rol en tenant</span>
-                    <select
-                      value={clientAccessConfig?.tenantRole ?? "OWNER"}
-                      onChange={(event) =>
-                        updateClientAccessConfig((current) => ({
-                          ...(current ?? createEmptyClientAccessConfig()),
-                          tenantRole: event.target.value as TenantRole,
-                        }))
-                      }
-                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
-                    >
-                      <option value="OWNER">Owner</option>
-                      <option value="MANAGER">Manager</option>
-                      <option value="MEMBER">Member</option>
-                    </select>
-                  </label>
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">Estado de membership</span>
-                    <select
-                      value={clientAccessConfig?.membershipStatus ?? "ACTIVE"}
-                      onChange={(event) =>
-                        updateClientAccessConfig((current) => ({
-                          ...(current ?? createEmptyClientAccessConfig()),
-                          membershipStatus: event.target.value as MembershipStatus,
-                        }))
-                      }
-                      className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
-                    >
-                      <option value="ACTIVE">Activo</option>
-                      <option value="INVITED">Invitado</option>
-                      <option value="SUSPENDED">Suspendido</option>
-                    </select>
-                  </label>
-                </div>
-
-                <div className="grid gap-3">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">
-                    <Layers3 className="h-4 w-4" />
-                    Limites por modulo
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {clientModules.length === 0 ? (
-                      <p className="text-sm text-[var(--muted)]">Selecciona al menos un modulo para definir limites.</p>
-                    ) : configurableLimitModules.length === 0 ? (
-                      <p className="text-sm text-[var(--muted)]">
-                        {clientModules.some((module) => module.product === "REST")
-                          ? "Vase Rest otorga acceso directo a la cuenta y no usa límites de páginas ni chatbots."
-                          : "Los módulos seleccionados otorgan acceso directo a la cuenta y no requieren límites adicionales."}
-                      </p>
-                    ) : (
-                      configurableLimitModules.map((module) => {
-                        const currentLimit = moduleLimitState[module.id] ?? { pages: "", chatbots: "" };
-                        const limitKind = getAdminModuleAccessPresentation(module.product, module.submodules.length, true, 0).limitKind;
-                        const isBusiness = limitKind === "pages";
-                        const label = isBusiness ? "Paginas habilitadas" : "Chatbots habilitados";
-                        const helper = isBusiness
-                          ? "Cuantas paginas podra publicar dentro de este modulo."
-                          : "Cuantos chatbots podra agregar a su perfil.";
-
-                        return (
-                          <label key={module.id} className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
-                            <div className="flex items-center gap-2">
-                              {isBusiness ? <Building2 className="h-4 w-4 text-[var(--muted)]" /> : <Bot className="h-4 w-4 text-[var(--muted)]" />}
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-[var(--foreground)]">{module.name}</p>
-                                <p className="text-xs text-[var(--muted)]">{helper}</p>
-                              </div>
-                            </div>
-                            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-soft)]">{label}</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={isBusiness ? currentLimit.pages : currentLimit.chatbots}
-                              onChange={(event) =>
-                                setModuleLimitState((current) => ({
-                                  ...current,
-                                  [module.id]: {
-                                    ...toLimitState(current[module.id]),
-                                    ...(isBusiness ? { pages: event.target.value } : { chatbots: event.target.value }),
-                                  },
-                                }))
-                              }
-                              className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3"
-                            />
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
+            {isClientRole ? (
+              <div hidden={userWizardStep !== 2}>
+                {ownerCommercialAccessEditable ? (
+                  <ClientProductAccessEditor
+                    owner={{ name: editingUser.name, email: editingUser.email }}
+                    value={productAccess}
+                    businessSubmodules={businessSubmodules.map((submodule) => ({
+                      id: submodule.id,
+                      key: submodule.key as "plantilla" | "personalizado",
+                      name: submodule.name,
+                      features: submodule.features,
+                    }))}
+                    businessGeneralFeatures={businessGeneralFeatures}
+                    labsPlans={labsPlans}
+                    restPricingVersions={restPricingVersions}
+                    managementAvailable={modules.some((module) => module.product === "MANAGEMENT")}
+                    onChange={setProductAccess}
+                    pending={upsertPending}
+                    error={upsertState.error}
+                  />
+                ) : (
+                  <ClientTeamCommercialAccessNotice tenantName={editingUser.tenantName} />
+                )}
               </div>
             ) : null}
 
             <div
               className="grid gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4"
-              hidden={isClientWizard ? userWizardStep !== 2 : false}
+              hidden={isClientWizard}
             >
               <div className="flex items-start gap-3">
                 <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--accent-strong)_12%,transparent)] text-[var(--accent-strong)]">
@@ -1461,22 +1012,9 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
                             checked={checked}
                             onChange={(event) => {
                               setSelectedModuleIds((current) => {
-                                const next = event.target.checked
+                                return event.target.checked
                                   ? [...current, module.id]
                                   : current.filter((moduleId) => moduleId !== module.id);
-
-                                setModuleLimitState((limitsCurrent) => {
-                                  const nextLimits = { ...limitsCurrent };
-                                  if (!event.target.checked) delete nextLimits[module.id];
-                                  else if (
-                                    getAdminModuleAccessPresentation(module.product, module.submodules.length, true, 0).limitKind &&
-                                    !nextLimits[module.id]
-                                  ) {
-                                    nextLimits[module.id] = { pages: "", chatbots: "" };
-                                  }
-                                  return nextLimits;
-                                });
-                                return next;
                               });
                             }}
                           />
@@ -1506,25 +1044,17 @@ export function AdminMasterUsersWorkspace({ users, modules }: Props) {
               </button>
 
               {isClientWizard ? (
-                userWizardStep < 3 ? (
+                userWizardStep < 2 ? (
                   <button
                     type="button"
-                    onClick={() => setUserWizardStep((current) => Math.min(3, current + 1))}
-                    disabled={userWizardStep === 2 && !clientWizardCanAdvance}
+                    onClick={() => setUserWizardStep((current) => Math.min(2, current + 1))}
+                    disabled={!clientWizardCanAdvance}
                     className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition hover:opacity-90 disabled:opacity-40"
                   >
                     Siguiente
                     <ChevronRight className="h-4 w-4" />
                   </button>
-                ) : (
-                  <button
-                    type="submit"
-                    onClick={() => setAutoGeneratePassword(false)}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition hover:opacity-90"
-                  >
-                    {editingUser.id ? "Guardar cambios" : "Crear usuario"}
-                  </button>
-                )
+                ) : <span className="text-xs text-[var(--muted)]">Revisá los productos y guardá los accesos.</span>
               ) : (
                 <button
                   type="submit"

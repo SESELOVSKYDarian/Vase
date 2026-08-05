@@ -388,14 +388,14 @@ export const LABS_PLAN_LIMITS = {
     includedChannels: ["WHATSAPP"],
     channelLimits: { WHATSAPP: 1, INSTAGRAM: 0, FACEBOOK: 0 },
   },
-  GROWTH: {
-    plan: "GROWTH",
+  PRO: {
+    plan: "PRO",
     monthlyTokenLimit: 250000,
     includedChannels: ["WHATSAPP", "INSTAGRAM"],
     channelLimits: { WHATSAPP: 1, INSTAGRAM: 1, FACEBOOK: 0 },
   },
-  PRO: {
-    plan: "PRO",
+  GROWTH: {
+    plan: "GROWTH",
     monthlyTokenLimit: 1000000,
     includedChannels: ["WHATSAPP", "INSTAGRAM", "FACEBOOK"],
     channelLimits: { WHATSAPP: 1, INSTAGRAM: 1, FACEBOOK: 1 },

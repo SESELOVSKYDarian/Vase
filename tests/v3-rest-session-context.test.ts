@@ -23,6 +23,8 @@ describe("Vase Rest owner session context", () => {
           tenantSlug: "casa-norte",
           tenantName: "Casa Norte",
           tenantStatus: "ACTIVE",
+          tenantModuleEntitled: true,
+          userModuleAccessActive: true,
           contract: {
             status: "ACTIVE",
             plan: "PRO",
@@ -64,6 +66,8 @@ describe("Vase Rest owner session context", () => {
           tenantSlug: "casa-norte",
           tenantName: "Casa Norte",
           tenantStatus: "ACTIVE",
+          tenantModuleEntitled: true,
+          userModuleAccessActive: true,
           contract: {
             status: "SUSPENDED",
             plan: "STARTER",

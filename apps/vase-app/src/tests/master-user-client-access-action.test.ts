@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   ensureModuleCatalogSynced: vi.fn(),
   adaptLegacy: vi.fn(),
   applyAccess: vi.fn(),
+  lockOwner: vi.fn(),
   persistAuditLog: vi.fn(),
   emitAuditLogEvent: vi.fn(),
   revalidatePath: vi.fn(),
@@ -39,12 +40,15 @@ vi.mock("@/server/services/modules", () => ({
 vi.mock("@/server/services/client-product-access", () => ({
   adaptLegacyClientProductAccessWithTx: mocks.adaptLegacy,
   applyClientProductAccess: mocks.applyAccess,
+  lockClientOwnerWithTx: mocks.lockOwner,
 }));
 
 import { upsertMasterUserWithStateAction } from "@/app/(platform)/app/admin/actions";
+import { serializeClientProductAccessForUser } from "@/components/admin/client-product-access-editor";
+import type { ClientProductAccess } from "@/lib/admin/client-product-access";
 
 const userId = "ckabcdefghijklmnopqrstuv";
-const convertedAccess = {
+const convertedAccess: ClientProductAccess = {
   business: { submodules: [
     { id: "business-template", key: "plantilla", status: "ACTIVE", features: [{ featureId: "pages", enabled: true, value: 4 }] },
     { id: "business-custom", key: "personalizado", status: "TRIAL", features: [] },
@@ -52,7 +56,7 @@ const convertedAccess = {
   labs: { submoduleId: "labs-growth", plan: "GROWTH", status: "TRIAL" },
   rest: null,
   management: { status: "ACTIVE" },
-} as const;
+};
 
 function currentLegacyForm() {
   const form = new FormData();
@@ -80,12 +84,24 @@ function currentLegacyForm() {
 }
 
 describe("upsertMasterUserWithStateAction legacy client compatibility", () => {
-  const state = { clientAccessConfig: "initial" as unknown };
+  const state = {
+    clientAccessConfig: "initial" as unknown,
+    targetMembershipRole: "OWNER" as "OWNER" | "MANAGER" | "MEMBER",
+  };
   const tx = {
     role: { upsert: vi.fn().mockResolvedValue({ id: "role-client" }) },
     user: {
       findUnique: vi.fn().mockImplementation(async ({ where }: { where: { id?: string; email?: string } }) => where.id
-        ? { id: userId, clientAccessConfig: { version: 2, productAccess: convertedAccess } }
+        ? {
+            id: userId,
+            clientAccessConfig: { version: 2, productAccess: convertedAccess },
+            primaryOwnedTenant: state.targetMembershipRole === "OWNER" ? { id: "tenant-1" } : null,
+            memberships: [{
+              role: state.targetMembershipRole,
+              status: "ACTIVE",
+              tenant: { id: "tenant-1", primaryOwnerUserId: state.targetMembershipRole === "OWNER" ? userId : "other-owner" },
+            }],
+          }
         : { id: userId }),
       update: mocks.updateUser,
     },
@@ -97,13 +113,14 @@ describe("upsertMasterUserWithStateAction legacy client compatibility", () => {
 
   beforeEach(() => {
     state.clientAccessConfig = "initial";
+    state.targetMembershipRole = "OWNER";
     vi.clearAllMocks();
     mocks.requireAdminPermission.mockResolvedValue({ user: { id: "admin-1" } });
     mocks.getRequestContext.mockResolvedValue({ ipAddress: null, userAgent: null });
     mocks.adaptLegacy.mockResolvedValue(convertedAccess);
     mocks.applyAccess.mockResolvedValue({ tenantId: "tenant-1", activeModuleIds: ["vase_business", "vase_labs", "vase_management"] });
-    mocks.updateUser.mockImplementation(async ({ data }: { data: { clientAccessConfig: unknown } }) => {
-      state.clientAccessConfig = data.clientAccessConfig;
+    mocks.updateUser.mockImplementation(async ({ data }: { data: { clientAccessConfig?: unknown } }) => {
+      if ("clientAccessConfig" in data) state.clientAccessConfig = data.clientAccessConfig;
       return { id: userId, name: "Legacy Owner", email: "legacy@example.com" };
     });
     mocks.transaction.mockImplementation(async (callback) => {
@@ -134,6 +151,8 @@ describe("upsertMasterUserWithStateAction legacy client compatibility", () => {
       businessFeatureMode: "PRESERVE",
     }));
     expect(mocks.persistAuditLog).toHaveBeenCalledTimes(1);
+    expect(mocks.lockOwner).toHaveBeenCalledWith(tx, userId);
+    expect(mocks.lockOwner.mock.invocationCallOrder[0]).toBeLessThan(tx.role.upsert.mock.invocationCallOrder[0]);
   });
 
   it("rolls back the user config and does not audit when product provisioning fails", async () => {
@@ -176,6 +195,45 @@ describe("upsertMasterUserWithStateAction legacy client compatibility", () => {
         }),
       }),
     }));
+  });
+
+  it.each(["MEMBER", "MANAGER"] as const)(
+    "rejects a commercial Owner payload for an existing team %s without mutating the user",
+    async (role) => {
+      state.targetMembershipRole = role;
+      const form = currentLegacyForm();
+      form.set("clientAccessConfig", JSON.stringify({ version: 2, productAccess: convertedAccess }));
+
+      await expect(upsertMasterUserWithStateAction({}, form)).resolves.toEqual({
+        error: "Los accesos comerciales se gestionan desde el Owner de la cuenta.",
+      });
+      expect(mocks.updateUser).not.toHaveBeenCalled();
+      expect(mocks.applyAccess).not.toHaveBeenCalled();
+      expect(state.targetMembershipRole).toBe(role);
+    },
+  );
+
+  it("updates team identity with no commercial payload and preserves membership and module access", async () => {
+    state.targetMembershipRole = "MEMBER";
+    const form = currentLegacyForm();
+    form.set("clientAccessConfig", serializeClientProductAccessForUser(userId, "TEAM", convertedAccess));
+
+    await expect(upsertMasterUserWithStateAction({}, form)).resolves.toEqual({ success: "Usuario actualizado." });
+    expect(mocks.applyAccess).not.toHaveBeenCalled();
+    expect(tx.userModuleAccess.deleteMany).not.toHaveBeenCalled();
+    expect(state.clientAccessConfig).toBe("initial");
+    expect(state.targetMembershipRole).toBe("MEMBER");
+  });
+
+  it("updates suspended Owner identity without resubmitting or mutating commercial access", async () => {
+    state.targetMembershipRole = "OWNER";
+    const form = currentLegacyForm();
+    form.set("clientAccessConfig", "");
+
+    await expect(upsertMasterUserWithStateAction({}, form)).resolves.toEqual({ success: "Usuario actualizado." });
+    expect(mocks.applyAccess).not.toHaveBeenCalled();
+    expect(tx.userModuleAccess.deleteMany).not.toHaveBeenCalled();
+    expect(state.clientAccessConfig).toBe("initial");
   });
 
   it.each(["tenantSlug", "tenantStatus", "unknownRoot"])(
