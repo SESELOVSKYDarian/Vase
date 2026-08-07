@@ -33,13 +33,15 @@ const capabilities = [
 ] as const;
 
 export default async function RestHomePage() {
+  let authenticated = false;
   try {
     const requestHeaders = await headers();
     await resolveRestOwnerRequest({ cookieHeader: requestHeaders.get("cookie") });
-    redirect("/owner");
+    authenticated = true;
   } catch (error) {
     if (!(error instanceof Error) || !error.message.includes("SESSION")) throw error;
   }
+  if (authenticated) redirect("/owner");
 
   return (
     <main className="rest-shell">
