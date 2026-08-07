@@ -59,18 +59,27 @@ export default async function OwnerDashboard({
 }
 
 async function loadOwnerDashboard(query: { tenant?: string; branch?: string }) {
+  let context: Awaited<ReturnType<typeof resolveRestOwnerRequest>>;
+  let branches: Awaited<ReturnType<typeof db.branch.findMany>>;
   try {
     const requestHeaders = await headers();
-    const context = await resolveRestOwnerRequest({
+    context = await resolveRestOwnerRequest({
       cookieHeader: requestHeaders.get("cookie"),
       requestedTenantSlug: query.tenant,
     });
-    const branches = await db.branch.findMany({
+    branches = await db.branch.findMany({
       where: { globalTenantId: context.globalTenantId, active: true },
       orderBy: { name: "asc" },
     });
-    if (branches.length === 0) redirect(`/onboarding?tenant=${context.tenantSlug}`);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("SESSION")) {
+      redirect("https://app.vase.ar/signin?redirectTo=https%3A%2F%2Frest.vase.ar%2Fowner");
+    }
+    throw error;
+  }
+  if (branches.length === 0) redirect(`/onboarding?tenant=${context.tenantSlug}`);
 
+  try {
     const [{ now: databaseNow, fiscalCutoff }] = await db.$queryRaw<
       Array<{ now: Date; fiscalCutoff: Date }>
     >`
@@ -121,9 +130,6 @@ async function loadOwnerDashboard(query: { tenant?: string; branch?: string }) {
       now,
     };
   } catch (error) {
-    if (error instanceof Error && error.message.includes("SESSION")) {
-      redirect("https://app.vase.ar/signin?redirectTo=https%3A%2F%2Frest.vase.ar%2Fowner");
-    }
     throw error;
   }
 }
