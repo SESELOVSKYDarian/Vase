@@ -1,43 +1,66 @@
-// middleware.ts
-// Protección de rutas — corre en Edge Runtime.
-// IMPORTANTE: usa NextAuth inicializado con lib/auth.config.ts (edge-safe),
-// NUNCA con lib/auth.ts (que importa bcryptjs + Prisma Client, incompatibles
-// con Edge Runtime). Ver lib/auth.config.ts para el detalle de por qué.
+import {
+  localAuthCookieName,
+  managementTenantCookieName,
+  normalizeManagementTenantSlug,
+  sharedAuthCookieName,
+} from "@vase/auth";
+import { NextRequest, NextResponse } from "next/server";
 
-import NextAuth from 'next-auth'
-import { NextResponse } from 'next/server'
-import { authConfig } from '@/lib/auth.config'
+const tenantCookieMaxAge = 60 * 60 * 24 * 365;
+const sessionCookieNames = [sharedAuthCookieName, localAuthCookieName];
+const numericChunkPattern = /^\d+$/;
+const VASE_APP_PUBLIC_URL = process.env.VASE_APP_PUBLIC_URL || "https://app.vase.ar";
 
-const { auth } = NextAuth(authConfig)
+function isSessionCookieName(name: string) {
+  return sessionCookieNames.some((baseName) => {
+    if (name === baseName) return true;
 
-export default auth((req) => {
-  const { pathname } = req.nextUrl
-  const isAuthenticated = !!req.auth
+    const suffix = name.slice(baseName.length + 1);
+    return name.startsWith(`${baseName}.`) && numericChunkPattern.test(suffix);
+  });
+}
 
-  const publicPaths = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/sso']
-  const isPublicPath = publicPaths.some((path) => pathname.startsWith(path))
+function setTenantCookie(response: NextResponse, tenantSlug: string) {
+  response.cookies.set(managementTenantCookieName, tenantSlug, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: tenantCookieMaxAge,
+  });
+}
 
-  if (!isAuthenticated && !isPublicPath && pathname !== '/') {
-    const loginUrl = new URL('/auth/login', req.url)
-    loginUrl.searchParams.set('callbackUrl', pathname)
-    return NextResponse.redirect(loginUrl)
+export default function middleware(request: NextRequest) {
+  const cookies = request.cookies.getAll();
+  const hasSessionCookie = cookies.some(({ name }) => isSessionCookieName(name));
+  const queryTenantSlug = normalizeManagementTenantSlug(
+    request.nextUrl.searchParams.get("tenant"),
+  );
+  const cookieTenantSlug = normalizeManagementTenantSlug(
+    request.cookies.get(managementTenantCookieName)?.value,
+  );
+  const tenantSlug = queryTenantSlug ?? cookieTenantSlug;
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete("x-vase-tenant-slug");
+  if (tenantSlug) requestHeaders.set("x-vase-tenant-slug", tenantSlug);
+
+  let response: NextResponse;
+  if (!hasSessionCookie) {
+    const signInUrl = new URL(
+      "/signin",
+      VASE_APP_PUBLIC_URL,
+    );
+    signInUrl.searchParams.set("redirectTo", request.nextUrl.toString());
+    response = NextResponse.redirect(signInUrl);
+  } else {
+    response = NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  if (isAuthenticated && isPublicPath) {
-    return NextResponse.redirect(new URL('/dashboard', req.url))
-  }
-
-  if (pathname === '/') {
-    return NextResponse.redirect(
-      new URL(isAuthenticated ? '/dashboard' : '/auth/login', req.url)
-    )
-  }
-
-  return NextResponse.next()
-})
+  if (queryTenantSlug) setTenantCookie(response, queryTenantSlug);
+  return response;
+}
 
 export const config = {
-  matcher: [
-    '/((?!api/auth|_next/static|_next/image|favicon.ico|images|icons).*)',
-  ],
-}
+  matcher: ["/dashboard/:path*"],
+};

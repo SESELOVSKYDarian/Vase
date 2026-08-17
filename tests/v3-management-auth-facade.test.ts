@@ -96,6 +96,15 @@ describe("createManagementAuthFacade", () => {
     expect(resolveContext).toHaveBeenLastCalledWith(null, undefined);
   });
 
+  it("uses a safe normalized tenant cookie when the middleware header is absent", () => {
+    const source = readFileSync(authPath, "utf8");
+
+    expect(source).toContain("managementTenantCookieName");
+    expect(source).toContain("getCookieValue");
+    expect(source).toContain("normalizeManagementTenantSlug");
+    expect(source).toContain("resolveManagementTenantSelector");
+  });
+
   it.each([
     "MANAGEMENT_SESSION_REQUIRED",
     "MANAGEMENT_SESSION_INVALID",
@@ -144,6 +153,36 @@ describe("createManagementAuthFacade", () => {
   });
 });
 
+describe("Management auth tenant selector fallback", () => {
+  it("prefers a normalized trusted middleware header over the selector cookie", async () => {
+    const { resolveManagementTenantSelector } = await loadManagementAuthFacade();
+
+    expect(resolveManagementTenantSelector(
+      " Norte-Equipos ",
+      "vase-management-tenant=sur-equipos",
+    )).toBe("norte-equipos");
+  });
+
+  it("falls back to a normalized selector cookie", async () => {
+    const { resolveManagementTenantSelector } = await loadManagementAuthFacade();
+
+    expect(resolveManagementTenantSelector(
+      null,
+      "theme=dark; vase-management-tenant=Sur-Equipos",
+    )).toBe("sur-equipos");
+  });
+
+  it.each([
+    "vase-management-tenant=..%2Fnorte",
+    "vase-management-tenant=%E0%A4%A",
+    `vase-management-tenant=${"a".repeat(121)}`,
+  ])("ignores malformed or invalid selector cookie %s", async (cookieHeader) => {
+    const { resolveManagementTenantSelector } = await loadManagementAuthFacade();
+
+    expect(resolveManagementTenantSelector(null, cookieHeader)).toBeUndefined();
+  });
+});
+
 describe("Management dashboard central sign-in redirect", () => {
   it("redirects denied sessions locally before considering sign-in", () => {
     const source = readFileSync(dashboardLayoutPath, "utf8");
@@ -176,9 +215,11 @@ describe("Management dashboard central sign-in redirect", () => {
     const source = readFileSync(accessDeniedPagePath, "utf8");
 
     expect(source).toContain("No tenés acceso a Vase Management");
-    expect(source).toContain("https://app.vase.ar/app");
-    expect(source).toContain("https://app.vase.ar/api/auth/signout");
-    expect(source).toContain("https://app.vase.ar/signin");
+    expect(source).toContain('new URL("/app", appUrl)');
+    expect(source).toContain("NEXT_PUBLIC_VASE_APP_URL");
+    expect(source).toContain("/api/auth/central-logout");
+    expect(source).not.toContain("/api/auth/signout");
+    expect(source).toContain('new URL("/signin"');
     expect(source).not.toMatch(/signIn\s*\(/);
     expect(source).not.toContain("credentials");
   });

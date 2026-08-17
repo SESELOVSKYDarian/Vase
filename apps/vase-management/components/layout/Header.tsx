@@ -3,7 +3,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { cn } from '@/utils'
 import type { SessionUser } from '@/types'
@@ -25,8 +24,9 @@ export function Header({ user }: HeaderProps) {
   const [search, setSearch] = useState('')
   const [showUserMenu, setShowUserMenu] = useState(false)
 
-  async function handleSignOut() {
-    await signOut({ callbackUrl: '/auth/login' })
+  function handleSignOut() {
+    const appUrl = process.env.NEXT_PUBLIC_VASE_APP_URL ?? 'https://app.vase.ar'
+    window.location.assign(new URL('/api/auth/central-logout', appUrl).toString())
   }
 
   return (

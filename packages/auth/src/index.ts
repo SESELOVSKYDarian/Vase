@@ -8,6 +8,23 @@ export type SharedSessionClaim = {
 export const sharedAuthCookieDomain = ".vase.ar";
 export const sharedAuthCookieName = "__Secure-authjs.session-token";
 export const localAuthCookieName = "authjs.session-token";
+export const managementTenantCookieName = "vase-management-tenant";
+
+export function normalizeManagementTenantSlug(
+  value: string | null | undefined,
+): string | undefined {
+  const normalized = value?.trim().toLowerCase();
+
+  if (
+    !normalized
+    || normalized.length > 120
+    || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized)
+  ) {
+    return undefined;
+  }
+
+  return normalized;
+}
 
 export function getCookieValue(cookieHeader: string | null, name: string): string | null {
   if (!cookieHeader) {

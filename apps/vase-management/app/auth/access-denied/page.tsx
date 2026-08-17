@@ -1,4 +1,9 @@
 export default function ManagementAccessDeniedPage() {
+  const appUrl = process.env.NEXT_PUBLIC_VASE_APP_URL ?? "https://app.vase.ar";
+  const appHomeUrl = new URL("/app", appUrl).toString();
+  const logoutUrl = new URL("/api/auth/central-logout", appUrl).toString();
+  const signInUrl = new URL("/signin", appUrl).toString();
+
   return (
     <div className="space-y-6 text-center">
       <div className="space-y-2">
@@ -11,16 +16,16 @@ export default function ManagementAccessDeniedPage() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <a className="ui-button ui-button-primary justify-center" href="https://app.vase.ar/app">
+        <a className="ui-button ui-button-primary justify-center" href={appHomeUrl}>
           Volver a Vase
         </a>
         <a
           className="ui-button justify-center"
-          href="https://app.vase.ar/api/auth/signout?callbackUrl=https%3A%2F%2Fapp.vase.ar%2Fsignin"
+          href={logoutUrl}
         >
           Cerrar sesión central
         </a>
-        <a className="text-sm font-semibold text-primary" href="https://app.vase.ar/signin">
+        <a className="text-sm font-semibold text-primary" href={signInUrl}>
           Iniciar sesión con otra cuenta
         </a>
       </div>

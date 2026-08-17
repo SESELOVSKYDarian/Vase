@@ -1,5 +1,10 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { headers } from "next/headers";
+import {
+  getCookieValue,
+  managementTenantCookieName,
+  normalizeManagementTenantSlug,
+} from "@vase/auth";
 import { managementRequestContext } from "./central-session/request-context";
 
 type ManagementRequestContext = Awaited<
@@ -31,7 +36,7 @@ export function createManagementAuthFacade(input: {
     cookieHeader: string | null,
     requestedTenantSlug?: string,
   ): Promise<ManagementAuthResult> {
-    const tenantSlug = requestedTenantSlug?.trim() || undefined;
+    const tenantSlug = normalizeManagementTenantSlug(requestedTenantSlug);
 
     try {
       const context = await input.resolveContext(cookieHeader, tenantSlug);
@@ -60,6 +65,22 @@ export function createManagementAuthFacade(input: {
   };
 }
 
+export function resolveManagementTenantSelector(
+  trustedHeader: string | null,
+  cookieHeader: string | null,
+): string | undefined {
+  const headerTenant = normalizeManagementTenantSlug(trustedHeader);
+  if (headerTenant) return headerTenant;
+
+  try {
+    return normalizeManagementTenantSlug(
+      getCookieValue(cookieHeader, managementTenantCookieName),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 const resolveManagementAuth = createManagementAuthFacade({
   resolveContext: (cookieHeader, requestedTenantSlug) =>
     managementRequestContext.resolve(cookieHeader, requestedTenantSlug),
@@ -68,9 +89,13 @@ const resolveManagementAuth = createManagementAuthFacade({
 export async function auth() {
   noStore();
   const requestHeaders = headers();
+  const cookieHeader = requestHeaders.get("cookie");
 
   return resolveManagementAuth(
-    requestHeaders.get("cookie"),
-    requestHeaders.get("x-vase-tenant-slug") ?? undefined,
+    cookieHeader,
+    resolveManagementTenantSelector(
+      requestHeaders.get("x-vase-tenant-slug"),
+      cookieHeader,
+    ),
   );
 }
