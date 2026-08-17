@@ -34,7 +34,7 @@ export default function DepositoIAPanel() {
       <div className="page-header">
         <div>
           <h1 className="page-title">IA de Depósito</h1>
-          <p className="page-subtitle">Prueba los comandos naturales (ej. "donde esta PC06")</p>
+          <p className="page-subtitle">Prueba los comandos naturales (ej. &quot;donde esta PC06&quot;)</p>
         </div>
       </div>
 
