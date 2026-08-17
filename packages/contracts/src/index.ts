@@ -196,6 +196,22 @@ export const labsSessionContextSchema = z.object({
   }),
 });
 
+export const managementSessionContextSchema = z.object({
+  globalUserId: z.string().min(1),
+  email: z.email(),
+  name: z.string().min(1),
+  platformRole: z.enum(["SUPER_ADMIN", "SUPPORT", "DEVELOPER", "USER"]),
+  globalTenantId: z.string().min(1),
+  tenantSlug: z.string().min(1),
+  tenantName: z.string().min(1),
+  tenantRole: z.enum(["OWNER", "MANAGER", "MEMBER"]),
+  managementRole: z.enum(["ADMINISTRATOR", "MEMBER"]),
+  entitlement: z.object({
+    status: z.enum(["ACTIVE", "TRIAL"]),
+  }).strict(),
+  resolvedAt: z.iso.datetime(),
+}).strict();
+
 export const channelConnectionSummarySchema = z.object({
   id: z.string().min(1),
   type: labsChannelSchema,
@@ -544,6 +560,7 @@ export type MetaAssetCandidate = z.infer<typeof metaAssetCandidateSchema>;
 export type MetaConnectionAttempt = z.infer<typeof metaConnectionAttemptSchema>;
 export type RedactedChannelSummary = z.infer<typeof redactedChannelSummarySchema>;
 export type LabsSessionContext = z.infer<typeof labsSessionContextSchema>;
+export type ManagementSessionContext = z.infer<typeof managementSessionContextSchema>;
 export type ChannelConnectionSummary = z.infer<typeof channelConnectionSummarySchema>;
 export type InboxConversation = z.infer<typeof inboxConversationSchema>;
 export type InboxMessage = z.infer<typeof inboxMessageSchema>;
