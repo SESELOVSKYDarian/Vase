@@ -42,4 +42,4 @@ RUN npm run build
 
 EXPOSE 3006
 
-CMD ["sh", "-c", "npx next start -H 0.0.0.0 -p ${PORT:-3006}"]
+CMD ["sh", "-c", "npx prisma db execute --schema prisma/schema.prisma --file prisma/runtime-compatibility.sql && npx next start -H 0.0.0.0 -p ${PORT:-3006}"]
