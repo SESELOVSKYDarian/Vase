@@ -248,6 +248,7 @@ model Company {
   warehouseDevices          WarehouseDevice[]
   warehouseLedCommands      WarehouseLedCommand[]
   warehouseConversationLogs WarehouseConversationLog[]
+  warehouseChannels         WarehouseChannel[]
 
   @@map("companies")
 }
@@ -1953,5 +1954,48 @@ model WarehouseConversationLog {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("warehouse_conversation_logs")
+}
+
+enum WarehouseWebhookEventStatus {
+  PROCESSING
+  DONE
+  FAILED
+}
+
+model WarehouseChannel {
+  id                String                       @id @default(cuid())
+  companyId         String
+  type              WarehouseConversationChannel
+  providerAccountId String?                      // Phone number ID for WhatsApp, Bot ID for Telegram
+  accessToken       String?                      @db.Text
+  verifyToken       String?                      @db.Text
+  secretToken       String?                      @db.Text
+  webhookUrl        String?                      @db.Text
+  active            Boolean                      @default(true)
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  events  WarehouseWebhookEvent[]
+
+  @@unique([companyId, type])
+  @@map("warehouse_channels")
+}
+
+model WarehouseWebhookEvent {
+  id                String                      @id @default(cuid())
+  channelId         String
+  providerMessageId String?
+  status            WarehouseWebhookEventStatus @default(PROCESSING)
+  payload           Json?
+  error             String?                     @db.Text
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+
+  channel WarehouseChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, providerMessageId])
+  @@index([channelId, status])
+  @@map("warehouse_webhook_events")
 }
 
