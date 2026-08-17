@@ -265,6 +265,32 @@ describe("Management Vase App context client", () => {
     expect(clearTimeoutSpy).toHaveBeenCalledOnce();
   });
 
+  it("keeps the timeout active while consuming the response body", async () => {
+    vi.useFakeTimers();
+    const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+    const fetcher = vi.fn(async (_url, init) => ({
+      ok: true,
+      json: () => new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      }),
+    }));
+    const client = createManagementAppContextClient({
+      appInternalUrl: "https://app.internal",
+      serviceToken: "service-token",
+      fetcher: fetcher as typeof fetch,
+      timeoutMs: 25,
+    });
+
+    const rejection = expect(client.resolve("user_123")).rejects.toThrow(
+      "MANAGEMENT_CONTEXT_UNAVAILABLE",
+    );
+    await vi.advanceTimersByTimeAsync(25);
+    await rejection;
+    expect(clearTimeoutSpy).toHaveBeenCalledOnce();
+  });
+
   it("preserves a string central error from a non-success response", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: "MANAGEMENT_NOT_ENTITLED" }), {
@@ -312,6 +338,22 @@ describe("Management Vase App context client", () => {
 
     await expect(client.resolve("user_123")).rejects.toThrow();
   });
+
+  it("does not leak parser errors from syntactically invalid successful JSON", async () => {
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockRejectedValue(new SyntaxError("Unexpected token")),
+    });
+    const client = createManagementAppContextClient({
+      appInternalUrl: "https://app.internal",
+      serviceToken: "service-token",
+      fetcher,
+    });
+
+    await expect(client.resolve("user_123")).rejects.toMatchObject({
+      name: "ZodError",
+    });
+  });
 });
 
 describe("Management identity projection", () => {
@@ -328,7 +370,7 @@ describe("Management identity projection", () => {
     });
     expect(harness.tx.user.upsert).toHaveBeenCalledWith(expect.objectContaining({
       where: { email: centralContext.email },
-      update: {},
+      update: { email: centralContext.email },
     }));
     expect(harness.tx.user.updateMany).toHaveBeenCalledWith({
       where: {

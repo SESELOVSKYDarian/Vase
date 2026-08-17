@@ -50,21 +50,33 @@ export function createManagementAppContextClient(input: {
         input.timeoutMs ?? 5_000,
       );
       let response: Response;
+      let payload: unknown;
       try {
-        response = await (input.fetcher ?? fetch)(url.toString(), {
-          headers: {
-            authorization: `Bearer ${serviceToken}`,
-            accept: "application/json",
-          },
-          cache: "no-store",
-          signal: controller.signal,
-        });
-      } catch {
-        throw new Error("MANAGEMENT_CONTEXT_UNAVAILABLE");
+        try {
+          response = await (input.fetcher ?? fetch)(url.toString(), {
+            headers: {
+              authorization: `Bearer ${serviceToken}`,
+              accept: "application/json",
+            },
+            cache: "no-store",
+            signal: controller.signal,
+          });
+        } catch {
+          throw new Error("MANAGEMENT_CONTEXT_UNAVAILABLE");
+        }
+
+        try {
+          payload = await response.json();
+        } catch (error) {
+          if (!controller.signal.aborted && error instanceof SyntaxError) {
+            payload = {};
+          } else {
+            throw new Error("MANAGEMENT_CONTEXT_UNAVAILABLE");
+          }
+        }
       } finally {
         clearTimeout(timeout);
       }
-      const payload: unknown = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         if (

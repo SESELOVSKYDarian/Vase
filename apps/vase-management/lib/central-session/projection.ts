@@ -56,7 +56,7 @@ export function createCentralManagementIdentityProjector(
         try {
           identityUser = await tx.user.upsert({
             where: { email },
-            update: {},
+            update: { email },
             create: {
               ...profile,
               emailVerified: new Date(),
