@@ -158,11 +158,11 @@ export default auth((request: NextRequest) => {
   });
 
   if (authPageRedirectPath) {
-    return NextResponse.redirect(new URL(authPageRedirectPath, request.url));
+    return NextResponse.redirect(new URL(authPageRedirectPath, getCanonicalOrigin()));
   }
 
   if (protectedAppRedirectPath) {
-    return NextResponse.redirect(new URL(protectedAppRedirectPath, request.url));
+    return NextResponse.redirect(new URL(protectedAppRedirectPath, getCanonicalOrigin()));
   }
 
   const response = NextResponse.next();

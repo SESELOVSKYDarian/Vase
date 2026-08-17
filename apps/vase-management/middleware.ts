@@ -10,6 +10,15 @@ const tenantCookieMaxAge = 60 * 60 * 24 * 365;
 const sessionCookieNames = [sharedAuthCookieName, localAuthCookieName];
 const numericChunkPattern = /^\d+$/;
 const VASE_APP_PUBLIC_URL = process.env.VASE_APP_PUBLIC_URL || "https://app.vase.ar";
+const MANAGEMENT_PUBLIC_URL = process.env.NEXT_PUBLIC_APP_URL || "https://management.vase.ar";
+
+function getPublicRequestUrl(request: NextRequest) {
+  try {
+    return new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, MANAGEMENT_PUBLIC_URL);
+  } catch {
+    return new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, "https://management.vase.ar");
+  }
+}
 
 function isSessionCookieName(name: string) {
   return sessionCookieNames.some((baseName) => {
@@ -51,7 +60,7 @@ export default function middleware(request: NextRequest) {
       "/signin",
       VASE_APP_PUBLIC_URL,
     );
-    signInUrl.searchParams.set("redirectTo", request.nextUrl.toString());
+    signInUrl.searchParams.set("redirectTo", getPublicRequestUrl(request).toString());
     response = NextResponse.redirect(signInUrl);
   } else {
     response = NextResponse.next({ request: { headers: requestHeaders } });
