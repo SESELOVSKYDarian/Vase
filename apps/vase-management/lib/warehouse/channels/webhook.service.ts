@@ -21,6 +21,15 @@ export class WarehouseWebhookService {
   }
 
   /**
+   * Resolves WarehouseChannel config by its providerAccountId (e.g. Phone Number ID).
+   */
+  static async resolveChannelByProviderAccountId(providerAccountId: string, channelType: WarehouseConversationChannel) {
+    return prisma.warehouseChannel.findFirst({
+      where: { providerAccountId, type: channelType, active: true },
+    })
+  }
+
+  /**
    * Persists an inbound webhook event for idempotency and audit.
    * Returns null if the event was already processed (duplicate providerMessageId).
    */

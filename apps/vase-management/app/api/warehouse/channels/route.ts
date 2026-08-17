@@ -43,7 +43,9 @@ export async function POST(req: NextRequest) {
 
     // Determine the webhook URL based on the app's base URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || ''
-    const webhookUrl = `${baseUrl}/api/warehouse/channels/${type.toLowerCase()}/${companyId}/webhook`
+    const webhookUrl = type === 'WHATSAPP'
+      ? `${baseUrl}/api/warehouse/channels/whatsapp/webhook`
+      : `${baseUrl}/api/warehouse/channels/telegram/webhook?companyId=${companyId}`
 
     const channel = await prisma.warehouseChannel.upsert({
       where: { companyId_type: { companyId, type } },

@@ -119,11 +119,27 @@ export class WhatsAppAdapter {
    * processes each through the AI pipeline, sends replies, and persists events.
    */
   static async handleWebhookPost(
-    companyId: string,
     rawBody: string,
     signatureHeader: string | null
   ): Promise<WebhookResult> {
-    const channel = await WarehouseWebhookService.resolveChannel(companyId, 'WHATSAPP')
+    const payload: WhatsAppWebhookPayload & {
+      entry?: Array<{
+        changes?: Array<{
+          value?: {
+            metadata?: {
+              phone_number_id?: string
+            }
+          }
+        }>
+      }>
+    } = JSON.parse(rawBody)
+
+    const phoneNumberId = payload.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id
+    if (!phoneNumberId) {
+      return { status: 200, body: { ok: true, ignored: true } }
+    }
+
+    const channel = await WarehouseWebhookService.resolveChannelByProviderAccountId(phoneNumberId, 'WHATSAPP')
     if (!channel || !channel.active) {
       return { status: 200, body: { ok: true, ignored: true } }
     }
@@ -136,7 +152,6 @@ export class WhatsAppAdapter {
       }
     }
 
-    const payload: WhatsAppWebhookPayload = JSON.parse(rawBody)
     const messages = this.extractMessages(payload)
 
     for (const message of messages) {
@@ -150,7 +165,7 @@ export class WhatsAppAdapter {
 
       try {
         const response = await WarehouseWebhookService.processTextMessage(
-          companyId,
+          channel.companyId,
           textMsg.text.body,
           'WHATSAPP',
           `whatsapp:${message.from}`

@@ -3,12 +3,13 @@ import { TelegramAdapter } from '@/lib/warehouse/channels/telegram.adapter'
 
 export const dynamic = 'force-dynamic'
 
-// POST: Inbound Telegram updates
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ companyId: string }> }
-) {
-  const { companyId } = await params
+// POST: Centralized inbound Telegram updates (companyId is passed as query param)
+export async function POST(request: NextRequest) {
+  const companyId = request.nextUrl.searchParams.get('companyId')
+  if (!companyId) {
+    return NextResponse.json({ error: 'Missing companyId parameter' }, { status: 400 })
+  }
+
   const rawBody = await request.text()
   const secretTokenHeader = request.headers.get('x-telegram-bot-api-secret-token')
 

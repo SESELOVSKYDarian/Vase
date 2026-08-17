@@ -18,6 +18,7 @@ export const authConfig: NextAuthConfig = {
     signIn: '/auth/login',
     error: '/auth/login',
   },
+  trustHost: true,
   session: { strategy: 'jwt' },
   providers: [], // Los providers reales (Credentials) solo se registran en lib/auth.ts
   callbacks: {
