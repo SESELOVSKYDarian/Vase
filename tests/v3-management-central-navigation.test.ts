@@ -232,6 +232,8 @@ describe("Management central login and logout navigation", () => {
     expect(entry).toContain("https://management.vase.ar");
     expect(entry).toContain('new URL("/dashboard"');
     expect(entry).toContain('searchParams.set("tenant"');
+    expect(entry).toContain('import type { Route } from "next"');
+    expect(entry).toContain("redirect(destination.toString() as Route)");
     expect(entry).not.toContain("/api/management/sso/start");
     expect(rollback.length).toBeGreaterThan(0);
   });

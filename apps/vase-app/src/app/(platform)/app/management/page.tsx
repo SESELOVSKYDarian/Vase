@@ -1,5 +1,6 @@
 import { normalizeManagementTenantSlug } from "@vase/auth";
 import { normalizeVaseRedirectTarget } from "@/lib/auth/redirect-target";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 type ManagementEntryPageProps = {
@@ -28,5 +29,5 @@ export default async function ManagementEntryPage({ searchParams }: ManagementEn
   const destination = new URL("/dashboard", managementOrigin());
   if (tenantSlug) destination.searchParams.set("tenant", tenantSlug);
 
-  redirect(destination.toString());
+  redirect(destination.toString() as Route);
 }
