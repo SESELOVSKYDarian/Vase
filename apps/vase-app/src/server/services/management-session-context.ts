@@ -25,6 +25,26 @@ export interface ManagementSessionContextRepository {
   ): Promise<ManagementAccessRecord | null>;
 }
 
+export function mapManagementSessionContextError(error: unknown): {
+  error: string;
+  status: number;
+  logUnexpected: boolean;
+} {
+  const message = error instanceof Error ? error.message : null;
+
+  if (message === "FORBIDDEN" || message === "MANAGEMENT_NOT_ENTITLED") {
+    return { error: message, status: 403, logUnexpected: false };
+  }
+  if (message === "SERVICE_TOKEN_NOT_CONFIGURED") {
+    return { error: message, status: 503, logUnexpected: false };
+  }
+  return {
+    error: "MANAGEMENT_SESSION_CONTEXT_FAILED",
+    status: 500,
+    logUnexpected: true,
+  };
+}
+
 export function createManagementSessionContextService(
   repository: ManagementSessionContextRepository & { now?: () => Date },
 ) {
@@ -42,7 +62,9 @@ export function createManagementSessionContextService(
         !access ||
         !["ACTIVE", "TRIAL"].includes(access.moduleStatus) ||
         access.userModuleActive === false ||
-        access.identityLinkActive === false
+        access.identityLinkActive === false ||
+        (access.identityLinkRole !== null &&
+          !["OWNER", "MANAGER", "MEMBER"].includes(access.identityLinkRole))
       ) {
         throw new Error("MANAGEMENT_NOT_ENTITLED");
       }

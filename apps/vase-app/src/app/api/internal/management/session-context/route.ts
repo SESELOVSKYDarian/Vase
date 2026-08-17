@@ -3,8 +3,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import {
   createManagementSessionContextService,
+  mapManagementSessionContextError,
   type ManagementAccessRecord,
 } from "@/server/services/management-session-context";
+import { buildCompatibleUserModuleAccessWhere } from "@/server/services/user-module-access-policy";
 
 const service = createManagementSessionContextService({
   async findAccess(globalUserId, requestedTenantSlug) {
@@ -13,6 +15,7 @@ const service = createManagementSessionContextService({
         userId: globalUserId,
         status: "ACTIVE",
         user: {
+          ...buildCompatibleUserModuleAccessWhere("vase_management"),
           isDisabled: false,
           emailVerified: { not: null },
         },
@@ -101,11 +104,13 @@ export async function GET(request: Request) {
     const context = await service.resolve({ globalUserId, requestedTenantSlug });
     return NextResponse.json(context);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "MANAGEMENT_SESSION_CONTEXT_FAILED";
-    const status =
-      message === "FORBIDDEN" || message === "MANAGEMENT_NOT_ENTITLED"
-        ? 403
-        : 500;
-    return NextResponse.json({ error: message }, { status });
+    const mappedError = mapManagementSessionContextError(error);
+    if (mappedError.logUnexpected) {
+      console.error("[management-session-context] unexpected error", error);
+    }
+    return NextResponse.json(
+      { error: mappedError.error },
+      { status: mappedError.status },
+    );
   }
 }
