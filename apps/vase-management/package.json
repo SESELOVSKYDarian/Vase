@@ -1,5 +1,5 @@
 {
-  "name": "vase-business",
+  "name": "@vase/management",
   "version": "2.0.0",
   "private": true,
   "scripts": {
