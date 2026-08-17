@@ -26,10 +26,10 @@ RUN apt-get update -y \
   && apt-get install -y --no-install-recommends openssl \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
+COPY . .
 RUN npm ci
 
-COPY . .
+WORKDIR /app/apps/vase-management
 
 ENV NODE_ENV=production
 
