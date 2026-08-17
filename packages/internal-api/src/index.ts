@@ -32,16 +32,44 @@ export function verifyManagementSsoTicket(ticket: string, secret: string, nowSec
   }
 }
 
-export function assertServiceToken(authorization: string | null, expectedToken: string | undefined) {
-  if (!expectedToken) {
+export function deriveScopedServiceToken(secret: string, scope: string) {
+  const normalizedSecret = secret.trim();
+  const normalizedScope = scope.trim();
+  if (normalizedSecret.length < 16 || !normalizedScope) {
+    throw new Error("SERVICE_TOKEN_NOT_CONFIGURED");
+  }
+
+  return createHmac("sha256", normalizedSecret)
+    .update(`vase-internal:${normalizedScope}`)
+    .digest("base64url");
+}
+
+export function assertAnyServiceToken(
+  authorization: string | null,
+  expectedTokens: Array<string | undefined>,
+) {
+  const normalizedTokens = expectedTokens
+    .map((token) => token?.trim())
+    .filter((token): token is string => Boolean(token));
+  if (normalizedTokens.length === 0) {
     throw new Error("SERVICE_TOKEN_NOT_CONFIGURED");
   }
 
   const candidate = authorization?.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+  const candidateBuffer = Buffer.from(candidate);
+  const accepted = normalizedTokens.some((expectedToken) => {
+    const expectedBuffer = Buffer.from(expectedToken);
+    return candidateBuffer.length === expectedBuffer.length
+      && timingSafeEqual(candidateBuffer, expectedBuffer);
+  });
 
-  if (candidate !== expectedToken) {
+  if (!accepted) {
     throw new Error("FORBIDDEN");
   }
+}
+
+export function assertServiceToken(authorization: string | null, expectedToken: string | undefined) {
+  assertAnyServiceToken(authorization, [expectedToken]);
 }
 
 export function createInternalAdminHealthPayload(input: {

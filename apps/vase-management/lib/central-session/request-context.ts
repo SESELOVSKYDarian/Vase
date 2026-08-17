@@ -1,4 +1,5 @@
 import type { ManagementSessionContext } from "@vase/contracts";
+import { deriveScopedServiceToken } from "@vase/internal-api";
 import { createManagementAppContextClient } from "./app-context-client";
 import { projectCentralManagementIdentity } from "./projection";
 import { readSharedManagementSession } from "./shared-session";
@@ -35,9 +36,14 @@ export function createManagementRequestContextResolver(input: {
   };
 }
 
+const sharedAuthSecret = process.env.AUTH_SECRET?.trim();
+const managementContextToken = sharedAuthSecret && sharedAuthSecret.length >= 16
+  ? deriveScopedServiceToken(sharedAuthSecret, "management-session-context")
+  : process.env.SERVICE_TO_SERVICE_TOKEN;
+
 const managementAppContextClient = createManagementAppContextClient({
   appInternalUrl: process.env.APP_INTERNAL_URL || "https://app.vase.ar",
-  serviceToken: process.env.SERVICE_TO_SERVICE_TOKEN,
+  serviceToken: managementContextToken,
 });
 
 export const managementRequestContext = createManagementRequestContextResolver({

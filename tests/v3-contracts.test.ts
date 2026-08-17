@@ -41,8 +41,10 @@ import {
   whatsappProviderConfigSchema,
 } from "../packages/contracts/src/index";
 import {
+  assertAnyServiceToken,
   assertServiceToken,
   createInternalAdminHealthPayload,
+  deriveScopedServiceToken,
 } from "../packages/internal-api/src/index";
 
 describe("V3 contracts", () => {
@@ -81,6 +83,21 @@ describe("V3 contracts", () => {
   it("validates service-to-service tokens", () => {
     expect(() => assertServiceToken("Bearer secret", "secret")).not.toThrow();
     expect(() => assertServiceToken("Bearer wrong", "secret")).toThrow("FORBIDDEN");
+  });
+
+  it("derives and accepts a scoped Management credential from the shared auth secret", () => {
+    const credential = deriveScopedServiceToken(
+      "shared-auth-secret-with-at-least-32-characters",
+      "management-session-context",
+    );
+
+    expect(credential).not.toContain("shared-auth-secret");
+    expect(() => assertAnyServiceToken(`Bearer ${credential}`, [credential, "legacy-token"]))
+      .not.toThrow();
+    expect(() => assertAnyServiceToken("Bearer legacy-token", [credential, "legacy-token"]))
+      .not.toThrow();
+    expect(() => assertAnyServiceToken("Bearer wrong", [credential, "legacy-token"]))
+      .toThrow("FORBIDDEN");
   });
 
   it("creates internal admin health payloads for V3 services", () => {

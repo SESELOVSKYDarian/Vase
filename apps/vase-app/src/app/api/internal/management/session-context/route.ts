@@ -1,4 +1,7 @@
-import { assertServiceToken } from "@vase/internal-api";
+import {
+  assertAnyServiceToken,
+  deriveScopedServiceToken,
+} from "@vase/internal-api";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import {
@@ -88,9 +91,14 @@ const service = createManagementSessionContextService({
 
 export async function GET(request: Request) {
   try {
-    assertServiceToken(
+    const sharedAuthSecret = process.env.AUTH_SECRET?.trim();
+    const scopedToken = sharedAuthSecret && sharedAuthSecret.length >= 16
+      ? deriveScopedServiceToken(sharedAuthSecret, "management-session-context")
+      : undefined;
+
+    assertAnyServiceToken(
       request.headers.get("authorization"),
-      process.env.SERVICE_TO_SERVICE_TOKEN,
+      [scopedToken, process.env.SERVICE_TO_SERVICE_TOKEN],
     );
 
     const url = new URL(request.url);
