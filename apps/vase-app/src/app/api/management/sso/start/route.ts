@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireVerifiedUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 import { getTenantMembership } from "@/lib/tenancy/resolve-tenant";
+import { buildManagementSsoUrl } from "@/lib/management/links";
 
 export async function GET(request: Request) {
   try {
@@ -26,9 +27,7 @@ export async function GET(request: Request) {
     const name = session.user.name?.trim() || email;
     await prisma.managementSsoNonce.create({ data: { nonceHash: createHash("sha256").update(nonce).digest("hex"), tenantId: membership.tenantId, userId: session.user.id, expiresAt: new Date(expiresAt * 1000) } });
     const ticket = createManagementSsoTicket({ nonce, globalTenantId: membership.tenantId, tenantName: membership.tenant.name, globalUserId: session.user.id, email, name, role: membership.role, issuedAt: now, expiresAt }, process.env.MANAGEMENT_SSO_SECRET ?? "");
-    const destination = new URL("/auth/sso", process.env.MANAGEMENT_INTERNAL_URL ?? "http://localhost:3004");
-    destination.searchParams.set("ticket", ticket);
-    return NextResponse.redirect(destination);
+    return NextResponse.redirect(buildManagementSsoUrl(ticket));
   } catch (error) {
     const message = error instanceof Error ? error.message : "FORBIDDEN";
     return NextResponse.json({ error: message }, { status: message === "SSO_SECRET_NOT_CONFIGURED" ? 503 : 403 });

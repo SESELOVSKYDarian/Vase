@@ -129,7 +129,7 @@ DATABASE_URL="postgresql://usuario:contraseña@localhost:5432/vase_business?sche
 
 # NextAuth / Auth.js
 NEXTAUTH_SECRET="$(openssl rand -base64 32)"
-NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_URL="http://localhost:3006"
 
 # Dejar en blanco para usar mock
 AFIP_CERT=""
@@ -166,7 +166,7 @@ npm run db:studio
 npm run dev
 ```
 
-Acceder a: **http://localhost:3000**
+Acceder a: **http://localhost:3006**
 
 ## 🔐 Credenciales de demo
 

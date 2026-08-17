@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import type { ReactNode } from "react";
-import { ArrowRight, Building2, CheckCircle2, Info, Lock, Sparkles, Store, TrendingUp, UserPlus, FlaskConical, TriangleAlert } from "lucide-react";
+import { ArrowRight, Building2, CheckCircle2, Info, Lock, Sparkles, Store, TrendingUp, UserPlus, FlaskConical, TriangleAlert, Landmark } from "lucide-react";
 import { PanelCard } from "@/components/ui/panel-card";
 import { ModuleCard } from "@/components/platform/module-card";
 import type { PlatformModuleAccess } from "@/config/modules";
@@ -166,6 +166,7 @@ function clampRatio(value: number) {
 export function ModulesDashboard({ actorName, dashboard }: ModulesDashboardProps) {
   const businessModule = dashboard.modules.find((module) => module.key === "business") ?? null;
   const labsModule = dashboard.modules.find((module) => module.key === "labs") ?? null;
+  const managementModule = dashboard.modules.find((module) => module.key === "management") ?? null;
   const greetingName = actorName || dashboard.tenant.name;
 
   const businessProgress =
@@ -339,6 +340,40 @@ export function ModulesDashboard({ actorName, dashboard }: ModulesDashboardProps
                   {labsModule?.isActive ? "Abrir Vase Labs" : "Ver planes de Labs"}
                 </DashboardLink>
               </div>
+            </div>
+          </div>
+
+          <div
+            className={[
+              "flex flex-col justify-between rounded-[28px] border p-8 md:col-span-2",
+              managementModule?.isActive
+                ? "vase-glass-panel border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-strong)_64%,transparent)]"
+                : "border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--background)_82%,white)]",
+            ].join(" ")}
+          >
+            <div className="flex items-center gap-4">
+              <div className="grid h-12 w-12 place-items-center rounded-xl bg-[color:color-mix(in_srgb,var(--background)_86%,white)]">
+                <Landmark className={`size-5 ${managementModule?.isActive ? "text-[var(--accent-strong)]" : "text-[var(--muted-soft)]"}`} />
+              </div>
+              <div>
+                <h3 className={managementModule?.isActive ? "font-semibold text-[var(--foreground)]" : "font-semibold text-[var(--muted)]"}>
+                  Vase Management
+                </h3>
+                <span className={`text-xs font-bold uppercase tracking-[0.18em] ${managementModule?.isActive ? "text-[var(--accent-strong)]" : "text-[var(--muted-soft)]"}`}>
+                  {managementModule?.isActive ? "Activa" : "No contratada"}
+                </span>
+              </div>
+            </div>
+            <div className="mt-8 flex flex-col gap-5 border-t border-[var(--border-subtle)] pt-8 md:flex-row md:items-center md:justify-between">
+              <p className="max-w-2xl text-sm leading-7 text-[var(--muted)]">
+                Productos, stock, ventas, clientes, compras, facturación y tesorería en el mismo workspace de Vase.
+              </p>
+              <DashboardLink
+                href={managementModule?.isActive ? managementModule.route : managementModule?.activationRoute ?? "/precios#management"}
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)]"
+              >
+                {managementModule?.isActive ? "Abrir Vase Management" : "Ver planes de Management"}
+              </DashboardLink>
             </div>
           </div>
 
