@@ -5,6 +5,48 @@ import {
   sharedAuthCookieName,
 } from "@vase/auth";
 
+function getCookieFamilyValue(
+  cookieHeader: string | null,
+  baseCookieName: string,
+): string | null {
+  const baseValue = getCookieValue(cookieHeader, baseCookieName);
+  if (baseValue !== null) {
+    return baseValue;
+  }
+
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const chunkPrefix = `${baseCookieName}.`;
+  const chunks: Array<{ index: number; value: string }> = [];
+
+  for (const part of cookieHeader.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0) continue;
+
+    const key = part.slice(0, separator).trim();
+    if (!key.startsWith(chunkPrefix)) continue;
+
+    const suffix = key.slice(chunkPrefix.length);
+    if (!/^\d+$/.test(suffix)) continue;
+
+    chunks.push({
+      index: Number(suffix),
+      value: decodeURIComponent(part.slice(separator + 1).trim()),
+    });
+  }
+
+  if (chunks.length === 0) {
+    return null;
+  }
+
+  return chunks
+    .sort((left, right) => left.index - right.index)
+    .map((chunk) => chunk.value)
+    .join("");
+}
+
 export async function readSharedManagementSession(input: {
   cookieHeader: string | null;
   secret: string | undefined;
@@ -14,10 +56,21 @@ export async function readSharedManagementSession(input: {
     throw new Error("MANAGEMENT_AUTH_SECRET_MISSING");
   }
 
-  const cookieName = getCookieValue(input.cookieHeader, sharedAuthCookieName)
-    ? sharedAuthCookieName
-    : localAuthCookieName;
-  const encryptedToken = getCookieValue(input.cookieHeader, cookieName);
+  let cookieName: string;
+  let encryptedToken: string | null;
+  try {
+    const sharedToken = getCookieFamilyValue(input.cookieHeader, sharedAuthCookieName);
+    if (sharedToken !== null) {
+      cookieName = sharedAuthCookieName;
+      encryptedToken = sharedToken;
+    } else {
+      cookieName = localAuthCookieName;
+      encryptedToken = getCookieFamilyValue(input.cookieHeader, localAuthCookieName);
+    }
+  } catch {
+    throw new Error("MANAGEMENT_SESSION_INVALID");
+  }
+
   if (!encryptedToken) {
     throw new Error("MANAGEMENT_SESSION_REQUIRED");
   }
