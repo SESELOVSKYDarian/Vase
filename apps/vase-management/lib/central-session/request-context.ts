@@ -13,15 +13,22 @@ export function createManagementRequestContextResolver(input: {
   ) => Promise<{ globalUserId: string }>;
   resolveCentralContext: (
     globalUserId: string,
+    requestedTenantSlug?: string,
   ) => Promise<ManagementSessionContext>;
   projectIdentity: (
     context: ManagementSessionContext,
   ) => Promise<ProjectedUser>;
 }) {
   return {
-    async resolve(cookieHeader: string | null) {
+    async resolve(
+      cookieHeader: string | null,
+      requestedTenantSlug?: string,
+    ) {
       const session = await input.readSession(cookieHeader);
-      const central = await input.resolveCentralContext(session.globalUserId);
+      const central = await input.resolveCentralContext(
+        session.globalUserId,
+        requestedTenantSlug,
+      );
       const user = await input.projectIdentity(central);
       return { central, user };
     },
@@ -38,7 +45,7 @@ export const managementRequestContext = createManagementRequestContextResolver({
     cookieHeader,
     secret: process.env.AUTH_SECRET,
   }),
-  resolveCentralContext: (globalUserId) =>
-    managementAppContextClient.resolve(globalUserId),
+  resolveCentralContext: (globalUserId, requestedTenantSlug) =>
+    managementAppContextClient.resolve(globalUserId, requestedTenantSlug),
   projectIdentity: projectCentralManagementIdentity,
 });

@@ -9,26 +9,61 @@ export function createManagementAppContextClient(input: {
   appInternalUrl: string;
   serviceToken: string | undefined;
   fetcher?: Fetcher;
+  timeoutMs?: number;
 }) {
   return {
-    async resolve(globalUserId: string): Promise<ManagementSessionContext> {
-      if (!input.serviceToken) {
+    async resolve(
+      globalUserId: string,
+      requestedTenantSlug?: string,
+    ): Promise<ManagementSessionContext> {
+      const serviceToken = input.serviceToken?.trim();
+      if (!serviceToken) {
         throw new Error("SERVICE_TOKEN_NOT_CONFIGURED");
+      }
+
+      let appInternalUrl: URL;
+      try {
+        appInternalUrl = new URL(input.appInternalUrl);
+      } catch {
+        throw new Error("APP_INTERNAL_URL_INVALID");
+      }
+      if (
+        !["http:", "https:"].includes(appInternalUrl.protocol)
+        || appInternalUrl.username
+        || appInternalUrl.password
+      ) {
+        throw new Error("APP_INTERNAL_URL_INVALID");
       }
 
       const url = new URL(
         "/api/internal/management/session-context",
-        input.appInternalUrl,
+        appInternalUrl,
       );
       url.searchParams.set("userId", globalUserId);
+      if (requestedTenantSlug !== undefined) {
+        url.searchParams.set("tenantSlug", requestedTenantSlug);
+      }
 
-      const response = await (input.fetcher ?? fetch)(url.toString(), {
-        headers: {
-          authorization: `Bearer ${input.serviceToken}`,
-          accept: "application/json",
-        },
-        cache: "no-store",
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => controller.abort(),
+        input.timeoutMs ?? 5_000,
+      );
+      let response: Response;
+      try {
+        response = await (input.fetcher ?? fetch)(url.toString(), {
+          headers: {
+            authorization: `Bearer ${serviceToken}`,
+            accept: "application/json",
+          },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+      } catch {
+        throw new Error("MANAGEMENT_CONTEXT_UNAVAILABLE");
+      } finally {
+        clearTimeout(timeout);
+      }
       const payload: unknown = await response.json().catch(() => ({}));
 
       if (!response.ok) {
@@ -44,7 +79,18 @@ export function createManagementAppContextClient(input: {
         throw new Error("MANAGEMENT_CONTEXT_UNAVAILABLE");
       }
 
-      return managementSessionContextSchema.parse(payload);
+      const context = managementSessionContextSchema.parse(payload);
+      if (context.globalUserId !== globalUserId) {
+        throw new Error("MANAGEMENT_CONTEXT_IDENTITY_MISMATCH");
+      }
+      if (
+        requestedTenantSlug !== undefined
+        && context.tenantSlug !== requestedTenantSlug
+      ) {
+        throw new Error("MANAGEMENT_CONTEXT_TENANT_MISMATCH");
+      }
+
+      return context;
     },
   };
 }
