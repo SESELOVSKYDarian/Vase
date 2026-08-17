@@ -242,6 +242,12 @@ model Company {
   subscriptionEvents SubscriptionEvent[]
   automationRules    AutomationRule[]
   offlineSyncQueue   OfflineSyncQueue[]
+  warehouseSectors          WarehouseSector[]
+  warehouseProductLocations WarehouseProductLocation[]
+  warehouseProductImages    WarehouseProductImage[]
+  warehouseDevices          WarehouseDevice[]
+  warehouseLedCommands      WarehouseLedCommand[]
+  warehouseConversationLogs WarehouseConversationLog[]
 
   @@map("companies")
 }
@@ -556,6 +562,7 @@ model Product {
   barcodeAliases           BarcodeAlias[]
   warehouseTransferItems   WarehouseTransferItem[]
   inventoryAdjustmentItems InventoryAdjustmentItem[]
+  warehouseLocations       WarehouseProductLocation[]
 
   @@unique([companyId, globalExternalId])
   @@map("products")
@@ -628,6 +635,7 @@ model Warehouse {
   transfersOut         WarehouseTransfer[]   @relation("TransferFrom")
   transfersIn          WarehouseTransfer[]   @relation("TransferTo")
   inventoryAdjustments InventoryAdjustment[]
+  warehouseProductLocations WarehouseProductLocation[]
 
   @@map("warehouses")
 }
@@ -1787,3 +1795,163 @@ model OfflineSyncQueue {
 
   @@map("offline_sync_queue")
 }
+
+// =============================================
+// WAREHOUSE AI (DEPOSITO IA)
+// =============================================
+
+enum WarehouseProductImageType {
+  PRODUCT
+  BOX
+  RACK
+  SECTOR
+}
+
+enum WarehouseDeviceType {
+  ESP32_LED_STRIP
+}
+
+enum WarehouseLedCommandStatus {
+  PENDING
+  CLAIMED
+  DONE
+  FAILED
+  EXPIRED
+}
+
+enum WarehouseConversationChannel {
+  WEB
+  TELEGRAM
+  WHATSAPP
+  API
+}
+
+enum WarehouseConversationMessageType {
+  TEXT
+  AUDIO
+  IMAGE
+}
+
+model WarehouseSector {
+  id             String    @id @default(cuid())
+  companyId      String
+  name           String
+  normalizedName String
+  description    String?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  company   Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  locations WarehouseProductLocation[]
+
+  @@unique([companyId, normalizedName])
+  @@map("warehouse_sectors")
+}
+
+model WarehouseProductLocation {
+  id           String   @id @default(cuid())
+  companyId    String
+  productId    String
+  warehouseId  String?
+  sectorId     String
+  rack         String
+  row          String
+  box          String?
+  observations String?
+  imageUrl     String?
+  ledNumber    Int?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse?      @relation(fields: [warehouseId], references: [id])
+  sector    WarehouseSector @relation(fields: [sectorId], references: [id])
+  
+  images      WarehouseProductImage[]
+  ledCommands WarehouseLedCommand[]
+
+  @@unique([companyId, productId])
+  @@map("warehouse_product_locations")
+}
+
+model WarehouseProductImage {
+  id                String                    @id @default(cuid())
+  companyId         String
+  productLocationId String
+  url               String
+  providerFileId    String?
+  type              WarehouseProductImageType @default(PRODUCT)
+  description       String?
+  createdAt         DateTime                  @default(now())
+
+  company         Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productLocation WarehouseProductLocation @relation(fields: [productLocationId], references: [id], onDelete: Cascade)
+
+  @@index([productLocationId])
+  @@map("warehouse_product_images")
+}
+
+model WarehouseDevice {
+  id            String              @id @default(cuid())
+  companyId     String
+  name          String
+  deviceKey     String              @unique
+  type          WarehouseDeviceType @default(ESP32_LED_STRIP)
+  status        String              @default("OFFLINE")
+  lastSeenAt    DateTime?
+  ledCount      Int                 @default(60)
+  brightness    Int                 @default(255)
+  maxActiveLeds Int                 @default(10)
+  active        Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  company     Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ledCommands WarehouseLedCommand[]
+
+  @@map("warehouse_devices")
+}
+
+model WarehouseLedCommand {
+  id                String                    @id @default(cuid())
+  companyId         String
+  deviceId          String
+  productLocationId String?
+  ledNumber         Int
+  activeCount       Int                       @default(1)
+  color             Json                      // { r: 0, g: 255, b: 0 }
+  durationMs        Int                       @default(5000)
+  status            WarehouseLedCommandStatus @default(PENDING)
+  createdAt         DateTime                  @default(now())
+  claimedAt         DateTime?
+  completedAt       DateTime?
+  expiresAt         DateTime?
+  lastError         String?
+
+  company         Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  device          WarehouseDevice           @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  productLocation WarehouseProductLocation? @relation(fields: [productLocationId], references: [id])
+
+  @@index([deviceId, status])
+  @@map("warehouse_led_commands")
+}
+
+model WarehouseConversationLog {
+  id             String                           @id @default(cuid())
+  companyId      String
+  channel        WarehouseConversationChannel
+  externalUserId String?
+  messageType    WarehouseConversationMessageType @default(TEXT)
+  transcript     String?
+  intent         String?
+  payload        Json?
+  createdAt      DateTime                         @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("warehouse_conversation_logs")
+}
+

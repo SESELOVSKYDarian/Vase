@@ -83,6 +83,15 @@ const buildNav = (alertCount: number, isSuperAdmin: boolean): NavItem[] => [
     ],
   },
   {
+    title: 'Depósito IA', icon: <Bot size={17} />,
+    children: [
+      { title: 'Dashboard', href: '/dashboard/deposito-ia' },
+      { title: 'Productos', href: '/dashboard/deposito-ia/productos' },
+      { title: 'IA de Depósito', href: '/dashboard/deposito-ia/ia' },
+      { title: 'Dispositivos', href: '/dashboard/deposito-ia/dispositivos' },
+    ],
+  },
+  {
     title: 'Productos', icon: <Package size={17} />,
     children: [
       { title: 'Catálogo', href: '/dashboard/productos' },
