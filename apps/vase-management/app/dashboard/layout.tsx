@@ -8,6 +8,9 @@ import { PageTransition } from '@/components/ui/PageTransition'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
+  if (session?.error === "MANAGEMENT_NOT_ENTITLED") {
+    redirect("/auth/access-denied")
+  }
   if (!session?.user) {
     const requestHeaders = headers()
     const tenantSlug = requestHeaders.get("x-vase-tenant-slug")?.trim() || undefined

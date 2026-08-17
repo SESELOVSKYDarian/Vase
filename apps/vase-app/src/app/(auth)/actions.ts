@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { auth, signIn, signOut } from "@/auth";
+import { normalizeVaseRedirectTarget } from "@/lib/auth/redirect-target";
 import { isDatabaseConfigured } from "@/lib/db/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { getRequestContext } from "@/lib/security/request";
@@ -60,30 +61,6 @@ function databaseUnavailableState(): AuthActionState {
     error:
       "La base de datos no está configurada todavía en este entorno. Define DATABASE_URL para registrar o iniciar sesión.",
   };
-}
-
-function normalizeRedirectTarget(value: FormDataEntryValue | null) {
-  if (typeof value !== "string") {
-    return "/app";
-  }
-
-  const rawValue = value.trim();
-
-  if (!rawValue) {
-    return "/app";
-  }
-
-  if (rawValue.startsWith("/") && !rawValue.startsWith("//")) {
-    return rawValue;
-  }
-
-  try {
-    const url = new URL(rawValue);
-    const nextPath = `${url.pathname}${url.search}${url.hash}`;
-    return nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/app";
-  } catch {
-    return "/app";
-  }
 }
 
 export async function registerAction(
@@ -173,7 +150,7 @@ export async function signInAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   const requestContext = await getRequestContext();
-  const redirectTo = normalizeRedirectTarget(formData.get("redirectTo"));
+  const redirectTo = normalizeVaseRedirectTarget(formData.get("redirectTo"));
   const rawData = {
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
@@ -406,7 +383,9 @@ export async function resetPasswordAction(
     password: String(formData.get("password") ?? ""),
     confirmPassword: String(formData.get("confirmPassword") ?? ""),
   };
-  const redirectTo = normalizeRedirectTarget(formData.get("redirectTo") ?? "/signin?reset=success");
+  const redirectTo = normalizeVaseRedirectTarget(
+    formData.get("redirectTo") ?? "/signin?reset=success",
+  );
   const parsed = resetPasswordSchema.safeParse(rawData);
 
   if (!parsed.success) {

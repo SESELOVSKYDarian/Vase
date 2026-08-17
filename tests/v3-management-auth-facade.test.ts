@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock(
@@ -22,6 +22,10 @@ const authRoutePath = new URL(
 );
 const dashboardLayoutPath = new URL(
   "../apps/vase-management/app/dashboard/layout.tsx",
+  import.meta.url,
+);
+const accessDeniedPagePath = new URL(
+  "../apps/vase-management/app/auth/access-denied/page.tsx",
   import.meta.url,
 );
 
@@ -96,7 +100,6 @@ describe("createManagementAuthFacade", () => {
     "MANAGEMENT_SESSION_REQUIRED",
     "MANAGEMENT_SESSION_INVALID",
     "MANAGEMENT_SESSION_EXPIRED",
-    "MANAGEMENT_NOT_ENTITLED",
   ])("returns null for unauthenticated code %s", async (code) => {
     const { createManagementAuthFacade } = await loadManagementAuthFacade();
     const auth = createManagementAuthFacade({
@@ -104,6 +107,21 @@ describe("createManagementAuthFacade", () => {
     });
 
     await expect(auth(null)).resolves.toBeNull();
+  });
+
+  it("returns a denied result without a user for MANAGEMENT_NOT_ENTITLED", async () => {
+    const { createManagementAuthFacade } = await loadManagementAuthFacade();
+    const auth = createManagementAuthFacade({
+      resolveContext: vi.fn().mockRejectedValue(
+        new Error("MANAGEMENT_NOT_ENTITLED"),
+      ),
+    });
+
+    await expect(auth("cookie")).resolves.toEqual({
+      user: null,
+      central: null,
+      error: "MANAGEMENT_NOT_ENTITLED",
+    });
   });
 
   it.each([
@@ -127,6 +145,16 @@ describe("createManagementAuthFacade", () => {
 });
 
 describe("Management dashboard central sign-in redirect", () => {
+  it("redirects denied sessions locally before considering sign-in", () => {
+    const source = readFileSync(dashboardLayoutPath, "utf8");
+    const deniedCheck = source.indexOf('session?.error === "MANAGEMENT_NOT_ENTITLED"');
+    const unauthenticatedCheck = source.indexOf("if (!session?.user)");
+
+    expect(deniedCheck).toBeGreaterThan(-1);
+    expect(unauthenticatedCheck).toBeGreaterThan(deniedCheck);
+    expect(source).toContain('redirect("/auth/access-denied")');
+  });
+
   it("uses absolute app and management URLs and preserves the selected tenant", () => {
     const source = readFileSync(dashboardLayoutPath, "utf8");
 
@@ -141,5 +169,17 @@ describe("Management dashboard central sign-in redirect", () => {
     expect(source).toMatch(/searchParams\.set\(["']redirectTo["']/);
     expect(source).toMatch(/redirect\([^)]*\.toString\(\)\)/);
     expect(source).not.toContain("redirect('/auth/login')");
+  });
+
+  it("provides a local access-denied page with central recovery links", () => {
+    expect(existsSync(accessDeniedPagePath)).toBe(true);
+    const source = readFileSync(accessDeniedPagePath, "utf8");
+
+    expect(source).toContain("No tenés acceso a Vase Management");
+    expect(source).toContain("https://app.vase.ar/app");
+    expect(source).toContain("https://app.vase.ar/api/auth/signout");
+    expect(source).toContain("https://app.vase.ar/signin");
+    expect(source).not.toMatch(/signIn\s*\(/);
+    expect(source).not.toContain("credentials");
   });
 });

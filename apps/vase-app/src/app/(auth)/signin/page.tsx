@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { auth } from "@/auth";
 import { SignInForm } from "@/components/auth/sign-in-form";
 import { getAuthPageRedirectPath } from "@/lib/auth/protected-app-redirect";
+import { normalizeVaseRedirectTarget } from "@/lib/auth/redirect-target";
 import { hasActiveSession } from "@/lib/auth/session";
 import { getDefaultPlatformPathForHost } from "@/lib/security/platform-hosts";
 
@@ -12,31 +13,13 @@ type SignInPageProps = {
   searchParams: Promise<{ reset?: string; redirectTo?: string; callbackUrl?: string }>;
 };
 
-function normalizeRedirectTarget(value?: string) {
-  const rawValue = String(value ?? "").trim();
-
-  if (!rawValue) {
-    return "/app";
-  }
-
-  if (rawValue.startsWith("/") && !rawValue.startsWith("//")) {
-    return rawValue;
-  }
-
-  try {
-    const url = new URL(rawValue);
-    const nextPath = `${url.pathname}${url.search}${url.hash}`;
-    return nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/app";
-  } catch {
-    return "/app";
-  }
-}
-
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
   const requestHeaders = await headers();
   const defaultRedirectTo = getDefaultPlatformPathForHost(requestHeaders.get("host") ?? "");
-  const redirectTo = normalizeRedirectTarget(params.redirectTo ?? params.callbackUrl ?? defaultRedirectTo);
+  const redirectTo = normalizeVaseRedirectTarget(
+    params.redirectTo ?? params.callbackUrl ?? defaultRedirectTo,
+  );
   const session = await auth();
   const authPageRedirectPath = getAuthPageRedirectPath({
     pathname: "/signin",

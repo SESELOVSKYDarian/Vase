@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { appConfig } from "@/config/app";
 import { createAuthCookiesConfig } from "@/lib/auth/cookies";
+import { normalizeVaseRedirectTarget } from "@/lib/auth/redirect-target";
 import { getSessionDurationMs, type SessionPreference } from "@/lib/auth/session";
 import type { AppRole, PlatformRole } from "@/lib/auth/roles";
 
@@ -69,6 +70,12 @@ export const authConfig = {
     }),
   ],
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      const redirectTarget = normalizeVaseRedirectTarget(url);
+      return redirectTarget.startsWith("/")
+        ? new URL(redirectTarget, baseUrl).toString()
+        : redirectTarget;
+    },
     async jwt({ token, user, trigger }) {
       if (user) {
         token.sub = user.id;
