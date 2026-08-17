@@ -23,11 +23,8 @@ export function Header({ user }: HeaderProps) {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [showUserMenu, setShowUserMenu] = useState(false)
-
-  function handleSignOut() {
-    const appUrl = process.env.NEXT_PUBLIC_VASE_APP_URL ?? 'https://app.vase.ar'
-    window.location.assign(new URL('/api/auth/central-logout', appUrl).toString())
-  }
+  const appUrl = process.env.NEXT_PUBLIC_VASE_APP_URL ?? 'https://app.vase.ar'
+  const logoutUrl = new URL('/api/auth/central-logout', appUrl).toString()
 
   return (
     <header className="glass-panel sticky top-0 z-30 mx-2 mt-2 flex h-16 flex-shrink-0 items-center gap-3 rounded-2xl px-3 sm:mx-3 sm:px-4">
@@ -139,13 +136,15 @@ export function Header({ user }: HeaderProps) {
                     Ayuda
                   </Link>
                   <div className="border-t border-border my-1" />
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  >
-                    <LogOut size={15} />
-                    Cerrar sesión
-                  </button>
+                  <form action={logoutUrl} method="post">
+                    <button
+                      type="submit"
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <LogOut size={15} />
+                      Cerrar sesión
+                    </button>
+                  </form>
                 </div>
               </m.div>
             </>

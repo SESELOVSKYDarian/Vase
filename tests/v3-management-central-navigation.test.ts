@@ -207,16 +207,20 @@ describe("Management central login and logout navigation", () => {
     for (const page of [header, denied]) {
       expect(page).toContain("NEXT_PUBLIC_VASE_APP_URL");
       expect(page).toContain("/api/auth/central-logout");
+      expect(page).toMatch(/method=["']post["']/);
       expect(page).not.toContain("next-auth/react");
+      expect(page).not.toContain("window.location.assign");
     }
   });
 
-  it("adds a Vase App logout route backed by the authoritative signOut", () => {
+  it("adds a POST-only Vase App logout route backed by the authoritative signOut", () => {
     const path = "apps/vase-app/src/app/api/auth/central-logout/route.ts";
     expect(existsSync(fileUrl(path))).toBe(true);
     const logout = source(path);
 
     expect(logout).toContain('import { signOut } from "@/auth"');
+    expect(logout).toMatch(/export async function POST\s*\(/);
+    expect(logout).not.toMatch(/export async function GET\s*\(/);
     expect(logout).toContain('signOut({ redirectTo: "/signin" })');
   });
 
@@ -255,12 +259,69 @@ describe("Management central login and logout navigation", () => {
     }
   });
 
-  it("executes central logout through shared Auth.js", async () => {
-    const { GET } = await import(
+  it("does not expose GET for central logout", async () => {
+    const logoutRoute = await import(
       "../apps/vase-app/src/app/api/auth/central-logout/route"
     );
 
-    await GET();
+    expect(Reflect.get(logoutRoute, "GET")).toBeUndefined();
+  });
+
+  it.each([
+    "https://evil.example",
+    "null",
+    null,
+  ])("rejects central logout POST from untrusted Origin %s", async (origin) => {
+    const { POST } = await import(
+      "../apps/vase-app/src/app/api/auth/central-logout/route"
+    );
+    const response = await POST(new Request(
+      "https://app.vase.ar/api/auth/central-logout",
+      { method: "POST", headers: origin ? { origin } : undefined },
+    ));
+
+    expect(response).toBeInstanceOf(Response);
+    expect(response?.status).toBe(403);
+    expect(signOutMock).not.toHaveBeenCalled();
+  });
+
+  it("executes trusted Management logout through shared Auth.js", async () => {
+    const { POST } = await import(
+      "../apps/vase-app/src/app/api/auth/central-logout/route"
+    );
+
+    await POST(new Request(
+      "https://app.vase.ar/api/auth/central-logout",
+      { method: "POST", headers: { origin: "https://management.vase.ar" } },
+    ));
+
+    expect(signOutMock).toHaveBeenCalledWith({ redirectTo: "/signin" });
+  });
+
+  it("does not trust an Origin merely because it matches the request Host", async () => {
+    const { POST } = await import(
+      "../apps/vase-app/src/app/api/auth/central-logout/route"
+    );
+    const response = await POST(new Request(
+      "https://evil.example/api/auth/central-logout",
+      { method: "POST", headers: { origin: "https://evil.example" } },
+    ));
+
+    expect(response).toBeInstanceOf(Response);
+    expect(response?.status).toBe(403);
+    expect(signOutMock).not.toHaveBeenCalled();
+  });
+
+  it("allows localhost Management logout during development", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const { POST } = await import(
+      "../apps/vase-app/src/app/api/auth/central-logout/route"
+    );
+
+    await POST(new Request(
+      "http://localhost:3002/api/auth/central-logout",
+      { method: "POST", headers: { origin: "http://localhost:3006" } },
+    ));
 
     expect(signOutMock).toHaveBeenCalledWith({ redirectTo: "/signin" });
   });

@@ -19,12 +19,11 @@ export default function ManagementAccessDeniedPage() {
         <a className="ui-button ui-button-primary justify-center" href={appHomeUrl}>
           Volver a Vase
         </a>
-        <a
-          className="ui-button justify-center"
-          href={logoutUrl}
-        >
-          Cerrar sesión central
-        </a>
+        <form action={logoutUrl} method="post">
+          <button className="ui-button w-full justify-center" type="submit">
+            Cerrar sesión central
+          </button>
+        </form>
         <a className="text-sm font-semibold text-primary" href={signInUrl}>
           Iniciar sesión con otra cuenta
         </a>
