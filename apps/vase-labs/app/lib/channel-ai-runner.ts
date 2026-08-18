@@ -344,7 +344,7 @@ export function createPrismaChannelAiReplyRunner(input: {
         }
         return items.map((item) => ({
           ...item,
-          content: correctionByKnowledgeId.get(item.id) ?? item.content,
+          content: correctionByKnowledgeId.get(item.id) ?? item.extractedText ?? item.content,
           status: "READY" as const,
         }));
       },

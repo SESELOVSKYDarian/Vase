@@ -7,9 +7,10 @@ import { PrismaOfficialChannelSenderRepository } from "../app/lib/official-chann
 import { downloadWhatsAppMedia } from "../app/lib/whatsapp-media";
 import { createTrainerInstructionInterpreter } from "../app/lib/trainer-instruction-interpreter";
 import { shouldInterpretTrainerInstruction, type TrainerProposal } from "../app/lib/knowledge-trainer";
+import { selectTrainerKnowledgeContext } from "../app/lib/trainer-document-context";
 
 async function processNext() {
-  const job = await labsPrisma.trainerAudioJob.findFirst({ where: { status: { in: ["QUEUED", "FAILED"] }, attempts: { lt: 5 } }, orderBy: { createdAt: "asc" } });
+  const job = await labsPrisma.trainerAudioJob.findFirst({ where: { status: { in: ["QUEUED", "FAILED"] }, attempts: { lt: 12 } }, orderBy: { createdAt: "asc" } });
   if (!job) return false;
   await labsPrisma.trainerAudioJob.update({ where: { id: job.id }, data: { status: "PROCESSING", attempts: { increment: 1 }, error: null } });
   try {
@@ -31,11 +32,18 @@ async function processNext() {
     let preparedProposal: TrainerProposal | undefined;
     if (shouldInterpretTrainerInstruction(Boolean(pendingProposal))) {
       const latestRevision = await labsPrisma.knowledgeRevision.findFirst({ where: { globalTenantId: job.globalTenantId }, orderBy: { revision: "desc" }, select: { revision: true } });
-      const knowledge = await labsPrisma.knowledgeItem.findMany({ where: { assistantId: job.assistantId, status: "READY" }, select: { id: true, title: true, sourceType: true, content: true }, take: 50 });
+      const knowledgeItems = await labsPrisma.knowledgeItem.findMany({ where: { assistantId: job.assistantId, status: "READY" }, select: { id: true, title: true, sourceType: true, content: true, extractedText: true }, take: 200 });
+      const activeCorrections = await labsPrisma.knowledgeCorrection.findMany({ where: { knowledgeItemId: { in: knowledgeItems.map((item) => item.id) }, active: true }, select: { knowledgeItemId: true, content: true }, orderBy: { updatedAt: "desc" } });
+      const selectedKnowledge = selectTrainerKnowledgeContext(transcript, knowledgeItems, activeCorrections);
+      if (selectedKnowledge.ambiguous) {
+        await repository.sendTrainerReply({ context, trainerPhoneId: job.trainerPhoneId, text: "Encontré más de un documento posible. Decime el nombre exacto del archivo que querés modificar y repetí el cambio." });
+        await labsPrisma.trainerAudioJob.update({ where: { id: job.id }, data: { status: "COMPLETED", transcript, error: null } });
+        return true;
+      }
       preparedProposal = await createTrainerInstructionInterpreter({ apiKey, model: process.env.OPENAI_TRAINER_MODEL?.trim() || assistant.model || undefined }).interpret({
         instruction: transcript,
         baseRevision: latestRevision?.revision ?? 0,
-        knowledge,
+        knowledge: selectedKnowledge.items,
       });
     }
     const proposal = await repository.persistTrainerInstruction({ context, trainerPhoneId: job.trainerPhoneId, preparedProposal, message: { globalTenantId: job.globalTenantId, channelType: "WHATSAPP", externalThreadKey: job.trainerPhoneId, externalMessageId: job.sourceMessageId ?? undefined, customerContact: "", text: transcript, messageType: "audio", provider: "META_OFFICIAL" } });

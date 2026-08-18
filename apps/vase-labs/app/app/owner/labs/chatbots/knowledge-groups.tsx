@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KnowledgeSourceType } from "../../../../lib/knowledge-source";
 import { LabsStatusPill } from "../labs-ui";
+import { KnowledgeFileHistory } from "./knowledge-file-history";
 
 type Item = { id: string; title: string; status: string; updatedAt: Date };
 type KnowledgeGroupType = KnowledgeSourceType | "OTROS";
@@ -192,6 +193,7 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
               </div>
               <div className="labs-knowledge-source-status"><LabsStatusPill label={item.status} tone={tone(item.status)} /></div>
               <div className="labs-knowledge-source-actions" role="group" aria-label={`Acciones para ${item.title}`}>
+                {group.type === "FILE" ? <KnowledgeFileHistory itemId={item.id} title={item.title} /> : null}
                 {group.type === "FILE" && item.status === "FAILED" ? <button type="button" onClick={() => void retryFileProcessing(item)} disabled={Boolean(retryingId)} aria-label={`Reintentar procesamiento de ${item.title}`}>
                   <RefreshCw aria-hidden="true" /><span>{retryingId === item.id ? "Reintentando…" : "Reintentar procesamiento"}</span>
                 </button> : null}

@@ -15,6 +15,7 @@ import { createConversationAnalysisQueue } from "./conversation-analysis-queue";
 import { PrismaConversationAnalysisRepository } from "./conversation-analysis-repository";
 import { createOfficialChannelSender } from "./official-channel-sender";
 import { PrismaOfficialChannelSenderRepository } from "./official-channel-sender-repository";
+import { applyDocumentCorrection } from "./knowledge-document-version";
 
 export type ChannelWebhookContext = {
   assistantId: string;
@@ -352,7 +353,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
       }
       try {
         confirmTrainerProposal({ status: pending.status, baseRevision: pending.baseRevision, expiresAt: pending.expiresAt }, text, currentRevision);
-        const value = pending.proposedValue as { question?: string; answer?: string; content?: string };
+        const value = pending.proposedValue as { question?: string; answer?: string; content?: string; beforeText?: string; afterText?: string };
         const revision = currentRevision + 1;
         await this.prisma.$transaction(async (tx) => {
           if (pending.changeType === "FAQ_CREATE" && value.question && value.answer) {
@@ -364,10 +365,15 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
             await tx.knowledgeItem.update({ where: { id: item.id }, data: { title: value.question, content: `Pregunta: ${value.question}\nRespuesta: ${value.answer}` } });
             await tx.knowledgeRevision.create({ data: { globalTenantId: input.context.globalTenantId, proposalId: pending.id, knowledgeItemId: item.id, revision, beforeValue: { question: item.title, content: item.content }, afterValue: value } });
           } else if (pending.changeType === "DOCUMENT_CORRECTION" && pending.targetKnowledgeId && value.content) {
+            const correctionInput = { content: value.content, beforeText: value.beforeText, afterText: value.afterText };
             const item = await tx.knowledgeItem.findFirst({ where: { id: pending.targetKnowledgeId, assistantId: input.context.assistantId, sourceType: "FILE", status: "READY" } });
             if (!item) throw new Error("TRAINER_TARGET_NOT_FOUND");
-            const knowledgeRevision = await tx.knowledgeRevision.create({ data: { globalTenantId: input.context.globalTenantId, proposalId: pending.id, knowledgeItemId: item.id, revision, beforeValue: { extractedText: item.extractedText }, afterValue: value } });
-            await tx.knowledgeCorrection.create({ data: { globalTenantId: input.context.globalTenantId, knowledgeItemId: item.id, revisionId: knowledgeRevision.id, content: value.content } });
+            const activeCorrection = await tx.knowledgeCorrection.findFirst({ where: { knowledgeItemId: item.id, active: true }, orderBy: { updatedAt: "desc" } });
+            const currentContent = activeCorrection?.content ?? item.extractedText ?? item.content;
+            const nextContent = applyDocumentCorrection(currentContent, correctionInput);
+            const knowledgeRevision = await tx.knowledgeRevision.create({ data: { globalTenantId: input.context.globalTenantId, proposalId: pending.id, knowledgeItemId: item.id, revision, beforeValue: { content: currentContent }, afterValue: { content: nextContent } } });
+            await tx.knowledgeCorrection.updateMany({ where: { knowledgeItemId: item.id, active: true }, data: { active: false } });
+            await tx.knowledgeCorrection.create({ data: { globalTenantId: input.context.globalTenantId, knowledgeItemId: item.id, revisionId: knowledgeRevision.id, content: nextContent } });
           } else {
             throw new Error("TRAINER_PROPOSAL_UNSUPPORTED");
           }

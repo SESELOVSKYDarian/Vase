@@ -53,6 +53,8 @@ describe("Labs knowledge trainer", () => {
     const page = readFileSync("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx", "utf8");
     expect(nav).toContain('href: "/owner/inbox/trainer"');
     expect(page).toContain("Entrenador personal");
+    expect(page).toContain("job.error ?");
+    expect(page).toContain("Error:");
   });
 
   it("uses the AI instruction interpreter after transcribing trainer audio", () => {
@@ -60,9 +62,11 @@ describe("Labs knowledge trainer", () => {
     expect(worker).toContain("createTrainerInstructionInterpreter");
     expect(worker).toContain("interpret({");
     expect(worker).toContain('status: { in: ["QUEUED", "FAILED"] }');
-    expect(worker).toContain("attempts: { lt: 5 }");
+    expect(worker).toContain("attempts: { lt: 12 }");
     expect(worker).toContain("data: { transcript }");
     expect(worker).toContain("shouldInterpretTrainerInstruction(Boolean(pendingProposal))");
+    expect(worker).toContain("Encontré más de un documento posible");
+    expect(worker).toContain('status: "COMPLETED", transcript');
   });
 
   it("routes a spoken confirmation to the pending proposal instead of the AI interpreter", () => {

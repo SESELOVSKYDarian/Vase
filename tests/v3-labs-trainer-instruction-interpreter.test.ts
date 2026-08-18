@@ -59,4 +59,21 @@ describe("Labs trainer instruction interpreter", () => {
     });
     expect(result.changeType).toBe("FAQ_CREATE");
   });
+
+  it("links a complete branch schedule to its existing document when the model returns ambiguous", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      output_text: JSON.stringify({ changeType: "AMBIGUOUS", targetKnowledgeId: null, question: null, answer: null, content: null }),
+    }), { status: 200 }));
+    const result = await createTrainerInstructionInterpreter({ apiKey: "sk-test", fetcher: fetcher as typeof fetch }).interpret({
+      instruction: "Quiero hacer este cambio del sábado del horario que hay para que pase a ser a las 8 de la mañana el inicio del horario de atención hasta las 14 horas en Teflón Central de Mar del Plata.",
+      baseRevision: 4,
+      knowledge: [{ id: "file_teflon", title: "Sucursales", sourceType: "FILE", content: "Teflón Central de Mar del Plata atiende sábados de 09:00 a 13:00." }],
+    });
+    expect(result).toEqual({
+      changeType: "DOCUMENT_CORRECTION",
+      baseRevision: 4,
+      targetKnowledgeId: "file_teflon",
+      proposedValue: { content: "Quiero hacer este cambio del sábado del horario que hay para que pase a ser a las 8 de la mañana el inicio del horario de atención hasta las 14 horas en Teflón Central de Mar del Plata." },
+    });
+  });
 });
