@@ -11,6 +11,8 @@ import { KnowledgeAddModal } from "./knowledge-add-modal";
 import { KnowledgeGroups } from "./knowledge-groups";
 import { ModelSelector } from "./model-selector";
 import { OpenAiKeyCard } from "./openai-key-card";
+import { TrainerPhoneManager } from "./trainer-phone-manager";
+import { TrainerRevisionHistory } from "./trainer-revision-history";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +21,7 @@ async function getKnowledgeData() {
 
   try {
     const resolved = await resolveLabsRequestContext(requestHeaders.get("cookie"));
-    const [items, openAiKey, connectedChannels] = await Promise.all([
+    const [items, openAiKey, connectedChannels, trainerPhones, trainerRevisions] = await Promise.all([
       labsPrisma.knowledgeItem.findMany({
         where: { assistantId: resolved.assistant.id },
         orderBy: { updatedAt: "desc" },
@@ -32,9 +34,11 @@ async function getKnowledgeData() {
       labsPrisma.channel.count({
         where: { assistantId: resolved.assistant.id, status: "CONNECTED" },
       }),
+      labsPrisma.trainerPhone.findMany({ where: { globalTenantId: resolved.context.globalTenantId }, orderBy: { createdAt: "desc" } }),
+      labsPrisma.knowledgeRevision.findMany({ where: { globalTenantId: resolved.context.globalTenantId }, orderBy: { revision: "desc" }, take: 20, select: { id: true, revision: true, knowledgeItemId: true, createdAt: true, revertedAt: true } }),
     ]);
 
-    return { assistant: resolved.assistant, items, connectedChannels, openAiKeyConfigured: Boolean(openAiKey) };
+    return { assistant: resolved.assistant, items, connectedChannels, trainerPhones, trainerRevisions, openAiKeyConfigured: Boolean(openAiKey) };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("LABS_SESSION")) {
       redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs%2Fchatbots");
@@ -88,6 +92,8 @@ export default async function LabsChatbotsPage() {
           <OpenAiKeyCard configured={data.openAiKeyConfigured} />
         </div>
       </div>
+      <TrainerPhoneManager phones={data.trainerPhones} />
+      <TrainerRevisionHistory revisions={data.trainerRevisions} />
 
       <div id="knowledge-sources-focus-target" role="region" aria-label="Fuentes de conocimiento" tabIndex={-1} className="labs-knowledge-focus-target">
         {data.items.length === 0 ? (

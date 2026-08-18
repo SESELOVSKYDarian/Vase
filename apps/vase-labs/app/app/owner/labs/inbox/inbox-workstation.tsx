@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, Bell, CheckCheck, CircleAlert, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LabsStatusPill } from "../labs-ui";
 import {
   countInboxConversationsByChannel,
@@ -15,8 +15,8 @@ import {
   resolveInboxMessageDelivery,
   type InboxMessageDelivery,
 } from "./inbox-message-delivery";
-import { isInboxNearBottom, shouldAutoScrollInbox } from "./inbox-scroll-policy";
-import { mergeInboxConversationSummaries } from "./inbox-conversation-merge";
+import { isInboxNearBottom, restoreInboxScrollOffset, shouldAutoScrollInbox } from "./inbox-scroll-policy";
+import { mergeInboxConversationSummaries, reconcileInboxMessages } from "./inbox-conversation-merge";
 
 type InboxMessage = {
   id: string;
@@ -171,6 +171,8 @@ export function InboxWorkstation({
   const nearBottomRef = useRef(true);
   const operatorSentRef = useRef(false);
   const previousThreadRef = useRef({ conversationId: "", messageCount: 0 });
+  const refreshSequenceRef = useRef(0);
+  const pendingScrollRestoreRef = useRef<{ scrollTop: number; scrollHeight: number } | null>(null);
 
   const channelCounts = useMemo(
     () => countInboxConversationsByChannel(conversations),
@@ -247,6 +249,14 @@ export function InboxWorkstation({
     }
   }, [activeConversation?.id, activeConversation?.messages.length]);
 
+  useLayoutEffect(() => {
+    const previous = pendingScrollRestoreRef.current;
+    const thread = threadRef.current;
+    if (!previous || !thread) return;
+    thread.scrollTop = restoreInboxScrollOffset(previous, thread.scrollHeight);
+    pendingScrollRestoreRef.current = null;
+  }, [activeConversation?.messages.length]);
+
   async function refreshConversationList(silent = false) {
     if (!silent) setRefreshing(true);
     try {
@@ -267,16 +277,23 @@ export function InboxWorkstation({
 
   async function refreshConversation(silent = false) {
     if (!activeId) return;
+    const requestedConversationId = activeId;
+    const requestSequence = ++refreshSequenceRef.current;
     if (!silent) setRefreshing(true);
     try {
-      const response = await fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}`, {
+      const response = await fetch(`/api/v1/inbox/${tenantSlug}/conversations/${requestedConversationId}`, {
         cache: "no-store",
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.conversation) return;
+      if (requestSequence !== refreshSequenceRef.current) return;
+      const thread = threadRef.current;
+      if (thread && !nearBottomRef.current) {
+        pendingScrollRestoreRef.current = { scrollTop: thread.scrollTop, scrollHeight: thread.scrollHeight };
+      }
 
       setConversations((current) => sortConversations(current.map((conversation) =>
-        conversation.id === activeId
+        conversation.id === requestedConversationId
           ? {
               ...conversation,
               status: payload.conversation.status,
@@ -284,7 +301,9 @@ export function InboxWorkstation({
               messageCount: payload.conversation.messageCount,
               lastMessageAt: payload.conversation.lastMessageAt,
               handoffs: payload.conversation.handoffs ?? conversation.handoffs,
-              messages: payload.messages ?? conversation.messages,
+              messages: Array.isArray(payload.messages)
+                ? reconcileInboxMessages(conversation.messages, payload.messages)
+                : conversation.messages,
             }
           : conversation,
       )));

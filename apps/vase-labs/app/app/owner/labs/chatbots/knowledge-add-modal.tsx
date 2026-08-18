@@ -29,6 +29,7 @@ export function KnowledgeAddModal() {
   const router = useRouter();
   const [open, setOpen] = useState(false), [step, setStep] = useState(1), [type, setType] = useState<KnowledgeSourceType>();
   const [title, setTitle] = useState(""), [fileName, setFileName] = useState(""), [url, setUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [question, setQuestion] = useState(""), [answer, setAnswer] = useState("");
   const [urlError, setUrlError] = useState("");
   const [credentials, setCredentials] = useState<Credentials>();
@@ -45,7 +46,7 @@ export function KnowledgeAddModal() {
   const close = useCallback(() => {
     requests.invalidate();
     setOpen(false); setStep(1); setType(undefined);
-    setTitle(""); setFileName(""); setUrl(""); setQuestion(""); setAnswer(""); setUrlError("");
+    setTitle(""); setFileName(""); setFile(null); setUrl(""); setQuestion(""); setAnswer(""); setUrlError("");
     setCredentials(undefined); setError(""); setCredentialLoading(false); setSubmitting(false); setCopyMessage("");
     requestAnimationFrame(() => openButton.current?.focus());
   }, [requests]);
@@ -90,7 +91,20 @@ export function KnowledgeAddModal() {
         if (!provider.ok) throw new Error("provider");
       }
       if (!requests.isCurrent(ticket)) return;
-      const body = type === "FILE" ? { type, title: title || fileName, fileName } : type === "URL" ? { type, title, url } : type === "FAQ" ? { type, title, question, answer } : { type, title: type === "VASE_MANAGEMENT" ? "Vase Management" : "Sistema de gestión externo" };
+      if (type === "FILE" && file) {
+        const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+        const checksum = Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+        const init = await fetch("/api/labs/knowledge/files", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: title || file.name, fileName: file.name, mimeType: file.type || "text/plain", fileSize: file.size, checksum }), signal: ticket.signal });
+        const upload = await init.json();
+        if (!init.ok) throw new Error("knowledge");
+        const stored = await fetch(upload.uploadUrl, { method: "PUT", headers: { "content-type": file.type || "text/plain" }, body: file, signal: ticket.signal });
+        if (!stored.ok) throw new Error("knowledge");
+        const processed = await fetch(`/api/labs/knowledge/files/${upload.id}/process`, { method: "POST", signal: ticket.signal });
+        if (!processed.ok) throw new Error("knowledge");
+        if (requests.isCurrent(ticket)) { router.refresh(); close(); }
+        return;
+      }
+      const body = type === "URL" ? { type, title, url } : type === "FAQ" ? { type, title, question, answer } : { type, title: type === "VASE_MANAGEMENT" ? "Vase Management" : "Sistema de gestión externo" };
       const response = await fetch("/api/labs/knowledge", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: ticket.signal });
       if (!response.ok) throw new Error("knowledge");
       if (requests.isCurrent(ticket)) { router.refresh(); close(); }
@@ -144,7 +158,7 @@ export function KnowledgeAddModal() {
         </header>
         {step === 1 ? <div className="labs-source-grid">{choices.map(({ type: choiceType, label, icon: Icon }) => <button key={choiceType} className="labs-source-choice" onClick={() => void select(choiceType)}><Icon size={20} /><span>{label}</span></button>)}</div> :
           <form onSubmit={submit} className="labs-knowledge-form">
-            {type === "FILE" && <><label>Título<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Opcional; usaremos el nombre del archivo" /></label><label>Archivo<input required type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")} /></label><p className="labs-form-note">Al guardar, el archivo quedará en cola para procesamiento.</p></>}
+            {type === "FILE" && <><label>Título<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Opcional; usaremos el nombre del archivo" /></label><label>Archivo<input required type="file" accept=".pdf,.docx,.xlsx,.pptx,.txt" onChange={(e) => { const next = e.target.files?.[0] ?? null; setFile(next); setFileName(next?.name ?? ""); }} /></label><p className="labs-form-note">El archivo se subirá de forma segura y quedará listo después de extraer su contenido.</p></>}
             {type === "URL" && <><label>Título<input required value={title} onChange={(e) => setTitle(e.target.value)} /></label><label>URL<input required type="url" value={url} onChange={(e) => { setUrl(e.target.value); setUrlError(""); }} placeholder="https://" aria-invalid={Boolean(urlError)} aria-describedby={urlError ? "knowledge-url-error" : undefined} /></label>{urlError ? <p id="knowledge-url-error" className="labs-modal-error">{urlError}</p> : null}</>}
             {type === "FAQ" && <><label>Título<input required value={title} onChange={(e) => setTitle(e.target.value)} /></label><label>Pregunta<input required value={question} onChange={(e) => setQuestion(e.target.value)} /></label><label>Respuesta<textarea required value={answer} onChange={(e) => setAnswer(e.target.value)} rows={4} /></label></>}
             {type === "VASE_MANAGEMENT" && <p className="labs-form-note">La conexión con Vase Management queda activa y la sincronización del catálogo se gestiona en segundo plano.</p>}

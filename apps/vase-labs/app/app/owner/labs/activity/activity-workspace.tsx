@@ -5,7 +5,9 @@ import {
   BrainCircuit,
   ChevronDown,
   Clock3,
+  MessageCircle,
   MessageSquareText,
+  Send,
 } from "lucide-react";
 import { LabsEmptyState } from "../labs-ui";
 
@@ -20,6 +22,10 @@ export const ACTIVITY_INTENT_LABELS = {
 
 export type ActivityIntentFilter = keyof typeof ACTIVITY_INTENT_LABELS;
 export type ActivitySort = "latest" | "score";
+export type ActivityChannelFilter = "all" | "WHATSAPP" | "INSTAGRAM" | "FACEBOOK";
+const ACTIVITY_CHANNEL_LABELS: Record<ActivityChannelFilter, string> = {
+  all: "Todos los canales", WHATSAPP: "WhatsApp", INSTAGRAM: "Instagram", FACEBOOK: "Facebook",
+};
 
 type ActivityInsight = {
   summary: string;
@@ -143,6 +149,13 @@ function formatDate(value: Date | null) {
   }).format(value);
 }
 
+function ChannelIdentity({ channel }: { channel: string | null }) {
+  const normalized = channel === "WHATSAPP" || channel === "INSTAGRAM" || channel === "FACEBOOK" ? channel : "LABS";
+  const label = normalized === "WHATSAPP" ? "WhatsApp" : normalized === "INSTAGRAM" ? "Instagram" : normalized === "FACEBOOK" ? "Facebook" : "Vase Labs";
+  const Icon = normalized === "WHATSAPP" ? MessageCircle : normalized === "INSTAGRAM" ? Send : normalized === "FACEBOOK" ? MessageSquareText : MessageSquareText;
+  return <span className="inline-flex items-center gap-1" aria-label={`Canal: ${label}`}><Icon size={14} aria-hidden="true" />{label}</span>;
+}
+
 function ScoreMeter({ score }: { score: number | null }) {
   if (score === null) {
     return (
@@ -232,18 +245,20 @@ function PrimarySignal({
   );
 }
 
-function hrefFor(intent: ActivityIntentFilter, sort: ActivitySort) {
-  return `/owner/activity?intent=${encodeURIComponent(intent)}&sort=${encodeURIComponent(sort)}`;
+function hrefFor(intent: ActivityIntentFilter, sort: ActivitySort, channel: ActivityChannelFilter) {
+  return `/owner/activity?intent=${encodeURIComponent(intent)}&sort=${encodeURIComponent(sort)}&channel=${encodeURIComponent(channel)}`;
 }
 
 export default function ActivityWorkspace({
   conversations,
   activeIntent,
   activeSort,
+  activeChannel,
 }: {
   conversations: ActivityConversation[];
   activeIntent: ActivityIntentFilter;
   activeSort: ActivitySort;
+  activeChannel: ActivityChannelFilter;
 }) {
   return (
     <div className="labs-activity-workspace">
@@ -252,7 +267,7 @@ export default function ActivityWorkspace({
           {Object.entries(ACTIVITY_INTENT_LABELS).map(([intent, label]) => (
             <Link
               key={intent}
-              href={hrefFor(intent as ActivityIntentFilter, activeSort) as never}
+              href={hrefFor(intent as ActivityIntentFilter, activeSort, activeChannel) as never}
               aria-current={activeIntent === intent ? "page" : undefined}
               className={activeIntent === intent ? "is-active" : undefined}
             >
@@ -260,17 +275,24 @@ export default function ActivityWorkspace({
             </Link>
           ))}
         </nav>
+        <nav aria-label="Filtrar conversaciones por canal">
+          {Object.entries(ACTIVITY_CHANNEL_LABELS).map(([channel, label]) => (
+            <Link key={channel} href={hrefFor(activeIntent, activeSort, channel as ActivityChannelFilter) as never}
+              aria-current={activeChannel === channel ? "page" : undefined}
+              className={activeChannel === channel ? "is-active" : undefined}>{label}</Link>
+          ))}
+        </nav>
         <div className="labs-activity-sort" role="group" aria-label="Ordenar conversaciones">
           <span>Orden</span>
           <Link
-            href={hrefFor(activeIntent, "latest") as never}
+            href={hrefFor(activeIntent, "latest", activeChannel) as never}
             aria-current={activeSort === "latest" ? "page" : undefined}
             className={activeSort === "latest" ? "is-active" : undefined}
           >
             Más recientes
           </Link>
           <Link
-            href={hrefFor(activeIntent, "score") as never}
+            href={hrefFor(activeIntent, "score", activeChannel) as never}
             aria-current={activeSort === "score" ? "page" : undefined}
             className={activeSort === "score" ? "is-active" : undefined}
           >
@@ -299,7 +321,7 @@ export default function ActivityWorkspace({
               <article className="labs-activity-card" key={conversation.id}>
                 <header>
                   <div className="labs-activity-identity">
-                    <p>{conversation.channel ?? "LABS"} · {formatDate(conversation.lastMessageAt)}</p>
+                    <p><ChannelIdentity channel={conversation.channel} /> · {formatDate(conversation.lastMessageAt)}</p>
                     <h2>{conversation.customerName ?? conversation.customerContact ?? "Cliente sin identificar"}</h2>
                     {conversation.customerName && conversation.customerContact
                       ? <span>{conversation.customerContact}</span>

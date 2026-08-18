@@ -4,6 +4,21 @@ type ConversationWithThread = {
   handoffs: unknown[];
 };
 
+type MessageWithDelivery = {
+  id: string;
+  delivery?: { status?: string } | null;
+};
+
+export function reconcileInboxMessages<T extends MessageWithDelivery>(current: T[], refreshed: T[]): T[] {
+  const currentById = new Map(current.map((message) => [message.id, message]));
+  return refreshed.map((message) => {
+    const loaded = currentById.get(message.id);
+    if (!loaded) return message;
+    const staleDelivery = !message.delivery && loaded.delivery;
+    return staleDelivery ? { ...message, delivery: loaded.delivery } : message;
+  });
+}
+
 export function mergeInboxConversationSummaries<T extends ConversationWithThread>(
   current: T[],
   refreshed: T[],

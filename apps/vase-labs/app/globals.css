@@ -129,6 +129,17 @@ a:focus-visible {
   backdrop-filter: blur(24px) saturate(150%);
 }
 
+@media (min-width: 1024px) {
+  .labs-sidebar-frame { width: 5.25rem; overflow: hidden; transition: width 180ms ease; }
+  .labs-sidebar-frame:hover, .labs-sidebar-frame:focus-within, .labs-sidebar-pinned .labs-sidebar-frame { width: 18rem; }
+  .labs-shell-main { margin-left: 5.25rem; transition: margin-left 180ms ease; }
+  .labs-sidebar-pinned .labs-shell-main { margin-left: 18rem; }
+  .labs-sidebar-frame .labs-owner-nav-link span, .labs-sidebar-frame .labs-sidebar-brand > div:last-child, .labs-sidebar-frame .labs-sidebar-back, .labs-sidebar-frame .labs-sidebar-tenant > :not(:first-child) { opacity: 0; transition: opacity 120ms ease; white-space: nowrap; }
+  .labs-sidebar-frame:hover .labs-owner-nav-link span, .labs-sidebar-frame:focus-within .labs-owner-nav-link span, .labs-sidebar-pinned .labs-sidebar-frame .labs-owner-nav-link span, .labs-sidebar-frame:hover .labs-sidebar-brand > div:last-child, .labs-sidebar-pinned .labs-sidebar-frame .labs-sidebar-brand > div:last-child, .labs-sidebar-frame:hover .labs-sidebar-back, .labs-sidebar-pinned .labs-sidebar-frame .labs-sidebar-back, .labs-sidebar-frame:hover .labs-sidebar-tenant > :not(:first-child), .labs-sidebar-pinned .labs-sidebar-frame .labs-sidebar-tenant > :not(:first-child) { opacity: 1; }
+  .labs-sidebar-toggle { align-self: flex-end; display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border: 1px solid var(--border-subtle); border-radius: .75rem; color: var(--foreground); background: var(--surface); margin-bottom: .75rem; }
+  .labs-sidebar-toggle svg { width: 1rem; }
+}
+
 .labs-sidebar-brand,
 .labs-sidebar-tenant,
 .labs-sidebar-back {
@@ -240,6 +251,14 @@ a:focus-visible {
 
 /* Commercial intelligence workspace */
 .labs-activity-workspace { display: grid; gap: 1rem; }
+.labs-knowledge-trainer { display:grid; gap:1rem; padding:1.25rem; border:1px solid var(--border-subtle); border-radius:1rem; background:var(--surface); }
+.labs-knowledge-trainer header { display:flex; justify-content:space-between; gap:1rem; align-items:start; }
+.labs-knowledge-trainer header p { margin:0; color:var(--accent-strong); font-size:.65rem; font-weight:850; letter-spacing:.14em; text-transform:uppercase; }
+.labs-knowledge-trainer h2 { margin:.25rem 0 0; font-family:var(--font-newsreader); font-size:1.5rem; }
+.labs-knowledge-trainer form { display:grid; grid-template-columns:1fr 1fr auto; gap:.6rem; }
+.labs-knowledge-trainer input,.labs-knowledge-trainer button,.labs-order-panel input,.labs-order-panel textarea { border:1px solid var(--border-subtle); border-radius:.7rem; padding:.7rem; background:var(--background); color:var(--foreground); }
+.labs-knowledge-trainer article { display:flex; justify-content:space-between; align-items:center; padding:.75rem 0; border-top:1px solid var(--border-subtle); }
+.labs-knowledge-trainer article div { display:grid; gap:.2rem; }
 
 .labs-activity-controls { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem; border: 1px solid var(--border-subtle); border-radius: 0.75rem; background: color-mix(in srgb, var(--surface-strong) 92%, transparent); box-shadow: 0 12px 30px color-mix(in srgb, var(--glass-shadow) 34%, transparent); }
 

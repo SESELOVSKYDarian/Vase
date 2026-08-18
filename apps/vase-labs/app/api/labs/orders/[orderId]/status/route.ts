@@ -3,7 +3,7 @@ import { operateOrder } from "../../../../../lib/order-operation-runtime";
 import type { OrderOperationalStatus } from "../../../../../lib/order-operations";
 import { resolveLabsRequestContext } from "../../../../../lib/request-context";
 
-const statuses = new Set<OrderOperationalStatus>(["PROCESSING", "PREPARING", "READY", "CANCELLED"]);
+const statuses = new Set<OrderOperationalStatus>(["PROCESSING", "PREPARING", "READY", "SHIPPED", "CANCELLED"]);
 
 export async function PATCH(
   request: Request,
@@ -17,11 +17,21 @@ export async function PATCH(
     if (!status || !statuses.has(status)) {
       return NextResponse.json({ error: "ORDER_STATUS_INVALID" }, { status: 400 });
     }
+    const notificationText = typeof body.notificationText === "string" ? body.notificationText.trim() : "";
+    if (status !== "PROCESSING" && body.retryNotification !== true && !notificationText) {
+      return NextResponse.json({ error: "ORDER_NOTIFICATION_CONFIRMATION_REQUIRED" }, { status: 400 });
+    }
+    if (status === "SHIPPED" && (!String(body.carrier ?? "").trim() || !String(body.trackingUrl ?? "").trim())) {
+      return NextResponse.json({ error: "ORDER_TRACKING_REQUIRED" }, { status: 400 });
+    }
     const result = await operateOrder({
       globalTenantId: context.globalTenantId,
       orderId,
       status,
       retryNotification: body.retryNotification === true,
+      notificationText: notificationText || undefined,
+      carrier: typeof body.carrier === "string" ? body.carrier.trim() : undefined,
+      trackingUrl: typeof body.trackingUrl === "string" ? body.trackingUrl.trim() : undefined,
     });
     return NextResponse.json({ ok: true, order: result });
   } catch (error) {

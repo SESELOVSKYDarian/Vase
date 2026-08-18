@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
 import { LabsOwnerNav, LabsOwnerMobileNav } from "./labs-owner-nav";
+import { LabsSidebarShell } from "./labs-sidebar-shell";
 
 function tenantInitials(name: string) {
   return name
@@ -42,8 +43,7 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
   const plan = resolved.context.entitlement.plan;
 
   return (
-    <div className="labs-shell overflow-x-hidden">
-      <aside className="labs-sidebar fixed left-0 top-0 z-40 hidden h-screen w-72 flex-col px-4 py-5 lg:flex">
+    <LabsSidebarShell mobileNav={<LabsOwnerMobileNav />} sidebar={<>
         <a href="/owner" className="labs-sidebar-brand mb-7 flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
           <div className="labs-sidebar-mark grid h-11 w-11 place-items-center rounded-2xl bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
             <Bot className="size-5" />
@@ -77,16 +77,6 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
             <LogOut className="size-4 text-[var(--muted-soft)]" aria-hidden="true" />
           </div>
         </div>
-      </aside>
-
-      <main className="min-h-screen px-4 py-5 sm:px-6 lg:ml-72 lg:px-10 lg:py-8">
-        <div className="mx-auto max-w-[96rem]">
-          <LabsOwnerMobileNav />
-          {children}
-        </div>
-      </main>
-
-      <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-56 border-b border-[var(--border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent-soft)_70%,transparent),transparent)]" />
-    </div>
+      </>}>{children}</LabsSidebarShell>
   );
 }

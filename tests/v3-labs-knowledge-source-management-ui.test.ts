@@ -34,6 +34,11 @@ async function type(input: HTMLInputElement, value: string) {
 }
 
 describe("KnowledgeGroups source management", () => {
+  it("offers a retry action for failed file processing", () => {
+    const source = readFileSync("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-groups.tsx", "utf8");
+    expect(source).toContain("Reintentar procesamiento");
+    expect(source).toContain("/process");
+  });
   let root: Root;
   let host: HTMLDivElement;
   let pageFocusTarget: HTMLDivElement;

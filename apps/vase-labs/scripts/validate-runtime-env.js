@@ -12,3 +12,15 @@ if (!/^mysql:\/\//.test(databaseUrl)) {
   );
   process.exit(1);
 }
+
+const requiredKnowledgeStorage = [
+  "KNOWLEDGE_S3_ENDPOINT",
+  "KNOWLEDGE_S3_BUCKET",
+  "KNOWLEDGE_S3_ACCESS_KEY_ID",
+  "KNOWLEDGE_S3_SECRET_ACCESS_KEY",
+];
+const missingKnowledgeStorage = requiredKnowledgeStorage.filter((key) => !process.env[key]?.trim());
+if (missingKnowledgeStorage.length) {
+  console.error(`vase-labs requires S3 knowledge storage: ${missingKnowledgeStorage.join(", ")}.`);
+  process.exit(1);
+}

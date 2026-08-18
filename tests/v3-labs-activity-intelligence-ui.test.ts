@@ -65,15 +65,23 @@ describe("Labs Activity commercial intelligence", () => {
     expect(sanitizeActivitySearchParams({
       intent: "HOT_LEAD",
       sort: "score",
-    })).toEqual({ intent: "HOT_LEAD", sort: "score" });
+      channel: "INSTAGRAM",
+    })).toEqual({ intent: "HOT_LEAD", sort: "score", channel: "INSTAGRAM" });
     expect(sanitizeActivitySearchParams({
       intent: ["LOW_INTENT", "HOT_LEAD"],
       sort: ["latest", "score"],
-    })).toEqual({ intent: "LOW_INTENT", sort: "latest" });
+    })).toEqual({ intent: "LOW_INTENT", sort: "latest", channel: "all" });
     expect(sanitizeActivitySearchParams({
       intent: "DROP TABLE Conversation",
       sort: "provider-error",
-    })).toEqual({ intent: "all", sort: "latest" });
+    })).toEqual({ intent: "all", sort: "latest", channel: "all" });
+  });
+
+  it("combines the channel filter with the assistant scope", () => {
+    const query = buildActivityConversationQuery("assistant_resolved", {
+      intent: "all", sort: "latest", channel: "WHATSAPP",
+    });
+    expect(query.where).toEqual({ assistantId: "assistant_resolved", channel: "WHATSAPP" });
   });
 
   it("builds an assistant-scoped Prisma query with insight, job, and latest messages", () => {
@@ -153,6 +161,7 @@ describe("Labs Activity commercial intelligence", () => {
       conversations: [conversation()],
       activeIntent: "all",
       activeSort: "latest",
+      activeChannel: "all",
     }));
 
     for (const label of [
@@ -185,6 +194,8 @@ describe("Labs Activity commercial intelligence", () => {
     expect(html).toContain('aria-valuenow="87"');
     expect(html).toContain("<details");
     expect(html).toContain("IA respondió");
+    expect(html).toContain("WhatsApp");
+    expect(html).toContain('aria-label="Canal: WhatsApp"');
   });
 
   it("keeps the last valid insight visible while pending or failed", () => {
@@ -207,6 +218,7 @@ describe("Labs Activity commercial intelligence", () => {
       ],
       activeIntent: "all",
       activeSort: "latest",
+      activeChannel: "all",
     }));
 
     expect(html).toContain("Analizando conversación");
@@ -233,6 +245,7 @@ describe("Labs Activity commercial intelligence", () => {
       })),
       activeIntent: "all",
       activeSort: "latest",
+      activeChannel: "all",
     }));
 
     for (const [, copy] of states) expect(html).toContain(copy);
@@ -248,6 +261,7 @@ describe("Labs Activity commercial intelligence", () => {
       })],
       activeIntent: "HUMAN_REQUESTED",
       activeSort: "latest",
+      activeChannel: "all",
     }));
 
     expect(html).toContain("Solicitó humano");
@@ -273,6 +287,7 @@ describe("Labs Activity commercial intelligence", () => {
       })],
       activeIntent: "all",
       activeSort: "latest",
+      activeChannel: "all",
     }));
 
     expect(html).toContain("IA respondió");
@@ -292,6 +307,7 @@ describe("Labs Activity commercial intelligence", () => {
       })],
       activeIntent: "all",
       activeSort: "latest",
+      activeChannel: "all",
     }));
 
     expect(html).toContain("Respuesta IA con error");
@@ -310,6 +326,7 @@ describe("Labs Activity commercial intelligence", () => {
       })],
       activeIntent: "all",
       activeSort: "latest",
+      activeChannel: "all",
     }));
 
     expect(html).toContain("Consultó por horarios y medios de pago.");
@@ -334,7 +351,7 @@ describe("Labs Activity commercial intelligence", () => {
 
     expect(page).toContain("searchParams: Promise<ActivitySearchParams>");
     expect(page).toContain("await searchParams");
-    expect(page).toContain("where: { assistantId");
+    expect(page).toContain("const baseWhere");
     expect(page).toContain("<ActivityWorkspace");
     expect(workspace).toContain('from "next/link"');
     expect(workspace).not.toContain("useSearchParams");
