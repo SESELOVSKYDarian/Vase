@@ -23,11 +23,11 @@ export function createTrainerInstructionInterpreter(input: { apiKey: string; mod
   return {
     async interpret(request: { instruction: string; baseRevision: number; knowledge: KnowledgeReference[] }): Promise<TrainerProposal> {
       if (!input.apiKey.trim()) throw new Error("OPENAI_API_KEY_MISSING");
-      const references = request.knowledge.slice(0, 50).map((item) => ({
+      const references = request.knowledge.slice(0, 200).map((item) => ({
         id: item.id,
         title: item.title,
         sourceType: item.sourceType,
-        excerpt: item.content?.slice(0, 500) ?? "",
+        excerpt: item.content?.slice(0, 1800) ?? "",
       }));
       const response = await fetcher("https://api.openai.com/v1/responses", {
         method: "POST",
@@ -66,19 +66,18 @@ export function createTrainerInstructionInterpreter(input: { apiKey: string; mod
       if (value.changeType === "FAQ_EDIT" && targetKnowledgeId && question && answer) return { changeType: "FAQ_EDIT", baseRevision: request.baseRevision, targetKnowledgeId, proposedValue: { question, answer, ...sourceMeta } };
       if (value.changeType === "FAQ_EDIT" && question && answer) return { changeType: "FAQ_CREATE", baseRevision: request.baseRevision, proposedValue: { question, answer } };
       if (value.changeType === "DOCUMENT_CORRECTION" && targetKnowledgeId && content) return { changeType: "DOCUMENT_CORRECTION", baseRevision: request.baseRevision, targetKnowledgeId, proposedValue: { content, ...sourceMeta, ...(value.beforeText?.trim() ? { beforeText: value.beforeText.trim() } : {}), ...(value.afterText?.trim() ? { afterText: value.afterText.trim() } : {}) } };
-      const scheduleProposal = createCompleteScheduleProposal(request.instruction, request.baseRevision, request.knowledge);
-      if (scheduleProposal) return scheduleProposal;
       throw new Error("TRAINER_INSTRUCTION_AMBIGUOUS");
     },
   };
 }
 
 function createCompleteScheduleProposal(instruction: string, baseRevision: number, knowledge: KnowledgeReference[]): TrainerProposal | null {
-  const day = instruction.toLocaleLowerCase("es").match(/\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/)?.[1];
-  const times = [...instruction.toLocaleLowerCase("es").matchAll(/(?:\ba(?:\s+ser)?|\bdesde|\bhasta)\s+(?:a\s+)?las\s+(\d{1,2})(?::(\d{2}))?/g)];
+  const normalizedInstruction = instruction.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
+  const day = normalizedInstruction.match(/\b(lunes|martes|miercoles|jueves|viernes|sabados?|domingo)\b/)?.[1];
+  const times = [...normalizedInstruction.matchAll(/(?:\bde|\bdesde|\bhasta|\ba)\s+(?:las\s+)?(\d{1,2}|cero|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres|veinticuatro)\b(?:\s*:\s*(\d{2}))?/g)];
   if (!day || times.length < 2) return null;
-  const startHour = Number(times[0][1]);
-  const endHour = Number(times[1][1]);
+  const startHour = parseSpokenHour(times[0][1]);
+  const endHour = parseSpokenHour(times[1][1]);
   if (startHour > 23 || endHour > 23) return null;
   const start = `${String(startHour).padStart(2, "0")}:${times[0][2] ?? "00"}`;
   const end = `${String(endHour).padStart(2, "0")}:${times[1][2] ?? "00"}`;
@@ -97,4 +96,11 @@ function createCompleteScheduleProposal(instruction: string, baseRevision: numbe
       answer: `El ${day}, ${subject} de ${start} a ${end}.`,
     },
   };
+}
+
+function parseSpokenHour(value: string) {
+  const digits = Number(value);
+  if (Number.isFinite(digits) && digits > 0) return digits;
+  const words: Record<string, number> = { cero: 0, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciséis: 16, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veintiuno: 21, veintidós: 22, veintidos: 22, veintitrés: 23, veintitres: 23, veinticuatro: 24 };
+  return words[value] ?? Number.NaN;
 }

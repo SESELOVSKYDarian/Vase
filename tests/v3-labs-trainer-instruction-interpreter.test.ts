@@ -76,4 +76,16 @@ describe("Labs trainer instruction interpreter", () => {
       proposedValue: { content: "Quiero hacer este cambio del sábado del horario que hay para que pase a ser a las 8 de la mañana el inicio del horario de atención hasta las 14 horas en Teflón Central de Mar del Plata." },
     });
   });
+
+  it("parses spoken Spanish numbers when linking a schedule to a document", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      output_text: JSON.stringify({ changeType: "AMBIGUOUS", targetKnowledgeId: null, question: null, answer: null, content: null }),
+    }), { status: 200 }));
+    const result = await createTrainerInstructionInterpreter({ apiKey: "sk-test", fetcher: fetcher as typeof fetch }).interpret({
+      instruction: "Quiero cambiar el horario de atención de los sábados, pasarlo que sea de ocho de la mañana a quince horas.",
+      baseRevision: 5,
+      knowledge: [{ id: "file_teflon", title: "Sucursales", sourceType: "FILE", content: "Horarios: sábado de 8 a 13." }],
+    });
+    expect(result).toMatchObject({ changeType: "DOCUMENT_CORRECTION", targetKnowledgeId: "file_teflon" });
+  });
 });
