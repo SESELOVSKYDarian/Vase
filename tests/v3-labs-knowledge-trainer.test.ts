@@ -48,6 +48,13 @@ describe("Labs knowledge trainer", () => {
     expect(component).toContain("/revert");
   });
 
+  it("keeps the personal trainer in a dedicated inbox route", () => {
+    const nav = readFileSync("apps/vase-labs/app/app/owner/labs/labs-owner-nav.tsx", "utf8");
+    const page = readFileSync("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx", "utf8");
+    expect(nav).toContain('href: "/owner/inbox/trainer"');
+    expect(page).toContain("Entrenador personal");
+  });
+
   it("asks the trainer for an explicit WhatsApp confirmation before a proposed change", () => {
     expect(buildTrainerProposalReply({ changeType: "FAQ_CREATE", proposedValue: { question: "Horarios", answer: "9 a 18" } }))
       .toContain("CONFIRMAR");
