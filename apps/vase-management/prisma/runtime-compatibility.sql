@@ -1,3 +1,36 @@
--- Keep legacy Management databases compatible with the current Prisma User model.
+-- Keep legacy Management databases compatible with the central-session projection.
 -- This is intentionally idempotent because EasyPanel runs it on every container start.
-ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "name" TEXT;
+ALTER TABLE "users"
+  ADD COLUMN IF NOT EXISTS "name" TEXT,
+  ADD COLUMN IF NOT EXISTS "emailVerified" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "image" TEXT,
+  ADD COLUMN IF NOT EXISTS "password" TEXT,
+  ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "isSuperAdmin" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS "globalUserId" TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "users_globalUserId_key"
+  ON "users"("globalUserId");
+
+ALTER TABLE "companies"
+  ADD COLUMN IF NOT EXISTS "globalTenantId" TEXT,
+  ADD COLUMN IF NOT EXISTS "integrationProvider" TEXT NOT NULL DEFAULT 'EXTERNAL_API',
+  ADD COLUMN IF NOT EXISTS "provisioningStatus" TEXT NOT NULL DEFAULT 'PENDING',
+  ADD COLUMN IF NOT EXISTS "lastSyncAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "lastSyncError" TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "companies_globalTenantId_key"
+  ON "companies"("globalTenantId");
+
+ALTER TABLE "roles"
+  ADD COLUMN IF NOT EXISTS "description" TEXT,
+  ADD COLUMN IF NOT EXISTS "isSystem" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "company_users"
+  ADD COLUMN IF NOT EXISTS "roleId" TEXT,
+  ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "joinedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
