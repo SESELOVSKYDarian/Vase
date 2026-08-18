@@ -23,7 +23,9 @@ async function processNext() {
 }
 
 async function main() {
-  while (await processNext()) undefined;
+  while (true) {
+    if (!await processNext()) await new Promise((resolve) => setTimeout(resolve, 5_000));
+  }
 }
 
 void main().finally(() => labsPrisma.$disconnect());
