@@ -20,7 +20,12 @@ export function rejectTrainerProposal(response: string) {
   return /^(rechazar|rechazo|cancelar|cancel[oó])$/i.test(response.trim()) ? { rejected: true as const } : null;
 }
 
-export function createTrainerProposal(instruction: string, baseRevision: number) {
+export type TrainerProposal =
+  | { changeType: "FAQ_CREATE"; baseRevision: number; proposedValue: { question: string; answer: string }; targetKnowledgeId?: undefined }
+  | { changeType: "FAQ_EDIT"; baseRevision: number; targetKnowledgeId: string; proposedValue: { question: string; answer: string } }
+  | { changeType: "DOCUMENT_CORRECTION"; baseRevision: number; targetKnowledgeId: string; proposedValue: { content: string } };
+
+export function createTrainerProposal(instruction: string, baseRevision: number): TrainerProposal {
   const normalized = instruction.trim();
   const faq = normalized.match(/^agreg[aá]\s+faq\s*:\s*(.+?)\s*\|\s*(.+)$/i);
   if (faq) {

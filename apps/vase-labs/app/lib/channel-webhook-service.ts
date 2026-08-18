@@ -1,5 +1,5 @@
 import { Prisma, type PrismaClient } from "./db";
-import { buildTrainerProposalReply, confirmTrainerProposal, createTrainerProposal, normalizeTrainerPhone, rejectTrainerProposal } from "./knowledge-trainer";
+import { buildTrainerProposalReply, confirmTrainerProposal, createTrainerProposal, normalizeTrainerPhone, rejectTrainerProposal, type TrainerProposal } from "./knowledge-trainer";
 import { randomUUID } from "node:crypto";
 import type { InboundChannelMessage, LabsChannel, LabsChannelProvider } from "@vase/contracts";
 import { canTenantUseChannel, createRuntimeEntitlement, type LabsRuntimeEntitlement } from "./billing";
@@ -48,7 +48,7 @@ export type PersistChannelInboundMessageResult = {
 
 export interface ChannelWebhookRepository {
   findTrainerPhone?(globalTenantId: string, phone: string): Promise<{ id: string } | null>;
-  persistTrainerInstruction?(input: { context: ChannelWebhookContext; trainerPhoneId: string; message: InboundChannelMessage }): Promise<{ proposalId: string; replyText: string }>;
+  persistTrainerInstruction?(input: { context: ChannelWebhookContext; trainerPhoneId: string; message: InboundChannelMessage; preparedProposal?: TrainerProposal }): Promise<{ proposalId: string; replyText: string }>;
   sendTrainerReply?(input: { context: ChannelWebhookContext; trainerPhoneId: string; text: string }): Promise<void>;
   enqueueTrainerAudio?(input: { context: ChannelWebhookContext; trainerPhoneId: string; message: InboundChannelMessage }): Promise<void>;
   findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
@@ -340,7 +340,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
     return this.prisma.trainerPhone.findFirst({ where: { globalTenantId, phone, active: true }, select: { id: true } });
   }
 
-  async persistTrainerInstruction(input: { context: ChannelWebhookContext; trainerPhoneId: string; message: InboundChannelMessage }) {
+  async persistTrainerInstruction(input: { context: ChannelWebhookContext; trainerPhoneId: string; message: InboundChannelMessage; preparedProposal?: TrainerProposal }) {
     const latest = await this.prisma.knowledgeRevision.findFirst({ where: { globalTenantId: input.context.globalTenantId }, orderBy: { revision: "desc" }, select: { revision: true } });
     const currentRevision = latest?.revision ?? 0;
     const text = input.message.text ?? "";
@@ -379,7 +379,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         if (error instanceof Error && error.message === "TRAINER_PROPOSAL_STALE") await this.prisma.knowledgeChangeProposal.update({ where: { id: pending.id }, data: { status: "STALE" } });
       }
     }
-    const proposal = createTrainerProposal(text, currentRevision);
+    const proposal = input.preparedProposal ?? createTrainerProposal(text, currentRevision);
     const stored = await this.prisma.knowledgeChangeProposal.create({ data: {
       globalTenantId: input.context.globalTenantId,
       trainerPhoneId: input.trainerPhoneId,

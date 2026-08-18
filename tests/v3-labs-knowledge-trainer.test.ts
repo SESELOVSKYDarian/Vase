@@ -55,6 +55,13 @@ describe("Labs knowledge trainer", () => {
     expect(page).toContain("Entrenador personal");
   });
 
+  it("uses the AI instruction interpreter after transcribing trainer audio", () => {
+    const worker = readFileSync("apps/vase-labs/scripts/trainer-audio-worker.ts", "utf8");
+    expect(worker).toContain("createTrainerInstructionInterpreter");
+    expect(worker).toContain("interpret({");
+    expect(worker).toContain('status: { in: ["QUEUED", "FAILED"] }');
+  });
+
   it("asks the trainer for an explicit WhatsApp confirmation before a proposed change", () => {
     expect(buildTrainerProposalReply({ changeType: "FAQ_CREATE", proposedValue: { question: "Horarios", answer: "9 a 18" } }))
       .toContain("CONFIRMAR");

@@ -5,9 +5,10 @@ import { labsPrisma } from "../app/lib/db";
 import { PrismaChannelWebhookRepository } from "../app/lib/channel-webhook-service";
 import { PrismaOfficialChannelSenderRepository } from "../app/lib/official-channel-sender-repository";
 import { downloadWhatsAppMedia } from "../app/lib/whatsapp-media";
+import { createTrainerInstructionInterpreter } from "../app/lib/trainer-instruction-interpreter";
 
 async function processNext() {
-  const job = await labsPrisma.trainerAudioJob.findFirst({ where: { status: "QUEUED", attempts: { lt: 3 } }, orderBy: { createdAt: "asc" } });
+  const job = await labsPrisma.trainerAudioJob.findFirst({ where: { status: { in: ["QUEUED", "FAILED"] }, attempts: { lt: 3 } }, orderBy: { createdAt: "asc" } });
   if (!job) return false;
   await labsPrisma.trainerAudioJob.update({ where: { id: job.id }, data: { status: "PROCESSING", attempts: { increment: 1 }, error: null } });
   try {
@@ -21,10 +22,17 @@ async function processNext() {
     if (!transcript) throw new Error("TRAINER_AUDIO_EMPTY");
     const assistant = await labsPrisma.assistant.findUnique({ where: { id: job.assistantId }, select: { globalTenantId: true, tenantSlug: true, model: true, systemPrompt: true } });
     if (!assistant?.tenantSlug) throw new Error("TRAINER_AUDIO_ASSISTANT_NOT_FOUND");
+    const latestRevision = await labsPrisma.knowledgeRevision.findFirst({ where: { globalTenantId: job.globalTenantId }, orderBy: { revision: "desc" }, select: { revision: true } });
+    const knowledge = await labsPrisma.knowledgeItem.findMany({ where: { assistantId: job.assistantId, status: "READY" }, select: { id: true, title: true, sourceType: true, content: true }, take: 50 });
+    const preparedProposal = await createTrainerInstructionInterpreter({ apiKey, model: process.env.OPENAI_TRAINER_MODEL?.trim() || assistant.model || undefined }).interpret({
+      instruction: transcript,
+      baseRevision: latestRevision?.revision ?? 0,
+      knowledge,
+    });
     const repository = new PrismaChannelWebhookRepository(labsPrisma);
     const context = await repository.findContextByTenantSlug(assistant.tenantSlug, "WHATSAPP");
     if (!context) throw new Error("TRAINER_AUDIO_CHANNEL_NOT_FOUND");
-    const proposal = await repository.persistTrainerInstruction({ context, trainerPhoneId: job.trainerPhoneId, message: { globalTenantId: job.globalTenantId, channelType: "WHATSAPP", externalThreadKey: job.trainerPhoneId, externalMessageId: job.sourceMessageId ?? undefined, customerContact: "", text: transcript, messageType: "audio", provider: "META_OFFICIAL" } });
+    const proposal = await repository.persistTrainerInstruction({ context, trainerPhoneId: job.trainerPhoneId, preparedProposal, message: { globalTenantId: job.globalTenantId, channelType: "WHATSAPP", externalThreadKey: job.trainerPhoneId, externalMessageId: job.sourceMessageId ?? undefined, customerContact: "", text: transcript, messageType: "audio", provider: "META_OFFICIAL" } });
     await repository.sendTrainerReply({ context, trainerPhoneId: job.trainerPhoneId, text: proposal.replyText });
     await labsPrisma.trainerAudioJob.update({ where: { id: job.id }, data: { status: "COMPLETED", transcript } });
   } catch (error) {
