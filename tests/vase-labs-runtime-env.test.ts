@@ -16,5 +16,7 @@ describe("Vase Labs runtime environment", () => {
     expect(dockerfile).toContain("node apps/vase-labs/scripts/validate-runtime-env.js");
     expect(validator).toContain("mysql://");
     expect(validator).toContain("Do not use a postgresql:// DATABASE_URL for Labs");
+    expect(validator).toContain("KNOWLEDGE_S3_ENDPOINT");
+    expect(validator).toContain("KNOWLEDGE_S3_SECRET_ACCESS_KEY");
   });
 });

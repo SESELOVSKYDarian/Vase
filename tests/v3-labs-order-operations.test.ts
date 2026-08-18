@@ -1,7 +1,42 @@
 import { describe, expect, it, vi } from "vitest";
-import { changeOrderOperationalStatus } from "../apps/vase-labs/app/lib/order-operations";
+import fs from "node:fs";
+import { buildOrderStatusMessage, changeOrderOperationalStatus } from "../apps/vase-labs/app/lib/order-operations";
 
 describe("Labs order operations", () => {
+  it("builds shipment tracking copy and requires tracking", () => {
+    expect(() => buildOrderStatusMessage({ status: "SHIPPED", orderNumber: "LABS-12" }))
+      .toThrow("ORDER_TRACKING_REQUIRED");
+    expect(buildOrderStatusMessage({ status: "SHIPPED", orderNumber: "LABS-12", carrier: "Correo", trackingUrl: "https://track.test/12" }))
+      .toContain("https://track.test/12");
+  });
+
+  it("uses the operator-confirmed message", async () => {
+    const notifyReady = vi.fn(async () => ({ ok: true as const }));
+    await changeOrderOperationalStatus({ globalTenantId: "tenant_1", orderId: "order_1", status: "PREPARING", notificationText: "Estamos preparando tu pedido." }, {
+      loadOrder: vi.fn(async () => ({ id: "order_1", orderNumber: "LABS-1", conversationId: "c1" })),
+      saveStatus: vi.fn(async () => undefined), notifyReady,
+    });
+    expect(notifyReady).toHaveBeenCalledWith(expect.objectContaining({ text: "Estamos preparando tu pedido." }));
+  });
+
+  it("persists the delivery recipient and provider message id with the sent status event", async () => {
+    const saveStatus = vi.fn(async () => undefined);
+    await changeOrderOperationalStatus({ globalTenantId: "tenant_1", orderId: "order_1", status: "PREPARING", notificationText: "Preparando." }, {
+      loadOrder: vi.fn(async () => ({ id: "order_1", orderNumber: "LABS-1", conversationId: "c1" })),
+      saveStatus,
+      notifyReady: vi.fn(async () => ({ ok: true as const, recipient: "+5491100000000", providerMessageId: "wamid.1" })),
+    });
+    expect(saveStatus).toHaveBeenLastCalledWith(expect.objectContaining({
+      notificationStatus: "SENT", recipient: "+5491100000000", providerMessageId: "wamid.1",
+    }));
+  });
+
+  it("requires an editable preview before the orders UI sends a status", () => {
+    const source = fs.readFileSync("apps/vase-labs/app/app/owner/labs/orders/orders-workspace.tsx", "utf8");
+    expect(source).toContain("notificationPreview");
+    expect(source).toContain("Confirmar cambio y enviar");
+    expect(source).toContain("SHIPPED");
+  });
   it("marks an order ready and notifies the linked customer", async () => {
     const saveStatus = vi.fn(async () => undefined);
     const notifyReady = vi.fn(async () => ({ ok: true as const }));
@@ -56,6 +91,18 @@ describe("Labs order operations", () => {
       })),
       saveStatus: vi.fn(),
       notifyReady,
+    });
+    expect(notifyReady).not.toHaveBeenCalled();
+    expect(result.notificationStatus).toBe("SENT");
+  });
+
+  it("does not send a confirmed notification twice for the same operational status", async () => {
+    const notifyReady = vi.fn();
+    const result = await changeOrderOperationalStatus({
+      globalTenantId: "tenant_1", orderId: "order_1", status: "PREPARING", notificationText: "Preparando.",
+    }, {
+      loadOrder: vi.fn(async () => ({ id: "order_1", orderNumber: "LABS-1", operationalStatus: "PREPARING", customerNotificationStatus: "SENT", conversationId: "conversation_1" })),
+      saveStatus: vi.fn(), notifyReady,
     });
     expect(notifyReady).not.toHaveBeenCalled();
     expect(result.notificationStatus).toBe("SENT");

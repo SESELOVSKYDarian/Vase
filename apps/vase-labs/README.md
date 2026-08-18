@@ -1,5 +1,16 @@
 # Vase Labs
 
+## Despliegue de archivos de conocimiento
+
+Antes de desplegar, configurá un bucket S3-compatible privado y las variables
+`KNOWLEDGE_S3_ENDPOINT`, `KNOWLEDGE_S3_REGION`, `KNOWLEDGE_S3_BUCKET`,
+`KNOWLEDGE_S3_ACCESS_KEY_ID` y `KNOWLEDGE_S3_SECRET_ACCESS_KEY`. El proceso de
+arranque rechaza una configuración incompleta para no aceptar archivos que no
+puedan persistirse. Aplicá las migraciones con `npx prisma migrate deploy` (el
+Dockerfile ya lo ejecuta) y mantené un proceso de worker separado con
+`npm run worker:conversation-analysis --workspace @vase/labs` para análisis y
+audios; el endpoint de finalización procesa la primera extracción de archivo.
+
 IA SaaS independiente con asistentes, canales, knowledge, conversaciones y handoffs.
 
 ## Entitlements y tokens

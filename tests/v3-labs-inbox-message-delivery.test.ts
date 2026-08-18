@@ -14,6 +14,14 @@ describe("Labs Inbox outbound delivery state", () => {
     });
   });
 
+  it("labels sent messages without a provider id as sent", () => {
+    expect(resolveInboxMessageDelivery({
+      status: "SENT",
+      providerMessageId: null,
+      error: null,
+    })).toMatchObject({ label: "Enviado", tone: "sent" });
+  });
+
   it("shows a failed AI reply instead of claiming delivery", () => {
     expect(resolveInboxMessageDelivery({
       status: "FAILED",

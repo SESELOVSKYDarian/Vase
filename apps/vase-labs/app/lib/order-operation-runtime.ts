@@ -17,6 +17,9 @@ export async function operateOrder(input: {
   orderId: string;
   status: OrderOperationalStatus;
   retryNotification?: boolean;
+  notificationText?: string;
+  carrier?: string;
+  trackingUrl?: string;
 }) {
   return changeOrderOperationalStatus(input, {
     async loadOrder(where) {
@@ -42,6 +45,9 @@ export async function operateOrder(input: {
               customerNotificationError: change.notificationError ?? null,
               ...(change.notificationStatus === "SENT" ? { customerNotifiedAt: change.now } : {}),
             } : {}),
+            ...(change.carrier ? { trackingCarrier: change.carrier } : {}),
+            ...(change.trackingUrl ? { trackingUrl: change.trackingUrl } : {}),
+            operationalRevision: { increment: 1 },
           },
         });
         await tx.orderStatusEvent.create({
@@ -51,6 +57,9 @@ export async function operateOrder(input: {
             toStatus: change.status,
             notificationStatus: change.notificationStatus ?? null,
             error: change.notificationError ?? null,
+            notificationText: change.notificationText ?? null,
+            recipient: change.recipient ?? null,
+            providerMessageId: change.providerMessageId ?? null,
           },
         });
       });
@@ -115,7 +124,7 @@ export async function operateOrder(input: {
           },
         }),
       ]);
-      return { ok: true as const };
+      return { ok: true as const, recipient: recipientId, providerMessageId: delivery.providerMessageId };
     },
   });
 }

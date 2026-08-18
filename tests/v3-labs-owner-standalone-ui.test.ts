@@ -98,7 +98,7 @@ describe("Vase Labs standalone owner experience", () => {
     for (const label of ["Documento o archivo", "URL", "FAQ manual", "Vase Management", "Sistema de gestión externo"]) {
       expect(modal).toContain(label);
     }
-    expect(modal).toContain('accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"');
+    expect(modal).toContain('accept=".pdf,.docx,.xlsx,.pptx,.txt"');
     for (const label of ["business.vase.ar", "Tenant UUID", "Consumer Key"]) expect(modal).toContain(label);
     expect(modal).not.toContain("Consumer Secret");
     expect(modal).not.toContain("OAuth");
@@ -190,8 +190,8 @@ describe("Vase Labs standalone owner experience", () => {
       path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"),
       "utf8",
     );
-    expect(layout).toContain("labs-shell");
-    expect(layout).toContain("labs-sidebar");
+    expect(layout).toContain("LabsSidebarShell");
+    expect(fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/labs-sidebar-shell.tsx"), "utf8")).toContain("labs-sidebar");
     expect(layout).toContain("labs-sidebar-brand");
     expect(layout).toContain("font-[family-name:var(--font-newsreader)]");
     expect(layout).toContain("labs-sidebar-tenant");
@@ -289,7 +289,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(workstation).toContain('"use client"');
     expect(workstation).toContain("setInterval");
     expect(workstation).toContain("refreshConversationList");
-    expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}`");
+    expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${requestedConversationId}`");
     expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}/reply`");
     expect(workstation).toContain("fetch(`/api/v1/inbox/${tenantSlug}/conversations/${activeId}/handoff`");
     expect(workstation).toContain("Respuesta humana");

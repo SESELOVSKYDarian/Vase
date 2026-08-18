@@ -1,0 +1,7 @@
+ALTER TABLE `KnowledgeItem`
+  ADD COLUMN `objectKey` VARCHAR(191) NULL,
+  ADD COLUMN `mimeType` VARCHAR(191) NULL,
+  ADD COLUMN `fileSize` INTEGER NULL,
+  ADD COLUMN `checksum` VARCHAR(191) NULL,
+  ADD COLUMN `extractedText` LONGTEXT NULL,
+  ADD COLUMN `processingError` TEXT NULL;
