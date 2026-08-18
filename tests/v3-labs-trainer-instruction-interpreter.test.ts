@@ -69,7 +69,7 @@ describe("Labs trainer instruction interpreter", () => {
       baseRevision: 4,
       knowledge: [{ id: "file_teflon", title: "Sucursales", sourceType: "FILE", content: "Teflón Central de Mar del Plata atiende sábados de 09:00 a 13:00." }],
     });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       changeType: "DOCUMENT_CORRECTION",
       baseRevision: 4,
       targetKnowledgeId: "file_teflon",

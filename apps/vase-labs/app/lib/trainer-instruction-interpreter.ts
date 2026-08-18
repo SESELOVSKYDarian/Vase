@@ -60,10 +60,12 @@ export function createTrainerInstructionInterpreter(input: { apiKey: string; mod
       const answer = value.answer?.trim();
       const targetKnowledgeId = value.targetKnowledgeId?.trim();
       const content = value.content?.trim();
+      const source = targetKnowledgeId ? request.knowledge.find((item) => item.id === targetKnowledgeId) : undefined;
+      const sourceMeta = source ? { sourceTitle: source.title, currentText: source.content?.slice(0, 1200) ?? "" } : {};
       if (value.changeType === "FAQ_CREATE" && question && answer) return { changeType: "FAQ_CREATE", baseRevision: request.baseRevision, proposedValue: { question, answer } };
-      if (value.changeType === "FAQ_EDIT" && targetKnowledgeId && question && answer) return { changeType: "FAQ_EDIT", baseRevision: request.baseRevision, targetKnowledgeId, proposedValue: { question, answer } };
+      if (value.changeType === "FAQ_EDIT" && targetKnowledgeId && question && answer) return { changeType: "FAQ_EDIT", baseRevision: request.baseRevision, targetKnowledgeId, proposedValue: { question, answer, ...sourceMeta } };
       if (value.changeType === "FAQ_EDIT" && question && answer) return { changeType: "FAQ_CREATE", baseRevision: request.baseRevision, proposedValue: { question, answer } };
-      if (value.changeType === "DOCUMENT_CORRECTION" && targetKnowledgeId && content) return { changeType: "DOCUMENT_CORRECTION", baseRevision: request.baseRevision, targetKnowledgeId, proposedValue: { content, ...(value.beforeText?.trim() ? { beforeText: value.beforeText.trim() } : {}), ...(value.afterText?.trim() ? { afterText: value.afterText.trim() } : {}) } };
+      if (value.changeType === "DOCUMENT_CORRECTION" && targetKnowledgeId && content) return { changeType: "DOCUMENT_CORRECTION", baseRevision: request.baseRevision, targetKnowledgeId, proposedValue: { content, ...sourceMeta, ...(value.beforeText?.trim() ? { beforeText: value.beforeText.trim() } : {}), ...(value.afterText?.trim() ? { afterText: value.afterText.trim() } : {}) } };
       const scheduleProposal = createCompleteScheduleProposal(request.instruction, request.baseRevision, request.knowledge);
       if (scheduleProposal) return scheduleProposal;
       throw new Error("TRAINER_INSTRUCTION_AMBIGUOUS");
@@ -83,7 +85,7 @@ function createCompleteScheduleProposal(instruction: string, baseRevision: numbe
   const location = instruction.match(/\ben\s+([^,.]+?)[.]?$/i)?.[1]?.trim();
   const matchedFile = knowledge.find((item) => item.sourceType === "FILE");
   if (matchedFile) {
-    return { changeType: "DOCUMENT_CORRECTION", baseRevision, targetKnowledgeId: matchedFile.id, proposedValue: { content: instruction.trim() } };
+    return { changeType: "DOCUMENT_CORRECTION", baseRevision, targetKnowledgeId: matchedFile.id, proposedValue: { content: instruction.trim(), sourceTitle: matchedFile.title, currentText: matchedFile.content?.slice(0, 1200) ?? "" } };
   }
   const locationSuffix = location ? ` en ${location}` : "";
   const subject = location ? `${location} atiende` : "atendemos";

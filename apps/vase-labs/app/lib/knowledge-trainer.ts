@@ -25,9 +25,9 @@ export function shouldInterpretTrainerInstruction(hasPendingProposal: boolean) {
 }
 
 export type TrainerProposal =
-  | { changeType: "FAQ_CREATE"; baseRevision: number; proposedValue: { question: string; answer: string }; targetKnowledgeId?: undefined }
-  | { changeType: "FAQ_EDIT"; baseRevision: number; targetKnowledgeId: string; proposedValue: { question: string; answer: string } }
-  | { changeType: "DOCUMENT_CORRECTION"; baseRevision: number; targetKnowledgeId: string; proposedValue: { content: string; beforeText?: string; afterText?: string } };
+  | { changeType: "FAQ_CREATE"; baseRevision: number; proposedValue: { question: string; answer: string; sourceTitle?: string; currentText?: string }; targetKnowledgeId?: undefined }
+  | { changeType: "FAQ_EDIT"; baseRevision: number; targetKnowledgeId: string; proposedValue: { question: string; answer: string; sourceTitle?: string; currentText?: string } }
+  | { changeType: "DOCUMENT_CORRECTION"; baseRevision: number; targetKnowledgeId: string; proposedValue: { content: string; beforeText?: string; afterText?: string; sourceTitle?: string; currentText?: string } };
 
 export function createTrainerProposal(instruction: string, baseRevision: number): TrainerProposal {
   const normalized = instruction.trim();
@@ -53,7 +53,12 @@ export function createTrainerProposal(instruction: string, baseRevision: number)
   throw new Error("TRAINER_INSTRUCTION_AMBIGUOUS");
 }
 
-export function buildTrainerProposalReply(proposal: { changeType: string; proposedValue: { question?: string; answer?: string; content?: string } }) {
+export function buildTrainerProposalReply(proposal: { changeType: string; proposedValue: { question?: string; answer?: string; content?: string; sourceTitle?: string; currentText?: string } }) {
+  const source = proposal.proposedValue.sourceTitle ? ` Fuente: ${proposal.proposedValue.sourceTitle}.` : "";
+  const current = proposal.proposedValue.currentText ? ` Actualmente dice: “${proposal.proposedValue.currentText.slice(0, 700)}”.` : "";
+  if (proposal.changeType === "DOCUMENT_CORRECTION" && (source || current)) {
+    return `Revisé todo el conocimiento y encontré este dato en un archivo.${source}${current} Propongo cambiarlo por: “${proposal.proposedValue.content}”. Respondé CONFIRMAR para aplicarlo o RECHAZAR para descartarlo.`;
+  }
   if (proposal.changeType === "FAQ_CREATE" || proposal.changeType === "FAQ_EDIT") {
     return `Revisé el conocimiento actual. Propuesta de FAQ: “${proposal.proposedValue.question}” → “${proposal.proposedValue.answer}”. Respondé CONFIRMAR para aplicarla o RECHAZAR para descartarla.`;
   }
