@@ -17,8 +17,13 @@ export class WarehouseService {
   /**
    * Busca productos en el catálogo de la empresa
    */
-  static async searchProducts(companyId: string, query: string, limit = 10) {
-    return WarehouseRepository.searchProducts(companyId, query, limit);
+  static async searchProducts(
+    companyId: string,
+    query: string,
+    limit = 10,
+    filters: { sectorId?: string; rack?: string } = {},
+  ) {
+    return WarehouseRepository.searchProducts(companyId, query, limit, filters);
   }
 
   /**

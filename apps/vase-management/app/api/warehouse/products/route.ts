@@ -8,7 +8,14 @@ export async function GET(req: NextRequest) {
     if (!session?.user?.companyId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     
     const query = req.nextUrl.searchParams.get('q') || ''
-    const results = await WarehouseService.searchProducts(session.user.companyId, query, 50)
+    const sectorId = req.nextUrl.searchParams.get('sectorId') || undefined
+    const rack = req.nextUrl.searchParams.get('rack') || undefined
+    const results = await WarehouseService.searchProducts(
+      session.user.companyId,
+      query,
+      100,
+      { sectorId, rack },
+    )
     
     return NextResponse.json(results)
   } catch (error) {
