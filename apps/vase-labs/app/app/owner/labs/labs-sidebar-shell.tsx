@@ -63,13 +63,12 @@ export function LabsSidebarShell({ sidebar, mobileNav, children, tenantName, ten
         </div>
       </header>
       <header className="labs-topbar mb-6 hidden items-center gap-4 lg:flex">
-        <Link href="/owner" aria-label="Vase Labs" className="labs-topbar-mark"><FlaskConical className="size-4" /></Link>
-        <Link href="/owner" className="labs-topbar-title">Vase Labs</Link>
-        <div className="relative flex-1">
+        <div className="labs-topbar-search-wrap relative">
           <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[var(--muted-soft)]" />
           <input aria-label="Buscar en Labs" className="labs-topbar-search" value={query} onChange={(event) => setQuery(event.target.value)} onFocus={() => setSearchOpen(true)} onKeyDown={(event) => { if (event.key === "Escape") closeSearch(); }} placeholder="Buscar en Labs" />
           {searchOpen ? <div className="labs-search-results">{results.length ? results.map((item) => { const Icon = item.icon; return <Link onMouseDown={closeSearch} key={item.href} href={item.href as never} className="labs-search-result"><span><Icon className="size-4" /></span><strong>{item.label}</strong></Link>; }) : <p>No encontramos una sección con “{query}”.</p>}</div> : null}
         </div>
+        <div className="labs-topbar-spacer" />
         <button type="button" className="labs-topbar-icon" onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")} aria-label="Cambiar tema" title="Cambiar tema">{theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}</button>
         <div className="relative">
           <button type="button" className="labs-account-button" onClick={() => setAccountOpen((current) => !current)} aria-expanded={accountOpen} aria-label="Abrir menú de cuenta"><span>{tenantInitials}</span><div><strong>{tenantName}</strong><small>{plan}</small></div><ChevronDown className="size-4" /></button>

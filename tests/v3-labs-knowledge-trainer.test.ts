@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { buildTrainerProposalReply, confirmTrainerProposal, createTrainerProposal, normalizeTrainerPhone, routeTrainerInbound, rejectTrainerProposal } from "../apps/vase-labs/app/lib/knowledge-trainer";
+import { buildTrainerProposalReply, confirmTrainerProposal, createTrainerProposal, normalizeTrainerPhone, routeTrainerInbound, rejectTrainerProposal, shouldInterpretTrainerInstruction } from "../apps/vase-labs/app/lib/knowledge-trainer";
 
 describe("Labs knowledge trainer", () => {
   it("normalizes authorized WhatsApp phones and separates them from commercial flow", () => {
@@ -62,6 +62,12 @@ describe("Labs knowledge trainer", () => {
     expect(worker).toContain('status: { in: ["QUEUED", "FAILED"] }');
     expect(worker).toContain("attempts: { lt: 5 }");
     expect(worker).toContain("data: { transcript }");
+    expect(worker).toContain("shouldInterpretTrainerInstruction(Boolean(pendingProposal))");
+  });
+
+  it("routes a spoken confirmation to the pending proposal instead of the AI interpreter", () => {
+    expect(shouldInterpretTrainerInstruction(true)).toBe(false);
+    expect(shouldInterpretTrainerInstruction(false)).toBe(true);
   });
 
   it("asks the trainer for an explicit WhatsApp confirmation before a proposed change", () => {

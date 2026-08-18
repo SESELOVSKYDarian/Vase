@@ -20,6 +20,10 @@ export function rejectTrainerProposal(response: string) {
   return /^(rechazar|rechazo|cancelar|cancel[oó])$/i.test(response.trim()) ? { rejected: true as const } : null;
 }
 
+export function shouldInterpretTrainerInstruction(hasPendingProposal: boolean) {
+  return !hasPendingProposal;
+}
+
 export type TrainerProposal =
   | { changeType: "FAQ_CREATE"; baseRevision: number; proposedValue: { question: string; answer: string }; targetKnowledgeId?: undefined }
   | { changeType: "FAQ_EDIT"; baseRevision: number; targetKnowledgeId: string; proposedValue: { question: string; answer: string } }

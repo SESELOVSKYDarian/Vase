@@ -175,8 +175,10 @@ a:focus-visible {
   .labs-sidebar-pinned .labs-shell-main { margin-left: 17rem; }
   .labs-sidebar-frame .labs-owner-nav-link { justify-content:center; min-height:3rem; padding-left:0; padding-right:0; }
   .labs-sidebar-frame .labs-owner-nav-link span, .labs-sidebar-frame .labs-sidebar-back { opacity: 0; transition: opacity 120ms ease; white-space: nowrap; }
+  .labs-sidebar-frame .labs-owner-nav-link > span { display:none; }
   .labs-sidebar-pinned .labs-owner-nav-link { justify-content:flex-start; padding-left:1rem; padding-right:1rem; }
   .labs-sidebar-pinned .labs-owner-nav-link span, .labs-sidebar-pinned .labs-sidebar-back { opacity: 1; }
+  .labs-sidebar-pinned .labs-owner-nav-link > span { display:block; }
   .labs-sidebar-head { display:flex; width:100%; min-height:3.25rem; align-items:center; justify-content:center; gap:.5rem; margin-bottom:1rem; }
   .labs-sidebar-head-brand { display:flex; width:0; min-width:0; align-items:center; gap:.6rem; overflow:hidden; opacity:0; color:var(--foreground); text-decoration:none; white-space:nowrap; transition:width 160ms ease,opacity 120ms ease; }
   .labs-sidebar-head-brand svg { width:1.35rem; height:1.35rem; flex:none; color:var(--accent-strong); }
@@ -207,6 +209,9 @@ a:focus-visible {
 .labs-topbar-icon { border:1px solid var(--border-subtle); color:var(--foreground); background:var(--surface); cursor:pointer; }
 .labs-topbar-search { width:100%; min-height:2.75rem; border:1px solid var(--border-subtle); border-radius:1rem; padding:.6rem 1rem .6rem 2.75rem; outline:0; color:var(--foreground); background:color-mix(in srgb, var(--background) 76%, var(--surface)); font-size:.875rem; }
 .labs-topbar-search:focus { border-color:color-mix(in srgb, var(--accent-strong) 46%, var(--border-subtle)); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+.labs-topbar-search-wrap { width:min(46rem,55vw); flex:none; }
+.labs-topbar-spacer { min-width:1rem; flex:1; }
+.labs-account-button { flex:none; }
 .labs-search-results, .labs-account-menu { position:absolute; z-index:60; margin-top:.55rem; border:1px solid var(--border-subtle); border-radius:1rem; background:var(--surface); box-shadow:0 20px 50px color-mix(in srgb, var(--glass-shadow) 52%, transparent); padding:.45rem; }
 .labs-search-results { width:100%; }
 .labs-search-results p { margin:.55rem .75rem; font-size:.8rem; color:var(--muted); }
@@ -227,7 +232,7 @@ a:focus-visible {
 /* Compact mobile navigation: controls stay reachable while sections live in a drawer. */
 .labs-mobile-topbar { position:fixed; top:.65rem; left:1rem; right:1rem; z-index:50; min-height:3.25rem; padding:.35rem; border:1px solid var(--border-subtle); border-radius:1rem; background:color-mix(in srgb, var(--surface) 94%, transparent); box-shadow:0 12px 30px color-mix(in srgb, var(--glass-shadow) 28%, transparent); backdrop-filter:blur(18px); }
 .labs-shell-content { padding-top:4.35rem; }
-@media (min-width:1024px) { .labs-shell-content { padding-top:5.75rem; } }
+@media (min-width:1024px) { .labs-shell-content { padding-top:5.75rem; } .labs-topbar { width:auto; } }
 .labs-mobile-action,.labs-mobile-mark,.labs-mobile-account { display:grid; width:2.5rem; height:2.5rem; flex:none; place-items:center; border:1px solid var(--border-subtle); border-radius:.8rem; color:var(--foreground); background:var(--surface); cursor:pointer; }
 .labs-mobile-mark { color:var(--accent-strong); background:var(--accent-soft); text-decoration:none; }
 .labs-mobile-account { color:var(--accent-strong); background:var(--accent-soft); font-size:.68rem; font-weight:850; }
@@ -279,6 +284,7 @@ a:focus-visible {
   overflow: hidden;
   text-decoration: none;
 }
+.labs-owner-nav-link > svg,.labs-owner-nav-link > span { position:relative; z-index:1; }
 
 .labs-owner-nav-link.is-active,
 .labs-owner-mobile-nav-link.is-active {
