@@ -42,6 +42,10 @@ export type WarehouseDevice = {
   brightness: number
   maxActiveLeds: number
   active: boolean
+  pollingUrl: string
+  completeUrlTemplate: string
+  serverBaseUrl: string
+  arduinoConfig: string
   createdAt?: string
   updatedAt?: string
 }

@@ -24,10 +24,6 @@ export async function POST(
     if (!device) {
       return NextResponse.json({ error: 'Dispositivo no encontrado' }, { status: 404 })
     }
-    if (device.status !== 'ONLINE') {
-      return NextResponse.json({ error: 'El dispositivo está offline' }, { status: 409 })
-    }
-
     const body = await req.json().catch(() => ({}))
     const ledNumber = Number.isInteger(body.ledNumber) && body.ledNumber >= 0
       ? body.ledNumber

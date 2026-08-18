@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 
+export const DEFAULT_WAREHOUSE_LED_PIN = 5;
+
 export type CreateLedCommandInput = {
   deviceId: string;
   productLocationId?: string;
@@ -10,6 +12,39 @@ export type CreateLedCommandInput = {
   color?: { r: number; g: number; b: number };
   durationMs?: number;
 };
+
+export function normalizeWarehouseBaseUrl(value: string | null | undefined) {
+  return (value || 'http://localhost:3006').replace(/\/+$/, '');
+}
+
+export function buildWarehouseDeviceSetup(input: {
+  baseUrl: string;
+  deviceKey: string;
+  ledCount: number;
+  ledPin?: number;
+}) {
+  const serverBaseUrl = normalizeWarehouseBaseUrl(input.baseUrl);
+  const ledPin = input.ledPin ?? DEFAULT_WAREHOUSE_LED_PIN;
+  const pollingUrl = `${serverBaseUrl}/api/warehouse/devices/${input.deviceKey}/next-command`;
+  const completeUrlTemplate = `${serverBaseUrl}/api/warehouse/devices/${input.deviceKey}/commands/{commandId}/complete`;
+
+  return {
+    serverBaseUrl,
+    pollingUrl,
+    completeUrlTemplate,
+    arduinoConfig: [
+      'const char* WIFI_SSID = "TU_WIFI";',
+      'const char* WIFI_PASSWORD = "TU_PASSWORD";',
+      `const char* SERVER_BASE_URL = "${serverBaseUrl}";`,
+      `const char* DEVICE_KEY = "${input.deviceKey}";`,
+      `const int LED_PIN = ${ledPin};`,
+      `const int LED_COUNT = ${input.ledCount};`,
+      'const unsigned long POLL_INTERVAL_MS = 2000;',
+      `// GET ${pollingUrl}`,
+      `// POST ${completeUrlTemplate.replace('{commandId}', '<commandId>')}`,
+    ].join('\n'),
+  };
+}
 
 export class WarehouseDeviceService {
   /**
@@ -27,6 +62,21 @@ export class WarehouseDeviceService {
       where: { companyId },
       orderBy: { createdAt: 'desc' }
     });
+  }
+
+  /**
+   * Lista dispositivos con datos seguros de configuraciÃ³n para la UI autenticada.
+   */
+  static async listDeviceSetups(companyId: string, baseUrl: string) {
+    const devices = await this.listDevices(companyId);
+    return devices.map((device) => ({
+      ...device,
+      ...buildWarehouseDeviceSetup({
+        baseUrl,
+        deviceKey: device.deviceKey,
+        ledCount: device.ledCount,
+      }),
+    }));
   }
 
   /**

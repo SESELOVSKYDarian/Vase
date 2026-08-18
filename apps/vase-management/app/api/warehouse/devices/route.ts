@@ -6,8 +6,11 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth()
     if (!session?.user?.companyId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    
-    const devices = await WarehouseDeviceService.listDevices(session.user.companyId)
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      || process.env.NEXTAUTH_URL
+      || req.nextUrl.origin
+    const devices = await WarehouseDeviceService.listDeviceSetups(session.user.companyId, baseUrl)
     return NextResponse.json(devices)
   } catch (error) {
     return NextResponse.json({ error: 'Error al listar dispositivos' }, { status: 500 })
