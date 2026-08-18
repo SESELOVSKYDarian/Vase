@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Bot, LogOut, Sparkles } from "lucide-react";
+import { FlaskConical } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
@@ -43,10 +43,10 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
   const plan = resolved.context.entitlement.plan;
 
   return (
-    <LabsSidebarShell mobileNav={<LabsOwnerMobileNav />} sidebar={<>
+    <LabsSidebarShell tenantName={resolved.context.tenantName} tenantInitials={initials} plan={plan} mobileNav={<LabsOwnerMobileNav />} sidebar={<>
         <a href="/owner" className="labs-sidebar-brand mb-7 flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
           <div className="labs-sidebar-mark grid h-11 w-11 place-items-center rounded-2xl bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
-            <Bot className="size-5" />
+            <FlaskConical className="size-5" />
           </div>
           <div className="min-w-0">
             <h1 className="truncate font-[family-name:var(--font-newsreader)] text-[1.65rem] font-semibold italic leading-none tracking-tight text-[var(--foreground)]">
@@ -63,19 +63,9 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
             href="https://app.vase.ar/app"
             className="labs-sidebar-back flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)]"
           >
-            <Sparkles className="size-4" />
+            <FlaskConical className="size-4" />
             Volver a Vase
           </a>
-          <div className="labs-sidebar-tenant flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
-              <span className="text-xs font-bold">{initials}</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-bold text-[var(--foreground)]">{resolved.context.tenantName}</p>
-              <p className="truncate text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">{plan}</p>
-            </div>
-            <LogOut className="size-4 text-[var(--muted-soft)]" aria-hidden="true" />
-          </div>
         </div>
       </>}>{children}</LabsSidebarShell>
   );

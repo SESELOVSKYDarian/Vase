@@ -6,7 +6,7 @@ const labs = path.resolve("apps/vase-labs");
 
 describe("Labs canonical owner routes", () => {
   it("serves the short owner routes and permanently redirects legacy URLs", () => {
-    for (const route of ["page.tsx", "inbox/page.tsx", "activity/page.tsx", "knowledge/page.tsx", "knowledge/catalog/page.tsx", "channels/page.tsx", "settings/page.tsx"]) {
+    for (const route of ["page.tsx", "inbox/page.tsx", "inbox/trainer/page.tsx", "activity/page.tsx", "knowledge/page.tsx", "knowledge/catalog/page.tsx", "channels/page.tsx", "settings/page.tsx"]) {
       expect(fs.existsSync(path.join(labs, "app/owner", route)), route).toBe(true);
     }
     const config = fs.readFileSync(path.join(labs, "next.config.ts"), "utf8");

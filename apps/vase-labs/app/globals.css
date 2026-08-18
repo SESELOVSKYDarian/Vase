@@ -130,15 +130,38 @@ a:focus-visible {
 }
 
 @media (min-width: 1024px) {
-  .labs-sidebar-frame { width: 5.25rem; overflow: hidden; transition: width 180ms ease; }
-  .labs-sidebar-frame:hover, .labs-sidebar-frame:focus-within, .labs-sidebar-pinned .labs-sidebar-frame { width: 18rem; }
-  .labs-shell-main { margin-left: 5.25rem; transition: margin-left 180ms ease; }
-  .labs-sidebar-pinned .labs-shell-main { margin-left: 18rem; }
-  .labs-sidebar-frame .labs-owner-nav-link span, .labs-sidebar-frame .labs-sidebar-brand > div:last-child, .labs-sidebar-frame .labs-sidebar-back, .labs-sidebar-frame .labs-sidebar-tenant > :not(:first-child) { opacity: 0; transition: opacity 120ms ease; white-space: nowrap; }
-  .labs-sidebar-frame:hover .labs-owner-nav-link span, .labs-sidebar-frame:focus-within .labs-owner-nav-link span, .labs-sidebar-pinned .labs-sidebar-frame .labs-owner-nav-link span, .labs-sidebar-frame:hover .labs-sidebar-brand > div:last-child, .labs-sidebar-pinned .labs-sidebar-frame .labs-sidebar-brand > div:last-child, .labs-sidebar-frame:hover .labs-sidebar-back, .labs-sidebar-pinned .labs-sidebar-frame .labs-sidebar-back, .labs-sidebar-frame:hover .labs-sidebar-tenant > :not(:first-child), .labs-sidebar-pinned .labs-sidebar-frame .labs-sidebar-tenant > :not(:first-child) { opacity: 1; }
+  .labs-sidebar-frame { width: 4.5rem; overflow: hidden; transition: width 180ms ease; }
+  .labs-sidebar-frame:hover, .labs-sidebar-frame:focus-within, .labs-sidebar-pinned .labs-sidebar-frame { width: 17rem; }
+  .labs-shell-main { margin-left: 4.5rem; transition: margin-left 180ms ease; }
+  .labs-sidebar-pinned .labs-shell-main { margin-left: 17rem; }
+  .labs-sidebar-frame .labs-owner-nav-link span, .labs-sidebar-frame .labs-sidebar-brand > div:last-child, .labs-sidebar-frame .labs-sidebar-back { opacity: 0; transition: opacity 120ms ease; white-space: nowrap; }
+  .labs-sidebar-frame:hover .labs-owner-nav-link span, .labs-sidebar-frame:focus-within .labs-owner-nav-link span, .labs-sidebar-pinned .labs-sidebar-frame .labs-owner-nav-link span, .labs-sidebar-frame:hover .labs-sidebar-brand > div:last-child, .labs-sidebar-pinned .labs-sidebar-frame .labs-sidebar-brand > div:last-child, .labs-sidebar-frame:hover .labs-sidebar-back, .labs-sidebar-pinned .labs-sidebar-frame .labs-sidebar-back { opacity: 1; }
   .labs-sidebar-toggle { align-self: flex-end; display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border: 1px solid var(--border-subtle); border-radius: .75rem; color: var(--foreground); background: var(--surface); margin-bottom: .75rem; }
   .labs-sidebar-toggle svg { width: 1rem; }
 }
+
+.labs-topbar { min-height: 4.25rem; border: 1px solid var(--border-subtle); border-radius: 1.35rem; padding: .6rem; background: color-mix(in srgb, var(--surface) 90%, transparent); box-shadow: 0 14px 40px color-mix(in srgb, var(--glass-shadow) 34%, transparent); backdrop-filter: blur(20px); }
+.labs-topbar-mark, .labs-topbar-icon { display:grid; width:2.75rem; height:2.75rem; place-items:center; border-radius:1rem; color:var(--accent-strong); background:var(--accent-soft); transition:transform 160ms ease, background 160ms ease; }
+.labs-topbar-mark:hover, .labs-topbar-icon:hover { transform:translateY(-1px); background:color-mix(in srgb, var(--accent-soft) 72%, var(--surface)); }
+.labs-topbar-icon { border:1px solid var(--border-subtle); color:var(--foreground); background:var(--surface); cursor:pointer; }
+.labs-topbar-search { width:100%; min-height:2.75rem; border:1px solid var(--border-subtle); border-radius:1rem; padding:.6rem 1rem .6rem 2.75rem; outline:0; color:var(--foreground); background:color-mix(in srgb, var(--background) 76%, var(--surface)); font-size:.875rem; }
+.labs-topbar-search:focus { border-color:color-mix(in srgb, var(--accent-strong) 46%, var(--border-subtle)); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+.labs-search-results, .labs-account-menu { position:absolute; z-index:60; margin-top:.55rem; border:1px solid var(--border-subtle); border-radius:1rem; background:var(--surface); box-shadow:0 20px 50px color-mix(in srgb, var(--glass-shadow) 52%, transparent); padding:.45rem; }
+.labs-search-results { width:100%; }
+.labs-search-results p { margin:.55rem .75rem; font-size:.8rem; color:var(--muted); }
+.labs-search-result { display:flex; align-items:center; gap:.7rem; padding:.7rem; border-radius:.75rem; text-decoration:none; color:var(--foreground); font-size:.84rem; }
+.labs-search-result:hover { background:var(--accent-soft); color:var(--accent-strong); }
+.labs-search-result span { display:grid; height:2rem; width:2rem; place-items:center; border-radius:.65rem; background:var(--surface-strong); }
+.labs-account-button { display:flex; align-items:center; gap:.6rem; min-height:2.75rem; border:1px solid var(--border-subtle); border-radius:1rem; padding:.3rem .65rem .3rem .35rem; background:var(--surface); color:var(--foreground); cursor:pointer; text-align:left; }
+.labs-account-button > span, .labs-account-summary > span { display:grid; height:2.05rem; width:2.05rem; place-items:center; border-radius:.75rem; background:var(--accent-soft); color:var(--accent-strong); font-size:.68rem; font-weight:800; }
+.labs-account-button div, .labs-account-summary div { display:grid; min-width:0; }
+.labs-account-button strong, .labs-account-summary strong { max-width:10rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.76rem; }
+.labs-account-button small, .labs-account-summary small { color:var(--muted); font-size:.63rem; text-transform:uppercase; letter-spacing:.09em; }
+.labs-account-menu { right:0; width:15rem; }
+.labs-account-summary { display:flex; align-items:center; gap:.7rem; padding:.6rem; border-bottom:1px solid var(--border-subtle); }
+.labs-account-menu a { display:flex; align-items:center; gap:.5rem; margin-top:.25rem; padding:.65rem .7rem; border-radius:.7rem; color:var(--foreground); text-decoration:none; font-size:.8rem; font-weight:650; }
+.labs-account-menu a:hover { background:var(--accent-soft); color:var(--accent-strong); }
+.labs-account-menu .labs-account-signout { color:var(--danger); }
 
 .labs-sidebar-brand,
 .labs-sidebar-tenant,
