@@ -60,6 +60,8 @@ describe("Labs knowledge trainer", () => {
     expect(worker).toContain("createTrainerInstructionInterpreter");
     expect(worker).toContain("interpret({");
     expect(worker).toContain('status: { in: ["QUEUED", "FAILED"] }');
+    expect(worker).toContain("attempts: { lt: 5 }");
+    expect(worker).toContain("data: { transcript }");
   });
 
   it("asks the trainer for an explicit WhatsApp confirmation before a proposed change", () => {

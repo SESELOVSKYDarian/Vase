@@ -41,7 +41,10 @@ export function LabsSidebarShell({ sidebar, mobileNav, children, tenantName, ten
 
   return <div className={`labs-shell overflow-x-hidden ${pinned ? "labs-sidebar-pinned" : ""}`}>
     <aside className="labs-sidebar labs-sidebar-frame fixed left-0 top-0 z-40 hidden h-screen flex-col px-2 py-3 lg:flex">
-      <button className="labs-sidebar-toggle" type="button" onClick={toggleSidebar} aria-expanded={pinned} aria-label={pinned ? "Contraer navegación" : "Expandir navegación"} title={pinned ? "Contraer navegación" : "Expandir navegación"}>{pinned ? <PanelLeftClose /> : <PanelLeftOpen />}</button>
+      <div className="labs-sidebar-head">
+        <Link href="/owner" className="labs-sidebar-head-brand"><FlaskConical /><span>Vase Labs</span></Link>
+        <button className="labs-sidebar-toggle" type="button" onClick={toggleSidebar} aria-expanded={pinned} aria-label={pinned ? "Contraer navegación" : "Expandir navegación"} title={pinned ? "Contraer navegación" : "Expandir navegación"}>{pinned ? <PanelLeftClose /> : <PanelLeftOpen />}</button>
+      </div>
       {sidebar}
     </aside>
     <main className="labs-shell-main min-h-screen px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pb-10 lg:pt-5"><div className="w-full">
@@ -73,7 +76,7 @@ export function LabsSidebarShell({ sidebar, mobileNav, children, tenantName, ten
           {accountOpen ? <div className="labs-account-menu"><div className="labs-account-summary"><span>{tenantInitials}</span><div><strong>{tenantName}</strong><small>Cuenta de Vase Labs</small></div></div><a href="https://app.vase.ar/app">Volver a Vase</a><a className="labs-account-signout" href="/api/labs/signout"><LogOut className="size-4" /> Cerrar sesión</a></div> : null}
         </div>
       </header>
-      <div className="hidden">{mobileNav}</div>{children}
+      <div className="labs-shell-content"><div className="hidden">{mobileNav}</div>{children}</div>
     </div></main>
     {mobileMenuOpen ? <div className="labs-mobile-menu lg:hidden" role="dialog" aria-modal="true" aria-label="Navegación de Labs">
       <button type="button" className="labs-mobile-menu-backdrop" onClick={closeMobileMenu} aria-label="Cerrar navegación" />

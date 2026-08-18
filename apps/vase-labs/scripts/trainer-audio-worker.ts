@@ -8,7 +8,7 @@ import { downloadWhatsAppMedia } from "../app/lib/whatsapp-media";
 import { createTrainerInstructionInterpreter } from "../app/lib/trainer-instruction-interpreter";
 
 async function processNext() {
-  const job = await labsPrisma.trainerAudioJob.findFirst({ where: { status: { in: ["QUEUED", "FAILED"] }, attempts: { lt: 3 } }, orderBy: { createdAt: "asc" } });
+  const job = await labsPrisma.trainerAudioJob.findFirst({ where: { status: { in: ["QUEUED", "FAILED"] }, attempts: { lt: 5 } }, orderBy: { createdAt: "asc" } });
   if (!job) return false;
   await labsPrisma.trainerAudioJob.update({ where: { id: job.id }, data: { status: "PROCESSING", attempts: { increment: 1 }, error: null } });
   try {
@@ -20,6 +20,7 @@ async function processNext() {
     const apiKey = await resolveAssistantOpenAiApiKey({ assistantId: job.assistantId, encryptionSecret: secret, repository: new PrismaAssistantOpenAiKeyRepository(labsPrisma) });
     const transcript = (await createAudioTranscriptionClient({ apiKey, model: process.env.AI_TRANSCRIPTION_MODEL?.trim() || "gpt-4o-mini-transcribe" }).transcribe(buffer, job.mimeType || "audio/ogg")).text.trim();
     if (!transcript) throw new Error("TRAINER_AUDIO_EMPTY");
+    await labsPrisma.trainerAudioJob.update({ where: { id: job.id }, data: { transcript } });
     const assistant = await labsPrisma.assistant.findUnique({ where: { id: job.assistantId }, select: { globalTenantId: true, tenantSlug: true, model: true, systemPrompt: true } });
     if (!assistant?.tenantSlug) throw new Error("TRAINER_AUDIO_ASSISTANT_NOT_FOUND");
     const latestRevision = await labsPrisma.knowledgeRevision.findFirst({ where: { globalTenantId: job.globalTenantId }, orderBy: { revision: "desc" }, select: { revision: true } });

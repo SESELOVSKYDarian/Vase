@@ -24,12 +24,16 @@ export const labsNavigationItems = [
   { href: "/owner/settings", label: "Ajustes", icon: Settings2 },
 ] as const;
 
-function isActive(pathname: string, href: string) {
+export function isLabsNavigationItemActive(pathname: string, href: string) {
   if (href === "/owner") {
     return pathname === href;
   }
-
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const claimedByMoreSpecificItem = labsNavigationItems.some((candidate) =>
+    candidate.href !== href
+    && candidate.href.startsWith(`${href}/`)
+    && (pathname === candidate.href || pathname.startsWith(`${candidate.href}/`)),
+  );
+  return !claimedByMoreSpecificItem && (pathname === href || pathname.startsWith(`${href}/`));
 }
 
 export function LabsOwnerNav() {
@@ -39,7 +43,7 @@ export function LabsOwnerNav() {
     <nav className="flex-1 space-y-1.5">
       {labsNavigationItems.map((item) => {
         const Icon = item.icon;
-        const active = isActive(pathname, item.href);
+        const active = isLabsNavigationItemActive(pathname, item.href);
 
         return (
           <Link
@@ -54,7 +58,7 @@ export function LabsOwnerNav() {
                 : "text-[var(--muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]",
             ].join(" ")}
           >
-            <Icon className="size-4" />
+            <Icon className="labs-sidebar-nav-icon size-5" strokeWidth={1.9} />
             <span className="font-semibold">{item.label}</span>
           </Link>
         );
@@ -71,7 +75,7 @@ export function LabsOwnerMobileNav() {
       <nav className="flex gap-2 overflow-x-auto pb-1 labs-scrollbar">
         {labsNavigationItems.map((item) => {
           const Icon = item.icon;
-          const active = isActive(pathname, item.href);
+          const active = isLabsNavigationItemActive(pathname, item.href);
 
           return (
             <Link

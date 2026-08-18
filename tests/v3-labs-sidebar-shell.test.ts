@@ -17,10 +17,14 @@ describe("Labs collapsible sidebar", () => {
     expect(styles).toContain("--background: #101513");
     expect(shell).toContain("PanelLeftOpen");
     expect(shell).toContain("labs-topbar-title");
+    expect(shell).toContain("labs-sidebar-head");
+    expect(shell).toContain("labs-shell-content");
     expect(shell).toContain("labs-mobile-topbar");
     expect(shell).toContain("mobileMenuOpen");
     expect(nav).toContain("FlaskConical");
     expect(styles).toContain(".labs-topbar");
+    expect(styles).toMatch(/\.labs-topbar\s*\{[^}]*position:fixed/);
+    expect(styles).toContain(".labs-sidebar-nav-icon");
     expect(styles).toContain(".labs-mobile-menu");
     expect(styles).toContain(".labs-sidebar-pinned .labs-owner-nav-link");
     expect(fs.existsSync("apps/vase-labs/app/api/labs/signout/route.ts")).toBe(true);
