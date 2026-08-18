@@ -1,24 +1,19 @@
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
+import { buildWarehouseProductWhere } from './warehouse-product-query';
 
 export class WarehouseRepository {
   /**
    * Encuentra productos por código, código de barra, o nombre, e incluye su ubicación
    */
-  static async searchProducts(companyId: string, query: string, limit = 10) {
-    const q = query.trim();
-    if (!q) return [];
-
+  static async searchProducts(
+    companyId: string,
+    query: string,
+    limit = 10,
+    filters: { sectorId?: string; rack?: string } = {},
+  ) {
     return prisma.product.findMany({
-      where: {
-        companyId,
-        isActive: true,
-        OR: [
-          { code: { contains: q, mode: 'insensitive' } },
-          { barcode: { contains: q, mode: 'insensitive' } },
-          { name: { contains: q, mode: 'insensitive' } },
-        ],
-      },
+      where: buildWarehouseProductWhere(companyId, query, filters),
       include: {
         warehouseLocations: {
           include: {
@@ -26,6 +21,7 @@ export class WarehouseRepository {
           }
         },
       },
+      orderBy: [{ code: 'asc' }, { name: 'asc' }],
       take: limit,
     });
   }
