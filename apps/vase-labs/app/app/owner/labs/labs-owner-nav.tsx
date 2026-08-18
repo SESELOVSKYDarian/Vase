@@ -16,6 +16,7 @@ import {
 const navItems = [
   { href: "/owner", label: "Panel", icon: LayoutDashboard },
   { href: "/owner/inbox", label: "Inbox", icon: MessageSquare },
+  { href: "/owner/inbox/trainer", label: "Entrenador personal", icon: Bot },
   { href: "/owner/activity", label: "Actividad", icon: Activity },
   { href: "/owner/orders", label: "Pedidos", icon: ShoppingBag },
   { href: "/owner/knowledge", label: "Conocimiento", icon: Bot },
