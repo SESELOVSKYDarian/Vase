@@ -18,11 +18,24 @@ describe("trainer document context", () => {
 
   it("uses the active document version and flags similarly relevant files", () => {
     const items = [
-      { id: "a", title: "Locales A", sourceType: "FILE", content: "Teflón Central de Mar del Plata abre los sábados." },
-      { id: "b", title: "Locales B", sourceType: "FILE", content: "Teflón Central de Mar del Plata abre los sábados." },
+      { id: "a", title: "Teflón Central de Mar del Plata - horarios A", sourceType: "FILE", content: "Teflón Central de Mar del Plata abre los sábados." },
+      { id: "b", title: "Teflón Central de Mar del Plata - horarios B", sourceType: "FILE", content: "Teflón Central de Mar del Plata abre los sábados." },
     ];
     const result = selectTrainerKnowledgeContext(instruction, items, [{ knowledgeItemId: "a", content: "Teflón Central de Mar del Plata atiende sábados de 10 a 12." }]);
     expect(result.items[0].content).toContain("10 a 12");
     expect(result.ambiguous).toBe(true);
+  });
+
+  it("does not reject a schedule change just because generic hours occur in two files", () => {
+    const result = selectTrainerKnowledgeContext(
+      "Quiero cambiar el horario de atención de los sábados de 8 de la mañana hasta las 15 horas.",
+      [
+        { id: "a", title: "Horarios.txt", sourceType: "FILE", content: "Los sábados atendemos de 9 a 13." },
+        { id: "b", title: "Sucursales.txt", sourceType: "FILE", content: "Información de sucursales y horarios." },
+      ],
+      [],
+    );
+    expect(result.ambiguous).toBe(false);
+    expect(result.items.length).toBeGreaterThan(0);
   });
 });

@@ -32,13 +32,17 @@ export function selectTrainerKnowledgeContext(
     const effectiveContent = activeByItem.get(item.id) ?? item.extractedText ?? item.content;
     const title = normalize(item.title);
     const body = normalize(effectiveContent);
-    const score = tokens.reduce((total, token) => total + (title.includes(token) ? 4 : 0) + (body.includes(token) ? 1 : 0), 0);
-    return { item, effectiveContent, score };
+    const titleScore = tokens.reduce((total, token) => total + (title.includes(token) ? 4 : 0), 0);
+    const score = titleScore + tokens.reduce((total, token) => total + (body.includes(token) ? 1 : 0), 0);
+    return { item, effectiveContent, score, titleScore };
   }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id));
   const top = ranked[0];
   const second = ranked[1];
   return {
-    ambiguous: Boolean(top && second && top.score === second.score && top.item.sourceType === "FILE" && second.item.sourceType === "FILE"),
+    // Generic facts such as "sábado" or "horario" can occur in every file.
+    // Ask for a filename only when both tied candidates are actually named by
+    // the trainer instruction; otherwise let the interpreter use the best file.
+    ambiguous: Boolean(top && second && top.score === second.score && top.titleScore > 0 && second.titleScore > 0 && top.item.sourceType === "FILE" && second.item.sourceType === "FILE"),
     items: ranked.slice(0, 8).map(({ item, effectiveContent }) => ({ ...item, content: relevantExcerpt(effectiveContent, tokens) })),
   };
 }
