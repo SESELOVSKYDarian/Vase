@@ -26,11 +26,27 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json(channels.map((channel) => ({
-      ...channel,
-      webhookKey: channel.verifyToken || process.env.META_VERIFY_TOKEN || process.env.VASE_WEBHOOK_SECRET || null,
-      verifyToken: undefined,
-    })))
+    const channelsWithKeys = await Promise.all(channels.map(async (channel) => {
+      let webhookKey = channel.verifyToken || null
+
+      // Existing channels created before per-client keys may not have one yet.
+      // Create it on first authenticated read so Meta always has a copyable key.
+      if (channel.type === 'WHATSAPP' && !webhookKey) {
+        webhookKey = randomBytes(18).toString('hex')
+        await prisma.warehouseChannel.update({
+          where: { id: channel.id },
+          data: { verifyToken: webhookKey },
+        })
+      }
+
+      return {
+        ...channel,
+        webhookKey: webhookKey || process.env.META_VERIFY_TOKEN || process.env.VASE_WEBHOOK_SECRET || null,
+        verifyToken: undefined,
+      }
+    }))
+
+    return NextResponse.json(channelsWithKeys)
   } catch (error) {
     return NextResponse.json({ error: 'Error al listar canales' }, { status: 500 })
   }
