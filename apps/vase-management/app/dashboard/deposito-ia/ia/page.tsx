@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useReducer, useRef, useState } from 'react'
-import { Bot, CheckCircle2, ImageIcon, LoaderCircle, Mic, RotateCcw, Send, Sparkles, UserRound, X } from 'lucide-react'
+import { Bot, CheckCircle2, ImageIcon, LoaderCircle, Mic, RotateCcw, Send, Sparkles, Square, Upload, UserRound, X } from 'lucide-react'
 import { aiChatReducer, initialAiChatState, type AiChatMessage } from '@/components/warehouse/ai-state'
 import { getErrorMessage, warehouseRequest } from '@/components/warehouse/client'
 import type { AiCommandResponse, AiProposal } from '@/components/warehouse/types'
@@ -32,7 +32,11 @@ export default function DepositoIAPanel() {
   const [text, setText] = useState('')
   const [state, dispatch] = useReducer(aiChatReducer, initialAiChatState)
   const [lastCommand, setLastCommand] = useState('')
+  const [recording, setRecording] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const audioInputRef = useRef<HTMLInputElement>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
   const canSend = text.trim().length > 0 && !state.sending
   const hasMessages = state.messages.length > 0
@@ -64,6 +68,41 @@ export default function DepositoIAPanel() {
     } catch (requestError) {
       dispatch({ type: 'FAIL', message: getErrorMessage(requestError) })
     }
+  }
+
+  const sendAudio = async (file: File) => {
+    if (state.sending) return
+    dispatch({ type: 'SEND', message: { id: messageId('audio'), role: 'user', text: 'Audio enviado' } })
+    try {
+      const formData = new FormData()
+      formData.append('audio', file)
+      const response = await warehouseRequest<AiCommandResponse & { transcript: string }>('/api/warehouse/ai/audio', { method: 'POST', body: formData })
+      dispatch({ type: 'RECEIVE', message: { id: messageId('ai'), role: 'ai', text: `Transcripción: “${response.transcript}”\n\n${response.text || 'Comando procesado.'}`, response, proposalStatus: response.requiresConfirmation && response.proposal ? 'idle' : undefined } })
+    } catch (requestError) {
+      dispatch({ type: 'FAIL', message: getErrorMessage(requestError) })
+    }
+  }
+
+  const startRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return dispatch({ type: 'FAIL', message: 'Este navegador no permite usar el micrófono.' })
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    const recorder = new MediaRecorder(stream)
+    audioChunksRef.current = []
+    recorder.ondataavailable = (event) => { if (event.data.size) audioChunksRef.current.push(event.data) }
+    recorder.onstop = () => {
+      stream.getTracks().forEach((track) => track.stop())
+      const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+      void sendAudio(new File([blob], 'warehouse-audio.webm', { type: blob.type }))
+    }
+    recorderRef.current = recorder
+    recorder.start()
+    setRecording(true)
+  }
+
+  const stopRecording = () => {
+    recorderRef.current?.stop()
+    recorderRef.current = null
+    setRecording(false)
   }
 
   const confirmAction = async (message: AiChatMessage) => {
@@ -133,7 +172,7 @@ export default function DepositoIAPanel() {
 
           <div className="border-t border-border bg-card/70 p-4">
             <div className="flex items-end gap-2">
-              <div className="flex gap-1"><button type="button" className="ui-icon-button" disabled title="Disponible cuando el canal multimedia esté configurado" aria-label="Adjuntar imagen, próximamente"><ImageIcon size={18} /></button><button type="button" className="ui-icon-button" disabled title="Disponible cuando el canal multimedia esté configurado" aria-label="Adjuntar audio, próximamente"><Mic size={18} /></button></div>
+              <div className="flex gap-1"><input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void sendAudio(file); event.currentTarget.value = '' }} /><button type="button" className="ui-icon-button" onClick={() => audioInputRef.current?.click()} disabled={state.sending || recording} title="Subir audio" aria-label="Subir audio"><Upload size={18} /></button><button type="button" className={`ui-icon-button ${recording ? 'text-destructive' : ''}`} onClick={recording ? stopRecording : () => void startRecording()} disabled={state.sending} title={recording ? 'Detener grabación' : 'Grabar audio'} aria-label={recording ? 'Detener grabación' : 'Grabar audio'}>{recording ? <Square size={18} /> : <Mic size={18} />}</button><button type="button" className="ui-icon-button" disabled title="Imágenes próximamente" aria-label="Adjuntar imagen, próximamente"><ImageIcon size={18} /></button></div>
               <textarea ref={textareaRef} value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }} placeholder="Ej: ¿dónde está PC06?" className="input-field min-h-12 flex-1 resize-none" rows={1} />
               <button type="button" className="ui-button ui-button-primary h-12 w-12 px-0" onClick={() => send()} disabled={!canSend} aria-label="Enviar consulta"><Send size={18} /></button>
             </div>
