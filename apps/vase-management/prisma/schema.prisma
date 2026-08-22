@@ -1967,6 +1967,8 @@ model WarehouseChannel {
   companyId         String
   type              WarehouseConversationChannel
   providerAccountId String?                      // Phone number ID for WhatsApp, Bot ID for Telegram
+  wabaId            String?                      // WhatsApp Business Account ID
+  metaAppId         String?                      // Meta App ID
   accessToken       String?                      @db.Text
   verifyToken       String?                      @db.Text
   secretToken       String?                      @db.Text

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { TelegramAdapter } from '@/lib/warehouse/channels/telegram.adapter'
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
         id: true,
         type: true,
         providerAccountId: true,
+        wabaId: true,
+        metaAppId: true,
+        verifyToken: true,
         webhookUrl: true,
         active: true,
         createdAt: true,
@@ -22,7 +26,11 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json(channels)
+    return NextResponse.json(channels.map((channel) => ({
+      ...channel,
+      webhookKey: channel.verifyToken || process.env.META_VERIFY_TOKEN || process.env.VASE_WEBHOOK_SECRET || null,
+      verifyToken: undefined,
+    })))
   } catch (error) {
     return NextResponse.json({ error: 'Error al listar canales' }, { status: 500 })
   }
@@ -35,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     const companyId = session.user.companyId
     const body = await req.json()
-    const { type, providerAccountId, accessToken, verifyToken, secretToken } = body
+    const { type, providerAccountId, wabaId, metaAppId, accessToken, verifyToken, secretToken } = body
 
     if (!type || !['WHATSAPP', 'TELEGRAM'].includes(type)) {
       return NextResponse.json({ error: 'Tipo de canal inválido' }, { status: 400 })
@@ -47,13 +55,20 @@ export async function POST(req: NextRequest) {
       ? `${baseUrl}/api/warehouse/channels/whatsapp/webhook`
       : `${baseUrl}/api/warehouse/channels/telegram/webhook?companyId=${companyId}`
 
+    const existing = await prisma.warehouseChannel.findUnique({ where: { companyId_type: { companyId, type } } })
+    const resolvedVerifyToken = type === 'WHATSAPP'
+      ? (verifyToken || existing?.verifyToken || randomBytes(18).toString('hex'))
+      : verifyToken
+
     const channel = await prisma.warehouseChannel.upsert({
       where: { companyId_type: { companyId, type } },
       update: {
         providerAccountId,
-        accessToken,
-        verifyToken,
-        secretToken,
+        ...(wabaId !== undefined ? { wabaId: wabaId || null } : {}),
+        ...(metaAppId !== undefined ? { metaAppId: metaAppId || null } : {}),
+        ...(accessToken ? { accessToken } : {}),
+        ...(resolvedVerifyToken ? { verifyToken: resolvedVerifyToken } : {}),
+        ...(secretToken ? { secretToken } : {}),
         webhookUrl,
         active: true,
       },
@@ -61,8 +76,10 @@ export async function POST(req: NextRequest) {
         companyId,
         type,
         providerAccountId,
+        wabaId: wabaId || null,
+        metaAppId: metaAppId || null,
         accessToken,
-        verifyToken,
+        verifyToken: resolvedVerifyToken,
         secretToken,
         webhookUrl,
         active: true,
@@ -84,6 +101,7 @@ export async function POST(req: NextRequest) {
       id: channel.id,
       type: channel.type,
       webhookUrl: channel.webhookUrl,
+      webhookKey: channel.verifyToken || process.env.META_VERIFY_TOKEN || process.env.VASE_WEBHOOK_SECRET || null,
       active: channel.active,
     })
   } catch (error) {

@@ -3,6 +3,7 @@
 // message parsing, and reply sending via Graph API.
 import crypto from 'crypto'
 import { WarehouseWebhookService, type WebhookResult } from './webhook.service'
+import { resolveWhatsAppVerifyToken } from './whatsapp.config'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,10 @@ interface WhatsAppWebhookPayload {
 // ─── WhatsApp Adapter ───────────────────────────────────────────────────────
 
 export class WhatsAppAdapter {
+  static resolveWebhookVerifyToken(channelToken: string | null | undefined, fallbackToken: string | null | undefined) {
+    return resolveWhatsAppVerifyToken(channelToken, fallbackToken)
+  }
+
   /**
    * Handles GET webhook verification from Meta.
    * Meta sends hub.mode, hub.verify_token and hub.challenge.

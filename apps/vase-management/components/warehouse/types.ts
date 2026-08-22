@@ -54,6 +54,9 @@ export type WarehouseChannel = {
   id: string
   type: 'WHATSAPP' | 'TELEGRAM'
   providerAccountId: string | null
+  wabaId: string | null
+  metaAppId: string | null
+  webhookKey?: string | null
   webhookUrl: string | null
   active: boolean
   createdAt: string
