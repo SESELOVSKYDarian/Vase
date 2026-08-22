@@ -1,8 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
+import { normalizeWarehouseLedCommand } from './warehouse-led-command';
 
-export const DEFAULT_WAREHOUSE_LED_PIN = 5;
+export const DEFAULT_WAREHOUSE_LED_PIN = 2;
 
 export type CreateLedCommandInput = {
   deviceId: string;
@@ -98,6 +99,19 @@ export class WarehouseDeviceService {
   static async createLedCommand(companyId: string, input: CreateLedCommandInput) {
     // Si no se especifica color, usar verde oscuro (0, 80, 20)
     const colorPayload = input.color ?? { r: 0, g: 80, b: 20 };
+
+    const device = await prisma.warehouseDevice.findFirst({
+      where: { id: input.deviceId, companyId, active: true },
+      select: { ledCount: true, maxActiveLeds: true },
+    });
+    if (!device) throw new Error('Dispositivo no disponible');
+
+    const normalized = normalizeWarehouseLedCommand({
+      ledNumber: input.ledNumber,
+      activeCount: input.activeCount ?? 1,
+      color: colorPayload,
+      durationMs: input.durationMs ?? 5000,
+    }, device);
     
     // Caducidad de comandos no reclamados en 1 minuto
     const expiresAt = new Date(Date.now() + 60_000);
@@ -107,10 +121,10 @@ export class WarehouseDeviceService {
         companyId,
         deviceId: input.deviceId,
         productLocationId: input.productLocationId,
-        ledNumber: input.ledNumber,
-        activeCount: input.activeCount ?? 1,
-        color: colorPayload,
-        durationMs: input.durationMs ?? 5000,
+        ledNumber: normalized.ledNumber,
+        activeCount: normalized.activeCount,
+        color: normalized.color,
+        durationMs: normalized.durationMs,
         expiresAt,
         status: 'PENDING'
       }
