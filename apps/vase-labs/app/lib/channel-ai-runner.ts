@@ -332,7 +332,21 @@ export function createPrismaChannelAiReplyRunner(input: {
           orderBy: { updatedAt: "desc" },
           take: 24,
         });
-        return items.map((item) => ({ ...item, status: "READY" as const }));
+        const corrections = await prisma.knowledgeCorrection.findMany({
+          where: { knowledgeItemId: { in: items.map((item) => item.id) }, active: true },
+          orderBy: { updatedAt: "desc" },
+        });
+        const correctionByKnowledgeId = new Map<string, string>();
+        for (const correction of corrections) {
+          if (!correctionByKnowledgeId.has(correction.knowledgeItemId)) {
+            correctionByKnowledgeId.set(correction.knowledgeItemId, correction.content);
+          }
+        }
+        return items.map((item) => ({
+          ...item,
+          content: correctionByKnowledgeId.get(item.id) ?? item.extractedText ?? item.content,
+          status: "READY" as const,
+        }));
       },
     }),
     catalog: labsCatalogService,

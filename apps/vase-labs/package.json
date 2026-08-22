@@ -10,9 +10,13 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "migrate:legacy-channels": "tsx scripts/migrate-legacy-channels.ts",
-    "worker:conversation-analysis": "tsx scripts/conversation-analysis-worker.ts"
+    "worker:conversation-analysis": "tsx scripts/conversation-analysis-worker.ts",
+    "worker:knowledge-files": "tsx scripts/knowledge-file-worker.ts",
+    "worker:trainer-audio": "tsx scripts/trainer-audio-worker.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1112.0",
+    "@aws-sdk/s3-request-presigner": "^3.1112.0",
     "@prisma/client": "^6.6.0",
     "@vase/auth": "file:../../packages/auth",
     "@vase/contracts": "file:../../packages/contracts",

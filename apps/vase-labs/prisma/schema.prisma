@@ -307,10 +307,92 @@ model KnowledgeItem {
   title       String
   sourceType  String
   content     String    @db.Text
+  objectKey   String?
+  mimeType    String?
+  fileSize    Int?
+  checksum    String?
+  extractedText String? @db.LongText
+  processingError String? @db.Text
   status      String    @default("READY")
   assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+model TrainerPhone {
+  id String @id @default(cuid())
+  globalTenantId String
+  label String
+  phone String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([globalTenantId, phone])
+  @@index([globalTenantId, active])
+}
+
+model TrainerAudioJob {
+  id String @id @default(cuid())
+  globalTenantId String
+  assistantId String
+  trainerPhoneId String
+  providerMediaId String
+  mimeType String?
+  sourceMessageId String?
+  status String @default("QUEUED")
+  attempts Int @default(0)
+  transcript String? @db.Text
+  error String? @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([assistantId, providerMediaId])
+  @@index([status, createdAt])
+  @@index([trainerPhoneId, createdAt])
+}
+
+model KnowledgeChangeProposal {
+  id String @id @default(cuid())
+  globalTenantId String
+  trainerPhoneId String
+  sourceMessageId String?
+  sourceTranscript String? @db.Text
+  targetKnowledgeId String?
+  changeType String
+  beforeValue Json?
+  proposedValue Json
+  baseRevision Int
+  status String @default("PENDING")
+  expiresAt DateTime
+  confirmedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([globalTenantId, status, createdAt])
+}
+
+model KnowledgeRevision {
+  id String @id @default(cuid())
+  globalTenantId String
+  proposalId String?
+  knowledgeItemId String?
+  revision Int
+  beforeValue Json?
+  afterValue Json
+  revertedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([globalTenantId, revision])
+  @@index([knowledgeItemId, createdAt])
+}
+
+model KnowledgeCorrection {
+  id String @id @default(cuid())
+  globalTenantId String
+  knowledgeItemId String
+  revisionId String
+  content String @db.Text
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([knowledgeItemId, active])
 }
 
 model Conversation {
@@ -434,6 +516,10 @@ model BusinessOrderProjection {
   customerNotificationStatus String?
   customerNotifiedAt      DateTime?
   customerNotificationError String? @db.Text
+  trackingCarrier String?
+  trackingUrl String?
+  trackingCode String?
+  operationalRevision Int @default(0)
   statusEvents            OrderStatusEvent[]
 
   @@unique([globalTenantId, businessOrderId])
@@ -452,6 +538,9 @@ model OrderStatusEvent {
   source             String   @default("TEAM")
   notificationStatus String?
   error              String?  @db.Text
+  notificationText   String?  @db.Text
+  recipient          String?
+  providerMessageId  String?
   order              BusinessOrderProjection @relation(fields: [orderProjectionId], references: [id], onDelete: Cascade)
   createdAt          DateTime @default(now())
 

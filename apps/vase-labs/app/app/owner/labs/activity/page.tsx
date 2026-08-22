@@ -14,12 +14,17 @@ export const dynamic = "force-dynamic";
 export type ActivitySearchParams = {
   intent?: string | string[];
   sort?: string | string[];
+  channel?: string | string[];
 };
 
 type ActivityControls = {
   intent: ActivityIntentFilter;
   sort: ActivitySort;
+  channel?: ActivityChannelFilter;
 };
+
+export type ActivityChannelFilter = "all" | "WHATSAPP" | "INSTAGRAM" | "FACEBOOK";
+const ACTIVITY_CHANNELS = new Set<ActivityChannelFilter>(["all", "WHATSAPP", "INSTAGRAM", "FACEBOOK"]);
 
 const ACTIVE_HANDOFF_FILTER = { status: { in: ["PENDING", "ASSIGNED"] } };
 
@@ -35,15 +40,20 @@ export function sanitizeActivitySearchParams(
     ? requestedIntent as ActivityIntentFilter
     : "all";
   const sort = firstSearchParam(searchParams.sort) === "score" ? "score" : "latest";
-  return { intent, sort };
+  const requestedChannel = firstSearchParam(searchParams.channel) as ActivityChannelFilter | undefined;
+  const channel = requestedChannel && ACTIVITY_CHANNELS.has(requestedChannel) ? requestedChannel : "all";
+  return { intent, sort, channel };
 }
 
 export function buildActivityConversationQuery(
   assistantId: string,
   controls: ActivityControls,
 ) {
+  const baseWhere = controls.channel && controls.channel !== "all"
+    ? { assistantId, channel: controls.channel }
+    : { assistantId };
   const baseQuery = {
-    where: { assistantId },
+    where: baseWhere,
     take: 40,
     include: {
       insight: true,
@@ -94,7 +104,7 @@ export function buildActivityConversationQuery(
     return {
       ...baseQuery,
       where: {
-        assistantId,
+        ...baseWhere,
         OR: [
           { escalatedToHuman: true },
           { status: "ESCALATED" as const },
@@ -109,7 +119,7 @@ export function buildActivityConversationQuery(
   return {
     ...baseQuery,
     where: {
-      assistantId,
+      ...baseWhere,
       AND: [
         { escalatedToHuman: false },
         { status: { not: "ESCALATED" as const } },
@@ -157,6 +167,7 @@ export default async function LabsActivityPage({
         conversations={data.conversations}
         activeIntent={controls.intent}
         activeSort={controls.sort}
+        activeChannel={controls.channel ?? "all"}
       />
     </div>
   );

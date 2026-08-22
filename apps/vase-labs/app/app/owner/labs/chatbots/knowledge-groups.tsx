@@ -1,10 +1,11 @@
 "use client";
 
-import { AlertTriangle, FileText, HelpCircle, Link2, Pencil, Store, Trash2, X } from "lucide-react";
+import { AlertTriangle, FileText, HelpCircle, Link2, Pencil, RefreshCw, Store, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KnowledgeSourceType } from "../../../../lib/knowledge-source";
 import { LabsStatusPill } from "../labs-ui";
+import { KnowledgeFileHistory } from "./knowledge-file-history";
 
 type Item = { id: string; title: string; status: string; updatedAt: Date };
 type KnowledgeGroupType = KnowledgeSourceType | "OTROS";
@@ -44,6 +45,7 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [retryingId, setRetryingId] = useState<string>();
   const dialogRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const deleteHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -158,6 +160,21 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
     }
   }
 
+  async function retryFileProcessing(item: Item) {
+    if (retryingId) return;
+    setRetryingId(item.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/labs/knowledge/files/${encodeURIComponent(item.id)}/process`, { method: "POST" });
+      if (!response.ok) throw new Error("process");
+      router.refresh();
+    } catch {
+      setError("No pudimos reprocesar el archivo. Intentá nuevamente.");
+    } finally {
+      setRetryingId(undefined);
+    }
+  }
+
   return <>
     <div className="labs-knowledge-groups space-y-6">{groups.map((group) => (
       <section key={group.type} aria-labelledby={`knowledge-${group.type}`}>
@@ -176,6 +193,10 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
               </div>
               <div className="labs-knowledge-source-status"><LabsStatusPill label={item.status} tone={tone(item.status)} /></div>
               <div className="labs-knowledge-source-actions" role="group" aria-label={`Acciones para ${item.title}`}>
+                {group.type === "FILE" ? <KnowledgeFileHistory itemId={item.id} title={item.title} /> : null}
+                {group.type === "FILE" && item.status === "FAILED" ? <button type="button" onClick={() => void retryFileProcessing(item)} disabled={Boolean(retryingId)} aria-label={`Reintentar procesamiento de ${item.title}`}>
+                  <RefreshCw aria-hidden="true" /><span>{retryingId === item.id ? "Reintentando…" : "Reintentar procesamiento"}</span>
+                </button> : null}
                 <button type="button" onClick={(event) => open("edit", item, group.type, event.currentTarget)} aria-label={`Editar ${item.title}`}>
                   <Pencil aria-hidden="true" /><span>Editar</span>
                 </button>
@@ -188,6 +209,8 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
         })}</div>
       </section>
     ))}</div>
+
+    {error && !selection ? <p className="labs-modal-error" role="alert">{error}</p> : null}
 
     {selection ? <div className="labs-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <div ref={dialogRef} onKeyDown={trapFocus} role="dialog" aria-modal="true" aria-labelledby="knowledge-source-dialog-title" aria-describedby="knowledge-source-dialog-description" className={`labs-knowledge-modal labs-source-management-modal${selection.action === "delete" ? " is-destructive" : ""}`}>

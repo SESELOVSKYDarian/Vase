@@ -39,6 +39,7 @@ const statusCopy: Record<string, string> = {
   PROCESSING: "En proceso",
   PREPARING: "En preparación",
   READY: "Listo",
+  SHIPPED: "Despachado",
   CANCELLED: "Cancelado",
 };
 
@@ -65,6 +66,10 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [notificationPreview, setNotificationPreview] = useState("");
+  const [carrier, setCarrier] = useState("");
+  const [tracking, setTracking] = useState("");
   const [isPending, startTransition] = useTransition();
   const selected = useMemo(() => orders.find((order) => order.id === selectedId) ?? null, [orders, selectedId]);
 
@@ -75,13 +80,24 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
     return () => window.removeEventListener("keydown", close);
   }, [selected]);
 
+  function previewStatus(status: string) {
+    if (!selected) return;
+    const number = publicNumber(selected.orderNumber);
+    const place = selected.fulfillment?.pickupLabel || selected.fulfillment?.address;
+    const copy = status === "PREPARING" ? `Estamos preparando tu pedido N.º ${number}.`
+      : status === "CANCELLED" ? `Tu pedido N.º ${number} fue cancelado.`
+      : status === "SHIPPED" ? `Tu pedido N.º ${number} ya fue despachado.`
+      : `¡Tu pedido N.º ${number} ya está listo!${place ? ` Podés retirarlo en ${place}.` : ""}`;
+    setPendingStatus(status); setNotificationPreview(copy);
+  }
+
   async function changeStatus(status: string, retryNotification = false) {
     if (!selected) return;
     setFeedback(null);
     const response = await fetch(`/api/labs/orders/${selected.id}/status`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status, retryNotification }),
+      body: JSON.stringify({ status, retryNotification, notificationText: notificationPreview, carrier, trackingUrl: tracking }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -92,6 +108,7 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
       ? "El pedido quedó listo, pero no se pudo enviar el aviso."
       : status === "READY" ? "Pedido listo y cliente avisado." : "Estado actualizado.");
     startTransition(() => router.refresh());
+    setPendingStatus(null);
   }
 
   if (orders.length === 0) {
@@ -185,11 +202,18 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
                 ) : null}
                 {feedback ? <p className="labs-order-feedback">{feedback}</p> : null}
                 <div className="labs-order-actions">
-                  {selected.operationalStatus === "PROCESSING" ? <button onClick={() => changeStatus("PREPARING")} disabled={isPending}><Truck size={16} /> Empezar preparación</button> : null}
-                  {selected.operationalStatus !== "READY" && selected.operationalStatus !== "CANCELLED" ? <button className="is-primary" onClick={() => changeStatus("READY")} disabled={isPending}><PackageCheck size={16} /> Marcar listo y avisar</button> : null}
+                  {selected.operationalStatus === "PROCESSING" ? <button onClick={() => previewStatus("PREPARING")} disabled={isPending}><Truck size={16} /> Empezar preparación</button> : null}
+                  {selected.operationalStatus !== "READY" && selected.operationalStatus !== "CANCELLED" ? <button className="is-primary" onClick={() => previewStatus("READY")} disabled={isPending}><PackageCheck size={16} /> Marcar listo y avisar</button> : null}
+                  {selected.fulfillment?.type === "DELIVERY" && selected.operationalStatus === "READY" ? <button onClick={() => previewStatus("SHIPPED")} disabled={isPending}><Truck size={16} /> Marcar despachado</button> : null}
                   {selected.operationalStatus === "READY" && selected.notificationStatus === "FAILED" ? <button className="is-primary" onClick={() => changeStatus("READY", true)} disabled={isPending}>Reintentar aviso</button> : null}
-                  {selected.operationalStatus !== "CANCELLED" ? <button className="is-danger" onClick={() => changeStatus("CANCELLED")} disabled={isPending}>Cancelar pedido</button> : null}
+                  {selected.operationalStatus !== "CANCELLED" ? <button className="is-danger" onClick={() => previewStatus("CANCELLED")} disabled={isPending}>Cancelar pedido</button> : null}
                 </div>
+                {pendingStatus ? <section className="labs-order-panel">
+                  <span className="labs-order-kicker">Vista previa del aviso</span>
+                  {pendingStatus === "SHIPPED" ? <><input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Transportista" /><input value={tracking} onChange={(event) => setTracking(event.target.value)} placeholder="Enlace o código de seguimiento" /></> : null}
+                  <textarea value={notificationPreview} onChange={(event) => setNotificationPreview(event.target.value)} rows={4} />
+                  <div className="labs-order-actions"><button onClick={() => setPendingStatus(null)}>Volver</button><button className="is-primary" onClick={() => changeStatus(pendingStatus)} disabled={isPending || !notificationPreview.trim() || (pendingStatus === "SHIPPED" && (!carrier.trim() || !tracking.trim()))}>Confirmar cambio y enviar</button></div>
+                </section> : null}
               </aside>
             </div>
           </section>

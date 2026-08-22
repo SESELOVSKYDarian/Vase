@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isInboxNearBottom,
   shouldAutoScrollInbox,
+  restoreInboxScrollOffset,
 } from "../apps/vase-labs/app/app/owner/labs/inbox/inbox-scroll-policy";
 
 describe("Labs Inbox scroll policy", () => {
@@ -49,5 +50,9 @@ describe("Labs Inbox scroll policy", () => {
       messagesAdded: true,
       wasNearBottom: false,
     })).toBe(true);
+  });
+
+  it("preserves the visible reading offset when polling adds content", () => {
+    expect(restoreInboxScrollOffset({ scrollTop: 280, scrollHeight: 1200 }, 1320)).toBe(400);
   });
 });

@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from "./db";
+import { buildTrainerProposalReply, confirmTrainerProposal, createTrainerProposal, normalizeTrainerPhone, rejectTrainerProposal, type TrainerProposal } from "./knowledge-trainer";
 import { randomUUID } from "node:crypto";
 import type { InboundChannelMessage, LabsChannel, LabsChannelProvider } from "@vase/contracts";
 import { canTenantUseChannel, createRuntimeEntitlement, type LabsRuntimeEntitlement } from "./billing";
@@ -12,6 +13,9 @@ import {
 } from "./channel-health";
 import { createConversationAnalysisQueue } from "./conversation-analysis-queue";
 import { PrismaConversationAnalysisRepository } from "./conversation-analysis-repository";
+import { createOfficialChannelSender } from "./official-channel-sender";
+import { PrismaOfficialChannelSenderRepository } from "./official-channel-sender-repository";
+import { applyDocumentCorrection } from "./knowledge-document-version";
 
 export type ChannelWebhookContext = {
   assistantId: string;
@@ -44,6 +48,10 @@ export type PersistChannelInboundMessageResult = {
 };
 
 export interface ChannelWebhookRepository {
+  findTrainerPhone?(globalTenantId: string, phone: string): Promise<{ id: string } | null>;
+  persistTrainerInstruction?(input: { context: ChannelWebhookContext; trainerPhoneId: string; message: InboundChannelMessage; preparedProposal?: TrainerProposal }): Promise<{ proposalId: string; replyText: string }>;
+  sendTrainerReply?(input: { context: ChannelWebhookContext; trainerPhoneId: string; text: string }): Promise<void>;
+  enqueueTrainerAudio?(input: { context: ChannelWebhookContext; trainerPhoneId: string; message: InboundChannelMessage }): Promise<void>;
   findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
   findManualSubscriptionContext?(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null>;
   markWebhookVerified?(context: ChannelWebhookContext): Promise<void>;
@@ -328,6 +336,84 @@ function buildRuntimeEntitlement(row: EntitlementRow | undefined): LabsRuntimeEn
 
 export class PrismaChannelWebhookRepository implements ChannelWebhookRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  findTrainerPhone(globalTenantId: string, phone: string) {
+    return this.prisma.trainerPhone.findFirst({ where: { globalTenantId, phone, active: true }, select: { id: true } });
+  }
+
+  async persistTrainerInstruction(input: { context: ChannelWebhookContext; trainerPhoneId: string; message: InboundChannelMessage; preparedProposal?: TrainerProposal }) {
+    const latest = await this.prisma.knowledgeRevision.findFirst({ where: { globalTenantId: input.context.globalTenantId }, orderBy: { revision: "desc" }, select: { revision: true } });
+    const currentRevision = latest?.revision ?? 0;
+    const text = input.message.text ?? "";
+    const pending = await this.prisma.knowledgeChangeProposal.findFirst({ where: { globalTenantId: input.context.globalTenantId, trainerPhoneId: input.trainerPhoneId, status: "PENDING" }, orderBy: { createdAt: "desc" } });
+    if (pending) {
+      if (rejectTrainerProposal(text)) {
+        await this.prisma.knowledgeChangeProposal.update({ where: { id: pending.id }, data: { status: "REJECTED" } });
+        return { proposalId: pending.id, replyText: "Propuesta descartada. No se modificó el conocimiento." };
+      }
+      try {
+        confirmTrainerProposal({ status: pending.status, baseRevision: pending.baseRevision, expiresAt: pending.expiresAt }, text, currentRevision);
+        const value = pending.proposedValue as { question?: string; answer?: string; content?: string; beforeText?: string; afterText?: string };
+        const revision = currentRevision + 1;
+        await this.prisma.$transaction(async (tx) => {
+          if (pending.changeType === "FAQ_CREATE" && value.question && value.answer) {
+            const item = await tx.knowledgeItem.create({ data: { assistantId: input.context.assistantId, title: value.question, sourceType: "FAQ", content: `Pregunta: ${value.question}\nRespuesta: ${value.answer}`, status: "READY" } });
+            await tx.knowledgeRevision.create({ data: { globalTenantId: input.context.globalTenantId, proposalId: pending.id, knowledgeItemId: item.id, revision, afterValue: value } });
+          } else if (pending.changeType === "FAQ_EDIT" && pending.targetKnowledgeId && value.question && value.answer) {
+            const item = await tx.knowledgeItem.findFirst({ where: { id: pending.targetKnowledgeId, assistantId: input.context.assistantId, sourceType: "FAQ" } });
+            if (!item) throw new Error("TRAINER_TARGET_NOT_FOUND");
+            await tx.knowledgeItem.update({ where: { id: item.id }, data: { title: value.question, content: `Pregunta: ${value.question}\nRespuesta: ${value.answer}` } });
+            await tx.knowledgeRevision.create({ data: { globalTenantId: input.context.globalTenantId, proposalId: pending.id, knowledgeItemId: item.id, revision, beforeValue: { question: item.title, content: item.content }, afterValue: value } });
+          } else if (pending.changeType === "DOCUMENT_CORRECTION" && pending.targetKnowledgeId && value.content) {
+            const correctionInput = { content: value.content, beforeText: value.beforeText, afterText: value.afterText };
+            const item = await tx.knowledgeItem.findFirst({ where: { id: pending.targetKnowledgeId, assistantId: input.context.assistantId, sourceType: "FILE", status: "READY" } });
+            if (!item) throw new Error("TRAINER_TARGET_NOT_FOUND");
+            const activeCorrection = await tx.knowledgeCorrection.findFirst({ where: { knowledgeItemId: item.id, active: true }, orderBy: { updatedAt: "desc" } });
+            const currentContent = activeCorrection?.content ?? item.extractedText ?? item.content;
+            const nextContent = applyDocumentCorrection(currentContent, correctionInput);
+            const knowledgeRevision = await tx.knowledgeRevision.create({ data: { globalTenantId: input.context.globalTenantId, proposalId: pending.id, knowledgeItemId: item.id, revision, beforeValue: { content: currentContent }, afterValue: { content: nextContent } } });
+            await tx.knowledgeCorrection.updateMany({ where: { knowledgeItemId: item.id, active: true }, data: { active: false } });
+            await tx.knowledgeCorrection.create({ data: { globalTenantId: input.context.globalTenantId, knowledgeItemId: item.id, revisionId: knowledgeRevision.id, content: nextContent } });
+          } else {
+            throw new Error("TRAINER_PROPOSAL_UNSUPPORTED");
+          }
+          await tx.knowledgeChangeProposal.update({ where: { id: pending.id }, data: { status: "CONFIRMED", confirmedAt: new Date() } });
+        });
+        return { proposalId: pending.id, replyText: "Cambio aplicado y registrado en el historial del Entrenador." };
+      } catch (error) {
+        if (error instanceof Error && error.message === "TRAINER_CONFIRMATION_REQUIRED") return { proposalId: pending.id, replyText: "La propuesta sigue pendiente. Respondé CONFIRMAR para aplicarla o RECHAZAR para descartarla." };
+        if (error instanceof Error && error.message === "TRAINER_PROPOSAL_STALE") await this.prisma.knowledgeChangeProposal.update({ where: { id: pending.id }, data: { status: "STALE" } });
+      }
+    }
+    const proposal = input.preparedProposal ?? createTrainerProposal(text, currentRevision);
+    const stored = await this.prisma.knowledgeChangeProposal.create({ data: {
+      globalTenantId: input.context.globalTenantId,
+      trainerPhoneId: input.trainerPhoneId,
+      sourceMessageId: input.message.externalMessageId ?? null,
+      sourceTranscript: text || null,
+      targetKnowledgeId: proposal.targetKnowledgeId ?? null,
+      changeType: proposal.changeType,
+      proposedValue: proposal.proposedValue,
+      baseRevision: proposal.baseRevision,
+      expiresAt: new Date(Date.now() + 30 * 60_000),
+    } });
+    return { proposalId: stored.id, replyText: buildTrainerProposalReply(proposal) };
+  }
+
+  async sendTrainerReply(input: { context: ChannelWebhookContext; trainerPhoneId: string; text: string }) {
+    const phone = await this.prisma.trainerPhone.findFirst({ where: { id: input.trainerPhoneId, globalTenantId: input.context.globalTenantId, active: true }, select: { phone: true } });
+    if (!phone) return;
+    const sender = createOfficialChannelSender({ repository: new PrismaOfficialChannelSenderRepository(this.prisma), encryptionSecret: process.env.TOKEN_ENCRYPTION_SECRET ?? "", graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v25.0" });
+    await sender.send({ globalTenantId: input.context.globalTenantId, channelId: input.context.channel?.id, channelType: "WHATSAPP", recipientId: phone.phone, text: input.text });
+  }
+
+  async enqueueTrainerAudio(input: { context: ChannelWebhookContext; trainerPhoneId: string; message: InboundChannelMessage }) {
+    if (!input.message.mediaId) throw new Error("TRAINER_AUDIO_MEDIA_MISSING");
+    await this.prisma.trainerAudioJob.upsert({ where: { assistantId_providerMediaId: { assistantId: input.context.assistantId, providerMediaId: input.message.mediaId } }, create: {
+      globalTenantId: input.context.globalTenantId, assistantId: input.context.assistantId, trainerPhoneId: input.trainerPhoneId,
+      providerMediaId: input.message.mediaId, mimeType: input.message.mediaMimeType ?? null, sourceMessageId: input.message.externalMessageId ?? null,
+    }, update: {} });
+  }
 
   async findContextByTenantSlug(tenantSlug: string, channelType: LabsChannel): Promise<ChannelWebhookContext | null> {
     const assistants = await this.prisma.$queryRaw<AssistantRow[]>`
@@ -1013,6 +1099,22 @@ export async function handleMetaChannelWebhook(input: {
       status: 200,
       body: { ok: true, ignored: true },
     };
+  }
+
+  if (input.channelType === "WHATSAPP" && message.customerContact && input.repository.findTrainerPhone && input.repository.persistTrainerInstruction) {
+    const trainer = await input.repository.findTrainerPhone(context.globalTenantId, normalizeTrainerPhone(message.customerContact)).catch(() => null);
+      if (trainer) {
+        if (message.messageType === "audio" && message.mediaId && input.repository.enqueueTrainerAudio) {
+          await input.repository.enqueueTrainerAudio({ context, trainerPhoneId: trainer.id, message });
+          await input.repository.sendTrainerReply?.({ context, trainerPhoneId: trainer.id, text: "Recibí el audio. Lo estoy transcribiendo para preparar una propuesta de conocimiento." }).catch(() => undefined);
+          await input.repository.markWebhookAttempt?.({ context, status: "PROCESSED", reason: "knowledge_trainer_audio" });
+          return { status: 200, body: { ok: true, processed: true, trainer: true } } as ChannelWebhookPostResult;
+        }
+        const stored = await input.repository.persistTrainerInstruction({ context, trainerPhoneId: trainer.id, message });
+        await input.repository.sendTrainerReply?.({ context, trainerPhoneId: trainer.id, text: stored.replyText }).catch(() => undefined);
+      await input.repository.markWebhookAttempt?.({ context, status: "PROCESSED", reason: "knowledge_trainer" });
+      return { status: 200, body: { ok: true, processed: true, trainer: true, proposalId: stored.proposalId } } as ChannelWebhookPostResult;
+    }
   }
 
   if (!message.customerName && input.resolveCustomerName) {

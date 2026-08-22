@@ -19,7 +19,7 @@ export function resolveInboxMessageDelivery(
     };
   }
 
-  if (delivery?.status === "SENT" && delivery.providerMessageId) {
+  if (delivery?.status === "SENT") {
     return {
       label: "Enviado",
       tone: "sent",

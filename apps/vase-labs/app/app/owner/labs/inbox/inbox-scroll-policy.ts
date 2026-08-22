@@ -15,3 +15,10 @@ export function shouldAutoScrollInbox(input: {
     || input.operatorSent
     || (input.messagesAdded && input.wasNearBottom);
 }
+
+export function restoreInboxScrollOffset(
+  previous: { scrollTop: number; scrollHeight: number },
+  nextScrollHeight: number,
+) {
+  return previous.scrollTop + Math.max(0, nextScrollHeight - previous.scrollHeight);
+}
