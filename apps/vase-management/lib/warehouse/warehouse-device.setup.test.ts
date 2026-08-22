@@ -25,7 +25,7 @@ async function main() {
   assert.equal(setup.completeUrlTemplate, 'https://management.vase.ar/api/warehouse/devices/abc123/commands/{commandId}/complete')
 assert.match(setup.arduinoConfig, /DEVICE_KEY = "abc123"/)
 assert.match(setup.arduinoConfig, /LED_COUNT = 60/)
-assert.match(setup.arduinoConfig, /LED_PIN = 5/)
+assert.match(setup.arduinoConfig, /LED_PIN = 2/)
 assert.match(setup.arduinoConfig, /WIFI_SSID = "TU_WIFI"/)
 assert.match(setup.arduinoConfig, /POLL_INTERVAL_MS = 2000/)
 

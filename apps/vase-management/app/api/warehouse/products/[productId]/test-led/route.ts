@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: { productId: 
     }
 
     const devices = await WarehouseDeviceService.listDevices(session.user.companyId)
-    const onlineDevice = devices.find(d => d.status === 'ONLINE') || devices[0]
+    const onlineDevice = devices.find(d => d.active && d.status === 'ONLINE') || devices.find(d => d.active)
 
     if (!onlineDevice) {
       return NextResponse.json({ error: 'No hay dispositivos configurados' }, { status: 400 })
