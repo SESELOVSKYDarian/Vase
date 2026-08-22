@@ -41,10 +41,12 @@ export type WarehouseDevice = {
   ledCount: number
   brightness: number
   maxActiveLeds: number
+  serverBaseUrl: string | null
+  wifiSsid: string | null
+  hasWifiPassword: boolean
   active: boolean
   pollingUrl: string
   completeUrlTemplate: string
-  serverBaseUrl: string
   arduinoConfig: string
   createdAt?: string
   updatedAt?: string
