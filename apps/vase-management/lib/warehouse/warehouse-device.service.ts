@@ -18,6 +18,12 @@ export function normalizeWarehouseBaseUrl(value: string | null | undefined) {
   return (value || 'http://localhost:3006').replace(/\/+$/, '');
 }
 
+function clampInt(value: unknown, fallback: number, min: number, max: number) {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed)) return fallback
+  return Math.min(Math.max(parsed, min), max)
+}
+
 export function buildWarehouseDeviceSetup(input: {
   baseUrl: string;
   deviceKey: string;
@@ -73,10 +79,14 @@ export class WarehouseDeviceService {
     return devices.map((device) => ({
       ...device,
       ...buildWarehouseDeviceSetup({
-        baseUrl,
+        baseUrl: device.serverBaseUrl || baseUrl,
         deviceKey: device.deviceKey,
         ledCount: device.ledCount,
       }),
+      serverBaseUrl: device.serverBaseUrl || normalizeWarehouseBaseUrl(baseUrl),
+      wifiSsid: device.wifiSsid,
+      hasWifiPassword: Boolean(device.wifiPassword),
+      wifiPassword: undefined,
     }));
   }
 
@@ -91,6 +101,48 @@ export class WarehouseDeviceService {
         deviceKey: this.generateDeviceKey(),
       }
     });
+  }
+
+  static async updateDeviceConfig(companyId: string, deviceId: string, input: {
+    name?: string
+    serverBaseUrl?: string | null
+    wifiSsid?: string | null
+    wifiPassword?: string | null
+    ledCount?: number
+    brightness?: number
+    maxActiveLeds?: number
+  }) {
+    const current = await prisma.warehouseDevice.findFirst({ where: { id: deviceId, companyId } })
+    if (!current) return null
+
+    const ledCount = clampInt(input.ledCount, current.ledCount, 1, 1000)
+    const data: Prisma.WarehouseDeviceUpdateInput = {
+      ...(input.name?.trim() ? { name: input.name.trim() } : {}),
+      ...(input.serverBaseUrl !== undefined ? { serverBaseUrl: input.serverBaseUrl ? normalizeWarehouseBaseUrl(input.serverBaseUrl) : null } : {}),
+      ...(input.wifiSsid !== undefined ? { wifiSsid: input.wifiSsid?.trim() || null } : {}),
+      ...(input.wifiPassword !== undefined && input.wifiPassword !== '' ? { wifiPassword: input.wifiPassword } : {}),
+      ...(input.ledCount !== undefined ? { ledCount } : {}),
+      ...(input.brightness !== undefined ? { brightness: clampInt(input.brightness, current.brightness, 0, 255) } : {}),
+      ...(input.maxActiveLeds !== undefined ? { maxActiveLeds: clampInt(input.maxActiveLeds, current.maxActiveLeds, 1, ledCount) } : {}),
+    }
+    const updated = await prisma.warehouseDevice.update({ where: { id: deviceId }, data })
+    return { ...updated, wifiPassword: undefined, hasWifiPassword: Boolean(updated.wifiPassword) }
+  }
+
+  static async getDeviceConfig(deviceKey: string) {
+    const device = await prisma.warehouseDevice.findUnique({ where: { deviceKey } })
+    if (!device || !device.active) return null
+    await prisma.warehouseDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date(), status: 'ONLINE' } })
+    return {
+      deviceKey: device.deviceKey,
+      serverBaseUrl: device.serverBaseUrl,
+      wifiSsid: device.wifiSsid,
+      wifiPassword: device.wifiPassword,
+      ledCount: device.ledCount,
+      brightness: device.brightness,
+      maxActiveLeds: device.maxActiveLeds,
+      updatedAt: device.updatedAt.toISOString(),
+    }
   }
 
   /**

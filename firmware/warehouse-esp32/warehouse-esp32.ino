@@ -7,27 +7,39 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <Preferences.h>
 
-const char* WIFI_SSID = "TU_WIFI";
-const char* WIFI_PASSWORD = "TU_PASSWORD";
-const char* SERVER_BASE_URL = "https://management.vase.ar";
+const char* INITIAL_WIFI_SSID = "TU_WIFI";
+const char* INITIAL_WIFI_PASSWORD = "TU_PASSWORD";
+const char* INITIAL_SERVER_BASE_URL = "https://management.vase.ar";
 const char* DEVICE_KEY = "PEGAR_DEVICE_KEY";
 
 const uint8_t LED_PIN = 2;
-const uint16_t LED_COUNT = 60;
+const uint16_t INITIAL_LED_COUNT = 60;
 const uint32_t POLL_INTERVAL_MS = 2000;
-const uint8_t BRIGHTNESS = 255;
+const uint32_t CONFIG_INTERVAL_MS = 10000;
 
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+Preferences preferences;
+Adafruit_NeoPixel strip(INITIAL_LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+String wifiSsid;
+String wifiPassword;
+String serverBaseUrl;
+uint16_t ledCount = INITIAL_LED_COUNT;
+uint8_t brightness = 255;
 uint32_t lastPollAt = 0;
+uint32_t lastConfigAt = 0;
 uint32_t activeUntil = 0;
 
 String pollUrl() {
-  return String(SERVER_BASE_URL) + "/api/warehouse/devices/" + DEVICE_KEY + "/next-command";
+  return serverBaseUrl + "/api/warehouse/devices/" + DEVICE_KEY + "/next-command";
 }
 
 String completeUrl(const String& commandId) {
-  return String(SERVER_BASE_URL) + "/api/warehouse/devices/" + DEVICE_KEY + "/commands/" + commandId + "/complete";
+  return serverBaseUrl + "/api/warehouse/devices/" + DEVICE_KEY + "/commands/" + commandId + "/complete";
+}
+
+String configUrl() {
+  return serverBaseUrl + "/api/warehouse/devices/" + DEVICE_KEY + "/config";
 }
 
 void clearStrip() {
@@ -41,7 +53,7 @@ void connectWifi() {
 
   Serial.print("WiFi conectando");
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
   uint8_t attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 30) {
     delay(500);
@@ -55,6 +67,64 @@ void connectWifi() {
   } else {
     Serial.println("WiFi ERROR");
   }
+}
+
+void loadLocalConfig() {
+  preferences.begin("warehouse", true);
+  wifiSsid = preferences.getString("ssid", INITIAL_WIFI_SSID);
+  wifiPassword = preferences.getString("password", INITIAL_WIFI_PASSWORD);
+  serverBaseUrl = preferences.getString("server", INITIAL_SERVER_BASE_URL);
+  ledCount = preferences.getUShort("ledCount", INITIAL_LED_COUNT);
+  brightness = preferences.getUChar("brightness", 255);
+  preferences.end();
+  if (ledCount < 1 || ledCount > 300) ledCount = INITIAL_LED_COUNT;
+  strip.updateLength(ledCount);
+  strip.setBrightness(brightness);
+}
+
+void saveLocalConfig() {
+  preferences.begin("warehouse", false);
+  preferences.putString("ssid", wifiSsid);
+  preferences.putString("password", wifiPassword);
+  preferences.putString("server", serverBaseUrl);
+  preferences.putUShort("ledCount", ledCount);
+  preferences.putUChar("brightness", brightness);
+  preferences.end();
+}
+
+void pollConfig() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  if (!http.begin(client, configUrl())) return;
+  const int statusCode = http.GET();
+  Serial.printf("Config HTTP: %d\n", statusCode);
+  if (statusCode == 200) {
+    JsonDocument config;
+    if (!deserializeJson(config, http.getString())) {
+      const String nextSsid = config["wifiSsid"] | wifiSsid;
+      const String nextPassword = config["wifiPassword"] | wifiPassword;
+      const String nextServer = config["serverBaseUrl"] | serverBaseUrl;
+      const uint16_t nextLedCount = constrain((int)(config["ledCount"] | ledCount), 1, 300);
+      const uint8_t nextBrightness = constrain((int)(config["brightness"] | brightness), 0, 255);
+      const bool wifiChanged = nextSsid != wifiSsid || nextPassword != wifiPassword;
+      wifiSsid = nextSsid;
+      wifiPassword = nextPassword;
+      serverBaseUrl = nextServer;
+      ledCount = nextLedCount;
+      brightness = nextBrightness;
+      strip.updateLength(ledCount);
+      strip.setBrightness(brightness);
+      saveLocalConfig();
+      if (wifiChanged) {
+        WiFi.disconnect();
+        delay(200);
+        connectWifi();
+      }
+    }
+  }
+  http.end();
 }
 
 bool completeCommand(const String& commandId, const char* status, const String& errorMessage = "") {
@@ -81,18 +151,18 @@ void showCommand(JsonDocument& command) {
   const int green = command["color"]["g"] | 80;
   const int blue = command["color"]["b"] | 20;
 
-  if (commandId.length() == 0 || ledNumber < 0 || ledNumber >= LED_COUNT) {
+  if (commandId.length() == 0 || ledNumber < 0 || ledNumber >= ledCount) {
     Serial.println("Comando invalido: LED fuera de rango");
     if (commandId.length() > 0) completeCommand(commandId, "FAILED", "LED fuera de rango en el firmware");
     return;
   }
 
   strip.clear();
-  const int lastLed = min(ledNumber + max(activeCount, 0), (int)LED_COUNT);
+  const int lastLed = min(ledNumber + max(activeCount, 0), (int)ledCount);
   for (int index = ledNumber; index < lastLed; index++) {
     strip.setPixelColor(index, strip.Color(red, green, blue));
   }
-  strip.setBrightness(BRIGHTNESS);
+  strip.setBrightness(brightness);
   strip.show();
   activeUntil = millis() + max(durationMs, 0);
   Serial.printf("LED %d + %d durante %d ms\n", ledNumber, activeCount, durationMs);
@@ -123,7 +193,8 @@ void pollCommands() {
 void setup() {
   Serial.begin(115200);
   strip.begin();
-  strip.setBrightness(BRIGHTNESS);
+  loadLocalConfig();
+  strip.setBrightness(brightness);
   clearStrip();
   connectWifi();
 }
@@ -131,6 +202,10 @@ void setup() {
 void loop() {
   connectWifi();
   if (activeUntil != 0 && (int32_t)(millis() - activeUntil) >= 0) clearStrip();
+  if (millis() - lastConfigAt >= CONFIG_INTERVAL_MS) {
+    lastConfigAt = millis();
+    pollConfig();
+  }
   if (millis() - lastPollAt >= POLL_INTERVAL_MS) {
     lastPollAt = millis();
     pollCommands();

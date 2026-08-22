@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Activity, Check, Copy, Cpu, Eye, EyeOff, KeyRound, Lightbulb, LoaderCircle, Plus, PowerOff, Radio, RefreshCcw, SlidersHorizontal, Zap } from 'lucide-react'
+import { Activity, Check, Copy, Cpu, Eye, EyeOff, KeyRound, Lightbulb, LoaderCircle, Plus, PowerOff, Radio, RefreshCcw, Settings2, SlidersHorizontal, Zap } from 'lucide-react'
 import { getErrorMessage, warehouseRequest } from '@/components/warehouse/client'
 import type { WarehouseDevice } from '@/components/warehouse/types'
 import {
@@ -43,6 +43,8 @@ export default function DepositoDispositivos() {
   const [offTarget, setOffTarget] = useState<WarehouseDevice | null>(null)
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [editing, setEditing] = useState<WarehouseDevice | null>(null)
+  const [config, setConfig] = useState({ serverBaseUrl: '', wifiSsid: '', wifiPassword: '', ledCount: '60', brightness: '255', maxActiveLeds: '10' })
 
   const loadDevices = useCallback(async () => {
     setLoading(true)
@@ -139,6 +141,36 @@ export default function DepositoDispositivos() {
     }
   }
 
+  const openConfig = (device: WarehouseDevice) => {
+    setEditing(device)
+    setConfig({
+      serverBaseUrl: device.serverBaseUrl || device.pollingUrl.split('/api/')[0],
+      wifiSsid: device.wifiSsid || '',
+      wifiPassword: '',
+      ledCount: String(device.ledCount),
+      brightness: String(device.brightness),
+      maxActiveLeds: String(device.maxActiveLeds),
+    })
+  }
+
+  const saveConfig = async () => {
+    if (!editing) return
+    setActionId(`config:${editing.id}`)
+    try {
+      const updated = await warehouseRequest<WarehouseDevice>(`/api/warehouse/devices/${editing.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ...config, ledCount: Number(config.ledCount), brightness: Number(config.brightness), maxActiveLeds: Number(config.maxActiveLeds) }),
+      })
+      setDevices((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item))
+      setEditing(null)
+      setNotice({ message: 'Configuración guardada. El ESP32 la aplicará en su próximo polling.', tone: 'success' })
+    } catch (requestError) {
+      setNotice({ message: getErrorMessage(requestError), tone: 'danger' })
+    } finally {
+      setActionId(null)
+    }
+  }
+
   return (
     <div className="warehouse-shell">
       <WarehousePageHeader
@@ -204,18 +236,16 @@ export default function DepositoDispositivos() {
                         <h4 className="text-sm font-semibold text-foreground">Configurar ESP32</h4>
                         <p className="mt-1 text-xs text-muted-foreground">Pega estos valores en el firmware que hace polling al servidor.</p>
                       </div>
-                      <button type="button" className="ui-button ui-button-secondary shrink-0" onClick={() => copyToClipboard(`snippet:${device.id}`, 'config Arduino', device.arduinoConfig)}>
-                        {copiedId === `snippet:${device.id}` ? <Check size={15} /> : <Copy size={15} />} Copiar config
-                      </button>
+                      <button type="button" className="ui-button ui-button-secondary shrink-0" onClick={() => openConfig(device)}><Settings2 size={15} /> Editar desde web</button>
                     </div>
 
                     <dl className="grid gap-2 text-xs">
-                      <div className="rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">SERVER_BASE_URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 truncate text-foreground">{device.serverBaseUrl}</code><button type="button" className="ui-icon-button h-8 w-8" onClick={() => copyToClipboard(`base:${device.id}`, 'SERVER_BASE_URL', device.serverBaseUrl)} aria-label="Copiar SERVER_BASE_URL">{copiedId === `base:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
+                      <div className="rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">SERVER_BASE_URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 truncate text-foreground">{device.serverBaseUrl || 'Sin configurar'}</code><button type="button" className="ui-icon-button h-8 w-8" onClick={() => copyToClipboard(`base:${device.id}`, 'SERVER_BASE_URL', device.serverBaseUrl || '')} aria-label="Copiar SERVER_BASE_URL">{copiedId === `base:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
                       <div className="rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">Polling URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 truncate text-foreground">{device.pollingUrl}</code><button type="button" className="ui-icon-button h-8 w-8" onClick={() => copyToClipboard(`poll:${device.id}`, 'Polling URL', device.pollingUrl)} aria-label="Copiar Polling URL">{copiedId === `poll:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
                       <div className="rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">Complete URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 truncate text-foreground">{device.completeUrlTemplate}</code><button type="button" className="ui-icon-button h-8 w-8" onClick={() => copyToClipboard(`complete:${device.id}`, 'Complete URL', device.completeUrlTemplate)} aria-label="Copiar Complete URL">{copiedId === `complete:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
                     </dl>
 
-                    <pre className="mt-3 max-h-36 overflow-auto rounded-lg border border-border bg-background/70 p-3 text-xs leading-5 text-foreground"><code>{device.arduinoConfig}</code></pre>
+                    <p className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-5 text-muted-foreground">El firmware base se carga una sola vez. La red, el brillo y la cantidad de LEDs se actualizan desde esta pantalla; los productos y ubicaciones nunca se cargan al ESP32.</p>
                   </div>
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -231,6 +261,21 @@ export default function DepositoDispositivos() {
       </WarehousePanel>
 
       <WarehouseConfirmDialog open={Boolean(offTarget)} title="Apagar LEDs del dispositivo" description={offTarget ? `Se enviara un comando de apagado a ${offTarget.name}.` : ''} confirmLabel="Enviar apagado" dangerous busy={Boolean(offTarget && actionId === `off:${offTarget.id}`)} onConfirm={turnOff} onClose={() => setOffTarget(null)} />
+
+      {editing ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="warehouse-device-config-title">
+        <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
+          <div className="flex items-start justify-between border-b border-border p-5"><div><h2 id="warehouse-device-config-title" className="text-lg font-semibold text-foreground">Configurar {editing.name}</h2><p className="mt-1 text-sm text-muted-foreground">Los cambios se entregan al ESP32 por polling seguro.</p></div><button type="button" className="ui-icon-button" onClick={() => setEditing(null)} aria-label="Cerrar">×</button></div>
+          <div className="grid gap-4 p-5 sm:grid-cols-2">
+            <label className="ui-field sm:col-span-2"><span className="ui-label">URL del servidor</span><input className="input-field" value={config.serverBaseUrl} onChange={(e) => setConfig({ ...config, serverBaseUrl: e.target.value })} placeholder="https://management.vase.ar" /></label>
+            <label className="ui-field"><span className="ui-label">Nombre Wi‑Fi</span><input className="input-field" value={config.wifiSsid} onChange={(e) => setConfig({ ...config, wifiSsid: e.target.value })} /></label>
+            <label className="ui-field"><span className="ui-label">Contraseña Wi‑Fi</span><input type="password" className="input-field" value={config.wifiPassword} onChange={(e) => setConfig({ ...config, wifiPassword: e.target.value })} placeholder="Dejar vacío para conservar" /></label>
+            <label className="ui-field"><span className="ui-label">Cantidad de LEDs</span><input type="number" min="1" max="1000" className="input-field" value={config.ledCount} onChange={(e) => setConfig({ ...config, ledCount: e.target.value })} /></label>
+            <label className="ui-field"><span className="ui-label">Brillo (0–255)</span><input type="number" min="0" max="255" className="input-field" value={config.brightness} onChange={(e) => setConfig({ ...config, brightness: e.target.value })} /></label>
+            <label className="ui-field"><span className="ui-label">Máximo de LEDs activos</span><input type="number" min="1" className="input-field" value={config.maxActiveLeds} onChange={(e) => setConfig({ ...config, maxActiveLeds: e.target.value })} /></label>
+          </div>
+          <div className="flex justify-end gap-3 border-t border-border p-5"><button type="button" className="ui-button ui-button-secondary" onClick={() => setEditing(null)}>Cancelar</button><button type="button" className="ui-button ui-button-primary" onClick={() => void saveConfig()} disabled={actionId === `config:${editing.id}`}>{actionId === `config:${editing.id}` ? <LoaderCircle size={16} className="animate-spin" /> : <Check size={16} />} Guardar configuración</button></div>
+        </div>
+      </div> : null}
     </div>
   )
 }
