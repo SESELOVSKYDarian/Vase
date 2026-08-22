@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { WarehouseService } from '@/lib/warehouse/warehouse.service'
 import { WarehouseDeviceService } from '@/lib/warehouse/warehouse-device.service'
+import { selectWarehouseDeviceForCommand } from '@/lib/warehouse/command-device'
 
 export async function POST(req: NextRequest, { params }: { params: { productId: string } }) {
   try {
@@ -14,10 +15,10 @@ export async function POST(req: NextRequest, { params }: { params: { productId: 
     }
 
     const devices = await WarehouseDeviceService.listDevices(session.user.companyId)
-    const onlineDevice = devices.find(d => d.active && d.status === 'ONLINE') || devices.find(d => d.active)
+    const onlineDevice = selectWarehouseDeviceForCommand(devices)
 
     if (!onlineDevice) {
-      return NextResponse.json({ error: 'No hay dispositivos configurados' }, { status: 400 })
+      return NextResponse.json({ error: 'No hay dispositivos online con polling reciente' }, { status: 400 })
     }
 
     const command = await WarehouseDeviceService.createLedCommand(session.user.companyId, {
