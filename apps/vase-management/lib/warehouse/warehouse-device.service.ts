@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { normalizeWarehouseLedCommand } from './warehouse-led-command';
+import { isWarehouseDeviceOnline } from './command-device';
 
 export const DEFAULT_WAREHOUSE_LED_PIN = 2;
 
@@ -65,10 +66,14 @@ export class WarehouseDeviceService {
    * Lista los dispositivos de una empresa
    */
   static async listDevices(companyId: string) {
-    return prisma.warehouseDevice.findMany({
+    const devices = await prisma.warehouseDevice.findMany({
       where: { companyId },
       orderBy: { createdAt: 'desc' }
     });
+    return devices.map((device) => ({
+      ...device,
+      status: isWarehouseDeviceOnline(device) ? 'ONLINE' : 'OFFLINE',
+    }));
   }
 
   /**

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { WarehouseDeviceService } from '@/lib/warehouse/warehouse-device.service'
+import { selectWarehouseDeviceForCommand } from '@/lib/warehouse/command-device'
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
     const devices = await WarehouseDeviceService.listDevices(companyId)
     const device = body.deviceId
       ? devices.find(d => d.id === body.deviceId)
-      : devices.find(d => d.active && d.status === 'ONLINE') || devices.find(d => d.active)
+      : selectWarehouseDeviceForCommand(devices)
 
     if (!device) return NextResponse.json({ error: 'No hay dispositivos' }, { status: 400 })
 
