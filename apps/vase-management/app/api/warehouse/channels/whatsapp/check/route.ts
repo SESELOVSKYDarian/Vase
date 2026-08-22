@@ -33,10 +33,15 @@ export async function POST(_request: NextRequest) {
       verifiedName = phonePayload.verified_name || null
       if (!phoneResponse.ok) graphError = phonePayload.error?.message || 'Meta rechazó las credenciales.'
 
-      const subscriptionsResponse = await fetch(`${base}/${encodeURIComponent(channel.providerAccountId!)}/subscribed_apps`, { headers, cache: 'no-store' })
-      const subscriptionsPayload = await subscriptionsResponse.json().catch(() => ({}))
-      subscriptionActive = subscriptionsResponse.ok && Array.isArray(subscriptionsPayload.data) && subscriptionsPayload.data.length > 0
-      if (!subscriptionsResponse.ok && !graphError) graphError = subscriptionsPayload.error?.message || 'No se pudo comprobar la suscripción.'
+      if (channel.wabaId) {
+        // Meta exposes webhook subscriptions at the WABA level, not on the phone number.
+        const subscriptionsResponse = await fetch(`${base}/${encodeURIComponent(channel.wabaId)}/subscribed_apps`, { headers, cache: 'no-store' })
+        const subscriptionsPayload = await subscriptionsResponse.json().catch(() => ({}))
+        subscriptionActive = subscriptionsResponse.ok && Array.isArray(subscriptionsPayload.data) && subscriptionsPayload.data.length > 0
+        if (!subscriptionsResponse.ok && !graphError) graphError = subscriptionsPayload.error?.message || 'No se pudo comprobar la suscripción del WABA.'
+      } else if (!graphError) {
+        graphError = 'Falta el WABA ID para comprobar la suscripción de Meta.'
+      }
     }
 
     const checks = {
