@@ -44,7 +44,7 @@ export default function DepositoDispositivos() {
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [editing, setEditing] = useState<WarehouseDevice | null>(null)
-  const [config, setConfig] = useState({ serverBaseUrl: '', wifiSsid: '', wifiPassword: '', ledCount: '60', brightness: '255', maxActiveLeds: '10' })
+  const [config, setConfig] = useState({ serverBaseUrl: '', wifiSsid: '', wifiPassword: '', ledCount: '100', brightness: '255', maxActiveLeds: '10' })
 
   const loadDevices = useCallback(async () => {
     setLoading(true)
