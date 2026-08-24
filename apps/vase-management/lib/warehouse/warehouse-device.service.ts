@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { normalizeWarehouseLedCommand } from './warehouse-led-command';
 import { isWarehouseDeviceOnline } from './command-device';
+import { normalizeWarehouseWifiSsid } from './warehouse-wifi-config';
 
 export const DEFAULT_WAREHOUSE_LED_PIN = 2;
 
@@ -125,7 +126,7 @@ export class WarehouseDeviceService {
     const data: Prisma.WarehouseDeviceUpdateInput = {
       ...(input.name?.trim() ? { name: input.name.trim() } : {}),
       ...(input.serverBaseUrl !== undefined ? { serverBaseUrl: input.serverBaseUrl ? normalizeWarehouseBaseUrl(input.serverBaseUrl) : null } : {}),
-      ...(input.wifiSsid !== undefined ? { wifiSsid: input.wifiSsid?.trim() || null } : {}),
+      ...(input.wifiSsid !== undefined ? { wifiSsid: normalizeWarehouseWifiSsid(input.wifiSsid) } : {}),
       ...(input.wifiPassword !== undefined && input.wifiPassword !== '' ? { wifiPassword: input.wifiPassword } : {}),
       ...(input.ledCount !== undefined ? { ledCount } : {}),
       ...(input.brightness !== undefined ? { brightness: clampInt(input.brightness, current.brightness, 0, 255) } : {}),
