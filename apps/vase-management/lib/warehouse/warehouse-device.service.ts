@@ -6,6 +6,11 @@ import { isWarehouseDeviceOnline } from './command-device';
 import { normalizeWarehouseWifiSsid } from './warehouse-wifi-config';
 
 export const DEFAULT_WAREHOUSE_LED_PIN = 2;
+export type WarehouseNetworkMode = 'AUTO' | 'ETHERNET' | 'WIFI';
+export type WarehouseDeviceTelemetry = {
+  transport?: string | null;
+  ipAddress?: string | null;
+};
 
 export type CreateLedCommandInput = {
   deviceId: string;
@@ -27,6 +32,29 @@ function clampInt(value: unknown, fallback: number, min: number, max: number) {
   return Math.min(Math.max(parsed, min), max)
 }
 
+export function normalizeWarehouseNetworkMode(
+  value: unknown,
+  fallback: WarehouseNetworkMode = 'AUTO',
+): WarehouseNetworkMode {
+  const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+  return normalized === 'AUTO' || normalized === 'ETHERNET' || normalized === 'WIFI'
+    ? normalized
+    : fallback;
+}
+
+function normalizeDeviceTelemetry(input?: WarehouseDeviceTelemetry) {
+  const transport = input?.transport?.trim().toUpperCase();
+  const rawIpAddress = input?.ipAddress?.trim();
+  const ipAddress = rawIpAddress && rawIpAddress.length <= 64 && /^[0-9a-f:.]+$/i.test(rawIpAddress)
+    ? rawIpAddress
+    : undefined;
+
+  return {
+    ...(transport === 'ETHERNET' || transport === 'WIFI' ? { lastTransport: transport } : {}),
+    ...(ipAddress ? { lastIpAddress: ipAddress } : {}),
+  };
+}
+
 export function buildWarehouseDeviceSetup(input: {
   baseUrl: string;
   deviceKey: string;
@@ -45,6 +73,7 @@ export function buildWarehouseDeviceSetup(input: {
     arduinoConfig: [
       'const char* WIFI_SSID = "TU_WIFI";',
       'const char* WIFI_PASSWORD = "TU_PASSWORD";',
+      'const char* NETWORK_MODE = "AUTO"; // AUTO | ETHERNET | WIFI',
       `const char* SERVER_BASE_URL = "${serverBaseUrl}";`,
       `const char* DEVICE_KEY = "${input.deviceKey}";`,
       `const int LED_PIN = ${ledPin};`,
@@ -115,6 +144,7 @@ export class WarehouseDeviceService {
     serverBaseUrl?: string | null
     wifiSsid?: string | null
     wifiPassword?: string | null
+    networkMode?: WarehouseNetworkMode | string
     ledCount?: number
     brightness?: number
     maxActiveLeds?: number
@@ -128,6 +158,7 @@ export class WarehouseDeviceService {
       ...(input.serverBaseUrl !== undefined ? { serverBaseUrl: input.serverBaseUrl ? normalizeWarehouseBaseUrl(input.serverBaseUrl) : null } : {}),
       ...(input.wifiSsid !== undefined ? { wifiSsid: normalizeWarehouseWifiSsid(input.wifiSsid) } : {}),
       ...(input.wifiPassword !== undefined && input.wifiPassword !== '' ? { wifiPassword: input.wifiPassword } : {}),
+      ...(input.networkMode !== undefined ? { networkMode: normalizeWarehouseNetworkMode(input.networkMode, normalizeWarehouseNetworkMode(current.networkMode)) } : {}),
       ...(input.ledCount !== undefined ? { ledCount } : {}),
       ...(input.brightness !== undefined ? { brightness: clampInt(input.brightness, current.brightness, 0, 255) } : {}),
       ...(input.maxActiveLeds !== undefined ? { maxActiveLeds: clampInt(input.maxActiveLeds, current.maxActiveLeds, 1, ledCount) } : {}),
@@ -136,15 +167,19 @@ export class WarehouseDeviceService {
     return { ...updated, wifiPassword: undefined, hasWifiPassword: Boolean(updated.wifiPassword) }
   }
 
-  static async getDeviceConfig(deviceKey: string) {
+  static async getDeviceConfig(deviceKey: string, telemetry?: WarehouseDeviceTelemetry) {
     const device = await prisma.warehouseDevice.findUnique({ where: { deviceKey } })
     if (!device || !device.active) return null
-    await prisma.warehouseDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date(), status: 'ONLINE' } })
+    await prisma.warehouseDevice.update({
+      where: { id: device.id },
+      data: { lastSeenAt: new Date(), status: 'ONLINE', ...normalizeDeviceTelemetry(telemetry) },
+    })
     return {
       deviceKey: device.deviceKey,
       serverBaseUrl: device.serverBaseUrl,
       wifiSsid: device.wifiSsid,
       wifiPassword: device.wifiPassword,
+      networkMode: normalizeWarehouseNetworkMode(device.networkMode),
       ledCount: device.ledCount,
       brightness: device.brightness,
       maxActiveLeds: device.maxActiveLeds,
@@ -197,7 +232,7 @@ export class WarehouseDeviceService {
    * La operación se realiza usando updateMany para garantizar atomicidad y evitar 
    * race conditions si el dispositivo hace llamadas concurrentes.
    */
-  static async claimNextCommand(deviceKey: string) {
+  static async claimNextCommand(deviceKey: string, telemetry?: WarehouseDeviceTelemetry) {
     const device = await prisma.warehouseDevice.findUnique({
       where: { deviceKey }
     });
@@ -209,7 +244,7 @@ export class WarehouseDeviceService {
     // Actualizamos el lastSeenAt del dispositivo
     await prisma.warehouseDevice.update({
       where: { id: device.id },
-      data: { lastSeenAt: new Date(), status: 'ONLINE' }
+      data: { lastSeenAt: new Date(), status: 'ONLINE', ...normalizeDeviceTelemetry(telemetry) }
     });
 
     const now = new Date();

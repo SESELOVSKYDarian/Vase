@@ -1,0 +1,4 @@
+ALTER TABLE "warehouse_devices"
+  ADD COLUMN IF NOT EXISTS "networkMode" TEXT NOT NULL DEFAULT 'AUTO',
+  ADD COLUMN IF NOT EXISTS "lastTransport" TEXT,
+  ADD COLUMN IF NOT EXISTS "lastIpAddress" TEXT;
