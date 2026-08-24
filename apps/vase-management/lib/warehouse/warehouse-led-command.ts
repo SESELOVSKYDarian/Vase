@@ -15,8 +15,26 @@ export type WarehouseLedDeviceLimits = {
   maxActiveLeds: number
 }
 
+const DEFAULT_WAREHOUSE_LED_COLOR: WarehouseLedColor = { r: 0, g: 80, b: 20 }
+
+function normalizeColorComponent(value: number) {
+  return Math.max(0, Math.min(255, Math.trunc(value)))
+}
+
+export function normalizeWarehouseLedColor(color: WarehouseLedColor | null | undefined): WarehouseLedColor {
+  if (!color || ![color.r, color.g, color.b].every(Number.isFinite)) {
+    return { ...DEFAULT_WAREHOUSE_LED_COLOR }
+  }
+  return {
+    r: normalizeColorComponent(color.r),
+    g: normalizeColorComponent(color.g),
+    b: normalizeColorComponent(color.b),
+  }
+}
+
 export function normalizeWarehouseLedCommand(values: WarehouseLedCommandValues, device: WarehouseLedDeviceLimits): WarehouseLedCommandValues {
-  const isOffCommand = values.color.r === 0 && values.color.g === 0 && values.color.b === 0
+  const color = normalizeWarehouseLedColor(values.color)
+  const isOffCommand = color.r === 0 && color.g === 0 && color.b === 0
   const ledNumbers = values.ledNumbers?.length
     ? normalizeWarehouseLedSelection(values.ledNumbers, device.ledCount, values.ledNumbers.length)
     : undefined
@@ -34,7 +52,7 @@ export function normalizeWarehouseLedCommand(values: WarehouseLedCommandValues, 
     ledNumber,
     ...(ledNumbers ? { ledNumbers } : {}),
     activeCount: ledNumbers ? ledNumbers.length : Math.max(0, Math.min(Math.trunc(values.activeCount), maxActive)),
-    color: values.color,
+    color,
     durationMs: Math.max(0, Math.trunc(values.durationMs)),
   }
 }

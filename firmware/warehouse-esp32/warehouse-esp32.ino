@@ -8,11 +8,16 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <Preferences.h>
+#include <WebServer.h>
 
-const char* INITIAL_WIFI_SSID = "TU_WIFI";
-const char* INITIAL_WIFI_PASSWORD = "TU_PASSWORD";
+const char* INITIAL_WIFI_SSID = "Barra";
+const char* INITIAL_WIFI_PASSWORD = "75575775";
+const char* FALLBACK_WIFI_SSID = "WIFI Damac N4164 ";
+const char* FALLBACK_WIFI_PASSWORD = "dmc4164nqn";
+const char* SECONDARY_WIFI_SSID = "Barra";
+const char* SECONDARY_WIFI_PASSWORD = "75575775";
 const char* INITIAL_SERVER_BASE_URL = "https://management.vase.ar";
-const char* DEVICE_KEY = "PEGAR_DEVICE_KEY";
+const char* DEVICE_KEY = "e7561371c56cb464cf12bfa0254f1b31e693bcff5396d601";
 
 const uint8_t LED_PIN = 2;
 const uint16_t INITIAL_LED_COUNT = 100;
@@ -20,6 +25,7 @@ const uint32_t POLL_INTERVAL_MS = 2000;
 const uint32_t CONFIG_INTERVAL_MS = 10000;
 
 Preferences preferences;
+WebServer configServer(80);
 Adafruit_NeoPixel strip(INITIAL_LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 String wifiSsid;
 String wifiPassword;
@@ -29,6 +35,8 @@ uint8_t brightness = 255;
 uint32_t lastPollAt = 0;
 uint32_t lastConfigAt = 0;
 uint32_t activeUntil = 0;
+uint32_t lastWifiRetryAt = 0;
+bool provisioningMode = false;
 
 String pollUrl() {
   return serverBaseUrl + "/api/warehouse/devices/" + DEVICE_KEY + "/next-command";
@@ -48,25 +56,74 @@ void clearStrip() {
   activeUntil = 0;
 }
 
-void connectWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
-
-  Serial.print("WiFi conectando");
+bool tryWifi(const char* ssid, const char* password, uint32_t timeoutMs = 15000) {
+  if (!ssid || strlen(ssid) == 0) return false;
+  Serial.print("WiFi probando: ");
+  Serial.println(ssid);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
-  uint8_t attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+  WiFi.disconnect();
+  delay(150);
+  WiFi.begin(ssid, password);
+  const uint32_t startedAt = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startedAt < timeoutMs) {
     delay(500);
     Serial.print(".");
-    attempts++;
   }
   Serial.println();
   if (WiFi.status() == WL_CONNECTED) {
     Serial.print("WiFi OK: ");
     Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("WiFi ERROR");
   }
+  return WiFi.status() == WL_CONNECTED;
+}
+
+void saveLocalConfig();
+void connectWifi();
+
+String provisioningPage() {
+  String html = "<!doctype html><html lang='es'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Configurar Vase ESP32</title><style>body{font-family:system-ui;max-width:520px;margin:40px auto;padding:0 18px;background:#101615;color:#f2f7f4}input{display:block;width:100%;box-sizing:border-box;margin:8px 0 18px;padding:12px;border-radius:8px;border:1px solid #456054;background:#18231f;color:white}button{padding:12px 18px;border:0;border-radius:8px;background:#34d399;color:#062017;font-weight:700}</style><h1>Vase ESP32</h1><p>Configurá el Wi‑Fi y la conexión del depósito.</p><form method='post' action='/save'><label>Wi‑Fi</label><input name='ssid' value='" + wifiSsid + "' required><label>Contraseña</label><input name='password' type='password' value='" + wifiPassword + "' required><label>Servidor</label><input name='server' value='" + serverBaseUrl + "' required><label>Device key</label><input name='deviceKey' value='" + DEVICE_KEY + "' readonly><button>Guardar y conectar</button></form></html>";
+  return html;
+}
+
+void startProvisioningPortal() {
+  if (provisioningMode) return;
+  WiFi.mode(WIFI_AP_STA);
+  String suffix = String((uint32_t)ESP.getEfuseMac(), HEX).substring(6);
+  String apName = "Vase-ESP32-" + suffix;
+  WiFi.softAP(apName.c_str(), "vaseesp32");
+  configServer.on("/", HTTP_GET, []() { configServer.send(200, "text/html; charset=utf-8", provisioningPage()); });
+  configServer.on("/save", HTTP_POST, []() {
+    if (!configServer.hasArg("ssid") || !configServer.hasArg("password") || !configServer.hasArg("server")) {
+      configServer.send(400, "text/plain", "Faltan datos");
+      return;
+    }
+    wifiSsid = configServer.arg("ssid");
+    wifiPassword = configServer.arg("password");
+    serverBaseUrl = configServer.arg("server");
+    saveLocalConfig();
+    configServer.send(200, "text/html; charset=utf-8", "<h1>Guardado</h1><p>El ESP32 está intentando conectarse. Podés cerrar esta red.</p>");
+    provisioningMode = false;
+    configServer.stop();
+    WiFi.softAPdisconnect(true);
+    delay(300);
+    connectWifi();
+  });
+  configServer.begin();
+  provisioningMode = true;
+  Serial.print("Portal WiFi: ");
+  Serial.println(apName);
+  Serial.println("Abrir http://192.168.4.1");
+}
+
+void connectWifi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+  if (tryWifi(wifiSsid.c_str(), wifiPassword.c_str()) ||
+      tryWifi(FALLBACK_WIFI_SSID, FALLBACK_WIFI_PASSWORD) ||
+      tryWifi(SECONDARY_WIFI_SSID, SECONDARY_WIFI_PASSWORD)) {
+    provisioningMode = false;
+    return;
+  }
+  startProvisioningPortal();
 }
 
 void loadLocalConfig() {
@@ -147,9 +204,10 @@ void showCommand(JsonDocument& command) {
   const int ledNumber = command["ledNumber"] | -1;
   const int activeCount = command["activeCount"] | 0;
   const int durationMs = command["durationMs"] | 5000;
-  const int red = command["color"]["r"] | 0;
-  const int green = command["color"]["g"] | 80;
-  const int blue = command["color"]["b"] | 20;
+  JsonObject color = command["color"].as<JsonObject>();
+  const int red = constrain((int)(color["r"] | 0), 0, 255);
+  const int green = constrain((int)(color["g"] | 80), 0, 255);
+  const int blue = constrain((int)(color["b"] | 20), 0, 255);
   JsonArray ledNumbers = command["ledNumbers"].as<JsonArray>();
 
   if (commandId.length() == 0 || ledNumber < 0 || ledNumber >= ledCount) {
@@ -213,7 +271,18 @@ void setup() {
 }
 
 void loop() {
-  connectWifi();
+  if (provisioningMode) {
+    configServer.handleClient();
+    if (millis() - lastWifiRetryAt >= 20000) {
+      lastWifiRetryAt = millis();
+      provisioningMode = false;
+      configServer.stop();
+      WiFi.softAPdisconnect(true);
+      connectWifi();
+    }
+  } else {
+    connectWifi();
+  }
   if (activeUntil != 0 && (int32_t)(millis() - activeUntil) >= 0) clearStrip();
   if (millis() - lastConfigAt >= CONFIG_INTERVAL_MS) {
     lastConfigAt = millis();
