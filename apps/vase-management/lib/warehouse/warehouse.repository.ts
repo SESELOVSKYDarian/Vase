@@ -3,6 +3,23 @@ import type { Prisma } from '@prisma/client';
 import { buildWarehouseProductWhere } from './warehouse-product-query';
 
 export class WarehouseRepository {
+  static async getLedCapacity(companyId: string) {
+    const device = await prisma.warehouseDevice.findFirst({
+      where: { companyId, active: true },
+      orderBy: [{ lastSeenAt: 'desc' }, { createdAt: 'desc' }],
+      select: { ledCount: true },
+    })
+    return device?.ledCount ?? 100
+  }
+
+  static async findLedConflicts(companyId: string, productId: string, ledNumbers: number[]) {
+    if (!ledNumbers.length) return []
+    return prisma.warehouseProductLocation.findMany({
+      where: { companyId, productId: { not: productId }, active: true, ledNumbers: { hasSome: ledNumbers } },
+      select: { ledNumbers: true, product: { select: { code: true, name: true } } },
+    })
+  }
+
   /**
    * Encuentra productos por código, código de barra, o nombre, e incluye su ubicación
    */
@@ -95,7 +112,8 @@ export class WarehouseRepository {
         companyId_productId: { companyId, productId }
       },
       data: {
-        ledNumber
+        ledNumber,
+        ledNumbers: ledNumber == null ? [] : [ledNumber],
       }
     });
   }

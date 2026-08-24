@@ -1,6 +1,7 @@
 import { WarehouseRepository } from './warehouse.repository';
 import { normalizeSectorName } from './normalize';
 import type { Prisma } from '@prisma/client';
+import { normalizeWarehouseLedSelection } from './warehouse-led-selection';
 
 export type ProductLocationInput = {
   productId: string;
@@ -10,7 +11,9 @@ export type ProductLocationInput = {
   row: string;
   box?: string;
   observations?: string;
-  ledNumber?: number;
+  ledNumber?: number | null;
+  ledNumbers?: number[];
+  ledSelectionCount?: number;
 };
 
 export class WarehouseService {
@@ -52,8 +55,19 @@ export class WarehouseService {
       observations: input.observations,
     };
 
-    if (input.ledNumber !== undefined) {
+    if (input.ledNumbers !== undefined) {
+      const capacity = await WarehouseRepository.getLedCapacity(companyId)
+      const ledNumbers = normalizeWarehouseLedSelection(input.ledNumbers, capacity, input.ledSelectionCount ?? input.ledNumbers.length)
+      const conflicts = await WarehouseRepository.findLedConflicts(companyId, input.productId, ledNumbers)
+      if (conflicts.length) {
+        const occupied = conflicts.flatMap((item) => item.ledNumbers.filter((led) => ledNumbers.includes(led)))
+        throw new Error(`Los LEDs ${[...new Set(occupied)].join(', ')} ya están asignados a otro producto`)
+      }
+      locationData.ledNumbers = ledNumbers
+      locationData.ledNumber = ledNumbers[0] ?? null
+    } else if (input.ledNumber !== undefined) {
       locationData.ledNumber = input.ledNumber;
+      locationData.ledNumbers = input.ledNumber == null ? [] : [input.ledNumber]
     }
 
     return WarehouseRepository.upsertProductLocation(companyId, input.productId, locationData);

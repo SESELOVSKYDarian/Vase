@@ -9,5 +9,10 @@ assert.deepEqual(
 )
 assert.throws(() => normalizeWarehouseLedCommand({ ledNumber: 60, activeCount: 4, color: { r: 0, g: 80, b: 20 }, durationMs: 5000 }, device), /LED fuera de rango/)
 assert.equal(normalizeWarehouseLedCommand({ ledNumber: 0, activeCount: 100, color: { r: 0, g: 0, b: 0 }, durationMs: 1000 }, device).activeCount, 60)
+assert.deepEqual(
+  normalizeWarehouseLedCommand({ ledNumber: 8, ledNumbers: [11, 8, 9, 10], activeCount: 4, color: { r: 0, g: 80, b: 20 }, durationMs: 5000 }, device).ledNumbers,
+  [8, 9, 10, 11],
+)
+assert.throws(() => normalizeWarehouseLedCommand({ ledNumber: 8, ledNumbers: [8, 9, 60], activeCount: 3, color: { r: 0, g: 80, b: 20 }, durationMs: 5000 }, device), /fuera de rango/)
 
 console.log('warehouse led command validation: ok')

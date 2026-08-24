@@ -98,10 +98,11 @@ export class WarehouseChannelService {
                 deviceId: onlineDevice.id,
                 productLocationId: loc.id,
                 ledNumber: loc.ledNumber,
-                activeCount: 4,
+                ledNumbers: loc.ledNumbers,
+                activeCount: loc.ledNumbers.length || 4,
                 durationMs: 8000
               });
-              responseText += ` 💡 Encendiendo LED ${loc.ledNumber}`;
+              responseText += ` 💡 Encendiendo LED${loc.ledNumbers.length > 1 ? 's' : ''} ${(loc.ledNumbers.length ? loc.ledNumbers : [loc.ledNumber]).join(', ')}`;
             }
           } else {
             responseText += ` (Sin ubicación física)`;
