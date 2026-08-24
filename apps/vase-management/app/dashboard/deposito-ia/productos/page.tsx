@@ -18,6 +18,16 @@ import {
 type RackSummary = { rack: string }
 type Notice = { message: string; tone: 'success' | 'warning' | 'danger' }
 
+function ledsFor(location: WarehouseProduct['warehouseLocations'][number] | undefined) {
+  if (location?.ledNumbers?.length) return location.ledNumbers
+  return location?.ledNumber == null ? [] : [location.ledNumber]
+}
+
+function ledLabel(ledNumbers: number[]) {
+  if (!ledNumbers.length) return 'Sin LED'
+  return `${ledNumbers.length === 1 ? 'LED' : `${ledNumbers.length} LEDs`} · ${ledNumbers.join(', ')}`
+}
+
 export default function DepositoProductos() {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -174,15 +184,16 @@ export default function DepositoProductos() {
                 <tbody>
                   {products.map((product) => {
                     const location = product.warehouseLocations[0]
+                    const ledNumbers = ledsFor(location)
                     return (
                       <tr key={product.id}>
                         <td><span className="font-mono font-semibold text-foreground">{product.code || 'Sin código'}</span></td>
                         <td><p className="font-medium text-foreground">{product.name}</p><p className="mt-1 max-w-xs truncate text-xs text-muted-foreground">{product.description || 'Sin descripción'}</p></td>
                         <td>{location ? <span className="inline-flex items-center gap-1.5 text-muted-foreground"><MapPin size={14} className="text-primary" /> {location.sector.name} · {location.rack} · Fila {location.row}{location.box ? ` · Caja ${location.box}` : ''}</span> : <WarehouseStatusBadge tone="warning">Sin ubicación</WarehouseStatusBadge>}</td>
-                        <td>{location?.ledNumber != null ? <WarehouseStatusBadge tone="info">LED #{location.ledNumber}</WarehouseStatusBadge> : <WarehouseStatusBadge tone="neutral">Sin LED</WarehouseStatusBadge>}</td>
+                        <td><WarehouseStatusBadge tone={ledNumbers.length ? 'info' : 'neutral'}>{ledLabel(ledNumbers)}</WarehouseStatusBadge></td>
                         <td><div className="flex justify-end gap-1">
                           <button type="button" className="ui-icon-button" onClick={() => openEdit(product)} aria-label={`Editar ${product.name}`}><Edit3 size={17} /></button>
-                          <button type="button" className="ui-icon-button" onClick={() => testLed(product.id)} disabled={location?.ledNumber == null || actionId === `test:${product.id}`} aria-label={`Probar LED de ${product.name}`}><Zap size={17} /></button>
+                          <button type="button" className="ui-icon-button" onClick={() => testLed(product.id)} disabled={!ledNumbers.length || actionId === `test:${product.id}`} aria-label={`Probar LEDs de ${product.name}`}><Zap size={17} /></button>
                         </div></td>
                       </tr>
                     )
@@ -194,11 +205,12 @@ export default function DepositoProductos() {
             <div className="space-y-3 p-4 md:hidden">
               {products.map((product) => {
                 const location = product.warehouseLocations[0]
+                const ledNumbers = ledsFor(location)
                 return (
                   <article key={product.id} className="warehouse-mobile-card">
-                    <div className="flex items-start justify-between gap-3"><div><p className="font-mono text-xs font-semibold text-primary">{product.code || 'SIN CÓDIGO'}</p><h3 className="mt-1 font-semibold text-foreground">{product.name}</h3></div><WarehouseStatusBadge tone={location?.ledNumber != null ? 'info' : 'neutral'}>{location?.ledNumber != null ? `LED #${location.ledNumber}` : 'Sin LED'}</WarehouseStatusBadge></div>
+                    <div className="flex items-start justify-between gap-3"><div><p className="font-mono text-xs font-semibold text-primary">{product.code || 'SIN CÓDIGO'}</p><h3 className="mt-1 font-semibold text-foreground">{product.name}</h3></div><WarehouseStatusBadge tone={ledNumbers.length ? 'info' : 'neutral'}>{ledLabel(ledNumbers)}</WarehouseStatusBadge></div>
                     <p className="mt-3 text-sm text-muted-foreground">{location ? `${location.sector.name} · ${location.rack} · Fila ${location.row}` : 'Sin ubicación física'}</p>
-                    <div className="mt-4 grid grid-cols-2 gap-2"><button type="button" className="ui-button ui-button-secondary" onClick={() => openEdit(product)}><Edit3 size={16} /> Editar</button><button type="button" className="ui-button ui-button-secondary" onClick={() => testLed(product.id)} disabled={location?.ledNumber == null || actionId === `test:${product.id}`}><Zap size={16} /> Probar LED</button></div>
+                    <div className="mt-4 grid grid-cols-2 gap-2"><button type="button" className="ui-button ui-button-secondary" onClick={() => openEdit(product)}><Edit3 size={16} /> Editar</button><button type="button" className="ui-button ui-button-secondary" onClick={() => testLed(product.id)} disabled={!ledNumbers.length || actionId === `test:${product.id}`}><Zap size={16} /> Probar LEDs</button></div>
                   </article>
                 )
               })}

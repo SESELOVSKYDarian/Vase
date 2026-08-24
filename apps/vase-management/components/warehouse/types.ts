@@ -9,6 +9,7 @@ export type WarehouseLocation = {
   observations: string | null
   imageUrl?: string | null
   ledNumber: number | null
+  ledNumbers: number[]
   active?: boolean
 }
 
@@ -119,4 +120,6 @@ export type ProductEditorValues = {
   box: string
   observations: string
   ledNumber: string
+  ledNumbers: number[]
+  ledSelectionCount: string
 }

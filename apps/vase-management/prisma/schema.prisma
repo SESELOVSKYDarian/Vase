@@ -1862,6 +1862,7 @@ model WarehouseProductLocation {
   observations String?
   imageUrl     String?
   ledNumber    Int?
+  ledNumbers   Int[]    @default([])
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1903,7 +1904,7 @@ model WarehouseDevice {
   type          WarehouseDeviceType @default(ESP32_LED_STRIP)
   status        String              @default("OFFLINE")
   lastSeenAt    DateTime?
-  ledCount      Int                 @default(60)
+  ledCount      Int                 @default(100)
   brightness    Int                 @default(255)
   maxActiveLeds Int                 @default(10)
   serverBaseUrl String?
@@ -1925,6 +1926,7 @@ model WarehouseLedCommand {
   deviceId          String
   productLocationId String?
   ledNumber         Int
+  ledNumbers        Int[]                     @default([])
   activeCount       Int                       @default(1)
   color             Json                      // { r: 0, g: 255, b: 0 }
   durationMs        Int                       @default(5000)

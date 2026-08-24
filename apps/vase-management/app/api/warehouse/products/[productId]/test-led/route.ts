@@ -25,7 +25,8 @@ export async function POST(req: NextRequest, { params }: { params: { productId: 
       deviceId: onlineDevice.id,
       productLocationId: location.id,
       ledNumber: location.ledNumber,
-      activeCount: 4,
+      ledNumbers: location.ledNumbers,
+      activeCount: location.ledNumbers.length || 4,
       durationMs: 5000
     })
     

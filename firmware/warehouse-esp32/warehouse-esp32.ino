@@ -15,7 +15,7 @@ const char* INITIAL_SERVER_BASE_URL = "https://management.vase.ar";
 const char* DEVICE_KEY = "PEGAR_DEVICE_KEY";
 
 const uint8_t LED_PIN = 2;
-const uint16_t INITIAL_LED_COUNT = 60;
+const uint16_t INITIAL_LED_COUNT = 100;
 const uint32_t POLL_INTERVAL_MS = 2000;
 const uint32_t CONFIG_INTERVAL_MS = 10000;
 
@@ -150,6 +150,7 @@ void showCommand(JsonDocument& command) {
   const int red = command["color"]["r"] | 0;
   const int green = command["color"]["g"] | 80;
   const int blue = command["color"]["b"] | 20;
+  JsonArray ledNumbers = command["ledNumbers"].as<JsonArray>();
 
   if (commandId.length() == 0 || ledNumber < 0 || ledNumber >= ledCount) {
     Serial.println("Comando invalido: LED fuera de rango");
@@ -158,14 +159,26 @@ void showCommand(JsonDocument& command) {
   }
 
   strip.clear();
-  const int lastLed = min(ledNumber + max(activeCount, 0), (int)ledCount);
-  for (int index = ledNumber; index < lastLed; index++) {
-    strip.setPixelColor(index, strip.Color(red, green, blue));
+  if (!ledNumbers.isNull() && ledNumbers.size() > 0) {
+    for (JsonVariant value : ledNumbers) {
+      const int index = value.as<int>();
+      if (index < 0 || index >= ledCount) {
+        Serial.printf("Comando invalido: LED %d fuera de rango\n", index);
+        completeCommand(commandId, "FAILED", "Lista de LEDs fuera de rango en el firmware");
+        return;
+      }
+      strip.setPixelColor(index, strip.Color(red, green, blue));
+    }
+  } else {
+    const int lastLed = min(ledNumber + max(activeCount, 0), (int)ledCount);
+    for (int index = ledNumber; index < lastLed; index++) {
+      strip.setPixelColor(index, strip.Color(red, green, blue));
+    }
   }
   strip.setBrightness(brightness);
   strip.show();
   activeUntil = millis() + max(durationMs, 0);
-  Serial.printf("LED %d + %d durante %d ms\n", ledNumber, activeCount, durationMs);
+  Serial.printf("LEDs %d durante %d ms\n", ledNumbers.isNull() ? activeCount : ledNumbers.size(), durationMs);
   completeCommand(commandId, "DONE");
 }
 

@@ -10,6 +10,7 @@ export type CreateLedCommandInput = {
   deviceId: string;
   productLocationId?: string;
   ledNumber: number;
+  ledNumbers?: number[];
   activeCount?: number;
   color?: { r: number; g: number; b: number };
   durationMs?: number;
@@ -165,6 +166,7 @@ export class WarehouseDeviceService {
 
     const normalized = normalizeWarehouseLedCommand({
       ledNumber: input.ledNumber,
+      ledNumbers: input.ledNumbers,
       activeCount: input.activeCount ?? 1,
       color: colorPayload,
       durationMs: input.durationMs ?? 5000,
@@ -179,6 +181,7 @@ export class WarehouseDeviceService {
         deviceId: input.deviceId,
         productLocationId: input.productLocationId,
         ledNumber: normalized.ledNumber,
+        ledNumbers: normalized.ledNumbers ?? [],
         activeCount: normalized.activeCount,
         color: normalized.color,
         durationMs: normalized.durationMs,

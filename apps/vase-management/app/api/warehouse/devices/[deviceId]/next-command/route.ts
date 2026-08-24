@@ -17,6 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: { deviceId: st
     return NextResponse.json({
       id: nextCommand.id,
       ledNumber: nextCommand.ledNumber,
+      ledNumbers: nextCommand.ledNumbers,
       activeCount: nextCommand.activeCount,
       color: nextCommand.color,
       durationMs: nextCommand.durationMs

@@ -7,7 +7,7 @@ Conexión usada:
 - GND de la fuente externa unido al GND del ESP32.
 - P2/GPIO2 del ESP32 a DIN de la tira.
 
-Para una tira de 60 LEDs no conviene alimentar toda la tira desde el pin 5V del ESP32. Usá una fuente externa de 5V y uní las masas.
+Para una tira de 100 LEDs no conviene alimentar toda la tira desde el pin 5V del ESP32. Usá una fuente externa de 5V y uní las masas.
 
 ## Configuración
 
@@ -28,6 +28,8 @@ Desde Management → Dispositivos → Editar desde web podés cambiar:
 - máximo de LEDs activos
 
 El ESP32 consulta `/config` cada 10 segundos, guarda los cambios en memoria y reconecta el Wi-Fi si cambian las credenciales. Los productos, ubicaciones y números de LED se administran en la web y se entregan como comandos; no se cargan al firmware.
+
+En Productos, el selector visual puede mostrar los 100 puntos de la tira y asignar posiciones exactas a cada producto. Por ejemplo, una selección `[8, 9, 10, 11]` llega al ESP32 en `ledNumbers`; el firmware enciende solamente esos cuatro LEDs. El formato anterior basado en `ledNumber + activeCount` sigue funcionando para comandos existentes.
 
 Instalá en Arduino IDE las librerías `Adafruit NeoPixel` y `ArduinoJson`. Abrí el monitor serial a `115200`.
 
