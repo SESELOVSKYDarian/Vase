@@ -4,6 +4,22 @@ export type AdminHostInput = {
   primaryHost?: string;
 };
 
+export function buildPublicRequestUrl({
+  url,
+  hostname,
+  protocol,
+}: {
+  url: string;
+  hostname: string;
+  protocol?: string;
+}) {
+  const target = new URL(url);
+  const publicHost = hostname.split(",")[0]?.trim();
+  if (publicHost) target.host = publicHost;
+  if (protocol === "http" || protocol === "https") target.protocol = `${protocol}:`;
+  return target.toString();
+}
+
 const ADMIN_INTERNAL_PREFIX = "/app/admin";
 const AUTH_PATHS = new Set([
   "/signin",

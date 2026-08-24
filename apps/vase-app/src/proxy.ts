@@ -11,6 +11,7 @@ import { shouldDisablePlatformCache } from "@/lib/security/platform-cache";
 import { getCanonicalOrigin } from "@/lib/security/origin";
 import {
   buildAdminCanonicalUrl,
+  buildPublicRequestUrl,
   isAdminHost,
   resolveAdminAccessDecision,
 } from "@/lib/security/admin-host-routing";
@@ -37,14 +38,24 @@ export default auth((request: NextRequest) => {
   };
   
   const url = request.nextUrl;
-  const hostname = (request.headers.get("host") || "").trim().toLowerCase();
+  const hostname = (
+    request.headers.get("x-forwarded-host") || request.headers.get("host") || ""
+  ).split(",")[0].trim().toLowerCase();
   const pathname = url.pathname;
+  const publicRequestUrl = buildPublicRequestUrl({
+    url: request.url,
+    hostname,
+    protocol: (
+      request.headers.get("x-forwarded-proto") ||
+      (process.env.NODE_ENV === "production" ? "https" : url.protocol.replace(":", ""))
+    ).split(",")[0].trim(),
+  });
   const isSignedIn = hasActiveSession(authRequest.auth);
   const isEmailVerified = Boolean(authRequest.auth?.user?.isEmailVerified);
 
   const adminHostDecision = resolveAdminAccessDecision({
     hostname,
-    url: request.url,
+    url: publicRequestUrl,
     isSignedIn,
     isEmailVerified,
     platformRole: authRequest.auth?.user?.platformRole,
@@ -67,12 +78,12 @@ export default auth((request: NextRequest) => {
     response.headers.set("x-vase-locale", locale);
     response.headers.set("x-vase-pathname", pathname);
     response.headers.set("x-vase-email-verified", "true");
-    response.headers.set("x-vase-canonical-origin", new URL(request.url).origin);
+    response.headers.set("x-vase-canonical-origin", new URL(publicRequestUrl).origin);
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
     return response;
   }
 
-  const adminCanonicalUrl = buildAdminCanonicalUrl({ url: request.url });
+  const adminCanonicalUrl = buildAdminCanonicalUrl({ url: publicRequestUrl });
   if (!isAdminHost(hostname) && adminCanonicalUrl) {
     return NextResponse.redirect(adminCanonicalUrl);
   }
@@ -84,19 +95,19 @@ export default auth((request: NextRequest) => {
   const defaultPlatformPath = getDefaultPlatformPathForHost(hostname);
   const defaultPlatformRedirectUrl = buildDefaultPlatformRedirectUrl({
     hostname,
-    url: request.url,
+    url: publicRequestUrl,
   });
   const labsHostRedirectUrl = buildLabsHostRedirectUrl({
     hostname,
-    url: request.url,
+    url: publicRequestUrl,
   });
   const labsHostDecision = resolveLabsHostRequest({
     hostname,
-    url: request.url,
+    url: publicRequestUrl,
   });
   const publicSiteRedirectUrl = buildPublicSiteRedirectUrl({
     hostname,
-    url: request.url,
+    url: publicRequestUrl,
   });
 
   if (defaultPlatformRedirectUrl) {
@@ -120,7 +131,7 @@ export default auth((request: NextRequest) => {
   }
 
   if (defaultPlatformPath !== "/app" && (pathname === "/" || pathname === "/app")) {
-    return NextResponse.redirect(new URL(defaultPlatformPath, request.url));
+    return NextResponse.redirect(new URL(defaultPlatformPath, publicRequestUrl));
   }
 
   // 2. Definir rutas reservadas que NO deben ser reescritas al storefront
@@ -140,7 +151,7 @@ export default auth((request: NextRequest) => {
   if (!isBaseDomain && !isEditorDomain && !isReservedPath) {
     // Si no es el dominio base y no es una ruta reservada, reescribimos al storefront
     // El host completo se pasa como parámetro para que la página decida qué sitio cargar
-    return NextResponse.rewrite(new URL(`/sites/${hostname}${pathname}`, request.url));
+    return NextResponse.rewrite(new URL(`/sites/${hostname}${pathname}`, publicRequestUrl));
   }
 
   // 4. Lógica de Autenticación y Sesión (App estándar)
