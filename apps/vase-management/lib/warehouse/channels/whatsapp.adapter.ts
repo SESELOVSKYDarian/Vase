@@ -4,6 +4,7 @@
 import crypto from 'crypto'
 import { WarehouseWebhookService, type WebhookResult } from './webhook.service'
 import { resolveWhatsAppVerifyToken } from './whatsapp.config'
+import { downloadWhatsAppAudio, transcribeWarehouseAudio } from '../warehouse-audio.service'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -160,20 +161,30 @@ export class WhatsAppAdapter {
     const messages = this.extractMessages(payload)
 
     for (const message of messages) {
-      // Only handle text messages in the MVP
-      if (message.type !== 'text') continue
-      const textMsg = message as WhatsAppTextMessage
+      if (message.type !== 'text' && message.type !== 'audio') continue
 
       // Idempotency check
-      const event = await WarehouseWebhookService.persistEvent(channel.id, message.id, { from: message.from, text: textMsg.text.body })
+      const event = await WarehouseWebhookService.persistEvent(channel.id, message.id, message.type === 'text'
+        ? { from: message.from, text: message.text.body }
+        : { from: message.from, audio: message.audio })
       if (!event) continue // duplicate
 
       try {
+        const isAudio = message.type === 'audio'
+        let transcript: string
+        if (isAudio) {
+          if (!message.audio?.id) throw new Error('El mensaje de WhatsApp no contiene un audio válido')
+          if (!channel.accessToken) throw new Error('El canal de WhatsApp no tiene access token')
+          transcript = await transcribeWarehouseAudio(await downloadWhatsAppAudio(message.audio.id, channel.accessToken))
+        } else {
+          transcript = message.text.body
+        }
         const response = await WarehouseWebhookService.processTextMessage(
           channel.companyId,
-          textMsg.text.body,
+          transcript,
           'WHATSAPP',
-          `whatsapp:${message.from}`
+          `whatsapp:${message.from}`,
+          isAudio ? 'AUDIO' : 'TEXT',
         )
 
         // Send response back via Graph API
@@ -189,6 +200,9 @@ export class WhatsAppAdapter {
         await WarehouseWebhookService.markEventDone(event.id)
       } catch (err) {
         await WarehouseWebhookService.markEventFailed(event.id, String(err))
+        if (message.type === 'audio' && channel.providerAccountId && channel.accessToken) {
+          await this.sendTextReply(channel.providerAccountId, channel.accessToken, message.from, 'No pude procesar el audio. Probá enviándolo nuevamente o escribime la consulta.')
+        }
       }
     }
 
