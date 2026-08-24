@@ -24,16 +24,21 @@ export async function POST(
     if (!device) {
       return NextResponse.json({ error: 'Dispositivo no encontrado' }, { status: 404 })
     }
-    const body = await req.json().catch(() => ({}))
-    const ledNumber = Number.isInteger(body.ledNumber) && body.ledNumber >= 0
-      ? body.ledNumber
+    const body = await req.json().catch(() => ({})) as { ledNumber?: number; color?: { r?: number; g?: number; b?: number } }
+    const requestedLedNumber = Number(body.ledNumber)
+    const ledNumber = Number.isInteger(requestedLedNumber) && requestedLedNumber >= 0
+      ? requestedLedNumber
       : 0
 
     const command = await WarehouseDeviceService.createLedCommand(session.user.companyId, {
       deviceId: device.id,
       ledNumber,
       activeCount: Math.min(4, device.maxActiveLeds),
-      color: { r: 0, g: 80, b: 20 },
+      color: body.color && typeof body.color === 'object' ? {
+        r: Number(body.color.r),
+        g: Number(body.color.g),
+        b: Number(body.color.b),
+      } : undefined,
       durationMs: 5000,
     })
 

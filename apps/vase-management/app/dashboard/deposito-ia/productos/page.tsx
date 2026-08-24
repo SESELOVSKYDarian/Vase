@@ -28,6 +28,11 @@ function ledLabel(ledNumbers: number[]) {
   return `${ledNumbers.length === 1 ? 'LED' : `${ledNumbers.length} LEDs`} · ${ledNumbers.join(', ')}`
 }
 
+function hexToRgb(value: string) {
+  const hex = value.replace('#', '')
+  return { r: Number.parseInt(hex.slice(0, 2), 16), g: Number.parseInt(hex.slice(2, 4), 16), b: Number.parseInt(hex.slice(4, 6), 16) }
+}
+
 export default function DepositoProductos() {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -44,6 +49,7 @@ export default function DepositoProductos() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<WarehouseProduct | null>(null)
   const [confirmOff, setConfirmOff] = useState(false)
+  const [ledColor, setLedColor] = useState('#005014')
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query), 300)
@@ -86,7 +92,7 @@ export default function DepositoProductos() {
     setActionId(id)
     setNotice(null)
     try {
-      await warehouseRequest(`/api/warehouse/products/${productId}/test-led`, { method: 'POST' })
+      await warehouseRequest(`/api/warehouse/products/${productId}/test-led`, { method: 'POST', body: JSON.stringify({ color: hexToRgb(ledColor) }) })
       setNotice({ message: 'Comando LED enviado. El dispositivo lo tomará en el próximo polling.', tone: 'success' })
     } catch (requestError) {
       setNotice({ message: getErrorMessage(requestError), tone: 'danger' })
@@ -132,6 +138,7 @@ export default function DepositoProductos() {
         description="Administrá el catálogo físico, su posición y el LED que guía al operario."
         actions={(
           <>
+            <label className="ui-button ui-button-secondary cursor-pointer gap-2" title="Color para probar LEDs"><span className="h-4 w-4 rounded-full border border-white/30" style={{ backgroundColor: ledColor }} /><span className="hidden sm:inline">Color</span><input type="color" value={ledColor} onChange={(event) => setLedColor(event.target.value)} className="sr-only" aria-label="Color para probar LEDs" /></label>
             <button type="button" className="ui-button ui-button-secondary" onClick={() => setConfirmOff(true)} disabled={!onlineDevices.length}>
               <PowerOff size={16} aria-hidden="true" /> Apagar LEDs
             </button>

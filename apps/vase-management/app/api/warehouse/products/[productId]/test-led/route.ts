@@ -6,6 +6,7 @@ import { selectWarehouseDeviceForCommand } from '@/lib/warehouse/command-device'
 
 export async function POST(req: NextRequest, { params }: { params: { productId: string } }) {
   try {
+    const body = await req.json().catch(() => ({})) as { color?: { r?: number; g?: number; b?: number } }
     const session = await auth()
     if (!session?.user?.companyId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     
@@ -27,6 +28,11 @@ export async function POST(req: NextRequest, { params }: { params: { productId: 
       ledNumber: location.ledNumber,
       ledNumbers: location.ledNumbers,
       activeCount: location.ledNumbers.length || 4,
+      color: body.color && typeof body.color === 'object' ? {
+        r: Number(body.color.r),
+        g: Number(body.color.g),
+        b: Number(body.color.b),
+      } : undefined,
       durationMs: 5000
     })
     
