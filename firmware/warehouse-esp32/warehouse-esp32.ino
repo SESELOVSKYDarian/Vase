@@ -1,53 +1,81 @@
-// Vase Management - ESP32 + WS2812B warehouse controller
-// Wiring used by this installation: GND -> GND, 5V -> 5V, P2/GPIO2 -> DIN.
-// Install libraries: Adafruit NeoPixel and ArduinoJson.
+// Vase Management - ESP32 + W5500 + WS2812B.
+// AUTO: Ethernet primero y Wi-Fi como respaldo.
+// Requiere Arduino ESP32 core 3.x, Adafruit NeoPixel y ArduinoJson.
 
 #include <Adafruit_NeoPixel.h>
 #include <ArduinoJson.h>
+#include <ETH.h>
 #include <HTTPClient.h>
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
+#include <Network.h>
+#include <NetworkClientSecure.h>
 #include <Preferences.h>
+#include <SPI.h>
 #include <WebServer.h>
+#include <WiFi.h>
 
-const char* INITIAL_WIFI_SSID = "Barra";
-const char* INITIAL_WIFI_PASSWORD = "75575775";
-const char* FALLBACK_WIFI_SSID = "WIFI Damac N4164 ";
-const char* FALLBACK_WIFI_PASSWORD = "dmc4164nqn";
-const char* SECONDARY_WIFI_SSID = "Barra";
-const char* SECONDARY_WIFI_PASSWORD = "75575775";
+const char* INITIAL_WIFI_SSID = "";
+const char* INITIAL_WIFI_PASSWORD = "";
 const char* INITIAL_SERVER_BASE_URL = "https://management.vase.ar";
-const char* DEVICE_KEY = "e7561371c56cb464cf12bfa0254f1b31e693bcff5396d601";
+const char* DEVICE_KEY = "REPLACE_WITH_DEVICE_KEY";
+const char* INITIAL_NETWORK_MODE = "AUTO"; // AUTO | ETHERNET | WIFI
+
+// W5500 por SPI. Cambiar solo si el cableado fisico usa otros pines.
+const int ETH_PHY_ADDR = 1;
+const int ETH_PHY_CS = 15;
+const int ETH_PHY_IRQ = 4;
+const int ETH_PHY_RST = 5;
+const int ETH_SPI_SCK = 14;
+const int ETH_SPI_MISO = 12;
+const int ETH_SPI_MOSI = 13;
 
 const uint8_t LED_PIN = 2;
 const uint16_t INITIAL_LED_COUNT = 100;
 const uint32_t POLL_INTERVAL_MS = 2000;
 const uint32_t CONFIG_INTERVAL_MS = 10000;
+const uint32_t NETWORK_RETRY_INTERVAL_MS = 20000;
 
 Preferences preferences;
 WebServer configServer(80);
 Adafruit_NeoPixel strip(INITIAL_LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-String wifiSsid;
-String wifiPassword;
-String serverBaseUrl;
+String wifiSsid, wifiPassword, serverBaseUrl, networkMode;
 uint16_t ledCount = INITIAL_LED_COUNT;
 uint8_t brightness = 255;
-uint32_t lastPollAt = 0;
-uint32_t lastConfigAt = 0;
-uint32_t activeUntil = 0;
-uint32_t lastWifiRetryAt = 0;
+uint32_t lastPollAt = 0, lastConfigAt = 0, activeUntil = 0, lastNetworkRetryAt = 0;
 bool provisioningMode = false;
+bool ethernetStarted = false;
 
-String pollUrl() {
-  return serverBaseUrl + "/api/warehouse/devices/" + DEVICE_KEY + "/next-command";
+String normalizedNetworkMode(const String& value) {
+  String normalized = value;
+  normalized.trim();
+  normalized.toUpperCase();
+  if (normalized == "ETHERNET" || normalized == "WIFI") return normalized;
+  return "AUTO";
 }
 
+bool ethernetConnected() { return ethernetStarted && ETH.hasIP(); }
+bool wifiConnected() { return WiFi.status() == WL_CONNECTED; }
+bool networkConnected() { return ethernetConnected() || wifiConnected(); }
+
+String activeTransport() {
+  if (ethernetConnected()) return "ethernet";
+  if (wifiConnected()) return "wifi";
+  return "offline";
+}
+
+String activeIpAddress() {
+  if (ethernetConnected()) return ETH.localIP().toString();
+  if (wifiConnected()) return WiFi.localIP().toString();
+  return "";
+}
+
+String withTelemetry(const String& url) {
+  return url + "?transport=" + activeTransport() + "&ip=" + activeIpAddress();
+}
+
+String pollUrl() { return withTelemetry(serverBaseUrl + "/api/warehouse/devices/" + DEVICE_KEY + "/next-command"); }
+String configUrl() { return withTelemetry(serverBaseUrl + "/api/warehouse/devices/" + DEVICE_KEY + "/config"); }
 String completeUrl(const String& commandId) {
   return serverBaseUrl + "/api/warehouse/devices/" + DEVICE_KEY + "/commands/" + commandId + "/complete";
-}
-
-String configUrl() {
-  return serverBaseUrl + "/api/warehouse/devices/" + DEVICE_KEY + "/config";
 }
 
 void clearStrip() {
@@ -56,33 +84,60 @@ void clearStrip() {
   activeUntil = 0;
 }
 
-bool tryWifi(const char* ssid, const char* password, uint32_t timeoutMs = 15000) {
-  if (!ssid || strlen(ssid) == 0) return false;
-  Serial.print("WiFi probando: ");
-  Serial.println(ssid);
+void onNetworkEvent(arduino_event_id_t event, arduino_event_info_t info) {
+  (void)info;
+  switch (event) {
+    case ARDUINO_EVENT_ETH_START:
+      ETH.setHostname("vase-warehouse");
+      Serial.println("Ethernet iniciado");
+      break;
+    case ARDUINO_EVENT_ETH_CONNECTED:
+      Serial.println("Cable Ethernet conectado");
+      break;
+    case ARDUINO_EVENT_ETH_GOT_IP:
+      Serial.print("Ethernet OK: ");
+      Serial.println(ETH.localIP());
+      break;
+    case ARDUINO_EVENT_ETH_LOST_IP:
+    case ARDUINO_EVENT_ETH_DISCONNECTED:
+      Serial.println("Ethernet sin conexion");
+      break;
+    default: break;
+  }
+}
+
+void startEthernet() {
+  if (ethernetStarted || networkMode == "WIFI") return;
+  Serial.println("Iniciando W5500...");
+  SPI.begin(ETH_SPI_SCK, ETH_SPI_MISO, ETH_SPI_MOSI);
+  ethernetStarted = ETH.begin(ETH_PHY_W5500, ETH_PHY_ADDR, ETH_PHY_CS, ETH_PHY_IRQ, ETH_PHY_RST, SPI);
+  if (!ethernetStarted) Serial.println("No se pudo iniciar el W5500");
+}
+
+bool tryWifi(uint32_t timeoutMs = 10000) {
+  if (networkMode == "ETHERNET" || wifiSsid.length() == 0) return false;
+  if (wifiConnected()) return true;
+  Serial.print("Wi-Fi probando: ");
+  Serial.println(wifiSsid);
   WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  delay(150);
-  WiFi.begin(ssid, password);
+  WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
   const uint32_t startedAt = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - startedAt < timeoutMs) {
+  while (!wifiConnected() && millis() - startedAt < timeoutMs) {
     delay(500);
     Serial.print(".");
   }
   Serial.println();
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("WiFi OK: ");
+  if (wifiConnected()) {
+    Serial.print("Wi-Fi OK: ");
     Serial.println(WiFi.localIP());
   }
-  return WiFi.status() == WL_CONNECTED;
+  return wifiConnected();
 }
 
 void saveLocalConfig();
-void connectWifi();
 
 String provisioningPage() {
-  String html = "<!doctype html><html lang='es'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Configurar Vase ESP32</title><style>body{font-family:system-ui;max-width:520px;margin:40px auto;padding:0 18px;background:#101615;color:#f2f7f4}input{display:block;width:100%;box-sizing:border-box;margin:8px 0 18px;padding:12px;border-radius:8px;border:1px solid #456054;background:#18231f;color:white}button{padding:12px 18px;border:0;border-radius:8px;background:#34d399;color:#062017;font-weight:700}</style><h1>Vase ESP32</h1><p>Configurá el Wi‑Fi y la conexión del depósito.</p><form method='post' action='/save'><label>Wi‑Fi</label><input name='ssid' value='" + wifiSsid + "' required><label>Contraseña</label><input name='password' type='password' value='" + wifiPassword + "' required><label>Servidor</label><input name='server' value='" + serverBaseUrl + "' required><label>Device key</label><input name='deviceKey' value='" + DEVICE_KEY + "' readonly><button>Guardar y conectar</button></form></html>";
-  return html;
+  return "<!doctype html><html lang='es'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Vase ESP32</title><style>body{font-family:system-ui;max-width:520px;margin:40px auto;padding:0 18px;background:#101615;color:#f2f7f4}input,select{display:block;width:100%;box-sizing:border-box;margin:8px 0 18px;padding:12px;border-radius:8px;border:1px solid #456054;background:#18231f;color:white}button{padding:12px 18px;border:0;border-radius:8px;background:#34d399;color:#062017;font-weight:700}</style><h1>Vase ESP32</h1><p>Configuracion de red del deposito.</p><form method='post' action='/save'><label>Conexion</label><select name='mode'><option value='AUTO'" + String(networkMode == "AUTO" ? " selected" : "") + ">Ethernet con respaldo Wi-Fi</option><option value='ETHERNET'" + String(networkMode == "ETHERNET" ? " selected" : "") + ">Solo Ethernet</option><option value='WIFI'" + String(networkMode == "WIFI" ? " selected" : "") + ">Solo Wi-Fi</option></select><label>Wi-Fi</label><input name='ssid' value='" + wifiSsid + "'><label>Contrasena</label><input name='password' type='password' value='" + wifiPassword + "'><label>Servidor</label><input name='server' value='" + serverBaseUrl + "' required><label>Device key</label><input value='" + String(DEVICE_KEY) + "' readonly><button>Guardar y reiniciar</button></form></html>";
 }
 
 void startProvisioningPortal() {
@@ -93,37 +148,24 @@ void startProvisioningPortal() {
   WiFi.softAP(apName.c_str(), "vaseesp32");
   configServer.on("/", HTTP_GET, []() { configServer.send(200, "text/html; charset=utf-8", provisioningPage()); });
   configServer.on("/save", HTTP_POST, []() {
-    if (!configServer.hasArg("ssid") || !configServer.hasArg("password") || !configServer.hasArg("server")) {
+    if (!configServer.hasArg("mode") || !configServer.hasArg("server")) {
       configServer.send(400, "text/plain", "Faltan datos");
       return;
     }
+    networkMode = normalizedNetworkMode(configServer.arg("mode"));
     wifiSsid = configServer.arg("ssid");
     wifiPassword = configServer.arg("password");
     serverBaseUrl = configServer.arg("server");
     saveLocalConfig();
-    configServer.send(200, "text/html; charset=utf-8", "<h1>Guardado</h1><p>El ESP32 está intentando conectarse. Podés cerrar esta red.</p>");
-    provisioningMode = false;
-    configServer.stop();
-    WiFi.softAPdisconnect(true);
-    delay(300);
-    connectWifi();
+    configServer.send(200, "text/html; charset=utf-8", "<h1>Guardado</h1><p>El ESP32 se reiniciara.</p>");
+    delay(800);
+    ESP.restart();
   });
   configServer.begin();
   provisioningMode = true;
-  Serial.print("Portal WiFi: ");
+  Serial.print("Portal de recuperacion: ");
   Serial.println(apName);
   Serial.println("Abrir http://192.168.4.1");
-}
-
-void connectWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
-  if (tryWifi(wifiSsid.c_str(), wifiPassword.c_str()) ||
-      tryWifi(FALLBACK_WIFI_SSID, FALLBACK_WIFI_PASSWORD) ||
-      tryWifi(SECONDARY_WIFI_SSID, SECONDARY_WIFI_PASSWORD)) {
-    provisioningMode = false;
-    return;
-  }
-  startProvisioningPortal();
 }
 
 void loadLocalConfig() {
@@ -131,10 +173,11 @@ void loadLocalConfig() {
   wifiSsid = preferences.getString("ssid", INITIAL_WIFI_SSID);
   wifiPassword = preferences.getString("password", INITIAL_WIFI_PASSWORD);
   serverBaseUrl = preferences.getString("server", INITIAL_SERVER_BASE_URL);
+  networkMode = normalizedNetworkMode(preferences.getString("netMode", INITIAL_NETWORK_MODE));
   ledCount = preferences.getUShort("ledCount", INITIAL_LED_COUNT);
   brightness = preferences.getUChar("brightness", 255);
   preferences.end();
-  if (ledCount < 1 || ledCount > 300) ledCount = INITIAL_LED_COUNT;
+  if (ledCount < 1 || ledCount > 1000) ledCount = INITIAL_LED_COUNT;
   strip.updateLength(ledCount);
   strip.setBrightness(brightness);
 }
@@ -144,40 +187,60 @@ void saveLocalConfig() {
   preferences.putString("ssid", wifiSsid);
   preferences.putString("password", wifiPassword);
   preferences.putString("server", serverBaseUrl);
+  preferences.putString("netMode", networkMode);
   preferences.putUShort("ledCount", ledCount);
   preferences.putUChar("brightness", brightness);
   preferences.end();
 }
 
+void connectNetworkAtBoot() {
+  if (networkMode != "WIFI") {
+    startEthernet();
+    const uint32_t startedAt = millis();
+    while (!ethernetConnected() && millis() - startedAt < 12000) delay(250);
+  }
+  if (!ethernetConnected() && networkMode != "ETHERNET") tryWifi();
+  if (!networkConnected()) startProvisioningPortal();
+}
+
+void retryNetwork() {
+  if (networkConnected()) return;
+  if (networkMode != "WIFI") startEthernet();
+  if (networkMode != "ETHERNET") tryWifi(7000);
+  if (!networkConnected()) startProvisioningPortal();
+}
+
 void pollConfig() {
-  if (WiFi.status() != WL_CONNECTED) return;
-  WiFiClientSecure client;
-  client.setInsecure();
+  if (!networkConnected()) return;
+  NetworkClientSecure client;
+  client.setInsecure(); // TODO: instalar la CA de management.vase.ar.
   HTTPClient http;
   if (!http.begin(client, configUrl())) return;
   const int statusCode = http.GET();
-  Serial.printf("Config HTTP: %d\n", statusCode);
+  Serial.printf("Config HTTP: %d (%s)\n", statusCode, activeTransport().c_str());
   if (statusCode == 200) {
     JsonDocument config;
     if (!deserializeJson(config, http.getString())) {
       const String nextSsid = config["wifiSsid"] | wifiSsid;
       const String nextPassword = config["wifiPassword"] | wifiPassword;
       const String nextServer = config["serverBaseUrl"] | serverBaseUrl;
-      const uint16_t nextLedCount = constrain((int)(config["ledCount"] | ledCount), 1, 300);
+      const String nextMode = normalizedNetworkMode(config["networkMode"] | networkMode);
+      const uint16_t nextLedCount = constrain((int)(config["ledCount"] | ledCount), 1, 1000);
       const uint8_t nextBrightness = constrain((int)(config["brightness"] | brightness), 0, 255);
-      const bool wifiChanged = nextSsid != wifiSsid || nextPassword != wifiPassword;
+      const bool restartRequired = nextMode != networkMode || nextSsid != wifiSsid || nextPassword != wifiPassword;
       wifiSsid = nextSsid;
       wifiPassword = nextPassword;
       serverBaseUrl = nextServer;
+      networkMode = nextMode;
       ledCount = nextLedCount;
       brightness = nextBrightness;
       strip.updateLength(ledCount);
       strip.setBrightness(brightness);
       saveLocalConfig();
-      if (wifiChanged) {
-        WiFi.disconnect();
-        delay(200);
-        connectWifi();
+      if (restartRequired) {
+        Serial.println("Cambio de red recibido. Reiniciando...");
+        delay(500);
+        ESP.restart();
       }
     }
   }
@@ -185,15 +248,16 @@ void pollConfig() {
 }
 
 bool completeCommand(const String& commandId, const char* status, const String& errorMessage = "") {
-  WiFiClientSecure client;
-  client.setInsecure(); // Para producción, reemplazar por el certificado de management.vase.ar.
+  if (!networkConnected()) return false;
+  NetworkClientSecure client;
+  client.setInsecure();
   HTTPClient http;
   if (!http.begin(client, completeUrl(commandId))) return false;
   http.addHeader("Content-Type", "application/json");
   String body = String("{\"status\":\"") + status + "\"";
   if (errorMessage.length() > 0) body += String(",\"error\":\"") + errorMessage + "\"";
   body += "}";
-  int statusCode = http.POST(body);
+  const int statusCode = http.POST(body);
   Serial.printf("Complete HTTP: %d\n", statusCode);
   http.end();
   return statusCode >= 200 && statusCode < 300;
@@ -211,17 +275,14 @@ void showCommand(JsonDocument& command) {
   JsonArray ledNumbers = command["ledNumbers"].as<JsonArray>();
 
   if (commandId.length() == 0 || ledNumber < 0 || ledNumber >= ledCount) {
-    Serial.println("Comando invalido: LED fuera de rango");
     if (commandId.length() > 0) completeCommand(commandId, "FAILED", "LED fuera de rango en el firmware");
     return;
   }
-
   strip.clear();
   if (!ledNumbers.isNull() && ledNumbers.size() > 0) {
     for (JsonVariant value : ledNumbers) {
       const int index = value.as<int>();
       if (index < 0 || index >= ledCount) {
-        Serial.printf("Comando invalido: LED %d fuera de rango\n", index);
         completeCommand(commandId, "FAILED", "Lista de LEDs fuera de rango en el firmware");
         return;
       }
@@ -229,35 +290,28 @@ void showCommand(JsonDocument& command) {
     }
   } else {
     const int lastLed = min(ledNumber + max(activeCount, 0), (int)ledCount);
-    for (int index = ledNumber; index < lastLed; index++) {
-      strip.setPixelColor(index, strip.Color(red, green, blue));
-    }
+    for (int index = ledNumber; index < lastLed; index++) strip.setPixelColor(index, strip.Color(red, green, blue));
   }
   strip.setBrightness(brightness);
   strip.show();
   activeUntil = millis() + max(durationMs, 0);
-  Serial.printf("LEDs %d durante %d ms\n", ledNumbers.isNull() ? activeCount : ledNumbers.size(), durationMs);
   completeCommand(commandId, "DONE");
 }
 
 void pollCommands() {
-  if (WiFi.status() != WL_CONNECTED) return;
-
-  WiFiClientSecure client;
-  client.setInsecure(); // Para producción, reemplazar por el certificado de management.vase.ar.
+  if (!networkConnected()) return;
+  NetworkClientSecure client;
+  client.setInsecure();
   HTTPClient http;
   if (!http.begin(client, pollUrl())) return;
   const int statusCode = http.GET();
-  Serial.printf("Poll HTTP: %d\n", statusCode);
-
+  Serial.printf("Poll HTTP: %d (%s)\n", statusCode, activeTransport().c_str());
   if (statusCode == 200) {
     JsonDocument command;
     const DeserializationError error = deserializeJson(command, http.getString());
     if (error) Serial.printf("JSON ERROR: %s\n", error.c_str());
     else showCommand(command);
-  } else if (statusCode != 204) {
-    Serial.println(http.getString());
-  }
+  } else if (statusCode != 204) Serial.println(http.getString());
   http.end();
 }
 
@@ -267,21 +321,15 @@ void setup() {
   loadLocalConfig();
   strip.setBrightness(brightness);
   clearStrip();
-  connectWifi();
+  Network.onEvent(onNetworkEvent);
+  connectNetworkAtBoot();
 }
 
 void loop() {
-  if (provisioningMode) {
-    configServer.handleClient();
-    if (millis() - lastWifiRetryAt >= 20000) {
-      lastWifiRetryAt = millis();
-      provisioningMode = false;
-      configServer.stop();
-      WiFi.softAPdisconnect(true);
-      connectWifi();
-    }
-  } else {
-    connectWifi();
+  if (provisioningMode) configServer.handleClient();
+  if (!networkConnected() && millis() - lastNetworkRetryAt >= NETWORK_RETRY_INTERVAL_MS) {
+    lastNetworkRetryAt = millis();
+    retryNetwork();
   }
   if (activeUntil != 0 && (int32_t)(millis() - activeUntil) >= 0) clearStrip();
   if (millis() - lastConfigAt >= CONFIG_INTERVAL_MS) {

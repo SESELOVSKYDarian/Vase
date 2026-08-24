@@ -1910,6 +1910,9 @@ model WarehouseDevice {
   serverBaseUrl String?
   wifiSsid      String?
   wifiPassword  String?
+  networkMode   String              @default("AUTO") // AUTO | ETHERNET | WIFI
+  lastTransport String?             // ETHERNET | WIFI, informado por el firmware
+  lastIpAddress String?
   active        Boolean             @default(true)
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
@@ -2005,4 +2008,3 @@ model WarehouseWebhookEvent {
   @@index([channelId, status])
   @@map("warehouse_webhook_events")
 }
-

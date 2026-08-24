@@ -8,6 +8,7 @@ async function main() {
   const {
     buildWarehouseDeviceSetup,
     normalizeWarehouseBaseUrl,
+    normalizeWarehouseNetworkMode,
   } = await import('./warehouse-device.service')
 
   const baseUrl = normalizeWarehouseBaseUrl('https://management.vase.ar/')
@@ -27,7 +28,12 @@ assert.match(setup.arduinoConfig, /DEVICE_KEY = "abc123"/)
 assert.match(setup.arduinoConfig, /LED_COUNT = 60/)
 assert.match(setup.arduinoConfig, /LED_PIN = 5/)
 assert.match(setup.arduinoConfig, /WIFI_SSID = "TU_WIFI"/)
+assert.match(setup.arduinoConfig, /NETWORK_MODE = "AUTO"/)
 assert.match(setup.arduinoConfig, /POLL_INTERVAL_MS = 2000/)
+
+  assert.equal(normalizeWarehouseNetworkMode('ethernet'), 'ETHERNET')
+  assert.equal(normalizeWarehouseNetworkMode('wifi'), 'WIFI')
+  assert.equal(normalizeWarehouseNetworkMode('unknown'), 'AUTO')
 
   const dtoSetup = buildWarehouseDeviceSetup({
     baseUrl: 'https://management.vase.ar/',
