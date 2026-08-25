@@ -22,6 +22,7 @@ const char* INITIAL_WIFI_SECONDARY_PASSWORD = "75575775";
 const char* INITIAL_SERVER_BASE_URL = "https://management.vase.ar";
 const char* DEVICE_KEY = "4eb456455b01450640bf7852aa8dd569d6faefea5e99c6c7";
 const char* INITIAL_NETWORK_MODE = "AUTO"; // AUTO | ETHERNET | WIFI
+const bool ENABLE_ETHERNET = false; // Este controlador funciona solo por Wi-Fi.
 
 // W5500 por SPI. Cambiar solo si el cableado fisico usa otros pines.
 const int ETH_PHY_ADDR = 1;
@@ -55,6 +56,7 @@ String normalizedNetworkMode(const String& value) {
   String normalized = value;
   normalized.trim();
   normalized.toUpperCase();
+  if (!ENABLE_ETHERNET && normalized == "ETHERNET") return "WIFI";
   if (normalized == "ETHERNET" || normalized == "WIFI") return normalized;
   return "AUTO";
 }
@@ -114,7 +116,7 @@ void onNetworkEvent(arduino_event_id_t event, arduino_event_info_t info) {
 }
 
 void startEthernet() {
-  if (ethernetStarted || networkMode == "WIFI") return;
+  if (!ENABLE_ETHERNET || ethernetStarted || networkMode == "WIFI") return;
   Serial.println("Iniciando W5500...");
   SPI.begin(ETH_SPI_SCK, ETH_SPI_MISO, ETH_SPI_MOSI);
   ethernetStarted = ETH.begin(ETH_PHY_W5500, ETH_PHY_ADDR, ETH_PHY_CS, ETH_PHY_IRQ, ETH_PHY_RST, SPI);
@@ -240,7 +242,7 @@ void saveLocalConfig() {
 
 void connectNetworkAtBoot() {
   if (networkMode != "ETHERNET") tryWifi();
-  if (!networkConnected() && networkMode != "WIFI") {
+  if (ENABLE_ETHERNET && !networkConnected() && networkMode != "WIFI") {
     startEthernet();
     const uint32_t startedAt = millis();
     while (!ethernetConnected() && millis() - startedAt < 12000) delay(250);
@@ -251,7 +253,7 @@ void connectNetworkAtBoot() {
 void retryNetwork() {
   if (networkConnected()) return;
   if (networkMode != "ETHERNET") tryWifi(7000);
-  if (!networkConnected() && networkMode != "WIFI") startEthernet();
+  if (ENABLE_ETHERNET && !networkConnected() && networkMode != "WIFI") startEthernet();
   if (!networkConnected()) startProvisioningPortal();
 }
 
