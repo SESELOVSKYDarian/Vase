@@ -27,7 +27,9 @@ async function main() {
 assert.match(setup.arduinoConfig, /DEVICE_KEY = "abc123"/)
 assert.match(setup.arduinoConfig, /LED_COUNT = 60/)
 assert.match(setup.arduinoConfig, /LED_PIN = 5/)
-assert.match(setup.arduinoConfig, /WIFI_SSID = "TU_WIFI"/)
+assert.match(setup.arduinoConfig, /WIFI_PRIMARY_SSID = "TU_WIFI_CELULAR"/)
+assert.match(setup.arduinoConfig, /WIFI_FALLBACK_SSID = "WIFI_LOCAL"/)
+assert.match(setup.arduinoConfig, /WIFI_SECONDARY_SSID = "Barra"/)
 assert.match(setup.arduinoConfig, /NETWORK_MODE = "AUTO"/)
 assert.match(setup.arduinoConfig, /POLL_INTERVAL_MS = 2000/)
 

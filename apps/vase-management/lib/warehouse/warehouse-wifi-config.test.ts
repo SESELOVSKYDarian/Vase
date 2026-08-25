@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { normalizeWarehouseWifiSsid } from './warehouse-wifi-config'
+import { normalizeWarehouseWifiSsid } from './warehouse-wifi-config.ts'
 
 assert.equal(normalizeWarehouseWifiSsid('WIFI Damac N4164 '), 'WIFI Damac N4164 ')
 assert.equal(normalizeWarehouseWifiSsid('  Red interna  '), '  Red interna  ')

@@ -45,6 +45,10 @@ export type WarehouseDevice = {
   serverBaseUrl: string | null
   wifiSsid: string | null
   hasWifiPassword: boolean
+  wifiFallbackSsid: string | null
+  hasWifiFallbackPassword: boolean
+  wifiSecondarySsid: string | null
+  hasWifiSecondaryPassword: boolean
   networkMode: 'AUTO' | 'ETHERNET' | 'WIFI'
   lastTransport: 'ETHERNET' | 'WIFI' | null
   lastIpAddress: string | null

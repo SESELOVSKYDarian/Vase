@@ -1,5 +1,5 @@
 // Vase Management - ESP32 + W5500 + WS2812B.
-// AUTO: Ethernet primero y Wi-Fi como respaldo.
+// AUTO: Wi-Fi primero (celular, local, Barra) y Ethernet como ultimo respaldo.
 // Requiere Arduino ESP32 core 3.x, Adafruit NeoPixel y ArduinoJson.
 
 #include <Adafruit_NeoPixel.h>
@@ -16,7 +16,7 @@
 const char* INITIAL_WIFI_SSID = "";
 const char* INITIAL_WIFI_PASSWORD = "";
 const char* INITIAL_SERVER_BASE_URL = "https://management.vase.ar";
-const char* DEVICE_KEY = "REPLACE_WITH_DEVICE_KEY";
+const char* DEVICE_KEY = "e7561371c56cb464cf12bfa0254f1b31e693bcff5396d601";
 const char* INITIAL_NETWORK_MODE = "AUTO"; // AUTO | ETHERNET | WIFI
 
 // W5500 por SPI. Cambiar solo si el cableado fisico usa otros pines.
@@ -37,7 +37,10 @@ const uint32_t NETWORK_RETRY_INTERVAL_MS = 20000;
 Preferences preferences;
 WebServer configServer(80);
 Adafruit_NeoPixel strip(INITIAL_LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-String wifiSsid, wifiPassword, serverBaseUrl, networkMode;
+String wifiSsid, wifiPassword;
+String wifiFallbackSsid, wifiFallbackPassword;
+String wifiSecondarySsid, wifiSecondaryPassword;
+String serverBaseUrl, networkMode;
 uint16_t ledCount = INITIAL_LED_COUNT;
 uint8_t brightness = 255;
 uint32_t lastPollAt = 0, lastConfigAt = 0, activeUntil = 0, lastNetworkRetryAt = 0;
@@ -114,13 +117,15 @@ void startEthernet() {
   if (!ethernetStarted) Serial.println("No se pudo iniciar el W5500");
 }
 
-bool tryWifi(uint32_t timeoutMs = 10000) {
-  if (networkMode == "ETHERNET" || wifiSsid.length() == 0) return false;
+bool tryWifiProfile(const String& ssid, const String& password, uint32_t timeoutMs) {
+  if (ssid.length() == 0) return false;
   if (wifiConnected()) return true;
   Serial.print("Wi-Fi probando: ");
-  Serial.println(wifiSsid);
+  Serial.println(ssid);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+  WiFi.disconnect(true);
+  delay(150);
+  WiFi.begin(ssid.c_str(), password.c_str());
   const uint32_t startedAt = millis();
   while (!wifiConnected() && millis() - startedAt < timeoutMs) {
     delay(500);
@@ -134,10 +139,17 @@ bool tryWifi(uint32_t timeoutMs = 10000) {
   return wifiConnected();
 }
 
+bool tryWifi(uint32_t timeoutMs = 10000) {
+  if (networkMode == "ETHERNET") return false;
+  if (tryWifiProfile(wifiSsid, wifiPassword, timeoutMs)) return true;
+  if (tryWifiProfile(wifiFallbackSsid, wifiFallbackPassword, timeoutMs)) return true;
+  return tryWifiProfile(wifiSecondarySsid, wifiSecondaryPassword, timeoutMs);
+}
+
 void saveLocalConfig();
 
 String provisioningPage() {
-  return "<!doctype html><html lang='es'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Vase ESP32</title><style>body{font-family:system-ui;max-width:520px;margin:40px auto;padding:0 18px;background:#101615;color:#f2f7f4}input,select{display:block;width:100%;box-sizing:border-box;margin:8px 0 18px;padding:12px;border-radius:8px;border:1px solid #456054;background:#18231f;color:white}button{padding:12px 18px;border:0;border-radius:8px;background:#34d399;color:#062017;font-weight:700}</style><h1>Vase ESP32</h1><p>Configuracion de red del deposito.</p><form method='post' action='/save'><label>Conexion</label><select name='mode'><option value='AUTO'" + String(networkMode == "AUTO" ? " selected" : "") + ">Ethernet con respaldo Wi-Fi</option><option value='ETHERNET'" + String(networkMode == "ETHERNET" ? " selected" : "") + ">Solo Ethernet</option><option value='WIFI'" + String(networkMode == "WIFI" ? " selected" : "") + ">Solo Wi-Fi</option></select><label>Wi-Fi</label><input name='ssid' value='" + wifiSsid + "'><label>Contrasena</label><input name='password' type='password' value='" + wifiPassword + "'><label>Servidor</label><input name='server' value='" + serverBaseUrl + "' required><label>Device key</label><input value='" + String(DEVICE_KEY) + "' readonly><button>Guardar y reiniciar</button></form></html>";
+  return "<!doctype html><html lang='es'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Vase ESP32</title><style>body{font-family:system-ui;max-width:560px;margin:24px auto;padding:0 18px;background:#101615;color:#f2f7f4}input,select{display:block;width:100%;box-sizing:border-box;margin:8px 0 18px;padding:12px;border-radius:8px;border:1px solid #456054;background:#18231f;color:white}button{padding:12px 18px;border:0;border-radius:8px;background:#34d399;color:#062017;font-weight:700}.hint{color:#a7b8b0;font-size:13px}</style><h1>Vase ESP32</h1><p>Configuracion de red del deposito.</p><p class='hint'>Se prueban en orden: celular, Wi-Fi del local y Barra.</p><form method='post' action='/save'><label>Modo</label><select name='mode'><option value='AUTO'" + String(networkMode == "AUTO" ? " selected" : "") + ">Wi-Fi primero y Ethernet de respaldo</option><option value='ETHERNET'" + String(networkMode == "ETHERNET" ? " selected" : "") + ">Solo Ethernet</option><option value='WIFI'" + String(networkMode == "WIFI" ? " selected" : "") + ">Solo Wi-Fi</option></select><label>Wi-Fi principal (celular)</label><input name='ssid' value='" + wifiSsid + "'><label>Contraseña principal</label><input name='password' type='password' value='" + wifiPassword + "'><label>Wi-Fi alternativo (local)</label><input name='ssid2' value='" + wifiFallbackSsid + "'><label>Contraseña alternativa</label><input name='password2' type='password' value='" + wifiFallbackPassword + "'><label>Wi-Fi secundario (Barra)</label><input name='ssid3' value='" + wifiSecondarySsid + "'><label>Contraseña secundaria</label><input name='password3' type='password' value='" + wifiSecondaryPassword + "'><label>Servidor</label><input name='server' value='" + serverBaseUrl + "' required><label>Device key</label><input value='" + String(DEVICE_KEY) + "' readonly><button>Guardar y reiniciar</button></form></html>";
 }
 
 void startProvisioningPortal() {
@@ -155,6 +167,10 @@ void startProvisioningPortal() {
     networkMode = normalizedNetworkMode(configServer.arg("mode"));
     wifiSsid = configServer.arg("ssid");
     wifiPassword = configServer.arg("password");
+    wifiFallbackSsid = configServer.arg("ssid2");
+    wifiFallbackPassword = configServer.arg("password2");
+    wifiSecondarySsid = configServer.arg("ssid3");
+    wifiSecondaryPassword = configServer.arg("password3");
     serverBaseUrl = configServer.arg("server");
     saveLocalConfig();
     configServer.send(200, "text/html; charset=utf-8", "<h1>Guardado</h1><p>El ESP32 se reiniciara.</p>");
@@ -172,6 +188,10 @@ void loadLocalConfig() {
   preferences.begin("warehouse", true);
   wifiSsid = preferences.getString("ssid", INITIAL_WIFI_SSID);
   wifiPassword = preferences.getString("password", INITIAL_WIFI_PASSWORD);
+  wifiFallbackSsid = preferences.getString("ssid2", "");
+  wifiFallbackPassword = preferences.getString("password2", "");
+  wifiSecondarySsid = preferences.getString("ssid3", "");
+  wifiSecondaryPassword = preferences.getString("password3", "");
   serverBaseUrl = preferences.getString("server", INITIAL_SERVER_BASE_URL);
   networkMode = normalizedNetworkMode(preferences.getString("netMode", INITIAL_NETWORK_MODE));
   ledCount = preferences.getUShort("ledCount", INITIAL_LED_COUNT);
@@ -186,6 +206,10 @@ void saveLocalConfig() {
   preferences.begin("warehouse", false);
   preferences.putString("ssid", wifiSsid);
   preferences.putString("password", wifiPassword);
+  preferences.putString("ssid2", wifiFallbackSsid);
+  preferences.putString("password2", wifiFallbackPassword);
+  preferences.putString("ssid3", wifiSecondarySsid);
+  preferences.putString("password3", wifiSecondaryPassword);
   preferences.putString("server", serverBaseUrl);
   preferences.putString("netMode", networkMode);
   preferences.putUShort("ledCount", ledCount);
@@ -194,19 +218,19 @@ void saveLocalConfig() {
 }
 
 void connectNetworkAtBoot() {
-  if (networkMode != "WIFI") {
+  if (networkMode != "ETHERNET") tryWifi();
+  if (!networkConnected() && networkMode != "WIFI") {
     startEthernet();
     const uint32_t startedAt = millis();
     while (!ethernetConnected() && millis() - startedAt < 12000) delay(250);
   }
-  if (!ethernetConnected() && networkMode != "ETHERNET") tryWifi();
   if (!networkConnected()) startProvisioningPortal();
 }
 
 void retryNetwork() {
   if (networkConnected()) return;
-  if (networkMode != "WIFI") startEthernet();
   if (networkMode != "ETHERNET") tryWifi(7000);
+  if (!networkConnected() && networkMode != "WIFI") startEthernet();
   if (!networkConnected()) startProvisioningPortal();
 }
 
@@ -223,13 +247,21 @@ void pollConfig() {
     if (!deserializeJson(config, http.getString())) {
       const String nextSsid = config["wifiSsid"] | wifiSsid;
       const String nextPassword = config["wifiPassword"] | wifiPassword;
+      const String nextFallbackSsid = config["wifiFallbackSsid"] | wifiFallbackSsid;
+      const String nextFallbackPassword = config["wifiFallbackPassword"] | wifiFallbackPassword;
+      const String nextSecondarySsid = config["wifiSecondarySsid"] | wifiSecondarySsid;
+      const String nextSecondaryPassword = config["wifiSecondaryPassword"] | wifiSecondaryPassword;
       const String nextServer = config["serverBaseUrl"] | serverBaseUrl;
       const String nextMode = normalizedNetworkMode(config["networkMode"] | networkMode);
       const uint16_t nextLedCount = constrain((int)(config["ledCount"] | ledCount), 1, 1000);
       const uint8_t nextBrightness = constrain((int)(config["brightness"] | brightness), 0, 255);
-      const bool restartRequired = nextMode != networkMode || nextSsid != wifiSsid || nextPassword != wifiPassword;
+      const bool restartRequired = nextMode != networkMode || nextSsid != wifiSsid || nextPassword != wifiPassword || nextFallbackSsid != wifiFallbackSsid || nextFallbackPassword != wifiFallbackPassword || nextSecondarySsid != wifiSecondarySsid || nextSecondaryPassword != wifiSecondaryPassword;
       wifiSsid = nextSsid;
       wifiPassword = nextPassword;
+      wifiFallbackSsid = nextFallbackSsid;
+      wifiFallbackPassword = nextFallbackPassword;
+      wifiSecondarySsid = nextSecondarySsid;
+      wifiSecondaryPassword = nextSecondaryPassword;
       serverBaseUrl = nextServer;
       networkMode = nextMode;
       ledCount = nextLedCount;

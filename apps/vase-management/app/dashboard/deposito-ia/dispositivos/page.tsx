@@ -48,7 +48,7 @@ export default function DepositoDispositivos() {
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [editing, setEditing] = useState<WarehouseDevice | null>(null)
-  const [config, setConfig] = useState({ serverBaseUrl: '', networkMode: 'AUTO', wifiSsid: '', wifiPassword: '', ledCount: '100', brightness: '255', maxActiveLeds: '10' })
+  const [config, setConfig] = useState({ serverBaseUrl: '', networkMode: 'AUTO', wifiSsid: '', wifiPassword: '', wifiFallbackSsid: '', wifiFallbackPassword: '', wifiSecondarySsid: '', wifiSecondaryPassword: '', ledCount: '100', brightness: '255', maxActiveLeds: '10' })
 
   const loadDevices = useCallback(async () => {
     setLoading(true)
@@ -169,6 +169,10 @@ export default function DepositoDispositivos() {
       networkMode: device.networkMode || 'AUTO',
       wifiSsid: device.wifiSsid || '',
       wifiPassword: '',
+      wifiFallbackSsid: device.wifiFallbackSsid || '',
+      wifiFallbackPassword: '',
+      wifiSecondarySsid: device.wifiSecondarySsid || '',
+      wifiSecondaryPassword: '',
       ledCount: String(device.ledCount),
       brightness: String(device.brightness),
       maxActiveLeds: String(device.maxActiveLeds),
@@ -258,7 +262,7 @@ export default function DepositoDispositivos() {
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h4 className="text-sm font-semibold text-foreground">Configurar ESP32</h4>
-                        <p className="mt-1 text-xs text-muted-foreground">Compatible con Ethernet W5500 y Wi-Fi de respaldo.</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Wi-Fi por orden de prioridad y Ethernet como respaldo opcional.</p>
                       </div>
                       <button type="button" className="ui-button ui-button-secondary shrink-0" onClick={() => openConfig(device)}><Settings2 size={15} /> Editar desde web</button>
                     </div>
@@ -293,10 +297,15 @@ export default function DepositoDispositivos() {
           <div className="flex items-start justify-between border-b border-border p-5"><div><h2 id="warehouse-device-config-title" className="text-lg font-semibold text-foreground">Configurar {editing.name}</h2><p className="mt-1 text-sm text-muted-foreground">Los cambios se entregan al ESP32 por polling seguro.</p></div><button type="button" className="ui-icon-button" onClick={() => setEditing(null)} aria-label="Cerrar">×</button></div>
           <div className="grid gap-4 p-5 sm:grid-cols-2">
             <label className="ui-field sm:col-span-2"><span className="ui-label">URL del servidor</span><input className="input-field" value={config.serverBaseUrl} onChange={(e) => setConfig({ ...config, serverBaseUrl: e.target.value })} placeholder="https://management.vase.ar" /></label>
-            <label className="ui-field sm:col-span-2"><span className="ui-label">Tipo de conexion</span><select className="input-field" value={config.networkMode} onChange={(e) => setConfig({ ...config, networkMode: e.target.value })}><option value="AUTO">Automatico: Ethernet con respaldo Wi-Fi</option><option value="ETHERNET">Solo Ethernet</option><option value="WIFI">Solo Wi-Fi</option></select></label>
+            <label className="ui-field sm:col-span-2"><span className="ui-label">Tipo de conexión</span><select className="input-field" value={config.networkMode} onChange={(e) => setConfig({ ...config, networkMode: e.target.value })}><option value="AUTO">Automático: Wi-Fi primero, Ethernet después</option><option value="ETHERNET">Solo Ethernet</option><option value="WIFI">Solo Wi-Fi</option></select></label>
             {config.networkMode !== 'ETHERNET' ? <>
-              <label className="ui-field"><span className="ui-label">Nombre Wi‑Fi</span><input className="input-field" value={config.wifiSsid} onChange={(e) => setConfig({ ...config, wifiSsid: e.target.value })} /></label>
-              <label className="ui-field"><span className="ui-label">Contraseña Wi‑Fi</span><input type="password" className="input-field" value={config.wifiPassword} onChange={(e) => setConfig({ ...config, wifiPassword: e.target.value })} placeholder="Dejar vacío para conservar" /></label>
+              <div className="sm:col-span-2 rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">El ESP32 probará estas redes en orden. Dejá las contraseñas vacías si querés conservar la que ya está guardada.</div>
+              <label className="ui-field"><span className="ui-label">1. Wi‑Fi principal (celular)</span><input className="input-field" value={config.wifiSsid} onChange={(e) => setConfig({ ...config, wifiSsid: e.target.value })} placeholder="Nombre del hotspot" /></label>
+              <label className="ui-field"><span className="ui-label">Contraseña principal</span><input type="password" className="input-field" value={config.wifiPassword} onChange={(e) => setConfig({ ...config, wifiPassword: e.target.value })} placeholder="Dejar vacío para conservar" /></label>
+              <label className="ui-field"><span className="ui-label">2. Wi‑Fi alternativo (local)</span><input className="input-field" value={config.wifiFallbackSsid} onChange={(e) => setConfig({ ...config, wifiFallbackSsid: e.target.value })} placeholder="WIFI Damac N4164 " /></label>
+              <label className="ui-field"><span className="ui-label">Contraseña alternativa</span><input type="password" className="input-field" value={config.wifiFallbackPassword} onChange={(e) => setConfig({ ...config, wifiFallbackPassword: e.target.value })} placeholder="Dejar vacío para conservar" /></label>
+              <label className="ui-field"><span className="ui-label">3. Wi‑Fi secundario (Barra)</span><input className="input-field" value={config.wifiSecondarySsid} onChange={(e) => setConfig({ ...config, wifiSecondarySsid: e.target.value })} placeholder="Barra" /></label>
+              <label className="ui-field"><span className="ui-label">Contraseña secundaria</span><input type="password" className="input-field" value={config.wifiSecondaryPassword} onChange={(e) => setConfig({ ...config, wifiSecondaryPassword: e.target.value })} placeholder="Dejar vacío para conservar" /></label>
             </> : <div className="sm:col-span-2 rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground">El ESP32 usara DHCP por cable. Los pines del W5500 se configuran al cargar el firmware.</div>}
             <label className="ui-field"><span className="ui-label">Cantidad de LEDs</span><input type="number" min="1" max="1000" className="input-field" value={config.ledCount} onChange={(e) => setConfig({ ...config, ledCount: e.target.value })} /></label>
             <label className="ui-field"><span className="ui-label">Brillo (0–255)</span><input type="number" min="0" max="255" className="input-field" value={config.brightness} onChange={(e) => setConfig({ ...config, brightness: e.target.value })} /></label>

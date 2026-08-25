@@ -71,9 +71,13 @@ export function buildWarehouseDeviceSetup(input: {
     pollingUrl,
     completeUrlTemplate,
     arduinoConfig: [
-      'const char* WIFI_SSID = "TU_WIFI";',
-      'const char* WIFI_PASSWORD = "TU_PASSWORD";',
-      'const char* NETWORK_MODE = "AUTO"; // AUTO | ETHERNET | WIFI',
+      'const char* WIFI_PRIMARY_SSID = "TU_WIFI_CELULAR";',
+      'const char* WIFI_PRIMARY_PASSWORD = "TU_PASSWORD_CELULAR";',
+      'const char* WIFI_FALLBACK_SSID = "WIFI_LOCAL";',
+      'const char* WIFI_FALLBACK_PASSWORD = "TU_PASSWORD_LOCAL";',
+      'const char* WIFI_SECONDARY_SSID = "Barra";',
+      'const char* WIFI_SECONDARY_PASSWORD = "TU_PASSWORD_BARRA";',
+      'const char* NETWORK_MODE = "AUTO"; // Wi-Fi primero, Ethernet despues',
       `const char* SERVER_BASE_URL = "${serverBaseUrl}";`,
       `const char* DEVICE_KEY = "${input.deviceKey}";`,
       `const int LED_PIN = ${ledPin};`,
@@ -122,7 +126,13 @@ export class WarehouseDeviceService {
       serverBaseUrl: device.serverBaseUrl || normalizeWarehouseBaseUrl(baseUrl),
       wifiSsid: device.wifiSsid,
       hasWifiPassword: Boolean(device.wifiPassword),
+      wifiFallbackSsid: device.wifiFallbackSsid,
+      hasWifiFallbackPassword: Boolean(device.wifiFallbackPassword),
+      wifiSecondarySsid: device.wifiSecondarySsid,
+      hasWifiSecondaryPassword: Boolean(device.wifiSecondaryPassword),
       wifiPassword: undefined,
+      wifiFallbackPassword: undefined,
+      wifiSecondaryPassword: undefined,
     }));
   }
 
@@ -144,6 +154,10 @@ export class WarehouseDeviceService {
     serverBaseUrl?: string | null
     wifiSsid?: string | null
     wifiPassword?: string | null
+    wifiFallbackSsid?: string | null
+    wifiFallbackPassword?: string | null
+    wifiSecondarySsid?: string | null
+    wifiSecondaryPassword?: string | null
     networkMode?: WarehouseNetworkMode | string
     ledCount?: number
     brightness?: number
@@ -158,13 +172,25 @@ export class WarehouseDeviceService {
       ...(input.serverBaseUrl !== undefined ? { serverBaseUrl: input.serverBaseUrl ? normalizeWarehouseBaseUrl(input.serverBaseUrl) : null } : {}),
       ...(input.wifiSsid !== undefined ? { wifiSsid: normalizeWarehouseWifiSsid(input.wifiSsid) } : {}),
       ...(input.wifiPassword !== undefined && input.wifiPassword !== '' ? { wifiPassword: input.wifiPassword } : {}),
+      ...(input.wifiFallbackSsid !== undefined ? { wifiFallbackSsid: normalizeWarehouseWifiSsid(input.wifiFallbackSsid) } : {}),
+      ...(input.wifiFallbackPassword !== undefined && input.wifiFallbackPassword !== '' ? { wifiFallbackPassword: input.wifiFallbackPassword } : {}),
+      ...(input.wifiSecondarySsid !== undefined ? { wifiSecondarySsid: normalizeWarehouseWifiSsid(input.wifiSecondarySsid) } : {}),
+      ...(input.wifiSecondaryPassword !== undefined && input.wifiSecondaryPassword !== '' ? { wifiSecondaryPassword: input.wifiSecondaryPassword } : {}),
       ...(input.networkMode !== undefined ? { networkMode: normalizeWarehouseNetworkMode(input.networkMode, normalizeWarehouseNetworkMode(current.networkMode)) } : {}),
       ...(input.ledCount !== undefined ? { ledCount } : {}),
       ...(input.brightness !== undefined ? { brightness: clampInt(input.brightness, current.brightness, 0, 255) } : {}),
       ...(input.maxActiveLeds !== undefined ? { maxActiveLeds: clampInt(input.maxActiveLeds, current.maxActiveLeds, 1, ledCount) } : {}),
     }
     const updated = await prisma.warehouseDevice.update({ where: { id: deviceId }, data })
-    return { ...updated, wifiPassword: undefined, hasWifiPassword: Boolean(updated.wifiPassword) }
+    return {
+      ...updated,
+      wifiPassword: undefined,
+      wifiFallbackPassword: undefined,
+      wifiSecondaryPassword: undefined,
+      hasWifiPassword: Boolean(updated.wifiPassword),
+      hasWifiFallbackPassword: Boolean(updated.wifiFallbackPassword),
+      hasWifiSecondaryPassword: Boolean(updated.wifiSecondaryPassword),
+    }
   }
 
   static async deleteDevice(companyId: string, deviceId: string) {
@@ -189,6 +215,10 @@ export class WarehouseDeviceService {
       serverBaseUrl: device.serverBaseUrl,
       wifiSsid: device.wifiSsid,
       wifiPassword: device.wifiPassword,
+      wifiFallbackSsid: device.wifiFallbackSsid,
+      wifiFallbackPassword: device.wifiFallbackPassword,
+      wifiSecondarySsid: device.wifiSecondarySsid,
+      wifiSecondaryPassword: device.wifiSecondaryPassword,
       networkMode: normalizeWarehouseNetworkMode(device.networkMode),
       ledCount: device.ledCount,
       brightness: device.brightness,
