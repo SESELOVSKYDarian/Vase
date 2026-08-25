@@ -21,6 +21,7 @@ const envSchema = z.object({
   NEXTAUTH_URL: z.string().url().optional(),
 
   // IA — opcional en cualquier entorno (degrada funcionalidad, no bloquea)
+  OPENAI_API_KEY: z.string().optional(),
   GROQ_API_KEY: z.string().optional(),
 
   // Fiscal AFIP/ARCA — crítico SOLO en producción si AFIP_ENV=production

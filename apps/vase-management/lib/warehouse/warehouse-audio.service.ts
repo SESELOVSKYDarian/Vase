@@ -23,21 +23,28 @@ export async function downloadWhatsAppAudio(mediaId: string, accessToken: string
 }
 
 export async function transcribeWarehouseAudio(file: File) {
-  const apiKey = process.env.GROQ_API_KEY
-  if (!apiKey) throw new Error('GROQ_API_KEY no está configurada')
+  const openAiKey = process.env.OPENAI_API_KEY?.trim()
+  const groqKey = process.env.GROQ_API_KEY?.trim()
+  if (!openAiKey && !groqKey) throw new Error('OPENAI_API_KEY no está configurada')
 
   const body = new FormData()
   body.append('file', file, file.name || 'warehouse-audio.webm')
-  body.append('model', 'whisper-large-v3-turbo')
+  body.append('model', openAiKey ? 'whisper-1' : 'whisper-large-v3-turbo')
   body.append('language', 'es')
   body.append('response_format', 'json')
 
-  const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+  const endpoint = openAiKey
+    ? 'https://api.openai.com/v1/audio/transcriptions'
+    : 'https://api.groq.com/openai/v1/audio/transcriptions'
+  const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: { Authorization: `Bearer ${openAiKey || groqKey}` },
     body,
   })
-  if (!response.ok) throw new Error(`No se pudo transcribir el audio (${response.status})`)
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`No se pudo transcribir el audio (${response.status})${detail ? `: ${detail.slice(0, 240)}` : ''}`)
+  }
   const data = await response.json() as { text?: string }
   if (!data.text?.trim()) throw new Error('La transcripción llegó vacía')
   return data.text.trim()

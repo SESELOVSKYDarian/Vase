@@ -26,6 +26,16 @@ try {
     { url: 'https://cdn.example/audio.ogg', authorization: 'Bearer meta-token' },
   ])
 
+  process.env.OPENAI_API_KEY = 'openai-test-key'
+  process.env.GROQ_API_KEY = ''
+  globalThis.fetch = (async (input) => {
+    assert.equal(String(input), 'https://api.openai.com/v1/audio/transcriptions')
+    return new Response(JSON.stringify({ text: 'dónde está PC06' }), { status: 200 })
+  }) as typeof fetch
+  const { transcribeWarehouseAudio } = await import('../warehouse-audio.service.ts')
+  const transcript = await transcribeWarehouseAudio(file)
+  assert.equal(transcript, 'dónde está PC06')
+
   globalThis.fetch = (async () => new Response(null, { status: 404 })) as typeof fetch
   await assert.rejects(
     () => downloadWhatsAppAudio('missing-media', 'meta-token'),
