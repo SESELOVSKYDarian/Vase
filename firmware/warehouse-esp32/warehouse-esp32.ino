@@ -139,17 +139,28 @@ bool tryWifiProfile(const String& ssid, const String& password, uint32_t timeout
   if (wifiConnected()) {
     Serial.print("Wi-Fi OK: ");
     Serial.println(WiFi.localIP());
+  } else {
+    Serial.print("Wi-Fi fallo. Codigo: ");
+    Serial.println((int)WiFi.status());
   }
   return wifiConnected();
 }
 
+bool tryWifiProfileVariants(const String& ssid, const String& password, uint32_t timeoutMs) {
+  if (tryWifiProfile(ssid, password, timeoutMs)) return true;
+  String normalized = ssid;
+  normalized.trim();
+  if (normalized != ssid && tryWifiProfile(normalized, password, timeoutMs)) return true;
+  return false;
+}
+
 bool tryWifi(uint32_t timeoutMs = 10000) {
   if (networkMode == "ETHERNET") return false;
-  if (tryWifiProfile(wifiSsid, wifiPassword, timeoutMs)) return true;
+  if (tryWifiProfileVariants(wifiSsid, wifiPassword, timeoutMs)) return true;
   Serial.println("Wi-Fi principal no disponible. Probando red alternativa del local...");
-  if (tryWifiProfile(wifiFallbackSsid, wifiFallbackPassword, timeoutMs)) return true;
+  if (tryWifiProfileVariants(wifiFallbackSsid, wifiFallbackPassword, timeoutMs)) return true;
   Serial.println("Wi-Fi del local no disponible. Probando red secundaria Barra...");
-  return tryWifiProfile(wifiSecondarySsid, wifiSecondaryPassword, timeoutMs);
+  return tryWifiProfileVariants(wifiSecondarySsid, wifiSecondaryPassword, timeoutMs);
 }
 
 void saveLocalConfig();
