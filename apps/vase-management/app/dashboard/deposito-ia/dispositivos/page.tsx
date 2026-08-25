@@ -29,7 +29,10 @@ function formatLastSeen(value: string | null) {
 
 function formatConnectionState(device: WarehouseDevice) {
   if (!device.lastSeenAt) return 'Nunca recibimos polling de este ESP32.'
-  if (device.status === 'ONLINE') return 'Polling recibido correctamente.'
+  if (device.status === 'ONLINE') {
+    const transport = device.lastTransport === 'ETHERNET' ? 'Ethernet' : device.lastTransport === 'WIFI' ? 'Wi-Fi' : 'red no informada'
+    return `Polling recibido por ${transport}${device.lastIpAddress ? ` · IP ${device.lastIpAddress}` : ''}.`
+  }
   return 'Hubo polling, pero el controlador quedo fuera de linea.'
 }
 
@@ -44,7 +47,7 @@ export default function DepositoDispositivos() {
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [editing, setEditing] = useState<WarehouseDevice | null>(null)
-  const [config, setConfig] = useState({ serverBaseUrl: '', wifiSsid: '', wifiPassword: '', ledCount: '100', brightness: '255', maxActiveLeds: '10' })
+  const [config, setConfig] = useState({ serverBaseUrl: '', networkMode: 'AUTO', wifiSsid: '', wifiPassword: '', ledCount: '100', brightness: '255', maxActiveLeds: '10' })
 
   const loadDevices = useCallback(async () => {
     setLoading(true)
@@ -101,7 +104,7 @@ export default function DepositoDispositivos() {
       setNotice({
         message: current?.status === 'ONLINE'
           ? `${device.name} esta reportando al servidor. Ultimo ping: ${formatLastSeen(current.lastSeenAt)}.`
-          : `${device.name} no esta reportando al servidor. Revisa Wi-Fi, SERVER_BASE_URL y deviceKey.`,
+          : `${device.name} no esta reportando al servidor. Revisa el cable o Wi-Fi, SERVER_BASE_URL y deviceKey.`,
         tone: current?.status === 'ONLINE' ? 'success' : 'info',
       })
     } catch (requestError) {
@@ -145,6 +148,7 @@ export default function DepositoDispositivos() {
     setEditing(device)
     setConfig({
       serverBaseUrl: device.serverBaseUrl || device.pollingUrl.split('/api/')[0],
+      networkMode: device.networkMode || 'AUTO',
       wifiSsid: device.wifiSsid || '',
       wifiPassword: '',
       ledCount: String(device.ledCount),
@@ -214,6 +218,8 @@ export default function DepositoDispositivos() {
                     <div className="rounded-xl border border-border bg-card/70 p-3"><dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><SlidersHorizontal size={13} /> Brillo</dt><dd className="mt-1 font-semibold text-foreground">{device.brightness}/255</dd></div>
                     <div className="rounded-xl border border-border bg-card/70 p-3"><dt className="text-xs text-muted-foreground">Maximo activo</dt><dd className="mt-1 font-semibold text-foreground">{device.maxActiveLeds} LEDs</dd></div>
                     <div className="rounded-xl border border-border bg-card/70 p-3"><dt className="text-xs text-muted-foreground">Ultimo ping</dt><dd className="mt-1 text-xs font-medium text-foreground">{formatLastSeen(device.lastSeenAt)}</dd></div>
+                    <div className="rounded-xl border border-border bg-card/70 p-3"><dt className="text-xs text-muted-foreground">Conexion</dt><dd className="mt-1 text-xs font-medium text-foreground">{device.lastTransport === 'ETHERNET' ? 'Ethernet' : device.lastTransport === 'WIFI' ? 'Wi-Fi' : 'Sin detectar'}</dd></div>
+                    <div className="rounded-xl border border-border bg-card/70 p-3"><dt className="text-xs text-muted-foreground">Modo preferido</dt><dd className="mt-1 text-xs font-medium text-foreground">{device.networkMode === 'AUTO' ? 'Automatico' : device.networkMode === 'ETHERNET' ? 'Solo Ethernet' : 'Solo Wi-Fi'}</dd></div>
                   </dl>
 
                   <div className="mt-4 space-y-3 rounded-xl border border-border bg-card/70 p-3">
@@ -234,7 +240,7 @@ export default function DepositoDispositivos() {
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h4 className="text-sm font-semibold text-foreground">Configurar ESP32</h4>
-                        <p className="mt-1 text-xs text-muted-foreground">Pega estos valores en el firmware que hace polling al servidor.</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Compatible con Ethernet W5500 y Wi-Fi de respaldo.</p>
                       </div>
                       <button type="button" className="ui-button ui-button-secondary shrink-0" onClick={() => openConfig(device)}><Settings2 size={15} /> Editar desde web</button>
                     </div>
@@ -245,7 +251,7 @@ export default function DepositoDispositivos() {
                       <div className="rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">Complete URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 truncate text-foreground">{device.completeUrlTemplate}</code><button type="button" className="ui-icon-button h-8 w-8" onClick={() => copyToClipboard(`complete:${device.id}`, 'Complete URL', device.completeUrlTemplate)} aria-label="Copiar Complete URL">{copiedId === `complete:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
                     </dl>
 
-                    <p className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-5 text-muted-foreground">El firmware base se carga una sola vez. La red, el brillo y la cantidad de LEDs se actualizan desde esta pantalla; los productos y ubicaciones nunca se cargan al ESP32.</p>
+                    <p className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-5 text-muted-foreground">En modo automatico el ESP32 intenta Ethernet primero y usa Wi-Fi como respaldo. El firmware base se carga una sola vez.</p>
                   </div>
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -267,8 +273,11 @@ export default function DepositoDispositivos() {
           <div className="flex items-start justify-between border-b border-border p-5"><div><h2 id="warehouse-device-config-title" className="text-lg font-semibold text-foreground">Configurar {editing.name}</h2><p className="mt-1 text-sm text-muted-foreground">Los cambios se entregan al ESP32 por polling seguro.</p></div><button type="button" className="ui-icon-button" onClick={() => setEditing(null)} aria-label="Cerrar">×</button></div>
           <div className="grid gap-4 p-5 sm:grid-cols-2">
             <label className="ui-field sm:col-span-2"><span className="ui-label">URL del servidor</span><input className="input-field" value={config.serverBaseUrl} onChange={(e) => setConfig({ ...config, serverBaseUrl: e.target.value })} placeholder="https://management.vase.ar" /></label>
-            <label className="ui-field"><span className="ui-label">Nombre Wi‑Fi</span><input className="input-field" value={config.wifiSsid} onChange={(e) => setConfig({ ...config, wifiSsid: e.target.value })} /></label>
-            <label className="ui-field"><span className="ui-label">Contraseña Wi‑Fi</span><input type="password" className="input-field" value={config.wifiPassword} onChange={(e) => setConfig({ ...config, wifiPassword: e.target.value })} placeholder="Dejar vacío para conservar" /></label>
+            <label className="ui-field sm:col-span-2"><span className="ui-label">Tipo de conexion</span><select className="input-field" value={config.networkMode} onChange={(e) => setConfig({ ...config, networkMode: e.target.value })}><option value="AUTO">Automatico: Ethernet con respaldo Wi-Fi</option><option value="ETHERNET">Solo Ethernet</option><option value="WIFI">Solo Wi-Fi</option></select></label>
+            {config.networkMode !== 'ETHERNET' ? <>
+              <label className="ui-field"><span className="ui-label">Nombre Wi‑Fi</span><input className="input-field" value={config.wifiSsid} onChange={(e) => setConfig({ ...config, wifiSsid: e.target.value })} /></label>
+              <label className="ui-field"><span className="ui-label">Contraseña Wi‑Fi</span><input type="password" className="input-field" value={config.wifiPassword} onChange={(e) => setConfig({ ...config, wifiPassword: e.target.value })} placeholder="Dejar vacío para conservar" /></label>
+            </> : <div className="sm:col-span-2 rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground">El ESP32 usara DHCP por cable. Los pines del W5500 se configuran al cargar el firmware.</div>}
             <label className="ui-field"><span className="ui-label">Cantidad de LEDs</span><input type="number" min="1" max="1000" className="input-field" value={config.ledCount} onChange={(e) => setConfig({ ...config, ledCount: e.target.value })} /></label>
             <label className="ui-field"><span className="ui-label">Brillo (0–255)</span><input type="number" min="0" max="255" className="input-field" value={config.brightness} onChange={(e) => setConfig({ ...config, brightness: e.target.value })} /></label>
             <label className="ui-field"><span className="ui-label">Máximo de LEDs activos</span><input type="number" min="1" className="input-field" value={config.maxActiveLeds} onChange={(e) => setConfig({ ...config, maxActiveLeds: e.target.value })} /></label>

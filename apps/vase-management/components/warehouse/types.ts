@@ -45,6 +45,9 @@ export type WarehouseDevice = {
   serverBaseUrl: string | null
   wifiSsid: string | null
   hasWifiPassword: boolean
+  networkMode: 'AUTO' | 'ETHERNET' | 'WIFI'
+  lastTransport: 'ETHERNET' | 'WIFI' | null
+  lastIpAddress: string | null
   active: boolean
   pollingUrl: string
   completeUrlTemplate: string
