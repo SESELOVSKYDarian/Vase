@@ -224,12 +224,12 @@ export default function DepositoDispositivos() {
 
       <WarehousePanel title="Controladores del deposito" description="El estado online depende del ultimo polling recibido.">
         {loading ? <WarehouseLoadingState rows={4} /> : devices.length ? (
-          <div className="grid gap-4 p-4 lg:grid-cols-2">
+          <div className="grid min-w-0 gap-4 p-4 lg:grid-cols-2">
             {devices.map((device) => {
               const online = device.active && device.status === 'ONLINE'
               const keyVisible = Boolean(visibleKeys[device.id])
               return (
-                <article key={device.id} className="rounded-2xl border border-border bg-muted/30 p-5">
+                <article key={device.id} className="min-w-0 overflow-hidden rounded-2xl border border-border bg-muted/30 p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-center gap-3"><div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${online ? 'border-primary/20 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground'}`}><Cpu size={21} /></div><div className="min-w-0"><h3 className="truncate font-semibold text-foreground">{device.name}</h3><p className="mt-1 text-xs text-muted-foreground">{device.type.replaceAll('_', ' ')}</p></div></div>
                     <WarehouseStatusBadge tone={online ? 'success' : 'neutral'}>{online ? 'ONLINE' : 'OFFLINE'}</WarehouseStatusBadge>
@@ -259,21 +259,21 @@ export default function DepositoDispositivos() {
                   </div>
 
                   <div className="mt-4 rounded-xl border border-border bg-card/70 p-3">
-                    <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h4 className="text-sm font-semibold text-foreground">Configurar ESP32</h4>
                         <p className="mt-1 text-xs text-muted-foreground">Wi-Fi por orden de prioridad y Ethernet como respaldo opcional.</p>
                       </div>
-                      <button type="button" className="ui-button ui-button-secondary shrink-0" onClick={() => openConfig(device)}><Settings2 size={15} /> Editar desde web</button>
+                      <button type="button" className="ui-button ui-button-secondary max-w-full shrink-0" onClick={() => openConfig(device)}><Settings2 size={15} /> Editar desde web</button>
                     </div>
 
                     <dl className="grid gap-2 text-xs">
-                      <div className="rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">SERVER_BASE_URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 truncate text-foreground">{device.serverBaseUrl || 'Sin configurar'}</code><button type="button" className="ui-icon-button h-8 w-8" onClick={() => copyToClipboard(`base:${device.id}`, 'SERVER_BASE_URL', device.serverBaseUrl || '')} aria-label="Copiar SERVER_BASE_URL">{copiedId === `base:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
-                      <div className="rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">Polling URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 truncate text-foreground">{device.pollingUrl}</code><button type="button" className="ui-icon-button h-8 w-8" onClick={() => copyToClipboard(`poll:${device.id}`, 'Polling URL', device.pollingUrl)} aria-label="Copiar Polling URL">{copiedId === `poll:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
-                      <div className="rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">Complete URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 truncate text-foreground">{device.completeUrlTemplate}</code><button type="button" className="ui-icon-button h-8 w-8" onClick={() => copyToClipboard(`complete:${device.id}`, 'Complete URL', device.completeUrlTemplate)} aria-label="Copiar Complete URL">{copiedId === `complete:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
+                      <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">SERVER_BASE_URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 break-all whitespace-normal text-foreground">{device.serverBaseUrl || 'Sin configurar'}</code><button type="button" className="ui-icon-button h-8 w-8 shrink-0" onClick={() => copyToClipboard(`base:${device.id}`, 'SERVER_BASE_URL', device.serverBaseUrl || '')} aria-label="Copiar SERVER_BASE_URL">{copiedId === `base:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
+                      <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">Polling URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 break-all whitespace-normal text-foreground">{device.pollingUrl}</code><button type="button" className="ui-icon-button h-8 w-8 shrink-0" onClick={() => copyToClipboard(`poll:${device.id}`, 'Polling URL', device.pollingUrl)} aria-label="Copiar Polling URL">{copiedId === `poll:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
+                      <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-background/50 p-2"><dt className="mb-1 text-muted-foreground">Complete URL</dt><dd className="flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 break-all whitespace-normal text-foreground">{device.completeUrlTemplate}</code><button type="button" className="ui-icon-button h-8 w-8 shrink-0" onClick={() => copyToClipboard(`complete:${device.id}`, 'Complete URL', device.completeUrlTemplate)} aria-label="Copiar Complete URL">{copiedId === `complete:${device.id}` ? <Check size={14} /> : <Copy size={14} />}</button></dd></div>
                     </dl>
 
-                    <p className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-5 text-muted-foreground">En modo automatico el ESP32 intenta Ethernet primero y usa Wi-Fi como respaldo. El firmware base se carga una sola vez.</p>
+                    <p className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-5 text-muted-foreground">En modo automático el ESP32 prueba Wi‑Fi en orden y usa Ethernet como respaldo. El firmware base se carga una sola vez.</p>
                   </div>
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-4">
