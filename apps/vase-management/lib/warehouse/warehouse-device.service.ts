@@ -167,6 +167,16 @@ export class WarehouseDeviceService {
     return { ...updated, wifiPassword: undefined, hasWifiPassword: Boolean(updated.wifiPassword) }
   }
 
+  static async deleteDevice(companyId: string, deviceId: string) {
+    return prisma.$transaction(async (tx) => {
+      const device = await tx.warehouseDevice.findFirst({ where: { id: deviceId, companyId } })
+      if (!device) return null
+
+      await tx.warehouseDevice.delete({ where: { id: device.id } })
+      return { id: device.id, name: device.name }
+    })
+  }
+
   static async getDeviceConfig(deviceKey: string, telemetry?: WarehouseDeviceTelemetry) {
     const device = await prisma.warehouseDevice.findUnique({ where: { deviceKey } })
     if (!device || !device.active) return null

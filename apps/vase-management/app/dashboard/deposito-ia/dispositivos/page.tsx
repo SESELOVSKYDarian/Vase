@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Activity, Check, Copy, Cpu, Eye, EyeOff, KeyRound, Lightbulb, LoaderCircle, Plus, PowerOff, Radio, RefreshCcw, Settings2, SlidersHorizontal, Zap } from 'lucide-react'
+import { Activity, Check, Copy, Cpu, Eye, EyeOff, KeyRound, Lightbulb, LoaderCircle, Plus, PowerOff, Radio, RefreshCcw, Settings2, SlidersHorizontal, Trash2, Zap } from 'lucide-react'
 import { getErrorMessage, warehouseRequest } from '@/components/warehouse/client'
 import type { WarehouseDevice } from '@/components/warehouse/types'
 import {
@@ -44,6 +44,7 @@ export default function DepositoDispositivos() {
   const [notice, setNotice] = useState<Notice | null>(null)
   const [actionId, setActionId] = useState<string | null>(null)
   const [offTarget, setOffTarget] = useState<WarehouseDevice | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<WarehouseDevice | null>(null)
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [editing, setEditing] = useState<WarehouseDevice | null>(null)
@@ -137,6 +138,23 @@ export default function DepositoDispositivos() {
       await warehouseRequest(`/api/warehouse/devices/${offTarget.id}/off`, { method: 'POST' })
       setNotice({ message: `Comando de apagado enviado a ${offTarget.name}.`, tone: 'success' })
       setOffTarget(null)
+    } catch (requestError) {
+      setNotice({ message: getErrorMessage(requestError), tone: 'danger' })
+    } finally {
+      setActionId(null)
+    }
+  }
+
+  const deleteDevice = async () => {
+    if (!deleteTarget) return
+    const id = `delete:${deleteTarget.id}`
+    setActionId(id)
+    setNotice(null)
+    try {
+      await warehouseRequest(`/api/warehouse/devices/${deleteTarget.id}`, { method: 'DELETE' })
+      setDevices((current) => current.filter((device) => device.id !== deleteTarget.id))
+      setNotice({ message: `${deleteTarget.name} y sus comandos fueron eliminados permanentemente.`, tone: 'success' })
+      setDeleteTarget(null)
     } catch (requestError) {
       setNotice({ message: getErrorMessage(requestError), tone: 'danger' })
     } finally {
@@ -254,10 +272,11 @@ export default function DepositoDispositivos() {
                     <p className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-5 text-muted-foreground">En modo automatico el ESP32 intenta Ethernet primero y usa Wi-Fi como respaldo. El firmware base se carga una sola vez.</p>
                   </div>
 
-                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  <div className="mt-4 grid gap-2 sm:grid-cols-4">
                     <button type="button" className="ui-button ui-button-secondary" onClick={() => verifyConnection(device)} disabled={actionId === `verify:${device.id}`}><RefreshCcw size={15} className={actionId === `verify:${device.id}` ? 'animate-spin' : ''} /> Verificar</button>
                     <button type="button" className="ui-button ui-button-secondary" onClick={() => testLed(device)} disabled={!device.active || actionId === `test:${device.id}`}><Zap size={15} /> Probar LED</button>
                     <button type="button" className="ui-button ui-button-secondary text-destructive" onClick={() => setOffTarget(device)} disabled={!online}><PowerOff size={15} /> Apagar</button>
+                    <button type="button" className="ui-button ui-button-secondary text-destructive" onClick={() => setDeleteTarget(device)} disabled={actionId === `delete:${device.id}`}><Trash2 size={15} /> Eliminar</button>
                   </div>
                 </article>
               )
@@ -267,6 +286,7 @@ export default function DepositoDispositivos() {
       </WarehousePanel>
 
       <WarehouseConfirmDialog open={Boolean(offTarget)} title="Apagar LEDs del dispositivo" description={offTarget ? `Se enviara un comando de apagado a ${offTarget.name}.` : ''} confirmLabel="Enviar apagado" dangerous busy={Boolean(offTarget && actionId === `off:${offTarget.id}`)} onConfirm={turnOff} onClose={() => setOffTarget(null)} />
+      <WarehouseConfirmDialog open={Boolean(deleteTarget)} title="Eliminar dispositivo permanentemente" description={deleteTarget ? `Se eliminará ${deleteTarget.name}, su deviceKey y todos sus comandos LED. Esta acción no se puede deshacer; los productos y sus ubicaciones se conservarán.` : ''} confirmLabel="Eliminar permanentemente" dangerous busy={Boolean(deleteTarget && actionId === `delete:${deleteTarget.id}`)} onConfirm={deleteDevice} onClose={() => setDeleteTarget(null)} />
 
       {editing ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="warehouse-device-config-title">
         <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
