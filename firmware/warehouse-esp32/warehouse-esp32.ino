@@ -15,8 +15,12 @@
 
 const char* INITIAL_WIFI_SSID = "";
 const char* INITIAL_WIFI_PASSWORD = "";
+const char* INITIAL_WIFI_FALLBACK_SSID = "WIFI Damac N4164 ";
+const char* INITIAL_WIFI_FALLBACK_PASSWORD = "dmc4164nqn";
+const char* INITIAL_WIFI_SECONDARY_SSID = "Barra";
+const char* INITIAL_WIFI_SECONDARY_PASSWORD = "75575775";
 const char* INITIAL_SERVER_BASE_URL = "https://management.vase.ar";
-const char* DEVICE_KEY = "e7561371c56cb464cf12bfa0254f1b31e693bcff5396d601";
+const char* DEVICE_KEY = "4eb456455b01450640bf7852aa8dd569d6faefea5e99c6c7";
 const char* INITIAL_NETWORK_MODE = "AUTO"; // AUTO | ETHERNET | WIFI
 
 // W5500 por SPI. Cambiar solo si el cableado fisico usa otros pines.
@@ -142,7 +146,9 @@ bool tryWifiProfile(const String& ssid, const String& password, uint32_t timeout
 bool tryWifi(uint32_t timeoutMs = 10000) {
   if (networkMode == "ETHERNET") return false;
   if (tryWifiProfile(wifiSsid, wifiPassword, timeoutMs)) return true;
+  Serial.println("Wi-Fi principal no disponible. Probando red alternativa del local...");
   if (tryWifiProfile(wifiFallbackSsid, wifiFallbackPassword, timeoutMs)) return true;
+  Serial.println("Wi-Fi del local no disponible. Probando red secundaria Barra...");
   return tryWifiProfile(wifiSecondarySsid, wifiSecondaryPassword, timeoutMs);
 }
 
@@ -188,10 +194,14 @@ void loadLocalConfig() {
   preferences.begin("warehouse", true);
   wifiSsid = preferences.getString("ssid", INITIAL_WIFI_SSID);
   wifiPassword = preferences.getString("password", INITIAL_WIFI_PASSWORD);
-  wifiFallbackSsid = preferences.getString("ssid2", "");
-  wifiFallbackPassword = preferences.getString("password2", "");
-  wifiSecondarySsid = preferences.getString("ssid3", "");
-  wifiSecondaryPassword = preferences.getString("password3", "");
+  wifiFallbackSsid = preferences.getString("ssid2", INITIAL_WIFI_FALLBACK_SSID);
+  wifiFallbackPassword = preferences.getString("password2", INITIAL_WIFI_FALLBACK_PASSWORD);
+  wifiSecondarySsid = preferences.getString("ssid3", INITIAL_WIFI_SECONDARY_SSID);
+  wifiSecondaryPassword = preferences.getString("password3", INITIAL_WIFI_SECONDARY_PASSWORD);
+  if (wifiFallbackSsid.length() == 0) wifiFallbackSsid = INITIAL_WIFI_FALLBACK_SSID;
+  if (wifiFallbackPassword.length() == 0) wifiFallbackPassword = INITIAL_WIFI_FALLBACK_PASSWORD;
+  if (wifiSecondarySsid.length() == 0) wifiSecondarySsid = INITIAL_WIFI_SECONDARY_SSID;
+  if (wifiSecondaryPassword.length() == 0) wifiSecondaryPassword = INITIAL_WIFI_SECONDARY_PASSWORD;
   serverBaseUrl = preferences.getString("server", INITIAL_SERVER_BASE_URL);
   networkMode = normalizedNetworkMode(preferences.getString("netMode", INITIAL_NETWORK_MODE));
   ledCount = preferences.getUShort("ledCount", INITIAL_LED_COUNT);
