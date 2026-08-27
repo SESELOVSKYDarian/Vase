@@ -29,6 +29,12 @@ export class WarehouseWebhookService {
     })
   }
 
+  static async resolveWhatsAppChannelByVerifyToken(verifyToken: string) {
+    return prisma.warehouseChannel.findFirst({
+      where: { type: 'WHATSAPP', verifyToken, active: true },
+    })
+  }
+
   /**
    * Persists an inbound webhook event for idempotency and audit.
    * Returns null if the event was already processed (duplicate providerMessageId).
@@ -75,7 +81,13 @@ export class WarehouseWebhookService {
    * Processes an inbound text message through the AI pipeline and returns
    * the ChannelResponse. Also logs to WarehouseConversationLog.
    */
-  static async processTextMessage(companyId: string, text: string, channel: WarehouseConversationChannel, externalUserId: string) {
+  static async processTextMessage(
+    companyId: string,
+    text: string,
+    channel: WarehouseConversationChannel,
+    externalUserId: string,
+    messageType: 'TEXT' | 'AUDIO' = 'TEXT',
+  ) {
     const response = await WarehouseChannelService.processCommand(companyId, text)
 
     // Log the conversation
@@ -84,7 +96,7 @@ export class WarehouseWebhookService {
         companyId,
         channel,
         externalUserId,
-        messageType: 'TEXT',
+        messageType,
         transcript: text,
         intent: response.text,
         payload: response.proposal ?? undefined,

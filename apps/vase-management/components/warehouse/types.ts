@@ -9,6 +9,7 @@ export type WarehouseLocation = {
   observations: string | null
   imageUrl?: string | null
   ledNumber: number | null
+  ledNumbers: number[]
   active?: boolean
 }
 
@@ -41,10 +42,19 @@ export type WarehouseDevice = {
   ledCount: number
   brightness: number
   maxActiveLeds: number
+  serverBaseUrl: string | null
+  wifiSsid: string | null
+  hasWifiPassword: boolean
+  wifiFallbackSsid: string | null
+  hasWifiFallbackPassword: boolean
+  wifiSecondarySsid: string | null
+  hasWifiSecondaryPassword: boolean
+  networkMode: 'AUTO' | 'ETHERNET' | 'WIFI'
+  lastTransport: 'ETHERNET' | 'WIFI' | null
+  lastIpAddress: string | null
   active: boolean
   pollingUrl: string
   completeUrlTemplate: string
-  serverBaseUrl: string
   arduinoConfig: string
   createdAt?: string
   updatedAt?: string
@@ -54,6 +64,9 @@ export type WarehouseChannel = {
   id: string
   type: 'WHATSAPP' | 'TELEGRAM'
   providerAccountId: string | null
+  wabaId: string | null
+  metaAppId: string | null
+  webhookKey?: string | null
   webhookUrl: string | null
   active: boolean
   createdAt: string
@@ -114,4 +127,6 @@ export type ProductEditorValues = {
   box: string
   observations: string
   ledNumber: string
+  ledNumbers: number[]
+  ledSelectionCount: string
 }

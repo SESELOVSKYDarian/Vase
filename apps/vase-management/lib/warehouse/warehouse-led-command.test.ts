@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict'
+import { normalizeWarehouseLedCommand } from './warehouse-led-command'
+
+const device = { ledCount: 60, maxActiveLeds: 10 }
+
+assert.deepEqual(
+  normalizeWarehouseLedCommand({ ledNumber: 59, activeCount: 4, color: { r: 0, g: 80, b: 20 }, durationMs: 5000 }, device),
+  { ledNumber: 59, activeCount: 1, color: { r: 0, g: 80, b: 20 }, durationMs: 5000 },
+)
+assert.throws(() => normalizeWarehouseLedCommand({ ledNumber: 60, activeCount: 4, color: { r: 0, g: 80, b: 20 }, durationMs: 5000 }, device), /LED fuera de rango/)
+assert.equal(normalizeWarehouseLedCommand({ ledNumber: 0, activeCount: 100, color: { r: 0, g: 0, b: 0 }, durationMs: 1000 }, device).activeCount, 60)
+assert.deepEqual(
+  normalizeWarehouseLedCommand({ ledNumber: 8, ledNumbers: [11, 8, 9, 10], activeCount: 4, color: { r: 0, g: 80, b: 20 }, durationMs: 5000 }, device).ledNumbers,
+  [8, 9, 10, 11],
+)
+assert.throws(() => normalizeWarehouseLedCommand({ ledNumber: 8, ledNumbers: [8, 9, 60], activeCount: 3, color: { r: 0, g: 80, b: 20 }, durationMs: 5000 }, device), /fuera de rango/)
+assert.deepEqual(
+  normalizeWarehouseLedCommand({ ledNumber: 1, activeCount: 1, color: { r: 300, g: -5, b: 80 }, durationMs: 5000 }, device).color,
+  { r: 255, g: 0, b: 80 },
+)
+assert.deepEqual(
+  normalizeWarehouseLedCommand({ ledNumber: 1, activeCount: 1, color: { r: Number.NaN, g: 20, b: 30 }, durationMs: 5000 }, device).color,
+  { r: 0, g: 80, b: 20 },
+)
+
+console.log('warehouse led command validation: ok')

@@ -15,6 +15,6 @@ export async function POST(req: NextRequest, { params }: { params: { productId: 
     
     return NextResponse.json(result)
   } catch (error) {
-    return NextResponse.json({ error: 'Error al guardar ubicación' }, { status: 500 })
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Error al guardar ubicación' }, { status: 400 })
   }
 }

@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { WarehouseService } from '@/lib/warehouse/warehouse.service'
 import { WarehouseDeviceService } from '@/lib/warehouse/warehouse-device.service'
+import { selectWarehouseDeviceForCommand } from '@/lib/warehouse/command-device'
 
 export async function POST(req: NextRequest, { params }: { params: { productId: string } }) {
   try {
+    const body = await req.json().catch(() => ({})) as { color?: { r?: number; g?: number; b?: number } }
     const session = await auth()
     if (!session?.user?.companyId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     
@@ -14,17 +16,23 @@ export async function POST(req: NextRequest, { params }: { params: { productId: 
     }
 
     const devices = await WarehouseDeviceService.listDevices(session.user.companyId)
-    const onlineDevice = devices.find(d => d.status === 'ONLINE') || devices[0]
+    const onlineDevice = selectWarehouseDeviceForCommand(devices)
 
     if (!onlineDevice) {
-      return NextResponse.json({ error: 'No hay dispositivos configurados' }, { status: 400 })
+      return NextResponse.json({ error: 'No hay dispositivos online con polling reciente' }, { status: 400 })
     }
 
     const command = await WarehouseDeviceService.createLedCommand(session.user.companyId, {
       deviceId: onlineDevice.id,
       productLocationId: location.id,
       ledNumber: location.ledNumber,
-      activeCount: 4,
+      ledNumbers: location.ledNumbers,
+      activeCount: location.ledNumbers.length || 4,
+      color: body.color && typeof body.color === 'object' ? {
+        r: Number(body.color.r),
+        g: Number(body.color.g),
+        b: Number(body.color.b),
+      } : undefined,
       durationMs: 5000
     })
     

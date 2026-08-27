@@ -1,13 +1,22 @@
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
+import { normalizeWarehouseLedCommand } from './warehouse-led-command';
+import { isWarehouseDeviceOnline } from './command-device';
+import { normalizeWarehouseWifiSsid } from './warehouse-wifi-config';
 
-export const DEFAULT_WAREHOUSE_LED_PIN = 5;
+export const DEFAULT_WAREHOUSE_LED_PIN = 2;
+export type WarehouseNetworkMode = 'AUTO' | 'ETHERNET' | 'WIFI';
+export type WarehouseDeviceTelemetry = {
+  transport?: string | null;
+  ipAddress?: string | null;
+};
 
 export type CreateLedCommandInput = {
   deviceId: string;
   productLocationId?: string;
   ledNumber: number;
+  ledNumbers?: number[];
   activeCount?: number;
   color?: { r: number; g: number; b: number };
   durationMs?: number;
@@ -15,6 +24,35 @@ export type CreateLedCommandInput = {
 
 export function normalizeWarehouseBaseUrl(value: string | null | undefined) {
   return (value || 'http://localhost:3006').replace(/\/+$/, '');
+}
+
+function clampInt(value: unknown, fallback: number, min: number, max: number) {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed)) return fallback
+  return Math.min(Math.max(parsed, min), max)
+}
+
+export function normalizeWarehouseNetworkMode(
+  value: unknown,
+  fallback: WarehouseNetworkMode = 'AUTO',
+): WarehouseNetworkMode {
+  const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+  return normalized === 'AUTO' || normalized === 'ETHERNET' || normalized === 'WIFI'
+    ? normalized
+    : fallback;
+}
+
+function normalizeDeviceTelemetry(input?: WarehouseDeviceTelemetry) {
+  const transport = input?.transport?.trim().toUpperCase();
+  const rawIpAddress = input?.ipAddress?.trim();
+  const ipAddress = rawIpAddress && rawIpAddress.length <= 64 && /^[0-9a-f:.]+$/i.test(rawIpAddress)
+    ? rawIpAddress
+    : undefined;
+
+  return {
+    ...(transport === 'ETHERNET' || transport === 'WIFI' ? { lastTransport: transport } : {}),
+    ...(ipAddress ? { lastIpAddress: ipAddress } : {}),
+  };
 }
 
 export function buildWarehouseDeviceSetup(input: {
@@ -33,8 +71,13 @@ export function buildWarehouseDeviceSetup(input: {
     pollingUrl,
     completeUrlTemplate,
     arduinoConfig: [
-      'const char* WIFI_SSID = "TU_WIFI";',
-      'const char* WIFI_PASSWORD = "TU_PASSWORD";',
+      'const char* WIFI_PRIMARY_SSID = "TU_WIFI_CELULAR";',
+      'const char* WIFI_PRIMARY_PASSWORD = "TU_PASSWORD_CELULAR";',
+      'const char* WIFI_FALLBACK_SSID = "WIFI_LOCAL";',
+      'const char* WIFI_FALLBACK_PASSWORD = "TU_PASSWORD_LOCAL";',
+      'const char* WIFI_SECONDARY_SSID = "Barra";',
+      'const char* WIFI_SECONDARY_PASSWORD = "TU_PASSWORD_BARRA";',
+      'const char* NETWORK_MODE = "AUTO"; // Wi-Fi primero, Ethernet despues',
       `const char* SERVER_BASE_URL = "${serverBaseUrl}";`,
       `const char* DEVICE_KEY = "${input.deviceKey}";`,
       `const int LED_PIN = ${ledPin};`,
@@ -58,10 +101,14 @@ export class WarehouseDeviceService {
    * Lista los dispositivos de una empresa
    */
   static async listDevices(companyId: string) {
-    return prisma.warehouseDevice.findMany({
+    const devices = await prisma.warehouseDevice.findMany({
       where: { companyId },
       orderBy: { createdAt: 'desc' }
     });
+    return devices.map((device) => ({
+      ...device,
+      status: isWarehouseDeviceOnline(device) ? 'ONLINE' : 'OFFLINE',
+    }));
   }
 
   /**
@@ -72,10 +119,20 @@ export class WarehouseDeviceService {
     return devices.map((device) => ({
       ...device,
       ...buildWarehouseDeviceSetup({
-        baseUrl,
+        baseUrl: device.serverBaseUrl || baseUrl,
         deviceKey: device.deviceKey,
         ledCount: device.ledCount,
       }),
+      serverBaseUrl: device.serverBaseUrl || normalizeWarehouseBaseUrl(baseUrl),
+      wifiSsid: device.wifiSsid,
+      hasWifiPassword: Boolean(device.wifiPassword),
+      wifiFallbackSsid: device.wifiFallbackSsid,
+      hasWifiFallbackPassword: Boolean(device.wifiFallbackPassword),
+      wifiSecondarySsid: device.wifiSecondarySsid,
+      hasWifiSecondaryPassword: Boolean(device.wifiSecondaryPassword),
+      wifiPassword: undefined,
+      wifiFallbackPassword: undefined,
+      wifiSecondaryPassword: undefined,
     }));
   }
 
@@ -92,12 +149,104 @@ export class WarehouseDeviceService {
     });
   }
 
+  static async updateDeviceConfig(companyId: string, deviceId: string, input: {
+    name?: string
+    serverBaseUrl?: string | null
+    wifiSsid?: string | null
+    wifiPassword?: string | null
+    wifiFallbackSsid?: string | null
+    wifiFallbackPassword?: string | null
+    wifiSecondarySsid?: string | null
+    wifiSecondaryPassword?: string | null
+    networkMode?: WarehouseNetworkMode | string
+    ledCount?: number
+    brightness?: number
+    maxActiveLeds?: number
+  }) {
+    const current = await prisma.warehouseDevice.findFirst({ where: { id: deviceId, companyId } })
+    if (!current) return null
+
+    const ledCount = clampInt(input.ledCount, current.ledCount, 1, 1000)
+    const data: Prisma.WarehouseDeviceUpdateInput = {
+      ...(input.name?.trim() ? { name: input.name.trim() } : {}),
+      ...(input.serverBaseUrl !== undefined ? { serverBaseUrl: input.serverBaseUrl ? normalizeWarehouseBaseUrl(input.serverBaseUrl) : null } : {}),
+      ...(input.wifiSsid !== undefined ? { wifiSsid: normalizeWarehouseWifiSsid(input.wifiSsid) } : {}),
+      ...(input.wifiPassword !== undefined && input.wifiPassword !== '' ? { wifiPassword: input.wifiPassword } : {}),
+      ...(input.wifiFallbackSsid !== undefined ? { wifiFallbackSsid: normalizeWarehouseWifiSsid(input.wifiFallbackSsid) } : {}),
+      ...(input.wifiFallbackPassword !== undefined && input.wifiFallbackPassword !== '' ? { wifiFallbackPassword: input.wifiFallbackPassword } : {}),
+      ...(input.wifiSecondarySsid !== undefined ? { wifiSecondarySsid: normalizeWarehouseWifiSsid(input.wifiSecondarySsid) } : {}),
+      ...(input.wifiSecondaryPassword !== undefined && input.wifiSecondaryPassword !== '' ? { wifiSecondaryPassword: input.wifiSecondaryPassword } : {}),
+      ...(input.networkMode !== undefined ? { networkMode: normalizeWarehouseNetworkMode(input.networkMode, normalizeWarehouseNetworkMode(current.networkMode)) } : {}),
+      ...(input.ledCount !== undefined ? { ledCount } : {}),
+      ...(input.brightness !== undefined ? { brightness: clampInt(input.brightness, current.brightness, 0, 255) } : {}),
+      ...(input.maxActiveLeds !== undefined ? { maxActiveLeds: clampInt(input.maxActiveLeds, current.maxActiveLeds, 1, ledCount) } : {}),
+    }
+    const updated = await prisma.warehouseDevice.update({ where: { id: deviceId }, data })
+    return {
+      ...updated,
+      wifiPassword: undefined,
+      wifiFallbackPassword: undefined,
+      wifiSecondaryPassword: undefined,
+      hasWifiPassword: Boolean(updated.wifiPassword),
+      hasWifiFallbackPassword: Boolean(updated.wifiFallbackPassword),
+      hasWifiSecondaryPassword: Boolean(updated.wifiSecondaryPassword),
+    }
+  }
+
+  static async deleteDevice(companyId: string, deviceId: string) {
+    return prisma.$transaction(async (tx) => {
+      const device = await tx.warehouseDevice.findFirst({ where: { id: deviceId, companyId } })
+      if (!device) return null
+
+      await tx.warehouseDevice.delete({ where: { id: device.id } })
+      return { id: device.id, name: device.name }
+    })
+  }
+
+  static async getDeviceConfig(deviceKey: string, telemetry?: WarehouseDeviceTelemetry) {
+    const device = await prisma.warehouseDevice.findUnique({ where: { deviceKey } })
+    if (!device || !device.active) return null
+    await prisma.warehouseDevice.update({
+      where: { id: device.id },
+      data: { lastSeenAt: new Date(), status: 'ONLINE', ...normalizeDeviceTelemetry(telemetry) },
+    })
+    return {
+      deviceKey: device.deviceKey,
+      serverBaseUrl: device.serverBaseUrl,
+      wifiSsid: device.wifiSsid,
+      wifiPassword: device.wifiPassword,
+      wifiFallbackSsid: device.wifiFallbackSsid,
+      wifiFallbackPassword: device.wifiFallbackPassword,
+      wifiSecondarySsid: device.wifiSecondarySsid,
+      wifiSecondaryPassword: device.wifiSecondaryPassword,
+      networkMode: normalizeWarehouseNetworkMode(device.networkMode),
+      ledCount: device.ledCount,
+      brightness: device.brightness,
+      maxActiveLeds: device.maxActiveLeds,
+      updatedAt: device.updatedAt.toISOString(),
+    }
+  }
+
   /**
    * Genera un comando LED
    */
   static async createLedCommand(companyId: string, input: CreateLedCommandInput) {
     // Si no se especifica color, usar verde oscuro (0, 80, 20)
     const colorPayload = input.color ?? { r: 0, g: 80, b: 20 };
+
+    const device = await prisma.warehouseDevice.findFirst({
+      where: { id: input.deviceId, companyId, active: true },
+      select: { ledCount: true, maxActiveLeds: true },
+    });
+    if (!device) throw new Error('Dispositivo no disponible');
+
+    const normalized = normalizeWarehouseLedCommand({
+      ledNumber: input.ledNumber,
+      ledNumbers: input.ledNumbers,
+      activeCount: input.activeCount ?? 1,
+      color: colorPayload,
+      durationMs: input.durationMs ?? 5000,
+    }, device);
     
     // Caducidad de comandos no reclamados en 1 minuto
     const expiresAt = new Date(Date.now() + 60_000);
@@ -107,10 +256,11 @@ export class WarehouseDeviceService {
         companyId,
         deviceId: input.deviceId,
         productLocationId: input.productLocationId,
-        ledNumber: input.ledNumber,
-        activeCount: input.activeCount ?? 1,
-        color: colorPayload,
-        durationMs: input.durationMs ?? 5000,
+        ledNumber: normalized.ledNumber,
+        ledNumbers: normalized.ledNumbers ?? [],
+        activeCount: normalized.activeCount,
+        color: normalized.color,
+        durationMs: normalized.durationMs,
         expiresAt,
         status: 'PENDING'
       }
@@ -122,7 +272,7 @@ export class WarehouseDeviceService {
    * La operación se realiza usando updateMany para garantizar atomicidad y evitar 
    * race conditions si el dispositivo hace llamadas concurrentes.
    */
-  static async claimNextCommand(deviceKey: string) {
+  static async claimNextCommand(deviceKey: string, telemetry?: WarehouseDeviceTelemetry) {
     const device = await prisma.warehouseDevice.findUnique({
       where: { deviceKey }
     });
@@ -134,7 +284,7 @@ export class WarehouseDeviceService {
     // Actualizamos el lastSeenAt del dispositivo
     await prisma.warehouseDevice.update({
       where: { id: device.id },
-      data: { lastSeenAt: new Date(), status: 'ONLINE' }
+      data: { lastSeenAt: new Date(), status: 'ONLINE', ...normalizeDeviceTelemetry(telemetry) }
     });
 
     const now = new Date();

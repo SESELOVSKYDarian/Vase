@@ -2,6 +2,7 @@ import { WarehouseService } from './warehouse.service';
 import { WarehouseDeviceService } from './warehouse-device.service';
 import { WarehouseAIService } from './warehouse-ai.service';
 import { Product, WarehouseProductLocation, WarehouseSector } from '@prisma/client';
+import { selectWarehouseDeviceForCommand } from './command-device';
 
 export type ChannelResponse = {
   text: string;
@@ -83,7 +84,7 @@ export class WarehouseChannelService {
         
         // Disparamos luces si hay dispositivos
         const activeDevices = await WarehouseDeviceService.listDevices(companyId);
-        const onlineDevice = activeDevices.find(d => d.status === 'ONLINE');
+        const onlineDevice = selectWarehouseDeviceForCommand(activeDevices);
 
         for (const p of productsFound) {
           responseText += `- ${p.name}`;
@@ -97,10 +98,11 @@ export class WarehouseChannelService {
                 deviceId: onlineDevice.id,
                 productLocationId: loc.id,
                 ledNumber: loc.ledNumber,
-                activeCount: 4,
+                ledNumbers: loc.ledNumbers,
+                activeCount: loc.ledNumbers.length || 4,
                 durationMs: 8000
               });
-              responseText += ` 💡 Encendiendo LED ${loc.ledNumber}`;
+              responseText += ` 💡 Encendiendo LED${loc.ledNumbers.length > 1 ? 's' : ''} ${(loc.ledNumbers.length ? loc.ledNumbers : [loc.ledNumber]).join(', ')}`;
             }
           } else {
             responseText += ` (Sin ubicación física)`;

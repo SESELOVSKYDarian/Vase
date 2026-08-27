@@ -83,34 +83,34 @@ model VerificationToken {
 }
 
 model ManagementSsoNonce {
-  id        String   @id @default(cuid())
-  nonceHash String   @unique
+  id        String    @id @default(cuid())
+  nonceHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([expiresAt, usedAt])
   @@map("management_sso_nonces")
 }
 
 model ManagementSyncOutbox {
-  id            String   @id @default(cuid())
-  eventId       String   @unique
-  companyId     String
+  id             String    @id @default(cuid())
+  eventId        String    @unique
+  companyId      String
   globalTenantId String
-  destination   String
-  entity        String
-  action        String
-  externalId    String
-  version       Int
-  payload       Json
-  status        String   @default("PENDING")
-  attempts      Int      @default(0)
-  nextAttemptAt DateTime @default(now())
-  lastError     String?
-  completedAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  destination    String
+  entity         String
+  action         String
+  externalId     String
+  version        Int
+  payload        Json
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  lastError      String?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([status, nextAttemptAt])
   @@index([globalTenantId, entity, externalId, version])
@@ -174,74 +174,74 @@ model RolePermission {
 // =============================================
 
 model Company {
-  id              String       @id @default(cuid())
-  name            String
-  legalName       String?
-  cuit            String?
-  address         String?
-  city            String?
-  province        String?
-  postalCode      String?
-  phone           String?
-  email           String?
-  website         String?
-  logo            String?
-  ivaCondition    IvaCondition @default(RESPONSABLE_INSCRIPTO)
-  plan            PlanType     @default(BASIC)
-  isActive        Boolean      @default(true)
-  suspendedAt     DateTime?
-  suspendedReason String?
-  trialEndsAt     DateTime?
-  settings        Json?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  globalTenantId  String?      @unique
-  integrationProvider String   @default("EXTERNAL_API")
-  provisioningStatus String    @default("PENDING")
-  lastSyncAt      DateTime?
-  lastSyncError   String?
+  id                  String       @id @default(cuid())
+  name                String
+  legalName           String?
+  cuit                String?
+  address             String?
+  city                String?
+  province            String?
+  postalCode          String?
+  phone               String?
+  email               String?
+  website             String?
+  logo                String?
+  ivaCondition        IvaCondition @default(RESPONSABLE_INSCRIPTO)
+  plan                PlanType     @default(BASIC)
+  isActive            Boolean      @default(true)
+  suspendedAt         DateTime?
+  suspendedReason     String?
+  trialEndsAt         DateTime?
+  settings            Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  globalTenantId      String?      @unique
+  integrationProvider String       @default("EXTERNAL_API")
+  provisioningStatus  String       @default("PENDING")
+  lastSyncAt          DateTime?
+  lastSyncError       String?
 
-  branches           Branch[]
-  companyUsers       CompanyUser[]
-  customers          Customer[]
-  suppliers          Supplier[]
-  categories         Category[]
-  brands             Brand[]
-  products           Product[]
-  warehouses         Warehouse[]
-  stockMovements     StockMovement[]
-  sales              Sale[]
-  invoices           Invoice[]
-  purchases          Purchase[]
-  cashMovements      CashMovement[]
-  auditLogs          AuditLog[]
-  priceLists         PriceList[]
-  savedReports       SavedReport[]
-  systemAlerts       SystemAlert[]
-  fiscalPeriods      FiscalPeriod[]
-  closingProcesses   ClosingProcess[]
-  backupLogs         BackupLog[]
-  salesZones         SalesZone[]
-  customerGroups     CustomerGroup[]
-  deliveryRoutes     DeliveryRoute[]
-  productSections    ProductSection[]
-  productFamilies    ProductFamily[]
-  productGroups      ProductGroup[]
-  warehouseTransfers WarehouseTransfer[]
-  fiscalCertificates FiscalCertificate[]
-  afipRequestLogs    AfipRequestLog[]
-  afipErrorLogs      AfipErrorLog[]
-  cashRegisters      CashRegister[]
-  bankAccounts       BankAccount[]
-  checks             Check[]
-  cardSettlements    CardSettlement[]
-  mercadoPagoTx      MercadoPagoTransaction[]
-  posSessions        PosSession[]
-  planOverride       PlanOverride?
-  usageMetrics       UsageMetric[]
-  subscriptionEvents SubscriptionEvent[]
-  automationRules    AutomationRule[]
-  offlineSyncQueue   OfflineSyncQueue[]
+  branches                  Branch[]
+  companyUsers              CompanyUser[]
+  customers                 Customer[]
+  suppliers                 Supplier[]
+  categories                Category[]
+  brands                    Brand[]
+  products                  Product[]
+  warehouses                Warehouse[]
+  stockMovements            StockMovement[]
+  sales                     Sale[]
+  invoices                  Invoice[]
+  purchases                 Purchase[]
+  cashMovements             CashMovement[]
+  auditLogs                 AuditLog[]
+  priceLists                PriceList[]
+  savedReports              SavedReport[]
+  systemAlerts              SystemAlert[]
+  fiscalPeriods             FiscalPeriod[]
+  closingProcesses          ClosingProcess[]
+  backupLogs                BackupLog[]
+  salesZones                SalesZone[]
+  customerGroups            CustomerGroup[]
+  deliveryRoutes            DeliveryRoute[]
+  productSections           ProductSection[]
+  productFamilies           ProductFamily[]
+  productGroups             ProductGroup[]
+  warehouseTransfers        WarehouseTransfer[]
+  fiscalCertificates        FiscalCertificate[]
+  afipRequestLogs           AfipRequestLog[]
+  afipErrorLogs             AfipErrorLog[]
+  cashRegisters             CashRegister[]
+  bankAccounts              BankAccount[]
+  checks                    Check[]
+  cardSettlements           CardSettlement[]
+  mercadoPagoTx             MercadoPagoTransaction[]
+  posSessions               PosSession[]
+  planOverride              PlanOverride?
+  usageMetrics              UsageMetric[]
+  subscriptionEvents        SubscriptionEvent[]
+  automationRules           AutomationRule[]
+  offlineSyncQueue          OfflineSyncQueue[]
   warehouseSectors          WarehouseSector[]
   warehouseProductLocations WarehouseProductLocation[]
   warehouseProductImages    WarehouseProductImage[]
@@ -354,36 +354,36 @@ model DeliveryRoute {
 // =============================================
 
 model Customer {
-  id              String       @id @default(cuid())
-  companyId       String
-  code            String?
-  name            String
-  firstName       String?
-  lastName        String?
-  documentType    DocumentType @default(CUIT)
-  documentNumber  String?
-  ivaCondition    IvaCondition @default(CONSUMIDOR_FINAL)
-  email           String?
-  phone           String?
-  mobile          String?
-  address         String?
-  city            String?
-  province        String?
-  postalCode      String?
-  birthDate       DateTime?
-  creditLimit     Decimal      @default(0) @db.Decimal(12, 2)
-  creditRisk      CreditRisk   @default(BAJO)
-  totalDebt       Decimal      @default(0) @db.Decimal(12, 2)
-  lastInvoiceDate DateTime?
-  groupId         String?
-  zoneId          String?
-  deliveryRouteId String?
-  sector          String?
-  activity        String?
-  notes           String?
-  isActive        Boolean      @default(true)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id               String       @id @default(cuid())
+  companyId        String
+  code             String?
+  name             String
+  firstName        String?
+  lastName         String?
+  documentType     DocumentType @default(CUIT)
+  documentNumber   String?
+  ivaCondition     IvaCondition @default(CONSUMIDOR_FINAL)
+  email            String?
+  phone            String?
+  mobile           String?
+  address          String?
+  city             String?
+  province         String?
+  postalCode       String?
+  birthDate        DateTime?
+  creditLimit      Decimal      @default(0) @db.Decimal(12, 2)
+  creditRisk       CreditRisk   @default(BAJO)
+  totalDebt        Decimal      @default(0) @db.Decimal(12, 2)
+  lastInvoiceDate  DateTime?
+  groupId          String?
+  zoneId           String?
+  deliveryRouteId  String?
+  sector           String?
+  activity         String?
+  notes            String?
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
   globalExternalId String?
   sourceVersion    Int          @default(1)
 
@@ -518,40 +518,40 @@ model Brand {
 }
 
 model Product {
-  id              String   @id @default(cuid())
-  companyId       String
-  categoryId      String?
-  brandId         String?
-  familyId        String?
-  groupId         String?
-  code            String?
-  barcode         String?
-  name            String
-  description     String?
-  unit            String   @default("UN")
-  price           Decimal  @db.Decimal(12, 2)
-  cost            Decimal  @default(0) @db.Decimal(12, 2)
-  ivaRate         Decimal  @default(21) @db.Decimal(5, 2)
-  stock           Decimal  @default(0) @db.Decimal(12, 3)
-  minStock        Decimal  @default(0) @db.Decimal(12, 3)
-  maxStock        Decimal  @default(0) @db.Decimal(12, 3)
-  hasSerialNumber Boolean  @default(false)
-  hasBatchControl Boolean  @default(false)
-  hasExpiry       Boolean  @default(false)
-  hasVariants     Boolean  @default(false)
-  isComposite     Boolean  @default(false)
-  warrantyDays    Int?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default(cuid())
+  companyId        String
+  categoryId       String?
+  brandId          String?
+  familyId         String?
+  groupId          String?
+  code             String?
+  barcode          String?
+  name             String
+  description      String?
+  unit             String   @default("UN")
+  price            Decimal  @db.Decimal(12, 2)
+  cost             Decimal  @default(0) @db.Decimal(12, 2)
+  ivaRate          Decimal  @default(21) @db.Decimal(5, 2)
+  stock            Decimal  @default(0) @db.Decimal(12, 3)
+  minStock         Decimal  @default(0) @db.Decimal(12, 3)
+  maxStock         Decimal  @default(0) @db.Decimal(12, 3)
+  hasSerialNumber  Boolean  @default(false)
+  hasBatchControl  Boolean  @default(false)
+  hasExpiry        Boolean  @default(false)
+  hasVariants      Boolean  @default(false)
+  isComposite      Boolean  @default(false)
+  warrantyDays     Int?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
   globalExternalId String?
   sourceVersion    Int      @default(1)
 
-  company                  Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  category                 Category?                 @relation(fields: [categoryId], references: [id])
-  brand                    Brand?                    @relation(fields: [brandId], references: [id])
-  family                   ProductFamily?            @relation(fields: [familyId], references: [id])
-  group                    ProductGroup?             @relation(fields: [groupId], references: [id])
+  company                  Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category                 Category?                  @relation(fields: [categoryId], references: [id])
+  brand                    Brand?                     @relation(fields: [brandId], references: [id])
+  family                   ProductFamily?             @relation(fields: [familyId], references: [id])
+  group                    ProductGroup?              @relation(fields: [groupId], references: [id])
   stockMovements           StockMovement[]
   saleItems                SaleItem[]
   purchaseItems            PurchaseItem[]
@@ -622,20 +622,20 @@ model ProductSerialNumber {
 // =============================================
 
 model Warehouse {
-  id                   String                @id @default(cuid())
-  companyId            String
-  name                 String
-  address              String?
-  isMain               Boolean               @default(false)
-  isVirtual            Boolean               @default(false)
-  isActive             Boolean               @default(true)
-  createdAt            DateTime              @default(now())
-  company              Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  stockLevels          StockLevel[]
-  stockMovements       StockMovement[]
-  transfersOut         WarehouseTransfer[]   @relation("TransferFrom")
-  transfersIn          WarehouseTransfer[]   @relation("TransferTo")
-  inventoryAdjustments InventoryAdjustment[]
+  id                        String                     @id @default(cuid())
+  companyId                 String
+  name                      String
+  address                   String?
+  isMain                    Boolean                    @default(false)
+  isVirtual                 Boolean                    @default(false)
+  isActive                  Boolean                    @default(true)
+  createdAt                 DateTime                   @default(now())
+  company                   Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stockLevels               StockLevel[]
+  stockMovements            StockMovement[]
+  transfersOut              WarehouseTransfer[]        @relation("TransferFrom")
+  transfersIn               WarehouseTransfer[]        @relation("TransferTo")
+  inventoryAdjustments      InventoryAdjustment[]
   warehouseProductLocations WarehouseProductLocation[]
 
   @@map("warehouses")
@@ -1834,14 +1834,14 @@ enum WarehouseConversationMessageType {
 }
 
 model WarehouseSector {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   companyId      String
   name           String
   normalizedName String
   description    String?
-  active         Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   company   Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   locations WarehouseProductLocation[]
@@ -1862,6 +1862,7 @@ model WarehouseProductLocation {
   observations String?
   imageUrl     String?
   ledNumber    Int?
+  ledNumbers   Int[]    @default([])
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1870,7 +1871,7 @@ model WarehouseProductLocation {
   product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   warehouse Warehouse?      @relation(fields: [warehouseId], references: [id])
   sector    WarehouseSector @relation(fields: [sectorId], references: [id])
-  
+
   images      WarehouseProductImage[]
   ledCommands WarehouseLedCommand[]
 
@@ -1896,19 +1897,29 @@ model WarehouseProductImage {
 }
 
 model WarehouseDevice {
-  id            String              @id @default(cuid())
-  companyId     String
-  name          String
-  deviceKey     String              @unique
-  type          WarehouseDeviceType @default(ESP32_LED_STRIP)
-  status        String              @default("OFFLINE")
-  lastSeenAt    DateTime?
-  ledCount      Int                 @default(60)
-  brightness    Int                 @default(255)
-  maxActiveLeds Int                 @default(10)
-  active        Boolean             @default(true)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  id                    String              @id @default(cuid())
+  companyId             String
+  name                  String
+  deviceKey             String              @unique
+  type                  WarehouseDeviceType @default(ESP32_LED_STRIP)
+  status                String              @default("OFFLINE")
+  lastSeenAt            DateTime?
+  ledCount              Int                 @default(100)
+  brightness            Int                 @default(255)
+  maxActiveLeds         Int                 @default(10)
+  serverBaseUrl         String?
+  wifiSsid              String?
+  wifiPassword          String?
+  wifiFallbackSsid      String?
+  wifiFallbackPassword  String?
+  wifiSecondarySsid     String?
+  wifiSecondaryPassword String?
+  networkMode           String              @default("AUTO") // AUTO | ETHERNET | WIFI
+  lastTransport         String? // ETHERNET | WIFI, informado por el firmware
+  lastIpAddress         String?
+  active                Boolean             @default(true)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   company     Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
   ledCommands WarehouseLedCommand[]
@@ -1922,8 +1933,9 @@ model WarehouseLedCommand {
   deviceId          String
   productLocationId String?
   ledNumber         Int
+  ledNumbers        Int[]                     @default([])
   activeCount       Int                       @default(1)
-  color             Json                      // { r: 0, g: 255, b: 0 }
+  color             Json // { r: 0, g: 255, b: 0 }
   durationMs        Int                       @default(5000)
   status            WarehouseLedCommandStatus @default(PENDING)
   createdAt         DateTime                  @default(now())
@@ -1966,7 +1978,9 @@ model WarehouseChannel {
   id                String                       @id @default(cuid())
   companyId         String
   type              WarehouseConversationChannel
-  providerAccountId String?                      // Phone number ID for WhatsApp, Bot ID for Telegram
+  providerAccountId String? // Phone number ID for WhatsApp, Bot ID for Telegram
+  wabaId            String? // WhatsApp Business Account ID
+  metaAppId         String? // Meta App ID
   accessToken       String?                      @db.Text
   verifyToken       String?                      @db.Text
   secretToken       String?                      @db.Text
@@ -1975,7 +1989,7 @@ model WarehouseChannel {
   createdAt         DateTime                     @default(now())
   updatedAt         DateTime                     @updatedAt
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
   events  WarehouseWebhookEvent[]
 
   @@unique([companyId, type])
@@ -1998,4 +2012,3 @@ model WarehouseWebhookEvent {
   @@index([channelId, status])
   @@map("warehouse_webhook_events")
 }
-

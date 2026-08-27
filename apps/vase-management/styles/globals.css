@@ -179,6 +179,16 @@
   .ui-dialog-description { @apply mt-1 text-sm text-muted-foreground; }
   .ui-dialog-body { @apply flex-1 overflow-y-auto px-5 py-5 md:px-6; }
   .ui-dialog-footer { @apply flex flex-col-reverse gap-2 border-t border-border/70 bg-muted/30 px-5 py-4 sm:flex-row sm:justify-end md:px-6; }
+  .warehouse-product-dialog { top: 50% !important; max-height: calc(100dvh - 2rem) !important; width: min(calc(100vw - 2rem), 64rem) !important; }
+  @media (max-width: 640px) {
+    .warehouse-product-dialog { max-height: calc(100dvh - 1rem) !important; width: calc(100vw - 1rem) !important; border-radius: 1.25rem; }
+    .warehouse-product-dialog .ui-dialog-header { @apply gap-2 px-4 py-3; }
+    .warehouse-product-dialog .ui-dialog-title { @apply text-xl; }
+    .warehouse-product-dialog .ui-dialog-description { @apply max-w-[15rem] text-xs leading-5; }
+    .warehouse-product-dialog .ui-dialog-body { @apply px-3 py-3; }
+    .warehouse-product-dialog .ui-dialog-footer { @apply px-3 py-3; }
+    .warehouse-product-dialog .ui-dialog-footer .ui-button { @apply w-full; }
+  }
 
   .badge-success, .badge-warning, .badge-error, .badge-info, .badge-neutral {
     @apply inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold;

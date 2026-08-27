@@ -8,7 +8,10 @@ export async function GET(req: NextRequest, { params }: { params: { deviceId: st
     await WarehouseDeviceService.expireOldCommands().catch(() => {})
 
     // params.deviceId is actually the deviceKey since the ESP hits /api/warehouse/devices/DEVICE_KEY/next-command
-    const nextCommand = await WarehouseDeviceService.claimNextCommand(params.deviceId)
+    const nextCommand = await WarehouseDeviceService.claimNextCommand(params.deviceId, {
+      transport: req.nextUrl.searchParams.get('transport'),
+      ipAddress: req.nextUrl.searchParams.get('ip'),
+    })
     
     if (!nextCommand) {
       return new NextResponse(null, { status: 204 }) // No Content
@@ -17,11 +20,12 @@ export async function GET(req: NextRequest, { params }: { params: { deviceId: st
     return NextResponse.json({
       id: nextCommand.id,
       ledNumber: nextCommand.ledNumber,
+      ledNumbers: nextCommand.ledNumbers,
       activeCount: nextCommand.activeCount,
       color: nextCommand.color,
       durationMs: nextCommand.durationMs
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal Error' }, { status: 500 })
   }
 }

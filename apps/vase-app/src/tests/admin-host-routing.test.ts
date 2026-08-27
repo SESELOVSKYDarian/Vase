@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPublicRequestUrl,
   buildAdminCanonicalUrl,
   isAdminHost,
   resolveAdminAccessDecision,
@@ -9,6 +10,16 @@ import {
   toInternalAdminPath,
   toPublicAdminPath,
 } from "@/lib/security/admin-host-routing";
+
+describe("public request URL behind a reverse proxy", () => {
+  it("preserves the forwarded admin host instead of the internal origin", () => {
+    expect(buildPublicRequestUrl({
+      url: "http://vase-app:3002/users?status=active",
+      hostname: "admin.vase.ar",
+      protocol: "https",
+    })).toBe("https://admin.vase.ar/users?status=active");
+  });
+});
 
 const routes = [
   ["/", "/app/admin"],
