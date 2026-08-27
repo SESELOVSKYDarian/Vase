@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useTenant } from './TenantContext';
 import { getStorefrontThemePreset, getStorefrontThemeColorTokens } from '../utils/storefrontTheme';
 
@@ -7,7 +7,15 @@ export const ThemeContext = createContext(null);
 export const ThemeProvider = ({ children }) => {
     const { tenant, settings } = useTenant();
     const configuredTheme = settings?.theme || tenant?.theme || {};
-    const mode = configuredTheme?.mode === 'dark' ? 'dark' : 'light';
+    const [localMode, setLocalMode] = useState(() => {
+        try {
+            const saved = window.localStorage.getItem('vase-storefront-theme');
+            if (saved === 'dark' || saved === 'light') return saved;
+            return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : null;
+        } catch { return null; }
+    });
+    const isAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+    const mode = !isAdmin && localMode ? localMode : (configuredTheme?.mode === 'dark' ? 'dark' : 'light');
     const effectiveTheme = useMemo(() => getStorefrontThemePreset(mode, configuredTheme), [configuredTheme, mode]);
 
     useEffect(() => {
@@ -58,12 +66,12 @@ export const ThemeProvider = ({ children }) => {
         }
     }, [effectiveTheme, mode]);
 
-    const noop = () => {
+    const setMode = (nextMode) => {
         try {
-            window.localStorage.removeItem('teflon_storefront_mode');
-        } catch (error) {
-            // Ignore storage failures.
-        }
+            const next = nextMode === 'dark' ? 'dark' : 'light';
+            window.localStorage.setItem('vase-storefront-theme', next);
+            setLocalMode(next);
+        } catch { setLocalMode(nextMode === 'dark' ? 'dark' : 'light'); }
     };
 
     return (
@@ -72,9 +80,12 @@ export const ThemeProvider = ({ children }) => {
                 theme: effectiveTheme,
                 mode,
                 configuredMode: mode,
-                setMode: noop,
-                toggleMode: noop,
-                clearModePreference: noop,
+                setMode,
+                toggleMode: () => setMode(mode === 'dark' ? 'light' : 'dark'),
+                clearModePreference: () => {
+                    try { window.localStorage.removeItem('vase-storefront-theme'); } catch { /* ignore */ }
+                    setLocalMode(null);
+                },
             }}
         >
             {children}

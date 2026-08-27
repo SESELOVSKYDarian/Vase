@@ -90,7 +90,7 @@ export default function Footer() {
     const legalLinks = toArray(footer.legalLinks, isPiquim ? PIQUIM_FOOTER_DEFAULTS.legalLinks : [{ label: "Terminos", href: "/terms" }]);
     const socialLinks = normalizeSocials(footer).filter((item) => item?.label);
     const newsletter = { ...(isPiquim ? PIQUIM_FOOTER_DEFAULTS.newsletter : { enabled: false }), ...(footer.newsletter || {}) };
-    const legalText = footer.legalText || (isPiquim ? PIQUIM_FOOTER_DEFAULTS.legalText : `(c) 2026 ${brandName}. Todos los derechos reservados.`);
+    const legalText = footer.legalText || (isPiquim ? PIQUIM_FOOTER_DEFAULTS.legalText : '© 2026 Vase. Todos los derechos reservados.');
 
     const address = footer.contact?.address || commerce.address || "Mar del Plata, Argentina";
     const contactPhone = footer.contact?.phone || commerce.phone || commerce.whatsapp_number || "";

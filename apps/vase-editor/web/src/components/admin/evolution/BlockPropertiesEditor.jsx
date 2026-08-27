@@ -1722,6 +1722,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                         {renderVideoControl({ label: 'Video mobile (celular)', value: block.props?.videoUrlMobile, uploadKey: 'piquim-hero-video-mobile', onChange: (value) => handlePropChange('videoUrlMobile', value) })}
                         {renderVideoControl({ label: 'Fallback video URL', value: block.props?.videoUrl, uploadKey: 'piquim-hero-video', onChange: (value) => handlePropChange('videoUrl', value) })}
                         {renderImageControl({ label: 'Poster', value: block.props?.videoPoster, uploadKey: 'piquim-hero-poster', onChange: (value) => handlePropChange('videoPoster', value) })}
+                        <EvolutionInput label="Encuadre del video" value={block.props?.videoObjectPosition || 'center center'} onChange={(e) => handlePropChange('videoObjectPosition', e.target.value)} placeholder="center 45%" />
                         <div className="grid grid-cols-2 gap-2">
                             <button type="button" onClick={() => handlePropChange('videoAutoplay', !block.props?.videoAutoplay)} className={compactFieldClass}>
                                 Autoplay: {block.props?.videoAutoplay !== false ? 'ON' : 'OFF'}

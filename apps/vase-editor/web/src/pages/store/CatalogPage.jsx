@@ -138,10 +138,11 @@ const getFiltersFromUrl = () => {
         maxPrice: normalizePriceFilterValue(params.get("maxPrice")),
         inStock: parseBooleanFilter(params.get("inStock")),
         sort: normalizeSortValue(params.get("sort")),
+        page: Math.max(1, Number(params.get("page") || 1) || 1),
     };
 };
 
-const buildCatalogHref = ({ category, brand, minPrice, maxPrice, inStock, sort }) => {
+const buildCatalogHref = ({ category, brand, minPrice, maxPrice, inStock, sort, page }) => {
     const params = new URLSearchParams();
     if (normalizeFilterValue(category)) {
         params.set("category", normalizeFilterValue(category));
@@ -161,6 +162,7 @@ const buildCatalogHref = ({ category, brand, minPrice, maxPrice, inStock, sort }
     if (normalizeSortValue(sort) !== DEFAULT_SORT) {
         params.set("sort", normalizeSortValue(sort));
     }
+    if (Number(page) > 1) params.set("page", String(Math.max(1, Number(page))));
     const query = params.toString();
     return query ? `/catalog?${query}` : "/catalog";
 };
@@ -282,7 +284,7 @@ export default function CatalogPage() {
     const lowStockThreshold = getLowStockThreshold(settings);
 
     const initialFilters = useMemo(() => getFiltersFromUrl(), []);
-    const [page, setPage] = useState(1);
+    const [page, setPage] = useState(initialFilters.page);
     const [categories, setCategories] = useState([]);
     const [brands, setBrands] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState(initialFilters.category);
@@ -298,7 +300,7 @@ export default function CatalogPage() {
     const [totalItems, setTotalItems] = useState(0);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const productRequestKeyRef = useRef("");
-    const limit = 12;
+    const limit = isPiquimTenant ? 20 : 12;
 
     useEffect(() => {
         setPage(1);
@@ -313,7 +315,7 @@ export default function CatalogPage() {
             setSelectedMaxPrice((prev) => (prev === next.maxPrice ? prev : next.maxPrice));
             setInStockOnly((prev) => (prev === next.inStock ? prev : next.inStock));
             setSort((prev) => (prev === next.sort ? prev : next.sort));
-            setPage(1);
+            setPage(next.page);
             setMobileFiltersOpen(false);
         };
 
@@ -629,10 +631,17 @@ export default function CatalogPage() {
                 maxPrice: normalizedMaxPrice,
                 inStock: nextInStock,
                 sort: nextSort,
+                page: 1,
             }));
         },
         [inStockOnly, selectedBrand, selectedCategory, selectedMaxPrice, selectedMinPrice, sort]
     );
+
+    const handlePageChange = useCallback((nextPage) => {
+        const safePage = Math.max(1, Number(nextPage) || 1);
+        setPage(safePage);
+        navigate(buildCatalogHref({ category: selectedCategory, brand: selectedBrand, minPrice: selectedMinPrice, maxPrice: selectedMaxPrice, inStock: inStockOnly, sort, page: safePage }));
+    }, [inStockOnly, selectedBrand, selectedCategory, selectedMaxPrice, selectedMinPrice, sort]);
 
     const resetFilters = useCallback(() => {
         applyFilters({ category: null, brand: null, minPrice: "", maxPrice: "", inStock: false, sort: DEFAULT_SORT });
@@ -929,7 +938,7 @@ export default function CatalogPage() {
                             <div className="mt-8 flex flex-wrap items-center justify-center gap-2 rounded-2xl border bg-white/70 p-2 shadow-sm dark:bg-white/5" style={CATALOG_STYLES.border}>
                                 <PaginationButton
                                     label="Anterior"
-                                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                                    onClick={() => handlePageChange(page - 1)}
                                     disabled={page === 1}
                                 />
 
@@ -951,7 +960,7 @@ export default function CatalogPage() {
                                         <button
                                             key={`page-${pageNumber}`}
                                             type="button"
-                                            onClick={() => setPage(pageNumber)}
+                                            onClick={() => handlePageChange(pageNumber)}
                                             className={`min-w-[42px] rounded-xl px-4 py-2 text-sm font-bold transition-all ${pageNumber === page
                                                     ? "bg-primary text-white"
                                                     : "border border-transparent text-[#181411] hover:border-primary/30 hover:bg-primary/10 hover:text-primary dark:text-white"
@@ -966,7 +975,7 @@ export default function CatalogPage() {
 
                                 <PaginationButton
                                     label="Siguiente"
-                                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                                    onClick={() => handlePageChange(page + 1)}
                                     disabled={page === totalPages}
                                 />
                             </div>
@@ -1327,7 +1336,7 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
     const [formatFilters, setFormatFilters] = useState([]);
     const [flavorFilters, setFlavorFilters] = useState([]);
     const [stockOnly, setStockOnly] = useState(false);
-    const [catalogPage, setCatalogPage] = useState(1);
+    const [catalogPage, setCatalogPage] = useState(() => Math.max(1, Number(new URLSearchParams(window.location.search || '').get('page') || 1) || 1));
     const [recentTerms, setRecentTerms] = useState([]);
     const [expandedSections, setExpandedSections] = useState({});
     const catalogTopRef = useRef(null);
@@ -1570,7 +1579,11 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
     };
 
     const handleCatalogPageChange = (nextPage) => {
-        setCatalogPage(nextPage);
+        const safePage = Math.max(1, Number(nextPage) || 1);
+        setCatalogPage(safePage);
+        const params = new URLSearchParams(window.location.search || '');
+        params.set('page', String(safePage));
+        navigate(`/catalog?${params.toString()}`);
         requestAnimationFrame(() => {
             catalogTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
         });

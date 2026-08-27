@@ -150,6 +150,7 @@ export default function Header({
   brandName,
   brandUppercase = false,
   isPiquimPreset: isPiquimPresetProp,
+  overlay = false,
   showSearch = true,
   showWishlist = true,
   showCart = true,
@@ -546,7 +547,7 @@ export default function Header({
 
     return (
       <>
-      <header className="fixed left-0 right-0 top-0 z-50 w-full font-[var(--font-family)]">
+      <header className={`${overlay ? "absolute" : "fixed"} left-0 right-0 top-0 z-50 w-full font-[var(--font-family)]`}>
         <div className="w-full px-[60px] py-[18px] max-md:px-4">
           <div className="relative flex min-h-[68px] items-center justify-between gap-3 overflow-visible rounded-[30px] bg-[linear-gradient(90deg,rgba(255,191,140,0.74)_0%,rgba(255,239,232,0.62)_48%,rgba(255,191,140,0.74)_100%)] px-[60px] py-[18px] shadow-[0_18px_60px_rgba(255,77,0,0.12)] outline outline-1 -outline-offset-1 outline-[#E8DFD8]/90 backdrop-blur-2xl max-md:px-5">
             <button
@@ -808,7 +809,7 @@ export default function Header({
           ) : null}
         </div>
       </header>
-      <div className="h-[113px] max-md:h-[93px]" aria-hidden="true" />
+      {!overlay ? <div className="h-[113px] max-md:h-[93px]" aria-hidden="true" /> : null}
       </>
     );
   }
