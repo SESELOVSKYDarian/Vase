@@ -1,4 +1,5 @@
 export const PIQUIM_DESIGN_PRESET = 'piquim';
+export const PIQUIM_DEFAULT_LOGO = '/piquim/catalogo/logo-navbar.png';
 export const GENERIC_DESIGN_PRESET = 'generic';
 export const DEFAULT_NON_PIQUIM_DESIGN_PRESET = GENERIC_DESIGN_PRESET;
 
@@ -41,4 +42,9 @@ export const resolveTenantDesignPreset = ({ tenant = {}, settings = {} } = {}) =
   }
 
   return DEFAULT_NON_PIQUIM_DESIGN_PRESET;
+};
+
+export const resolveBrandLogo = ({ tenant = {}, settings = {} } = {}) => {
+  const configured = String(settings?.branding?.logo_url || '').trim();
+  return configured || (isPiquimTenantIdentity({ tenant, settings }) ? PIQUIM_DEFAULT_LOGO : '');
 };

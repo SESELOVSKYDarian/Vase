@@ -3,7 +3,7 @@ import { Instagram, Facebook, Youtube, Music2, MessageCircle, Linkedin, Globe, M
 import { useTenant } from "../../context/TenantContext";
 import { navigate } from "../../utils/navigation";
 import { PIQUIM_FOOTER_DEFAULTS } from "../../data/piquimBranding";
-import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
+import { isPiquimTenantIdentity, resolveBrandLogo } from "../../utils/tenantBranding";
 
 const toArray = (value, fallback = []) => (Array.isArray(value) ? value : fallback);
 const SOCIAL_ICON_MAP = {
@@ -87,6 +87,7 @@ export default function Footer() {
     const footerDescription = footer.description || (isPiquim ? PIQUIM_FOOTER_DEFAULTS.description : genericFooterDescription);
     const shopLinks = toArray(footer.shopLinks, toArray(footer.quickLinks, isPiquim ? PIQUIM_FOOTER_DEFAULTS.shopLinks : genericLinks));
     const helpLinks = toArray(footer.helpLinks, isPiquim ? PIQUIM_FOOTER_DEFAULTS.helpLinks : []);
+    const accountLinks = toArray(footer.accountLinks, isPiquim ? PIQUIM_FOOTER_DEFAULTS.accountLinks : []);
     const legalLinks = toArray(footer.legalLinks, isPiquim ? PIQUIM_FOOTER_DEFAULTS.legalLinks : [{ label: "Terminos", href: "/terms" }]);
     const socialLinks = normalizeSocials(footer).filter((item) => item?.label);
     const newsletter = { ...(isPiquim ? PIQUIM_FOOTER_DEFAULTS.newsletter : { enabled: false }), ...(footer.newsletter || {}) };
@@ -98,6 +99,7 @@ export default function Footer() {
     const whatsappRaw = footer.socials?.whatsapp || commerce.whatsapp_number || contactPhone || "";
     const whatsappCleaned = String(whatsappRaw || "").replace(/\D/g, "");
     const showWhatsappFooter = footer.whatsapp_enabled !== false && Boolean(whatsappCleaned);
+    const logoSrc = resolveBrandLogo({ tenant, settings });
 
     const handleNewsletterSubmit = (event) => {
         event.preventDefault();
@@ -208,14 +210,14 @@ export default function Footer() {
     return (
         <footer className="mt-0 w-full bg-[#1a1614] text-[#fffaf6]">
             <div className="mx-auto max-w-[1440px] px-5 py-14 md:px-10 md:py-20 xl:px-[120px]">
-                <div className="grid gap-8 md:gap-10 lg:grid-cols-2 xl:grid-cols-[1.1fr_0.75fr_0.75fr_0.75fr_1fr] xl:gap-12">
+                <div className="grid gap-8 md:gap-10 lg:grid-cols-2 xl:grid-cols-[1.1fr_0.75fr_0.75fr_0.75fr_0.75fr_1fr] xl:gap-12">
                     <div className="space-y-7">
                         <button
                             type="button"
                             onClick={() => navigate("/")}
                             className="text-left text-[42px] font-black lowercase leading-none tracking-[-0.08em] text-[#ff4d00]"
                         >
-                            {branding.logo_url ? <img src={branding.logo_url} alt={brandName} className="h-11 w-auto object-contain" /> : 'piquim'}
+                            {logoSrc ? <img src={logoSrc} alt={brandName} className="h-11 w-auto object-contain" /> : displayBrandName}
                         </button>
                         <p className="max-w-sm text-base font-semibold leading-7 text-[#d7c8bf]">
                             {footerDescription}
@@ -249,6 +251,10 @@ export default function Footer() {
                     </div>
                     <div className="lg:pt-1">
                         <FooterColumn title="Ayuda" links={helpLinks} />
+                    </div>
+
+                    <div className="lg:pt-1">
+                        <FooterColumn title="Cuenta" links={accountLinks} />
                     </div>
 
                     <div className="lg:pt-1">

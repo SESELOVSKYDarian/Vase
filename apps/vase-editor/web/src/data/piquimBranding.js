@@ -46,6 +46,12 @@ export const PIQUIM_FOOTER_DEFAULTS = {
         { label: 'Cambios y devoluciones', href: '/about' },
         { label: 'Preguntas frecuentes', href: '/about' },
     ],
+    accountLinks: [
+        { label: 'Iniciar sesion', href: '/login' },
+        { label: 'Crear cuenta', href: '/signup' },
+        { label: 'Mi perfil', href: '/profile' },
+        { label: 'Favoritos', href: '/profile?section=favorites' },
+    ],
     legalLinks: [
         { label: 'Terminos', href: '/terms' },
         { label: 'Privacidad', href: '/privacy' },

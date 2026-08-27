@@ -26,6 +26,15 @@
 
 @layer base {
   :root {
+    --color-background: #fffaf6;
+    --color-surface: #ffffff;
+    --color-surface-secondary: #fff3eb;
+    --color-surface-elevated: #ffffff;
+    --color-text: #1a1614;
+    --color-text-muted: #6f625d;
+    --color-border: #ead8ce;
+    --color-primary: #ff4d00;
+    --color-header-bg: rgba(255,250,246,0.92);
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 10% 3.9%;
@@ -46,6 +55,18 @@
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
     --radius: 0.5rem;
+  }
+
+  html.dark {
+    --color-background: #071317;
+    --color-surface: #10262d;
+    --color-surface-secondary: #0b1b21;
+    --color-surface-elevated: #15323a;
+    --color-text: #ecfeff;
+    --color-text-muted: #94a3b8;
+    --color-border: #1f3a43;
+    --color-primary: #2dd4bf;
+    --color-header-bg: rgba(7,19,23,0.92);
   }
 }
 

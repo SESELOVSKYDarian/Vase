@@ -17,7 +17,6 @@ import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
 import {
     buildCatalogPaginationModel,
     buildPiquimCategoryGroups,
-    fetchAllCatalogPages,
     paginateCatalogItems,
     resolvePiquimProductGroups,
     selectCanonicalCatalogMemberships,
@@ -386,7 +385,6 @@ export default function CatalogPage() {
         ]);
 
         const loadProducts = async () => {
-            let progressiveItemCount = 0;
             let isPiquimSubcatalog = false;
             try {
                 setLoading(true);
@@ -401,8 +399,8 @@ export default function CatalogPage() {
                     setProducts([]);
                     setTotalItems(0);
                 }
-                url.searchParams.set("page", String(isPiquimSubcatalog ? 1 : page));
-                url.searchParams.set("limit", String(isPiquimSubcatalog ? 48 : limit));
+                url.searchParams.set("page", String(page));
+                url.searchParams.set("limit", String(limit));
                 url.searchParams.set("grouped", "true");
                 url.searchParams.set("sort", sort);
 
@@ -447,35 +445,23 @@ export default function CatalogPage() {
                         const brandName = product.brand?.name || "";
                         return isNotExcluded(categoryName) && isNotExcluded(brandName) && isNotExcluded(product.name);
                     }) : items;
-                    progressiveItemCount = filteredItems.length;
-                    setProducts((current) => {
-                        if (!isPiquimSubcatalog || isNewRequest) return filteredItems;
-                        const merged = new Map(current.map((product) => [product.id, product]));
-                        filteredItems.forEach((product) => merged.set(product.id, product));
-                        return [...merged.values()];
-                    });
+                    setProducts(filteredItems);
 
                     const removedCount = items.length - filteredItems.length;
                     const originalTotal = Number(data?.total || items.length || 0);
                     setTotalItems(Math.max(0, originalTotal - removedCount));
                 };
 
-                const data = isPiquimSubcatalog
-                    ? await fetchAllCatalogPages(fetchPage, publishProducts)
-                    : await fetchPage(page);
+                const data = await fetchPage(page);
                 if (!active) return;
                 publishProducts(data);
             } catch (error) {
                 if (error.name !== "AbortError") {
                     console.error("No se pudieron cargar los productos", error);
                     if (active) {
-                        setLoadError(progressiveItemCount > 0
-                            ? "No se pudieron cargar algunos productos"
-                            : "No se pudieron cargar los productos");
-                        if (!isPiquimSubcatalog) {
-                            setProducts([]);
-                            setTotalItems(0);
-                        }
+                        setLoadError("No se pudieron cargar los productos");
+                        setProducts([]);
+                        setTotalItems(0);
                     }
                 }
             } finally {
@@ -737,7 +723,7 @@ export default function CatalogPage() {
 
     if (isPiquimTenant && isCatalogLanding) {
         return (
-            <StoreLayout>
+            <StoreLayout overlay>
                 <PiquimCatalogLanding cards={catalogCards} onSelectCard={handleCatalogCardClick} />
             </StoreLayout>
         );
@@ -1018,8 +1004,8 @@ function PiquimCatalogLanding({ cards, onSelectCard }) {
     return (
         <div className="min-h-screen bg-[#FFFAF6] font-[Inter] text-[#1A1614]">
             <div className="w-full overflow-hidden bg-[#FFFAF6]">
-                <section className="w-full overflow-hidden pt-6 md:pt-8">
-                    <div className="grid w-full grid-cols-1 items-stretch gap-0.5 overflow-hidden rounded-t-[45px] bg-[#FF4D00] lg:grid-cols-2">
+                <section className="w-full overflow-hidden">
+                    <div className="grid min-h-[100svh] w-full grid-cols-1 items-stretch gap-0.5 overflow-hidden bg-[#FF4D00] lg:grid-cols-2">
                         {(Array.isArray(cards) && cards.length ? cards : PIQUIM_CATALOG_CARDS).slice(0, 2).map((card) => (
                             <PiquimExactCatalogCard
                                 key={card.id}
@@ -1081,7 +1067,7 @@ function PiquimCatalogHeader() {
 function PiquimExactCatalogCard({ card, onClick }) {
     return (
         <article
-            className="relative h-[700px] w-full overflow-hidden bg-[#1A1614] lg:h-[calc(100vh-113px)] lg:min-h-[700px]"
+            className="relative min-h-[100svh] w-full overflow-hidden bg-[#1A1614]"
         >
             <img
                 src={card.image}
@@ -1642,8 +1628,8 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                     ) : null}
 
                     {loading && normalizedProducts.length ? (
-                        <div className="w-full rounded-2xl border border-[#FFDCC1] bg-[#FFF1E6] px-5 py-3 text-sm font-semibold text-[#A04100]" role="status" aria-live="polite">
-                            Cargando más productos... {normalizedProducts.length} visibles
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-[#FFE6D6]" role="status" aria-label="Actualizando productos">
+                            <div className="h-full w-1/3 animate-pulse rounded-full bg-[#FF4D00]" />
                         </div>
                     ) : null}
 

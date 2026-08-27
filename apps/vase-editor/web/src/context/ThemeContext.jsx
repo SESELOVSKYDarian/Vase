@@ -32,11 +32,15 @@ export const ThemeProvider = ({ children }) => {
             document.body.style.colorScheme = mode;
         }
 
-        ['primary', 'accent', 'background', 'text', 'secondary'].forEach((key) => {
+        ['primary', 'accent', 'background', 'text', 'secondary', 'surface', 'surface_secondary', 'surface_elevated', 'border', 'header_bg'].forEach((key) => {
             if (effectiveTheme[key]) {
                 fallbackPalette[key] = effectiveTheme[key];
             }
         });
+        root.style.setProperty('--color-text-muted', effectiveTheme.secondary || '');
+        root.style.setProperty('--color-surface-secondary', effectiveTheme.surface_secondary || '');
+        root.style.setProperty('--color-surface-elevated', effectiveTheme.surface_elevated || '');
+        root.style.setProperty('--color-header-bg', effectiveTheme.header_bg || '');
         if (!fallbackPalette.text && effectiveTheme.secondary) {
             fallbackPalette.text = effectiveTheme.secondary;
         }

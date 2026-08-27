@@ -10,7 +10,7 @@ import { isPiquimTenantIdentity } from '../../utils/tenantBranding';
 import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from '../../utils/seo';
 import StoreFloatingControls from './StoreFloatingControls';
 
-export default function StoreLayout({ children }) {
+export default function StoreLayout({ children, overlay = false }) {
     const { toast } = useStore();
     const { isWholesalePending } = useAuth();
     const { tenant, settings } = useTenant();
@@ -147,7 +147,7 @@ export default function StoreLayout({ children }) {
             <Header
                 navLinks={navLinks}
                 isPiquimPreset={isPiquim}
-                overlay={isPiquimHome}
+                overlay={overlay || isPiquimHome}
                 showSearch={navbarConfig.show_search !== false}
                 showWishlist={navbarConfig.show_wishlist !== false}
                 showCart={navbarConfig.show_cart !== false}
