@@ -1005,22 +1005,21 @@ const PIQUIM_EXACT_CARDS = [
     },
 ];
 
-function PiquimCatalogLanding({ onSelectCard }) {
+function PiquimCatalogLanding({ cards, onSelectCard }) {
     return (
         <div className="min-h-screen bg-[#FFFAF6] font-[Inter] text-[#1A1614]">
             <div className="w-full overflow-hidden bg-[#FFFAF6]">
-                <section className="w-full overflow-hidden pt-[86px] max-md:pt-[74px]">
+                <section className="w-full overflow-hidden pt-6 md:pt-8">
                     <div className="grid w-full grid-cols-1 items-stretch gap-0.5 overflow-hidden rounded-t-[45px] bg-[#FF4D00] lg:grid-cols-2">
-                        {PIQUIM_EXACT_CARDS.map((card) => (
+                        {(Array.isArray(cards) && cards.length ? cards : PIQUIM_CATALOG_CARDS).slice(0, 2).map((card) => (
                             <PiquimExactCatalogCard
                                 key={card.id}
                                 card={card}
-                                onClick={() => onSelectCard({ ...card, categorySlug: card.slug, category: card.slug })}
+                                onClick={() => onSelectCard({ ...card, categorySlug: card.categorySlug || card.slug, category: card.category || card.slug })}
                             />
                         ))}
                     </div>
                 </section>
-                <PiquimCatalogFooter />
             </div>
         </div>
     );
@@ -1091,7 +1090,7 @@ function PiquimExactCatalogCard({ card, onClick }) {
                     {card.title}
                 </h2>
                 <div className="inline-flex w-full max-w-[398px] flex-wrap content-center items-center justify-center gap-1.5 overflow-hidden">
-                    {card.tags.map((tag) => (
+                    {(Array.isArray(card.tags) ? card.tags : []).map((tag) => (
                         <span
                             key={`${card.id}-${tag}`}
                             className="flex items-start justify-start overflow-hidden rounded-full bg-white/15 px-2.5 py-[5px] text-[10px] font-medium text-[#FFFAF6] outline outline-1 -outline-offset-1 outline-white"
@@ -1108,7 +1107,7 @@ function PiquimExactCatalogCard({ card, onClick }) {
                     onClick={onClick}
                     className="inline-flex items-center justify-center gap-2 overflow-hidden border-b-2 border-[#FF4D00] pb-1"
                 >
-                    <span className="text-[11px] font-bold text-[#FFFAF6]" style={{ letterSpacing: 0.88 }}>VER CATÁLOGO</span>
+                    <span className="text-[11px] font-bold text-[#FFFAF6]" style={{ letterSpacing: 0.88 }}>{card.buttonLabel || 'VER CATÁLOGO'}</span>
                     <span className="text-sm font-bold text-[#FFFAF6]">→</span>
                 </button>
             </div>
@@ -1775,7 +1774,6 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                     ) : null}
                 </section>
             </main>
-            <PiquimCatalogFooter />
         </div>
     );
 }

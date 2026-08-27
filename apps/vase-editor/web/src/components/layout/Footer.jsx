@@ -215,7 +215,7 @@ export default function Footer() {
                             onClick={() => navigate("/")}
                             className="text-left text-[42px] font-black lowercase leading-none tracking-[-0.08em] text-[#ff4d00]"
                         >
-                            piquim
+                            {branding.logo_url ? <img src={branding.logo_url} alt={brandName} className="h-11 w-auto object-contain" /> : 'piquim'}
                         </button>
                         <p className="max-w-sm text-base font-semibold leading-7 text-[#d7c8bf]">
                             {footerDescription}
