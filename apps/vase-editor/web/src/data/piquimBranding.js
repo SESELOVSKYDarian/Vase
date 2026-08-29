@@ -4,6 +4,7 @@ export const PIQUIM_CATALOG_CARDS = [
         title: 'Heladeria',
         prefix: '01 - Frio que enamora',
         description: 'Materia prima para la elaboracion de helados artesanales, bases estables y terminaciones con sabor propio.',
+        buttonLabel: 'Ver catalogo',
         tags: ['Pulpas', 'Variegattos', 'Bases', 'Neutros'],
         image: '/piquim/catalogo/card-heladeria.png',
         category: 'heladeria',
@@ -15,6 +16,7 @@ export const PIQUIM_CATALOG_CARDS = [
         title: 'Panaderia/Confiteria',
         prefix: '02 - Hornear y decorar',
         description: 'Premezclas, mejoradores, cremas y bases para panaderia, reposteria y confiteria profesional.',
+        buttonLabel: 'Ver catalogo',
         tags: ['Premezclas', 'Mejoradores', 'Cremas', 'DDL'],
         image: '/piquim/catalogo/card-panaderia.png',
         category: 'panaderia',
@@ -44,18 +46,19 @@ export const PIQUIM_FOOTER_DEFAULTS = {
         { label: 'Cambios y devoluciones', href: '/about' },
         { label: 'Preguntas frecuentes', href: '/about' },
     ],
+    accountLinks: [
+        { label: 'Iniciar sesion', href: '/login' },
+        { label: 'Crear cuenta', href: '/signup' },
+        { label: 'Mi perfil', href: '/profile' },
+        { label: 'Favoritos', href: '/profile?section=favorites' },
+    ],
     legalLinks: [
         { label: 'Terminos', href: '/terms' },
         { label: 'Privacidad', href: '/privacy' },
         { label: 'Cookies', href: '/privacy' },
         { label: 'Defensa al consumidor', href: '/about' },
     ],
-    socials: [
-        { label: 'Instagram', short: 'IG', href: '' },
-        { label: 'Facebook', short: 'FB', href: '' },
-        { label: 'YouTube', short: 'YT', href: '' },
-        { label: 'TikTok', short: 'TK', href: '' },
-    ],
+    socialLinks: [],
 };
 
 export const PIQUIM_STOREFRONT_THEME = {

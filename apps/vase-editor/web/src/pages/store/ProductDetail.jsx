@@ -14,7 +14,7 @@ import StoreSkeleton from "../../components/StoreSkeleton";
 import ProductDetailMinimal from "./ProductDetailMinimal";
 import ProductDetailImmersive from "./ProductDetailImmersive";
 import ProductBreadcrumb from "../../components/ProductBreadcrumb";
-import { PIQUIM_SUBCATALOGS } from "../../data/piquimSubcatalogs";
+import { resolveProductCategoryContext } from "../../utils/productCategoryContext";
 import { ArrowRight, Bookmark, ShoppingCart } from "lucide-react";
 
 const FALLBACK_IMAGE = createPlaceholderImage({ label: "Producto", width: 900, height: 900 });
@@ -180,6 +180,7 @@ export default function ProductDetail() {
 
     const [productId, setProductId] = useState(getProductId);
     const [product, setProduct] = useState(null);
+    const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [activeImage, setActiveImage] = useState(0);
@@ -263,6 +264,19 @@ export default function ProductDetail() {
             active = false;
         };
     }, [productId]);
+
+    useEffect(() => {
+        let active = true;
+        fetch(`${getApiBase()}/public/categories`, { headers: getTenantHeaders() })
+            .then((response) => (response.ok ? response.json() : []))
+            .then((data) => {
+                if (active) setCategories(Array.isArray(data) ? data : (data?.items || []));
+            })
+            .catch(() => {
+                if (active) setCategories([]);
+            });
+        return () => { active = false; };
+    }, []);
 
     useEffect(() => {
         let active = true;
@@ -463,11 +477,19 @@ export default function ProductDetail() {
             .filter((item) => item.label && item.value);
     }, [view]);
     const canShowSpecifications = Boolean(view?.showSpecifications && specificationEntries.length);
-    const breadcrumbItems = useMemo(
-        () => (view ? resolveProductBreadcrumb(product, view) : []),
-        [product, view],
+    const categoryContext = useMemo(
+        () => (product ? resolveProductCategoryContext(product, categories) : null),
+        [categories, product],
     );
-    const productKicker = view ? getProductKicker(breadcrumbItems, view.sourceCategoryPath) : "";
+    const breadcrumbItems = useMemo(() => {
+        if (!view || !categoryContext) return [];
+        const hierarchy = categoryContext.breadcrumb.map((label, index) => ({
+            label,
+            href: index === 0 ? '/catalog' : '/catalog',
+        }));
+        return [{ label: 'Productos', href: '/catalog' }, ...hierarchy, { label: view.name }];
+    }, [categoryContext, view]);
+    const productKicker = categoryContext?.kicker || "";
 
     const presentationOptions = useMemo(() => {
         if (!view) return [];

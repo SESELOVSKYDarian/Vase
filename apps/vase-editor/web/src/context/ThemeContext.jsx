@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useTenant } from './TenantContext';
 import { getStorefrontThemePreset, getStorefrontThemeColorTokens } from '../utils/storefrontTheme';
 
@@ -7,7 +7,15 @@ export const ThemeContext = createContext(null);
 export const ThemeProvider = ({ children }) => {
     const { tenant, settings } = useTenant();
     const configuredTheme = settings?.theme || tenant?.theme || {};
-    const mode = configuredTheme?.mode === 'dark' ? 'dark' : 'light';
+    const [localMode, setLocalMode] = useState(() => {
+        try {
+            const saved = window.localStorage.getItem('vase-storefront-theme');
+            if (saved === 'dark' || saved === 'light') return saved;
+            return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : null;
+        } catch { return null; }
+    });
+    const isAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+    const mode = !isAdmin && localMode ? localMode : (configuredTheme?.mode === 'dark' ? 'dark' : 'light');
     const effectiveTheme = useMemo(() => getStorefrontThemePreset(mode, configuredTheme), [configuredTheme, mode]);
 
     useEffect(() => {
@@ -24,11 +32,15 @@ export const ThemeProvider = ({ children }) => {
             document.body.style.colorScheme = mode;
         }
 
-        ['primary', 'accent', 'background', 'text', 'secondary'].forEach((key) => {
+        ['primary', 'accent', 'background', 'text', 'secondary', 'surface', 'surface_secondary', 'surface_elevated', 'border', 'header_bg'].forEach((key) => {
             if (effectiveTheme[key]) {
                 fallbackPalette[key] = effectiveTheme[key];
             }
         });
+        root.style.setProperty('--color-text-muted', effectiveTheme.secondary || '');
+        root.style.setProperty('--color-surface-secondary', effectiveTheme.surface_secondary || '');
+        root.style.setProperty('--color-surface-elevated', effectiveTheme.surface_elevated || '');
+        root.style.setProperty('--color-header-bg', effectiveTheme.header_bg || '');
         if (!fallbackPalette.text && effectiveTheme.secondary) {
             fallbackPalette.text = effectiveTheme.secondary;
         }
@@ -58,12 +70,12 @@ export const ThemeProvider = ({ children }) => {
         }
     }, [effectiveTheme, mode]);
 
-    const noop = () => {
+    const setMode = (nextMode) => {
         try {
-            window.localStorage.removeItem('teflon_storefront_mode');
-        } catch (error) {
-            // Ignore storage failures.
-        }
+            const next = nextMode === 'dark' ? 'dark' : 'light';
+            window.localStorage.setItem('vase-storefront-theme', next);
+            setLocalMode(next);
+        } catch { setLocalMode(nextMode === 'dark' ? 'dark' : 'light'); }
     };
 
     return (
@@ -72,9 +84,12 @@ export const ThemeProvider = ({ children }) => {
                 theme: effectiveTheme,
                 mode,
                 configuredMode: mode,
-                setMode: noop,
-                toggleMode: noop,
-                clearModePreference: noop,
+                setMode,
+                toggleMode: () => setMode(mode === 'dark' ? 'light' : 'dark'),
+                clearModePreference: () => {
+                    try { window.localStorage.removeItem('vase-storefront-theme'); } catch { /* ignore */ }
+                    setLocalMode(null);
+                },
             }}
         >
             {children}

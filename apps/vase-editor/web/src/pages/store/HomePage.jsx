@@ -4,6 +4,7 @@ import StoreLayout from "../../components/layout/StoreLayout";
 import { getApiBase, getAuthHeaders, getTenantHeaders } from "../../utils/api";
 import { useAuth } from "../../context/AuthContext";
 import { createPlaceholderImage } from "../../utils/productImage";
+import StoreSkeleton from "../../components/StoreSkeleton";
 
 import HeroSlider from "../../components/blocks/HeroSlider";
 import BrandMarquee from "../../components/blocks/BrandMarquee";
@@ -81,14 +82,14 @@ export default function HomePage() {
     const { tenant, settings } = useTenant();
     const isPiquim = isPiquimTenantIdentity({ tenant, settings });
     const pageKey = isPiquim ? 'piquim-home' : 'home';
-    const [sections, setSections] = useState(() =>
-        getDefaultSectionsForPage(pageKey)
-    );
+    const [sections, setSections] = useState(null);
+    const [sectionsLoading, setSectionsLoading] = useState(true);
     const [featuredProducts, setFeaturedProducts] = useState([]);
     const [featuredLoaded, setFeaturedLoaded] = useState(false);
 
     useEffect(() => {
-        setSections(getDefaultSectionsForPage(pageKey));
+        setSections(null);
+        setSectionsLoading(true);
     }, [pageKey]);
 
     useEffect(() => {
@@ -99,9 +100,10 @@ export default function HomePage() {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    if (shouldUseFetchedSections(pageKey, data.sections)) {
-                        setSections(mergeSectionsWithDefaults(pageKey, filterSectionsForPage(pageKey, data.sections)));
-                    }
+                    const persisted = Array.isArray(data.sections) ? data.sections : [];
+                    setSections(persisted.length ? persisted : getDefaultSectionsForPage(pageKey));
+                } else {
+                    setSections(getDefaultSectionsForPage(pageKey));
                 }
 
                 const productsRes = await fetch(`${getApiBase()}/public/products?limit=4&featured=true`, {
@@ -115,7 +117,9 @@ export default function HomePage() {
                 }
             } catch (err) {
                 console.error('No se pudo cargar la pagina de inicio', err);
+                setSections(getDefaultSectionsForPage(pageKey));
             } finally {
+                setSectionsLoading(false);
                 setFeaturedLoaded(true);
             }
         }
@@ -142,7 +146,7 @@ export default function HomePage() {
     return (
         <StoreLayout>
             <div className="flex flex-col">
-                {finalSections ? (
+                {sectionsLoading ? <StoreSkeleton variant="home" /> : finalSections ? (
                     <PageBuilder sections={finalSections} />
                 ) : (
                     <>

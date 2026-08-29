@@ -8,12 +8,14 @@ import { useTenant } from '../../context/TenantContext';
 import { normalizeInternalPath } from '../../utils/navigation';
 import { isPiquimTenantIdentity } from '../../utils/tenantBranding';
 import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from '../../utils/seo';
+import StoreFloatingControls from './StoreFloatingControls';
 
-export default function StoreLayout({ children }) {
+export default function StoreLayout({ children, overlay = false }) {
     const { toast } = useStore();
     const { isWholesalePending } = useAuth();
     const { tenant, settings } = useTenant();
     const isPiquim = isPiquimTenantIdentity({ tenant, settings });
+    const isPiquimHome = isPiquim && typeof window !== 'undefined' && normalizeInternalPath(window.location.pathname, '/') === '/';
 
     const defaultNavLinks = [
         { label: 'Inicio', href: '/' },
@@ -145,6 +147,7 @@ export default function StoreLayout({ children }) {
             <Header
                 navLinks={navLinks}
                 isPiquimPreset={isPiquim}
+                overlay={overlay || isPiquimHome}
                 showSearch={navbarConfig.show_search !== false}
                 showWishlist={navbarConfig.show_wishlist !== false}
                 showCart={navbarConfig.show_cart !== false}
@@ -161,6 +164,7 @@ export default function StoreLayout({ children }) {
                 {children}
             </main>
             {isPiquim ? <PiquimFooter /> : <Footer />}
+            <StoreFloatingControls />
         </div>
     );
 }

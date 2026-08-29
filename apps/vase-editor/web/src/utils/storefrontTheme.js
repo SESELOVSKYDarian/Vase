@@ -5,6 +5,11 @@ export const DEFAULT_STOREFRONT_LIGHT_THEME = {
     background: '#fffaf6',
     text: '#1a1614',
     secondary: '#6f625d',
+    surface: '#ffffff',
+    surface_secondary: '#fff3eb',
+    surface_elevated: '#ffffff',
+    border: '#ead8ce',
+    header_bg: 'rgba(255,250,246,0.92)',
     font_family: 'Gilroy, Manrope, sans-serif',
     catalog: {
         panel_bg: '#fff3eb',
@@ -22,6 +27,11 @@ export const DEFAULT_STOREFRONT_DARK_THEME = {
     background: '#071317',
     text: '#ecfeff',
     secondary: '#94a3b8',
+    surface: '#10262d',
+    surface_secondary: '#0b1b21',
+    surface_elevated: '#15323a',
+    border: '#1f3a43',
+    header_bg: 'rgba(7,19,23,0.92)',
     font_family: 'Gilroy, Manrope, sans-serif',
     catalog: {
         panel_bg: '#0b1b21',
