@@ -1897,7 +1897,7 @@ function GroupedFilterTree({ title, groups, selectedGroups, onToggleGroup, selec
     const [expanded, setExpanded] = useState(() => {
         const initial = {};
         (Array.isArray(groups) ? groups : []).forEach((group) => {
-            if (group?.title) initial[group.title] = true;
+            if (group?.title) initial[group.title] = false;
         });
         return initial;
     });
@@ -1914,7 +1914,7 @@ function GroupedFilterTree({ title, groups, selectedGroups, onToggleGroup, selec
             <div className="flex w-full flex-col gap-2">
                 {groups.map((group) => {
                     const groupTitle = group.title;
-                    const isExpanded = expanded[groupTitle] !== false;
+                    const isExpanded = expanded[groupTitle] === true;
                     const categories = Array.isArray(group.categories) ? group.categories : [];
                     const flavors = Array.isArray(group.flavors) ? group.flavors : [];
                     const selectedFlavorCount = flavors.filter((flavor) => selectedFlavors.includes(flavor.name)).length;
