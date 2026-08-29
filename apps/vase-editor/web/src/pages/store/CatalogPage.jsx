@@ -660,11 +660,21 @@ export default function CatalogPage() {
         if (!isPiquimTenant) return [];
         const configured = settings?.branding?.catalog_cards;
         const source = Array.isArray(configured) && configured.length ? configured : PIQUIM_CATALOG_CARDS;
+        const heladeriaDefault = PIQUIM_CATALOG_CARDS.find((card) => card.id === "heladeria") || {};
         const combinedPanaderia = PIQUIM_CATALOG_CARDS.find((card) => card.id === "panaderia") || {};
         return source
             .filter((card) => normalizeCatalogLabel(card?.categorySlug || card?.slug || card?.category || card?.id || card?.title) !== "confiteria")
             .map((card) => {
                 const slug = normalizePiquimCatalogSlug(card?.categorySlug || card?.slug || card?.category || card?.id || card?.title);
+                if (slug === "heladeria") {
+                    return {
+                        ...card,
+                        image: heladeriaDefault.image,
+                        objectPosition: heladeriaDefault.objectPosition,
+                        category: "heladeria",
+                        categorySlug: "heladeria",
+                    };
+                }
                 if (slug !== "panaderia") return card;
                 return {
                     ...card,
@@ -981,7 +991,8 @@ const PIQUIM_EXACT_CARDS = [
         title: 'Heladería',
         tags: ['Estabilizantes', 'Aditivos'],
         description: 'Materia prima para la elaboración de productos de heladería artesanal de altísima calidad.',
-        image: '/piquim/catalogo/card-heladeria.png',
+        image: '/piquim/catalogo/card-heladeria-piquim.jpeg',
+        objectPosition: 'center 42%',
         imageStyle: { width: 566, height: 700, left: -64, top: 0 },
         overlay: 'linear-gradient(180deg, rgba(107, 184, 224, 0.56) 0%, rgba(26, 22, 20, 0.80) 100%)',
         width: 478,
@@ -1073,6 +1084,7 @@ function PiquimExactCatalogCard({ card, onClick }) {
                 src={card.image}
                 alt={card.title}
                 className="absolute inset-0 h-full w-full object-cover"
+                style={{ objectPosition: card.objectPosition || 'center' }}
             />
             <div className="absolute inset-0" style={{ background: card.overlay }} />
             <div className="absolute inset-x-10 bottom-[30px] inline-flex min-h-[290px] flex-col items-center justify-center gap-4 overflow-hidden">
@@ -2298,6 +2310,7 @@ function CatalogFamilySection({ cards, onSelectCard }) {
                                 src={card.image || PIQUIM_CATALOG_CARDS[index]?.image}
                                 alt={card.title || "Catalogo Piquim"}
                                 className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                style={{ objectPosition: card.objectPosition || PIQUIM_CATALOG_CARDS[index]?.objectPosition || "center" }}
                                 loading={index === 0 ? "eager" : "lazy"}
                             />
                             <div
