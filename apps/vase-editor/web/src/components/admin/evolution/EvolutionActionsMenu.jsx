@@ -1,26 +1,45 @@
 import React from 'react';
 import {
+    ArrowClockwise,
+    ArrowCounterClockwise,
     ArrowsOut,
+    Bell,
     Eye,
     FloppyDisk,
     Globe,
     RocketLaunch,
+    Sliders,
 } from '@phosphor-icons/react';
 
 const EvolutionActionsMenu = ({
     open,
     onClose,
     onSave,
+    onUndo,
+    onRedo,
+    onInspector,
+    onNotifications,
     onPreview,
     onPublish,
     onDomains,
     onViewClient,
+    canUndo,
+    canRedo,
+    notificationsCount = 0,
     isSaving,
 }) => {
     if (!open) return null;
 
     const actions = [
         { label: isSaving ? 'Guardando...' : 'Guardar', icon: FloppyDisk, onClick: onSave, disabled: isSaving },
+        { label: 'Deshacer', icon: ArrowCounterClockwise, onClick: onUndo, disabled: !canUndo },
+        { label: 'Rehacer', icon: ArrowClockwise, onClick: onRedo, disabled: !canRedo },
+        { label: 'Inspector', icon: Sliders, onClick: onInspector },
+        {
+            label: notificationsCount > 0 ? `Notificaciones (${notificationsCount})` : 'Notificaciones',
+            icon: Bell,
+            onClick: onNotifications,
+        },
         { label: 'Previsualizar', icon: Eye, onClick: onPreview },
         { label: 'Publicar', icon: RocketLaunch, onClick: onPublish },
         { label: 'Dominios', icon: Globe, onClick: onDomains },

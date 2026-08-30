@@ -7,13 +7,8 @@ import DomainConnectModal from './DomainConnectModal';
 import NotificationsPopover from './NotificationsPopover';
 import EvolutionActionsMenu from './EvolutionActionsMenu';
 import EvolutionCommandDock from './EvolutionCommandDock';
-import EvolutionTenantIdentity from './EvolutionTenantIdentity';
 import {
     MagnifyingGlass as Search,
-    Bell,
-    Globe,
-    ArrowsOut as FocusOn,
-    ArrowsIn as FocusOff,
     CaretDown,
     SignOut,
     Package,
@@ -22,18 +17,7 @@ import {
     CreditCard,
     SquaresFour,
     WarningCircle,
-    ArrowCounterClockwise,
-    ArrowClockwise,
-    FloppyDisk,
-    Sliders,
-    DotsThree,
-    CheckCircle,
 } from '@phosphor-icons/react';
-
-const iconButtonStyle = {
-    backgroundColor: 'transparent',
-    color: 'var(--admin-muted)',
-};
 
 const normalizeSearchValue = (value) =>
     String(value || '')
@@ -60,32 +44,8 @@ const getSearchItemIcon = (kind = '') => {
     }
 };
 
-const MODULE_LABELS = {
-    dashboard: 'Dashboard',
-    home: 'Inicio',
-    about: 'Sobre nosotros',
-    appearance: 'Apariencia',
-    catalog: 'Catalogo',
-    categories: 'Categorias',
-    pricing: 'Ofertas',
-    users: 'Usuarios',
-    customers: 'Usuarios',
-    checkout: 'Checkout',
-    shipping: 'Envios',
-    integrations: 'Integraciones',
-    seo: 'SEO',
-    notifications: 'Notificaciones',
-    tenants: 'Empresas',
-    legacy: 'Editor legacy',
-    design_live: 'Diseno en vivo',
-    catalog_live: 'Catalogo en vivo',
-    media: 'Biblioteca',
-    settings_live: 'Configuracion',
-};
-
 const EvolutionCanvas = ({
     children,
-    branding,
     notificationsManager,
     searchItems = [],
     onUndo,
@@ -104,7 +64,6 @@ const EvolutionCanvas = ({
     const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
     const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(0);
     const profileMenuRef = useRef(null);
-    const notificationsRef = useRef(null);
     const searchRef = useRef(null);
     const actionsMenuRef = useRef(null);
     const { user, logout } = useAuth();
@@ -129,7 +88,6 @@ const EvolutionCanvas = ({
     const isClientFocusMode = isStorefrontEditing && isSidebarCollapsed && !isInspectorOpen;
     const canvasPaddingClass = isLegacy ? 'p-0 pb-14 2xl:pb-0' : (isPageEditing ? 'p-2.5 pb-24 lg:p-3 lg:pb-24' : (isStorefrontEditing ? 'p-2.5 lg:p-3' : 'p-3 pb-14 lg:p-5 2xl:pb-5'));
     const contentWidthClass = isLegacy || isStorefrontEditing ? 'mx-0 max-w-none' : 'mx-auto max-w-7xl';
-    const moduleTitle = MODULE_LABELS[activeModule] || activeModule;
     const profileName = user?.name || user?.email || 'Administrador';
     const profileEmail = user?.email || '';
     const profileRole = user?.role === 'master_admin' ? 'Master admin' : 'Admin';
@@ -167,14 +125,12 @@ const EvolutionCanvas = ({
             if (!profileMenuRef.current?.contains(event.target)) {
                 setIsProfileMenuOpen(false);
             }
-            if (!notificationsRef.current?.contains(event.target)) {
-                setIsNotificationsOpen(false);
-            }
             if (!searchRef.current?.contains(event.target)) {
                 setIsSearchOpen(false);
             }
             if (!actionsMenuRef.current?.contains(event.target)) {
                 setIsActionsMenuOpen(false);
+                setIsNotificationsOpen(false);
             }
         };
 
@@ -262,39 +218,14 @@ const EvolutionCanvas = ({
     return (
         <main className="admin-canvas-surface relative flex flex-1 flex-col overflow-hidden">
             <header className="admin-header-surface sticky top-0 z-40 flex min-h-16 flex-col gap-2 border-b px-3 py-2 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between lg:px-4">
-                <div className="flex min-w-0 items-center gap-3">
-                    <EvolutionTenantIdentity branding={branding} className="hidden xl:flex" />
-                    <div className="hidden h-7 w-px bg-[var(--admin-border-soft)] xl:block" />
-                    <div className="min-w-0">
-                        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-muted-soft)]">Sitio</p>
-                        <p className="truncate text-[13px] font-semibold admin-text-primary">{moduleTitle}</p>
-                    </div>
-                </div>
-
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 gap-y-1 md:gap-2">
-                    {!isStorefrontEditing ? (
-                        <button
-                            type="button"
-                            onClick={toggleClientFocusMode}
-                            style={{
-                                backgroundColor: 'var(--admin-hover)',
-                                borderColor: 'var(--admin-border)',
-                                color: 'var(--admin-text)',
-                            }}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[10px] font-bold uppercase tracking-wider transition-colors hover:opacity-90"
-                        >
-                            {isClientFocusMode ? <FocusOff size={13} weight="bold" /> : <FocusOn size={13} weight="bold" />}
-                            {isClientFocusMode ? 'Editar' : 'Ver cliente'}
-                        </button>
-                    ) : null}
-
-                    <div className="relative hidden 2xl:block" ref={searchRef}>
+                    <div className="relative min-w-0 flex-1" ref={searchRef}>
                         <div
                             style={{
                                 backgroundColor: 'var(--admin-hover)',
                                 borderColor: 'var(--admin-border)',
                             }}
-                            className="flex h-8 w-[220px] xl:w-[280px] items-center rounded-full border px-2.5"
+                            className="flex h-9 w-[min(52vw,34rem)] min-w-0 items-center rounded-full border px-2.5"
                         >
                             <Search className="h-3.5 w-3.5 shrink-0 admin-text-muted" />
                             <input
@@ -361,135 +292,46 @@ const EvolutionCanvas = ({
                         ) : null}
                     </div>
 
-                    <div className={cn('items-center gap-1', isStorefrontEditing ? 'hidden' : 'flex')}>
-                        <button
-                            type="button"
-                            onClick={onUndo}
-                            disabled={!canUndo}
-                            style={iconButtonStyle}
-                            className="admin-hover-surface flex h-8 w-8 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40"
-                            title="Deshacer"
-                        >
-                            <ArrowCounterClockwise className="h-4 w-4" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={onRedo}
-                            disabled={!canRedo}
-                            style={iconButtonStyle}
-                            className="admin-hover-surface flex h-8 w-8 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-40"
-                            title="Rehacer"
-                        >
-                            <ArrowClockwise className="h-4 w-4" />
-                        </button>
-                    </div>
-
-                    {isStorefrontEditing ? (
-                        <span className="hidden items-center gap-1.5 text-[11px] font-medium text-emerald-500 md:inline-flex">
-                            <CheckCircle size={14} weight="bold" />
-                            {isSaving ? 'Guardando...' : 'Guardado'}
-                        </span>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={onSave}
-                            disabled={isSaving}
-                            className="admin-accent-button inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-55"
-                        >
-                            <FloppyDisk size={13} weight="bold" className={cn(isSaving && 'animate-pulse')} />
-                            <span className="hidden sm:inline">{isSaving ? 'Guardando' : 'Guardar'}</span>
-                        </button>
-                    )}
-
-                    <button
-                        type="button"
-                        onClick={() => setInspectorOpen(true)}
-                        style={{
-                            backgroundColor: 'var(--admin-hover)',
-                            borderColor: 'var(--admin-border)',
-                            color: 'var(--admin-text)',
-                        }}
-                        className={cn(
-                            'inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:opacity-90 2xl:hidden',
-                            isInspectorOpen && 'hidden'
-                        )}
-                    >
-                        <Sliders size={13} weight="bold" />
-                        <span className="hidden sm:inline">Inspector</span>
-                    </button>
-
-                    {!isStorefrontEditing ? (
-                        <button
-                            type="button"
-                            onClick={() => openDomainCenter('domains')}
-                            style={{
-                                backgroundColor: 'var(--admin-hover)',
-                                borderColor: 'var(--admin-border)',
-                                color: 'var(--admin-text)',
-                            }}
-                            className="hidden 2xl:inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:opacity-90"
-                        >
-                            <Globe size={13} weight="bold" />
-                            Dominios
-                        </button>
-                    ) : null}
-
-                    {isStorefrontEditing ? (
                         <div className="relative" ref={actionsMenuRef}>
                             <button
                                 type="button"
-                                aria-label="Más acciones"
+                                aria-label="Mas acciones"
                                 aria-expanded={isActionsMenuOpen}
                                 onClick={() => setIsActionsMenuOpen((current) => !current)}
-                                className="admin-hover-surface flex size-8 items-center justify-center rounded-full border border-[var(--admin-border)] admin-text-muted"
+                                className="admin-hover-surface flex h-9 items-center gap-1.5 rounded-full border border-[var(--admin-border)] px-3 text-[11px] font-semibold admin-text-primary"
                             >
-                                <DotsThree size={18} weight="bold" />
+                                <span className="hidden sm:inline">Mas</span>
+                                <CaretDown size={13} weight="bold" className={cn('transition-transform', isActionsMenuOpen && 'rotate-180')} />
                             </button>
                             <EvolutionActionsMenu
                                 open={isActionsMenuOpen}
                                 onClose={() => setIsActionsMenuOpen(false)}
                                 onSave={onSave}
+                                onUndo={onUndo}
+                                onRedo={onRedo}
+                                onInspector={() => setInspectorOpen(true)}
+                                onNotifications={() => {
+                                    setIsNotificationsOpen(true);
+                                    notificationsManager?.refresh?.();
+                                }}
                                 onPreview={openPreview}
                                 onPublish={() => openDomainCenter('publish')}
                                 onDomains={() => openDomainCenter('domains')}
                                 onViewClient={toggleClientFocusMode}
+                                canUndo={canUndo}
+                                canRedo={canRedo}
+                                notificationsCount={notificationsCount}
                                 isSaving={isSaving}
                             />
-                        </div>
-                    ) : null}
 
-                    <div className="relative" ref={notificationsRef}>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const nextOpen = !isNotificationsOpen;
-                                setIsNotificationsOpen(nextOpen);
-                                if (nextOpen) {
-                                    notificationsManager?.refresh?.();
-                                }
-                            }}
-                            style={iconButtonStyle}
-                            className="admin-hover-surface relative flex h-8 w-8 items-center justify-center rounded-full"
-                        >
-                            <Bell className="h-4 w-4" />
-                            {notificationsCount > 0 ? (
-                                <span
-                                    className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                                    style={{ backgroundColor: 'var(--admin-accent)', boxShadow: '0 0 12px var(--admin-shadow)' }}
-                                >
-                                    {notificationsCount > 9 ? '9+' : notificationsCount}
-                                </span>
+                            {isNotificationsOpen ? (
+                                <NotificationsPopover
+                                    manager={notificationsManager}
+                                    onOpenCenter={openNotificationsCenter}
+                                    onClose={() => setIsNotificationsOpen(false)}
+                                />
                             ) : null}
-                        </button>
-
-                        {isNotificationsOpen ? (
-                            <NotificationsPopover
-                                manager={notificationsManager}
-                                onOpenCenter={openNotificationsCenter}
-                                onClose={() => setIsNotificationsOpen(false)}
-                            />
-                        ) : null}
-                    </div>
+                        </div>
 
                     <div className="relative" ref={profileMenuRef}>
                         <button

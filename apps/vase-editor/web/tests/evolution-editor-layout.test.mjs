@@ -73,3 +73,24 @@ test('el selector responsive usa un viewport real y conserva las acciones avanza
     assert.match(actions, /Previsualizar/);
     assert.match(actions, /Publicar/);
 });
+
+test('la barra superior deja busqueda, mas y perfil y concentra las acciones', async () => {
+    const [canvas, actions] = await Promise.all([
+        read('../src/components/admin/evolution/EvolutionCanvas.jsx'),
+        read('../src/components/admin/evolution/EvolutionActionsMenu.jsx'),
+    ]);
+
+    assert.doesNotMatch(canvas, /<EvolutionTenantIdentity/);
+    assert.doesNotMatch(canvas, /<CheckCircle/);
+    assert.doesNotMatch(canvas, /onClick=\{onSave\}/);
+    assert.match(canvas, /aria-label="Mas acciones"/);
+    assert.match(canvas, /onUndo=\{onUndo\}/);
+    assert.match(canvas, /onNotifications=/);
+
+    for (const label of [
+        'Guardar', 'Deshacer', 'Rehacer', 'Inspector', 'Notificaciones',
+        'Ver cliente', 'Previsualizar', 'Publicar', 'Dominios',
+    ]) {
+        assert.match(actions, new RegExp(label));
+    }
+});
