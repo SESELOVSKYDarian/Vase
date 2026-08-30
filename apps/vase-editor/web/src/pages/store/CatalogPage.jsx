@@ -1014,8 +1014,8 @@ const PIQUIM_EXACT_CARDS = [
 
 function PiquimCatalogLanding({ cards, onSelectCard }) {
     return (
-        <div className="min-h-screen bg-[#FFFAF6] font-[Inter] text-[#1A1614]">
-            <div className="w-full overflow-hidden bg-[#FFFAF6]">
+        <div className="min-h-screen bg-[var(--store-background)] font-[Inter] text-[var(--store-text)] transition-colors duration-300">
+            <div className="w-full overflow-hidden bg-[var(--store-background)]">
                 <section className="w-full overflow-hidden">
                     <div className="grid min-h-[100svh] w-full grid-cols-1 items-stretch gap-0.5 overflow-hidden bg-[#FF4D00] lg:grid-cols-2">
                         {(Array.isArray(cards) && cards.length ? cards : PIQUIM_CATALOG_CARDS).slice(0, 2).map((card) => (
@@ -1604,8 +1604,8 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
     };
 
     return (
-        <div className="min-h-screen bg-[#FFFAF6] font-[Inter] text-[#1A1614]">
-            <main className="flex w-full items-start justify-center gap-0 bg-[#FFFAF6] px-[60px] pb-10 pt-[104px] max-lg:flex-col max-lg:px-5 max-md:pt-[86px]">
+        <div className="min-h-screen bg-[var(--store-background)] font-[Inter] text-[var(--store-text)] transition-colors duration-300">
+            <main className="flex w-full items-start justify-center gap-0 bg-[var(--store-background)] px-[60px] pb-10 pt-[104px] max-lg:flex-col max-lg:px-5 max-md:pt-[86px]">
                 <PiquimSubcatalogSidebar
                     catalog={resolvedCatalog}
                     labels={labels}
@@ -1626,12 +1626,12 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                     stockOnly={stockOnly}
                     onStockChange={handleStockChange}
                 />
-                <section className="flex flex-1 flex-col items-start justify-start gap-[30px] overflow-hidden bg-[#FFFAF6] px-[60px] py-[30px] max-xl:px-8 max-lg:w-full max-md:px-0">
+                <section className="flex flex-1 flex-col items-start justify-start gap-[30px] overflow-hidden bg-[var(--store-background)] px-[60px] py-[30px] max-xl:px-8 max-lg:w-full max-md:px-0">
                     <header ref={catalogTopRef} className="inline-flex w-full scroll-mt-24 items-end justify-between overflow-hidden">
                         <div className="inline-flex flex-col items-start justify-start gap-4 overflow-hidden">
                             <h1 className="text-[56px] font-black leading-[56px] max-md:text-[40px] max-md:leading-[42px]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
-                                <span className="text-[#1A1614]">{catalog.headingBase} </span>
-                                <span className="italic text-[#FF4D00]">{catalog.headingAccent}</span>
+                                <span className="text-[var(--store-text)]">{catalog.headingBase} </span>
+                                <span className="italic text-[var(--store-primary)]">{catalog.headingAccent}</span>
                             </h1>
                         </div>
                     </header>
@@ -1641,13 +1641,13 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                     ) : null}
 
                     {loading && normalizedProducts.length ? (
-                        <div className="h-1 w-full overflow-hidden rounded-full bg-[#FFE6D6]" role="status" aria-label="Actualizando productos">
-                            <div className="h-full w-1/3 animate-pulse rounded-full bg-[#FF4D00]" />
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--store-surface-soft)]" role="status" aria-label="Actualizando productos">
+                            <div className="h-full w-1/3 animate-pulse rounded-full bg-[var(--store-primary)]" />
                         </div>
                     ) : null}
 
                     {loadError ? (
-                        <div className="flex w-full flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#FFB98A] bg-[#FFF1E6] px-5 py-4 text-sm text-[#7A3510]" role="alert">
+                        <div className="flex w-full flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--store-primary)]/50 bg-[var(--store-surface-soft)] px-5 py-4 text-sm text-[var(--store-text)]" role="alert">
                             <span>{normalizedProducts.length ? "No se pudieron cargar algunos productos" : "No se pudieron cargar los productos"}</span>
                             <button type="button" onClick={onRetry} className="rounded-full bg-[#FF4D00] px-4 py-2 font-bold text-white transition hover:bg-[#E04400]">
                                 Reintentar
@@ -1656,7 +1656,7 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                     ) : null}
 
                     {!loading && !loadError && !sections.length ? (
-                        <div className="rounded-2xl border border-[#E8DFD8] bg-white p-6 text-sm text-[#6B7280]">
+                        <div className="rounded-2xl border border-[var(--store-border)] bg-[var(--store-card-bg)] p-6 text-sm text-[var(--store-muted-text)]">
                             No encontramos productos con esos filtros.
                         </div>
                     ) : null}
@@ -1670,23 +1670,23 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                                     <button
                                         type="button"
                                         onClick={() => setExpandedSections((prev) => ({ ...prev, [section.title]: prev[section.title] === false }))}
-                                        className="flex w-full items-center justify-between gap-4 border-b border-[#E8DFD8] pb-4 text-left"
+                                        className="flex w-full items-center justify-between gap-4 border-b border-[var(--store-border)] pb-4 text-left"
                                         aria-expanded={expanded}
                                     >
                                         <span className="flex min-w-0 flex-col gap-1">
-                                            <span className="text-4xl font-bold leading-9 text-[#1A1614]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
+                                            <span className="text-4xl font-bold leading-9 text-[var(--store-text)]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
                                                 {section.title}
                                             </span>
-                                            <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#8A7560]">
+                                            <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--store-muted-text)]">
                                                 {section.products.length} {section.products.length === 1 ? 'producto' : 'productos'}
                                             </span>
                                         </span>
-                                        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#FF4D00] text-white transition-transform duration-300" style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                                        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--store-primary)] text-white transition-transform duration-300" style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                                             <ChevronDownSmallIcon className="size-5" />
                                         </span>
                                     </button>
                                 ) : (
-                                    <h2 className="text-4xl font-bold leading-9 text-[#1A1614]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
+                                    <h2 className="text-4xl font-bold leading-9 text-[var(--store-text)]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
                                         {section.title}
                                     </h2>
                                 )}
@@ -1739,10 +1739,10 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
 
                     {paginatedProducts.totalPages > 1 ? (
                         <nav aria-label="Paginacion del catalogo">
-                            <div className="mb-3 text-center text-sm font-semibold text-[#8A7560]">
+                            <div className="mb-3 text-center text-sm font-semibold text-[var(--store-muted-text)]">
                                 {visibleRangeStart}-{visibleRangeEnd} de {paginatedProducts.totalItems} productos
                             </div>
-                            <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-[#E8DFD8] bg-white/70 p-2 shadow-sm">
+                            <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-[var(--store-border)] bg-[var(--store-surface)] p-2 shadow-sm">
                                 <PaginationButton
                                     label="Anterior"
                                     onClick={() => handleCatalogPageChange(paginatedProducts.currentPage - 1)}
@@ -1752,7 +1752,7 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                                 {paginationItems.map((paginationItem, index) => {
                                     if (paginationItem === "ellipsis") {
                                         return (
-                                            <span key={`piquim-ellipsis-${index}`} className="px-2 text-sm font-bold text-[#8A7560]" aria-hidden="true">
+                                            <span key={`piquim-ellipsis-${index}`} className="px-2 text-sm font-bold text-[var(--store-muted-text)]" aria-hidden="true">
                                                 ...
                                             </span>
                                         );
@@ -1765,8 +1765,8 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                                             type="button"
                                             onClick={() => handleCatalogPageChange(pageNumber)}
                                             className={`min-w-[42px] rounded-xl px-4 py-2 text-sm font-bold transition-all ${pageNumber === paginatedProducts.currentPage
-                                                ? "bg-[#FF4D00] text-white"
-                                                : "border border-transparent text-[#1A1614] hover:border-[#FF4D00]/30 hover:bg-[#FF4D00]/10 hover:text-[#FF4D00]"
+                                                ? "bg-[var(--store-primary)] text-white"
+                                                : "border border-transparent text-[var(--store-text)] hover:border-[var(--store-primary)] hover:bg-[var(--store-surface-soft)] hover:text-[var(--store-primary)]"
                                                 }`}
                                             aria-label={`Pagina ${pageNumber}`}
                                             aria-current={pageNumber === paginatedProducts.currentPage ? "page" : undefined}
@@ -1793,14 +1793,14 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
 function PiquimProductsLoadingState() {
     return (
         <div className="w-full" role="status" aria-live="polite">
-            <p className="mb-4 text-sm font-semibold text-[#A04100]">Cargando productos...</p>
+            <p className="mb-4 text-sm font-semibold text-[var(--store-primary)]">Cargando productos...</p>
             <div className="grid w-full grid-cols-[repeat(auto-fill,minmax(282px,1fr))] gap-6">
                 {Array.from({ length: 6 }).map((_, index) => (
-                    <div key={`piquim-loading-${index}`} className="h-[390px] animate-pulse rounded-3xl border border-[#E8DFD8] bg-white">
-                        <div className="h-64 rounded-t-3xl bg-[#F3EAE3]" />
+                    <div key={`piquim-loading-${index}`} className="h-[390px] animate-pulse rounded-3xl border border-[var(--store-border)] bg-[var(--store-card-bg)]">
+                        <div className="h-64 rounded-t-3xl bg-[var(--store-surface-soft)]" />
                         <div className="space-y-3 p-5">
-                            <div className="h-4 w-2/3 rounded bg-[#F3EAE3]" />
-                            <div className="h-3 w-1/2 rounded bg-[#F3EAE3]" />
+                            <div className="h-4 w-2/3 rounded bg-[var(--store-surface-soft)]" />
+                            <div className="h-3 w-1/2 rounded bg-[var(--store-surface-soft)]" />
                         </div>
                     </div>
                 ))}
@@ -1840,13 +1840,13 @@ function PiquimSubcatalogSidebar({
     const usesGroupedFilters = Array.isArray(catalog?.productGroups) && catalog.productGroups.length > 0;
 
     return (
-        <aside className="flex min-h-[1850px] w-64 shrink-0 flex-col items-start justify-start gap-2 overflow-hidden rounded-xl border-r border-[#FFDCC1] bg-[#FFD7B6] p-6 shadow-sm max-lg:min-h-0 max-lg:w-full">
+        <aside className="flex min-h-[1850px] w-64 shrink-0 flex-col items-start justify-start gap-2 overflow-hidden rounded-xl border border-[var(--store-border)] bg-[var(--store-panel-bg)] p-6 shadow-sm max-lg:min-h-0 max-lg:w-full">
             <div className="flex w-full flex-col items-start justify-start gap-2">
                 <div className="flex w-full flex-col items-start justify-start pb-6">
-                    <h2 className="flex w-full flex-col justify-center text-2xl font-bold leading-8 text-[#A04100]" style={{ fontFamily: 'Epilogue, Gilroy, sans-serif' }}>
+                    <h2 className="flex w-full flex-col justify-center text-2xl font-bold leading-8 text-[var(--store-primary)]" style={{ fontFamily: 'Epilogue, Gilroy, sans-serif' }}>
                         {titleLabel}
                     </h2>
-                    <p className="mt-1 whitespace-pre-line text-sm font-normal leading-5 text-[#5A4136]" style={{ fontFamily: 'Work Sans, Inter, sans-serif' }}>
+                    <p className="mt-1 whitespace-pre-line text-sm font-normal leading-5 text-[var(--store-secondary)]" style={{ fontFamily: 'Work Sans, Inter, sans-serif' }}>
                         {subtitleLabel}
                     </p>
                 </div>
@@ -1858,9 +1858,9 @@ function PiquimSubcatalogSidebar({
                             onChange={(event) => onQueryChange(event.target.value)}
                             onBlur={() => onSearchCommit(query)}
                             placeholder={searchPlaceholder}
-                            className="w-full rounded-lg bg-[#FFEDDE] py-2.5 pl-3 pr-8 text-sm text-[#6B7280] outline-none ring-0"
+                            className="w-full rounded-lg border border-[var(--store-border)] bg-[var(--store-input-bg)] py-2.5 pl-3 pr-8 text-sm text-[var(--store-text)] outline-none placeholder:text-[var(--store-muted-text)] focus:border-[var(--store-primary)]"
                         />
-                        <SearchIcon className="absolute right-2 top-2.5 size-5 text-[#A04100]" />
+                        <SearchIcon className="absolute right-2 top-2.5 size-5 text-[var(--store-primary)]" />
                     </div>
                 </div>
 
@@ -1887,7 +1887,7 @@ function PiquimSubcatalogSidebar({
 
                 <label className="inline-flex w-full items-center justify-start gap-2 pb-4">
                     <input type="checkbox" checked={stockOnly} onChange={(event) => onStockChange(event.target.checked)} />
-                    <span className="text-sm font-normal leading-5 text-[#5A4136]">{stockLabel}</span>
+                    <span className="text-sm font-normal leading-5 text-[var(--store-secondary)]">{stockLabel}</span>
                 </label>
             </div>
         </aside>
@@ -1909,8 +1909,8 @@ function GroupedFilterTree({ title, groups, selectedGroups, onToggleGroup, selec
     return (
         <div className="w-full pb-6">
             <div className="mb-3 inline-flex w-full items-center justify-start gap-2">
-                <FilterDotIcon className="size-4 text-[#A04100]" />
-                <h3 className="text-sm font-semibold leading-[16.8px] text-[#A04100]">{title}</h3>
+                <FilterDotIcon className="size-4 text-[var(--store-primary)]" />
+                <h3 className="text-sm font-semibold leading-[16.8px] text-[var(--store-primary)]">{title}</h3>
             </div>
             <div className="flex w-full flex-col gap-2">
                 {groups.map((group) => {
@@ -1921,7 +1921,7 @@ function GroupedFilterTree({ title, groups, selectedGroups, onToggleGroup, selec
                     const selectedFlavorCount = flavors.filter((flavor) => selectedFlavors.includes(flavor.name)).length;
 
                     return (
-                        <div key={`filter-group-${groupTitle}`} className="rounded-xl bg-[#FFEDDE]/70 p-2">
+                        <div key={`filter-group-${groupTitle}`} className="rounded-xl border border-[var(--store-border)] bg-[var(--store-surface-soft)] p-2">
                             <div className="flex items-center justify-between gap-2">
                                 <label className="inline-flex min-w-0 flex-1 items-center gap-2">
                                     <input
@@ -1929,12 +1929,12 @@ function GroupedFilterTree({ title, groups, selectedGroups, onToggleGroup, selec
                                         checked={selectedGroups.includes(groupTitle)}
                                         onChange={() => onToggleGroup(groupTitle)}
                                     />
-                                    <span className="truncate text-sm font-semibold leading-5 text-[#5A4136]">{groupTitle}</span>
+                                    <span className="truncate text-sm font-semibold leading-5 text-[var(--store-text)]">{groupTitle}</span>
                                 </label>
                                 <button
                                     type="button"
                                     onClick={() => setExpanded((prev) => ({ ...prev, [groupTitle]: prev[groupTitle] === false }))}
-                                    className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/70 text-[#A04100] transition-transform"
+                                    className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--store-surface-elevated)] text-[var(--store-primary)] transition-transform"
                                     aria-label={`${isExpanded ? 'Cerrar' : 'Abrir'} ${groupTitle}`}
                                     aria-expanded={isExpanded}
                                 >
@@ -1942,7 +1942,7 @@ function GroupedFilterTree({ title, groups, selectedGroups, onToggleGroup, selec
                                 </button>
                             </div>
                             {isExpanded && categories.length ? (
-                                <div className="mt-2 flex flex-col gap-2 border-l border-[#FFC89E] pl-5">
+                                <div className="mt-2 flex flex-col gap-2 border-l border-[var(--store-border)] pl-5">
                                     {categories.map((category) => (
                                         <label key={`filter-category-${groupTitle}-${category.title}`} className="inline-flex w-full items-center justify-start gap-2">
                                             <input
@@ -1950,7 +1950,7 @@ function GroupedFilterTree({ title, groups, selectedGroups, onToggleGroup, selec
                                                 checked={selectedCategories.includes(category.title)}
                                                 onChange={() => onToggleCategory(category.title)}
                                             />
-                                            <span className="text-sm font-normal leading-5 text-[#5A4136]">{category.title}</span>
+                                            <span className="text-sm font-normal leading-5 text-[var(--store-secondary)]">{category.title}</span>
                                         </label>
                                     ))}
                                     {flavors.length ? (
@@ -1987,18 +1987,18 @@ function FlavorSelectionModal({ group, selectedFlavors, onToggleFlavor, onClose 
 
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 px-4 py-6" role="dialog" aria-modal="true" aria-label={`Seleccionar sabores de ${group?.title || ''}`}>
-            <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-[#FFFAF6] shadow-2xl">
-                <div className="flex items-start justify-between gap-4 border-b border-[#E8DFD8] px-6 py-5">
+            <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-[var(--store-border)] bg-[var(--store-surface)] text-[var(--store-text)] shadow-2xl">
+                <div className="flex items-start justify-between gap-4 border-b border-[var(--store-border)] px-6 py-5">
                     <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#FF4D00]">Selector profesional</p>
-                        <h3 className="mt-1 text-3xl font-black text-[#1A1614]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--store-primary)]">Selector profesional</p>
+                        <h3 className="mt-1 text-3xl font-black text-[var(--store-text)]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
                             {group?.title}
                         </h3>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex size-10 items-center justify-center rounded-full bg-[#FFEDDE] text-[#A04100] hover:bg-[#FFD7B6]"
+                        className="flex size-10 items-center justify-center rounded-full bg-[var(--store-surface-soft)] text-[var(--store-primary)] hover:bg-[var(--store-surface-elevated)]"
                         aria-label="Cerrar selector"
                     >
                         <CloseIcon className="size-5" />
@@ -2014,19 +2014,19 @@ function FlavorSelectionModal({ group, selectedFlavors, onToggleFlavor, onClose 
                                 onClick={() => onToggleFlavor(flavor.name)}
                                 className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${
                                     selected
-                                        ? 'border-[#FF4D00] bg-[#FFEDDE] shadow-[0_10px_26px_rgba(255,77,0,0.14)]'
-                                        : 'border-[#E8DFD8] bg-white hover:border-[#FFB27D]'
+                                        ? 'border-[var(--store-primary)] bg-[var(--store-surface-soft)] shadow-[0_10px_26px_rgba(255,77,0,0.14)]'
+                                        : 'border-[var(--store-border)] bg-[var(--store-card-bg)] hover:border-[var(--store-primary)]'
                                 }`}
                             >
                                 <span className="size-5 shrink-0 rounded-full border border-black/10" style={{ backgroundColor: flavor.color || '#E8DFD8' }} />
-                                <span className="min-w-0 flex-1 text-sm font-bold text-[#1A1614]">{flavor.name}</span>
+                                <span className="min-w-0 flex-1 text-sm font-bold text-[var(--store-text)]">{flavor.name}</span>
                                 {selected ? <CheckIcon className="size-4 shrink-0 text-[#FF4D00]" /> : null}
                             </button>
                         );
                     })}
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E8DFD8] px-6 py-4">
-                    <p className="text-xs font-semibold text-[#8A7560]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--store-border)] px-6 py-4">
+                    <p className="text-xs font-semibold text-[var(--store-muted-text)]">
                         {selectedFlavors.length} {selectedFlavors.length === 1 ? 'sabor seleccionado' : 'sabores seleccionados'}
                     </p>
                     <button
@@ -2048,8 +2048,8 @@ function SuggestionGroup({ title, items, onPick }) {
     return (
         <div className="w-full pb-4">
             <div className="mb-2 inline-flex w-full items-center justify-start gap-2">
-                <FilterDotIcon className="size-4 text-[#A04100]" />
-                <h3 className="text-sm font-semibold leading-[16.8px] text-[#A04100]">{title}</h3>
+                <FilterDotIcon className="size-4 text-[var(--store-primary)]" />
+                <h3 className="text-sm font-semibold leading-[16.8px] text-[var(--store-primary)]">{title}</h3>
             </div>
             <div className="flex flex-wrap gap-2">
                 {items.map((item) => (
@@ -2057,7 +2057,7 @@ function SuggestionGroup({ title, items, onPick }) {
                         key={`${title}-${item}`}
                         type="button"
                         onClick={() => onPick(item)}
-                        className="rounded-full bg-[#FFEDDE] px-2.5 py-1 text-xs text-[#5A4136] hover:bg-white"
+                        className="rounded-full border border-[var(--store-border)] bg-[var(--store-surface-soft)] px-2.5 py-1 text-xs text-[var(--store-secondary)] hover:border-[var(--store-primary)] hover:text-[var(--store-text)]"
                     >
                         {item}
                     </button>
@@ -2072,14 +2072,14 @@ function FilterGroup({ title, options, selected, onToggle }) {
     return (
         <div className="w-full pb-6">
             <div className="mb-3 inline-flex w-full items-center justify-start gap-2">
-                <FilterDotIcon className="size-4 text-[#A04100]" />
-                <h3 className="text-sm font-semibold leading-[16.8px] text-[#A04100]">{title}</h3>
+                <FilterDotIcon className="size-4 text-[var(--store-primary)]" />
+                <h3 className="text-sm font-semibold leading-[16.8px] text-[var(--store-primary)]">{title}</h3>
             </div>
             <div className="flex w-full flex-col items-start justify-start gap-2">
                 {options.map((item) => (
                     <label key={`${title}-${item}`} className="inline-flex w-full items-center justify-start gap-2">
                         <input type="checkbox" checked={selected.includes(item)} onChange={() => onToggle(item)} />
-                        <span className="text-sm font-normal leading-5 text-[#5A4136]">{item}</span>
+                        <span className="text-sm font-normal leading-5 text-[var(--store-secondary)]">{item}</span>
                     </label>
                 ))}
             </div>
@@ -2135,7 +2135,7 @@ function PiquimSubcatalogProductCard({ product, accent, mediaGradient, icon, cur
             aria-label={`Ver detalle de ${product.name}`}
             onClick={openProduct}
             onKeyDown={handleCardKeyDown}
-            className="group flex h-[400px] min-w-[282px] cursor-pointer flex-col items-start justify-start overflow-hidden rounded-[18px] bg-white outline outline-1 -outline-offset-1 outline-[#E8DFD8] transition-all duration-300 hover:-translate-y-1.5 hover:outline-[#FF4D00] hover:shadow-[0_18px_46px_rgba(255,77,0,0.16)] focus-visible:outline-2 focus-visible:outline-[#FF4D00]"
+            className="group flex h-[400px] min-w-[282px] cursor-pointer flex-col items-start justify-start overflow-hidden rounded-[18px] bg-[var(--store-card-bg)] outline outline-1 -outline-offset-1 outline-[var(--store-border)] transition-all duration-300 hover:-translate-y-1.5 hover:outline-[var(--store-primary)] hover:shadow-[0_18px_46px_rgba(255,77,0,0.16)] focus-visible:outline-2 focus-visible:outline-[var(--store-primary)]"
         >
             <div className="relative h-[220px] w-full overflow-hidden" style={{ background: mediaGradient }}>
                 {product.badge ? (
@@ -2153,8 +2153,8 @@ function PiquimSubcatalogProductCard({ product, accent, mediaGradient, icon, cur
                     onClick={handleFavoriteClick}
                     aria-label={favorite ? "Quitar de favoritos" : "Agregar a favoritos"}
                     aria-pressed={favorite}
-                    className={`absolute right-4 top-4 flex size-10 items-center justify-center rounded-full text-[#1A1614] transition-all hover:scale-105 ${
-                        favorite ? "bg-[#FF4D00] text-white" : "bg-white/85 hover:bg-white"
+                    className={`absolute right-4 top-4 flex size-10 items-center justify-center rounded-full text-[var(--store-text)] transition-all hover:scale-105 ${
+                        favorite ? "bg-[var(--store-primary)] text-white" : "bg-[var(--store-surface)]/90 hover:bg-[var(--store-surface-elevated)]"
                     }`}
                 >
                     <HeartIcon className="size-5" />
@@ -2169,35 +2169,35 @@ function PiquimSubcatalogProductCard({ product, accent, mediaGradient, icon, cur
                 ) : (
                     <ProductDisplayIcon type={icon} className="absolute left-1/2 top-12 h-[138px] w-[86px] -translate-x-1/2 transition-transform duration-500 group-hover:scale-105" accent={accent} />
                 )}
-                <div className="absolute bottom-[17px] right-6 inline-flex h-[35px] min-w-[44px] items-center justify-center gap-[10px] rounded-[15px] bg-white px-3 py-2.5">
+                <div className="absolute bottom-[17px] right-6 inline-flex h-[35px] min-w-[44px] items-center justify-center gap-[10px] rounded-[15px] bg-[var(--store-surface)] px-3 py-2.5 shadow-sm">
                     {showCold ? <Snowflake className="size-4" style={{ color: accent }} /> : null}
                     {showHot ? <Flame className="size-4 text-[#FF4D00]" /> : null}
                 </div>
             </div>
             <div className="flex w-full flex-col items-start justify-start gap-1.5 overflow-hidden p-[18px]">
-                <p className="line-clamp-1 text-[10px] font-bold uppercase text-[#8A7560]" style={{ fontFamily: 'Gilroy, sans-serif', letterSpacing: 1.2 }}>
+                <p className="line-clamp-1 text-[10px] font-bold uppercase text-[var(--store-muted-text)]" style={{ fontFamily: 'Gilroy, sans-serif', letterSpacing: 1.2 }}>
                     {product.breadcrumbLabel || `${product.category} › ${product.subtype}`}
                 </p>
-                <h3 className="text-base font-bold leading-[20.8px] text-[#1A1614]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
+                <h3 className="text-base font-bold leading-[20.8px] text-[var(--store-text)]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
                     {product.name}
                 </h3>
                 <div className="flex min-h-5 items-center gap-2">
                     {product.flavorColor ? (
                         <span className="size-3 rounded-full border border-black/10" style={{ backgroundColor: product.flavorColor }} />
                     ) : null}
-                    <p className="line-clamp-1 text-xs font-normal text-[#B5ADA8]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
+                    <p className="line-clamp-1 text-xs font-normal text-[var(--store-muted-text)]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
                         {product.flavorTitle || product.subtype}
                     </p>
                 </div>
                 <div className="h-2 w-px" />
                 <div className="inline-flex w-full items-center justify-between overflow-hidden">
-                    <p className="text-xl font-black text-[#1A1614]">{formatCurrency(product.priceValue || 0, currency || "ARS", locale || "es-AR")}</p>
+                    <p className="text-xl font-black text-[var(--store-text)]">{formatCurrency(product.priceValue || 0, currency || "ARS", locale || "es-AR")}</p>
                     <button
                         type="button"
                         onClick={handleAddToCart}
                         disabled={!inStock}
                         aria-label={inStock ? "Agregar al carrito" : "Sin stock"}
-                        className="flex size-9 items-center justify-center rounded-full bg-[#FF4D00] text-white transition-all hover:scale-105 hover:shadow-[0_10px_22px_rgba(255,77,0,0.28)] disabled:cursor-not-allowed disabled:bg-[#D8CCC5] disabled:text-[#8A7560]"
+                        className="flex size-9 items-center justify-center rounded-full bg-[var(--store-primary)] text-white transition-all hover:scale-105 hover:shadow-[0_10px_22px_rgba(255,77,0,0.28)] disabled:cursor-not-allowed disabled:bg-[var(--store-surface-elevated)] disabled:text-[var(--store-muted-text)]"
                     >
                         <CartPlusIcon className="size-5" />
                     </button>

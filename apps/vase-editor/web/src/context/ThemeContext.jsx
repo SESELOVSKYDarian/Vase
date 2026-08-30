@@ -47,6 +47,13 @@ export const ThemeProvider = ({ children }) => {
 
         const colors = { ...fallbackPalette, ...palette };
 
+        const storefrontTokens = getStorefrontThemeColorTokens(effectiveTheme, mode);
+        Object.entries(storefrontTokens).forEach(([key, value]) => {
+            if (typeof value === 'string' && value) {
+                root.style.setProperty(`--store-${key.replace(/_/g, '-')}`, value);
+            }
+        });
+
         Object.entries(colors).forEach(([key, value]) => {
             if (typeof value === 'string') {
                 root.style.setProperty(`--color-${key}`, value);

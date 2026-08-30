@@ -549,11 +549,11 @@ export default function Header({
       <>
       <header className={`${overlay ? "absolute" : "fixed"} left-0 right-0 top-0 z-50 w-full font-[var(--font-family)]`}>
         <div className="w-full px-[60px] py-[18px] max-md:px-4">
-          <div className="relative flex min-h-[68px] items-center justify-between gap-3 overflow-visible rounded-[30px] bg-[linear-gradient(90deg,rgba(255,191,140,0.74)_0%,rgba(255,239,232,0.62)_48%,rgba(255,191,140,0.74)_100%)] px-[60px] py-[18px] shadow-[0_18px_60px_rgba(255,77,0,0.12)] outline outline-1 -outline-offset-1 outline-[#E8DFD8]/90 backdrop-blur-2xl max-md:px-5">
+          <div className="relative flex min-h-[68px] items-center justify-between gap-3 overflow-visible rounded-[30px] border border-[var(--store-border)] bg-[var(--store-header-bg)] px-[60px] py-[18px] shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition-colors duration-300 max-md:px-5">
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="flex shrink-0 items-center gap-3 text-[#ff4d00]"
+              className="flex shrink-0 items-center gap-3 text-[var(--store-primary)]"
               aria-label="Ir a inicio"
             >
               {logoUrl ? (
@@ -563,7 +563,7 @@ export default function Header({
               )}
             </button>
 
-            <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-[#fffaf6]/45 px-2 py-1 lg:flex">
+            <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-[var(--store-surface)] px-2 py-1 lg:flex">
               {primaryLinks.slice(0, 5).map((item) => {
                 const target = item.href || "/";
                 const isExternalTarget = isExternalPath(target);
@@ -581,7 +581,7 @@ export default function Header({
                     target={isExternalTarget ? "_blank" : undefined}
                     rel={isExternalTarget ? "noopener noreferrer" : undefined}
                     className={`rounded-full px-5 py-2 text-sm font-bold transition-colors ${
-                      active ? "bg-[#1a1614] text-[#fffaf6]" : "text-[#1a1614] hover:bg-white/60"
+                      active ? "bg-[var(--store-primary)] text-white" : "text-[var(--store-text)] hover:bg-[var(--store-surface-elevated)]"
                     }`}
                   >
                     {item.label}
@@ -595,14 +595,14 @@ export default function Header({
                 <div
                   ref={searchBoxRef}
                   className={`group relative hidden h-12 items-center overflow-visible rounded-full transition-all duration-300 xl:flex ${
-                    isDesktopSearchPinned ? "w-[320px] bg-[#fffaf6]/95" : "w-11 bg-transparent hover:w-[320px] hover:bg-[#fffaf6]/95"
+                    isDesktopSearchPinned ? "w-[320px] bg-[var(--store-input-bg)]" : "w-11 bg-transparent hover:w-[320px] hover:bg-[var(--store-input-bg)]"
                   } ${
                     desktopSearchError ? "ring-2 ring-[#ff4d00] ring-offset-2 ring-offset-transparent" : ""
                   }`}
                 >
                   <input
                     ref={desktopSearchInputRef}
-                    className={`h-11 w-full bg-transparent pl-4 pr-11 text-sm font-semibold text-[#1a1614] placeholder:text-[#7b665d] focus:outline-none ${
+                    className={`h-11 w-full bg-transparent pl-4 pr-11 text-sm font-semibold text-[var(--store-text)] placeholder:text-[var(--store-muted-text)] focus:outline-none ${
                       isDesktopSearchPinned ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                     }`}
                     placeholder={searchPlaceholder}
@@ -632,19 +632,19 @@ export default function Header({
                       setDesktopSearchError(false);
                       navigate("/catalog");
                     }}
-                    className="absolute right-0.5 top-0.5 flex h-10 w-10 items-center justify-center text-[#1a1614]"
+                    className="absolute right-0.5 top-0.5 flex h-10 w-10 items-center justify-center text-[var(--store-text)]"
                     aria-label="Buscar"
                   >
                     <SearchIcon />
                   </button>
                   {searchSuggestionsOpen && (suggestionItems.popular.length || suggestionItems.products.length || suggestionItems.categories.length) ? (
-                    <div className="absolute left-0 top-[calc(100%+10px)] z-50 w-[320px] rounded-2xl border border-[#E8DFD8] bg-white p-3 shadow-xl">
+                    <div className="absolute left-0 top-[calc(100%+10px)] z-50 w-[320px] rounded-2xl border border-[var(--store-border)] bg-[var(--store-surface)] p-3 text-[var(--store-text)] shadow-xl">
                       {suggestionItems.popular.length ? (
                         <div className="mb-2">
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#A04100]">Mas buscados</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--store-primary)]">Mas buscados</p>
                           <div className="flex flex-wrap gap-2">
                             {suggestionItems.popular.map((item) => (
-                              <button key={`popular-${item}`} type="button" onClick={() => applySuggestion(item)} className="rounded-full bg-[#FFEDDE] px-2.5 py-1 text-xs text-[#5A4136] hover:bg-[#FFDCC1]">
+                              <button key={`popular-${item}`} type="button" onClick={() => applySuggestion(item)} className="rounded-full bg-[var(--store-surface-soft)] px-2.5 py-1 text-xs text-[var(--store-secondary)] hover:text-[var(--store-text)]">
                                 {item}
                               </button>
                             ))}
@@ -653,10 +653,10 @@ export default function Header({
                       ) : null}
                       {suggestionItems.products.length ? (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#A04100]">Autocompletar</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--store-primary)]">Autocompletar</p>
                           <div className="flex flex-col gap-1">
                             {suggestionItems.products.map((item) => (
-                              <button key={`product-${item}`} type="button" onClick={() => applySuggestion(item)} className="rounded-lg px-2 py-1.5 text-left text-sm text-[#1A1614] hover:bg-[#FFF5ED]">
+                              <button key={`product-${item}`} type="button" onClick={() => applySuggestion(item)} className="rounded-lg px-2 py-1.5 text-left text-sm text-[var(--store-text)] hover:bg-[var(--store-surface-soft)]">
                                 {item}
                               </button>
                             ))}
@@ -665,10 +665,10 @@ export default function Header({
                       ) : null}
                       {suggestionItems.categories.length ? (
                         <div className="mt-2">
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#A04100]">Categorias</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--store-primary)]">Categorias</p>
                           <div className="flex flex-col gap-1">
                             {suggestionItems.categories.map((item) => (
-                              <button key={`category-${item}`} type="button" onClick={() => applySuggestion(item)} className="rounded-lg px-2 py-1.5 text-left text-sm text-[#1A1614] hover:bg-[#FFF5ED]">
+                              <button key={`category-${item}`} type="button" onClick={() => applySuggestion(item)} className="rounded-lg px-2 py-1.5 text-left text-sm text-[var(--store-text)] hover:bg-[var(--store-surface-soft)]">
                                 {item}
                               </button>
                             ))}
@@ -689,7 +689,7 @@ export default function Header({
                 <button
                   type="button"
                   onClick={() => navigate(user ? "/profile" : "/login")}
-                  className="flex h-12 w-12 items-center justify-center text-[#1a1614] transition-colors hover:text-[#ff4d00]"
+                  className="flex h-12 w-12 items-center justify-center text-[var(--store-text)] transition-colors hover:text-[var(--store-primary)]"
                   aria-label="Guardados"
                 >
                   <HeartIcon />
@@ -700,7 +700,7 @@ export default function Header({
                 <button
                   type="button"
                   onClick={() => navigate("/cart")}
-                  className="relative flex h-12 w-12 items-center justify-center text-[#1a1614] transition-colors hover:text-[#ff4d00]"
+                  className="relative flex h-12 w-12 items-center justify-center text-[var(--store-text)] transition-colors hover:text-[var(--store-primary)]"
                   aria-label="Carrito"
                 >
                   <CartIcon />
@@ -723,12 +723,12 @@ export default function Header({
               ) : null}
             </div>
 
-            <div className="ml-auto flex items-center gap-1.5 rounded-full border border-[#dab6a6] bg-[#fffaf6]/70 px-1.5 py-1 lg:hidden">
+            <div className="ml-auto flex items-center gap-1.5 rounded-full border border-[var(--store-border)] bg-[var(--store-surface)] px-1.5 py-1 lg:hidden">
               {showWishlist ? (
                 <button
                   type="button"
                   onClick={() => navigate(user ? "/profile" : "/login")}
-                  className="group relative flex h-9 w-9 items-center justify-center rounded-full text-[#1a1614] transition-colors hover:bg-[#fffaf6] hover:text-[#ff4d00]"
+                  className="group relative flex h-9 w-9 items-center justify-center rounded-full text-[var(--store-text)] transition-colors hover:bg-[var(--store-surface-elevated)] hover:text-[var(--store-primary)]"
                   aria-label="Favoritos"
                   title="Favoritos"
                 >
@@ -739,7 +739,7 @@ export default function Header({
                 <button
                   type="button"
                   onClick={() => navigate("/cart")}
-                  className="group relative flex h-9 w-9 items-center justify-center rounded-full text-[#1a1614] transition-colors hover:bg-[#fffaf6] hover:text-[#ff4d00]"
+                  className="group relative flex h-9 w-9 items-center justify-center rounded-full text-[var(--store-text)] transition-colors hover:bg-[var(--store-surface-elevated)] hover:text-[var(--store-primary)]"
                   aria-label="Carrito"
                 >
                   <CartIcon className="size-5 transition-transform group-active:scale-90" />
@@ -754,7 +754,7 @@ export default function Header({
                 type="button"
                 onClick={() => setMobileMenuOpen((current) => !current)}
                 className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
-                  mobileMenuOpen ? "bg-[#1a1614] text-[#fffaf6]" : "text-[#1a1614] hover:bg-[#fffaf6] hover:text-[#ff4d00]"
+                  mobileMenuOpen ? "bg-[var(--store-primary)] text-white" : "text-[var(--store-text)] hover:bg-[var(--store-surface-elevated)] hover:text-[var(--store-primary)]"
                 }`}
                 aria-label={mobileMenuOpen ? "Cerrar menu" : "Abrir menu"}
               >
@@ -764,11 +764,11 @@ export default function Header({
           </div>
 
           {mobileMenuOpen ? (
-            <div className="mt-3 rounded-[24px] border border-[#dab6a6] bg-[#fffaf6] p-4 shadow-2xl lg:hidden">
+            <div className="mt-3 rounded-[24px] border border-[var(--store-border)] bg-[var(--store-surface)] p-4 text-[var(--store-text)] shadow-2xl lg:hidden">
               {showSearch ? (
                 <label className="relative block">
                   <input
-                    className="h-11 w-full rounded-full border border-[#dab6a6] bg-white pl-4 pr-11 text-sm font-semibold text-[#1a1614] placeholder:text-[#7b665d] focus:border-[#ff4d00] focus:outline-none"
+                    className="h-11 w-full rounded-full border border-[var(--store-border)] bg-[var(--store-input-bg)] pl-4 pr-11 text-sm font-semibold text-[var(--store-text)] placeholder:text-[var(--store-muted-text)] focus:border-[var(--store-primary)] focus:outline-none"
                     placeholder={searchPlaceholder}
                     type="text"
                     value={search}
@@ -778,7 +778,7 @@ export default function Header({
                   <button
                     type="button"
                     onClick={() => navigate("/catalog")}
-                    className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-[#ff4d00] text-white"
+                    className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--store-primary)] text-white"
                     aria-label="Buscar"
                   >
                     <SearchIcon />
@@ -792,7 +792,7 @@ export default function Header({
                     key={`mobile-${item.label}-${item.href}`}
                     type="button"
                     onClick={() => handleMobileNavigate(item.href || "/")}
-                    className="rounded-2xl bg-[#ffefe8] px-4 py-3 text-left text-sm font-black text-[#1a1614]"
+                    className="rounded-2xl bg-[var(--store-surface-soft)] px-4 py-3 text-left text-sm font-black text-[var(--store-text)]"
                   >
                     {item.label}
                   </button>
@@ -800,7 +800,7 @@ export default function Header({
                 <button
                   type="button"
                   onClick={handleAccountClick}
-                  className="rounded-2xl bg-[#ff4d00] px-4 py-3 text-left text-sm font-black text-white"
+                  className="rounded-2xl bg-[var(--store-primary)] px-4 py-3 text-left text-sm font-black text-white"
                 >
                   {user ? "Mi cuenta" : "Registrarse"}
                 </button>
