@@ -187,25 +187,25 @@ const CatalogEditor = ({ products, onAddItem, onEditProduct, onDeleteProduct }) 
         : null;
 
     return (
-        <div className="flex h-full flex-col space-y-4 animate-in fade-in duration-500">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="space-y-2">
-                    <div className="admin-workspace-card flex items-center gap-2.5 rounded-[18px] p-3">
-                        <div className="rounded-xl bg-[var(--admin-accent-soft)] p-2 text-[var(--admin-accent)]">
-                            <Package size={16} weight="bold" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--admin-muted-soft)]">Catalogo</p>
-                            <p className="text-sm font-semibold admin-text-primary">Productos</p>
-                        </div>
+        <div className="flex h-full min-w-0 flex-col space-y-3 animate-in fade-in duration-300">
+            <div className="admin-workspace-card flex flex-col gap-2 rounded-2xl p-2.5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="rounded-lg bg-[var(--admin-accent-soft)] p-1.5 text-[var(--admin-accent)]">
+                        <Package size={15} weight="bold" />
                     </div>
-                    <p className="max-w-2xl text-[11px] leading-5 admin-text-muted">
-                        Los productos se publican con las categorias cargadas manualmente o sincronizadas desde el sistema de gestion.
-                    </p>
+                    <div className="min-w-0">
+                        <div className="flex items-baseline gap-2">
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--admin-muted-soft)]">Catalogo</p>
+                            <p className="text-[13px] font-semibold admin-text-primary">Productos</p>
+                        </div>
+                        <p className="truncate text-[10px] admin-text-muted">
+                            Categorias manuales o sincronizadas desde gestion.
+                        </p>
+                    </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative group w-full sm:w-auto">
+                <div className="flex min-w-0 items-center gap-2">
+                    <div className="group relative min-w-0 flex-1 lg:w-56 lg:flex-none">
                         <MagnifyingGlass
                             size={16}
                             weight="bold"
@@ -216,12 +216,12 @@ const CatalogEditor = ({ products, onAddItem, onEditProduct, onDeleteProduct }) 
                             placeholder="Buscar productos..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="admin-input-field h-9 w-full rounded-xl border py-1.5 pl-9 pr-3 text-[13px] outline-none sm:w-64"
+                            className="admin-input-field h-9 w-full rounded-lg border py-1 pl-8 pr-3 text-[12px] outline-none"
                         />
                     </div>
                     <button
                         onClick={handleAdd}
-                        className="admin-accent-button group flex h-9 w-9 items-center justify-center rounded-xl transition-all hover:opacity-90"
+                        className="admin-accent-button group flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all hover:opacity-90"
                         title="Crear producto"
                     >
                         <Plus size={18} weight="bold" className="transition-transform duration-300 group-hover:rotate-90" />
@@ -229,8 +229,8 @@ const CatalogEditor = ({ products, onAddItem, onEditProduct, onDeleteProduct }) 
                 </div>
             </div>
 
-            <div className="-mr-2 flex-1 overflow-auto pr-2 custom-scrollbar">
-                <div className="grid grid-cols-1 gap-3 pb-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            <div className="-mr-1 min-w-0 flex-1 overflow-auto pr-1 custom-scrollbar">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-2 pb-6">
                     {visibleItems.map((item) => (
                         <div
                             key={item.id}
@@ -241,16 +241,16 @@ const CatalogEditor = ({ products, onAddItem, onEditProduct, onDeleteProduct }) 
                                 }
                             }}
                             className={cn(
-                                'group relative cursor-pointer overflow-hidden rounded-[18px] border border-[var(--admin-border-soft)] bg-[var(--admin-surface)] p-2.5 transition-all hover:-translate-y-0.5 hover:border-[var(--admin-border)] hover:bg-[var(--admin-surface-strong)] hover:shadow-[var(--admin-shadow-soft)]',
+                                'group relative cursor-pointer overflow-hidden rounded-xl border border-[var(--admin-border-soft)] bg-[var(--admin-surface)] p-2 transition-all hover:-translate-y-0.5 hover:border-[var(--admin-border)] hover:bg-[var(--admin-surface-strong)] hover:shadow-[var(--admin-shadow-soft)]',
                                 selectedId === item.id && 'border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] shadow-[var(--admin-shadow-soft)]'
                             )}
                         >
-                            <div className="relative mb-2.5 aspect-square overflow-hidden rounded-xl border border-[var(--admin-border-soft)] bg-[var(--admin-hover)]">
+                            <div className="relative mb-2 h-[148px] overflow-hidden rounded-lg border border-[var(--admin-border-soft)] bg-[var(--admin-hover)]">
                                 {item.image_url ? (
                                     <img
                                         src={item.image_url}
                                         alt={item.name}
-                                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                        className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
                                     />
                                 ) : (
                                     <div className="flex h-full w-full flex-col items-center justify-center admin-text-muted transition-colors">
@@ -283,10 +283,10 @@ const CatalogEditor = ({ products, onAddItem, onEditProduct, onDeleteProduct }) 
                             </div>
 
                             <div className="space-y-1">
-                                <h4 className="truncate text-[12px] font-semibold admin-text-primary">
+                                <h4 className="truncate text-[11px] font-semibold admin-text-primary">
                                     {item.name}
                                 </h4>
-                                <p className="truncate text-[10px] uppercase tracking-[0.18em] text-[var(--admin-muted-soft)]">
+                                <p className="truncate text-[9px] uppercase tracking-[0.14em] text-[var(--admin-muted-soft)]">
                                     {item.source_system || 'admin'}
                                     {item.external_id ? ` · ${item.external_id}` : ''}
                                 </p>

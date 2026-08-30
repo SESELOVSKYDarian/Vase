@@ -110,3 +110,18 @@ test('el panel de bloques se puede mover en escritorio y permanece centrado en c
     assert.match(floatingPanel, /matchMedia/);
     assert.match(floatingPanel, /md:/);
 });
+
+test('el catalogo evolution es compacto y el inspector no se superpone en escritorio', async () => {
+    const [catalog, inspector, catalogInspector] = await Promise.all([
+        read('../src/components/admin/evolution/CatalogEditor.jsx'),
+        read('../src/components/admin/evolution/EvolutionInspector.jsx'),
+        read('../src/components/admin/evolution/CatalogInspectorPanel.jsx'),
+    ]);
+
+    assert.match(catalog, /repeat\(auto-fill,minmax\(190px,1fr\)\)/);
+    assert.match(catalog, /h-\[148px\]/);
+    assert.match(catalog, /object-contain/);
+    assert.match(inspector, /useState\(true\)/);
+    assert.match(inspector, /2xl:relative/);
+    assert.match(catalogInspector, /space-y-3/);
+});

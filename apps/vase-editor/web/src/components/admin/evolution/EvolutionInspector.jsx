@@ -22,7 +22,7 @@ const EvolutionInspector = ({
     categories,
     brands,
 }) => {
-    const [isPinned, setIsPinned] = useState(false);
+    const [isPinned, setIsPinned] = useState(true);
     const {
         isInspectorOpen,
         toggleInspector,
@@ -120,7 +120,7 @@ const EvolutionInspector = ({
 
             <div
                 className={cn(
-                    'flex-1 space-y-5 p-4 animate-in fade-in duration-300',
+                    'flex-1 space-y-3 p-3 animate-in fade-in duration-300',
                     isWideInspector ? 'overflow-y-auto custom-scrollbar' : 'overflow-auto custom-scrollbar'
                 )}
             >

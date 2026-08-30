@@ -223,7 +223,7 @@ const CatalogInspectorPanel = ({ catalog, categories = [], brands = [] }) => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-3">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-evolution-indigo">
                     <Tag size={14} weight="bold" />
@@ -263,7 +263,7 @@ const CatalogInspectorPanel = ({ catalog, categories = [], brands = [] }) => {
                 ))}
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {catalogInspectorSection === 'general' ? (
                     <>
                         <EvolutionInput
