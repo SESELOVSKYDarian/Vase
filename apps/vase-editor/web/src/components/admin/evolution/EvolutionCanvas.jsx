@@ -22,11 +22,9 @@ import {
     CreditCard,
     SquaresFour,
     WarningCircle,
-    RocketLaunch,
     ArrowCounterClockwise,
     ArrowClockwise,
     FloppyDisk,
-    Eye,
     Sliders,
     DotsThree,
     CheckCircle,
@@ -117,7 +115,6 @@ const EvolutionCanvas = ({
         isInspectorOpen,
         setSidebarCollapsed,
         setInspectorOpen,
-        previewViewport,
     } = useEvolutionStore();
 
     const isLegacy = ['legacy'].includes(activeModule);
@@ -133,11 +130,6 @@ const EvolutionCanvas = ({
     const canvasPaddingClass = isLegacy ? 'p-0 pb-14 2xl:pb-0' : (isPageEditing ? 'p-2.5 pb-24 lg:p-3 lg:pb-24' : (isStorefrontEditing ? 'p-2.5 lg:p-3' : 'p-3 pb-14 lg:p-5 2xl:pb-5'));
     const contentWidthClass = isLegacy || isStorefrontEditing ? 'mx-0 max-w-none' : 'mx-auto max-w-7xl';
     const moduleTitle = MODULE_LABELS[activeModule] || activeModule;
-    const viewportWidthClass = previewViewport === 'mobile'
-        ? 'max-w-[390px]'
-        : previewViewport === 'tablet'
-            ? 'max-w-[834px]'
-            : 'max-w-none';
     const profileName = user?.name || user?.email || 'Administrador';
     const profileEmail = user?.email || '';
     const profileRole = user?.role === 'master_admin' ? 'Master admin' : 'Admin';
@@ -411,20 +403,6 @@ const EvolutionCanvas = ({
 
                     <button
                         type="button"
-                        onClick={openPreview}
-                        style={{
-                            backgroundColor: 'var(--admin-hover)',
-                            borderColor: 'var(--admin-border)',
-                            color: 'var(--admin-text)',
-                        }}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:opacity-90"
-                    >
-                        <Eye size={13} weight="bold" />
-                        <span className="hidden 2xl:inline">Previsualizar</span>
-                    </button>
-
-                    <button
-                        type="button"
                         onClick={() => setInspectorOpen(true)}
                         style={{
                             backgroundColor: 'var(--admin-hover)',
@@ -438,15 +416,6 @@ const EvolutionCanvas = ({
                     >
                         <Sliders size={13} weight="bold" />
                         <span className="hidden sm:inline">Inspector</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => openDomainCenter('publish')}
-                        className="admin-accent-button inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:opacity-90"
-                    >
-                        <RocketLaunch size={13} weight="bold" />
-                        Publicar
                     </button>
 
                     {!isStorefrontEditing ? (
@@ -586,7 +555,7 @@ const EvolutionCanvas = ({
             </header>
 
             <div className={`evolution-canvas custom-scrollbar flex-1 overflow-auto ${canvasPaddingClass}`}>
-                <div className={`${contentWidthClass} ${isPageEditing ? viewportWidthClass : ''} min-h-full transition-all duration-300 ${isPageEditing ? 'mx-auto' : ''}`}>
+                <div className={`${contentWidthClass} min-h-full transition-all duration-300`}>
                     {children}
                 </div>
             </div>

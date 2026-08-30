@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import PageBuilder from '../../PageBuilder';
+import ResponsivePreviewFrame from './ResponsivePreviewFrame';
 import useEvolutionStore from '../../../store/useEvolutionStore';
 import {
     DEFAULT_ABOUT_SECTIONS,
@@ -128,6 +129,7 @@ const PageSectionsEditor = ({
         activeDockPanel,
         closeDockPanel,
         setActiveModule,
+        previewViewport,
     } = useEvolutionStore();
     const sectionTypes = getSectionTypeOptions(pageKey);
 
@@ -360,8 +362,10 @@ const PageSectionsEditor = ({
                 </aside>
             ) : null}
 
-            <section className="storefront-preview-root custom-scrollbar h-full min-h-[520px] overflow-auto rounded-[18px] border border-[var(--admin-border-soft)] bg-white p-1.5 shadow-[var(--admin-shadow-soft)] 2xl:p-0">
-                <PageBuilder sections={previewSections} />
+            <section className="storefront-preview-root h-full min-h-[520px] overflow-hidden rounded-[18px] border border-[var(--admin-border-soft)] bg-white shadow-[var(--admin-shadow-soft)]">
+                <ResponsivePreviewFrame viewport={previewViewport}>
+                    <PageBuilder sections={previewSections} />
+                </ResponsivePreviewFrame>
             </section>
         </div>
     );
