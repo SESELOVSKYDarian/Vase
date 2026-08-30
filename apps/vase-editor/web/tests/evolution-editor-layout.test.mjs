@@ -50,3 +50,26 @@ test('el store limita sus cambios nuevos a estado visual', async () => {
         assert.match(store, new RegExp(token));
     }
 });
+
+test('el selector responsive usa un viewport real y conserva las acciones avanzadas', async () => {
+    const [canvas, sections, frame, actions] = await Promise.all([
+        read('../src/components/admin/evolution/EvolutionCanvas.jsx'),
+        read('../src/components/admin/evolution/PageSectionsEditor.jsx'),
+        read('../src/components/admin/evolution/ResponsivePreviewFrame.jsx').catch(() => ''),
+        read('../src/components/admin/evolution/EvolutionActionsMenu.jsx'),
+    ]);
+
+    assert.match(sections, /<ResponsivePreviewFrame viewport=\{previewViewport\}>/);
+    assert.match(frame, /createPortal/);
+    assert.match(frame, /390px/);
+    assert.match(frame, /834px/);
+    assert.match(frame, /100%/);
+    assert.match(frame, /Vista responsive del sitio/);
+
+    assert.doesNotMatch(canvas, />\s*Previsualizar\s*</);
+    assert.doesNotMatch(canvas, />\s*Publicar\s*</);
+    assert.match(canvas, /onPreview=\{openPreview\}/);
+    assert.match(canvas, /onPublish=\{\(\) => openDomainCenter\('publish'\)\}/);
+    assert.match(actions, /Previsualizar/);
+    assert.match(actions, /Publicar/);
+});
