@@ -94,3 +94,19 @@ test('la barra superior deja busqueda, mas y perfil y concentra las acciones', a
         assert.match(actions, new RegExp(label));
     }
 });
+
+test('el panel de bloques se puede mover en escritorio y permanece centrado en celular', async () => {
+    const [sections, floatingPanel] = await Promise.all([
+        read('../src/components/admin/evolution/PageSectionsEditor.jsx'),
+        read('../src/components/admin/evolution/DraggableFloatingPanel.jsx').catch(() => ''),
+    ]);
+
+    assert.match(sections, /<DraggableFloatingPanel/);
+    assert.match(sections, /ariaLabel="Panel de bloques"/);
+    assert.match(floatingPanel, /onPointerDown/);
+    assert.match(floatingPanel, /setPointerCapture/);
+    assert.match(floatingPanel, /Math\.min/);
+    assert.match(floatingPanel, /Math\.max/);
+    assert.match(floatingPanel, /matchMedia/);
+    assert.match(floatingPanel, /md:/);
+});

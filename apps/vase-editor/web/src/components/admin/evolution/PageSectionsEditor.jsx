@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import PageBuilder from '../../PageBuilder';
+import DraggableFloatingPanel from './DraggableFloatingPanel';
 import ResponsivePreviewFrame from './ResponsivePreviewFrame';
 import useEvolutionStore from '../../../store/useEvolutionStore';
 import {
@@ -306,8 +307,11 @@ const PageSectionsEditor = ({
             ) : null}
 
             {activeDockPanel === 'blocks' ? (
-                <aside className="admin-panel-surface custom-scrollbar fixed bottom-24 left-1/2 z-[60] max-h-[62vh] w-[min(94vw,390px)] -translate-x-1/2 overflow-auto rounded-2xl border border-[var(--admin-border)] p-3 shadow-2xl lg:left-24 lg:translate-x-0">
-                    <div className="mb-3 flex items-center justify-between gap-3">
+                <DraggableFloatingPanel
+                    ariaLabel="Panel de bloques"
+                    className="max-h-[62vh]"
+                    header={(
+                    <div className="flex items-center justify-between gap-3">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.18em] admin-text-muted">Página actual</p>
                             <h2 className="text-sm font-semibold admin-text-primary">Bloques</h2>
@@ -317,6 +321,9 @@ const PageSectionsEditor = ({
                             {isSaving ? 'Guardando' : 'Guardar'}
                         </button>
                     </div>
+                    )}
+                >
+                    <div className="custom-scrollbar max-h-[calc(62vh-68px)] overflow-auto p-3">
 
                     <button type="button" onClick={() => setShowAdd((prev) => !prev)} className="mb-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[var(--admin-accent-border)] bg-[var(--admin-accent-soft)] text-[11px] font-bold text-[var(--admin-accent)]">
                         <Plus size={14} weight="bold" />
@@ -359,7 +366,8 @@ const PageSectionsEditor = ({
                         })}
                         {!sections.length ? <p className="rounded-xl border border-dashed border-[var(--admin-border)] p-4 text-center text-xs admin-text-muted">Todavía no hay bloques.</p> : null}
                     </div>
-                </aside>
+                    </div>
+                </DraggableFloatingPanel>
             ) : null}
 
             <section className="storefront-preview-root h-full min-h-[520px] overflow-hidden rounded-[18px] border border-[var(--admin-border-soft)] bg-white shadow-[var(--admin-shadow-soft)]">
