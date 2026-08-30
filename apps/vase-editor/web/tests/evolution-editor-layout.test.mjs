@@ -1,0 +1,52 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+
+test('el shell evolution conserva acciones y usa dock contextual', async () => {
+    const [canvas, dock, sections, layout] = await Promise.all([
+        read('../src/components/admin/evolution/EvolutionCanvas.jsx'),
+        read('../src/components/admin/evolution/EvolutionCommandDock.jsx'),
+        read('../src/components/admin/evolution/PageSectionsEditor.jsx'),
+        read('../src/components/admin/evolution/EvolutionLayout.jsx'),
+    ]);
+
+    for (const action of ['onSave', 'onUndo', 'onRedo', 'openPreview', 'openDomainCenter']) {
+        assert.match(canvas, new RegExp(action));
+    }
+    for (const label of ['Páginas', 'Bloques', 'Agregar']) {
+        assert.match(dock, new RegExp(label));
+    }
+    for (const handler of ['handleAddSection', 'handleDeleteSection', 'handleToggleEnabled', 'handleDrop']) {
+        assert.match(sections, new RegExp(handler));
+    }
+    assert.match(sections, /PageBuilder sections=\{previewSections\}/);
+    assert.match(layout, /CommandPalette/);
+});
+
+test('la identidad del editor es multiempresa', async () => {
+    const identity = await read('../src/components/admin/evolution/EvolutionTenantIdentity.jsx');
+    assert.match(identity, /branding/);
+    assert.doesNotMatch(identity, /Piquim|piquim/);
+});
+
+test('el rail conserva todos los modulos administrativos', async () => {
+    const sidebar = await read('../src/components/admin/evolution/EvolutionSidebar.jsx');
+    for (const moduleId of [
+        'home', 'about', 'appearance', 'catalog', 'categories', 'pricing',
+        'checkout', 'shipping', 'notifications', 'integrations', 'users', 'seo',
+    ]) {
+        assert.match(sidebar, new RegExp(`id: '${moduleId}'`));
+    }
+});
+
+test('el store limita sus cambios nuevos a estado visual', async () => {
+    const store = await read('../src/store/useEvolutionStore.js');
+    for (const token of [
+        'activeDockPanel', 'previewViewport', 'setActiveDockPanel',
+        'closeDockPanel', 'setPreviewViewport',
+    ]) {
+        assert.match(store, new RegExp(token));
+    }
+});
