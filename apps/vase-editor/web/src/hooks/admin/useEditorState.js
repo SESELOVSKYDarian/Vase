@@ -17,6 +17,7 @@ import { PIQUIM_CATALOG_CARDS, PIQUIM_FOOTER_DEFAULTS } from '../../data/piquimB
 import { normalizePriceTierLabels } from '../../utils/priceTierLabels';
 import { isPiquimTenantIdentity, resolveTenantDesignPreset } from '../../utils/tenantBranding';
 import { buildDefaultSeoSettings, normalizeSeoSettings } from '../../utils/seo';
+import { readSaveFailure } from '../../utils/saveResponse';
 
 const RESERVED_PLACEHOLDER_TERMS = new Set(['messi']);
 
@@ -536,34 +537,60 @@ export function useEditorState(user) {
                 body: JSON.stringify(settings)
             });
 
-            const savePage = async (slug, sectionsData) => {
+            const savePage = async (slug, sectionsData, operation) => {
                 const saveRes = await fetch(`${getApiBase()}/tenant/pages/${slug}`, {
                     method: 'PUT',
                     headers,
                     body: JSON.stringify({ sections: sectionsData || [] })
                 });
-                if (!saveRes.ok) return { ok: false };
+                if (!saveRes.ok) {
+                    return {
+                        ok: false,
+                        published: false,
+                        failure: await readSaveFailure(saveRes, operation),
+                    };
+                }
                 const publishRes = await fetch(`${getApiBase()}/tenant/pages/${slug}/publish`, {
                     method: 'POST',
                     headers
                 });
-                return { ok: true, published: publishRes.ok };
+                return {
+                    ok: true,
+                    published: publishRes.ok,
+                    publishFailure: publishRes.ok
+                        ? null
+                        : await readSaveFailure(publishRes, `publicacion de ${operation}`),
+                };
             };
 
             const [homeRes, aboutRes] = await Promise.all([
-                savePage('home', pageSections.home),
-                savePage('about', pageSections.about),
+                savePage('home', pageSections.home, 'pagina Inicio'),
+                savePage('about', pageSections.about, 'pagina Nosotros'),
             ]);
 
             if (settingsRes.ok) await refreshTenantSettings();
 
+            const settingsFailure = settingsRes.ok
+                ? null
+                : await readSaveFailure(settingsRes, 'configuracion del sitio');
+            const failure = settingsFailure || homeRes.failure || aboutRes.failure;
+
+            if (failure) {
+                return { success: false, ...failure };
+            }
+
             return {
-                success: settingsRes.ok && homeRes.ok && aboutRes.ok,
-                published: homeRes.published && aboutRes.published
+                success: true,
+                published: homeRes.published && aboutRes.published,
+                publicationWarnings: [homeRes.publishFailure, aboutRes.publishFailure].filter(Boolean),
             };
         } catch (err) {
             console.error('Save all failed', err);
-            return { success: false, error: err };
+            return {
+                success: false,
+                error: 'save_exception',
+                details: err instanceof Error ? err.message : String(err),
+            };
         } finally {
             setSaving(false);
         }

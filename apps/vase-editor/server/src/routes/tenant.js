@@ -10,6 +10,7 @@ import { getTenantOffers } from '../services/offers.js';
 import { buildTenantIntegrationManifest, resolveServerBaseUrl } from '../services/integrationManifest.js';
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
 import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
+import { normalizeTenantSettingsWritePayload } from '../services/tenantSettingsPayload.js';
 import { ensureProductSyncToken } from '../services/productSyncCredentials.js';
 import {
   buildTenantDomainsPayload as buildTenantDomainsPayloadService,
@@ -876,13 +877,7 @@ tenantRouter.put('/settings', async (req, res, next) => {
   if (!tenantId) return;
 
   try {
-    const branding = req.body.branding || {};
-    const theme = req.body.theme || {};
-    const rawCommerce = req.body.commerce && typeof req.body.commerce === 'object' ? req.body.commerce : {};
-    const commerce = {
-      ...rawCommerce,
-      price_tier_labels: normalizePriceTierLabels(rawCommerce.price_tier_labels),
-    };
+    const { branding, theme, seo, commerce } = normalizeTenantSettingsWritePayload(req.body);
 
     const tenantCheck = await pool.query(
       'select id from tenants where id = $1',

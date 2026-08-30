@@ -484,7 +484,15 @@ const EvolutionAdmin = () => {
             if (activeModule === 'checkout' || activeModule === 'shipping') {
                 addToast(activeModule === 'shipping' ? 'Envios guardados' : 'Checkout guardado', 'success');
             } else {
-                addToast(result.published ? 'Cambios guardados y publicados' : 'Guardado como borrador', 'success');
+                const publicationWarning = result.publicationWarnings?.[0];
+                addToast(
+                    result.published
+                        ? 'Cambios guardados y publicados'
+                        : publicationWarning
+                            ? `Guardado como borrador. ${publicationWarning.operation}: ${publicationWarning.details}`
+                            : 'Guardado como borrador',
+                    'success'
+                );
             }
         } else if (result.code === 'tenant_not_found') {
             addToast(
@@ -497,7 +505,8 @@ const EvolutionAdmin = () => {
             }, 1500);
         } else {
             const errorMsg = result.details || (typeof result.error === 'string' ? result.error : 'Error desconocido');
-            addToast(`Error al guardar: ${errorMsg}`, 'error');
+            const operation = result.operation ? `${result.operation}: ` : '';
+            addToast(`Error al guardar: ${operation}${errorMsg}`, 'error');
         }
     };
 
