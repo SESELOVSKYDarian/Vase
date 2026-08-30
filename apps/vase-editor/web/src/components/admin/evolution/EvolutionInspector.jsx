@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import useEvolutionStore from '../../../store/useEvolutionStore';
 import BlockPropertiesEditor from './BlockPropertiesEditor';
 import ProductPropertiesEditor from './ProductPropertiesEditor';
@@ -7,7 +7,7 @@ import EvolutionInput from './EvolutionInput';
 import CatalogInspectorPanel from './CatalogInspectorPanel';
 import UsersInspectorPanel from './UsersInspectorPanel';
 import { cn } from '../../../utils/cn';
-import { X, Sliders as Settings2, Info, FloppyDisk as Save, ArrowCounterClockwise, ArrowClockwise } from '@phosphor-icons/react';
+import { X, Sliders as Settings2, Info, FloppyDisk as Save, ArrowCounterClockwise, ArrowClockwise, PushPin } from '@phosphor-icons/react';
 
 const EvolutionInspector = ({
     onDataChange,
@@ -22,6 +22,7 @@ const EvolutionInspector = ({
     categories,
     brands,
 }) => {
+    const [isPinned, setIsPinned] = useState(false);
     const {
         isInspectorOpen,
         toggleInspector,
@@ -54,7 +55,8 @@ const EvolutionInspector = ({
         };
     }, [activeModule, selectedId, setInspectorOpen]);
 
-    if (!isInspectorOpen) return null;
+    const modulesWithoutSelection = ['catalog', 'categories', 'pricing', 'checkout', 'users', 'customers', 'tenants', 'notifications', 'seo', 'shipping', 'design_live', 'settings_live'];
+    if (!isInspectorOpen || (!selectedId && !modulesWithoutSelection.includes(activeModule))) return null;
 
     return (
         <>
@@ -66,7 +68,8 @@ const EvolutionInspector = ({
         />
         <aside
             className={cn(
-                'admin-panel-surface fixed inset-y-0 right-0 z-[80] flex h-[100dvh] max-w-full shrink-0 flex-col border-l shadow-2xl transition-all duration-300 ease-in-out 2xl:relative 2xl:z-50 2xl:shadow-none',
+                'admin-panel-surface fixed inset-y-0 right-0 z-[80] flex h-[100dvh] max-w-full shrink-0 flex-col border-l shadow-2xl transition-all duration-300 ease-in-out',
+                isPinned && '2xl:relative 2xl:z-50 2xl:shadow-none',
                 isWideInspector ? 'w-[min(100vw,360px)] 2xl:w-[400px]' : 'w-[min(100vw,304px)] 2xl:w-[328px]',
                 !isInspectorOpen && 'w-0 overflow-hidden border-none'
             )}
@@ -76,11 +79,20 @@ const EvolutionInspector = ({
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--admin-accent-soft)] text-[var(--admin-accent)]">
                         <Settings2 size={15} weight="bold" />
                     </span>
-                    <span className="truncate text-[13px] font-semibold uppercase tracking-[0.14em] admin-text-primary">
-                        Inspector
+                    <span className="truncate text-[13px] font-semibold admin-text-primary">
+                        {selectionData?.name || selectionData?.label || selectionData?.type || 'Inspector'}
                     </span>
                 </div>
                 <div className="flex items-center gap-1.5">
+                    <button
+                        type="button"
+                        onClick={() => setIsPinned((current) => !current)}
+                        aria-pressed={isPinned}
+                        className="admin-hover-surface hidden h-8 w-8 items-center justify-center rounded-lg admin-text-muted 2xl:flex"
+                        title={isPinned ? 'Desfijar inspector' : 'Fijar inspector'}
+                    >
+                        <PushPin size={14} weight={isPinned ? 'fill' : 'bold'} />
+                    </button>
                     <button
                         onClick={onUndo}
                         disabled={!canUndo}

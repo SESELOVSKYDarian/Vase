@@ -3,9 +3,11 @@ import { create } from 'zustand';
 const useEvolutionStore = create((set) => ({
     // Navigation & View
     activeModule: 'home', // legacy: home/about/appearance/catalog/pricing/users/checkout/tenants
-    isSidebarCollapsed: false,
+    isSidebarCollapsed: true,
     isInspectorOpen: true,
     catalogInspectorSection: 'general',
+    activeDockPanel: null,
+    previewViewport: 'desktop',
 
     // Selection Context (for the Inspector)
     selectedId: null,      // e.g., product ID or block ID
@@ -18,6 +20,7 @@ const useEvolutionStore = create((set) => ({
         selectedId: null,
         selectionType: null,
         selectionData: null,
+        activeDockPanel: null,
         catalogInspectorSection: module === 'catalog' ? 'general' : state.catalogInspectorSection,
     })),
     setCatalogInspectorSection: (section) => set({
@@ -27,6 +30,11 @@ const useEvolutionStore = create((set) => ({
     toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
     setInspectorOpen: (open) => set({ isInspectorOpen: open }),
     toggleInspector: () => set((state) => ({ isInspectorOpen: !state.isInspectorOpen })),
+    setActiveDockPanel: (panel) => set((state) => ({
+        activeDockPanel: state.activeDockPanel === panel ? null : panel,
+    })),
+    closeDockPanel: () => set({ activeDockPanel: null }),
+    setPreviewViewport: (viewport) => set({ previewViewport: viewport || 'desktop' }),
 
     // Selection logic
     selectItem: (id, type, data = null) => set({

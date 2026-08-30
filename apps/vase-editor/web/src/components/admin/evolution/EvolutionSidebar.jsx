@@ -17,11 +17,7 @@ import {
 } from '@phosphor-icons/react';
 import useEvolutionStore from '../../../store/useEvolutionStore';
 import { cn } from '../../../utils/cn';
-
-const getPanelInitial = (title = '') => {
-    const safeTitle = title.trim();
-    return safeTitle ? safeTitle.charAt(0).toUpperCase() : 'E';
-};
+import EvolutionTenantIdentity from './EvolutionTenantIdentity';
 
 const SidebarItem = ({ icon: Icon, label, shortLabel, active, onClick, collapsed }) => (
     <button
@@ -93,59 +89,16 @@ const EvolutionSidebar = ({ branding }) => {
     ];
     const modules = moduleGroups.flatMap((group) => group.items);
 
-    const panelTitle = branding?.title || 'Panel de administracion';
-    const companyName = branding?.companyName || 'Empresa';
-    const panelInitial = getPanelInitial(panelTitle);
-    const panelLogo = branding?.logo_url || '';
-
     return (
         <>
             <aside
                 className={cn(
-                    'admin-sidebar-surface hidden 2xl:flex h-screen flex-col border-r transition-all duration-300 ease-in-out shrink-0',
-                    isSidebarCollapsed ? 'w-[76px]' : 'w-[232px]'
+                    'admin-sidebar-surface hidden lg:flex h-screen flex-col border-r transition-all duration-300 ease-in-out shrink-0',
+                    isSidebarCollapsed ? 'w-[72px]' : 'w-[216px]'
                 )}
             >
                 <div className={cn('flex min-h-14 items-center justify-between border-b p-3', isSidebarCollapsed && 'justify-center px-2')} style={{ borderColor: 'var(--admin-border)' }}>
-                    {!isSidebarCollapsed ? (
-                        <div className="flex min-w-0 items-center gap-2.5">
-                            <div
-                                style={{
-                                    backgroundColor: panelLogo ? 'rgba(255,255,255,0.96)' : 'var(--admin-accent)',
-                                    color: 'var(--admin-accent-contrast)',
-                                    boxShadow: '0 0 24px var(--admin-shadow)',
-                                }}
-                                className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl"
-                            >
-                                {panelLogo ? (
-                                    <img src={panelLogo} alt={panelTitle} className="h-7 w-7 object-contain" />
-                                ) : (
-                                    <span className="text-xs font-black">{panelInitial}</span>
-                                )}
-                            </div>
-                            <div className="min-w-0 space-y-0.5">
-                                <p className="truncate text-[10px] font-bold uppercase tracking-[0.22em] admin-accent-text">
-                                    {companyName}
-                                </p>
-                                <p className="truncate text-[13px] font-semibold tracking-tight admin-text-primary">{panelTitle}</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div
-                            style={{
-                                backgroundColor: panelLogo ? 'rgba(255,255,255,0.96)' : 'var(--admin-accent)',
-                                color: 'var(--admin-accent-contrast)',
-                                boxShadow: '0 0 24px var(--admin-shadow)',
-                            }}
-                            className="mx-auto flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl"
-                        >
-                            {panelLogo ? (
-                                <img src={panelLogo} alt={panelTitle} className="h-6 w-6 object-contain" />
-                            ) : (
-                                <span className="text-xs font-black">{panelInitial}</span>
-                            )}
-                        </div>
-                    )}
+                    <EvolutionTenantIdentity branding={branding} compact={isSidebarCollapsed} />
                 </div>
 
                 <div className={cn('custom-scrollbar flex-1 space-y-3 overflow-y-auto py-3', isSidebarCollapsed ? 'px-1.5' : 'px-2.5')}>

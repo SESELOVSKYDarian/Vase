@@ -5,6 +5,9 @@ import { navigate } from '../../../utils/navigation';
 import { cn } from '../../../utils/cn';
 import DomainConnectModal from './DomainConnectModal';
 import NotificationsPopover from './NotificationsPopover';
+import EvolutionActionsMenu from './EvolutionActionsMenu';
+import EvolutionCommandDock from './EvolutionCommandDock';
+import EvolutionTenantIdentity from './EvolutionTenantIdentity';
 import {
     MagnifyingGlass as Search,
     Bell,
@@ -25,6 +28,8 @@ import {
     FloppyDisk,
     Eye,
     Sliders,
+    DotsThree,
+    CheckCircle,
 } from '@phosphor-icons/react';
 
 const iconButtonStyle = {
@@ -98,10 +103,12 @@ const EvolutionCanvas = ({
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
     const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(0);
     const profileMenuRef = useRef(null);
     const notificationsRef = useRef(null);
     const searchRef = useRef(null);
+    const actionsMenuRef = useRef(null);
     const { user, logout } = useAuth();
     const {
         activeModule,
@@ -110,6 +117,7 @@ const EvolutionCanvas = ({
         isInspectorOpen,
         setSidebarCollapsed,
         setInspectorOpen,
+        previewViewport,
     } = useEvolutionStore();
 
     const isLegacy = ['legacy'].includes(activeModule);
@@ -120,12 +128,16 @@ const EvolutionCanvas = ({
         'catalog_live',
         'design_live',
     ].includes(activeModule);
+    const isPageEditing = ['home', 'about'].includes(activeModule);
     const isClientFocusMode = isStorefrontEditing && isSidebarCollapsed && !isInspectorOpen;
-    const canvasPaddingClass = isLegacy ? 'p-0 pb-14 2xl:pb-0' : (isStorefrontEditing ? 'p-2.5 pb-14 lg:p-3 2xl:pb-3' : 'p-3 pb-14 lg:p-5 2xl:pb-5');
+    const canvasPaddingClass = isLegacy ? 'p-0 pb-14 2xl:pb-0' : (isPageEditing ? 'p-2.5 pb-24 lg:p-3 lg:pb-24' : (isStorefrontEditing ? 'p-2.5 lg:p-3' : 'p-3 pb-14 lg:p-5 2xl:pb-5'));
     const contentWidthClass = isLegacy || isStorefrontEditing ? 'mx-0 max-w-none' : 'mx-auto max-w-7xl';
-    const adminTitle = branding?.title || 'Panel de administracion';
-    const companyName = branding?.companyName || adminTitle;
     const moduleTitle = MODULE_LABELS[activeModule] || activeModule;
+    const viewportWidthClass = previewViewport === 'mobile'
+        ? 'max-w-[390px]'
+        : previewViewport === 'tablet'
+            ? 'max-w-[834px]'
+            : 'max-w-none';
     const profileName = user?.name || user?.email || 'Administrador';
     const profileEmail = user?.email || '';
     const profileRole = user?.role === 'master_admin' ? 'Master admin' : 'Admin';
@@ -157,7 +169,7 @@ const EvolutionCanvas = ({
     }, [isSearchOpen, normalizedQuery]);
 
     useEffect(() => {
-        if (!isProfileMenuOpen && !isNotificationsOpen && !isSearchOpen) return undefined;
+        if (!isProfileMenuOpen && !isNotificationsOpen && !isSearchOpen && !isActionsMenuOpen) return undefined;
 
         const handlePointerDown = (event) => {
             if (!profileMenuRef.current?.contains(event.target)) {
@@ -169,6 +181,9 @@ const EvolutionCanvas = ({
             if (!searchRef.current?.contains(event.target)) {
                 setIsSearchOpen(false);
             }
+            if (!actionsMenuRef.current?.contains(event.target)) {
+                setIsActionsMenuOpen(false);
+            }
         };
 
         const handleKeyDown = (event) => {
@@ -176,6 +191,7 @@ const EvolutionCanvas = ({
                 setIsProfileMenuOpen(false);
                 setIsNotificationsOpen(false);
                 setIsSearchOpen(false);
+                setIsActionsMenuOpen(false);
             }
         };
 
@@ -186,7 +202,7 @@ const EvolutionCanvas = ({
             document.removeEventListener('mousedown', handlePointerDown);
             document.removeEventListener('keydown', handleKeyDown);
         };
-    }, [isNotificationsOpen, isProfileMenuOpen, isSearchOpen]);
+    }, [isActionsMenuOpen, isNotificationsOpen, isProfileMenuOpen, isSearchOpen]);
 
     const toggleClientFocusMode = () => {
         if (isClientFocusMode) {
@@ -253,25 +269,18 @@ const EvolutionCanvas = ({
 
     return (
         <main className="admin-canvas-surface relative flex flex-1 flex-col overflow-hidden">
-            <header className="admin-header-surface sticky top-0 z-40 flex min-h-14 flex-col gap-2 border-b px-3 py-2 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between lg:px-4">
+            <header className="admin-header-surface sticky top-0 z-40 flex min-h-16 flex-col gap-2 border-b px-3 py-2 backdrop-blur-md lg:flex-row lg:items-center lg:justify-between lg:px-4">
                 <div className="flex min-w-0 items-center gap-3">
-                    <div className="space-y-0.5">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.24em] admin-accent-text">
-                            {companyName}
-                        </p>
-                        <h1 className="truncate text-[15px] font-semibold tracking-tight admin-text-primary">
-                            {adminTitle}
-                        </h1>
-                    </div>
-                    <div className="hidden h-7 w-px bg-[var(--admin-border-soft)] 2xl:block" />
-                    <div className="hidden min-w-0 2xl:block">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-muted-soft)]">Workspace</p>
-                        <p className="truncate text-[13px] font-medium admin-text-primary">{moduleTitle}</p>
+                    <EvolutionTenantIdentity branding={branding} className="hidden xl:flex" />
+                    <div className="hidden h-7 w-px bg-[var(--admin-border-soft)] xl:block" />
+                    <div className="min-w-0">
+                        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--admin-muted-soft)]">Sitio</p>
+                        <p className="truncate text-[13px] font-semibold admin-text-primary">{moduleTitle}</p>
                     </div>
                 </div>
 
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 gap-y-1 md:gap-2">
-                    {isStorefrontEditing ? (
+                    {!isStorefrontEditing ? (
                         <button
                             type="button"
                             onClick={toggleClientFocusMode}
@@ -360,7 +369,7 @@ const EvolutionCanvas = ({
                         ) : null}
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className={cn('items-center gap-1', isStorefrontEditing ? 'hidden' : 'flex')}>
                         <button
                             type="button"
                             onClick={onUndo}
@@ -383,15 +392,22 @@ const EvolutionCanvas = ({
                         </button>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={onSave}
-                        disabled={isSaving}
+                    {isStorefrontEditing ? (
+                        <span className="hidden items-center gap-1.5 text-[11px] font-medium text-emerald-500 md:inline-flex">
+                            <CheckCircle size={14} weight="bold" />
+                            {isSaving ? 'Guardando...' : 'Guardado'}
+                        </span>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={onSave}
+                            disabled={isSaving}
                             className="admin-accent-button inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-55"
-                    >
-                        <FloppyDisk size={13} weight="bold" className={cn(isSaving && 'animate-pulse')} />
-                        <span className="hidden sm:inline">{isSaving ? 'Guardando' : 'Guardar'}</span>
-                    </button>
+                        >
+                            <FloppyDisk size={13} weight="bold" className={cn(isSaving && 'animate-pulse')} />
+                            <span className="hidden sm:inline">{isSaving ? 'Guardando' : 'Guardar'}</span>
+                        </button>
+                    )}
 
                     <button
                         type="button"
@@ -427,25 +443,51 @@ const EvolutionCanvas = ({
                     <button
                         type="button"
                         onClick={() => openDomainCenter('publish')}
-                        className="admin-accent-button hidden 2xl:inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:opacity-90"
+                        className="admin-accent-button inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:opacity-90"
                     >
                         <RocketLaunch size={13} weight="bold" />
                         Publicar
                     </button>
 
-                    <button
-                        type="button"
-                        onClick={() => openDomainCenter('domains')}
-                        style={{
-                            backgroundColor: 'var(--admin-hover)',
-                            borderColor: 'var(--admin-border)',
-                            color: 'var(--admin-text)',
-                        }}
-                        className="hidden 2xl:inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:opacity-90"
-                    >
-                        <Globe size={13} weight="bold" />
-                        Dominios
-                    </button>
+                    {!isStorefrontEditing ? (
+                        <button
+                            type="button"
+                            onClick={() => openDomainCenter('domains')}
+                            style={{
+                                backgroundColor: 'var(--admin-hover)',
+                                borderColor: 'var(--admin-border)',
+                                color: 'var(--admin-text)',
+                            }}
+                            className="hidden 2xl:inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors hover:opacity-90"
+                        >
+                            <Globe size={13} weight="bold" />
+                            Dominios
+                        </button>
+                    ) : null}
+
+                    {isStorefrontEditing ? (
+                        <div className="relative" ref={actionsMenuRef}>
+                            <button
+                                type="button"
+                                aria-label="Más acciones"
+                                aria-expanded={isActionsMenuOpen}
+                                onClick={() => setIsActionsMenuOpen((current) => !current)}
+                                className="admin-hover-surface flex size-8 items-center justify-center rounded-full border border-[var(--admin-border)] admin-text-muted"
+                            >
+                                <DotsThree size={18} weight="bold" />
+                            </button>
+                            <EvolutionActionsMenu
+                                open={isActionsMenuOpen}
+                                onClose={() => setIsActionsMenuOpen(false)}
+                                onSave={onSave}
+                                onPreview={openPreview}
+                                onPublish={() => openDomainCenter('publish')}
+                                onDomains={() => openDomainCenter('domains')}
+                                onViewClient={toggleClientFocusMode}
+                                isSaving={isSaving}
+                            />
+                        </div>
+                    ) : null}
 
                     <div className="relative" ref={notificationsRef}>
                         <button
@@ -544,10 +586,19 @@ const EvolutionCanvas = ({
             </header>
 
             <div className={`evolution-canvas custom-scrollbar flex-1 overflow-auto ${canvasPaddingClass}`}>
-                <div className={`${contentWidthClass} min-h-full transition-all duration-300`}>
+                <div className={`${contentWidthClass} ${isPageEditing ? viewportWidthClass : ''} min-h-full transition-all duration-300 ${isPageEditing ? 'mx-auto' : ''}`}>
                     {children}
                 </div>
             </div>
+
+            {isPageEditing ? (
+                <EvolutionCommandDock
+                    onUndo={onUndo}
+                    onRedo={onRedo}
+                    canUndo={canUndo}
+                    canRedo={canRedo}
+                />
+            ) : null}
 
             <div
                 className="pointer-events-none absolute left-0 top-0 h-32 w-full"
