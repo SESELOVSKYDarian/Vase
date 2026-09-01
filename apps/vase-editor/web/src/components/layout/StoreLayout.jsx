@@ -58,6 +58,15 @@ export default function StoreLayout({ children, overlay = false }) {
 
         document.title = title;
 
+        const favicon = String(settings?.branding?.favicon_url || settings?.seo?.favicon_url || settings?.branding?.logo_url || '/favicon.ico').trim();
+        let faviconLink = document.head.querySelector('link[rel="icon"]');
+        if (!faviconLink) {
+            faviconLink = document.createElement('link');
+            faviconLink.setAttribute('rel', 'icon');
+            document.head.appendChild(faviconLink);
+        }
+        faviconLink.setAttribute('href', favicon);
+
         const upsertMeta = (selector, attrs) => {
             let element = document.head.querySelector(selector);
             if (!attrs.content) {

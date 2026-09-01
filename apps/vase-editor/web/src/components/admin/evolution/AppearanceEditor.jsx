@@ -406,7 +406,7 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
 
     const updateCatalogCardTags = (index, value) => {
         updateCatalogCard(index, {
-            tags: value.split(',').map((item) => item.trim()).filter(Boolean),
+            tags: [...new Set(value.split(',').map((item) => item.trim()).filter(Boolean))],
         });
     };
 
@@ -1089,6 +1089,12 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
                                     value={card.overlay || ''}
                                     onChange={(e) => updateCatalogCard(index, { overlay: e.target.value })}
                                     placeholder="linear-gradient(...)"
+                                />
+                                <EvolutionInput
+                                    label="Posicion de imagen"
+                                    value={card.objectPosition || ''}
+                                    onChange={(e) => updateCatalogCard(index, { objectPosition: e.target.value })}
+                                    placeholder="center"
                                 />
                             </div>
                         ))}
