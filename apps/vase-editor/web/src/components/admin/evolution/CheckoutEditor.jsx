@@ -129,11 +129,6 @@ const CheckoutEditor = ({ settings, setSettings, onSave, isSaving }) => {
                     description="Metodos visibles para el cliente."
                 />
                 <SummaryCard
-                    label="Email admin"
-                    value={adminEmail}
-                    description="Recibe avisos y aprobaciones de pedido."
-                />
-                <SummaryCard
                     label="IVA"
                     value={`${Math.round(taxRate * 100)}%`}
                     description="Se suma al resumen del checkout."
@@ -195,51 +190,6 @@ const CheckoutEditor = ({ settings, setSettings, onSave, isSaving }) => {
                             onChange={(e) => updateCommerceField('whatsapp_number', e.target.value)}
                             className={fieldClass}
                         />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Gmail del admin</label>
-                        <input
-                            type="email"
-                            value={settings?.commerce?.order_notification_email || settings?.commerce?.email || ''}
-                            placeholder="pedidos@alessitech.space"
-                            onChange={(e) => updateCommerceField('order_notification_email', e.target.value)}
-                            className={fieldClass}
-                        />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Email visible de la tienda</label>
-                        <input
-                            type="email"
-                            value={settings?.commerce?.email || ''}
-                            placeholder="ventas@alessitech.space"
-                            onChange={(e) => updateCommerceField('email', e.target.value)}
-                            className={fieldClass}
-                        />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Gmail emisor (SMTP)</label>
-                        <input
-                            type="email"
-                            value={settings?.commerce?.gmail_sender_email || ''}
-                            placeholder="tuempresa@gmail.com"
-                            onChange={(e) => updateCommerceField('gmail_sender_email', e.target.value)}
-                            className={fieldClass}
-                        />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Clave de aplicacion Google</label>
-                        <input
-                            type="password"
-                            value={settings?.commerce?.gmail_app_password || ''}
-                            placeholder="xxxx xxxx xxxx xxxx"
-                            onChange={(e) => updateCommerceField('gmail_app_password', e.target.value)}
-                            className={fieldClass}
-                        />
-                    </div>
-                    <div className="space-y-1 md:col-span-2">
-                        <p className="text-[11px] text-zinc-400">
-                            Usa una clave de aplicacion de Google para habilitar envio de codigos y confirmaciones por email desde este tenant.
-                        </p>
                     </div>
                     <div className="space-y-1">
                         <label className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Estado cliente</label>

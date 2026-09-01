@@ -6,6 +6,7 @@ import {
   normalizeShippingZones,
   toNumber,
 } from '../services/shipping.js';
+import { sendSmtpEmail, verifySmtpConnection } from '../services/mailer.js';
 
 export const settingsRouter = express.Router();
 export const settingsAdminRouter = express.Router();
@@ -15,6 +16,29 @@ settingsAdminRouter.use(resolveTenant);
 
 const ALLOWED_MODES = new Set(['whatsapp', 'transfer', 'both']);
 const ALLOWED_METHODS = new Set(['transfer', 'cash_on_pickup']);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function emailSettings(commerce = {}) {
+  return {
+    smtp_from_name: String(commerce.smtp_from_name || ''), email: String(commerce.email || ''),
+    order_notification_email: String(commerce.order_notification_email || commerce.email || ''),
+    smtp_host: String(commerce.smtp_host || ''), smtp_port: Number(commerce.smtp_port || 465),
+    smtp_secure: commerce.smtp_secure !== false, smtp_user: String(commerce.smtp_user || ''),
+    smtp_from: String(commerce.smtp_from || ''), has_smtp_password: Boolean(String(commerce.smtp_password || '').trim()),
+    has_legacy_gmail: Boolean(String(commerce.gmail_sender_email || '').trim() && String(commerce.gmail_app_password || '').trim()),
+  };
+}
+
+function emailUpdates(payload = {}, current = {}) {
+  const fields = ['smtp_from_name', 'email', 'order_notification_email', 'smtp_host', 'smtp_user', 'smtp_from'];
+  const updates = Object.fromEntries(fields.filter((key) => payload[key] !== undefined).map((key) => [key, String(payload[key] || '').trim()]));
+  if (payload.smtp_port !== undefined) updates.smtp_port = Number(payload.smtp_port);
+  if (payload.smtp_secure !== undefined) updates.smtp_secure = payload.smtp_secure === true || String(payload.smtp_secure).toLowerCase() === 'true';
+  if (String(payload.smtp_password || '').trim()) updates.smtp_password = String(payload.smtp_password).trim();
+  const candidate = { ...current, ...updates };
+  if (!candidate.smtp_host || !candidate.smtp_user || !String(candidate.smtp_password || '').trim() || !EMAIL_RE.test(candidate.smtp_from || candidate.smtp_user) || !Number.isInteger(candidate.smtp_port) || candidate.smtp_port < 1 || candidate.smtp_port > 65535) return null;
+  return updates;
+}
 
 function normalizePaymentMethod(value) {
   const raw = String(value || '')
@@ -224,6 +248,38 @@ settingsRouter.get('/checkout', async (req, res, next) => {
 });
 
 const UUID_REGEX_SETTINGS = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+settingsAdminRouter.get('/email', async (req, res, next) => {
+  try { const result = await pool.query('select commerce from tenant_settings where tenant_id = $1', [req.tenant.id]); return res.json(emailSettings(result.rows[0]?.commerce || {})); }
+  catch (err) { return next(err); }
+});
+
+settingsAdminRouter.put('/email', async (req, res, next) => {
+  try {
+    const result = await pool.query('select commerce from tenant_settings where tenant_id = $1', [req.tenant.id]);
+    const current = result.rows[0]?.commerce || {};
+    const updates = emailUpdates(req.body || {}, current);
+    if (!updates) return res.status(400).json({ code: 'smtp_configuration_incomplete', message: 'Completá los datos SMTP requeridos antes de guardar.' });
+    const saved = await pool.query("insert into tenant_settings (tenant_id, commerce, updated_at) values ($1, $2::jsonb, now()) on conflict (tenant_id) do update set commerce = tenant_settings.commerce || excluded.commerce, updated_at = now() returning commerce", [req.tenant.id, updates]);
+    return res.json(emailSettings(saved.rows[0].commerce));
+  } catch (err) { return next(err); }
+});
+
+settingsAdminRouter.post('/email/verify', async (req, res, next) => {
+  try { return res.status(200).json(await verifySmtpConnection({ tenantId: req.tenant.id })); }
+  catch (err) { return next(err); }
+});
+
+settingsAdminRouter.post('/email/test', async (req, res, next) => {
+  const to = String(req.body?.to || '').trim();
+  if (!EMAIL_RE.test(to)) return res.status(400).json({ code: 'invalid_recipient', message: 'Ingresá un email destinatario válido.' });
+  try {
+    const result = await pool.query('select branding from tenant_settings where tenant_id = $1', [req.tenant.id]);
+    const name = String(result.rows[0]?.branding?.name || req.tenant?.name || 'tu tienda').trim();
+    const delivery = await sendSmtpEmail({ tenantId: req.tenant.id, to, subject: `Prueba de correo - ${name}`, text: `La configuración de correo de ${name} funciona correctamente.`, logPrefix: 'smtp-test' });
+    return res.status(delivery.sent ? 200 : 400).json(delivery);
+  } catch (err) { return next(err); }
+});
 
 settingsAdminRouter.put('/checkout', async (req, res, next) => {
   let targetTenantId = null;

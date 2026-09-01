@@ -12,6 +12,7 @@ import PageSectionsEditor from '../../../components/admin/evolution/PageSections
 import UsersEditor from '../../../components/admin/evolution/UsersEditor';
 import PricingEditor from '../../../components/admin/evolution/PricingEditor';
 import CheckoutEditor from '../../../components/admin/evolution/CheckoutEditor';
+import EmailEditor from '../../../components/admin/evolution/EmailEditor';
 import ShippingEditor from '../../../components/admin/evolution/ShippingEditor';
 import IntegrationsEditor from '../../../components/admin/evolution/IntegrationsEditor';
 import NotificationsEditor from '../../../components/admin/evolution/NotificationsEditor';
@@ -597,6 +598,8 @@ const EvolutionAdmin = () => {
                         isSaving={editor.saving}
                     />
                 );
+            case 'email':
+                return <EmailEditor />;
             case 'shipping':
                 return (
                     <ShippingEditor
