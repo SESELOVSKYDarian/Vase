@@ -108,7 +108,7 @@ export async function sendSmtpEmail({
       return { sent: false, provider: 'log' };
     }
 
-    await transporter.sendMail({
+    const result = await transporter.sendMail({
       from: fromAddress,
       to: recipient,
       subject,
@@ -116,7 +116,8 @@ export async function sendSmtpEmail({
       html,
     });
 
-    return { sent: true, provider: 'smtp' };
+    console.info(`[${logPrefix}] SMTP aceptó el mensaje`, { accepted: result.accepted?.length || 0, rejected: result.rejected?.length || 0, response: result.response || '' });
+    return { sent: true, provider: 'smtp', accepted: result.accepted?.length || 0, rejected: result.rejected?.length || 0 };
   } catch (err) {
     console.error(`[${logPrefix}] Error enviando email`, err?.code || err?.name || 'SMTP_ERROR');
     return { sent: false, provider: 'smtp', ...classifySmtpError(err) };
