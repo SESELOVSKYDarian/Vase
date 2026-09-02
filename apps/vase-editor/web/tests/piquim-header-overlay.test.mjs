@@ -9,6 +9,7 @@ test('el header Piquim solo superpone el contenido cuando recibe overlay', async
     const piquim = source.slice(source.indexOf('if (isPiquimPreset)'), source.indexOf('if (isPiquimPreset)') + 12000);
 
     assert.match(piquim, /overlay \? '-mt-\[6px\] -mb-\[113px\] max-md:-mb-\[93px\]' : ''/);
+    assert.match(piquim, /justify-center gap-2 pl-\[160px\] pr-2 py-1 transition-transform/);
     assert.match(piquim, /w-full px-\[60px\] py-\[18px\] max-md:px-4/);
     assert.match(piquim, /bg-\[var\(--store-header-bg\)\]/);
 });
