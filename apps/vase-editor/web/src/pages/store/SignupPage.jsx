@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTenant } from '../../context/TenantContext';
 import StoreLayout from '../../components/layout/StoreLayout';
 import { navigate } from '../../utils/navigation';
 import { getCountryLabelByCode } from '../../utils/locations';
 import { useAddressLocationFields } from '../../hooks/useAddressLocationFields';
 import { getExternalLoginUrl, getExternalSignupUrl, isExternalAuthEnabled } from '../../utils/vaseAuth';
+import { isPiquimTenantIdentity } from '../../utils/tenantBranding';
 
 const CheckIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
@@ -439,6 +441,8 @@ function getVerificationDeliveryNotice(verification, email) {
 
 export default function SignupPage() {
     const { signup, verifyEmailCode, resendVerificationCode } = useAuth();
+    const { tenant, settings } = useTenant();
+    const isPiquim = isPiquimTenantIdentity({ tenant, settings });
     const externalAuthEnabled = isExternalAuthEnabled();
     const externalLoginUrl = getExternalLoginUrl();
     const externalSignupUrl = getExternalSignupUrl();
@@ -746,7 +750,7 @@ export default function SignupPage() {
     if (externalAuthEnabled) {
         return (
             <StoreLayout>
-                <div className="flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4">
+                <div className={isPiquim ? 'flex justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4 pt-8 pb-16 md:pt-10' : 'flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4'}>
                     <div className="w-full max-w-[460px] rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.18)] md:p-8">
                         <div className="text-center space-y-3">
                             <h1 className="text-2xl font-extrabold text-gray-900">Registro centralizado</h1>
@@ -788,7 +792,7 @@ export default function SignupPage() {
 
     return (
         <StoreLayout>
-            <div className="flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4">
+            <div className={isPiquim ? 'flex justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4 pt-8 pb-16 md:pt-10' : 'flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4'}>
                 <div className="w-full max-w-[460px] rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.18)] md:p-8">
                     <div className="mb-6 text-center">
                         <h1 className="mb-1 text-2xl font-extrabold text-gray-900">Crear cuenta</h1>

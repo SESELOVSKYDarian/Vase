@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import StoreLayout from '../../components/layout/StoreLayout';
 import { navigate, normalizeInternalPath } from '../../utils/navigation';
-import { resolveTenantBrandName } from '../../utils/tenantBranding';
+import { isPiquimTenantIdentity, resolveTenantBrandName } from '../../utils/tenantBranding';
 import {
     getExternalBusinessLaunchUrl,
     getExternalLoginUrl,
@@ -28,6 +28,7 @@ function getVerificationDeliveryNotice(verification, email) {
 export default function LoginPage() {
     const { login, verifyEmailCode, resendVerificationCode } = useAuth();
     const { tenant, settings } = useTenant();
+    const isPiquim = isPiquimTenantIdentity({ tenant, settings });
     const brandName = resolveTenantBrandName({ tenant, settings });
     const brandInitial = brandName.trim().charAt(0).toUpperCase() || 'S';
     const externalAuthEnabled = isExternalAuthEnabled();
@@ -137,7 +138,7 @@ export default function LoginPage() {
     if (externalAuthEnabled) {
         return (
             <StoreLayout>
-                <div className="min-h-[80vh] flex items-center justify-center px-4">
+                <div className={isPiquim ? 'flex justify-center px-4 pt-8 pb-16 md:pt-10' : 'min-h-[80vh] flex items-center justify-center px-4'}>
                     <div className="max-w-md w-full bg-white dark:bg-[#1a130c] p-10 rounded-2xl shadow-xl border border-[#e5e1de] dark:border-[#3d2f21]">
                         <div className="text-center space-y-3">
                             <h2 className="text-3xl font-black text-[#181411] dark:text-white">Acceso centralizado</h2>
@@ -221,7 +222,7 @@ export default function LoginPage() {
 
     return (
         <StoreLayout>
-            <div className="min-h-[80vh] flex items-center justify-center px-4">
+            <div className={isPiquim ? 'flex justify-center px-4 pt-8 pb-16 md:pt-10' : 'min-h-[80vh] flex items-center justify-center px-4'}>
                 <div className="relative max-w-md w-full overflow-hidden rounded-[32px] border border-[#f0d0bf] bg-[#fffaf6] p-8 shadow-[0_24px_80px_rgba(255,77,0,0.16)] dark:border-[#3d2f21] dark:bg-[#1a130c]">
                     <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#ff4d00]/15 blur-2xl" />
                     <div className="relative text-center mb-8">

@@ -141,7 +141,7 @@ export default function StoreLayout({ children, overlay = false }) {
     }, [seo, settings?.branding?.name]);
 
     return (
-        <div className="storefront-shell flex min-h-screen flex-col bg-[var(--store-background)] font-[var(--font-family)] text-[var(--store-text)] transition-colors duration-300">
+        <div className="storefront-shell relative flex min-h-screen flex-col bg-[var(--store-background)] font-[var(--font-family)] text-[var(--store-text)] transition-colors duration-300">
             <div className={`fixed top-10 left-1/2 -translate-x-1/2 z-[9999] transition-all duration-500 ease-out ${toast?.show ? 'translate-y-0 opacity-100' : '-translate-y-20 opacity-0 pointer-events-none'}`}>
                 <div className="bg-green-600 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border-2 border-green-400">
                     <div className="bg-white/20 p-2 rounded-full">
@@ -169,7 +169,7 @@ export default function StoreLayout({ children, overlay = false }) {
                     Tu cuenta mayorista esta pendiente de aprobacion. Mientras tanto ves precios minoristas.
                 </div>
             ) : null}
-            <main className="flex-grow">
+            <main className="relative z-0 flex-grow">
                 {children}
             </main>
             {isPiquim ? <PiquimFooter /> : <Footer />}
