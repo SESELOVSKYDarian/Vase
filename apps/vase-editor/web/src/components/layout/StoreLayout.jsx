@@ -10,6 +10,11 @@ import { isPiquimTenantIdentity } from '../../utils/tenantBranding';
 import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from '../../utils/seo';
 import StoreFloatingControls from './StoreFloatingControls';
 
+const getFaviconMimeType = (url) => {
+    const extension = String(url || '').split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
+    return { png: 'image/png', svg: 'image/svg+xml', webp: 'image/webp', ico: 'image/x-icon' }[extension] || '';
+};
+
 export default function StoreLayout({ children, overlay = false }) {
     const { toast } = useStore();
     const { isWholesalePending } = useAuth();
@@ -58,7 +63,8 @@ export default function StoreLayout({ children, overlay = false }) {
 
         document.title = title;
 
-        const favicon = String(settings?.branding?.favicon_url || settings?.seo?.favicon_url || settings?.branding?.logo_url || '/favicon.ico').trim();
+        const favicon = String(settings?.branding?.favicon_url || settings?.seo?.favicon_url || '/favicon.ico').trim();
+        const faviconMimeType = getFaviconMimeType(favicon);
         let faviconLink = document.head.querySelector('link[rel="icon"]');
         if (!faviconLink) {
             faviconLink = document.createElement('link');
@@ -66,6 +72,8 @@ export default function StoreLayout({ children, overlay = false }) {
             document.head.appendChild(faviconLink);
         }
         faviconLink.setAttribute('href', favicon);
+        if (faviconMimeType) faviconLink.setAttribute('type', faviconMimeType);
+        else faviconLink.removeAttribute('type');
 
         const upsertMeta = (selector, attrs) => {
             let element = document.head.querySelector(selector);
@@ -138,7 +146,7 @@ export default function StoreLayout({ children, overlay = false }) {
             document.getElementById(headId)?.remove();
             document.getElementById(bodyId)?.remove();
         };
-    }, [seo, settings?.branding?.name]);
+    }, [seo, settings?.branding?.name, settings?.branding?.favicon_url, settings?.seo?.favicon_url]);
 
     return (
         <div className="storefront-shell relative flex min-h-screen flex-col bg-[var(--store-background)] font-[var(--font-family)] text-[var(--store-text)] transition-colors duration-300">
