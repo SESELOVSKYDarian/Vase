@@ -548,7 +548,7 @@ export default function Header({
 
     return (
       <>
-       <header className={`sticky top-0 z-[1000] isolate w-full font-[var(--font-family)] ${overlay ? '-mb-[113px] max-md:-mb-[93px]' : ''}`}>
+       <header className={`sticky top-0 z-[1000] isolate w-full font-[var(--font-family)] ${overlay ? '-mt-[6px] -mb-[113px] max-md:-mb-[93px]' : ''}`}>
         <div className="w-full px-[60px] py-[18px] max-md:px-4">
           <div className="relative flex min-h-[68px] items-center gap-3 overflow-visible rounded-[30px] border border-[var(--store-border)] bg-[var(--store-header-bg)] px-[60px] py-[18px] shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition-colors duration-300 max-md:px-5">
             <button
@@ -564,7 +564,7 @@ export default function Header({
               )}
             </button>
 
-            <nav className={`hidden min-w-0 flex-1 items-center justify-center gap-2 px-2 py-1 transition-transform duration-300 lg:flex ${
+            <nav className={`hidden min-w-0 flex-1 items-center justify-center gap-2 pl-[160px] pr-2 py-1 transition-transform duration-300 lg:flex ${
               isDesktopSearchPinned || isDesktopSearchHovered ? "xl:translate-x-1 2xl:translate-x-3" : "xl:translate-x-3 2xl:translate-x-5"
             }`}>
               {primaryLinks.slice(0, 5).map((item) => {
