@@ -169,6 +169,7 @@ export default function Header({
   const [expandedMobileCategories, setExpandedMobileCategories] = useState({});
   const [activeMobileTab, setActiveMobileTab] = useState("menu"); // menu, categories, brands
   const [isDesktopSearchPinned, setIsDesktopSearchPinned] = useState(false);
+  const [isDesktopSearchHovered, setIsDesktopSearchHovered] = useState(false);
   const [desktopSearchError, setDesktopSearchError] = useState(false);
   const [searchHistory, setSearchHistory] = useState([]);
   const [productSuggestions, setProductSuggestions] = useState([]);
@@ -547,9 +548,9 @@ export default function Header({
 
     return (
       <>
-      <header className={`${overlay ? "absolute" : "fixed"} left-0 right-0 top-0 z-50 w-full font-[var(--font-family)]`}>
+       <header className={`sticky top-0 z-[1000] isolate w-full font-[var(--font-family)] ${overlay ? '-mt-[6px] -mb-[113px] max-md:-mb-[93px]' : ''}`}>
         <div className="w-full px-[60px] py-[18px] max-md:px-4">
-          <div className="relative flex min-h-[68px] items-center justify-between gap-3 overflow-visible rounded-[30px] border border-[var(--store-border)] bg-[var(--store-header-bg)] px-[60px] py-[18px] shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition-colors duration-300 max-md:px-5">
+          <div className="relative flex min-h-[68px] items-center gap-3 overflow-visible rounded-[30px] border border-[var(--store-border)] bg-[var(--store-header-bg)] px-[60px] py-[18px] shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition-colors duration-300 max-md:px-5">
             <button
               type="button"
               onClick={() => navigate("/")}
@@ -563,7 +564,9 @@ export default function Header({
               )}
             </button>
 
-            <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-[var(--store-surface)] px-2 py-1 lg:flex">
+            <nav className={`hidden min-w-0 flex-1 items-center justify-center gap-2 pl-[160px] pr-2 py-1 transition-transform duration-300 lg:flex ${
+              isDesktopSearchPinned || isDesktopSearchHovered ? "xl:translate-x-1 2xl:translate-x-3" : "xl:translate-x-3 2xl:translate-x-5"
+            }`}>
               {primaryLinks.slice(0, 5).map((item) => {
                 const target = item.href || "/";
                 const isExternalTarget = isExternalPath(target);
@@ -590,10 +593,12 @@ export default function Header({
               })}
             </nav>
 
-            <div className="hidden min-w-0 flex-1 justify-end gap-2 md:flex">
+            <div className="hidden min-w-0 shrink-0 justify-end gap-2 md:flex">
               {showSearch ? (
                 <div
                   ref={searchBoxRef}
+                  onMouseEnter={() => setIsDesktopSearchHovered(true)}
+                  onMouseLeave={() => setIsDesktopSearchHovered(false)}
                   className={`group relative hidden h-12 items-center overflow-visible rounded-full transition-all duration-300 xl:flex ${
                     isDesktopSearchPinned ? "w-[320px] bg-[var(--store-input-bg)]" : "w-11 bg-transparent hover:w-[320px] hover:bg-[var(--store-input-bg)]"
                   } ${

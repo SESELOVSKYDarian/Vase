@@ -10,6 +10,11 @@ import { isPiquimTenantIdentity } from '../../utils/tenantBranding';
 import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from '../../utils/seo';
 import StoreFloatingControls from './StoreFloatingControls';
 
+const getFaviconMimeType = (url) => {
+    const extension = String(url || '').split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
+    return { png: 'image/png', svg: 'image/svg+xml', webp: 'image/webp', ico: 'image/x-icon' }[extension] || '';
+};
+
 export default function StoreLayout({ children, overlay = false }) {
     const { toast } = useStore();
     const { isWholesalePending } = useAuth();
@@ -57,6 +62,18 @@ export default function StoreLayout({ children, overlay = false }) {
         const ogDescription = seo.ogDescription || description;
 
         document.title = title;
+
+        const favicon = String(settings?.branding?.favicon_url || settings?.seo?.favicon_url || '/favicon.ico').trim();
+        const faviconMimeType = getFaviconMimeType(favicon);
+        let faviconLink = document.head.querySelector('link[rel="icon"]');
+        if (!faviconLink) {
+            faviconLink = document.createElement('link');
+            faviconLink.setAttribute('rel', 'icon');
+            document.head.appendChild(faviconLink);
+        }
+        faviconLink.setAttribute('href', favicon);
+        if (faviconMimeType) faviconLink.setAttribute('type', faviconMimeType);
+        else faviconLink.removeAttribute('type');
 
         const upsertMeta = (selector, attrs) => {
             let element = document.head.querySelector(selector);
@@ -129,10 +146,10 @@ export default function StoreLayout({ children, overlay = false }) {
             document.getElementById(headId)?.remove();
             document.getElementById(bodyId)?.remove();
         };
-    }, [seo, settings?.branding?.name]);
+    }, [seo, settings?.branding?.name, settings?.branding?.favicon_url, settings?.seo?.favicon_url]);
 
     return (
-        <div className="storefront-shell flex min-h-screen flex-col bg-[var(--store-background)] font-[var(--font-family)] text-[var(--store-text)] transition-colors duration-300">
+        <div className="storefront-shell relative flex min-h-screen flex-col bg-[var(--store-background)] font-[var(--font-family)] text-[var(--store-text)] transition-colors duration-300">
             <div className={`fixed top-10 left-1/2 -translate-x-1/2 z-[9999] transition-all duration-500 ease-out ${toast?.show ? 'translate-y-0 opacity-100' : '-translate-y-20 opacity-0 pointer-events-none'}`}>
                 <div className="bg-green-600 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border-2 border-green-400">
                     <div className="bg-white/20 p-2 rounded-full">
@@ -160,7 +177,7 @@ export default function StoreLayout({ children, overlay = false }) {
                     Tu cuenta mayorista esta pendiente de aprobacion. Mientras tanto ves precios minoristas.
                 </div>
             ) : null}
-            <main className="flex-grow">
+            <main className="relative z-0 flex-grow">
                 {children}
             </main>
             {isPiquim ? <PiquimFooter /> : <Footer />}

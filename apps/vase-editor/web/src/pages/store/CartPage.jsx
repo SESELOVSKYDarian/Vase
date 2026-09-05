@@ -9,10 +9,12 @@ import { getApiBase, getAuthHeaders, getTenantHeaders } from "../../utils/api";
 import PriceAccessPrompt from "../../components/PriceAccessPrompt";
 import { getPriceAccessState } from "../../utils/priceVisibility";
 import { createPlaceholderImage } from "../../utils/productImage";
+import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
 
 export default function CartPage() {
     const { cartItems, updateQty, removeItem, addToCart, cartCount, cartSubtotal } = useStore();
-    const { settings } = useTenant();
+    const { tenant, settings } = useTenant();
+    const isPiquim = isPiquimTenantIdentity({ tenant, settings });
     const { user, loading: authLoading } = useAuth();
     const currency = settings?.commerce?.currency || "ARS";
     const locale = settings?.commerce?.locale || "es-AR";
@@ -92,7 +94,7 @@ export default function CartPage() {
     if (!cartItems.length) {
         return (
             <StoreLayout>
-                <main className="w-full flex-1 flex flex-col items-center justify-center p-8 bg-zinc-50 dark:bg-zinc-950 min-h-[60vh]">
+                <main className={isPiquim ? "w-full flex-1 flex flex-col items-center justify-start bg-zinc-50 p-8 pt-8 pb-16 dark:bg-zinc-950" : "w-full flex-1 flex flex-col items-center justify-center p-8 bg-zinc-50 dark:bg-zinc-950 min-h-[60vh]"}>
                     <div className="max-w-md w-full bg-white dark:bg-zinc-900 rounded-[2rem] p-10 flex flex-col items-center justify-center text-center shadow-xl shadow-zinc-200/50 dark:shadow-none border border-zinc-100 dark:border-zinc-800 transition-all">
                         <div className="size-24 bg-orange-50 dark:bg-orange-500/10 text-primary rounded-full flex items-center justify-center mb-6">
                             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg>
@@ -116,7 +118,7 @@ export default function CartPage() {
 
     return (
         <StoreLayout>
-            <div className="bg-zinc-50 dark:bg-zinc-950 min-h-[80vh] pb-32 lg:pb-12 pt-8">
+            <div className={`bg-zinc-50 dark:bg-zinc-950 min-h-[80vh] pb-32 lg:pb-12 ${isPiquim ? 'pt-8 md:pt-10' : 'pt-8'}`}>
                 <main className="max-w-[1280px] mx-auto w-full px-4 md:px-8">
                     <div className="flex flex-col gap-2 mb-10">
                         <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-zinc-900 dark:text-white">Tu Carrito</h1>

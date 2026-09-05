@@ -82,7 +82,9 @@ export default function AboutPage() {
 
     return (
         <StoreLayout>
-            <PageBuilder sections={visibleSections} />
+            <div className={isPiquim ? 'pt-8 md:pt-10' : undefined}>
+                <PageBuilder sections={visibleSections} />
+            </div>
         </StoreLayout>
     );
 }

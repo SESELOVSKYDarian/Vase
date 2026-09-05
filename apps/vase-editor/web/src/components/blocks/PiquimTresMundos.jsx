@@ -26,16 +26,16 @@ export default function PiquimTresMundos({
           {subtitle || description}
         </p>
 
-        <div className="mt-1 -mb-3 flex items-end justify-center gap-0 md:hidden">
+          <div className="mt-1 -mb-3 flex w-[calc(100%+3rem)] -translate-x-6 items-end justify-center gap-0 overflow-hidden md:hidden">
           <img
             src={leftImage}
             alt="Balde izquierdo"
-            className="w-[60%] max-w-[400px] -rotate-12 opacity-95"
+             className="w-[72%] max-w-[400px] -rotate-12 opacity-95"
           />
           <img
             src={rightImage}
             alt="Balde derecho"
-            className="w-[60%] max-w-[300px] rotate-12 opacity-95"
+             className="w-[72%] max-w-[300px] rotate-12 opacity-95"
           />
         </div>
       </div>

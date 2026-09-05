@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, Flame, Snowflake } from "lucide-react";
+import { renderResponsiveCardTitle } from "../../utils/renderResponsiveCardTitle";
 import StoreLayout from "../../components/layout/StoreLayout";
 import { formatCurrency } from "../../utils/format";
 import { getApiBase, getAuthHeaders, getTenantHeaders } from "../../utils/api";
@@ -1088,16 +1089,16 @@ function PiquimExactCatalogCard({ card, onClick }) {
                 style={{ objectPosition: card.objectPosition || 'center' }}
             />
             <div className="absolute inset-0" style={{ background: card.overlay }} />
-            <div className="absolute inset-x-10 bottom-[30px] inline-flex min-h-[290px] flex-col items-center justify-center gap-4 overflow-hidden">
-                <div className="inline-flex items-center justify-center gap-3 overflow-hidden">
+            <div className="absolute inset-x-4 bottom-6 flex min-h-[290px] w-auto min-w-0 flex-col items-center justify-center gap-3 px-2 sm:inset-x-6 sm:bottom-[30px] sm:gap-4 md:inset-x-10 md:px-0">
+                <div className="flex items-center justify-center gap-3">
                     <div className="text-[11px] font-bold text-white" style={{ fontFamily: 'Gilroy, sans-serif', letterSpacing: 1.98 }}>
                         {card.prefix}
                     </div>
                 </div>
-                <h2 className="text-[56px] font-black italic leading-none text-[#FF4D00]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
-                    {card.title}
+                <h2 className="w-full max-w-full min-w-0 whitespace-normal text-center text-[clamp(2rem,10vw,3.5rem)] font-black italic leading-[0.95] text-[#FF4D00] [overflow-wrap:anywhere]" style={{ fontFamily: 'Gilroy, sans-serif' }}>
+                    {renderResponsiveCardTitle(card.title)}
                 </h2>
-                <div className="inline-flex w-full max-w-[398px] flex-wrap content-center items-center justify-center gap-1.5 overflow-hidden">
+                <div className="flex w-full max-w-[398px] flex-wrap content-center items-center justify-center gap-1.5">
                     {(Array.isArray(card.tags) ? card.tags : []).map((tag) => (
                         <span
                             key={`${card.id}-${tag}`}

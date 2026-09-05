@@ -17,6 +17,7 @@ import PiquimTresMundos from './blocks/PiquimTresMundos';
 import PiquimCatalog3Panel from './blocks/PiquimCatalog3Panel';
 import PiquimFeaturedProducts from './blocks/PiquimFeaturedProducts';
 import PiquimCTABanner from './blocks/PiquimCTABanner';
+import { useTenant } from '../context/TenantContext';
 
 const COMPONENT_MAP = {
     HeroSlider,
@@ -46,6 +47,10 @@ const ANCHOR_MAP = {
 };
 
 export default function PageBuilder({ sections = [] }) {
+    const { settings } = useTenant();
+    const catalogCards = Array.isArray(settings?.branding?.catalog_cards) && settings.branding.catalog_cards.length
+        ? settings.branding.catalog_cards
+        : null;
     if (!sections || sections.length === 0) {
         return (
             <div className="p-10 text-center border-2 border-dashed border-gray-300 rounded-xl m-10">
@@ -80,7 +85,7 @@ export default function PageBuilder({ sections = [] }) {
 
                 return (
                     <section key={section.id || index} id={anchorId || undefined}>
-                        <Component {...section.props} />
+                        <Component {...section.props} {...(section.type === 'PiquimCatalog3Panel' && catalogCards ? { cards: catalogCards } : {})} />
                     </section>
                 );
             })}

@@ -169,6 +169,8 @@ export default function EditorPage() {
     const [deleteLoadingId, setDeleteLoadingId] = useState(null);
     const [serviceIconUploading, setServiceIconUploading] = useState(false);
     const [logoUploading, setLogoUploading] = useState(false);
+    const [faviconUploading, setFaviconUploading] = useState(false);
+    const [faviconAspectWarning, setFaviconAspectWarning] = useState('');
     const [clearingFeatured, setClearingFeatured] = useState(false);
     const [editingProductId, setEditingProductId] = useState(null);
     const [newProduct, setNewProduct] = useState(() => EMPTY_PRODUCT_FORM());
@@ -178,6 +180,7 @@ export default function EditorPage() {
         branding: {
             name: '',
             logo_url: '',
+            favicon_url: '',
             navbar: {
                 links: [
                     { label: 'Inicio', href: '/' },
@@ -2248,6 +2251,34 @@ useEffect(() => {
         }
     };
 
+    const handleFaviconUpload = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        setFaviconUploading(true);
+        setFaviconAspectWarning('');
+        try {
+            const dataUrl = await readImageAsDataUrl(file);
+            if (!dataUrl) throw new Error('No se pudo leer el favicon');
+            const dimensions = await new Promise((resolve) => {
+                const image = new Image();
+                image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+                image.onerror = () => resolve(null);
+                image.src = dataUrl;
+            });
+            if (dimensions?.width && dimensions?.height && Math.max(dimensions.width, dimensions.height) / Math.min(dimensions.width, dimensions.height) > 1.15) {
+                setFaviconAspectWarning('Esta imagen es horizontal. Para que el favicon se vea correctamente, recomendamos una imagen cuadrada.');
+            }
+            setSettings((prev) => ({ ...prev, branding: { ...prev.branding, favicon_url: dataUrl } }));
+            showSuccess('Favicon cargado');
+        } catch (err) {
+            console.error('Favicon read failed', err);
+            alert('Error al leer el favicon');
+        } finally {
+            setFaviconUploading(false);
+            event.target.value = '';
+        }
+    };
+
     const updateSectionProps = (index, nextProps) => {
         const newSections = [...sections];
         const currentProps = newSections[index].props || {};
@@ -2593,6 +2624,18 @@ useEffect(() => {
                                                     <img src={settings.branding.logo_url} alt="Logo" className="w-8 h-8 object-contain" />
                                                 </div>
                                             ) : null}
+                                        </div>
+                                        <div className="pt-4">
+                                            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#8a7560]">Favicon / Ícono del sitio</p>
+                                            <div className="flex items-center gap-3">
+                                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-zinc-800 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-zinc-700">
+                                                    <input type="file" accept=".png,.webp,.svg,.ico,image/png,image/webp,image/svg+xml,image/x-icon" onChange={handleFaviconUpload} className="hidden" disabled={faviconUploading} />
+                                                    <span>{faviconUploading ? 'Subiendo...' : 'Subir favicon'}</span>
+                                                </label>
+                                                {settings.branding.favicon_url ? <div className="flex size-12 items-center justify-center rounded-lg border border-[#e5e1de] bg-white p-1 dark:border-[#3d2f21] dark:bg-[#1a130c]"><img src={settings.branding.favicon_url} alt="Vista previa del favicon" className="h-full w-full object-contain" /></div> : null}
+                                            </div>
+                                            <p className="mt-2 text-xs text-[#8a7560]">Se muestra en la pestaña del navegador. Usá una imagen cuadrada para obtener mejores resultados. Recomendado: 512 × 512 px · 1:1.</p>
+                                            {faviconAspectWarning ? <p className="mt-2 text-xs font-medium text-amber-700">{faviconAspectWarning}</p> : null}
                                         </div>
                                     </div>
                                 </div>
