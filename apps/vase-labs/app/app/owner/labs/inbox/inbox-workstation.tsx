@@ -327,6 +327,23 @@ export function InboxWorkstation({
     return () => window.clearInterval(interval);
   }, [activeId]);
 
+  useEffect(() => {
+    const source = new EventSource(`/api/v1/inbox/${tenantSlug}/events`);
+    const refreshFromLiveEvent = () => {
+      void refreshConversationList(true);
+      void refreshConversation(true);
+    };
+    source.addEventListener("inbox.changed", refreshFromLiveEvent);
+    source.onerror = () => {
+      // EventSource reconnects automatically; the existing polling remains active
+      // while the connection is recovering.
+    };
+    return () => {
+      source.removeEventListener("inbox.changed", refreshFromLiveEvent);
+      source.close();
+    };
+  }, [tenantSlug, activeId]);
+
   async function requestHandoff() {
     if (!activeId || handoffBusy) return;
     setHandoffBusy(true);
@@ -403,6 +420,18 @@ export function InboxWorkstation({
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (payload.message) {
+          setConversations((current) => sortConversations(current.map((conversation) =>
+            conversation.id === activeId && !conversation.messages.some((message) => message.id === payload.message.id)
+              ? {
+                  ...conversation,
+                  messageCount: conversation.messageCount + 1,
+                  lastMessageAt: payload.message.createdAt,
+                  messages: [...conversation.messages, payload.message],
+                }
+              : conversation,
+          )));
+        }
         throw {
           code: payload.error ?? "INBOX_REPLY_FAILED",
           providerStatus: payload.providerStatus,

@@ -35,6 +35,12 @@ type InboxReplyHandlerDependencies = {
     providerMessageId?: string | null;
     now?: Date;
   }): Promise<{ messageId: string; createdAt: Date }>;
+  markReplyDelivery(input: {
+    messageId: string;
+    status: "SENT" | "FAILED";
+    providerMessageId?: string | null;
+    error?: string | null;
+  }): Promise<void>;
 };
 
 type InboxReplyTransaction = {
@@ -81,9 +87,9 @@ export async function persistHumanInboxReply(
         id: randomUUID(),
         messageId,
         channel: input.channel,
-        status: "SENT",
+        status: "PENDING",
         providerMessageId: input.providerMessageId ?? null,
-        sentAt: now,
+        sentAt: null,
         createdAt: now,
         updatedAt: now,
       },
@@ -101,6 +107,30 @@ export async function persistHumanInboxReply(
     });
   });
   return { messageId, createdAt: now };
+}
+
+export async function markHumanInboxReplyDelivery(
+  prisma: { messageDelivery: { updateMany(input: unknown): Promise<unknown> } },
+  input: {
+    messageId: string;
+    status: "SENT" | "FAILED";
+    providerMessageId?: string | null;
+    error?: string | null;
+    now?: Date;
+  },
+): Promise<void> {
+  const now = input.now ?? new Date();
+  await prisma.messageDelivery.updateMany({
+    where: { messageId: input.messageId, status: "PENDING" },
+    data: {
+      status: input.status,
+      providerMessageId: input.providerMessageId ?? null,
+      error: input.error ?? null,
+      sentAt: input.status === "SENT" ? now : null,
+      failedAt: input.status === "FAILED" ? now : null,
+      updatedAt: now,
+    },
+  });
 }
 
 export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependencies) {
@@ -130,39 +160,69 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
         return NextResponse.json({ error: "CONVERSATION_NOT_DELIVERABLE" }, { status: 404 });
       }
 
-      const delivery = await dependencies.sendReply({
-        globalTenantId: context.globalTenantId,
-        channelType: conversation.channel,
-        recipientId,
-        text,
-      });
-      if (!delivery.ok) {
-        throw new Error("CHANNEL_DELIVERY_FAILED");
-      }
-
       const persisted = await dependencies.persistReply({
         conversationId,
         channel: conversation.channel,
         text,
-        providerMessageId: delivery.providerMessageId,
+        providerMessageId: null,
       });
 
-      return NextResponse.json({
-        message: {
-          id: persisted.messageId,
-          role: "human_agent",
-          content: text,
-          direction: "OUTBOUND",
+      try {
+        const delivery = await dependencies.sendReply({
+          globalTenantId: context.globalTenantId,
+          channelType: conversation.channel,
+          recipientId,
+          text,
+        });
+        if (!delivery.ok) throw new Error("CHANNEL_DELIVERY_FAILED");
+        await dependencies.markReplyDelivery({
+          messageId: persisted.messageId,
+          status: "SENT",
           providerMessageId: delivery.providerMessageId,
-          createdAt: persisted.createdAt.toISOString(),
-          delivery: {
-            status: "SENT",
-            providerMessageId: delivery.providerMessageId ?? null,
-            error: null,
+        });
+
+        return NextResponse.json({
+          message: {
+            id: persisted.messageId,
+            role: "human_agent",
+            content: text,
+            direction: "OUTBOUND",
+            providerMessageId: delivery.providerMessageId,
+            createdAt: persisted.createdAt.toISOString(),
+            delivery: {
+              status: "SENT",
+              providerMessageId: delivery.providerMessageId ?? null,
+              error: null,
+            },
           },
-        },
-        delivery: { status: "SENT" },
-      });
+          delivery: { status: "SENT" },
+        });
+      } catch (error) {
+        const source = error as { code?: unknown; message?: unknown; providerStatus?: unknown; providerMessage?: unknown } | null;
+        const code = typeof source?.code === "string"
+          ? source.code
+          : typeof source?.message === "string" ? source.message : "CHANNEL_DELIVERY_FAILED";
+        const providerError = typeof source?.providerMessage === "string" ? source.providerMessage : code;
+        await dependencies.markReplyDelivery({
+          messageId: persisted.messageId,
+          status: "FAILED",
+          error: providerError,
+        });
+        return NextResponse.json({
+          error: code,
+          message: {
+            id: persisted.messageId,
+            role: "human_agent",
+            content: text,
+            direction: "OUTBOUND",
+            providerMessageId: null,
+            createdAt: persisted.createdAt.toISOString(),
+            delivery: { status: "FAILED", providerMessageId: null, error: providerError },
+          },
+          ...(typeof source?.providerStatus === "number" ? { providerStatus: source.providerStatus } : {}),
+          ...(typeof source?.providerMessage === "string" ? { providerMessage: source.providerMessage } : {}),
+        }, { status: 502 });
+      }
     } catch (error) {
       const source = error as {
         code?: unknown;
@@ -215,5 +275,8 @@ export const POST = createInboxReplyHandler({
   },
   persistReply(input) {
     return persistHumanInboxReply(labsPrisma as any, input);
+  },
+  markReplyDelivery(input) {
+    return markHumanInboxReplyDelivery(labsPrisma as any, input);
   },
 });

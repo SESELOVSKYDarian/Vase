@@ -1,5 +1,6 @@
 type ConversationWithThread = {
   id: string;
+  status: string;
   messages: unknown[];
   handoffs: unknown[];
 };
@@ -24,7 +25,7 @@ export function mergeInboxConversationSummaries<T extends ConversationWithThread
   refreshed: T[],
 ): T[] {
   const currentById = new Map(current.map((conversation) => [conversation.id, conversation]));
-  return refreshed.map((summary) => {
+  const merged = refreshed.map((summary) => {
     const loaded = currentById.get(summary.id);
     if (!loaded) return summary;
     return {
@@ -33,4 +34,14 @@ export function mergeInboxConversationSummaries<T extends ConversationWithThread
       handoffs: summary.handoffs.length > 0 ? summary.handoffs : loaded.handoffs,
     };
   });
+
+  // A short-lived list refresh must never erase a conversation already loaded in
+  // the workstation. Closed conversations are the only ones allowed to leave.
+  const refreshedIds = new Set(refreshed.map((conversation) => conversation.id));
+  return [
+    ...merged,
+    ...current.filter((conversation) =>
+      !refreshedIds.has(conversation.id) && conversation.status !== "CLOSED",
+    ),
+  ];
 }

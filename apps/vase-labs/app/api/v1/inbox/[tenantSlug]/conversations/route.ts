@@ -21,7 +21,16 @@ export async function GET(
         orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }],
         take: 100,
         include: {
-          messages: { orderBy: { createdAt: "asc" }, take: 80 },
+          messages: {
+            orderBy: { createdAt: "asc" },
+            take: 80,
+            include: {
+              deliveries: {
+                orderBy: { updatedAt: "desc" },
+                take: 1,
+              },
+            },
+          },
           handoffs: {
             where: { status: { in: ["PENDING", "ASSIGNED"] } },
             orderBy: { createdAt: "desc" },
@@ -47,6 +56,13 @@ export async function GET(
       direction: message.direction,
       content: message.content,
       createdAt: message.createdAt.toISOString(),
+      delivery: message.deliveries[0]
+        ? {
+            status: message.deliveries[0].status,
+            providerMessageId: message.deliveries[0].providerMessageId,
+            error: message.deliveries[0].error,
+          }
+        : null,
     })),
     handoffs: conversation.handoffs.map((handoff: any) => ({
       id: handoff.id,
