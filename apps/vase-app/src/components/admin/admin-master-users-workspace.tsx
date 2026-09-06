@@ -52,6 +52,7 @@ import {
 import { ActionToast } from "@/components/ui/action-toast";
 import { CrudModal } from "@/components/ui/crud-modal";
 import type { ClientProductAccess } from "@/lib/admin/client-product-access";
+import { getLabsPlanCatalog } from "@/lib/admin/labs-plan-catalog";
 
 type UiRole = "cliente" | "admin" | "developer" | "designer" | "tester" | "soporte";
 type UserRow = {
@@ -619,13 +620,7 @@ export function AdminMasterUsersWorkspace({ users, modules, restPricingVersions 
   const businessSubmodules = (modules.find((module) => module.product === "BUSINESS")?.submodules ?? [])
     .filter((submodule): submodule is typeof submodule & { key: "plantilla" | "personalizado" } => submodule.key === "plantilla" || submodule.key === "personalizado");
   const businessGeneralFeatures = modules.find((module) => module.product === "BUSINESS")?.features ?? [];
-  const labsPlans = (modules.find((module) => module.product === "LABS")?.submodules ?? [])
-    .filter((submodule) => ["starter", "pro", "growth"].includes(submodule.key.toLowerCase()))
-    .map((submodule) => ({
-      submoduleId: submodule.id,
-      plan: submodule.key.toUpperCase() as "STARTER" | "PRO" | "GROWTH",
-      label: submodule.key.charAt(0).toUpperCase() + submodule.key.slice(1).toLowerCase(),
-    }));
+  const labsPlans = getLabsPlanCatalog(modules);
 
   return (
     <section className="grid gap-5">
