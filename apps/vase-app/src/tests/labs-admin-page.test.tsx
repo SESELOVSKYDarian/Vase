@@ -7,6 +7,7 @@ describe("Labs Super Admin workspace", () => {
     const html = renderToStaticMarkup(<LabsAdminWorkspace initialControls={[{
       globalTenantId: "tenant-1",
       companyName: "Restaurante Uno",
+      ownerDeleted: true,
       labsActive: true,
       plan: "PRO",
       enabledChannels: ["WHATSAPP"],
@@ -26,6 +27,8 @@ describe("Labs Super Admin workspace", () => {
     expect(html).toContain("Planes y límites efectivos");
     expect(html).toContain("Restaurante Uno");
     expect(html).toContain("Editar Labs");
+    expect(html).toContain("Cuenta eliminada");
+    expect(html).toContain("Quitar entitlement");
     expect(html).toContain("Ampliación comercial");
   });
 });

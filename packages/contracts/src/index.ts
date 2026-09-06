@@ -378,6 +378,7 @@ export const labsServiceStatusSchema = z.enum(["ACTIVE", "TRIAL", "PAUSED", "SUS
 export const labsAdminTenantControlSchema = z.object({
   globalTenantId: z.string().min(1),
   companyName: z.string().min(1),
+  ownerDeleted: z.boolean().optional(),
   labsActive: z.boolean(),
   plan: labsPlanSchema,
   enabledChannels: z.array(labsChannelSchema),
