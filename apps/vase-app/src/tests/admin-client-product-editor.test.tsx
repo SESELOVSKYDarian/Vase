@@ -179,6 +179,23 @@ describe("client product access editor", () => {
     expect(state.getLatest().labs).toEqual({ submoduleId: "labs-pro", plan: "PRO", status: "TRIAL" });
   });
 
+  it("quita explícitamente el acceso Labs y permite volver a asignarlo", () => {
+    const state = renderInteractive({
+      ...props.value,
+      labs: { submoduleId: "labs-pro", plan: "PRO", status: "ACTIVE" },
+    });
+    click(container!.querySelector<HTMLButtonElement>('[aria-controls$="-labs"]')!);
+
+    const removeButton = container!.querySelector<HTMLButtonElement>('[aria-label="Quitar acceso a Vase Labs"]');
+    expect(removeButton).not.toBeNull();
+    click(removeButton!);
+    expect(state.getLatest().labs).toBeNull();
+    expect(container!.querySelector<HTMLSelectElement>('[aria-label="Estado comercial de Vase Labs"]')?.value).toBe("OFF");
+
+    change(container!.querySelector<HTMLSelectElement>('[aria-label="Estado comercial de Vase Labs"]')!, "TRIAL");
+    expect(state.getLatest().labs).toEqual({ submoduleId: "labs-starter", plan: "STARTER", status: "TRIAL" });
+  });
+
   it("explains a missing STARTER plan and enables the first available canonical plan", () => {
     const state = renderInteractive(props.value, {
       labsPlans: [props.labsPlans[2], props.labsPlans[1]],

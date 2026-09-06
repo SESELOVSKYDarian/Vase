@@ -536,6 +536,45 @@ describe("applyClientProductAccess", () => {
     });
   });
 
+  it("cambia el plan Labs, desactiva el anterior y conserva el workspace al retirar", async () => {
+    const { tx, state } = createStatefulTx();
+    state.workspaces.push({
+      id: "workspace-1",
+      tenantId: "tenant-1",
+      channelLimits: { WHATSAPP: 1, INSTAGRAM: 1, FACEBOOK: 0 },
+    });
+
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: { submoduleId: "labs-pro", plan: "PRO", status: "ACTIVE" }, rest: null, management: null },
+    });
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: { submoduleId: "labs-growth", plan: "GROWTH", status: "ACTIVE" }, rest: null, management: null },
+    });
+
+    expect(state.tenantSubmodules).toEqual(expect.arrayContaining([
+      expect.objectContaining({ submoduleId: "labs-pro", isActive: false }),
+      expect.objectContaining({ submoduleId: "labs-growth", isActive: true, commercialStatus: "ACTIVE" }),
+    ]));
+
+    await applyClientProductAccess({
+      ...baseInput,
+      tx,
+      access: { business: null, labs: null, rest: null, management: null },
+    });
+
+    expect(state.tenantModules.find((item) => item.moduleId === "vase_labs")).toMatchObject({ isActive: false });
+    expect(state.tenantSubmodules.filter((item) => ["labs-pro", "labs-growth"].includes(item.submoduleId)))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ submoduleId: "labs-pro", isActive: false }),
+        expect.objectContaining({ submoduleId: "labs-growth", isActive: false }),
+      ]));
+    expect(state.workspaces).toHaveLength(1);
+  });
+
   it("round-trips a provisioned Labs Trial through the consumer commercial status", async () => {
     const { tx, state } = createStatefulTx();
     await applyClientProductAccess({
