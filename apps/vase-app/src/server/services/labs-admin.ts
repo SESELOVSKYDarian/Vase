@@ -20,6 +20,12 @@ export const labsAdminUpdateSchema = z.object({
   reason: z.string().trim().min(8),
 });
 
+export const labsAdminRemoveSchema = z.object({
+  globalTenantId: z.string().min(1),
+});
+
+const removedLabsChannelLimits = { WHATSAPP: 0, INSTAGRAM: 0, FACEBOOK: 0 } as const;
+
 function paidPlan(workspace: { entitlementPlan?: unknown; plan?: "START" | "PREMIUM" | null } | null | undefined) {
   return labsPlanSchema.parse(resolveStoredLabsEntitlementPlan({
     entitlementPlan: workspace?.entitlementPlan,
@@ -29,6 +35,10 @@ function paidPlan(workspace: { entitlementPlan?: unknown; plan?: "START" | "PREM
 
 export async function listLabsAdminTenants() {
   const tenants = await prisma.tenant.findMany({
+    where: {
+      tenantModules: { some: { moduleId: "vase_labs", isActive: true } },
+      tenantSubmodules: { some: { isActive: true, submodule: { moduleId: "vase_labs" } } },
+    },
     include: {
       aiWorkspace: true,
       tenantModules: { where: { moduleId: "vase_labs" }, select: { isActive: true, commercialStatus: true } },
@@ -61,6 +71,7 @@ export async function listLabsAdminTenants() {
     return {
       globalTenantId: tenant.id,
       companyName: tenant.name,
+      ownerDeleted: tenant.primaryOwnerUserId === null,
       labsActive: commercialStatus !== "SUSPENDED",
       plan,
       enabledChannels: (["WHATSAPP", "INSTAGRAM", "FACEBOOK"] as const)
@@ -175,6 +186,86 @@ export async function updateLabsAdminTenant(rawInput: unknown, actorUserId: stri
   }
   await prisma.tenantAiWorkspace.update({ where: { tenantId: persisted.tenantId }, data: { labsSyncStatus: syncStatus } });
   return { ok: true, effective: persisted.effective, syncStatus };
+}
+
+export async function removeLabsAdminTenant(rawInput: unknown, actorUserId: string) {
+  const input = labsAdminRemoveSchema.parse(rawInput);
+  const persisted = await prisma.$transaction(async (tx) => {
+    const tenant = await tx.tenant.findUnique({
+      where: { id: input.globalTenantId },
+      include: { aiWorkspace: true },
+    });
+    if (!tenant) throw new Error("TENANT_NOT_FOUND");
+
+    const plan = paidPlan(tenant.aiWorkspace);
+    await tx.tenantModule.updateMany({
+      where: { tenantId: tenant.id, moduleId: "vase_labs" },
+      data: { isActive: false, activatedAt: null },
+    });
+    await tx.tenantSubmodule.updateMany({
+      where: { tenantId: tenant.id, submodule: { moduleId: "vase_labs" } },
+      data: { isActive: false, activatedAt: null },
+    });
+    if (tenant.primaryOwnerUserId) {
+      await tx.userModuleAccess.updateMany({
+        where: { userId: tenant.primaryOwnerUserId, moduleId: "vase_labs" },
+        data: { isActive: false },
+      });
+    }
+    await tx.tenantAiWorkspace.updateMany({
+      where: { tenantId: tenant.id },
+      data: {
+        channelLimits: removedLabsChannelLimits,
+        channelOverrideReason: null,
+        channelOverrideBy: null,
+        channelOverrideAt: null,
+        labsSyncStatus: "PENDING",
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        tenantId: tenant.id,
+        actorUserId,
+        action: "LABS_ENTITLEMENT_REMOVED",
+        targetType: "TenantAiWorkspace",
+        targetId: tenant.aiWorkspace?.id ?? null,
+        metadata: { reason: "SUPER_ADMIN_REMOVAL", previousPlan: plan },
+      },
+    });
+    return { tenantId: tenant.id, plan, hasWorkspace: Boolean(tenant.aiWorkspace) };
+  });
+
+  let syncStatus = "SYNCED";
+  try {
+    const response = await fetch(new URL(
+      "/api/internal/admin/labs/entitlements",
+      process.env.LABS_INTERNAL_URL ?? "http://vase-labs:3007",
+    ), {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${process.env.SERVICE_TO_SERVICE_TOKEN ?? ""}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        globalTenantId: persisted.tenantId,
+        plan: persisted.plan,
+        status: "SUSPENDED",
+        enabledChannels: [],
+        channelLimits: removedLabsChannelLimits,
+      }),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) throw new Error(`LABS_SYNC_${response.status}`);
+  } catch {
+    syncStatus = "FAILED";
+  }
+  if (persisted.hasWorkspace) {
+    await prisma.tenantAiWorkspace.update({
+      where: { tenantId: persisted.tenantId },
+      data: { labsSyncStatus: syncStatus },
+    });
+  }
+  return { removed: true, syncStatus };
 }
 
 export function labsAdminErrorStatus(error: unknown) {

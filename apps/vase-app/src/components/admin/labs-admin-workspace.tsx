@@ -8,7 +8,29 @@ const channels: LabsChannel[] = ["WHATSAPP", "INSTAGRAM", "FACEBOOK"];
 export function LabsAdminWorkspace({ initialControls }: { initialControls: LabsAdminTenantControl[] }) {
   const [controls, setControls] = useState(initialControls);
   const [editing, setEditing] = useState<LabsAdminTenantControl | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState("");
   const active = controls.filter((item) => item.labsActive).length;
+
+  async function removeEntitlement(control: LabsAdminTenantControl) {
+    if (!window.confirm(`¿Quitar el entitlement de Vase Labs a ${control.companyName}?`)) return;
+    setRemovingId(control.globalTenantId);
+    setRemoveError("");
+    try {
+      const response = await fetch("/api/admin/labs/tenants", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ globalTenantId: control.globalTenantId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "LABS_ENTITLEMENT_REMOVE_FAILED");
+      setControls((current) => current.filter((item) => item.globalTenantId !== control.globalTenantId));
+    } catch (error) {
+      setRemoveError(error instanceof Error ? error.message : "No se pudo quitar el entitlement.");
+    } finally {
+      setRemovingId(null);
+    }
+  }
 
   return <div className="space-y-8">
     <section className="rounded-[2rem] border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-7">
@@ -28,13 +50,14 @@ export function LabsAdminWorkspace({ initialControls }: { initialControls: LabsA
       <h2 className="mt-2 text-3xl font-semibold">Planes y límites efectivos</h2>
       <div className="mt-5 space-y-3">
         {controls.map((control) => <article className="grid gap-4 rounded-xl border border-[var(--border-subtle)] p-4 lg:grid-cols-[1.4fr_1.2fr_1fr_auto] lg:items-center" key={control.globalTenantId}>
-          <div><span className="text-xs text-[var(--muted)]">{control.globalTenantId}</span><strong className="mt-1 block">{control.companyName}</strong><p className="text-sm text-[var(--muted)]">{control.plan} · {control.serviceStatus}</p></div>
+          <div><span className="text-xs text-[var(--muted)]">{control.globalTenantId}</span><strong className="mt-1 block">{control.companyName}</strong>{control.ownerDeleted ? <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Cuenta eliminada</span> : null}<p className="text-sm text-[var(--muted)]">{control.plan} · {control.serviceStatus}</p></div>
           <div className="flex flex-wrap gap-2">{channels.map((channel) => <span className={`rounded-full px-3 py-1 text-xs font-semibold ${(control.channelLimits?.[channel] ?? 0) > 0 ? "bg-emerald-100 text-emerald-800" : "bg-[var(--surface-strong)] text-[var(--muted)]"}`} key={channel}>{channel} · {control.channelLimits?.[channel] ?? 0}</span>)}</div>
           <div><span className="text-xs uppercase text-[var(--muted)]">Origen</span><strong className="block text-sm">{control.manualOverride ? control.overrideReason : "Límites incluidos por plan"}</strong><em className="mt-1 block text-xs not-italic">Sync · {control.syncStatus ?? "SYNCED"}</em></div>
-          <button className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-sm font-semibold" onClick={() => setEditing(control)}>Editar Labs</button>
+          <div className="flex flex-wrap justify-end gap-2"><button type="button" className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-sm font-semibold" onClick={() => setEditing(control)}>Editar Labs</button><button type="button" aria-label={`Quitar entitlement de ${control.companyName}`} className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700" onClick={() => void removeEntitlement(control)} disabled={removingId === control.globalTenantId}>{removingId === control.globalTenantId ? "Quitando..." : "Quitar entitlement"}</button></div>
         </article>)}
         {!controls.length ? <p className="rounded-xl bg-[var(--surface-strong)] p-4 text-sm text-[var(--muted)]">No hay tenants de Labs disponibles.</p> : null}
       </div>
+      {removeError ? <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800" role="alert">{removeError}</p> : null}
     </section>
     {editing ? <OverrideDrawer
       control={editing}

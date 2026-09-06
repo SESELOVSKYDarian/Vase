@@ -3,6 +3,7 @@ import { requireVerifiedPlatformRole } from "@/lib/auth/guards";
 import {
   labsAdminErrorStatus,
   listLabsAdminTenants,
+  removeLabsAdminTenant,
   updateLabsAdminTenant,
 } from "@/server/services/labs-admin";
 
@@ -25,6 +26,15 @@ export async function POST(request: Request) {
   try {
     const session = await requireVerifiedPlatformRole("SUPER_ADMIN");
     return NextResponse.json(await updateLabsAdminTenant(await request.json(), session.user.id));
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await requireVerifiedPlatformRole("SUPER_ADMIN");
+    return NextResponse.json(await removeLabsAdminTenant(await request.json(), session.user.id));
   } catch (error) {
     return failure(error);
   }
