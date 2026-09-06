@@ -39,7 +39,7 @@ type EditorHostInput = {
 };
 
 function normalizeHostCandidate(value: string) {
-  const trimmed = value.trim().toLowerCase();
+  const trimmed = value.trim().toLowerCase().replace(/\.+$/, "");
 
   if (!trimmed) {
     return null;
@@ -107,6 +107,24 @@ export function resolvePlatformHosts(input: PlatformHostsInput = {}) {
 export function isPlatformHost(hostname: string, input: PlatformHostsInput = {}) {
   const nodeEnv = input.nodeEnv ?? process.env.NODE_ENV;
   return resolvePlatformHosts(input).includes(normalizeComparableHost(hostname, nodeEnv));
+}
+
+export function resolveRequestHostname({
+  forwardedHost,
+  host,
+  nodeEnv = process.env.NODE_ENV,
+}: {
+  forwardedHost?: string | null;
+  host?: string | null;
+  nodeEnv?: string;
+}) {
+  const candidates = [forwardedHost, host]
+    .flatMap((value) => value?.split(",") ?? [])
+    .map((value) => normalizeComparableHost(value, nodeEnv))
+    .filter(Boolean);
+  const knownHosts = new Set(resolvePlatformHosts({ nodeEnv }));
+
+  return candidates.find((candidate) => knownHosts.has(candidate)) ?? candidates[0] ?? "";
 }
 
 export function resolveLabsHosts(input: PlatformHostsInput = {}) {

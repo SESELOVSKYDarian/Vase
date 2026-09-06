@@ -21,6 +21,7 @@ import {
   buildPublicSiteRedirectUrl,
   getDefaultPlatformPathForHost,
   isPlatformHost,
+  resolveRequestHostname,
   resolveLabsHostRequest,
   resolveEditorHost,
 } from "@/lib/security/platform-hosts";
@@ -38,9 +39,10 @@ export default auth((request: NextRequest) => {
   };
   
   const url = request.nextUrl;
-  const hostname = (
-    request.headers.get("x-forwarded-host") || request.headers.get("host") || ""
-  ).split(",")[0].trim().toLowerCase();
+  const hostname = resolveRequestHostname({
+    forwardedHost: request.headers.get("x-forwarded-host"),
+    host: request.headers.get("host"),
+  });
   const pathname = url.pathname;
   const publicRequestUrl = buildPublicRequestUrl({
     url: request.url,

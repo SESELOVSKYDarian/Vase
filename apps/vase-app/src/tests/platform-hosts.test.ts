@@ -12,9 +12,18 @@ import {
   resolvePlatformHosts,
   resolveLabsHostRequest,
   resolvePrimaryPlatformHost,
+  resolveRequestHostname,
 } from "@/lib/security/platform-hosts";
 
 describe("platform host resolution", () => {
+  it("prefers the public Admin host when the proxy also sends an internal host", () => {
+    expect(resolveRequestHostname({
+      forwardedHost: "vase_app-vase:3002",
+      host: "admin.vase.ar",
+      nodeEnv: "production",
+    })).toBe("admin.vase.ar");
+  });
+
   it("treats a dedicated labs domain as a platform host", () => {
     const input = {
       nodeEnv: "production",
