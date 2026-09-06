@@ -275,6 +275,16 @@ export function ClientProductAccessEditor({
               <option value="ACTIVE">Activo</option>
             </select>
           </label>
+          {value.labs ? (
+            <button
+              type="button"
+              aria-label="Quitar acceso a Vase Labs"
+              onClick={() => setProduct("labs", null)}
+              className="justify-self-start rounded-full border border-[var(--danger)]/30 px-4 py-2 text-xs font-semibold text-[var(--danger)] transition hover:bg-[var(--danger)]/10"
+            >
+              Quitar acceso a Vase Labs
+            </button>
+          ) : null}
           {starterPlanMissing ? (
             <p role="status" className="rounded-2xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3 text-sm text-[var(--foreground)]">
               Starter no está disponible en el catálogo. Al habilitar Vase Labs se usará {defaultLabsPlan?.label}, el primer plan disponible en el orden oficial.
