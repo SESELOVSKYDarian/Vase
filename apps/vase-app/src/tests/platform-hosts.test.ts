@@ -24,6 +24,15 @@ describe("platform host resolution", () => {
     })).toBe("admin.vase.ar");
   });
 
+  it("accepts the original host when every standard proxy host is internal", () => {
+    expect(resolveRequestHostname({
+      forwardedHost: "vase_app-vase:3002",
+      host: "vase_app-vase:3002",
+      originalHost: "admin.vase.ar",
+      nodeEnv: "production",
+    })).toBe("admin.vase.ar");
+  });
+
   it("treats a dedicated labs domain as a platform host", () => {
     const input = {
       nodeEnv: "production",

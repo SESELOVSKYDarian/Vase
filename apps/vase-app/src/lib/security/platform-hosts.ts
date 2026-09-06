@@ -112,13 +112,19 @@ export function isPlatformHost(hostname: string, input: PlatformHostsInput = {})
 export function resolveRequestHostname({
   forwardedHost,
   host,
+  originalHost,
+  forwardedServer,
+  urlHost,
   nodeEnv = process.env.NODE_ENV,
 }: {
   forwardedHost?: string | null;
   host?: string | null;
+  originalHost?: string | null;
+  forwardedServer?: string | null;
+  urlHost?: string | null;
   nodeEnv?: string;
 }) {
-  const candidates = [forwardedHost, host]
+  const candidates = [forwardedHost, originalHost, host, forwardedServer, urlHost]
     .flatMap((value) => value?.split(",") ?? [])
     .map((value) => normalizeComparableHost(value, nodeEnv))
     .filter(Boolean);

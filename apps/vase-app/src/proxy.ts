@@ -42,6 +42,9 @@ export default auth((request: NextRequest) => {
   const hostname = resolveRequestHostname({
     forwardedHost: request.headers.get("x-forwarded-host"),
     host: request.headers.get("host"),
+    originalHost: request.headers.get("x-original-host"),
+    forwardedServer: request.headers.get("x-forwarded-server"),
+    urlHost: url.host,
   });
   const pathname = url.pathname;
   const publicRequestUrl = buildPublicRequestUrl({
@@ -68,6 +71,14 @@ export default auth((request: NextRequest) => {
   }
 
   if (adminHostDecision.type === "reject") {
+    console.warn("[vase-admin-route-rejected]", {
+      hostname,
+      pathname,
+      host: request.headers.get("host"),
+      forwardedHost: request.headers.get("x-forwarded-host"),
+      originalHost: request.headers.get("x-original-host"),
+      urlHost: url.host,
+    });
     return NextResponse.json(
       { error: adminHostDecision.status === 403 ? "forbidden" : "not_found" },
       { status: adminHostDecision.status },
