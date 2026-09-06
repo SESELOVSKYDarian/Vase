@@ -4,6 +4,7 @@ import { getUserAccessModuleLabel, inferUiRoleFromStoredRoles } from "@/lib/admi
 import { parseStoredClientProductAccess } from "@/lib/admin/client-product-access";
 import { prisma } from "@/lib/db/prisma";
 import { serializeModuleFeature } from "@/server/queries/modules-admin";
+import { ensureModuleCatalogSynced } from "@/server/services/modules";
 
 const emptyProductAccess: ClientProductAccess = {
   business: null,
@@ -220,6 +221,11 @@ const adminOwnerTenantSelect = Prisma.validator<Prisma.TenantSelect>()({
 });
 
 export async function getAdminUsersWorkspaceData() {
+  // The Admin editor builds its product selectors from this query. Keep the
+  // database catalog aligned with the source definitions before reading it,
+  // including on deployments where the seed command was not run.
+  await ensureModuleCatalogSynced();
+
   const [usersRaw, modulesRaw, clientAccountsRaw, restPricingRaw] = await Promise.all([
     prisma.user.findMany({
       select: {
