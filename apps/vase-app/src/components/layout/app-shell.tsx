@@ -69,6 +69,7 @@ import {
   resolveNavigationHrefForHost,
   resolveShortcutHref,
 } from "@/lib/navigation/document-navigation";
+import { buildClientProjectNavigation } from "@/lib/navigation/client-project-navigation";
 
 export interface Shortcut {
   id: string;
@@ -339,9 +340,25 @@ export function AppShell({
   }, [unreadNotifications]);
   const businessModuleActive = modules.some((module) => module.key === "business" && module.isActive);
   const labsModuleActive = modules.some((module) => module.key === "labs" && module.isActive);
+  const managementModuleActive = modules.some((module) => module.key === "management" && module.isActive);
   const restModuleActive = modules.some((module) => module.key === "rest" && module.isActive);
   const labsHomeHref = resolveLabsHomeHref();
-  const projectsHref = businessModuleActive ? BUSINESS_WORKSPACE_PATH : labsModuleActive ? labsHomeHref : "/app";
+  const managementHomeHref = "/api/management/sso/start";
+  const projectNavigation = buildClientProjectNavigation(
+    [
+      { key: "business", isActive: businessModuleActive },
+      { key: "labs", isActive: labsModuleActive },
+      { key: "management", isActive: managementModuleActive },
+      { key: "rest", isActive: restModuleActive },
+    ],
+    {
+      businessHref: BUSINESS_WORKSPACE_PATH,
+      labsHref: labsHomeHref,
+      managementHref: managementHomeHref,
+      restHref: "https://rest.vase.ar",
+    },
+  );
+  const projectsHref = projectNavigation.href;
 
   const clientNavItems: NavItem[] = [
     { id: "home", href: resolveAppHomeHref(), label: "Inicio", icon: Home, description: "Sitio público de Vase" },
@@ -352,10 +369,8 @@ export function AppShell({
       icon: Building2,
       description: "Tus proyectos por producto",
       children: [
-        businessModuleActive ? { id: "projects-business", href: BUSINESS_WORKSPACE_PATH, label: "Vase Business" } : null,
-        labsModuleActive ? { id: "projects-labs", href: labsHomeHref, label: "Vase Labs", forceDocumentNavigation: true } : null,
-        restModuleActive ? { id: "projects-rest", href: "https://rest.vase.ar", label: "Vase Rest", forceDocumentNavigation: true } : null,
-      ].filter((item): item is { id: string; href: string; label: string; forceDocumentNavigation?: boolean } => Boolean(item)),
+        ...projectNavigation.children,
+      ],
     },
     { id: "tickets", href: "/app/help", label: "Tickets", icon: MessageSquareWarning, description: "Soporte y seguimiento" },
     { id: "payments", href: "/app/billing", label: "Pagos", icon: CreditCard, description: "Pagos y comprobantes" },
