@@ -31,6 +31,11 @@ test('la identidad del editor es multiempresa', async () => {
     assert.doesNotMatch(identity, /Piquim|piquim/);
 });
 
+test('el editor general de apariencia no expone controles exclusivos de Piquim', async () => {
+    const appearance = await read('../src/components/admin/evolution/AppearanceEditor.jsx');
+    assert.doesNotMatch(appearance, /Catalogo Piquim|catalogImageUploading|handleCatalogCardImageUpload/);
+});
+
 test('el rail conserva todos los modulos administrativos', async () => {
     const sidebar = await read('../src/components/admin/evolution/EvolutionSidebar.jsx');
     for (const moduleId of [

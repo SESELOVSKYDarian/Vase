@@ -9,7 +9,6 @@ import {
     getStorefrontThemePreset,
     DEFAULT_STOREFRONT_LIGHT_THEME,
 } from '../../../utils/storefrontTheme';
-import { uploadPublicFile } from '../../../utils/uploadsClient';
 
 const fieldClass =
     'admin-input-field w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-all duration-200';
@@ -176,7 +175,6 @@ const LinkListEditor = ({ title, links, onAdd, onRemove, onChange }) => (
 const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
     const [logoUploading, setLogoUploading] = useState(false);
     const [adminLogoUploading, setAdminLogoUploading] = useState(false);
-    const [catalogImageUploading, setCatalogImageUploading] = useState(null);
 
     const branding = settings?.branding || {};
     const theme = settings?.theme || {};
@@ -193,7 +191,6 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
     const helpLinks = Array.isArray(footer?.helpLinks) ? footer.helpLinks : GENERIC_FOOTER_DEFAULTS.helpLinks;
     const legalLinks = Array.isArray(footer?.legalLinks) ? footer.legalLinks : GENERIC_FOOTER_DEFAULTS.legalLinks;
     const newsletter = { ...GENERIC_FOOTER_DEFAULTS.newsletter, ...(footer?.newsletter || {}) };
-    const catalogCards = Array.isArray(branding?.catalog_cards) ? branding.catalog_cards : [];
     const storefrontMode = theme?.mode === 'dark' ? 'dark' : 'light';
     const adminMode = adminTheme?.mode === 'light' ? 'light' : 'dark';
     const storefrontPreview = getStorefrontThemePreset(storefrontMode, theme);
@@ -397,32 +394,6 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
                 ...patch,
             },
         });
-    };
-
-    const updateCatalogCard = (index, patch) => {
-        const next = catalogCards.map((item, idx) => (idx === index ? { ...item, ...patch } : item));
-        updateBranding({ catalog_cards: next });
-    };
-
-    const updateCatalogCardTags = (index, value) => {
-        updateCatalogCard(index, {
-            tags: [...new Set(value.split(',').map((item) => item.trim()).filter(Boolean))],
-        });
-    };
-
-    const handleCatalogCardImageUpload = async (index, event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        setCatalogImageUploading(index);
-        try {
-            const publicUrl = await uploadPublicFile(file);
-            updateCatalogCard(index, { image: publicUrl });
-        } catch (err) {
-            console.error('Catalog card image upload failed', err);
-        } finally {
-            setCatalogImageUploading(null);
-            event.target.value = '';
-        }
     };
 
     const handleLogoUpload = async (event) => {
@@ -1021,85 +992,6 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
                     />
                 </section>
 
-                <section className="space-y-6 rounded-2xl border border-white/10 bg-white/5 p-4 xl:col-span-2">
-                    <div className="space-y-1">
-                        <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-400">Catalogo Piquim</h3>
-                        <p className="text-xs text-zinc-500">Estas tarjetas aparecen arriba del catalogo publico y filtran productos por categoria.</p>
-                    </div>
-
-                    <div className="grid gap-4 lg:grid-cols-2">
-                        {catalogCards.slice(0, 2).map((card, index) => (
-                            <div key={card.id || index} className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-                                <EvolutionInput
-                                    label="Titulo"
-                                    value={card.title || ''}
-                                    onChange={(e) => updateCatalogCard(index, { title: e.target.value })}
-                                    placeholder="Griferia"
-                                />
-                                <EvolutionInput
-                                    label="Prefijo"
-                                    value={card.prefix || ''}
-                                    onChange={(e) => updateCatalogCard(index, { prefix: e.target.value })}
-                                    placeholder="01 - Linea destacada"
-                                />
-                                <EvolutionInput
-                                    label="Categoria filtro"
-                                    value={card.category || ''}
-                                    onChange={(e) => updateCatalogCard(index, { category: e.target.value })}
-                                    placeholder="Griferia"
-                                />
-                                <EvolutionInput
-                                    label="Texto del boton"
-                                    value={card.buttonLabel || ''}
-                                    onChange={(e) => updateCatalogCard(index, { buttonLabel: e.target.value })}
-                                    placeholder="Ver catalogo"
-                                />
-                                <EvolutionInput
-                                    label="Destino"
-                                    value={card.categorySlug || ''}
-                                    onChange={(e) => updateCatalogCard(index, { categorySlug: e.target.value })}
-                                    placeholder="heladeria"
-                                />
-                                <EvolutionInput
-                                    label="Imagen URL"
-                                    value={card.image || ''}
-                                    onChange={(e) => updateCatalogCard(index, { image: e.target.value })}
-                                    placeholder="/catalog/griferia.jpg"
-                                />
-                                <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-zinc-200 transition-colors hover:border-evolution-indigo hover:text-white">
-                                    <UploadSimple size={14} weight="bold" />
-                                    {catalogImageUploading === index ? 'Subiendo...' : 'Subir imagen'}
-                                    <input type="file" accept="image/*" className="sr-only" disabled={catalogImageUploading === index} onChange={(event) => handleCatalogCardImageUpload(index, event)} />
-                                </label>
-                                <EvolutionInput
-                                    label="Tags separados por coma"
-                                    value={Array.isArray(card.tags) ? card.tags.join(', ') : card.tags || ''}
-                                    onChange={(e) => updateCatalogCardTags(index, e.target.value)}
-                                    placeholder="Categoria principal, Subcategoria, Linea"
-                                />
-                                <EvolutionInput
-                                    label="Descripcion"
-                                    value={card.description || ''}
-                                    onChange={(e) => updateCatalogCard(index, { description: e.target.value })}
-                                    multiline
-                                    placeholder="Descripcion de la familia"
-                                />
-                                <EvolutionInput
-                                    label="Overlay visual"
-                                    value={card.overlay || ''}
-                                    onChange={(e) => updateCatalogCard(index, { overlay: e.target.value })}
-                                    placeholder="linear-gradient(...)"
-                                />
-                                <EvolutionInput
-                                    label="Posicion de imagen"
-                                    value={card.objectPosition || ''}
-                                    onChange={(e) => updateCatalogCard(index, { objectPosition: e.target.value })}
-                                    placeholder="center"
-                                />
-                            </div>
-                        ))}
-                    </div>
-                </section>
             </div>
         </div>
     );
