@@ -79,6 +79,14 @@ describe("admin host routing", () => {
     });
   });
 
+  it("allows the internal Admin path during Next rewrite processing", () => {
+    expect(resolveAdminHostRequest({
+      hostname: "admin.vase.ar",
+      url: "https://app.vase.ar/app/admin?verificacion=20260906",
+      input: { nodeEnv: "production" },
+    })).toEqual({ type: "allow" });
+  });
+
   it("allows only required assets and admin browser APIs", () => {
     for (const path of ["/_next/static/app.js", "/favicon.ico", "/api/auth/session", "/api/admin/rest/plans", "/api/health/ready"]) {
       expect(resolveAdminHostRequest({

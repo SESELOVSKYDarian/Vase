@@ -14,9 +14,17 @@ export function buildPublicRequestUrl({
   protocol?: string;
 }) {
   const target = new URL(url);
+  if (protocol === "http" || protocol === "https") {
+    target.protocol = `${protocol}:`;
+  }
   const publicHost = hostname.split(",")[0]?.trim();
-  if (publicHost) target.host = publicHost;
-  if (protocol === "http" || protocol === "https") target.protocol = `${protocol}:`;
+  if (publicHost) {
+    // Assigning URL.host without a port preserves the source URL's port.
+    // Parse the public host separately so an internal :3002 never leaks out.
+    const publicHostUrl = new URL(`${target.protocol}//${publicHost}`);
+    target.hostname = publicHostUrl.hostname;
+    target.port = publicHostUrl.port;
+  }
   return target.toString();
 }
 
@@ -161,6 +169,16 @@ export function resolveAdminHostRequest({
   | { type: "reject"; status: 404 } {
   if (!isAdminHost(hostname, input)) return { type: "allow" };
   const target = new URL(url);
+
+  // Next can run Proxy again after a rewrite. The internal Admin path is
+  // already the destination selected by this router and must pass through
+  // to the real page instead of being treated as an unknown public section.
+  if (
+    target.pathname === ADMIN_INTERNAL_PREFIX ||
+    target.pathname.startsWith(`${ADMIN_INTERNAL_PREFIX}/`)
+  ) {
+    return { type: "allow" };
+  }
 
   if (target.pathname.startsWith("/_next/") || target.pathname.includes(".")) {
     return { type: "allow" };
