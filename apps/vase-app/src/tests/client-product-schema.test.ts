@@ -29,6 +29,13 @@ const labsPlanBackfillMigrationUrl = new URL(
 const labsPlanBackfillMigration = existsSync(labsPlanBackfillMigrationUrl)
   ? readFileSync(labsPlanBackfillMigrationUrl, "utf8")
   : "";
+const labsCatalogBackfillMigrationUrl = new URL(
+  "../../prisma/migrations/20260906160000_labs_catalog_backfill/migration.sql",
+  import.meta.url,
+);
+const labsCatalogBackfillMigration = existsSync(labsCatalogBackfillMigrationUrl)
+  ? readFileSync(labsCatalogBackfillMigrationUrl, "utf8")
+  : "";
 const laterMigrationSql = readdirSync(migrationRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && entry.name > currentMigration)
   .map((entry) => ({
@@ -240,6 +247,17 @@ describe("client product access schema", () => {
     expect(labsPlanBackfillMigration).not.toMatch(/\b(?:ALTER|DROP|DELETE|TRUNCATE|RENAME)\b/i);
     expect(migration).not.toMatch(/UPDATE `TenantAiWorkspace`/);
     expect("20260804120000_labs_entitlement_plan_backfill" > currentMigration).toBe(true);
+  });
+
+  it("seeds the Labs catalog in an idempotent forward migration", () => {
+    expect(labsCatalogBackfillMigration).toContain("vase_labs");
+    expect(labsCatalogBackfillMigration).toMatch(/starter/);
+    expect(labsCatalogBackfillMigration).toMatch(/pro/);
+    expect(labsCatalogBackfillMigration).toMatch(/growth/);
+    expect(labsCatalogBackfillMigration).toMatch(/ON DUPLICATE KEY UPDATE/);
+    expect(labsCatalogBackfillMigration).toMatch(/`?isActive`?\s*=\s*TRUE/);
+    expect(labsCatalogBackfillMigration).not.toMatch(/\b(?:DROP|DELETE|TRUNCATE|RENAME)\b/i);
+    expect("20260906160000_labs_catalog_backfill" > "20260804120000_labs_entitlement_plan_backfill").toBe(true);
   });
 
   it.each([
