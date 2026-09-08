@@ -26,6 +26,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ chan
       parentId: channel.type === "WHATSAPP" ? channel.wabaId : typeof config.parentId === "string" ? config.parentId : null,
       metaAppId: typeof config.metaAppId === "string" ? config.metaAppId : null,
       accountLabel: channel.accountLabel,
+      lastSyncedAt: channel.lastSyncedAt?.toISOString() ?? null,
+      lastError: channel.lastError,
       accessTokenMasked: channel.secrets.some((item) => item.kind === "META_ACCESS_TOKEN") ? "••••••••••••" : null,
       appSecretMasked: channel.secrets.some((item) => item.kind === "META_APP_SECRET") ? "••••••••••••" : null,
       health: {
