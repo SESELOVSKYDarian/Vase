@@ -64,10 +64,6 @@ export type ParsedInboxReplyResponse =
 
 export async function parseInboxReplyResponse(response: Response): Promise<ParsedInboxReplyResponse> {
   const raw = await response.text();
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.toLowerCase().includes("application/json")) {
-    return { ok: false, error: { code: "INBOX_REPLY_INVALID_RESPONSE", httpStatus: response.status } };
-  }
   try {
     const payload: unknown = raw ? JSON.parse(raw) : {};
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("INVALID_JSON_RESPONSE");

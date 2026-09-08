@@ -9,7 +9,20 @@ import {
   detectHumanHandoffIntent,
   getChannelWebhookVerifyResult,
   handleMetaChannelWebhook,
+  mergeConversationMetadata,
 } from "../apps/vase-labs/app/lib/channel-webhook-service";
+
+it("keeps the exact receiving channel in conversation metadata", () => {
+  const metadata = mergeConversationMetadata(null, {
+    context: createContext(),
+    message: parseInstagramWebhookMessage({
+      globalTenantId: "tenant_123",
+      payload: { entry: [{ messaging: [{ sender: { id: "ig-user" }, message: { mid: "mid", text: "Hola" } }] }] },
+    })!,
+    aiBlockedReason: null,
+  });
+  expect(metadata).toMatchObject({ context: { channelId: "channel_123" } });
+});
 import { signMetaPayload } from "../apps/vase-labs/app/lib/meta-signature";
 import { parseInstagramWebhookMessage } from "../apps/vase-labs/app/lib/instagram-webhook";
 import { parseWhatsAppWebhookMessage } from "../apps/vase-labs/app/lib/whatsapp-webhook";

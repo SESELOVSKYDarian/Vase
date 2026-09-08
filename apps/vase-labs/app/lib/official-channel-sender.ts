@@ -58,6 +58,7 @@ export function createOfficialChannelSender(input: {
   repository: OfficialChannelSenderRepository;
   encryptionSecret: string;
   graphVersion: string;
+  requestTimeoutMs?: number;
   fetcher?: typeof fetch;
 }) {
   const fetcher = input.fetcher ?? fetch;
@@ -103,6 +104,7 @@ export function createOfficialChannelSender(input: {
         try {
           response = await fetcher(endpoint, {
             method: "POST",
+            signal: AbortSignal.timeout(input.requestTimeoutMs ?? 12_000),
             headers: {
               authorization: `Bearer ${accessToken}`,
               "content-type": "application/json",
@@ -110,10 +112,13 @@ export function createOfficialChannelSender(input: {
             body: JSON.stringify(body),
           });
         } catch (error) {
+          const timedOut = error && typeof error === "object"
+            && "name" in error
+            && ["AbortError", "TimeoutError"].includes(String((error as { name?: unknown }).name));
           throw new OfficialChannelDeliveryError(
             "META_GRAPH_REQUEST_FAILED",
             undefined,
-            safeTransportMessage(error),
+            timedOut ? "La API de Meta agotó el tiempo de espera." : safeTransportMessage(error),
           );
         }
         const raw = await response.text();

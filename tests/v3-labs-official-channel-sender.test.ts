@@ -179,6 +179,37 @@ describe("official Meta outbound sender", () => {
     })).rejects.toMatchObject({ code: "META_GRAPH_REQUEST_FAILED" });
   });
 
+  it("aborts a stalled Meta request before the platform returns an HTML 502", async () => {
+    const sender = createOfficialChannelSender({
+      encryptionSecret,
+      graphVersion: "v99.0",
+      requestTimeoutMs: 5,
+      repository: {
+        async findDeliveryContext() {
+          return {
+            channelType: "FACEBOOK",
+            providerAccountId: "page_123",
+            encryptedAccessToken: encryptChannelSecret("page-token", encryptionSecret),
+          };
+        },
+      },
+      fetcher: async (_url, init) => new Promise<Response>((_resolve, reject) => {
+        if (!init?.signal) return reject(new Error("missing abort signal"));
+        init.signal.addEventListener("abort", () => reject(new DOMException("timed out", "TimeoutError")), { once: true });
+      }),
+    });
+
+    await expect(sender.send({
+      globalTenantId: "tenant_123",
+      channelType: "FACEBOOK",
+      recipientId: "psid_123",
+      text: "Hola",
+    })).rejects.toMatchObject({
+      code: "META_GRAPH_REQUEST_FAILED",
+      providerMessage: "La API de Meta agotó el tiempo de espera.",
+    });
+  });
+
   it("sends Instagram Login replies through graph.instagram.com", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
     const sender = createOfficialChannelSender({

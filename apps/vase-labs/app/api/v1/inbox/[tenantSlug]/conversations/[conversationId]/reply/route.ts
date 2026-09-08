@@ -9,6 +9,7 @@ import { resolveLabsRequestContext } from "../../../../../../../lib/request-cont
 type InboxReplyConversation = {
   id: string;
   channel: LabsChannel | null;
+  channelId?: string | null;
   customerContact: string | null;
   externalUserId?: string | null;
   externalThreadKey?: string | null;
@@ -24,6 +25,7 @@ type InboxReplyHandlerDependencies = {
   }): Promise<InboxReplyConversation | null>;
   sendReply(input: {
     globalTenantId: string;
+    channelId?: string;
     channelType: LabsChannel;
     recipientId: string;
     text: string;
@@ -176,6 +178,7 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
       try {
         const delivery = await dependencies.sendReply({
           globalTenantId: context.globalTenantId,
+          ...(conversation.channelId ? { channelId: conversation.channelId } : {}),
           channelType: conversation.channel,
           recipientId,
           text,
@@ -263,7 +266,7 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
 export const POST = createInboxReplyHandler({
   resolveContext: resolveLabsRequestContext,
   async findConversation(input) {
-    return await (labsPrisma as any).conversation.findFirst({
+    const conversation = await (labsPrisma as any).conversation.findFirst({
       where: {
         id: input.conversationId,
         assistant: { globalTenantId: input.globalTenantId },
@@ -274,8 +277,20 @@ export const POST = createInboxReplyHandler({
         customerContact: true,
         externalUserId: true,
         externalThreadKey: true,
+        metadata: true,
       },
     });
+    if (!conversation) return null;
+    const metadata = conversation.metadata && typeof conversation.metadata === "object" && !Array.isArray(conversation.metadata)
+      ? conversation.metadata as Record<string, unknown>
+      : {};
+    const metadataContext = metadata.context && typeof metadata.context === "object" && !Array.isArray(metadata.context)
+      ? metadata.context as Record<string, unknown>
+      : {};
+    return {
+      ...conversation,
+      channelId: typeof metadataContext.channelId === "string" ? metadataContext.channelId : null,
+    };
   },
   sendReply(input) {
     const sender = createOfficialChannelSender({

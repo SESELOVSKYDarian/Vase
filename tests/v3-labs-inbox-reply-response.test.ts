@@ -14,4 +14,24 @@ describe("Inbox reply response parsing", () => {
       },
     });
   });
+
+  it("preserves a valid JSON provider error even when a proxy sends the wrong content type", async () => {
+    await expect(parseInboxReplyResponse(new Response(JSON.stringify({
+      error: "META_SEND_FAILED",
+      providerStatus: 400,
+      providerMessage: "This person is unavailable to message",
+      requestId: "request-123",
+    }), {
+      status: 502,
+      headers: { "content-type": "text/plain" },
+    }))).resolves.toEqual({
+      ok: true,
+      payload: {
+        error: "META_SEND_FAILED",
+        providerStatus: 400,
+        providerMessage: "This person is unavailable to message",
+        requestId: "request-123",
+      },
+    });
+  });
 });

@@ -286,7 +286,7 @@ export function detectHumanHandoffIntent(text: string | null | undefined) {
   ].some((phrase) => phrase.test(normalized));
 }
 
-function mergeConversationMetadata(metadata: unknown, input: PersistChannelInboundMessageInput) {
+export function mergeConversationMetadata(metadata: unknown, input: PersistChannelInboundMessageInput) {
   const current = normalizeRecord(metadata) ?? {};
   const context = normalizeRecord(current.context) ?? {};
   const source = input.message.channelType.toLowerCase();
@@ -298,6 +298,7 @@ function mergeConversationMetadata(metadata: unknown, input: PersistChannelInbou
       ...context,
       source,
       provider: input.message.provider ?? "META_OFFICIAL",
+      channelId: input.context.channel?.id ?? null,
       aiBlockedReason: input.aiBlockedReason,
     },
   };

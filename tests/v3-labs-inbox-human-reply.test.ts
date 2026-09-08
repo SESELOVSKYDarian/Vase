@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { createInboxReplyHandler, persistHumanInboxReply } from "../apps/vase-labs/app/api/v1/inbox/[tenantSlug]/conversations/[conversationId]/reply/route";
+import { createInboxReplyHandler, persistHumanInboxReply, resolveConversationChannelId } from "../apps/vase-labs/app/api/v1/inbox/[tenantSlug]/conversations/[conversationId]/reply/route";
 
 describe("Labs Inbox human replies", () => {
+  it("recovers the receiving channel for a legacy conversation", () => {
+    expect(resolveConversationChannelId({ context: {} }, "legacy_channel_123"))
+      .toBe("legacy_channel_123");
+    expect(resolveConversationChannelId({
+      context: { channelId: "metadata_channel_123" },
+    }, "legacy_channel_123")).toBe("metadata_channel_123");
+  });
+
   it("persists a human intervention reply and updates the conversation activity", async () => {
     const writes: unknown[] = [];
     const prisma = {
@@ -142,6 +150,7 @@ describe("Labs Inbox human replies", () => {
       findConversation: async () => ({
         id: "conversation_123",
         channel: "INSTAGRAM",
+        channelId: "instagram_channel_123",
         customerContact: null,
         externalUserId: "ig_user_123",
         externalThreadKey: "ig_thread_123",
@@ -163,6 +172,7 @@ describe("Labs Inbox human replies", () => {
 
     expect(response.status).toBe(200);
     expect(sendReply).toHaveBeenCalledWith(expect.objectContaining({
+      channelId: "instagram_channel_123",
       recipientId: "ig_thread_123",
     }));
   });
