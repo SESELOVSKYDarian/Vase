@@ -89,7 +89,7 @@ export async function POST(
     const asset = isMetaAssetVerified({
       providerAccountId: channel.providerAccountId,
       config,
-      lastError: channel.lastError,
+      lastError: metaOk ? null : code ?? null,
     });
     const webhook = Boolean(channel.webhookVerifiedAt);
     const subscription = Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0;
@@ -101,9 +101,14 @@ export async function POST(
       subscription: diagnosticCheck(subscription, "La suscripción de eventos está activa.", "SUBSCRIPTION_NOT_ACTIVE"),
     };
     const failures = Object.values(checks).filter((check) => !check.ok);
+    const nextStatus = fatal.has(code ?? "")
+      ? "ERROR"
+      : credentials && metaOk && asset && webhook && subscription
+        ? "CONNECTED"
+        : "PENDING";
     const result: ChannelDiagnosticResult = {
       ok: failures.length === 0,
-      status: failures.length === 0 ? "CONNECTED" : fatal.has(code ?? "") ? "ERROR" : "PENDING",
+      status: nextStatus,
       testedAt: new Date().toISOString(),
       summary: failures.length
         ? `Se detectaron ${failures.length} problema${failures.length === 1 ? "" : "s"}`
@@ -114,6 +119,7 @@ export async function POST(
     await labsPrisma.channel.update({
       where: { id: channel.id },
       data: {
+        status: nextStatus,
         lastSyncedAt: new Date(),
         lastError: metaOk
           ? null

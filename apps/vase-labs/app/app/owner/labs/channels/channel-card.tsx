@@ -3,6 +3,7 @@
 import type { LabsChannel, RedactedChannelSummary } from "@vase/contracts";
 import { Check, CircleAlert, LoaderCircle } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ChannelEditModal } from "./channel-edit-modal";
 import { ChannelConnectModal } from "./channel-connect-modal";
@@ -16,13 +17,14 @@ const statusCopy: Record<string, string> = { CONNECTED: "Conectado", PENDING: "C
 
 type Capacity = Record<LabsChannel, { limit: number; used: number; remaining: number }>;
 export function ChannelCard({ channel, type, capacity }: { channel: RedactedChannelSummary | null; type: LabsChannel; capacity: Capacity }) {
+  const router = useRouter();
   const [testing, setTesting] = useState(false); const [notice, setNotice] = useState<string | null>(null); const [diagnostic, setDiagnostic] = useState<ChannelDiagnosticResult | null>(null);
   const health: ChannelHealth = channel ? { webhookVerified: channel.webhookVerified, credentialsPresent: channel.credentialsPresent, assetVerified: channel.assetVerified, subscriptionActive: channel.subscriptionActive } : { webhookVerified: false, credentialsPresent: false, assetVerified: false, subscriptionActive: false };
   const needsAttention = channel ? channelNeedsAttention({ status: channel.status, health }) : false;
   const tone = !channel ? "neutral" : channel.status === "ERROR" ? "danger" : channel.status === "CONNECTED" ? "success" : "warning";
   async function testChannel() {
     if (!channel) return; setTesting(true); setNotice(null);
-    try { const response = await fetch(`/api/v1/channels/${channel.id}/test`, { method: "POST" }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error ?? "CHANNEL_TEST_FAILED"); setDiagnostic(payload); setNotice(payload.summary); }
+    try { const response = await fetch(`/api/v1/channels/${channel.id}/test`, { method: "POST" }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error ?? "CHANNEL_TEST_FAILED"); setDiagnostic(payload); setNotice(payload.summary); router.refresh(); }
     catch (reason) { setNotice(channelErrorMessage(reason instanceof Error ? reason.message : "CHANNEL_TEST_FAILED")); }
     finally { setTesting(false); }
   }

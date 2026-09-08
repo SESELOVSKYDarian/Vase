@@ -296,7 +296,9 @@ export function createMetaGraphClient(input: {
             kind: "INSTAGRAM_ACCOUNT",
             name: stringValue(profile.name) ?? username ?? "Instagram",
             ...(username ? { handle: `@${username}` } : {}),
+            ...(params.parentId ? { parentId: params.parentId } : {}),
           },
+          ...(params.parentId ? { parentId: params.parentId } : {}),
           accessToken: params.accessToken,
         };
       }

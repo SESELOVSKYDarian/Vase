@@ -143,7 +143,8 @@ describe("Meta Graph official channel adapter", () => {
       providerAccountId:"17841428932871922",
       parentId:"61590260919409",
     })).resolves.toMatchObject({
-      candidate:{ id:"17841428932871922", kind:"INSTAGRAM_ACCOUNT", handle:"@elteflonsanitarios" },
+      candidate:{ id:"17841428932871922", kind:"INSTAGRAM_ACCOUNT", handle:"@elteflonsanitarios", parentId:"61590260919409" },
+      parentId:"61590260919409",
       accessToken:"IGAA-token",
     });
   });

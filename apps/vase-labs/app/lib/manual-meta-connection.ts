@@ -52,7 +52,7 @@ export function createManualMetaConnectionService(input: {
         wabaId: params.channelType === "WHATSAPP" ? params.parentId : null,
         accountLabel: verified.accountLabel,
         externalHandle: verified.externalHandle,
-        config: { ...verified.config, manualWebhook: true, metaAppId: params.metaAppId },
+        config: { ...verified.config, parentId: verified.config.parentId ?? params.parentId ?? null, manualWebhook: true, metaAppId: params.metaAppId },
         metaAppId: params.metaAppId,
         encryptedAccessToken: input.encrypt(verified.accessToken),
         encryptedAppSecret,

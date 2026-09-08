@@ -2,6 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import { createManualMetaConnectionService } from "../apps/vase-labs/app/lib/manual-meta-connection";
 
 describe("manual Meta connection", () => {
+  it("keeps the manually supplied Instagram Page ID when an IG token cannot validate that relation", async () => {
+    const save = vi.fn();
+    const service = createManualMetaConnectionService({
+      graph: { resolveManualAsset: vi.fn().mockResolvedValue({ candidate: { id: "17841428932871922", kind: "INSTAGRAM_ACCOUNT", name: "Instagram" }, accessToken: "IG-token" }), verifyAndSubscribe: vi.fn().mockResolvedValue({ providerAccountId: "17841428932871922", accountLabel: "Instagram", externalHandle: null, config: { parentId: null, subscribedFields: ["messages"] }, accessToken: "IG-token" }) },
+      repository: { find: vi.fn().mockResolvedValue({ id: "channel_1", type: "INSTAGRAM", webhookVerifiedAt: null }), stage: vi.fn(), save, fail: vi.fn() }, encrypt: (value) => `encrypted:${value}`,
+    });
+    await service.connect({ assistantId:"a", channelId:"channel_1", channelType:"INSTAGRAM", accessToken:"IG-token", metaAppId:"2229208884490284", appSecret:"secret", providerAccountId:"17841428932871922", parentId:"1134742793056040" });
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ config: expect.objectContaining({ parentId:"1134742793056040", metaAppId:"2229208884490284" }) }));
+  });
   it("validates the selected asset and stays pending until the webhook is verified", async () => {
     const save = vi.fn();
     const service = createManualMetaConnectionService({

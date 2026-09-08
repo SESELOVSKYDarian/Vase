@@ -84,7 +84,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
       repository: {
         find: (assistantId, id) => labsPrisma.channel.findFirst({ where: { id, assistantId }, select: { id: true, type: true, webhookVerifiedAt: true } }),
         async stage(data) {
-          const current = await labsPrisma.channel.findUnique({ where: { id: data.channelId }, select: { type: true } });
+          const current = await labsPrisma.channel.findUnique({ where: { id: data.channelId }, select: { type: true, config: true } });
           if (!current) throw new Error("CHANNEL_NOT_FOUND");
           await labsPrisma.$transaction([
             labsPrisma.channel.update({
@@ -93,7 +93,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
                 providerAccountId: data.providerAccountId,
                 phoneNumberId: current.type === "WHATSAPP" ? data.providerAccountId : null,
                 wabaId: current.type === "WHATSAPP" ? data.parentId : null,
-                config: { manualWebhook: true, parentId: data.parentId, metaAppId: data.metaAppId, validationPending: true },
+                config: { ...(current.config as Record<string, unknown> ?? {}), manualWebhook: true, parentId: data.parentId ?? (current.config as Record<string, unknown> ?? {}).parentId ?? null, metaAppId: data.metaAppId, validationPending: true },
                 status: "PENDING", connectedAt: null, lastError: null,
               },
             }),
@@ -114,6 +114,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
         },
         async save(data) {
           const now = new Date();
+          const current = await labsPrisma.channel.findUnique({ where: { id: data.channelId }, select: { config: true } });
+          const currentConfig = current?.config && typeof current.config === "object" && !Array.isArray(current.config) ? current.config as Record<string, unknown> : {};
           await labsPrisma.$transaction([
             labsPrisma.channel.update({
               where: { id: data.channelId },
@@ -121,7 +123,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
                 provider: "META_OFFICIAL", providerAccountId: data.providerAccountId,
                 phoneNumberId: data.phoneNumberId, wabaId: data.wabaId,
                 accountLabel: data.accountLabel, externalHandle: data.externalHandle,
-                config: { ...data.config, metaAppId: data.metaAppId } as Prisma.InputJsonValue, status: data.status,
+                config: { ...currentConfig, ...data.config, parentId: data.config.parentId ?? currentConfig.parentId ?? null, manualWebhook: true, metaAppId: data.metaAppId } as Prisma.InputJsonValue, status: data.status,
                 connectedAt: data.status === "CONNECTED" ? now : null,
                 lastSyncedAt: now, lastError: null,
               },
