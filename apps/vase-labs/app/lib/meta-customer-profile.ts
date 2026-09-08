@@ -1,6 +1,7 @@
 import type { LabsChannel } from "@vase/contracts";
 import { decryptChannelSecret } from "./channel-secrets";
 import type { OfficialChannelSenderRepository } from "./official-channel-sender";
+import { resolveMetaGraphHost } from "./meta-channel-auth";
 
 function profileText(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -27,8 +28,7 @@ export function createMetaCustomerProfileResolver(input: {
         });
         if (!context) return null;
         const accessToken = decryptChannelSecret(context.encryptedAccessToken, input.encryptionSecret);
-        const isInstagramLogin = params.channelType === "INSTAGRAM" && accessToken.startsWith("IG");
-        const host = isInstagramLogin ? "https://graph.instagram.com" : "https://graph.facebook.com";
+        const host = resolveMetaGraphHost(params.channelType, accessToken);
         const url = new URL(`${host}/${input.graphVersion}/${encodeURIComponent(params.userId)}`);
         url.searchParams.set(
           "fields",

@@ -1,4 +1,5 @@
 import type { LabsChannel } from "@vase/contracts";
+import { isInstagramLoginAccessToken } from "./meta-channel-auth";
 import type { DiscoveredMetaAsset } from "./meta-connection-service";
 
 type GraphPayload = Record<string, unknown>;
@@ -62,10 +63,6 @@ export function createMetaGraphClient(input: {
       throw new Error(fallbackError);
     }
     return payload;
-  }
-
-  function isInstagramLoginToken(accessToken: string) {
-    return accessToken.trim().startsWith("IG");
   }
 
   async function instagramGraphRequest(
@@ -206,7 +203,7 @@ export function createMetaGraphClient(input: {
 
   return {
     async exchangeForLongLivedUserToken(accessToken: string): Promise<string> {
-      if (isInstagramLoginToken(accessToken)) return accessToken;
+      if (isInstagramLoginAccessToken(accessToken)) return accessToken;
       if (!input.appId) throw new Error("META_APP_ID_MISSING");
       if (!input.appSecret) throw new Error("META_APP_SECRET_MISSING");
 
@@ -280,7 +277,7 @@ export function createMetaGraphClient(input: {
         };
       }
 
-      if (params.channelType === "INSTAGRAM" && isInstagramLoginToken(params.accessToken)) {
+      if (params.channelType === "INSTAGRAM" && isInstagramLoginAccessToken(params.accessToken)) {
         const profile = await instagramGraphRequest(
           "/me?fields=user_id,username,name",
           params.accessToken,
@@ -366,6 +363,16 @@ export function createMetaGraphClient(input: {
       channelType: LabsChannel;
       accessToken: string;
     }) {
+      if (params.channelType === "INSTAGRAM" && isInstagramLoginAccessToken(params.accessToken)) {
+        const profile = await instagramGraphRequest(
+          "/me?fields=user_id,username",
+          params.accessToken,
+          undefined,
+          "META_TOKEN_INVALID",
+        );
+        if (!stringValue(profile.user_id ?? profile.id)) throw new Error("META_TOKEN_INVALID");
+        return { ok: true as const };
+      }
       await debugToken(params.accessToken, params.channelType);
       return { ok: true as const };
     },
@@ -385,7 +392,7 @@ export function createMetaGraphClient(input: {
       userAccessToken: string;
     }) {
       const accessToken = params.asset.accessToken ?? params.userAccessToken;
-      const usesInstagramLogin = params.channelType === "INSTAGRAM" && isInstagramLoginToken(accessToken);
+      const usesInstagramLogin = params.channelType === "INSTAGRAM" && isInstagramLoginAccessToken(accessToken);
       if (!usesInstagramLogin) {
         await debugToken(accessToken, params.channelType);
       }

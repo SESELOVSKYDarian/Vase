@@ -1,6 +1,7 @@
 import type { LabsChannel } from "@vase/contracts";
 import { decryptChannelSecret } from "./channel-secrets";
 import { normalizePublicHttpsImageUrl } from "./public-image-url";
+import { resolveMetaGraphHost } from "./meta-channel-auth";
 
 export type OfficialChannelDeliveryContext = {
   channelType: LabsChannel;
@@ -43,19 +44,13 @@ function safeTransportMessage(error: unknown) {
   return message ? message.replace(/\s+/g, " ").slice(0, 200) : undefined;
 }
 
-function isInstagramLoginAccessToken(channelType: LabsChannel, accessToken: string) {
-  return channelType === "INSTAGRAM" && accessToken.trim().startsWith("IG");
-}
-
 function resolveGraphMessagesEndpoint(input: {
   channelType: LabsChannel;
   graphVersion: string;
   providerAccountId: string;
   accessToken: string;
 }) {
-  const graphHost = isInstagramLoginAccessToken(input.channelType, input.accessToken)
-    ? "https://graph.instagram.com"
-    : "https://graph.facebook.com";
+  const graphHost = resolveMetaGraphHost(input.channelType, input.accessToken);
   return `${graphHost}/${input.graphVersion}/${encodeURIComponent(input.providerAccountId)}/messages`;
 }
 
@@ -121,13 +116,15 @@ export function createOfficialChannelSender(input: {
             safeTransportMessage(error),
           );
         }
-        const payload = await response.json().catch(() => ({}));
+        const raw = await response.text();
+        let payload: unknown = {};
+        try { payload = raw ? JSON.parse(raw) : {}; } catch { /* provider returned a non-JSON response */ }
 
         if (!response.ok) {
           throw new OfficialChannelDeliveryError(
             "META_SEND_FAILED",
             response.status,
-            safeProviderMessage(payload),
+            safeProviderMessage(payload) ?? (raw && !raw.includes("<") ? raw.replace(/\s+/g, " ").slice(0, 300) : undefined),
           );
         }
 

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { channelIconSrc } from "./channel-icons";
 import { buildChannelSetupRequest, buildChannelVerifyRequest, createChannelUiFlow } from "./channel-ui-flow";
+import { isInstagramLoginAccessToken } from "../../../../lib/meta-channel-auth";
 
 type Capacity = Record<LabsChannel, { limit: number; used: number; remaining: number }>;
 type Setup = { channelId: string; webhookUrl: string; webhookKey: string };
@@ -136,12 +137,13 @@ export function ChannelConnectModal({ capacity, initialChannel, triggerLabel = "
   }
 
   async function saveAdvancedConnection() {
-    if (!selected || !setup || !providerAccountId.trim() || !metaAppId.trim() || !accessToken.trim() || !appSecret.trim() || (credentialLabels[selected].parent && !parentId.trim())) return;
+    const requiresParent = selected === "WHATSAPP" || (selected === "INSTAGRAM" && !isInstagramLoginAccessToken(accessToken));
+    if (!selected || !setup || !providerAccountId.trim() || !metaAppId.trim() || !accessToken.trim() || !appSecret.trim() || (requiresParent && !parentId.trim())) return;
     setLoading(true); setNotice(null);
     try {
       const response = await fetch(`/api/labs/channels/${setup.channelId}/connect`, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ channelType: selected, accessToken: accessToken.trim(), metaAppId: metaAppId.trim(), appSecret: appSecret.trim(), providerAccountId: providerAccountId.trim(), parentId: credentialLabels[selected].parent ? parentId.trim() : null }),
+        body: JSON.stringify({ channelType: selected, accessToken: accessToken.trim(), metaAppId: metaAppId.trim(), appSecret: appSecret.trim(), providerAccountId: providerAccountId.trim(), parentId: credentialLabels[selected].parent ? parentId.trim() || null : null }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error);
@@ -207,7 +209,7 @@ export function ChannelConnectModal({ capacity, initialChannel, triggerLabel = "
               <span>{label}</span><code>{value}</code><button type="button" disabled={notice?.kind === "connected"} aria-label={`Copiar ${label}`} onClick={() => void copy(value, label)}><Copy className="size-4" /></button>
             </div>)}
             <button className="labs-advanced-toggle" type="button" onClick={() => setAdvanced(!advanced)}><Eye className="size-4" /> {advanced ? "Ocultar configuración avanzada" : "Configuración avanzada"}</button>
-            {advanced && selected ? <div className="labs-advanced-fields"><label>{credentialLabels[selected].account}<input value={providerAccountId} onChange={(event) => setProviderAccountId(event.target.value)} /></label>{credentialLabels[selected].parent ? <label>{credentialLabels[selected].parent}<input value={parentId} onChange={(event) => setParentId(event.target.value)} /></label> : null}<label>Meta App ID<input inputMode="numeric" value={metaAppId} onChange={(event) => setMetaAppId(event.target.value)} /></label><label>Access Token<input type="password" autoComplete="off" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} /></label><label>Meta App Secret<input type="password" autoComplete="new-password" value={appSecret} onChange={(event) => setAppSecret(event.target.value)} /></label><button className="labs-button labs-button-secondary" type="button" disabled={loading || !providerAccountId.trim() || !metaAppId.trim() || !accessToken.trim() || !appSecret.trim() || Boolean(credentialLabels[selected].parent && !parentId.trim())} onClick={() => void saveAdvancedConnection()}>Guardar y comprobar</button></div> : null}
+            {advanced && selected ? <div className="labs-advanced-fields"><label>{credentialLabels[selected].account}<input value={providerAccountId} onChange={(event) => setProviderAccountId(event.target.value)} /></label>{credentialLabels[selected].parent ? <label>{credentialLabels[selected].parent}{selected === "INSTAGRAM" && isInstagramLoginAccessToken(accessToken) ? " (opcional)" : ""}<input value={parentId} onChange={(event) => setParentId(event.target.value)} /></label> : null}<label>Meta App ID<input inputMode="numeric" value={metaAppId} onChange={(event) => setMetaAppId(event.target.value)} /></label><label>Access Token<input type="password" autoComplete="off" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} /></label><label>Meta App Secret<input type="password" autoComplete="new-password" value={appSecret} onChange={(event) => setAppSecret(event.target.value)} /></label><button className="labs-button labs-button-secondary" type="button" disabled={loading || !providerAccountId.trim() || !metaAppId.trim() || !accessToken.trim() || !appSecret.trim() || Boolean((selected === "WHATSAPP" || (selected === "INSTAGRAM" && !isInstagramLoginAccessToken(accessToken))) && !parentId.trim())} onClick={() => void saveAdvancedConnection()}>Guardar y comprobar</button></div> : null}
           </> : <button className="labs-button labs-button-secondary" type="button" onClick={() => void beginSetup()}>Reintentar</button>}
         </div>}
 

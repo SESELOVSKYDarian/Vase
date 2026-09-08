@@ -198,6 +198,7 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
           delivery: { status: "SENT" },
         });
       } catch (error) {
+        const requestId = randomUUID();
         const source = error as { code?: unknown; message?: unknown; providerStatus?: unknown; providerMessage?: unknown } | null;
         const code = typeof source?.code === "string"
           ? source.code
@@ -210,6 +211,7 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
         });
         return NextResponse.json({
           error: code,
+          requestId,
           message: {
             id: persisted.messageId,
             role: "human_agent",
@@ -224,6 +226,7 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
         }, { status: 502 });
       }
     } catch (error) {
+      const requestId = randomUUID();
       const source = error as {
         code?: unknown;
         message?: unknown;
@@ -237,6 +240,7 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
           : "CHANNEL_DELIVERY_FAILED";
       return NextResponse.json({
         error: code,
+        requestId,
         ...(typeof source?.providerStatus === "number"
           ? { providerStatus: source.providerStatus }
           : {}),
