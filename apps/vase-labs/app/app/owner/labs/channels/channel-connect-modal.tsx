@@ -42,7 +42,7 @@ function metaConnectionErrorMessage(code: string) {
   return "Vase no pudo validar el canal con las credenciales cargadas. Revisá el Phone Number ID, WABA ID y Access Token de este canal.";
 }
 
-export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
+export function ChannelConnectModal({ capacity, initialChannel, triggerLabel = "Agregar canal" }: { capacity: Capacity; initialChannel?: LabsChannel; triggerLabel?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
@@ -64,8 +64,8 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
 
   const reset = useCallback(() => {
     terminalLocked.current = false;
-    setStep(1); setSelected(null); setSetup(null); setNotice(null); setLoading(false); setAdvanced(false); setProviderAccountId(""); setParentId(""); setMetaAppId(""); setAccessToken(""); setAppSecret("");
-  }, []);
+    setStep(1); setSelected(initialChannel ?? null); setSetup(null); setNotice(null); setLoading(false); setAdvanced(false); setProviderAccountId(""); setParentId(""); setMetaAppId(""); setAccessToken(""); setAppSecret("");
+  }, [initialChannel]);
 
   const close = useCallback((force = false) => {
     if (terminalLocked.current && !force) return;
@@ -186,7 +186,7 @@ export function ChannelConnectModal({ capacity }: { capacity: Capacity }) {
   }
 
   return <>
-    <button ref={openButton} className="labs-button labs-button-primary" type="button" onClick={() => setOpen(true)}><Plus className="size-4" /> Agregar canal</button>
+    <button ref={openButton} className="labs-button labs-button-primary" type="button" onClick={() => { reset(); setOpen(true); }}><Plus className="size-4" /> {triggerLabel}</button>
     {open ? <div className="labs-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <section ref={dialog} onKeyDown={trapFocus} className="labs-connect-modal" role="dialog" aria-modal="true" aria-labelledby="connect-channel-title">
         <header><div><span className="labs-modal-kicker">Paso {step} de 2</span>

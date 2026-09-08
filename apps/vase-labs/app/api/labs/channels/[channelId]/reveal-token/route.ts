@@ -18,14 +18,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
       body: JSON.stringify({ userId: context.globalUserId, password }),
     });
     if (!verified.ok) return NextResponse.json({ error: verified.status === 429 ? "RATE_LIMIT_EXCEEDED" : "PASSWORD_INVALID" }, { status: verified.status === 429 ? 429 : 401 });
-    const secret = await labsPrisma.channelSecret.findFirst({
-      where: { channelId, kind: "META_ACCESS_TOKEN", channel: { assistantId: assistant.id } }, select: { encryptedValue: true },
+    const secrets = await labsPrisma.channelSecret.findMany({
+      where: { channelId, kind: { in: ["META_ACCESS_TOKEN", "META_APP_SECRET"] }, channel: { assistantId: assistant.id } }, select: { kind: true, encryptedValue: true },
     });
-    if (!secret) return NextResponse.json({ error: "CHANNEL_CREDENTIAL_MISSING" }, { status: 404 });
+    const accessToken = secrets.find((secret) => secret.kind === "META_ACCESS_TOKEN")?.encryptedValue;
+    const appSecret = secrets.find((secret) => secret.kind === "META_APP_SECRET")?.encryptedValue;
+    if (!accessToken || !appSecret) return NextResponse.json({ error: "CHANNEL_CREDENTIAL_MISSING" }, { status: 404, headers: { "cache-control": "no-store, private" } });
     const encryptionSecret = process.env.TOKEN_ENCRYPTION_SECRET?.trim();
     if (!encryptionSecret) throw new Error("TOKEN_ENCRYPTION_SECRET_MISSING");
-    return NextResponse.json({ token: decryptChannelSecret(secret.encryptedValue, encryptionSecret) }, { headers: { "cache-control": "no-store, private" } });
+    const decryptedAccessToken = decryptChannelSecret(accessToken, encryptionSecret);
+    return NextResponse.json({ token: decryptedAccessToken, accessToken: decryptedAccessToken, appSecret: decryptChannelSecret(appSecret, encryptionSecret) }, { headers: { "cache-control": "no-store, private" } });
   } catch {
-    return NextResponse.json({ error: "TOKEN_REVEAL_FAILED" }, { status: 400, headers: { "cache-control": "no-store" } });
+    return NextResponse.json({ error: "TOKEN_REVEAL_FAILED" }, { status: 400, headers: { "cache-control": "no-store, private" } });
   }
 }

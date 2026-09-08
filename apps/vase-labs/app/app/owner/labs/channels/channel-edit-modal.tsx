@@ -1,115 +1,18 @@
 "use client";
-
 import type { LabsChannel } from "@vase/contracts";
-import { Check, Copy, Eye, Trash2, X } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, LockKeyhole, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-
-type Summary = { id: string; type: LabsChannel; accountLabel: string | null };
-type Details = {
-  channelId: string; channelType: LabsChannel; status: string; webhookUrl: string; webhookKey: string;
-  providerAccountId: string | null; parentId: string | null; accountLabel: string | null;
-  metaAppId: string | null;
-  accessTokenMasked: string | null;
-  appSecretMasked: string | null;
-  health: { webhookVerified: boolean; credentialsPresent: boolean; assetVerified: boolean; subscriptionActive: boolean };
-};
-
-const labels: Record<LabsChannel, { account: string; parent?: string }> = {
-  WHATSAPP: { account: "Phone Number ID", parent: "WABA ID" },
-  INSTAGRAM: { account: "Instagram Professional Account ID", parent: "Facebook Page ID" },
-  FACEBOOK: { account: "Facebook Page ID" },
-};
-
-function metaConnectionErrorMessage(code: string) {
-  if (code === "META_LONG_LIVED_TOKEN_EXCHANGE_FAILED") return "No pudimos convertir el token en una credencial de larga duracion. Genera un nuevo User Access Token para esta aplicacion y volve a conectar el canal.";
-  if (code === "META_TOKEN_INVALID") return "El Access Token es inválido, venció o pertenece a otra aplicación de Meta.";
-  if (code === "META_PERMISSIONS_MISSING") return "El token no tiene todos los permisos requeridos.";
-  if (code === "META_ASSET_NOT_AUTHORIZED") return "Los identificadores no pertenecen al activo autorizado por el token.";
-  if (code === "META_SUBSCRIPTION_FAILED") return "Meta validó el activo, pero no pudo activar la suscripción de eventos. Revisá que el usuario del sistema tenga control total del WABA, número o página y permiso para administrar webhooks.";
-  if (code === "META_APP_ID_MISSING") return "Ingresá el Meta App ID de la aplicación de este cliente.";
-  if (code === "META_APP_SECRET_MISSING") return "Ingresá el Meta App Secret de la aplicación que recibe los webhooks. Vase lo guarda cifrado dentro de este canal.";
-  if (code === "TOKEN_ENCRYPTION_SECRET_MISSING") return "Falta configurar el secreto interno de cifrado de Labs. El canal del cliente está completo, pero Vase no puede guardar el token cifrado.";
-  if (code === "CHANNEL_CREDENTIAL_REENTER_REQUIRED") return "Volvé a pegar el Access Token de este canal. El token guardado fue cifrado con una clave anterior y Vase no puede reutilizarlo.";
-  return "Vase no pudo validar el canal con las credenciales cargadas. Revisá el Phone Number ID, WABA ID y Access Token de este canal.";
-}
-
-export function ChannelEditModal({ channel }: { channel: Summary }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false), [advanced, setAdvanced] = useState(false), [confirming, setConfirming] = useState(false);
-  const [details, setDetails] = useState<Details | null>(null), [busy, setBusy] = useState(false);
-  const [accountId, setAccountId] = useState(""), [parentId, setParentId] = useState(""), [metaAppId, setMetaAppId] = useState(""), [token, setToken] = useState("");
-  const [appSecret, setAppSecret] = useState("");
-  const [reauthOpen, setReauthOpen] = useState(false), [password, setPassword] = useState(""), [revealedToken, setRevealedToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null), [toast, setToast] = useState<string | null>(null), [error, setError] = useState<string | null>(null);
-
-  useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(null), 3000); return () => clearTimeout(timer); }, [toast]);
-  useEffect(() => { if (!open) return; const close = (event: KeyboardEvent) => { if (event.key === "Escape" && !busy) setOpen(false); }; document.addEventListener("keydown", close); return () => document.removeEventListener("keydown", close); }, [busy, open]);
-
-  async function load() {
-    setOpen(true); setBusy(true); setError(null);
-    try {
-      const response = await fetch(`/api/labs/channels/${channel.id}`); const payload = await response.json();
-      if (!response.ok) throw new Error();
-      setDetails(payload); setAccountId(payload.providerAccountId ?? ""); setParentId(payload.parentId ?? ""); setMetaAppId(payload.metaAppId ?? ""); setAppSecret("");
-    } catch { setError("No pudimos cargar la configuración del canal."); }
-    finally { setBusy(false); }
-  }
-  async function copy(value: string, key: string) {
-    try { await navigator.clipboard.writeText(value); setCopied(key); setToast("Copiado correctamente"); window.setTimeout(() => setCopied(null), 850); }
-    catch { setError("No pudimos copiar este valor."); }
-  }
-  async function verify() {
-    setBusy(true); setError(null);
-    try {
-      const hasConfigurationChanges = Boolean(token.trim()) || Boolean(appSecret.trim()) || accountId !== (details?.providerAccountId ?? "") || parentId !== (details?.parentId ?? "") || metaAppId !== (details?.metaAppId ?? "");
-      const shouldPersistConfiguration = hasConfigurationChanges;
-      const connectionBody = { channelType: channel.type, ...(token.trim() ? { accessToken: token.trim() } : {}), ...(metaAppId.trim() ? { metaAppId: metaAppId.trim() } : {}), ...(appSecret.trim() ? { appSecret: appSecret.trim() } : {}), providerAccountId: accountId, parentId: labels[channel.type].parent ? parentId : null };
-      const response = shouldPersistConfiguration || details?.status === "ERROR"
-        ? await fetch(`/api/labs/channels/${channel.id}/connect`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(connectionBody) })
-        : details?.status === "CONNECTED"
-          ? await fetch(`/api/v1/channels/${channel.id}/test`, { method: "POST" })
-          : await fetch("/api/labs/channels/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channelId: channel.id }) });
-      const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
-      setToast(payload.status === "PENDING" ? (payload.message ?? "Credenciales válidas; falta verificar el webhook") : "Conexión comprobada correctamente");
-      await load(); router.refresh();
-    } catch (reason) { const code = reason instanceof Error ? reason.message : ""; setError(metaConnectionErrorMessage(code)); }
-    finally { setBusy(false); }
-  }
-  async function disconnect() {
-    setBusy(true); setError(null);
-    try { const response = await fetch(`/api/labs/channels/${channel.id}`, { method: "DELETE" }); if (!response.ok) throw new Error(); setToast("Canal desconectado"); setOpen(false); router.refresh(); }
-    catch { setError("No pudimos desconectar el canal."); }
-    finally { setBusy(false); }
-  }
-  async function revealToken() {
-    setBusy(true); setError(null);
-    try {
-      const response = await fetch(`/api/labs/channels/${channel.id}/reveal-token`, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({password}) });
-      const payload = await response.json(); if (!response.ok || typeof payload.token !== "string") throw new Error(payload.error);
-      setRevealedToken(payload.token); setPassword(""); setToast("Identidad comprobada");
-    } catch (reason) { setError(reason instanceof Error && reason.message === "RATE_LIMIT_EXCEEDED" ? "Demasiados intentos. Esperá cinco minutos." : "La contraseña no es correcta."); }
-    finally { setBusy(false); }
-  }
-
-  const health = details?.health;
-  return <>
-    <button type="button" className="labs-button labs-button-secondary" onClick={() => void load()}>Editar</button>
-    {toast ? <div className="labs-toast" role="status" aria-live="polite"><Check className="size-4" />{toast}</div> : null}
-    {open ? <div className="labs-modal-backdrop"><section className="labs-connect-modal labs-channel-editor" role="dialog" aria-modal="true" aria-labelledby="edit-channel-title">
-      <header><div><span className="labs-modal-kicker">Canal oficial Meta</span><h2 id="edit-channel-title">Editar {channel.accountLabel ?? channel.type}</h2><p>Revisá el estado, reconectá otra cuenta o actualizá credenciales avanzadas.</p></div><button className="labs-icon-button" onClick={() => setOpen(false)} aria-label="Cerrar"><X className="size-4" /></button></header>
-      <div className="labs-channel-editor-body">
-        {busy && !details ? <p>Cargando configuración…</p> : details ? <>
-          <div className="labs-health-grid">{[["Webhook verificado",health?.webhookVerified],["Credencial guardada",health?.credentialsPresent],["Activo validado",health?.assetVerified],["Suscripción activa",health?.subscriptionActive]].map(([name, ok]) => <span className={ok ? "is-ok" : "is-pending"} key={String(name)}><Check className="size-4" />{name}</span>)}</div>
-          <div className="labs-oauth-primary"><strong>Aplicación Meta del cliente</strong><p>Estos valores pertenecen a la aplicación de esta cuenta y se administran desde este canal.</p></div>
-          <div className="labs-webhook-values">{[["Webhook URL",details.webhookUrl],["Webhook Key",details.webhookKey]].map(([name,value]) => <div key={name}><span>{name}</span><code>{value}</code><button aria-label={`Copiar ${name}`} className={copied === name ? "is-copied" : ""} onClick={() => void copy(value, name)}>{copied === name ? <Check className="size-4" /> : <Copy className="size-4" />}</button></div>)}</div>
-          <button className="labs-advanced-toggle" type="button" onClick={() => setAdvanced(!advanced)}><Eye className="size-4" /> {advanced ? "Ocultar configuración avanzada" : "Configuración avanzada"}</button>
-          {advanced ? <div className="labs-advanced-fields"><label>{labels[channel.type].account}<input value={accountId} onChange={(e) => setAccountId(e.target.value)} /></label>{labels[channel.type].parent ? <label>{labels[channel.type].parent}<input value={parentId} onChange={(e) => setParentId(e.target.value)} /></label> : null}<label>Meta App ID<input inputMode="numeric" value={metaAppId} onChange={(e) => setMetaAppId(e.target.value)} /></label><label>Access Token<input type="password" autoComplete="off" value={token} placeholder={details.accessTokenMasked ?? "Ingresá un token"} onChange={(e) => setToken(e.target.value)} /></label><label>Meta App Secret<input type="password" autoComplete="new-password" value={appSecret} placeholder={details.appSecretMasked ?? "Ingresá el App Secret"} onChange={(e) => setAppSecret(e.target.value)} /></label>{details.accessTokenMasked ? <button className="labs-button labs-button-secondary" type="button" onClick={() => { setReauthOpen(true); setRevealedToken(null); }}>Ver o copiar token guardado</button> : null}</div> : null}
-        </> : null}
-        {error ? <p className="labs-form-error" role="alert">{error}</p> : null}
-      </div>
-      <footer><button className="labs-button labs-button-danger" type="button" onClick={() => confirming ? void disconnect() : setConfirming(true)} disabled={busy}><Trash2 className="size-4" />{confirming ? "Confirmar desconexión" : "Desconectar"}</button><button className="labs-button labs-button-primary" type="button" onClick={() => void verify()} disabled={busy || !details}>{busy ? "Comprobando…" : "Comprobar conexión"}</button></footer>
-      {reauthOpen ? <div className="labs-reauth-shade"><section className="labs-reauth-panel" role="dialog" aria-modal="true" aria-labelledby="reauth-title"><h3 id="reauth-title">Confirmá tu identidad</h3><p>Ingresá nuevamente tu contraseña de Vase. No la guardaremos.</p>{revealedToken ? <div className="labs-revealed-token"><code>{revealedToken}</code><button className={copied==="Access Token"?"is-copied":""} aria-label="Copiar Access Token" onClick={() => void copy(revealedToken,"Access Token")}>{copied==="Access Token"?<Check className="size-4"/>:<Copy className="size-4"/>}</button></div> : <label>Contraseña<input type="password" autoComplete="current-password" value={password} onChange={(e)=>setPassword(e.target.value)} /></label>}<div><button className="labs-button labs-button-secondary" onClick={()=>{setReauthOpen(false);setRevealedToken(null);setPassword("");}}>Cerrar</button>{!revealedToken?<button className="labs-button labs-button-primary" disabled={!password||busy} onClick={()=>void revealToken()}>Comprobar contraseña</button>:null}</div></section></div> : null}
-    </section></div> : null}
-  </>;
-}
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChannelHealthList, ChannelStatusSummary, type ChannelHealth } from "./channel-health";
+type Summary={id:string;type:LabsChannel;accountLabel:string|null}; type Details={channelId:string;channelType:LabsChannel;status:string;webhookUrl:string;webhookKey:string;providerAccountId:string|null;parentId:string|null;accountLabel:string|null;metaAppId:string|null;accessTokenMasked:string|null;appSecretMasked:string|null;lastSyncedAt?:string|null;health:ChannelHealth};
+const labels:Record<LabsChannel,{account:string;parent?:string}>={WHATSAPP:{account:"Phone Number ID",parent:"WABA ID"},INSTAGRAM:{account:"Instagram Professional Account ID",parent:"Facebook Page ID"},FACEBOOK:{account:"Facebook Page ID"}};
+const message=(code:string)=>({RATE_LIMIT_EXCEEDED:"Demasiados intentos. Esperá cinco minutos.",PASSWORD_INVALID:"La contraseña no es correcta.",META_TOKEN_INVALID:"El Access Token es inválido o venció.",META_PERMISSIONS_MISSING:"El token no tiene todos los permisos requeridos.",META_ASSET_NOT_AUTHORIZED:"Los identificadores no pertenecen al activo autorizado.",META_SUBSCRIPTION_FAILED:"Meta validó el activo, pero no pudo activar la suscripción.",CHANNEL_CREDENTIAL_REENTER_REQUIRED:"Volvé a ingresar las credenciales del canal.",TOKEN_ENCRYPTION_SECRET_MISSING:"Falta configurar el secreto interno de cifrado de Labs."}[code]??"No pudimos completar esta operación. Revisá la configuración e intentá nuevamente.");
+export function ChannelEditModal({channel}:{channel:Summary}){const router=useRouter(), opener=useRef<HTMLButtonElement>(null);const[open,setOpen]=useState(false),[d,setD]=useState<Details|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[toast,setToast]=useState<string|null>(null),[security,setSecurity]=useState(false),[advanced,setAdvanced]=useState(false),[password,setPassword]=useState(""),[token,setToken]=useState(""),[secret,setSecret]=useState(""),[showToken,setShowToken]=useState(false),[showSecret,setShowSecret]=useState(false),[account,setAccount]=useState(""),[parent,setParent]=useState(""),[appId,setAppId]=useState(""),[confirm,setConfirm]=useState(false),[copied,setCopied]=useState<string|null>(null);
+const clear=useCallback(()=>{setPassword("");setToken("");setSecret("");setShowToken(false);setShowSecret(false);setSecurity(false);setAdvanced(false)},[]);const close=useCallback(()=>{clear();setOpen(false);setD(null);setError(null);requestAnimationFrame(()=>opener.current?.focus())},[clear]);useEffect(()=>{if(!open)return;const f=(e:KeyboardEvent)=>{if(e.key==="Escape"&&!busy)security?clear():close()};document.addEventListener("keydown",f);return()=>document.removeEventListener("keydown",f)},[open,busy,security,clear,close]);useEffect(()=>{if(!toast)return;const id=setTimeout(()=>setToast(null),3000);return()=>clearTimeout(id)},[toast]);
+async function load(){setOpen(true);setBusy(true);try{const r=await fetch(`/api/labs/channels/${channel.id}`,{cache:"no-store"}),p=await r.json();if(!r.ok)throw Error(p.error);setD(p);setAccount(p.providerAccountId??"");setParent(p.parentId??"");setAppId(p.metaAppId??"")}catch(e){setError(message(e instanceof Error?e.message:""))}finally{setBusy(false)}}
+async function reveal(){setBusy(true);setError(null);try{const r=await fetch(`/api/labs/channels/${channel.id}/reveal-token`,{method:"POST",headers:{"content-type":"application/json"},cache:"no-store",body:JSON.stringify({password})}),p=await r.json();if(!r.ok||typeof p.accessToken!=="string"||typeof p.appSecret!=="string")throw Error(p.error);setToken(p.accessToken);setSecret(p.appSecret);setPassword("");setSecurity(false);setAdvanced(true);setToast("Identidad comprobada")}catch(e){setError(message(e instanceof Error?e.message:""))}finally{setBusy(false)}}
+async function test(){if(!d)return;setBusy(true);try{const r=d.status==="CONNECTED"?await fetch(`/api/v1/channels/${channel.id}/test`,{method:"POST"}):await fetch("/api/labs/channels/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({channelId:channel.id})}),p=await r.json();if(!r.ok)throw Error(p.error);setToast(d.status==="CONNECTED"?"Canal funcionando correctamente":p.message??"Configuración comprobada");await load();router.refresh()}catch(e){setError(message(e instanceof Error?e.message:""))}finally{setBusy(false)}}
+async function save(){if(!d)return;setBusy(true);try{const r=await fetch(`/api/labs/channels/${channel.id}/connect`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({channelType:channel.type,accessToken:token,appSecret:secret,metaAppId:appId,providerAccountId:account,parentId:labels[channel.type].parent?parent:null})}),p=await r.json();if(!r.ok)throw Error(p.error);setToast("Configuración guardada y validada");await load();router.refresh()}catch(e){setError(message(e instanceof Error?e.message:""))}finally{setBusy(false)}}
+async function copy(value:string,key:string){try{await navigator.clipboard.writeText(value);setCopied(key);setToast("Copiado");setTimeout(()=>setCopied(null),900)}catch{setError("No pudimos copiar este valor.")}}async function disconnect(){setBusy(true);try{const r=await fetch(`/api/labs/channels/${channel.id}`,{method:"DELETE"});if(!r.ok)throw Error();close();router.refresh()}catch{setError("No pudimos desconectar el canal.")}finally{setBusy(false)}}
+return <><button ref={opener} type="button" className="labs-button labs-button-primary" onClick={()=>void load()}>Administrar</button>{toast&&<div className="labs-toast" role="status">{toast}</div>}{open&&<div className="labs-modal-backdrop"><section className="labs-connect-modal labs-channel-editor" role="dialog" aria-modal="true"><header><div><h2>{channel.accountLabel??channel.type}</h2><p>Estado, diagnóstico y configuración de esta conexión.</p></div><button className="labs-icon-button" onClick={close} aria-label="Cerrar"><X/></button></header><div className="labs-channel-editor-body">{d&&<><ChannelStatusSummary status={d.status} health={d.health} lastCheckedAt={d.lastSyncedAt}/><section className="labs-channel-section"><h3>Estado del canal</h3><ChannelHealthList health={d.health}/></section><section className="labs-channel-section"><h3>Webhook</h3><p>Estos datos se configuran en Meta Developers para que Meta pueda enviar eventos a Vase Labs.</p><Value label="Webhook URL" value={d.webhookUrl} copied={copied} copy={copy}/><Value label="Verify Token" value={d.webhookKey} copied={copied} copy={copy}/></section><section className="labs-channel-section"><h3>Diagnóstico</h3><p>La prueba no guarda cambios.</p><button className="labs-button labs-button-secondary" disabled={busy} onClick={()=>void test()}>{busy?"Probando…":"Ejecutar diagnóstico"}</button></section><section className="labs-protected-panel"><LockKeyhole/><div><h3>Configuración avanzada</h3><p>IDs, tokens y credenciales sensibles de Meta.</p></div><button className="labs-button labs-button-secondary" onClick={()=>setSecurity(true)}>Acceder a configuración avanzada</button></section><section className="labs-danger-zone"><h3>Zona de peligro</h3><p>Desconectar este canal hará que Vase Labs deje de recibir mensajes nuevos desde esta cuenta.</p>{confirm?<div><strong>¿Desconectar este canal?</strong><button className="labs-button labs-button-secondary" onClick={()=>setConfirm(false)}>Cancelar</button><button className="labs-button labs-button-danger" disabled={busy} onClick={()=>void disconnect()}>Sí, desconectar</button></div>:<button className="labs-button labs-button-danger" onClick={()=>setConfirm(true)}><Trash2/>Desconectar canal</button>}</section></>}{error&&<p className="labs-form-error" role="alert">{error}</p>}</div></section>{security&&<div className="labs-reauth-shade"><section className="labs-reauth-panel" role="dialog" aria-modal="true"><LockKeyhole/><h3>Verificación de seguridad</h3><p>Ingresá nuevamente tu contraseña de Vase para continuar.</p><label>Contraseña<input autoFocus type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></label><small>Por seguridad Vase nunca guarda esta contraseña.</small><div><button className="labs-button labs-button-secondary" onClick={clear}>Cancelar</button><button className="labs-button labs-button-primary" disabled={!password||busy} onClick={()=>void reveal()}>{busy?"Verificando…":"Verificar identidad"}</button></div></section></div>}{advanced&&<div className="labs-reauth-shade"><section className="labs-connect-modal labs-advanced-modal" role="dialog" aria-modal="true"><header><div><h2>Configuración avanzada</h2><p>Sesión protegida</p></div><button className="labs-icon-button" onClick={clear} aria-label="Cerrar"><X/></button></header><div className="labs-advanced-fields"><label>{labels[channel.type].account}<input value={account} onChange={e=>setAccount(e.target.value)}/></label>{labels[channel.type].parent&&<label>{labels[channel.type].parent}<input value={parent} onChange={e=>setParent(e.target.value)}/></label>}<label>Meta App ID<input value={appId} onChange={e=>setAppId(e.target.value)}/></label><Secret label="Access Token" value={token} show={showToken} copied={copied} set={setToken} toggle={()=>setShowToken(!showToken)} copy={copy}/><Secret label="Meta App Secret" value={secret} show={showSecret} copied={copied} set={setSecret} toggle={()=>setShowSecret(!showSecret)} copy={copy}/><p className="labs-advanced-warning">Cambiar estas credenciales puede interrumpir la integración con Meta.</p></div><footer><button className="labs-button labs-button-secondary" onClick={clear}>Cancelar</button><button className="labs-button labs-button-primary" disabled={busy} onClick={()=>void save()}>{busy?"Validando…":"Guardar y validar"}</button></footer></section></div>}</div>}</>}
+function Value({label,value,copied,copy}:{label:string;value:string;copied:string|null;copy:(v:string,k:string)=>Promise<void>}){return <label className="labs-readonly-value"><span>{label}</span><div><input readOnly value={value}/><button aria-label={`Copiar ${label}`} className={copied===label?"is-copied":""} onClick={()=>void copy(value,label)}>{copied===label?<Check/>:<Copy/>}</button></div></label>};function Secret({label,value,show,copied,set,toggle,copy}:{label:string;value:string;show:boolean;copied:string|null;set:(v:string)=>void;toggle:()=>void;copy:(v:string,k:string)=>Promise<void>}){return <label className="labs-secret-field">{label}<div><input type={show?"text":"password"} value={value} onChange={e=>set(e.target.value)}/><button aria-label={`${show?"Ocultar":"Mostrar"} ${label}`} onClick={toggle}>{show?<EyeOff/>:<Eye/>}</button><button aria-label={`Copiar ${label}`} className={copied===label?"is-copied":""} onClick={()=>void copy(value,label)}>{copied===label?<Check/>:<Copy/>}</button></div></label>}
