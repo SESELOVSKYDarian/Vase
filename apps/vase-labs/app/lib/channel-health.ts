@@ -42,3 +42,7 @@ export function resolveChannelConnectionStatus(health: ChannelHealth): "CONNECTE
   return health.webhookVerified && health.credentialsPresent && health.assetVerified && health.subscriptionActive
     ? "CONNECTED" : "PENDING";
 }
+
+export function channelNeedsAttention(input: { status: string; health: ChannelHealth }) {
+  return input.status === "ERROR" || Object.values(input.health).some((value) => !value);
+}

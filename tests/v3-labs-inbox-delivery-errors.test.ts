@@ -29,8 +29,27 @@ describe("Labs Inbox delivery errors", () => {
     })).toContain("Recipient is not allowed");
   });
 
-  it("keeps a useful fallback without exposing internals", () => {
+  it("shows an explicit code instead of hiding an unknown delivery failure", () => {
     expect(formatInboxDeliveryError({ code: "UNKNOWN" }))
-      .toBe("No pudimos enviar el mensaje. Revisá la conexión del canal.");
+      .toContain("Código: UNKNOWN");
+  });
+
+  it("explains when the sender returned no delivery confirmation", () => {
+    expect(formatInboxDeliveryError({ code: "CHANNEL_DELIVERY_FAILED" }))
+      .toContain("No hubo confirmación de entrega");
+  });
+
+  it("explains internal Labs configuration failures", () => {
+    expect(formatInboxDeliveryError({ code: "APP_INTERNAL_URL_UNREACHABLE" }))
+      .toContain("APP_INTERNAL_URL");
+  });
+
+  it("explains Meta Graph connectivity and credential failures", () => {
+    expect(formatInboxDeliveryError({ code: "META_GRAPH_REQUEST_FAILED" }))
+      .toContain("API de Meta");
+    expect(formatInboxDeliveryError({ code: "META_PERMISSIONS_MISSING" }))
+      .toContain("permisos");
+    expect(formatInboxDeliveryError({ code: "META_TOKEN_INVALID" }))
+      .toContain("token");
   });
 });

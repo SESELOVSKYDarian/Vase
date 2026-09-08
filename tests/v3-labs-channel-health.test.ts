@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasMetaChannelCredentials,
   isMetaAssetVerified,
+  channelNeedsAttention,
   resolveChannelConnectionStatus,
 } from "../apps/vase-labs/app/lib/channel-health";
 
@@ -39,5 +40,20 @@ describe("channel connection readiness", () => {
       secretKinds: ["META_ACCESS_TOKEN", "META_APP_SECRET"],
       config: {},
     })).toBe(false);
+  });
+
+  it("does not treat a historical last error as an active problem when health is green", () => {
+    expect(channelNeedsAttention({
+      status: "CONNECTED",
+      health: { webhookVerified: true, credentialsPresent: true, assetVerified: true, subscriptionActive: true },
+    })).toBe(false);
+    expect(channelNeedsAttention({
+      status: "ERROR",
+      health: { webhookVerified: true, credentialsPresent: true, assetVerified: true, subscriptionActive: true },
+    })).toBe(true);
+    expect(channelNeedsAttention({
+      status: "CONNECTED",
+      health: { webhookVerified: true, credentialsPresent: true, assetVerified: false, subscriptionActive: true },
+    })).toBe(true);
   });
 });

@@ -153,6 +153,32 @@ describe("official Meta outbound sender", () => {
     });
   });
 
+  it("normalizes Graph network failures into a safe delivery error", async () => {
+    const sender = createOfficialChannelSender({
+      encryptionSecret,
+      graphVersion: "v99.0",
+      repository: {
+        async findDeliveryContext() {
+          return {
+            channelType: "INSTAGRAM",
+            providerAccountId: "account_123",
+            encryptedAccessToken: encryptChannelSecret("instagram-token", encryptionSecret),
+          };
+        },
+      },
+      fetcher: async () => {
+        throw new TypeError("fetch failed");
+      },
+    });
+
+    await expect(sender.send({
+      globalTenantId: "tenant_123",
+      channelType: "INSTAGRAM",
+      recipientId: "customer_123",
+      text: "Hola",
+    })).rejects.toMatchObject({ code: "META_GRAPH_REQUEST_FAILED" });
+  });
+
   it("sends Instagram Login replies through graph.instagram.com", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
     const sender = createOfficialChannelSender({

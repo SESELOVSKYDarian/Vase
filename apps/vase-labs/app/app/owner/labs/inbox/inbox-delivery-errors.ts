@@ -26,5 +26,30 @@ export function formatInboxDeliveryError(input: {
     const detail = input.providerMessage ? `: ${input.providerMessage}` : ".";
     return `Meta rechazó el envío${status}${detail}`;
   }
-  return "No pudimos enviar el mensaje. Revisá la conexión del canal.";
+  if (input.code === "META_GRAPH_REQUEST_FAILED") {
+    const detail = input.providerMessage ? `: ${input.providerMessage}` : ".";
+    return `No pudimos comunicarnos con la API de Meta${detail}`;
+  }
+  if (input.code === "META_PERMISSIONS_MISSING") {
+    return "El token de Meta no tiene los permisos necesarios para enviar mensajes.";
+  }
+  if (input.code === "META_TOKEN_INVALID") {
+    return "El token de Meta es inválido, venció o pertenece a otra aplicación.";
+  }
+  if (input.code === "CHANNEL_DELIVERY_FAILED") {
+    return "No hubo confirmación de entrega del canal. Ejecutá Probar canal y revisá el estado Meta.";
+  }
+  if (input.code === "APP_INTERNAL_URL_UNREACHABLE" || input.code === "LABS_CONTEXT_FAILED") {
+    return "Labs no pudo comunicarse con Vase App. Revisá APP_INTERNAL_URL y SERVICE_TO_SERVICE_TOKEN.";
+  }
+  if (input.code === "SERVICE_TOKEN_NOT_CONFIGURED") {
+    return "Falta SERVICE_TO_SERVICE_TOKEN en Vase Labs.";
+  }
+  if (input.code === "LABS_SESSION_REQUIRED" || input.code === "LABS_SESSION_INVALID" || input.code === "LABS_SESSION_EXPIRED") {
+    return "La sesión de Labs expiró. Volvé a iniciar sesión.";
+  }
+  const safeCode = input.code && /^[A-Z0-9_:-]{1,160}$/.test(input.code)
+    ? ` Código: ${input.code}`
+    : "";
+  return `No pudimos enviar el mensaje. Revisá la conexión del canal.${safeCode}`;
 }

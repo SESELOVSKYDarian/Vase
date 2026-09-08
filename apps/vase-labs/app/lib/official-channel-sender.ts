@@ -38,6 +38,11 @@ function safeProviderMessage(payload: unknown) {
     : undefined;
 }
 
+function safeTransportMessage(error: unknown) {
+  const message = error instanceof Error ? error.message.trim() : "";
+  return message ? message.replace(/\s+/g, " ").slice(0, 200) : undefined;
+}
+
 function isInstagramLoginAccessToken(channelType: LabsChannel, accessToken: string) {
   return channelType === "INSTAGRAM" && accessToken.trim().startsWith("IG");
 }
@@ -99,14 +104,23 @@ export function createOfficialChannelSender(input: {
         accessToken,
       });
       const sendGraphPayload = async (body: unknown) => {
-        const response = await fetcher(endpoint, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(body),
-        });
+        let response: Response;
+        try {
+          response = await fetcher(endpoint, {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${accessToken}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify(body),
+          });
+        } catch (error) {
+          throw new OfficialChannelDeliveryError(
+            "META_GRAPH_REQUEST_FAILED",
+            undefined,
+            safeTransportMessage(error),
+          );
+        }
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
