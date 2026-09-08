@@ -128,11 +128,14 @@ export function createOfficialChannelSender(input: {
           );
         }
 
-        const whatsappMessageId = Array.isArray(payload.messages)
-          ? payload.messages[0]?.id
+        const providerPayload = payload && typeof payload === "object"
+          ? payload as { messages?: Array<{ id?: unknown }>; message_id?: unknown }
+          : {};
+        const whatsappMessageId = Array.isArray(providerPayload.messages)
+          ? providerPayload.messages[0]?.id
           : null;
-        const providerMessageId = typeof payload.message_id === "string"
-          ? payload.message_id
+        const providerMessageId = typeof providerPayload.message_id === "string"
+          ? providerPayload.message_id
           : typeof whatsappMessageId === "string"
             ? whatsappMessageId
             : null;
