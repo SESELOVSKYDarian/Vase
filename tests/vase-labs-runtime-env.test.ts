@@ -18,5 +18,9 @@ describe("Vase Labs runtime environment", () => {
     expect(validator).toContain("Do not use a postgresql:// DATABASE_URL for Labs");
     expect(validator).toContain("KNOWLEDGE_S3_ENDPOINT");
     expect(validator).toContain("KNOWLEDGE_S3_SECRET_ACCESS_KEY");
+    expect(validator).toContain("APP_INTERNAL_URL");
+    expect(validator).toContain("SERVICE_TO_SERVICE_TOKEN");
+    expect(validator).toContain("AUTH_SECRET");
+    expect(validator).toContain("TOKEN_ENCRYPTION_SECRET");
   });
 });

@@ -12,6 +12,11 @@ type ReactivateDependencies = {
   }): Promise<{ conversation: unknown; resolvedHandoffs: number } | null>;
 };
 
+function safeOperationError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message.trim() : "";
+  return /^[A-Z0-9_:-]{1,160}$/.test(message) ? message : fallback;
+}
+
 export function createInboxReactivateHandler(deps: ReactivateDependencies) {
   return async function POST(
     request: Request,
@@ -29,8 +34,8 @@ export function createInboxReactivateHandler(deps: ReactivateDependencies) {
       });
       if (!result) return NextResponse.json({ error: "CONVERSATION_NOT_FOUND" }, { status: 404 });
       return NextResponse.json(result);
-    } catch {
-      return NextResponse.json({ error: "AI_REACTIVATION_FAILED" }, { status: 500 });
+    } catch (error) {
+      return NextResponse.json({ error: safeOperationError(error, "AI_REACTIVATION_FAILED") }, { status: 500 });
     }
   };
 }

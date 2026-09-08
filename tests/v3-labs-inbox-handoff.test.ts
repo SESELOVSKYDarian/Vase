@@ -8,6 +8,20 @@ const params = Promise.resolve({
 });
 
 describe("Labs Inbox handoff controls", () => {
+  it("returns the real internal configuration error when pausing cannot resolve Labs context", async () => {
+    const POST = createInboxHandoffHandler({
+      resolveContext: async () => {
+        throw new Error("APP_INTERNAL_URL_UNREACHABLE");
+      },
+      pauseConversation: vi.fn(),
+    });
+
+    const response = await POST(new Request("https://labs.vase.ar", { method: "POST" }), { params });
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "APP_INTERNAL_URL_UNREACHABLE" });
+  });
+
   it("rejects pause when the URL tenant does not match the authenticated tenant", async () => {
     const pauseConversation = vi.fn();
     const POST = createInboxHandoffHandler({

@@ -84,6 +84,7 @@ class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
   failAnalysisEnqueue = false;
   operationOrder: string[] = [];
   eventSeen = false;
+  webhookAttempts: Array<{ status: "RECEIVED" | "IGNORED" | "PROCESSED" | "FAILED"; reason?: string | null }> = [];
 
   constructor(private readonly context: ChannelWebhookContext | null) {}
 
@@ -138,6 +139,10 @@ class MemoryChannelWebhookRepository implements ChannelWebhookRepository {
 
   async markAiReplyFailed(input: { conversationId: string; messageId: string; reason: string }) {
     this.aiFailures.push(input);
+  }
+
+  async markWebhookAttempt(input: { status: "RECEIVED" | "IGNORED" | "PROCESSED" | "FAILED"; reason?: string | null }) {
+    this.webhookAttempts.push(input);
   }
 
   async requestHumanHandoff(input: { conversationId: string; messageId: string; reason: string; source: string }) {
@@ -206,6 +211,29 @@ describe("Vase Labs generic Meta channel webhook service", () => {
       context: { assistantId: "assistant_123", globalTenantId: "tenant_123" },
       persisted: { conversationId: "conversation_123", messageId: "message_123" },
       message: { text: "Hola IG" },
+    });
+  });
+
+  it("marks the webhook failed when AI delivery fails after persistence", async () => {
+    const repository = new MemoryChannelWebhookRepository(createContext());
+    const body = JSON.stringify(createInstagramPayload());
+
+    const result = await handleMetaChannelWebhook({
+      channelType: "INSTAGRAM",
+      repository,
+      tenantSlug: "tenant-demo",
+      rawBody: body,
+      signatureHeader: `sha256=${signMetaPayload("secret", body)}`,
+      parseMessage: parseInstagramWebhookMessage,
+      runAiReply: async () => {
+        throw new Error("META_SEND_FAILED");
+      },
+    });
+
+    expect(result.body).toMatchObject({ ok: true, aiReplyError: "META_SEND_FAILED" });
+    expect(repository.webhookAttempts.at(-1)).toMatchObject({
+      status: "FAILED",
+      reason: "META_SEND_FAILED",
     });
   });
 

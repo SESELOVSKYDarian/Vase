@@ -88,7 +88,7 @@ String completeUrl(const String& commandId) {
 }
 
 void clearStrip() {
-  strip.clear();
+  stri.clear();
   strip.show();
   activeUntil = 0;
 }

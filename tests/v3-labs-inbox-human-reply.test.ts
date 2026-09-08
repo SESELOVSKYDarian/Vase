@@ -5,7 +5,7 @@ describe("Labs Inbox human replies", () => {
   it("persists a human intervention reply and updates the conversation activity", async () => {
     const writes: unknown[] = [];
     const prisma = {
-      $transaction: async (callback: (tx: any) => Promise<unknown>) => callback({
+      $transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({
         message: {
           create: vi.fn(async (input) => {
             writes.push({ type: "message", input });
@@ -28,13 +28,16 @@ describe("Labs Inbox human replies", () => {
     };
     const now = new Date("2026-07-21T21:05:00.000Z");
 
-    const result = await persistHumanInboxReply(prisma as any, {
+    const result = await persistHumanInboxReply(
+      prisma as unknown as Parameters<typeof persistHumanInboxReply>[0],
+      {
       conversationId: "conversation_123",
       channel: "WHATSAPP",
       text: "Hola, soy del equipo. Te ayudo por aca.",
       providerMessageId: "wamid.manual",
       now,
-    });
+      },
+    );
 
     expect(result.messageId).toEqual(expect.any(String));
     expect(writes).toMatchObject([
@@ -57,9 +60,9 @@ describe("Labs Inbox human replies", () => {
           data: {
             messageId: result.messageId,
             channel: "WHATSAPP",
-            status: "SENT",
+            status: "PENDING",
             providerMessageId: "wamid.manual",
-            sentAt: now,
+            sentAt: null,
           },
         },
       },
@@ -95,6 +98,7 @@ describe("Labs Inbox human replies", () => {
       }),
       sendReply,
       persistReply,
+      markReplyDelivery: vi.fn(),
     });
 
     const response = await POST(new Request("https://labs.vase.ar/api/v1/inbox/sanitarios-el-teflon/conversations/conversation_123/reply", {
@@ -116,7 +120,7 @@ describe("Labs Inbox human replies", () => {
       conversationId: "conversation_123",
       channel: "WHATSAPP",
       text: "Te responde una persona del equipo.",
-      providerMessageId: "wamid.manual",
+      providerMessageId: null,
     }));
     expect(await response.json()).toMatchObject({
       message: {
@@ -147,6 +151,7 @@ describe("Labs Inbox human replies", () => {
         messageId: "message_manual",
         createdAt: new Date("2026-07-24T15:00:00.000Z"),
       })),
+      markReplyDelivery: vi.fn(),
     });
 
     const response = await POST(new Request("https://labs.vase.ar", {
@@ -180,6 +185,7 @@ describe("Labs Inbox human replies", () => {
         messageId: "message_manual",
         createdAt: new Date("2026-07-26T15:00:00.000Z"),
       })),
+      markReplyDelivery: vi.fn(),
     });
 
     const response = await POST(new Request("https://labs.vase.ar", {
@@ -196,7 +202,11 @@ describe("Labs Inbox human replies", () => {
   });
 
   it("returns safe provider diagnostics and does not persist a rejected reply", async () => {
-    const persistReply = vi.fn();
+    const persistReply = vi.fn(async () => ({
+      messageId: "message_manual",
+      createdAt: new Date("2026-07-26T15:00:00.000Z"),
+    }));
+    const markReplyDelivery = vi.fn();
     const POST = createInboxReplyHandler({
       resolveContext: async () => ({
         context: { tenantSlug: "tenant-demo", globalTenantId: "tenant_123" },
@@ -220,6 +230,7 @@ describe("Labs Inbox human replies", () => {
         throw error;
       }),
       persistReply,
+      markReplyDelivery,
     });
 
     const response = await POST(new Request("https://labs.vase.ar", {
@@ -230,11 +241,21 @@ describe("Labs Inbox human replies", () => {
     });
 
     expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({
+    expect(await response.json()).toMatchObject({
       error: "META_SEND_FAILED",
       providerStatus: 400,
       providerMessage: "Recipient is not allowed",
     });
-    expect(persistReply).not.toHaveBeenCalled();
+    expect(persistReply).toHaveBeenCalledWith(expect.objectContaining({
+      conversationId: "conversation_123",
+      channel: "WHATSAPP",
+      text: "Hola",
+      providerMessageId: null,
+    }));
+    expect(markReplyDelivery).toHaveBeenCalledWith({
+      messageId: "message_manual",
+      status: "FAILED",
+      error: "Recipient is not allowed",
+    });
   });
 });

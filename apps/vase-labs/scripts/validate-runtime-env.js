@@ -24,3 +24,15 @@ if (missingKnowledgeStorage.length) {
   console.error(`vase-labs requires S3 knowledge storage: ${missingKnowledgeStorage.join(", ")}.`);
   process.exit(1);
 }
+
+const requiredMessagingRuntime = [
+  "APP_INTERNAL_URL",
+  "SERVICE_TO_SERVICE_TOKEN",
+  "AUTH_SECRET",
+  "TOKEN_ENCRYPTION_SECRET",
+];
+const missingMessagingRuntime = requiredMessagingRuntime.filter((key) => !process.env[key]?.trim());
+if (missingMessagingRuntime.length) {
+  console.error(`vase-labs requires Inbox runtime configuration: ${missingMessagingRuntime.join(", ")}.`);
+  process.exit(1);
+}

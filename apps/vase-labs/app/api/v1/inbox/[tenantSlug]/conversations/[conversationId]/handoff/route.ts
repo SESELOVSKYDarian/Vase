@@ -14,6 +14,11 @@ type HandoffDependencies = {
   }): Promise<{ handoff: unknown; conversation: unknown } | null>;
 };
 
+function safeOperationError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message.trim() : "";
+  return /^[A-Z0-9_:-]{1,160}$/.test(message) ? message : fallback;
+}
+
 export function createInboxHandoffHandler(deps: HandoffDependencies) {
   return async function POST(
     request: Request,
@@ -36,8 +41,8 @@ export function createInboxHandoffHandler(deps: HandoffDependencies) {
       });
       if (!result) return NextResponse.json({ error: "CONVERSATION_NOT_FOUND" }, { status: 404 });
       return NextResponse.json(result);
-    } catch {
-      return NextResponse.json({ error: "HANDOFF_FAILED" }, { status: 500 });
+    } catch (error) {
+      return NextResponse.json({ error: safeOperationError(error, "HANDOFF_FAILED") }, { status: 500 });
     }
   };
 }

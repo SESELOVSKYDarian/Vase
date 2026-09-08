@@ -1238,7 +1238,8 @@ export async function handleMetaChannelWebhook(input: {
     }
     await input.repository.markWebhookAttempt?.({
       context,
-      status: "PROCESSED",
+      status: aiReplyError ? "FAILED" : "PROCESSED",
+      reason: aiReplyError,
     });
   } catch (error) {
     await input.repository.markWebhookEventFailed?.({

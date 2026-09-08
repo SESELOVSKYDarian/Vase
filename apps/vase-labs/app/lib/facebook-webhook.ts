@@ -3,7 +3,7 @@ import { inboundChannelMessageSchema, type InboundChannelMessage } from "@vase/c
 type MetaMessagingEvent = {
   sender?: { id?: string; name?: string; username?: string };
   recipient?: { id?: string };
-  message?: Record<string, unknown>;
+  message?: Record<string, unknown> & { is_echo?: boolean };
 };
 
 function getFirstMessagingEvent(payload: unknown): MetaMessagingEvent | null {
@@ -31,6 +31,10 @@ export function parseFacebookWebhookMessage(input: {
   const senderId = event?.sender?.id;
 
   if (!rawMessage || !senderId) {
+    return null;
+  }
+
+  if (rawMessage.is_echo === true) {
     return null;
   }
 
