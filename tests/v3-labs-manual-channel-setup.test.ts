@@ -354,6 +354,19 @@ describe("manual channel setup", () => {
     });
   });
 
+  it("recovers a legacy pending channel when every connection requirement is valid", async () => {
+    const service = createManualChannelSetupService({
+      list: async () => [], create: vi.fn(),
+      findByIdForAssistant: async () => ({
+        id: "c", status: "PENDING", lastError: null,
+        webhookVerifiedAt: new Date(), credentialsPresent: true,
+        providerAccountId: "ig-professional-account",
+        config: { validationPending: false, subscribedFields: ["messages"] },
+      }),
+    });
+    expect(await service.verify("assistant_1", "c")).toEqual({ status: "CONNECTED" });
+  });
+
   it("verify route validates body, isolates tenants, and maps auth safely", async () => {
     const verify = vi.fn().mockRejectedValue(new Error("CHANNEL_NOT_FOUND"));
     const handler = createChannelVerifyPostHandler({ resolveContext: async () => context(), verify });

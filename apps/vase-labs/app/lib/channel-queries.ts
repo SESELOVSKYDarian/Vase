@@ -3,7 +3,7 @@ import {
   redactedChannelSummarySchema,
   type RedactedChannelSummary,
 } from "@vase/contracts";
-import { hasMetaChannelCredentials, isMetaAssetVerified } from "./channel-health";
+import { hasMessagingPermission, hasMetaChannelCredentials, isMetaAssetVerified, resolveOperationalChannelStatus } from "./channel-health";
 
 export async function listRedactedOfficialChannels(
   prisma: PrismaClient,
@@ -39,11 +39,21 @@ export async function listRedactedOfficialChannels(
       lastError: channel.lastError,
     });
     const subscriptionActive = Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0;
+    const health = {
+      webhookVerified: Boolean(channel.webhookVerifiedAt),
+      credentialsPresent,
+      assetVerified,
+      subscriptionActive,
+    };
     return redactedChannelSummarySchema.parse({
       id: channel.id,
       type: channel.type,
       provider: "META_OFFICIAL",
-      status: channel.status,
+      status: resolveOperationalChannelStatus({
+        persistedStatus: channel.status,
+        health,
+        messagingPermission: hasMessagingPermission(config),
+      }),
       accountLabel: channel.accountLabel,
       externalHandle: channel.externalHandle,
       providerAccountId: channel.providerAccountId,
@@ -51,7 +61,7 @@ export async function listRedactedOfficialChannels(
       lastSyncedAt: channel.lastSyncedAt?.toISOString() ?? null,
       lastError: channel.lastError,
       secretStatus: credentialsPresent ? "CONFIGURED" : "MISSING",
-      webhookVerified: Boolean(channel.webhookVerifiedAt),
+      webhookVerified: health.webhookVerified,
       credentialsPresent,
       assetVerified,
       subscriptionActive,

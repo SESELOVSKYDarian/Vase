@@ -40,7 +40,7 @@ export function isMetaAssetVerified(input: {
 
 export function hasMessagingPermission(configValue: unknown) {
   const config = asConfig(configValue);
-  return config.messagingPermissionVerified === true
+  return config.messagingPermissionVerified !== false
     && Array.isArray(config.subscribedFields)
     && config.subscribedFields.includes("messages");
 }
@@ -60,6 +60,17 @@ export function resolveChannelConnectionStatus(health: ChannelHealth): "CONNECTE
 
 export function channelNeedsAttention(input: { status: string; health: ChannelHealth }) {
   return input.status === "ERROR";
+}
+
+export function resolveOperationalChannelStatus(input: {
+  persistedStatus: string;
+  health: ChannelHealth;
+  messagingPermission: boolean;
+}) {
+  if (input.persistedStatus === "ERROR") return "ERROR";
+  return resolveChannelConnectionStatus(input.health) === "CONNECTED" && input.messagingPermission
+    ? "CONNECTED"
+    : "PENDING";
 }
 
 export function channelHasPendingSetup(input: { status: string; health: ChannelHealth }) {

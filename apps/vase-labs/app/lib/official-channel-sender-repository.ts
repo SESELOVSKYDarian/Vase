@@ -4,6 +4,7 @@ import type {
   OfficialChannelDeliveryContext,
   OfficialChannelSenderRepository,
 } from "./official-channel-sender";
+import { hasMessagingPermission } from "./channel-health";
 
 export class PrismaOfficialChannelSenderRepository
   implements OfficialChannelSenderRepository
@@ -20,7 +21,7 @@ export class PrismaOfficialChannelSenderRepository
         ...(input.channelId ? { id: input.channelId } : {}),
         type: input.channelType,
         provider: "META_OFFICIAL",
-        status: "CONNECTED",
+        status: { in: ["CONNECTED", "PENDING"] },
         providerAccountId: { not: null },
         assistant: {
           globalTenantId: input.globalTenantId,
@@ -41,6 +42,15 @@ export class PrismaOfficialChannelSenderRepository
     if (!channel?.providerAccountId || !channel.secrets[0]?.encryptedValue) {
       return null;
     }
+    const config = channel.config && typeof channel.config === "object" && !Array.isArray(channel.config)
+      ? channel.config as Record<string, unknown>
+      : {};
+    const pendingSetupIsDeliverable = channel.status === "PENDING"
+      && Boolean(channel.webhookVerifiedAt)
+      && !channel.lastError
+      && config.validationPending !== true
+      && hasMessagingPermission(config);
+    if (channel.status !== "CONNECTED" && !pendingSetupIsDeliverable) return null;
 
     return {
       channelType: channel.type,

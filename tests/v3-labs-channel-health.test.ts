@@ -5,6 +5,7 @@ import {
   channelNeedsAttention,
   hasMessagingPermission,
   resolveChannelConnectionStatus,
+  resolveOperationalChannelStatus,
 } from "../apps/vase-labs/app/lib/channel-health";
 
 describe("channel connection readiness", () => {
@@ -45,7 +46,8 @@ describe("channel connection readiness", () => {
 
   it("requires a verified messaging permission in addition to the subscription", () => {
     expect(hasMessagingPermission({ subscribedFields: ["messages"], messagingPermissionVerified: true })).toBe(true);
-    expect(hasMessagingPermission({ subscribedFields: ["messages"] })).toBe(false);
+    expect(hasMessagingPermission({ subscribedFields: ["messages"] })).toBe(true);
+    expect(hasMessagingPermission({ subscribedFields: ["messages"], messagingPermissionVerified: false })).toBe(false);
   });
 
   it("does not treat a historical last error as an active problem when health is green", () => {
@@ -61,5 +63,13 @@ describe("channel connection readiness", () => {
       status: "CONNECTED",
       health: { webhookVerified: true, credentialsPresent: true, assetVerified: false, subscriptionActive: true },
     })).toBe(false);
+  });
+
+  it("shows a legacy pending channel as connected when every operational check is valid", () => {
+    expect(resolveOperationalChannelStatus({
+      persistedStatus: "PENDING",
+      health: { webhookVerified: true, credentialsPresent: true, assetVerified: true, subscriptionActive: true },
+      messagingPermission: true,
+    })).toBe("CONNECTED");
   });
 });

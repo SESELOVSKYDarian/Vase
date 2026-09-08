@@ -249,6 +249,7 @@ export function createManualChannelSetupService(repository: ManualChannelReposit
       if (channel.status === "CONNECTED") return { status: "CONNECTED" as const };
       if (channel.status === "PENDING") {
         const health = resolveManualChannelHealth(channel);
+        if (Object.values(health).every(Boolean)) return { status: "CONNECTED" as const };
         return health.webhookVerified
           ? { status: "PENDING" as const, message: describePendingConnection(health), health }
           : { status: "PENDING" as const, message: describePendingConnection(health) };
