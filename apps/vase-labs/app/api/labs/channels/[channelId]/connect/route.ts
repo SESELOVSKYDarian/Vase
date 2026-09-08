@@ -123,7 +123,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
                 provider: "META_OFFICIAL", providerAccountId: data.providerAccountId,
                 phoneNumberId: data.phoneNumberId, wabaId: data.wabaId,
                 accountLabel: data.accountLabel, externalHandle: data.externalHandle,
-                config: { ...currentConfig, ...data.config, parentId: data.config.parentId ?? currentConfig.parentId ?? null, manualWebhook: true, metaAppId: data.metaAppId } as Prisma.InputJsonValue, status: data.status,
+                config: { ...currentConfig, ...data.config, parentId: data.config.parentId ?? currentConfig.parentId ?? null, manualWebhook: true, metaAppId: data.metaAppId, validationPending: false } as Prisma.InputJsonValue, status: data.status,
                 connectedAt: data.status === "CONNECTED" ? now : null,
                 lastSyncedAt: now, lastError: null,
               },

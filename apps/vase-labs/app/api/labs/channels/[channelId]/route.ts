@@ -25,6 +25,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ chan
       providerAccountId: channel.providerAccountId,
       parentId: channel.type === "WHATSAPP" ? channel.wabaId : typeof config.parentId === "string" ? config.parentId : null,
       metaAppId: typeof config.metaAppId === "string" ? config.metaAppId : null,
+      instagramAuthMode: channel.type === "INSTAGRAM" && (config.instagramAuthMode === "INSTAGRAM_LOGIN" || config.instagramAuthMode === "FACEBOOK_LOGIN") ? config.instagramAuthMode : null,
       accountLabel: channel.accountLabel,
       lastSyncedAt: channel.lastSyncedAt?.toISOString() ?? null,
       lastError: channel.lastError,

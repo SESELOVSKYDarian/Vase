@@ -7,9 +7,13 @@ describe("Meta Graph official channel adapter", () => {
     const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"app", appSecret:"secret", fetcher: async (url) => {
       calls.push(String(url)); return Response.json({ user_id:"17841428932871922", username:"vase" });
     }});
-    await expect(client.testConnection({ channelType:"INSTAGRAM", accessToken:"IGAA-valid" })).resolves.toEqual({ ok:true });
+    await expect(client.testConnection({ channelType:"INSTAGRAM", accessToken:"IGAA-valid", providerAccountId:"17841428932871922" })).resolves.toEqual({ ok:true });
     expect(calls[0]).toContain("graph.instagram.com");
     expect(calls.join(" ")).not.toContain("debug_token");
+  });
+  it("rejects an Instagram Login token that belongs to another professional account", async () => {
+    const client = createMetaGraphClient({ graphVersion:"v99.0", fetcher: async () => Response.json({ user_id:"ig-authorized" }) });
+    await expect(client.testConnection({ channelType:"INSTAGRAM", accessToken:"IG-token", providerAccountId:"ig-other" })).rejects.toThrow("META_ASSET_NOT_AUTHORIZED");
   });
   it.each([[190,"META_TOKEN_INVALID"],[10,"META_PERMISSIONS_MISSING"]])("maps Meta error %s to a safe actionable code", async (code, expected) => {
     const client = createMetaGraphClient({ graphVersion:"v99.0", appId:"app", appSecret:"secret", fetcher: async () => Response.json({ error:{ code, message:"provider detail" } }, { status:400 }) });

@@ -1,4 +1,5 @@
 import type { LabsChannel } from "@vase/contracts";
+import { resolveInstagramAuthMode } from "./meta-channel-auth";
 import type { DiscoveredMetaAsset } from "./meta-connection-service";
 
 type ChannelRecord = { id: string; type: LabsChannel; webhookVerifiedAt: Date | null };
@@ -52,7 +53,7 @@ export function createManualMetaConnectionService(input: {
         wabaId: params.channelType === "WHATSAPP" ? params.parentId : null,
         accountLabel: verified.accountLabel,
         externalHandle: verified.externalHandle,
-        config: { ...verified.config, parentId: verified.config.parentId ?? params.parentId ?? null, manualWebhook: true, metaAppId: params.metaAppId },
+        config: { ...verified.config, parentId: verified.config.parentId ?? params.parentId ?? null, manualWebhook: true, metaAppId: params.metaAppId, validationPending: false, ...(params.channelType === "INSTAGRAM" ? { instagramAuthMode: resolveInstagramAuthMode(params.accessToken) } : {}) },
         metaAppId: params.metaAppId,
         encryptedAccessToken: input.encrypt(verified.accessToken),
         encryptedAppSecret,

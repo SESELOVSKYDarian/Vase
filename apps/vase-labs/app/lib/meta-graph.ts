@@ -362,6 +362,7 @@ export function createMetaGraphClient(input: {
     async testConnection(params: {
       channelType: LabsChannel;
       accessToken: string;
+      providerAccountId?: string | null;
     }) {
       if (params.channelType === "INSTAGRAM" && isInstagramLoginAccessToken(params.accessToken)) {
         const profile = await instagramGraphRequest(
@@ -370,7 +371,11 @@ export function createMetaGraphClient(input: {
           undefined,
           "META_TOKEN_INVALID",
         );
-        if (!stringValue(profile.user_id ?? profile.id)) throw new Error("META_TOKEN_INVALID");
+        const instagramId = stringValue(profile.user_id ?? profile.id);
+        if (!instagramId) throw new Error("META_TOKEN_INVALID");
+        if (params.providerAccountId && instagramId !== params.providerAccountId) {
+          throw new Error("META_ASSET_NOT_AUTHORIZED");
+        }
         return { ok: true as const };
       }
       await debugToken(params.accessToken, params.channelType);

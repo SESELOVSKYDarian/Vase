@@ -54,6 +54,6 @@ describe("channel connection readiness", () => {
     expect(channelNeedsAttention({
       status: "CONNECTED",
       health: { webhookVerified: true, credentialsPresent: true, assetVerified: false, subscriptionActive: true },
-    })).toBe(true);
+    })).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { decryptChannelSecret } from "../../../../../lib/channel-secrets";
 import { labsPrisma } from "../../../../../lib/db";
 import { diagnosticCheck, type ChannelDiagnosticResult } from "../../../../../lib/channel-diagnostic";
-import { hasMetaChannelCredentials, isMetaAssetVerified } from "../../../../../lib/channel-health";
+import { hasMetaChannelCredentials, resolveMetaAssetValidationState } from "../../../../../lib/channel-health";
 import { createMetaGraphClient } from "../../../../../lib/meta-graph";
 import { resolveLabsRequestContext } from "../../../../../lib/request-context";
 
@@ -73,7 +73,11 @@ export async function POST(
           graphVersion: process.env.META_GRAPH_VERSION?.trim() || "v25.0",
           appId,
           appSecret,
-        }).testConnection({ channelType: channel.type, accessToken: token });
+        }).testConnection({
+          channelType: channel.type,
+          accessToken: token,
+          providerAccountId: channel.providerAccountId,
+        });
         metaOk = true;
       } catch (error) {
         code = error instanceof Error ? error.message : "META_GRAPH_REQUEST_FAILED";
@@ -86,17 +90,18 @@ export async function POST(
       fallbackAppId: process.env.META_APP_ID,
       fallbackAppSecret: process.env.META_APP_SECRET,
     });
-    const asset = isMetaAssetVerified({
+    const assetState = resolveMetaAssetValidationState({
       providerAccountId: channel.providerAccountId,
       config,
-      lastError: metaOk ? null : code ?? null,
+      currentError: metaOk ? null : code ?? null,
     });
+    const asset = assetState === "VALID";
     const webhook = Boolean(channel.webhookVerifiedAt);
     const subscription = Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0;
     const checks = {
       credentials: diagnosticCheck(credentials, "Las credenciales están configuradas.", "CREDENTIALS_MISSING"),
       metaApi: diagnosticCheck(metaOk, "Vase pudo comunicarse correctamente con Meta.", code),
-      asset: diagnosticCheck(asset, "El activo Meta está validado.", "META_ASSET_NOT_AUTHORIZED"),
+      asset: diagnosticCheck(asset, "El activo Meta está validado.", assetState === "PENDING" ? "ASSET_VALIDATION_PENDING" : assetState === "MISSING" ? "ASSET_MISSING" : "META_ASSET_NOT_AUTHORIZED"),
       webhook: diagnosticCheck(webhook, "El webhook está verificado.", "WEBHOOK_NOT_VERIFIED"),
       subscription: diagnosticCheck(subscription, "La suscripción de eventos está activa.", "SUBSCRIPTION_NOT_ACTIVE"),
     };

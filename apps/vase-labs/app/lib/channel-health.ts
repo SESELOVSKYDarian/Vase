@@ -38,11 +38,23 @@ export function isMetaAssetVerified(input: {
     && !input.lastError;
 }
 
+export type MetaAssetValidationState = "VALID" | "PENDING" | "MISSING" | "NOT_AUTHORIZED";
+export function resolveMetaAssetValidationState(input: { providerAccountId?: string | null; config: unknown; currentError?: string | null }): MetaAssetValidationState {
+  const config = asConfig(input.config);
+  if (!input.providerAccountId) return "MISSING";
+  if (input.currentError === "META_ASSET_NOT_AUTHORIZED") return "NOT_AUTHORIZED";
+  return config.validationPending === true ? "PENDING" : "VALID";
+}
+
 export function resolveChannelConnectionStatus(health: ChannelHealth): "CONNECTED" | "PENDING" {
   return health.webhookVerified && health.credentialsPresent && health.assetVerified && health.subscriptionActive
     ? "CONNECTED" : "PENDING";
 }
 
 export function channelNeedsAttention(input: { status: string; health: ChannelHealth }) {
-  return input.status === "ERROR" || Object.values(input.health).some((value) => !value);
+  return input.status === "ERROR";
+}
+
+export function channelHasPendingSetup(input: { status: string; health: ChannelHealth }) {
+  return input.status === "PENDING" || (input.status !== "ERROR" && Object.values(input.health).some((value) => !value));
 }
