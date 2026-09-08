@@ -49,8 +49,14 @@ type InboxReplyTransaction = {
   conversation: { update(input: unknown): Promise<unknown> };
 };
 
-function resolveInboxReplyRecipient(conversation: InboxReplyConversation | null) {
+export function resolveInboxReplyRecipient(conversation: InboxReplyConversation | null) {
   if (!conversation?.channel) return null;
+  if (conversation.channel === "INSTAGRAM") {
+    return conversation.externalThreadKey?.trim()
+      || conversation.externalUserId?.trim()
+      || conversation.customerContact?.trim()
+      || null;
+  }
   return conversation.externalUserId?.trim()
     || conversation.externalThreadKey?.trim()
     || conversation.customerContact?.trim()
@@ -203,11 +209,13 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
         const code = typeof source?.code === "string"
           ? source.code
           : typeof source?.message === "string" ? source.message : "CHANNEL_DELIVERY_FAILED";
-        const providerError = typeof source?.providerMessage === "string" ? source.providerMessage : code;
+        const providerError = typeof source?.providerMessage === "string"
+          ? source.providerMessage.replace(/\s+/g, " ").trim().slice(0, 300)
+          : undefined;
         await dependencies.markReplyDelivery({
           messageId: persisted.messageId,
           status: "FAILED",
-          error: providerError,
+          error: code,
         });
         return NextResponse.json({
           error: code,
@@ -219,10 +227,10 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
             direction: "OUTBOUND",
             providerMessageId: null,
             createdAt: persisted.createdAt.toISOString(),
-            delivery: { status: "FAILED", providerMessageId: null, error: providerError },
+            delivery: { status: "FAILED", providerMessageId: null, error: code },
           },
           ...(typeof source?.providerStatus === "number" ? { providerStatus: source.providerStatus } : {}),
-          ...(typeof source?.providerMessage === "string" ? { providerMessage: source.providerMessage } : {}),
+          ...(providerError ? { providerMessage: providerError } : {}),
         }, { status: 502 });
       }
     } catch (error) {

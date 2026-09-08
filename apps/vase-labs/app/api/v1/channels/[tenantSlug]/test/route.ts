@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { decryptChannelSecret } from "../../../../../lib/channel-secrets";
 import { labsPrisma } from "../../../../../lib/db";
 import { diagnosticCheck, type ChannelDiagnosticResult } from "../../../../../lib/channel-diagnostic";
-import { hasMetaChannelCredentials, resolveMetaAssetValidationState } from "../../../../../lib/channel-health";
+import { hasMessagingPermission, hasMetaChannelCredentials, resolveMetaAssetValidationState } from "../../../../../lib/channel-health";
 import { createMetaGraphClient } from "../../../../../lib/meta-graph";
 import { resolveLabsRequestContext } from "../../../../../lib/request-context";
 
@@ -98,17 +98,19 @@ export async function POST(
     const asset = assetState === "VALID";
     const webhook = Boolean(channel.webhookVerifiedAt);
     const subscription = Array.isArray(config.subscribedFields) && config.subscribedFields.length > 0;
+    const messagingPermission = hasMessagingPermission(config);
     const checks = {
       credentials: diagnosticCheck(credentials, "Las credenciales están configuradas.", "CREDENTIALS_MISSING"),
       metaApi: diagnosticCheck(metaOk, "Vase pudo comunicarse correctamente con Meta.", code),
       asset: diagnosticCheck(asset, "El activo Meta está validado.", assetState === "PENDING" ? "ASSET_VALIDATION_PENDING" : assetState === "MISSING" ? "ASSET_MISSING" : "META_ASSET_NOT_AUTHORIZED"),
       webhook: diagnosticCheck(webhook, "El webhook está verificado.", "WEBHOOK_NOT_VERIFIED"),
       subscription: diagnosticCheck(subscription, "La suscripción de eventos está activa.", "SUBSCRIPTION_NOT_ACTIVE"),
+      messagingPermission: diagnosticCheck(messagingPermission, "El permiso para mensajes está verificado.", "META_MESSAGING_PERMISSION_MISSING"),
     };
     const failures = Object.values(checks).filter((check) => !check.ok);
     const nextStatus = fatal.has(code ?? "")
       ? "ERROR"
-      : credentials && metaOk && asset && webhook && subscription
+      : credentials && metaOk && asset && webhook && subscription && messagingPermission
         ? "CONNECTED"
         : "PENDING";
     const result: ChannelDiagnosticResult = {

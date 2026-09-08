@@ -52,4 +52,11 @@ describe("Labs Inbox delivery errors", () => {
     expect(formatInboxDeliveryError({ code: "META_TOKEN_INVALID" }))
       .toContain("token");
   });
+
+  it("identifies a non-JSON gateway response without falling back to an inbox code", () => {
+    expect(formatInboxDeliveryError({
+      code: "INBOX_REPLY_INVALID_RESPONSE",
+      providerStatus: 502,
+    })).toContain("HTTP 502");
+  });
 });

@@ -10,7 +10,7 @@ import {
   normalizeInboxChannel,
   type InboxChannel,
 } from "./inbox-channels";
-import { formatInboxDeliveryError } from "./inbox-delivery-errors";
+import { formatInboxDeliveryError, parseInboxReplyResponse } from "./inbox-delivery-errors";
 import {
   resolveInboxMessageDelivery,
   type InboxMessageDelivery,
@@ -418,7 +418,9 @@ export function InboxWorkstation({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),
       });
-      const payload = await response.json().catch(() => ({}));
+      const parsed = await parseInboxReplyResponse(response);
+      if (!parsed.ok) throw { code: parsed.error.code, providerStatus: parsed.error.httpStatus };
+      const payload = parsed.payload;
       if (!response.ok) {
         if (payload.message) {
           setConversations((current) => sortConversations(current.map((conversation) =>
@@ -436,6 +438,7 @@ export function InboxWorkstation({
           code: payload.error ?? "INBOX_REPLY_FAILED",
           providerStatus: payload.providerStatus,
           providerMessage: payload.providerMessage,
+          requestId: payload.requestId,
         };
       }
 
@@ -458,8 +461,10 @@ export function InboxWorkstation({
         code?: string;
         providerStatus?: number;
         providerMessage?: string;
+        requestId?: string;
       } | null;
-      setError(formatInboxDeliveryError(source ?? {}));
+      const deliveryError = formatInboxDeliveryError(source ?? {});
+      setError(source?.requestId ? `${deliveryError} Referencia: ${source.requestId}` : deliveryError);
     } finally {
       setBusy(false);
     }

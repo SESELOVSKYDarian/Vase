@@ -53,7 +53,7 @@ export function createManualMetaConnectionService(input: {
         wabaId: params.channelType === "WHATSAPP" ? params.parentId : null,
         accountLabel: verified.accountLabel,
         externalHandle: verified.externalHandle,
-        config: { ...verified.config, parentId: verified.config.parentId ?? params.parentId ?? null, manualWebhook: true, metaAppId: params.metaAppId, validationPending: false, ...(params.channelType === "INSTAGRAM" ? { instagramAuthMode: resolveInstagramAuthMode(params.accessToken) } : {}) },
+        config: { ...verified.config, parentId: verified.config.parentId ?? params.parentId ?? null, manualWebhook: true, metaAppId: params.metaAppId, validationPending: false, messagingPermissionVerified: verified.config.messagingPermissionVerified === true || (Array.isArray(verified.config.subscribedFields) && verified.config.subscribedFields.includes("messages")), ...(params.channelType === "INSTAGRAM" ? { instagramAuthMode: resolveInstagramAuthMode(params.accessToken) } : {}) },
         metaAppId: params.metaAppId,
         encryptedAccessToken: input.encrypt(verified.accessToken),
         encryptedAppSecret,

@@ -3,6 +3,10 @@ export function formatInboxDeliveryError(input: {
   providerStatus?: number;
   providerMessage?: string;
 }) {
+  if (input.code === "INBOX_REPLY_INVALID_RESPONSE") {
+    const status = input.providerStatus ? ` HTTP ${input.providerStatus}.` : "";
+    return `Vase Labs recibió una respuesta inválida del servidor al intentar enviar el mensaje.${status}`;
+  }
   if (input.code === "CONVERSATION_NOT_DELIVERABLE") {
     return "Esta conversación no tiene un destinatario válido para el canal.";
   }
@@ -52,4 +56,23 @@ export function formatInboxDeliveryError(input: {
     ? ` Código: ${input.code}`
     : "";
   return `No pudimos enviar el mensaje. Revisá la conexión del canal.${safeCode}`;
+}
+
+export type ParsedInboxReplyResponse =
+  | { ok: true; payload: Record<string, any> }
+  | { ok: false; error: { code: "INBOX_REPLY_INVALID_RESPONSE"; httpStatus: number } };
+
+export async function parseInboxReplyResponse(response: Response): Promise<ParsedInboxReplyResponse> {
+  const raw = await response.text();
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("application/json")) {
+    return { ok: false, error: { code: "INBOX_REPLY_INVALID_RESPONSE", httpStatus: response.status } };
+  }
+  try {
+    const payload: unknown = raw ? JSON.parse(raw) : {};
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("INVALID_JSON_RESPONSE");
+    return { ok: true, payload: payload as Record<string, any> };
+  } catch {
+    return { ok: false, error: { code: "INBOX_REPLY_INVALID_RESPONSE", httpStatus: response.status } };
+  }
 }

@@ -437,6 +437,7 @@ export function createMetaGraphClient(input: {
         config: {
           parentId: params.asset.parentId ?? params.asset.candidate.parentId ?? null,
           subscribedFields: SUBSCRIBED_FIELDS[params.channelType],
+          messagingPermissionVerified: true,
           graphVersion: input.graphVersion,
         },
         accessToken,

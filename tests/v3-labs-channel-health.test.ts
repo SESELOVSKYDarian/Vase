@@ -3,6 +3,7 @@ import {
   hasMetaChannelCredentials,
   isMetaAssetVerified,
   channelNeedsAttention,
+  hasMessagingPermission,
   resolveChannelConnectionStatus,
 } from "../apps/vase-labs/app/lib/channel-health";
 
@@ -40,6 +41,11 @@ describe("channel connection readiness", () => {
       secretKinds: ["META_ACCESS_TOKEN", "META_APP_SECRET"],
       config: {},
     })).toBe(false);
+  });
+
+  it("requires a verified messaging permission in addition to the subscription", () => {
+    expect(hasMessagingPermission({ subscribedFields: ["messages"], messagingPermissionVerified: true })).toBe(true);
+    expect(hasMessagingPermission({ subscribedFields: ["messages"] })).toBe(false);
   });
 
   it("does not treat a historical last error as an active problem when health is green", () => {

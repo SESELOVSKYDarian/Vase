@@ -272,7 +272,7 @@ describe("Meta Graph official channel adapter", () => {
       expect(init?.method).toBe("POST");
       return Response.json({ success:true });
     }});
-    await client.verifyAndSubscribe({
+    const result = await client.verifyAndSubscribe({
       channelType:"INSTAGRAM",
       userAccessToken:"IGAA-token",
       asset:{ candidate:{ id:"17841428932871922", kind:"INSTAGRAM_ACCOUNT", name:"El Teflon", handle:"@elteflonsanitarios" }, accessToken:"IGAA-token" },
@@ -282,6 +282,7 @@ describe("Meta Graph official channel adapter", () => {
       url:"https://graph.instagram.com/v99.0/17841428932871922/subscribed_apps?subscribed_fields=messages",
       method:"POST",
     }]);
+    expect(result.config).toMatchObject({ messagingPermissionVerified: true });
   });
 
   it("maps Meta subscribed_apps failures to a subscription assignment error", async () => {

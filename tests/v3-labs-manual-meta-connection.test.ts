@@ -9,7 +9,7 @@ describe("manual Meta connection", () => {
       repository: { find: vi.fn().mockResolvedValue({ id: "channel_1", type: "INSTAGRAM", webhookVerifiedAt: null }), stage: vi.fn(), save, fail: vi.fn() }, encrypt: (value) => `encrypted:${value}`,
     });
     await service.connect({ assistantId:"a", channelId:"channel_1", channelType:"INSTAGRAM", accessToken:"IG-token", metaAppId:"2229208884490284", appSecret:"secret", providerAccountId:"17841428932871922", parentId:"1134742793056040" });
-    expect(save).toHaveBeenCalledWith(expect.objectContaining({ config: expect.objectContaining({ parentId:"1134742793056040", metaAppId:"2229208884490284", instagramAuthMode:"INSTAGRAM_LOGIN", validationPending:false }) }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ config: expect.objectContaining({ parentId:"1134742793056040", metaAppId:"2229208884490284", instagramAuthMode:"INSTAGRAM_LOGIN", validationPending:false, messagingPermissionVerified:true }) }));
   });
   it("validates the selected asset and stays pending until the webhook is verified", async () => {
     const save = vi.fn();

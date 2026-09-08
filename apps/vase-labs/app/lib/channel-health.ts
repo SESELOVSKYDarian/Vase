@@ -38,6 +38,13 @@ export function isMetaAssetVerified(input: {
     && !input.lastError;
 }
 
+export function hasMessagingPermission(configValue: unknown) {
+  const config = asConfig(configValue);
+  return config.messagingPermissionVerified === true
+    && Array.isArray(config.subscribedFields)
+    && config.subscribedFields.includes("messages");
+}
+
 export type MetaAssetValidationState = "VALID" | "PENDING" | "MISSING" | "NOT_AUTHORIZED";
 export function resolveMetaAssetValidationState(input: { providerAccountId?: string | null; config: unknown; currentError?: string | null }): MetaAssetValidationState {
   const config = asConfig(input.config);

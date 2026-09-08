@@ -133,7 +133,7 @@ describe("Labs Inbox human replies", () => {
     });
   });
 
-  it("falls back to the external user id when customer contact is missing", async () => {
+  it("uses the Instagram sender-scoped thread id before a stale external user id", async () => {
     const sendReply = vi.fn(async () => ({ ok: true, providerMessageId: "mid_manual" }));
     const POST = createInboxReplyHandler({
       resolveContext: async () => ({
@@ -163,7 +163,7 @@ describe("Labs Inbox human replies", () => {
 
     expect(response.status).toBe(200);
     expect(sendReply).toHaveBeenCalledWith(expect.objectContaining({
-      recipientId: "ig_user_123",
+      recipientId: "ig_thread_123",
     }));
   });
 
@@ -245,6 +245,7 @@ describe("Labs Inbox human replies", () => {
       error: "META_SEND_FAILED",
       providerStatus: 400,
       providerMessage: "Recipient is not allowed",
+      requestId: expect.any(String),
     });
     expect(persistReply).toHaveBeenCalledWith(expect.objectContaining({
       conversationId: "conversation_123",
@@ -255,7 +256,7 @@ describe("Labs Inbox human replies", () => {
     expect(markReplyDelivery).toHaveBeenCalledWith({
       messageId: "message_manual",
       status: "FAILED",
-      error: "Recipient is not allowed",
+      error: "META_SEND_FAILED",
     });
   });
 });

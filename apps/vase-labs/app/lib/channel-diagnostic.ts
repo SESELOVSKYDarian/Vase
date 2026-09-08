@@ -11,6 +11,7 @@ export type ChannelDiagnosticResult = {
     asset: DiagnosticCheck;
     webhook: DiagnosticCheck;
     subscription: DiagnosticCheck;
+    messagingPermission: DiagnosticCheck;
   };
 };
 
@@ -41,6 +42,7 @@ const messages: Record<string, string> = {
   LABS_TENANT_FORBIDDEN: "No tenés acceso a este espacio de trabajo.",
   WEBHOOK_NOT_VERIFIED: "Meta todavía no verificó este webhook.",
   SUBSCRIPTION_NOT_ACTIVE: "Meta todavía no tiene activa la suscripción de eventos.",
+  META_MESSAGING_PERMISSION_MISSING: "El Access Token no tiene permiso verificado para enviar mensajes.",
   CREDENTIALS_MISSING: "Las credenciales necesarias todavía no están configuradas.",
 };
 
