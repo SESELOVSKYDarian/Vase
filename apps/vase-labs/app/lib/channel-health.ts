@@ -11,6 +11,13 @@ function asConfig(value: unknown): Record<string, unknown> {
     : {};
 }
 
+const META_ASSET_ERROR_CODES = new Set([
+  "META_ASSET_NOT_AUTHORIZED",
+  "META_ASSET_PARENT_MISSING",
+  "META_TOKEN_INVALID",
+  "META_PERMISSIONS_MISSING",
+]);
+
 export function hasMetaChannelCredentials(input: {
   secretKinds: readonly string[];
   config: unknown;
@@ -33,9 +40,10 @@ export function isMetaAssetVerified(input: {
   lastError?: string | null;
 }) {
   const config = asConfig(input.config);
+  const errorCode = input.lastError?.split(":", 1)[0]?.trim();
   return Boolean(input.providerAccountId)
     && config.validationPending !== true
-    && !input.lastError;
+    && !META_ASSET_ERROR_CODES.has(errorCode ?? "");
 }
 
 export function hasMessagingPermission(configValue: unknown) {

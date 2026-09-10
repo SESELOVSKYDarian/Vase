@@ -31,6 +31,16 @@ describe("channel connection readiness", () => {
       config: { subscribedFields: ["messages"] },
       lastError: null,
     })).toBe(true);
+    expect(isMetaAssetVerified({
+      providerAccountId: "page_1",
+      config: { subscribedFields: ["messages"] },
+      lastError: "webhook_failed: temporary processing error",
+    })).toBe(true);
+    expect(isMetaAssetVerified({
+      providerAccountId: "page_1",
+      config: { subscribedFields: ["messages"] },
+      lastError: "META_SEND_FAILED: HTTP 400",
+    })).toBe(true);
   });
 
   it("requires the client app id, app secret and access token", () => {
