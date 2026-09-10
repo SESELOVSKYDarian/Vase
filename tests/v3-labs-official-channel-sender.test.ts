@@ -249,6 +249,41 @@ describe("official Meta outbound sender", () => {
     });
   });
 
+  it("adds the HUMAN_AGENT tag only to human Instagram replies", async () => {
+    const requests: RequestInit[] = [];
+    const sender = createOfficialChannelSender({
+      encryptionSecret,
+      graphVersion: "v99.0",
+      repository: {
+        async findDeliveryContext() {
+          return {
+            channelType: "INSTAGRAM",
+            providerAccountId: "17841428932871922",
+            encryptedAccessToken: encryptChannelSecret("IGAA-token", encryptionSecret),
+          };
+        },
+      },
+      fetcher: async (_url, init) => {
+        requests.push(init ?? {});
+        return Response.json({ message_id: "mid_human" });
+      },
+    });
+
+    await sender.send({
+      globalTenantId: "tenant_123",
+      channelType: "INSTAGRAM",
+      recipientId: "customer_123",
+      text: "Seguimos con tu consulta.",
+      messageTag: "HUMAN_AGENT",
+    });
+
+    expect(JSON.parse(requests[0]?.body as string)).toEqual({
+      recipient: { id: "customer_123" },
+      message: { text: "Seguimos con tu consulta." },
+      tag: "HUMAN_AGENT",
+    });
+  });
+
   it("sends Facebook reusable image attachments after the text", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
     const sender = createOfficialChannelSender({

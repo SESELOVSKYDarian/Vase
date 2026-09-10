@@ -49,6 +49,9 @@ export function formatInboxDeliveryError(input: {
   if (input.code === "SERVICE_TOKEN_NOT_CONFIGURED") {
     return "Falta SERVICE_TO_SERVICE_TOKEN en Vase Labs.";
   }
+  if (input.code === "HUMAN_AGENT_WINDOW_EXPIRED") {
+    return "Instagram permite respuestas humanas hasta 7 días desde el último mensaje del cliente. Pedile que vuelva a escribir para continuar.";
+  }
   if (input.code === "LABS_SESSION_REQUIRED" || input.code === "LABS_SESSION_INVALID" || input.code === "LABS_SESSION_EXPIRED") {
     return "La sesión de Labs expiró. Volvé a iniciar sesión.";
   }

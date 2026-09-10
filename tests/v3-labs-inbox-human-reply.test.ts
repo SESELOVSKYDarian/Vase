@@ -1,7 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
-import { createInboxReplyHandler, persistHumanInboxReply, resolveConversationChannelId } from "../apps/vase-labs/app/api/v1/inbox/[tenantSlug]/conversations/[conversationId]/reply/route";
+import { createInboxReplyHandler, persistHumanInboxReply, resolveConversationChannelId, resolveHumanAgentReplyPolicy } from "../apps/vase-labs/app/api/v1/inbox/[tenantSlug]/conversations/[conversationId]/reply/route";
 
 describe("Labs Inbox human replies", () => {
+  it("uses the human-agent tag only after the standard window and before seven days", () => {
+    const now = new Date("2026-09-10T12:00:00.000Z");
+    expect(resolveHumanAgentReplyPolicy({
+      channel: "INSTAGRAM",
+      lastInboundAt: new Date("2026-09-10T00:00:00.000Z"),
+      now,
+    })).toEqual({});
+    expect(resolveHumanAgentReplyPolicy({
+      channel: "INSTAGRAM",
+      lastInboundAt: new Date("2026-09-08T00:00:00.000Z"),
+      now,
+    })).toEqual({ messageTag: "HUMAN_AGENT" });
+    expect(resolveHumanAgentReplyPolicy({
+      channel: "INSTAGRAM",
+      lastInboundAt: new Date("2026-09-01T00:00:00.000Z"),
+      now,
+    })).toEqual({ error: "HUMAN_AGENT_WINDOW_EXPIRED" });
+  });
+
   it("recovers the receiving channel for a legacy conversation", () => {
     expect(resolveConversationChannelId({ context: {} }, "legacy_channel_123"))
       .toBe("legacy_channel_123");

@@ -44,6 +44,11 @@ describe("Labs Inbox delivery errors", () => {
       .toContain("APP_INTERNAL_URL");
   });
 
+  it("explains when the Instagram human-agent window has expired", () => {
+    expect(formatInboxDeliveryError({ code: "HUMAN_AGENT_WINDOW_EXPIRED" }))
+      .toContain("7 días");
+  });
+
   it("explains Meta Graph connectivity and credential failures", () => {
     expect(formatInboxDeliveryError({ code: "META_GRAPH_REQUEST_FAILED" }))
       .toContain("API de Meta");

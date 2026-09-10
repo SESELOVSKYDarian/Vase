@@ -13,6 +13,7 @@ type InboxReplyConversation = {
   customerContact: string | null;
   externalUserId?: string | null;
   externalThreadKey?: string | null;
+  lastInboundAt?: Date | string | null;
 };
 
 type InboxReplyHandlerDependencies = {
@@ -29,6 +30,7 @@ type InboxReplyHandlerDependencies = {
     channelType: LabsChannel;
     recipientId: string;
     text: string;
+    messageTag?: "HUMAN_AGENT";
   }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
   persistReply(input: {
     conversationId: string;
@@ -75,6 +77,27 @@ export function resolveConversationChannelId(
   return typeof context.channelId === "string" && context.channelId.trim()
     ? context.channelId.trim()
     : fallback;
+}
+
+const STANDARD_INSTAGRAM_REPLY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const HUMAN_AGENT_INSTAGRAM_REPLY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function resolveHumanAgentReplyPolicy(input: {
+  channel: LabsChannel | null | undefined;
+  lastInboundAt?: Date | string | null;
+  now?: Date;
+}): { messageTag?: "HUMAN_AGENT"; error?: "HUMAN_AGENT_WINDOW_EXPIRED" } {
+  if (input.channel !== "INSTAGRAM" || !input.lastInboundAt) return {};
+  const lastInboundAt = input.lastInboundAt instanceof Date
+    ? input.lastInboundAt
+    : new Date(input.lastInboundAt);
+  if (Number.isNaN(lastInboundAt.getTime())) return {};
+  const elapsed = (input.now ?? new Date()).getTime() - lastInboundAt.getTime();
+  if (elapsed <= STANDARD_INSTAGRAM_REPLY_WINDOW_MS) return {};
+  if (elapsed > HUMAN_AGENT_INSTAGRAM_REPLY_WINDOW_MS) {
+    return { error: "HUMAN_AGENT_WINDOW_EXPIRED" };
+  }
+  return { messageTag: "HUMAN_AGENT" };
 }
 
 export async function persistHumanInboxReply(
@@ -179,6 +202,13 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
       if (!conversation?.channel || !recipientId) {
         return NextResponse.json({ error: "CONVERSATION_NOT_DELIVERABLE" }, { status: 404 });
       }
+      const humanAgentPolicy = resolveHumanAgentReplyPolicy({
+        channel: conversation.channel,
+        lastInboundAt: conversation.lastInboundAt,
+      });
+      if (humanAgentPolicy.error) {
+        return NextResponse.json({ error: humanAgentPolicy.error }, { status: 422 });
+      }
 
       const persisted = await dependencies.persistReply({
         conversationId,
@@ -194,6 +224,7 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
           channelType: conversation.channel,
           recipientId,
           text,
+          ...(humanAgentPolicy.messageTag ? { messageTag: humanAgentPolicy.messageTag } : {}),
         });
         if (!delivery.ok) throw new Error("CHANNEL_DELIVERY_FAILED");
         await dependencies.markReplyDelivery({
@@ -295,6 +326,12 @@ export const POST = createInboxReplyHandler({
         externalUserId: true,
         externalThreadKey: true,
         metadata: true,
+        messages: {
+          where: { direction: "INBOUND" },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { createdAt: true },
+        },
       },
     });
     if (!conversation) return null;
@@ -304,6 +341,7 @@ export const POST = createInboxReplyHandler({
     return {
       ...conversation,
       channelId: resolveConversationChannelId({ context: metadata.context }, null),
+      lastInboundAt: conversation.messages?.[0]?.createdAt ?? null,
     };
   },
   sendReply(input) {

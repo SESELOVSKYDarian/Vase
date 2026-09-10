@@ -71,6 +71,7 @@ export function createOfficialChannelSender(input: {
       recipientId: string;
       text: string;
       imageUrls?: string[];
+      messageTag?: "HUMAN_AGENT";
     }) {
       const context = await input.repository.findDeliveryContext({
         globalTenantId: params.globalTenantId,
@@ -156,6 +157,9 @@ export function createOfficialChannelSender(input: {
         recipient: { id: params.recipientId },
         ...(params.channelType === "FACEBOOK"
           ? { messaging_type: "RESPONSE" as const }
+          : {}),
+        ...(params.channelType === "INSTAGRAM" && params.messageTag
+          ? { tag: params.messageTag }
           : {}),
       };
       const textProviderMessageId = await sendGraphPayload(
