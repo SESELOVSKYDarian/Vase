@@ -266,7 +266,7 @@ describe("Labs Inbox human replies", () => {
     expect(markReplyDelivery).toHaveBeenCalledWith({
       messageId: "message_manual",
       status: "FAILED",
-      error: "META_SEND_FAILED",
+      error: "META_SEND_FAILED: HTTP 400: Recipient is not allowed",
     });
   });
 });

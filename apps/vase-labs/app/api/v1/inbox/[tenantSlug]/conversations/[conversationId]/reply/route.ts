@@ -65,6 +65,18 @@ export function resolveInboxReplyRecipient(conversation: InboxReplyConversation 
     || null;
 }
 
+export function resolveConversationChannelId(
+  conversation: { context?: unknown } | null,
+  fallback: string | null = null,
+) {
+  const context = conversation?.context && typeof conversation.context === "object" && !Array.isArray(conversation.context)
+    ? conversation.context as Record<string, unknown>
+    : {};
+  return typeof context.channelId === "string" && context.channelId.trim()
+    ? context.channelId.trim()
+    : fallback;
+}
+
 export async function persistHumanInboxReply(
   prisma: { $transaction<T>(callback: (tx: InboxReplyTransaction) => Promise<T>): Promise<T> },
   input: {
@@ -215,10 +227,15 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
         const providerError = typeof source?.providerMessage === "string"
           ? source.providerMessage.replace(/\s+/g, " ").trim().slice(0, 300)
           : undefined;
+        const persistedDeliveryError = [
+          code,
+          typeof source?.providerStatus === "number" ? `HTTP ${source.providerStatus}` : null,
+          providerError,
+        ].filter(Boolean).join(": ").slice(0, 520);
         await dependencies.markReplyDelivery({
           messageId: persisted.messageId,
           status: "FAILED",
-          error: code,
+          error: persistedDeliveryError,
         });
         return NextResponse.json({
           error: code,
@@ -284,12 +301,9 @@ export const POST = createInboxReplyHandler({
     const metadata = conversation.metadata && typeof conversation.metadata === "object" && !Array.isArray(conversation.metadata)
       ? conversation.metadata as Record<string, unknown>
       : {};
-    const metadataContext = metadata.context && typeof metadata.context === "object" && !Array.isArray(metadata.context)
-      ? metadata.context as Record<string, unknown>
-      : {};
     return {
       ...conversation,
-      channelId: typeof metadataContext.channelId === "string" ? metadataContext.channelId : null,
+      channelId: resolveConversationChannelId({ context: metadata.context }, null),
     };
   },
   sendReply(input) {
