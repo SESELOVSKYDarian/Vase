@@ -77,6 +77,13 @@ module.exports = {
           900: '#075237',
           950: '#00301f',
         },
+        vase: {
+          green: '#16A34A',
+          'green-dark': '#0F7C39',
+          'green-light': '#22C55E',
+          'green-soft': '#DCFCE7',
+          black: '#09090B',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -99,6 +106,12 @@ module.exports = {
         sans: ['var(--font-manrope)', 'system-ui', 'sans-serif'],
         display: ['var(--font-newsreader)', 'Georgia', 'serif'],
         mono: ['var(--font-ibm-plex-mono)', 'ui-monospace', 'monospace'],
+      },
+      boxShadow: {
+        'vase-sm': '0 1px 2px 0 rgb(0 0 0 / 0.04)',
+        'vase-md': '0 4px 14px -2px rgb(9 9 11 / 0.08)',
+        'vase-lg': '0 12px 32px -8px rgb(9 9 11 / 0.14)',
+        'vase-glow': '0 0 0 1px rgb(22 163 74 / 0.15), 0 8px 24px -4px rgb(22 163 74 / 0.25)',
       },
     },
   },

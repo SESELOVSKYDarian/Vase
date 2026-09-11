@@ -2012,3 +2012,20 @@ model WarehouseWebhookEvent {
   @@index([channelId, status])
   @@map("warehouse_webhook_events")
 }
+
+// Capa de compatibilidad para el flujo industrial migrado desde vase-crm.
+// Cada registro queda aislado por empresa y conserva el payload de dominio
+// mientras los modulos se normalizan gradualmente contra el ERP principal.
+model IndustrialRecord {
+  id         String   @id @default(cuid())
+  companyId  String
+  entity     String
+  externalId String
+  data       Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([companyId, entity, externalId])
+  @@index([companyId, entity, updatedAt])
+  @@map("industrial_records")
+}

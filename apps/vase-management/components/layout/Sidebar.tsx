@@ -14,7 +14,7 @@ import {
   ChevronDown, Menu, X, TrendingUp, Truck, Bell,
   Settings, Wrench, FileText, PieChart, Zap,
   Map, Archive, AlertCircle, Database, Shield,
-  Tag, FolderOpen, DollarSign, RefreshCw, Monitor
+  Tag, FolderOpen, DollarSign, RefreshCw, Monitor, Factory
 } from 'lucide-react'
 
 interface NavChild { title: string; href: string }
@@ -29,6 +29,24 @@ interface NavItem {
 const buildNav = (alertCount: number, isSuperAdmin: boolean): NavItem[] => [
   { title: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={17} /> },
   { title: 'Punto de Venta', href: '/dashboard/pos', icon: <Monitor size={17} /> },
+
+  {
+    title: 'Industria del vidrio', icon: <Factory size={17} />, section: 'PRODUCCIÓN',
+    children: [
+      { title: 'Panel industrial', href: '/dashboard/industria/dashboard' },
+      { title: 'Clientes', href: '/dashboard/industria/clientes' },
+      { title: 'Presupuestos', href: '/dashboard/industria/presupuestos' },
+      { title: 'Producción', href: '/dashboard/industria/produccion' },
+      { title: 'Entregas', href: '/dashboard/industria/entregas' },
+      { title: 'Remitos', href: '/dashboard/industria/remitos' },
+      { title: 'Facturación', href: '/dashboard/industria/facturacion' },
+      { title: 'Cobros', href: '/dashboard/industria/cobros' },
+      { title: 'Cuenta corriente', href: '/dashboard/industria/cuenta-corriente' },
+      { title: 'Precios', href: '/dashboard/industria/precios' },
+      { title: 'Analíticas', href: '/dashboard/industria/analiticas' },
+      { title: 'Configuración industrial', href: '/dashboard/industria/configuracion' },
+    ],
+  },
 
   // ─── VENTAS ────────────────────────────────────────────────────────
   {

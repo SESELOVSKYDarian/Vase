@@ -1,0 +1,42 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ChevronDown, ChevronUp, ClipboardCheck, History, RotateCcw, ShieldAlert, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
+
+type Audit = { id: string; accion: string; entidadId: string; createdAt: string; valorAnterior: Record<string, unknown> | null; valorNuevo: Record<string, unknown> | null; user?: { name?: string | null; email?: string | null } | null };
+
+const text: Record<string, string> = { REGISTRAR: "Registrado", EMITIR: "Emitida", EDITAR: "Modificado", BORRAR: "Eliminado", RESTAURAR: "Restaurado" };
+const fields: Record<string, string> = { recibo: "Recibo", observaciones: "Observaciones", cuit: "CUIT", puntoVenta: "Punto de venta", numero: "Número", importe: "Importe", total: "Total", tipoFacturacion: "Tipo", metodo: "Medio de pago", moneda: "Moneda" };
+
+function pretty(value: unknown) {
+  if (value === null || value === undefined || value === "") return "Sin dato";
+  if (typeof value === "object") return "Registro completo";
+  return String(value);
+}
+function values(audit: Audit) {
+  const before = audit.valorAnterior?.record ?? audit.valorAnterior ?? {};
+  const after = audit.valorNuevo?.record ?? audit.valorNuevo ?? {};
+  return Object.keys({ ...before, ...after }).filter((key) => !["id", "createdAt", "updatedAt", "fecha"].includes(key)).map((key) => ({ key, before: (before as any)[key], after: (after as any)[key] })).filter(({ before, after }) => JSON.stringify(before) !== JSON.stringify(after) || audit.accion === "BORRAR");
+}
+
+export function AuditHistoryPage({ entity, title, description, backHref, backLabel }: { entity: "Invoice" | "Payment"; title: string; description: string; backHref: string; backLabel: string }) {
+  const [logs, setLogs] = useState<Audit[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null); const [restore, setRestore] = useState<Audit | null>(null); const [busy, setBusy] = useState(false);
+  const load = async () => { setLoading(true); const response = await fetch(`/api/industria/audit?entidad=${entity}`); const body = await response.json().catch(() => null); if (!response.ok) setError(body?.error ?? "No se pudo cargar el historial."); else setLogs(body?.data ?? []); setLoading(false); };
+  useEffect(() => { load(); }, [entity]);
+  const groups = useMemo(() => Object.values(logs.reduce<Record<string, Audit[]>>((all, item) => { (all[item.entidadId] ??= []).push(item); return all; }, {})), [logs]);
+  async function confirmRestore() { if (!restore) return; setBusy(true); setError(""); const response = await fetch(`/api/industria/audit/${restore.id}/restore`, { method: "POST" }); const body = await response.json().catch(() => null); if (!response.ok) setError(body?.error ?? "No se pudo restaurar la versión."); else { setRestore(null); await load(); } setBusy(false); }
+  return <div className="mx-auto max-w-5xl space-y-6 pb-10">
+    <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
+      <div className="space-y-2"><Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Volver a {backLabel}</Link><div><h1 className="text-2xl font-semibold tracking-tight">{title}</h1><p className="mt-1 text-sm text-muted-foreground">{description}</p></div></div>
+      <div className="inline-flex items-center gap-2 rounded-full border border-vase-green/20 bg-vase-green-soft px-3 py-2 text-xs font-medium text-vase-green"><ShieldAlert className="h-4 w-4" /> Registro de auditoría</div>
+    </div>
+    {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+    {loading ? <div className="space-y-3">{[1, 2, 3].map((key) => <div key={key} className="h-28 animate-pulse rounded-2xl border bg-secondary/45" />)}</div> : groups.length ? <div className="space-y-5">{groups.map((versions) => <Card key={versions[0].entidadId} className="overflow-hidden border-border/80 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-secondary/30 px-5 py-3"><div className="flex items-center gap-2 text-sm font-medium"><History className="h-4 w-4 text-vase-green" /> Historial del registro <span className="font-mono text-xs text-muted-foreground">{versions[0].entidadId.slice(-8)}</span></div><span className="text-xs text-muted-foreground">{versions.length} versión{versions.length === 1 ? "" : "es"}</span></div><div className="divide-y divide-border">{versions.map((audit, index) => { const isDeleted = audit.accion === "BORRAR"; const tone = isDeleted ? "border-red-200 bg-red-50 text-red-700" : audit.accion === "EDITAR" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-vase-green/20 bg-vase-green-soft text-vase-green"; const changes = values(audit); const canRestore = audit.accion === "EDITAR" || audit.accion === "BORRAR"; return <div key={audit.id} className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex min-w-0 gap-3"><div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">{isDeleted ? <Trash2 className="h-4 w-4" /> : <ClipboardCheck className="h-4 w-4" />}</div><div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${tone}`}>{text[audit.accion] ?? audit.accion}</span>{index === versions.length - 1 && <span className="text-xs font-medium text-muted-foreground">Versión más reciente</span>}</div><p className="mt-2 text-sm text-foreground">{audit.user?.name ?? "Sistema"} · {new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(audit.createdAt))}</p>{isDeleted && <p className="mt-1 text-sm text-red-700">El registro fue eliminado. Podés restaurar esta versión si sus dependencias siguen disponibles.</p>}</div></div><div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => setExpanded(expanded === audit.id ? null : audit.id)}>{expanded === audit.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}{expanded === audit.id ? "Ocultar" : "Ver cambios"}</Button>{canRestore && <Button size="sm" variant="outline" onClick={() => setRestore(audit)}><RotateCcw className="h-4 w-4" /> Restaurar</Button>}</div></div>{expanded === audit.id && <div className="mt-4 overflow-hidden rounded-xl border border-border"><div className="grid grid-cols-[minmax(110px,.6fr)_1fr_1fr] bg-secondary/60 px-4 py-2 text-xs font-semibold text-muted-foreground"><span>Campo</span><span>Versión anterior</span><span>Versión registrada</span></div>{changes.length ? changes.map((change) => <div key={change.key} className="grid grid-cols-[minmax(110px,.6fr)_1fr_1fr] gap-3 border-t border-border px-4 py-3 text-sm"><span className="font-medium">{fields[change.key] ?? change.key}</span><span className="break-words text-red-700">{pretty(change.before)}</span><span className="break-words text-vase-green">{pretty(change.after)}</span></div>) : <p className="p-4 text-sm text-muted-foreground">Esta versión histórica no contiene campos comparables, pero conserva su fecha y autor.</p>}</div>}</div>; })}</div></Card>)}</div> : <Card className="border-dashed p-12 text-center"><History className="mx-auto h-8 w-8 text-muted-foreground" /><h2 className="mt-3 font-semibold">Todavía no hay versiones registradas</h2><p className="mt-1 text-sm text-muted-foreground">Cuando se cree, edite, elimine o restaure un registro, aparecerá acá.</p></Card>}
+    <Modal open={!!restore} onClose={() => setRestore(null)} title="¿Restaurar esta versión?" description={restore?.accion === "BORRAR" ? "Se recreará el registro eliminado y su versión quedará registrada en auditoría." : "Se reemplazarán los campos actuales por los valores de la versión elegida."} footer={<><Button variant="outline" onClick={() => setRestore(null)}>Cancelar</Button><Button disabled={busy} onClick={confirmRestore}>{busy ? "Restaurando…" : "Restaurar versión"}</Button></>} />
+  </div>;
+}
