@@ -9,201 +9,84 @@ import type { SessionUser } from '@/types'
 import { AnimatePresence, m } from 'motion/react'
 import { BrandMark } from '@/components/ui/BrandMark'
 import {
-  LayoutDashboard, Users, Package, Layers, ShoppingCart,
-  Receipt, Wallet, BookOpen, BarChart2, Bot, Building2,
-  ChevronDown, Menu, X, TrendingUp, Truck, Bell,
-  Settings, Wrench, FileText, PieChart, Zap,
-  Map, Archive, AlertCircle, Database, Shield,
-  Tag, FolderOpen, DollarSign, RefreshCw, Monitor, Factory
+  LayoutDashboard, Package, Receipt, Wallet, BarChart2,
+  ChevronDown, Menu, X, Settings, Monitor, Factory
 } from 'lucide-react'
 
-interface NavChild { title: string; href: string }
+interface NavChild { title: string; href: string; badge?: number }
 interface NavItem {
   title: string; href?: string
   icon: React.ReactNode
   badge?: number
   children?: NavChild[]
-  section?: string
+  matchPrefixes?: string[]
 }
 
 const buildNav = (alertCount: number, isSuperAdmin: boolean): NavItem[] => [
-  { title: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={17} /> },
+  { title: 'Inicio', href: '/dashboard', icon: <LayoutDashboard size={17} /> },
   { title: 'Punto de Venta', href: '/dashboard/pos', icon: <Monitor size={17} /> },
-
   {
-    title: 'Industria del vidrio', icon: <Factory size={17} />, section: 'PRODUCCIÓN',
+    title: 'Industria', icon: <Factory size={17} />, matchPrefixes: ['/dashboard/industria'],
     children: [
       { title: 'Panel industrial', href: '/dashboard/industria/dashboard' },
       { title: 'Clientes', href: '/dashboard/industria/clientes' },
       { title: 'Presupuestos', href: '/dashboard/industria/presupuestos' },
       { title: 'Producción', href: '/dashboard/industria/produccion' },
       { title: 'Entregas', href: '/dashboard/industria/entregas' },
-      { title: 'Remitos', href: '/dashboard/industria/remitos' },
       { title: 'Facturación', href: '/dashboard/industria/facturacion' },
-      { title: 'Cobros', href: '/dashboard/industria/cobros' },
-      { title: 'Cuenta corriente', href: '/dashboard/industria/cuenta-corriente' },
-      { title: 'Precios', href: '/dashboard/industria/precios' },
       { title: 'Analíticas', href: '/dashboard/industria/analiticas' },
-      { title: 'Configuración industrial', href: '/dashboard/industria/configuracion' },
-    ],
-  },
-
-  // ─── VENTAS ────────────────────────────────────────────────────────
-  {
-    title: 'Ventas', icon: <TrendingUp size={17} />, section: 'COMERCIAL',
-    children: [
-      { title: 'Presupuestos', href: '/dashboard/ventas?tipo=BUDGET' },
-      { title: 'Pedidos', href: '/dashboard/ventas?tipo=ORDER' },
-      { title: 'Remitos', href: '/dashboard/ventas?tipo=REMITO' },
-      { title: 'Ventas / Tickets', href: '/dashboard/ventas' },
+      { title: 'Configuración', href: '/dashboard/industria/configuracion' },
     ],
   },
   {
-    title: 'Facturación', icon: <Receipt size={17} />,
+    title: 'Comercial', icon: <Receipt size={17} />,
+    matchPrefixes: ['/dashboard/ventas', '/dashboard/facturacion', '/dashboard/clientes', '/dashboard/compras'],
     children: [
-      { title: 'Todas las facturas', href: '/dashboard/facturacion' },
-      { title: 'Notas de crédito', href: '/dashboard/facturacion?tipo=CREDIT_NOTE' },
-      { title: 'Notas de débito', href: '/dashboard/facturacion?tipo=DEBIT_NOTE' },
+      { title: 'Ventas', href: '/dashboard/ventas' },
+      { title: 'Facturación', href: '/dashboard/facturacion' },
+      { title: 'Clientes', href: '/dashboard/clientes' },
+      { title: 'Compras y proveedores', href: '/dashboard/compras' },
     ],
   },
   {
-    title: 'Clientes', icon: <Users size={17} />,
+    title: 'Operaciones', icon: <Package size={17} />,
+    matchPrefixes: ['/dashboard/stock', '/dashboard/productos', '/dashboard/deposito-ia', '/dashboard/distribucion'],
     children: [
-      { title: 'Listado', href: '/dashboard/clientes' },
-      { title: 'Grupos', href: '/dashboard/clientes/grupos' },
-      { title: 'Estado de cuenta', href: '/dashboard/clientes/estado-cuenta' },
-      { title: 'Riesgo crediticio', href: '/dashboard/clientes/riesgo' },
-    ],
-  },
-
-  // ─── COMPRAS ───────────────────────────────────────────────────────
-  {
-    title: 'Compras', icon: <ShoppingCart size={17} />, section: 'COMPRAS',
-    children: [
-      { title: 'Órdenes de compra', href: '/dashboard/compras' },
-      { title: 'Facturas de compra', href: '/dashboard/compras/facturas' },
-      { title: 'Proveedores', href: '/dashboard/compras/proveedores' },
-      { title: 'Cuentas por pagar', href: '/dashboard/tesoreria/pagar' },
-    ],
-  },
-
-  // ─── STOCK ─────────────────────────────────────────────────────────
-  {
-    title: 'Stock', icon: <Layers size={17} />, section: 'OPERACIONES',
-    children: [
-      { title: 'Inventario general', href: '/dashboard/stock' },
-      { title: 'Movimientos', href: '/dashboard/stock/movimientos' },
-      { title: 'Depósitos', href: '/dashboard/stock/depositos' },
-      { title: 'Transferencias', href: '/dashboard/stock/transferencias' },
-      { title: 'Ajustes / Regulariz.', href: '/dashboard/stock/ajustes' },
-      { title: 'Kardex por producto', href: '/dashboard/stock/kardex' },
-      { title: 'Stock crítico', href: '/dashboard/stock/critico' },
+      { title: 'Stock', href: '/dashboard/stock' },
+      { title: 'Productos', href: '/dashboard/productos' },
+      { title: 'Depósito IA', href: '/dashboard/deposito-ia' },
+      { title: 'Distribución', href: '/dashboard/distribucion/rutas' },
     ],
   },
   {
-    title: 'Depósito IA', icon: <Bot size={17} />,
+    title: 'Finanzas', icon: <Wallet size={17} />,
+    matchPrefixes: ['/dashboard/tesoreria', '/dashboard/contabilidad'],
     children: [
-      { title: 'Dashboard', href: '/dashboard/deposito-ia' },
-      { title: 'Productos', href: '/dashboard/deposito-ia/productos' },
-      { title: 'IA de Depósito', href: '/dashboard/deposito-ia/ia' },
-      { title: 'Dispositivos', href: '/dashboard/deposito-ia/dispositivos' },
-      { title: 'Racks', href: '/dashboard/deposito-ia/racks' },
-      { title: 'Canales', href: '/dashboard/deposito-ia/canales' },
+      { title: 'Tesorería', href: '/dashboard/tesoreria' },
+      { title: 'Contabilidad', href: '/dashboard/contabilidad' },
     ],
   },
   {
-    title: 'Productos', icon: <Package size={17} />,
+    title: 'Análisis e IA', icon: <BarChart2 size={17} />,
+    matchPrefixes: ['/dashboard/reportes', '/dashboard/asistente-ia', '/dashboard/automatizaciones'],
     children: [
-      { title: 'Catálogo', href: '/dashboard/productos' },
-      { title: 'Categorías', href: '/dashboard/productos/categorias' },
-      { title: 'Familias', href: '/dashboard/productos/familias' },
-      { title: 'Marcas', href: '/dashboard/productos/marcas' },
-    ],
-  },
-
-  // ─── DISTRIBUCIÓN ──────────────────────────────────────────────────
-  {
-    title: 'Distribución', icon: <Truck size={17} />, section: 'DISTRIBUCIÓN',
-    children: [
-      { title: 'Rutas', href: '/dashboard/distribucion/rutas' },
-      { title: 'Hoja de ruta', href: '/dashboard/distribucion/hoja-ruta' },
-      { title: 'Entregas pendientes', href: '/dashboard/distribucion/pendientes' },
-    ],
-  },
-
-  // ─── TESORERÍA ─────────────────────────────────────────────────────
-  {
-    title: 'Tesorería', icon: <Wallet size={17} />, section: 'FINANZAS',
-    children: [
-      { title: 'Resumen', href: '/dashboard/tesoreria' },
-      { title: 'Caja diaria', href: '/dashboard/tesoreria/caja' },
-      { title: 'Bancos', href: '/dashboard/tesoreria/bancos' },
-      { title: 'Cheques', href: '/dashboard/tesoreria/cheques' },
-      { title: 'Cuentas por cobrar', href: '/dashboard/tesoreria/cobrar' },
-      { title: 'Cuentas por pagar', href: '/dashboard/tesoreria/pagar' },
-      { title: 'Flujo de fondos', href: '/dashboard/tesoreria/flujo' },
+      { title: 'Reportes', href: '/dashboard/reportes' },
+      { title: 'Asistente IA', href: '/dashboard/asistente-ia' },
+      { title: 'Automatizaciones', href: '/dashboard/automatizaciones' },
     ],
   },
   {
-    title: 'Contabilidad', icon: <BookOpen size={17} />,
+    title: 'Administración', icon: <Settings size={17} />,
+    matchPrefixes: ['/dashboard/configuracion', '/dashboard/alertas', '/dashboard/multiempresa', '/dashboard/utilidades', '/dashboard/super-admin'],
     children: [
-      { title: 'IVA Ventas', href: '/dashboard/contabilidad' },
-      { title: 'IVA Compras', href: '/dashboard/contabilidad?tab=compras' },
-      { title: 'Plan de cuentas', href: '/dashboard/contabilidad?tab=cuentas' },
-    ],
-  },
-
-  // ─── REPORTES ──────────────────────────────────────────────────────
-  {
-    title: 'Reportes', icon: <BarChart2 size={17} />, section: 'ANÁLISIS',
-    children: [
-      { title: 'Reportes predefinidos', href: '/dashboard/reportes' },
-      { title: 'Reportes guardados', href: '/dashboard/reportes/guardados' },
-      { title: 'Generador con IA', href: '/dashboard/reportes/generador' },
-      { title: 'Exportar', href: '/dashboard/reportes/exportar' },
-    ],
-  },
-  {
-    title: 'Asistente IA', icon: <Bot size={17} />,
-    children: [
-      { title: 'Chat de consultas', href: '/dashboard/asistente-ia' },
-      { title: 'Generar reportes IA', href: '/dashboard/reportes/generador' },
-    ],
-  },
-  { title: 'Automatizaciones', href: '/dashboard/automatizaciones', icon: <Zap size={17} /> },
-
-  // ─── CONFIGURACIÓN ─────────────────────────────────────────────────
-  {
-    title: 'Configuración', icon: <Settings size={17} />, section: 'SISTEMA',
-    children: [
-      { title: 'Empresa', href: '/dashboard/configuracion' },
-      { title: 'Sucursales', href: '/dashboard/configuracion?tab=sucursales' },
-      { title: 'Puntos de venta', href: '/dashboard/configuracion?tab=pdv' },
-      { title: 'Usuarios y roles', href: '/dashboard/configuracion?tab=usuarios' },
-    ],
-  },
-  {
-    title: 'Alertas',
-    icon: <Bell size={17} />,
-    href: '/dashboard/alertas',
-    badge: alertCount > 0 ? alertCount : undefined,
-  },
-  {
-    title: 'Multi-empresa', icon: <Building2 size={17} />,
-    href: '/dashboard/multiempresa',
-  },
-  {
-    title: 'Utilidades', icon: <Wrench size={17} />,
-    children: [
+      { title: 'Configuración', href: '/dashboard/configuracion' },
+      { title: 'Alertas', href: '/dashboard/alertas', badge: alertCount > 0 ? alertCount : undefined },
+      { title: 'Multi-empresa', href: '/dashboard/multiempresa' },
       { title: 'Cierre de día', href: '/dashboard/utilidades/cierre' },
-      { title: 'Procesos', href: '/dashboard/utilidades/procesos' },
       { title: 'Auditoría', href: '/dashboard/utilidades/auditoria' },
+      ...(isSuperAdmin ? [{ title: 'Super Admin', href: '/dashboard/super-admin' }] : []),
     ],
   },
-  ...(isSuperAdmin ? [{
-    title: 'Super Admin', icon: <Shield size={17} />,
-    href: '/dashboard/super-admin', section: 'PLATAFORMA',
-  }] : []),
 ]
 
 interface Props { user: SessionUser }
@@ -234,7 +117,7 @@ export function isSidebarRouteActive(
 export function Sidebar({ user }: Props) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [openSections, setOpenSections] = useState<string[]>(['Ventas', 'Reportes'])
+  const [openSections, setOpenSections] = useState<string[]>([])
   const [mobileOpen, setMobileOpen] = useState(false)
   const [alertCount, setAlertCount] = useState(0)
   const [collapsed, setCollapsed] = useState(false)
@@ -252,8 +135,9 @@ export function Sidebar({ user }: Props) {
   useEffect(() => {
     const nav = buildNav(0, isSuperAdmin)
     for (const item of nav) {
-      if (item.children?.some(c => isActive(c.href))) {
-        setOpenSections(prev => prev.includes(item.title) ? prev : [...prev, item.title])
+      if (isItemActive(item)) {
+        setOpenSections([item.title])
+        break
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -261,14 +145,14 @@ export function Sidebar({ user }: Props) {
 
   const navItems = buildNav(alertCount, isSuperAdmin)
 
-  function toggleSection(title: string) {
-    setOpenSections(prev =>
-      prev.includes(title) ? prev.filter(s => s !== title) : [...prev, title]
-    )
-  }
-
   function isActive(href: string) {
     return isSidebarRouteActive(pathname, searchParams, href)
+  }
+
+  function isItemActive(item: NavItem) {
+    return item.children?.some(child => isActive(child.href)) ||
+      item.matchPrefixes?.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`)) ||
+      false
   }
 
   const SidebarContent = () => (
@@ -286,29 +170,21 @@ export function Sidebar({ user }: Props) {
       </div>
 
       {/* Nav */}
-      <nav aria-label="Navegación principal" className="flex-1 space-y-1 overflow-y-auto px-2 py-3 scrollbar-thin">
-        {(() => {
-          let lastSection = ''
-          return navItems.map((item) => {
-            const sectionHeader = item.section && item.section !== lastSection
-              ? (() => { lastSection = item.section!; return item.section })()
-              : null
-
-            return (
+      <nav aria-label="Navegación principal" className="flex-1 space-y-1 overflow-y-auto px-2 py-2 scrollbar-thin">
+        {navItems.map((item) => {
+          const itemActive = item.href ? isActive(item.href) : isItemActive(item)
+          const itemOpen = openSections.includes(item.title)
+          return (
               <div key={item.title}>
-                {sectionHeader && !collapsed && (
-                  <div className="px-2 pt-4 pb-1">
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-sidebar-foreground/30">{sectionHeader}</p>
-                  </div>
-                )}
-
                 {item.href ? (
                   <Link
                     href={item.href}
                     onClick={() => setMobileOpen(false)}
+                    aria-current={itemActive ? 'page' : undefined}
+                    title={collapsed ? item.title : undefined}
                     className={cn(
                       'relative flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors duration-200',
-                      isActive(item.href)
+                      itemActive
                         ? 'bg-sidebar-primary/15 text-sidebar-primary font-semibold'
                         : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                     )}
@@ -317,7 +193,7 @@ export function Sidebar({ user }: Props) {
                     {!collapsed && (
                       <>
                         <span className="flex-1 truncate">{item.title}</span>
-                        {isActive(item.href) && (
+                        {itemActive && (
                           <m.span layoutId="sidebar-active" className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-sidebar-primary" />
                         )}
                         {item.badge !== undefined && (
@@ -331,10 +207,19 @@ export function Sidebar({ user }: Props) {
                 ) : (
                   <div>
                     <button
-                      onClick={() => !collapsed && toggleSection(item.title)}
+                      onClick={() => {
+                        if (collapsed) {
+                          setCollapsed(false)
+                          setOpenSections([item.title])
+                          return
+                        }
+                        setOpenSections(itemOpen ? [] : [item.title])
+                      }}
+                      aria-expanded={!collapsed && itemOpen}
+                      title={collapsed ? item.title : undefined}
                       className={cn(
                         'relative flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors duration-200',
-                        item.children?.some(c => isActive(c.href))
+                        itemActive
                           ? 'bg-sidebar-accent text-sidebar-primary'
                           : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                       )}
@@ -346,7 +231,7 @@ export function Sidebar({ user }: Props) {
                           <ChevronDown
                             size={13}
                             className={cn('flex-shrink-0 transition-transform text-sidebar-foreground/40',
-                              openSections.includes(item.title) && 'rotate-180'
+                              itemOpen && 'rotate-180'
                             )}
                           />
                         </>
@@ -354,7 +239,7 @@ export function Sidebar({ user }: Props) {
                     </button>
 
                     <AnimatePresence initial={false}>
-                    {!collapsed && openSections.includes(item.title) && item.children && (
+                    {!collapsed && itemOpen && item.children && (
                       <m.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -367,14 +252,20 @@ export function Sidebar({ user }: Props) {
                             key={child.href}
                             href={child.href}
                             onClick={() => setMobileOpen(false)}
+                            aria-current={isActive(child.href) ? 'page' : undefined}
                             className={cn(
-                              'relative my-1 flex min-h-10 items-center rounded-lg px-3 py-2 text-xs transition-colors duration-200',
+                              'relative my-0.5 flex min-h-10 items-center rounded-lg px-3 py-2 text-xs transition-colors duration-200',
                               isActive(child.href)
                                 ? 'bg-sidebar-primary/10 font-semibold text-sidebar-primary'
                                 : 'text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent/40'
                             )}
                           >
-                            {child.title}
+                            <span className="flex-1 truncate">{child.title}</span>
+                            {child.badge !== undefined && (
+                              <span className="ml-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                                {child.badge > 9 ? '9+' : child.badge}
+                              </span>
+                            )}
                           </Link>
                         ))}
                       </m.div>
@@ -384,8 +275,7 @@ export function Sidebar({ user }: Props) {
                 )}
               </div>
             )
-          })
-        })()}
+          })}
       </nav>
 
       {/* User */}
@@ -410,6 +300,7 @@ export function Sidebar({ user }: Props) {
       {/* Mobile toggle button */}
       <button
         onClick={() => setMobileOpen(true)}
+        aria-label="Abrir navegación"
         className="fixed top-3 left-3 z-50 lg:hidden w-9 h-9 rounded-lg bg-sidebar border border-sidebar-border flex items-center justify-center shadow-lg"
       >
         <Menu size={17} className="text-sidebar-foreground" />
@@ -427,7 +318,7 @@ export function Sidebar({ user }: Props) {
             transition={{ duration: 0.2 }}
             className="absolute bottom-0 left-0 top-0 w-[min(84vw,19rem)] bg-sidebar shadow-2xl"
           >
-            <button onClick={() => setMobileOpen(false)} className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent">
+            <button onClick={() => setMobileOpen(false)} aria-label="Cerrar navegación" className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent">
               <X size={16} />
             </button>
             <SidebarContent />
@@ -439,7 +330,7 @@ export function Sidebar({ user }: Props) {
       {/* Desktop sidebar */}
       <aside className={cn(
         'sticky top-0 hidden h-screen flex-shrink-0 flex-col border-r border-sidebar-border bg-sidebar shadow-[18px_0_50px_-38px_rgba(0,0,0,.65)] transition-[width] duration-200 lg:flex',
-        collapsed ? 'w-[4.5rem]' : 'w-[17rem]'
+        collapsed ? 'w-[4.5rem]' : 'w-[15.5rem]'
       )}>
         <SidebarContent />
       </aside>
