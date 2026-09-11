@@ -410,7 +410,7 @@ export function Sidebar({ user }: Props) {
       {/* Mobile toggle button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed top-3 left-3 z-50 lg:hidden w-9 h-9 rounded-lg bg-sidebar-background border border-sidebar-border flex items-center justify-center shadow-lg"
+        className="fixed top-3 left-3 z-50 lg:hidden w-9 h-9 rounded-lg bg-sidebar border border-sidebar-border flex items-center justify-center shadow-lg"
       >
         <Menu size={17} className="text-sidebar-foreground" />
       </button>
@@ -425,7 +425,7 @@ export function Sidebar({ user }: Props) {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-0 left-0 top-0 w-[min(84vw,19rem)] bg-sidebar-background shadow-2xl"
+            className="absolute bottom-0 left-0 top-0 w-[min(84vw,19rem)] bg-sidebar shadow-2xl"
           >
             <button onClick={() => setMobileOpen(false)} className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent">
               <X size={16} />
@@ -438,7 +438,7 @@ export function Sidebar({ user }: Props) {
 
       {/* Desktop sidebar */}
       <aside className={cn(
-        'sticky top-0 hidden h-screen flex-shrink-0 flex-col border-r border-sidebar-border bg-sidebar-background shadow-[18px_0_50px_-38px_rgba(0,0,0,.65)] transition-[width] duration-200 lg:flex',
+        'sticky top-0 hidden h-screen flex-shrink-0 flex-col border-r border-sidebar-border bg-sidebar shadow-[18px_0_50px_-38px_rgba(0,0,0,.65)] transition-[width] duration-200 lg:flex',
         collapsed ? 'w-[4.5rem]' : 'w-[17rem]'
       )}>
         <SidebarContent />
