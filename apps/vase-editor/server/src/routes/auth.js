@@ -284,6 +284,7 @@ async function sendApprovalRequestedEmail({
   ].join('');
 
   return sendSmtpEmail({
+    tenantId,
     to: recipient.email,
     subject,
     text: textBody,

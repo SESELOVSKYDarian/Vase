@@ -509,6 +509,7 @@ async function appendOrderNotificationEntries(db, { tenantId, orderId, entries =
 }
 
 async function sendOrderConfirmationEmail({
+  tenantId,
   email,
   recipientName,
   companyName,
@@ -645,6 +646,7 @@ async function sendOrderConfirmationEmail({
   ].join('');
 
   const delivery = await sendSmtpEmail({
+    tenantId,
     to: recipient,
     subject,
     text: textBody,
@@ -659,6 +661,7 @@ async function sendOrderConfirmationEmail({
 }
 
 async function sendAdminOrderNotificationEmail({
+  tenantId,
   recipientEmail,
   companyName,
   orderId,
@@ -763,6 +766,7 @@ async function sendAdminOrderNotificationEmail({
   ].join('');
 
   const delivery = await sendSmtpEmail({
+    tenantId,
     to: recipient,
     subject,
     text: textBody,
@@ -840,6 +844,7 @@ async function syncLatestPaymentStatus(db, {
 }
 
 async function sendCustomerOrderStatusEmail({
+  tenantId,
   email,
   recipientName,
   companyName,
@@ -992,6 +997,7 @@ async function sendCustomerOrderStatusEmail({
   ].join('');
 
   const delivery = await sendSmtpEmail({
+    tenantId,
     to: recipient,
     subject,
     text: textBody,
@@ -1161,6 +1167,7 @@ ordersRouter.post('/submit', async (req, res, next) => {
       validation.currency
     );
     const emailDelivery = await sendOrderConfirmationEmail({
+      tenantId: req.tenant.id,
       email: customerPayload.email,
       recipientName: customerPayload.full_name || customerPayload.fullName || customerPayload.name,
       companyName,
@@ -1178,6 +1185,7 @@ ordersRouter.post('/submit', async (req, res, next) => {
       processingLabel: customerOrderProcessingLabel,
     });
     const adminDelivery = await sendAdminOrderNotificationEmail({
+      tenantId: req.tenant.id,
       recipientEmail: commerce.order_notification_email || commerce.email || '',
       companyName,
       orderId,
@@ -1580,6 +1588,7 @@ adminOrdersRouter.patch('/:id/status', async (req, res, next) => {
       const customer = updatedOrder.customer || {};
 
       emailDelivery = await sendCustomerOrderStatusEmail({
+        tenantId: req.tenant.id,
         email: customer.email,
         recipientName: customer.full_name || customer.fullName || customer.name,
         companyName,
