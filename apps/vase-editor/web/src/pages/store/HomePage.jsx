@@ -95,6 +95,10 @@ export default function HomePage() {
     useEffect(() => {
         async function loadHome() {
             try {
+                // Ambas peticiones en paralelo: antes la de productos esperaba a la de la pagina.
+                const productsPromise = fetch(`${getApiBase()}/public/products?limit=4&featured=true`, {
+                    headers: { ...getTenantHeaders(), ...getAuthHeaders() },
+                }).catch(() => null);
                 const response = await fetch(`${getApiBase()}/public/pages/home`, {
                     headers: getTenantHeaders(),
                 });
@@ -106,10 +110,8 @@ export default function HomePage() {
                     setSections(getDefaultSectionsForPage(pageKey));
                 }
 
-                const productsRes = await fetch(`${getApiBase()}/public/products?limit=4&featured=true`, {
-                    headers: { ...getTenantHeaders(), ...getAuthHeaders() },
-                });
-                if (productsRes.ok) {
+                const productsRes = await productsPromise;
+                if (productsRes?.ok) {
                     const pData = await productsRes.json();
                     if (pData.items?.length) {
                         setFeaturedProducts(pData.items.map((it, idx) => buildFeaturedCard(it, idx, isWholesale)));

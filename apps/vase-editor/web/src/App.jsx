@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { ToastProvider } from './context/ToastContext';
@@ -10,23 +10,27 @@ import { isEditorHost as resolveIsEditorHost } from './utils/vaseAuth';
 import { resolveTenantBrandName } from './utils/tenantBranding';
 
 // Store pages
-import HomePage from './pages/store/HomePage';
-import CatalogPage from './pages/store/CatalogPage';
-import CartPage from './pages/store/CartPage';
-import CheckoutPage from './pages/store/CheckoutPage';
-import ProductDetail from './pages/store/ProductDetail';
-import AboutPage from './pages/store/AboutPage';
-import LoginPage from './pages/store/LoginPage';
-import SignupPage from './pages/store/SignupPage';
-import ProfilePage from './pages/store/ProfilePage';
-import OrderSuccessPage from './pages/store/OrderSuccessPage';
-import OrderDetailPage from './pages/store/OrderDetailPage';
-import TermsPage from './pages/store/TermsPage';
+const HomePage = lazy(() => import('./pages/store/HomePage'));
+const CatalogPage = lazy(() => import('./pages/store/CatalogPage'));
+const CartPage = lazy(() => import('./pages/store/CartPage'));
+const CheckoutPage = lazy(() => import('./pages/store/CheckoutPage'));
+const ProductDetail = lazy(() => import('./pages/store/ProductDetail'));
+const AboutPage = lazy(() => import('./pages/store/AboutPage'));
+const LoginPage = lazy(() => import('./pages/store/LoginPage'));
+const SignupPage = lazy(() => import('./pages/store/SignupPage'));
+const ProfilePage = lazy(() => import('./pages/store/ProfilePage'));
+const OrderSuccessPage = lazy(() => import('./pages/store/OrderSuccessPage'));
+const OrderDetailPage = lazy(() => import('./pages/store/OrderDetailPage'));
+const TermsPage = lazy(() => import('./pages/store/TermsPage'));
 
 // Admin pages
-import EditorPage from './pages/admin/EditorPage';
-import EvolutionAdmin from './pages/admin/evolution/EvolutionAdmin';
-import PreviewPage from './pages/admin/evolution/PreviewPage';
+const EditorPage = lazy(() => import('./pages/admin/EditorPage'));
+const EvolutionAdmin = lazy(() => import('./pages/admin/evolution/EvolutionAdmin'));
+const PreviewPage = lazy(() => import('./pages/admin/evolution/PreviewPage'));
+
+function PageFallback() {
+    return <div className="min-h-screen" aria-busy="true" />;
+}
 
 function AppContent() {
     const [route, setRoute] = useState(window.location.pathname);
@@ -106,7 +110,9 @@ function AppContent() {
     return (
         <div className="w-full min-h-screen bg-gray-50 text-[#181411] transition-colors duration-200 dark:bg-[#090b0f] dark:text-[#e6edf7]">
             <div key={route} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <Component />
+                <Suspense fallback={<PageFallback />}>
+                    <Component />
+                </Suspense>
             </div>
         </div>
     );

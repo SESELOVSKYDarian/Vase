@@ -1,4 +1,5 @@
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
@@ -56,6 +57,7 @@ app.use(cors({
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Id', 'X-Storefront-Host', 'X-Requested-With', 'Accept', 'Origin']
 }));
+app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -167,7 +169,20 @@ if (disableAuth) {
 }
 
 if (hasWebBuild) {
-  app.use(express.static(webDistPath));
+  // Los archivos de /assets llevan hash en el nombre: se pueden cachear para siempre.
+  app.use('/assets', express.static(path.join(webDistPath, 'assets'), {
+    immutable: true,
+    maxAge: '1y',
+    fallthrough: false,
+  }));
+  // index: false para que "/" pase por el render con SEO del tenant.
+  app.use(express.static(webDistPath, { index: false, maxAge: '1h' }));
+
+  let cachedIndexHtml = null;
+  const readIndexHtml = () => {
+    if (cachedIndexHtml === null) cachedIndexHtml = fs.readFileSync(webIndexPath, 'utf8');
+    return cachedIndexHtml;
+  };
 
   app.get('*', async (req, res, next) => {
     if (!req.accepts('html')) {
@@ -183,52 +198,60 @@ if (hasWebBuild) {
       req.path === '/admin' ||
       req.path.startsWith('/admin/');
 
+    res.set('Cache-Control', 'no-cache');
+
     if (isAdminSpaRoute) {
       return res.sendFile(webIndexPath);
     }
 
-    const tenant = await resolvePublicTenant(req);
-    if (!tenant) {
-      return res.status(404).json({ error: 'tenant_not_found' });
+    try {
+      const tenant = await resolvePublicTenant(req);
+      if (!tenant) {
+        // Hosts sin tenant (ej. business.vase.ar) siguen recibiendo la SPA en "/".
+        if (req.path === '/') return res.sendFile(webIndexPath);
+        return res.status(404).json({ error: 'tenant_not_found' });
+      }
+      req.tenant = tenant;
+
+      const html = readIndexHtml();
+      await ensureTenantSettingsSeoColumn();
+      const settingsRes = await queryTenantSettingsWithSeo(req.tenant.id);
+      const rawSettings = settingsRes.rows[0] || {};
+      const seo = normalizeSeoSettings(rawSettings.seo || {});
+      const brandName = String(rawSettings.branding?.name || req.tenant?.name || 'Vase Business').trim();
+      const title = seo.title || brandName;
+      const description = seo.description || '';
+      const canonicalUrl = resolveCanonicalUrl({
+        pathname: req.path || '/',
+        canonicalPath: seo.canonicalPath,
+      });
+      const robots = seo.indexable ? 'index,follow' : 'noindex,nofollow';
+      const ogTitle = seo.ogTitle || title;
+      const ogDescription = seo.ogDescription || description;
+      const { head, body } = buildGtmSnippets(seo.tracking?.enabled ? seo.tracking.googleTagManagerContainerId : '');
+      const taggedHead = head ? head.replace('<script>', '<script id="vase-gtm-script">') : '';
+      const taggedBody = body ? body.replace('<noscript>', '<noscript id="vase-gtm-noscript">') : '';
+
+      const titleTag = title ? `<title>${escapeHtml(title)}</title>` : '';
+      const headTags = [
+        description ? `<meta name="description" content="${escapeHtml(description)}" />` : '',
+        `<meta name="robots" content="${escapeHtml(robots)}" />`,
+        canonicalUrl ? `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />` : '',
+        ogTitle ? `<meta property="og:title" content="${escapeHtml(ogTitle)}" />` : '',
+        ogDescription ? `<meta property="og:description" content="${escapeHtml(ogDescription)}" />` : '',
+        taggedHead || '',
+      ].filter(Boolean).join('\n');
+
+      const bodyTags = taggedBody || '';
+      const renderedHtml = html
+        .replace(/<title>.*?<\/title>/i, titleTag || '')
+        .replace('<head>', `<head>\n${headTags}\n`)
+        .replace('<body>', `<body>\n${bodyTags}\n`);
+
+      return res.send(renderedHtml);
+    } catch (err) {
+      return next(err);
     }
-    req.tenant = tenant;
-
-    const html = fs.readFileSync(webIndexPath, 'utf8');
-    await ensureTenantSettingsSeoColumn();
-    const settingsRes = await queryTenantSettingsWithSeo(req.tenant.id);
-    const rawSettings = settingsRes.rows[0] || {};
-    const seo = normalizeSeoSettings(rawSettings.seo || {});
-    const brandName = String(rawSettings.branding?.name || req.tenant?.name || 'Vase Business').trim();
-    const title = seo.title || brandName;
-    const description = seo.description || '';
-    const canonicalUrl = resolveCanonicalUrl({
-      pathname: req.path || '/',
-      canonicalPath: seo.canonicalPath,
-    });
-    const robots = seo.indexable ? 'index,follow' : 'noindex,nofollow';
-    const ogTitle = seo.ogTitle || title;
-    const ogDescription = seo.ogDescription || description;
-    const { head, body } = buildGtmSnippets(seo.tracking?.enabled ? seo.tracking.googleTagManagerContainerId : '');
-    const taggedHead = head ? head.replace('<script>', '<script id="vase-gtm-script">') : '';
-    const taggedBody = body ? body.replace('<noscript>', '<noscript id="vase-gtm-noscript">') : '';
-
-    const titleTag = title ? `<title>${escapeHtml(title)}</title>` : '';
-    const headTags = [
-      description ? `<meta name="description" content="${escapeHtml(description)}" />` : '',
-      `<meta name="robots" content="${escapeHtml(robots)}" />`,
-      canonicalUrl ? `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />` : '',
-      ogTitle ? `<meta property="og:title" content="${escapeHtml(ogTitle)}" />` : '',
-      ogDescription ? `<meta property="og:description" content="${escapeHtml(ogDescription)}" />` : '',
-      taggedHead || '',
-    ].filter(Boolean).join('\n');
-
-    const bodyTags = taggedBody || '';
-    const renderedHtml = html
-      .replace(/<title>.*?<\/title>/i, titleTag || '')
-      .replace('<head>', `<head>\n${headTags}\n`)
-      .replace('<body>', `<body>\n${bodyTags}\n`);
-
-    return res.send(renderedHtml);
   });
 } else {
   console.warn(`Frontend build not found at ${webIndexPath}.`);

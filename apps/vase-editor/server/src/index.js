@@ -526,6 +526,10 @@ async function runStartupMigrations() {
     ].join(' ')
   );
 
+  // Indices para el catalogo publico (filtro por categoria y arbol de categorias).
+  await pool.query('CREATE INDEX IF NOT EXISTS product_categories_category_idx ON product_categories(category_id)');
+  await pool.query("CREATE INDEX IF NOT EXISTS categories_tenant_parent_idx ON categories(tenant_id, (data->>'parent_id'))");
+
   await ensureVaseBridgeSchema();
   await ensureProductSyncSchema();
   await ensureTeflonTenantBootstrap();

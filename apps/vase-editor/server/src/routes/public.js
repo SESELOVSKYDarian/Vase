@@ -57,6 +57,53 @@ const PUBLIC_PRODUCT_CATEGORY_SELECT_SQL = [
   ].join(' '),
 ].join(' ');
 
+// Solo category_ids (barato): lo necesita el calculo de ofertas por categoria.
+// Los nombres/rutas se resuelven despues, unicamente para la pagina devuelta.
+const PUBLIC_PRODUCT_CATEGORY_IDS_SQL =
+  "coalesce((select array_agg(pc.category_id) from product_categories pc where pc.product_id = p.id), '{}'::uuid[]) as category_ids";
+
+const PUBLIC_PRODUCT_CATEGORY_LABELS_SQL = [
+  'with recursive category_tree as (',
+  "select pc.product_id, c.id as leaf_id, c.id, c.name, nullif(c.data->>'parent_id', '') as parent_id, c.name::text as path, 0 as depth",
+  'from product_categories pc',
+  'join categories c on c.id = pc.category_id',
+  'where pc.product_id = any($1::uuid[]) and c.tenant_id = $2',
+  'union',
+  "select tree.product_id, tree.leaf_id, parent.id, parent.name, nullif(parent.data->>'parent_id', '') as parent_id, (parent.name || ' > ' || tree.path)::text as path, tree.depth + 1",
+  'from category_tree tree',
+  'join categories parent on parent.id::text = tree.parent_id',
+  'where parent.tenant_id = $2 and tree.depth < 8',
+  '),',
+  'names as (select product_id, array_agg(distinct name order by name) as category_names from category_tree group by product_id),',
+  'paths as (',
+  'select product_id, array_agg(path order by path) as category_paths',
+  'from (select distinct on (product_id, leaf_id) product_id, leaf_id, path from category_tree order by product_id, leaf_id, depth desc) leaf_paths',
+  'group by product_id',
+  ')',
+  'select names.product_id, names.category_names, paths.category_paths',
+  'from names join paths on paths.product_id = names.product_id',
+].join(' ');
+
+async function attachCategoryLabels(items, tenantId) {
+  const targets = [];
+  items.forEach((item) => {
+    targets.push(item);
+    if (Array.isArray(item.variations)) targets.push(...item.variations);
+  });
+  const ids = [...new Set(targets.filter((item) => item.category_ids?.length).map((item) => item.id))];
+  if (!ids.length) return items;
+
+  const labelsRes = await pool.query(PUBLIC_PRODUCT_CATEGORY_LABELS_SQL, [ids, tenantId]);
+  const labelsById = new Map(labelsRes.rows.map((row) => [String(row.product_id), row]));
+  targets.forEach((item) => {
+    const labels = labelsById.get(String(item.id));
+    if (!labels) return;
+    item.category_names = labels.category_names || [];
+    item.category_paths = labels.category_paths || [];
+  });
+  return items;
+}
+
 async function buildPricingContext(req) {
   const settingsRes = await pool.query(
     'select commerce from tenant_settings where tenant_id = $1',
@@ -572,7 +619,7 @@ publicRouter.get('/products', async (req, res, next) => {
 
     const sql = [
       'select p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand, p.data,',
-      PUBLIC_PRODUCT_CATEGORY_SELECT_SQL,
+      PUBLIC_PRODUCT_CATEGORY_IDS_SQL,
       'from product_cache p',
       'left join product_overrides o on o.product_id = p.id and o.tenant_id = p.tenant_id',
       `where ${where}`,
@@ -597,6 +644,7 @@ publicRouter.get('/products', async (req, res, next) => {
       : sortPublicProducts(products, sort);
     const total = filteredItems.length;
     const paginatedItems = filteredItems.slice(offset, offset + limit);
+    await attachCategoryLabels(paginatedItems, tenantId);
 
     return res.json({
       page,
@@ -869,7 +917,7 @@ publicRouter.get('/collections/:slug', async (req, res, next) => {
     const productsRes = await pool.query(
       [
         'select p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand, p.data,',
-        PUBLIC_PRODUCT_CATEGORY_SELECT_SQL,
+        PUBLIC_PRODUCT_CATEGORY_IDS_SQL,
         'from collection_items ci',
         'join product_cache p on p.id = ci.product_id',
         'left join product_overrides o on o.product_id = p.id and o.tenant_id = p.tenant_id',
@@ -880,6 +928,7 @@ publicRouter.get('/collections/:slug', async (req, res, next) => {
     );
 
     const products = productsRes.rows.map((row) => mapProductRow(row, pricingContext));
+    await attachCategoryLabels(products, req.tenant.id);
 
     return res.json({ collection, items: products });
   } catch (err) {
