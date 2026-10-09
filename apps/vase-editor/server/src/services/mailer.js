@@ -120,6 +120,12 @@ export async function sendSmtpEmail({
     return { sent: true, provider: 'smtp', accepted: result.accepted?.length || 0, rejected: result.rejected?.length || 0 };
   } catch (err) {
     console.error(`[${logPrefix}] Error enviando email`, err?.code || err?.name || 'SMTP_ERROR');
+    // Si fallo el SMTP propio del tenant, reintentar con el SMTP global para que el mail llegue igual.
+    const globalConfig = !smtp && tenantConfig ? resolveMailConfig({}, process.env) : null;
+    if (globalConfig && !validateSmtpConfig(globalConfig)) {
+      console.warn(`[${logPrefix}] Reintentando con SMTP global.`);
+      return sendSmtpEmail({ to, subject, text, html, from, logPrefix, smtp: globalConfig });
+    }
     return { sent: false, provider: 'smtp', ...classifySmtpError(err) };
   }
 }
