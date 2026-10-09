@@ -13,9 +13,9 @@ export function normalizeDisplayName(name) {
 
 export function getEmailCompanyName(fallback = '') {
   const value = String(
-    process.env.EMAIL_COMPANY_NAME ||
+    fallback ||
+      process.env.EMAIL_COMPANY_NAME ||
       process.env.APP_NAME ||
-      fallback ||
       'Tu empresa'
   ).trim();
   return value || fallback || 'Tu empresa';

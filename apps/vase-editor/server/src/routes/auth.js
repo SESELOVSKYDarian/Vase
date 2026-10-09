@@ -160,8 +160,18 @@ function validateSignupPayload({ email = '', password = '', name = '', profile =
   return errors;
 }
 
+async function resolveTenantCompanyName(tenantId = '') {
+  if (!tenantId) return getEmailCompanyName();
+  try {
+    const { tenantName } = await getApprovalNotificationRecipient(tenantId);
+    return tenantName || getEmailCompanyName();
+  } catch {
+    return getEmailCompanyName();
+  }
+}
+
 async function sendVerificationEmail(email, code, recipientName = '', tenantId = '') {
-  const companyName = getEmailCompanyName();
+  const companyName = await resolveTenantCompanyName(tenantId);
   const safeName = normalizeDisplayName(recipientName);
   const greetingLine = safeName ? `Hola, ${safeName}:` : 'Hola:';
   const subject = `Tu codigo de verificacion de ${companyName}`;
@@ -347,7 +357,7 @@ async function issueEmailLoginCode({ userId, email, recipientName = '', tenantId
     [userId, normalizedEmail, codeHash, 0, VERIFICATION_MAX_ATTEMPTS, expiresAt]
   );
 
-  const companyName = getEmailCompanyName();
+  const companyName = await resolveTenantCompanyName(tenantId);
   const safeName = normalizeDisplayName(recipientName);
   const greetingLine = safeName ? `Hola, ${safeName}:` : 'Hola:';
   const subject = `Codigo para iniciar sesion en ${companyName}`;
