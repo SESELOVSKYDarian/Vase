@@ -985,7 +985,15 @@ authRouter.post('/resend-verification', async (req, res, next) => {
       return res.json({ ok: true, already_verified: true });
     }
 
-    const verification = await issueEmailVerificationCode(user.id, user.email, '', tenant_id || '');
+    let resendTenantId = tenant_id || await resolveTenantIdFromRequest(req);
+    if (!resendTenantId) {
+      const membershipRes = await pool.query(
+        'select tenant_id from user_tenants where user_id = $1 order by created_at asc limit 1',
+        [user.id]
+      );
+      resendTenantId = membershipRes.rows[0]?.tenant_id || '';
+    }
+    const verification = await issueEmailVerificationCode(user.id, user.email, '', resendTenantId);
     return res.json({ ok: true, verification });
   } catch (err) {
     return next(err);
