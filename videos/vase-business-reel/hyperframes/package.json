@@ -1,0 +1,9 @@
+{
+  "name": "vase-business-cta",
+  "private": true,
+  "scripts": {
+    "check": "npx hyperframes@0.8.143 lint .",
+    "preview": "npx hyperframes@0.8.143 preview --background",
+    "render": "npx hyperframes@0.8.143 render -o ../remotion/public/cta-hyperframes.mp4"
+  }
+}
