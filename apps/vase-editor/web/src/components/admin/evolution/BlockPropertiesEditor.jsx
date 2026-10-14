@@ -33,6 +33,8 @@ import {
 } from '../../../data/featuredProductsTemplates';
 import { useStorefrontThemeColors } from '../../../context/ThemeContext';
 import ThemeAwareColorInput from './ThemeAwareColorInput';
+import { uploadPublicFile } from '../../../utils/uploadsClient';
+import { useToast } from '../../../context/ToastContext';
 import {
     BRAND_MARQUEE_SPEED_OPTIONS,
     getDefaultBrandMarqueeProps,
@@ -116,6 +118,9 @@ const normalizeColorInputValue = (value, fallback = '#000000') => {
     };
     return `#${channelToHex(rgbMatch[1])}${channelToHex(rgbMatch[2])}${channelToHex(rgbMatch[3])}`;
 };
+
+// Si el servidor de archivos falla, solo imagenes chicas se guardan embebidas.
+const INLINE_IMAGE_MAX_BYTES = 1.5 * 1024 * 1024;
 
 const readFileAsDataUrl = (file) =>
     new Promise((resolve, reject) => {
@@ -299,6 +304,7 @@ const SlideCard = ({
 
 const BlockPropertiesEditor = ({ block, onChange }) => {
     const [uploadingTarget, setUploadingTarget] = useState('');
+    const { addToast } = useToast() || {};
 
     if (!block) return null;
 
@@ -456,18 +462,33 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
         if (!file) return;
         setUploadingTarget(target);
         try {
-            const dataUrl = await readFileAsDataUrl(file);
-            if (dataUrl) callback(dataUrl);
+            // Se sube al servidor de archivos y se guarda la URL: un base64 dentro de la
+            // pagina puede superar el limite al guardar con fotos grandes.
+            const publicUrl = await uploadPublicFile(file);
+            callback(publicUrl);
         } catch (error) {
             console.error('Image upload failed', error);
+            if (file.size <= INLINE_IMAGE_MAX_BYTES) {
+                const dataUrl = await readFileAsDataUrl(file).catch(() => '');
+                if (dataUrl) {
+                    callback(dataUrl);
+                    return;
+                }
+            }
+            addToast?.('No se pudo subir la imagen. Proba de nuevo o pega una URL.', 'error');
         } finally {
             setUploadingTarget('');
             event.target.value = '';
         }
     };
 
-    const renderImageControl = ({ label, value, placeholder = 'https://...', uploadKey, onChange, uploadLabel = 'Subir imagen' }) => (
+    const renderImageControl = ({ label, value, placeholder = 'https://...', uploadKey, onChange, uploadLabel = 'Subir imagen', largePreview = false }) => (
         <div className="space-y-2">
+            {largePreview && value ? (
+                <div className="h-40 w-full overflow-hidden rounded-xl border border-white/10 bg-white">
+                    <img src={value} alt="" className="h-full w-full object-cover" />
+                </div>
+            ) : null}
             <EvolutionInput
                 label={label}
                 value={value || ''}
@@ -480,7 +501,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                     label={uploadLabel}
                     onChange={(event) => handleImageUpload(uploadKey, event, onChange)}
                 />
-                {value ? (
+                {value && !largePreview ? (
                     <div className="h-12 w-12 overflow-hidden rounded-lg border border-white/10 bg-white">
                         <img src={value} alt="" className="h-full w-full object-cover" />
                     </div>
@@ -1271,6 +1292,20 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                 </div>
 
                 <div className={panelClass}>
+                    <SectionHeading icon={ImageIcon}>Imagen lateral</SectionHeading>
+                    <div className="space-y-4">
+                        {renderImageControl({
+                            label: 'URL de la imagen',
+                            value: block.props?.image,
+                            uploadKey: 'about-mission-image',
+                            onChange: (value) => handlePropChange('image', value),
+                            largePreview: true,
+                        })}
+                        <EvolutionInput label="Texto alternativo" value={block.props?.imageAlt || ''} onChange={(event) => handlePropChange('imageAlt', event.target.value)} placeholder="Ej: Equipo trabajando en el obrador" />
+                    </div>
+                </div>
+
+                <div className={panelClass}>
                     <div className="flex items-center justify-between gap-3">
                         <SectionHeading icon={Stack}>Parrafos</SectionHeading>
                         <button
@@ -1368,15 +1403,6 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                     </div>
                 </div>
 
-                <div className={panelClass}>
-                    <SectionHeading icon={ImageIcon}>Imagen lateral</SectionHeading>
-                    {renderImageControl({
-                        label: 'Imagen',
-                        value: block.props?.image,
-                        uploadKey: 'about-mission-image',
-                        onChange: (value) => handlePropChange('image', value),
-                    })}
-                </div>
 
                 <div className={panelClass}>
                     <SectionHeading icon={Palette}>Colores del bloque</SectionHeading>

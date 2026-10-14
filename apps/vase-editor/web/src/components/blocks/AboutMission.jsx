@@ -15,6 +15,8 @@ const ICONS = {
     ),
 };
 
+const DEFAULT_IMAGE = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDaDIcmwXvGopChH4z2NtypzPKEOIJB5DIz-cix6aLVUAg6015AqowjMQbKKJ273hv-K-Mdeeq78GFd-8Wt2hah0kOFgDkEGW24otJ-Yqrdn019S_zxUM4qMhyJ0sXG12Fr-Nk9EA4ZnVoQXzs0ZTjGJtuHBj_cdqJ4Z-i7TOx-wRo3JuBOyDsruX5utjj00tVbmE0sUIiRoPxHOH4_ohJ25dVPm0jFLFwKMx0fn7DC6IGRbByTaUUBATc5XDKzCDFZBcDdlv3kpB4';
+
 export default function AboutMission({
     eyebrow = 'Nuestro propósito',
     title = 'La misión',
@@ -26,7 +28,7 @@ export default function AboutMission({
         { icon: 'verified', title: 'Calidad certificada', text: 'Procesos con estándares ISO 9001.' },
         { icon: 'eco', title: 'Eco innovación', text: 'Tecnología para ahorro de agua.' },
     ],
-    image = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDaDIcmwXvGopChH4z2NtypzPKEOIJB5DIz-cix6aLVUAg6015AqowjMQbKKJ273hv-K-Mdeeq78GFd-8Wt2hah0kOFgDkEGW24otJ-Yqrdn019S_zxUM4qMhyJ0sXG12Fr-Nk9EA4ZnVoQXzs0ZTjGJtuHBj_cdqJ4Z-i7TOx-wRo3JuBOyDsruX5utjj00tVbmE0sUIiRoPxHOH4_ohJ25dVPm0jFLFwKMx0fn7DC6IGRbByTaUUBATc5XDKzCDFZBcDdlv3kpB4',
+    image = DEFAULT_IMAGE,
     imageAlt = 'Equipo revisando una propuesta comercial',
     styles = {},
 }) {
@@ -74,7 +76,7 @@ export default function AboutMission({
                             aria-hidden="true"
                         />
                         <img
-                            src={image}
+                            src={image || DEFAULT_IMAGE}
                             alt={imageAlt}
                             className="relative rounded-lg shadow-2xl w-full h-[300px] lg:h-[500px] object-cover"
                         />
