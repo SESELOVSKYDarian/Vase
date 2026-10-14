@@ -10,6 +10,7 @@ import {
   getTenantOffers,
   resolveBestOfferForProduct,
 } from '../services/offers.js';
+import { buildPublicProductSearchSql } from '../services/publicProductSearch.js';
 
 export const publicRouter = express.Router();
 
@@ -578,13 +579,9 @@ publicRouter.get('/products', async (req, res, next) => {
     const params = [tenantId];
     let where = `p.tenant_id = $1 and ${PUBLIC_PRODUCT_VISIBILITY_SQL}`;
 
-    if (q) {
-      params.push(`%${q}%`);
-      where += [
-        ` and (p.name ilike $${params.length}`,
-        `or p.description ilike $${params.length}`,
-        `or coalesce(p.data->>'short_description', '') ilike $${params.length})`,
-      ].join(' ');
+    const searchSql = buildPublicProductSearchSql(q, params);
+    if (searchSql) {
+      where += ` and ${searchSql}`;
     }
 
     if (category) {
