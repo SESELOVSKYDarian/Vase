@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildCatalogPaginationModel,
   buildPiquimCategoryGroups,
+  buildCategorySuggestionHref,
   fetchAllCatalogPages,
   paginateCatalogItems,
   resolvePiquimProductGroups,
@@ -250,5 +251,20 @@ describe("Piquim public category tree", () => {
     expect(source).toMatch(/const handleStockChange = \(value\) => \{\s*setStockOnly\(value\);\s*setCatalogPage\(1\);\s*\};/);
     expect(source).toContain("onChange={(event) => onQueryChange(event.target.value)}");
     expect(source).toContain("onChange={(event) => onStockChange(event.target.checked)}");
+  });
+
+  it("links suggested categories to the Piquim catalog with the subcategory selected", () => {
+    const heladeria = { id: "c1", name: "Heladería", slug: "heladeria" };
+    const panaderia = { id: "c2", name: "Panadería/Confitería" };
+    const variegattos = { id: "c3", name: "Variegattos", parent_id: "c1" };
+
+    expect(buildCategorySuggestionHref({ category: heladeria, isPiquim: true })).toBe("/catalog?category=heladeria");
+    expect(buildCategorySuggestionHref({ category: panaderia, isPiquim: true })).toBe("/catalog?category=panaderia");
+    expect(buildCategorySuggestionHref({ category: variegattos, parent: heladeria, isPiquim: true }))
+      .toBe("/catalog?category=heladeria&group=Variegattos");
+    expect(buildCategorySuggestionHref({ category: variegattos, parent: heladeria, isPiquim: false }))
+      .toBe("/catalog?category=c3");
+    expect(buildCategorySuggestionHref({ category: { id: "c9", name: "Otros" }, isPiquim: true }))
+      .toBe("/catalog?category=c9");
   });
 });

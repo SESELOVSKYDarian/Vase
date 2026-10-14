@@ -14,6 +14,7 @@ import { useAuth } from "../../context/AuthContext";
 import { isExternalPath, navigate, normalizeInternalPath } from "../../utils/navigation";
 import { getApiBase, getTenantHeaders } from "../../utils/api";
 import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
+import { buildCategorySuggestionHref } from "../../utils/piquimCatalogCategories";
 
 const DEFAULT_PLACEHOLDER = "Busca productos, categorias o marcas";
 const HIDDEN_TOPICS = new Set(["buscador de tapas", "donde comprar", "mis proyectos", "messi"]);
@@ -433,12 +434,27 @@ export default function Header({
     return roots;
   }, [catalogCategories]);
 
+  const isPiquimPreset = typeof isPiquimPresetProp === "boolean"
+    ? isPiquimPresetProp
+    : isPiquimTenantIdentity({ tenant, settings });
+
+  // Cada sugerencia lleva su link: al tocarla se abre la categoria, no se busca el texto.
   const categorySuggestions = useMemo(() => {
     const q = formatSearchTerm(search);
     if (!q) return [];
-    const names = categoryTree.flatMap((parent) => [parent.name, ...parent.children.map((child) => `${parent.name} / ${child.name}`)]);
-    return [...new Set(names.filter((name) => matchesQuery(name, q)))].slice(0, 6);
-  }, [categoryTree, search]);
+    const entries = categoryTree.flatMap((parent) => [
+      { label: parent.name, href: buildCategorySuggestionHref({ category: parent, isPiquim: isPiquimPreset }) },
+      ...parent.children.map((child) => ({
+        label: `${parent.name} / ${child.name}`,
+        href: buildCategorySuggestionHref({ category: child, parent, isPiquim: isPiquimPreset }),
+      })),
+    ]);
+    const seen = new Set();
+    return entries
+      .filter((entry) => matchesQuery(entry.label, q))
+      .filter((entry) => !seen.has(entry.label) && seen.add(entry.label))
+      .slice(0, 6);
+  }, [categoryTree, isPiquimPreset, search]);
 
   const suggestionItems = useMemo(() => {
     const q = formatSearchTerm(search);
@@ -455,6 +471,12 @@ export default function Header({
     setSearch(value);
     setSearchSuggestionsOpen(false);
     setTimeout(() => navigate("/catalog"), 0);
+  }, [setSearch]);
+
+  const applyCategorySuggestion = useCallback((entry) => {
+    setSearch("");
+    setSearchSuggestionsOpen(false);
+    setTimeout(() => navigate(entry.href), 0);
   }, [setSearch]);
 
   const handleAccountClick = () => {
@@ -489,17 +511,17 @@ export default function Header({
     categoryTree.forEach((parent) => {
       next.push({
         label: parent.name,
-        href: `/catalog?category=${encodeURIComponent(parent.id)}`,
+        href: buildCategorySuggestionHref({ category: parent, isPiquim: isPiquimPreset }),
       });
       parent.children.forEach((child) => {
         next.push({
           label: `${parent.name} / ${child.name}`,
-          href: `/catalog?category=${encodeURIComponent(child.id)}`,
+          href: buildCategorySuggestionHref({ category: child, parent, isPiquim: isPiquimPreset }),
         });
       });
     });
     return next;
-  }, [categoryTree]);
+  }, [categoryTree, isPiquimPreset]);
 
   const brandLinks = catalogBrands.slice(0, 10).map((brand) => ({
     label: brand,
@@ -517,9 +539,6 @@ export default function Header({
 
   const productsActive = activeRoute.startsWith("/catalog");
   const accountLabel = user ? "Mi cuenta" : "Ingresar";
-  const isPiquimPreset = typeof isPiquimPresetProp === "boolean"
-    ? isPiquimPresetProp
-    : isPiquimTenantIdentity({ tenant, settings });
 
   const mobilePrimaryLinks = useMemo(() => {
     const seen = new Set();
@@ -673,8 +692,8 @@ export default function Header({
                           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--store-primary)]">Categorias</p>
                           <div className="flex flex-col gap-1">
                             {suggestionItems.categories.map((item) => (
-                              <button key={`category-${item}`} type="button" onClick={() => applySuggestion(item)} className="rounded-lg px-2 py-1.5 text-left text-sm text-[var(--store-text)] hover:bg-[var(--store-surface-soft)]">
-                                {item}
+                              <button key={`category-${item.href}`} type="button" onClick={() => applyCategorySuggestion(item)} className="rounded-lg px-2 py-1.5 text-left text-sm text-[var(--store-text)] hover:bg-[var(--store-surface-soft)]">
+                                {item.label}
                               </button>
                             ))}
                           </div>
@@ -891,8 +910,8 @@ export default function Header({
                       <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#A04100]">Categorias</p>
                       <div className="flex flex-col gap-1">
                         {suggestionItems.categories.map((item) => (
-                          <button key={`std-category-${item}`} type="button" onClick={() => applySuggestion(item)} className="rounded-lg px-2 py-1.5 text-left text-sm text-[#1A1614] hover:bg-[#FFF5ED]">
-                            {item}
+                          <button key={`std-category-${item.href}`} type="button" onClick={() => applyCategorySuggestion(item)} className="rounded-lg px-2 py-1.5 text-left text-sm text-[#1A1614] hover:bg-[#FFF5ED]">
+                            {item.label}
                           </button>
                         ))}
                       </div>

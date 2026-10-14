@@ -140,6 +140,7 @@ const getFiltersFromUrl = () => {
         inStock: parseBooleanFilter(params.get("inStock")),
         sort: normalizeSortValue(params.get("sort")),
         page: Math.max(1, Number(params.get("page") || 1) || 1),
+        group: String(params.get("group") || "").trim(),
     };
 };
 
@@ -294,6 +295,7 @@ export default function CatalogPage() {
     const [selectedMaxPrice, setSelectedMaxPrice] = useState(initialFilters.maxPrice);
     const [inStockOnly, setInStockOnly] = useState(initialFilters.inStock);
     const [sort, setSort] = useState(initialFilters.sort);
+    const [selectedGroup, setSelectedGroup] = useState(initialFilters.group);
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState("");
@@ -316,6 +318,7 @@ export default function CatalogPage() {
             setSelectedMaxPrice((prev) => (prev === next.maxPrice ? prev : next.maxPrice));
             setInStockOnly((prev) => (prev === next.inStock ? prev : next.inStock));
             setSort((prev) => (prev === next.sort ? prev : next.sort));
+            setSelectedGroup((prev) => (prev === next.group ? prev : next.group));
             setPage(next.page);
             setMobileFiltersOpen(false);
         };
@@ -755,8 +758,9 @@ export default function CatalogPage() {
         return (
             <StoreLayout>
                 <PiquimSubcatalogPage
-                    key={selectedSubcatalog.slug}
+                    key={`${selectedSubcatalog.slug}:${selectedGroup}`}
                     catalog={selectedSubcatalog}
+                    initialGroup={selectedGroup}
                     categories={categories}
                     products={products}
                     loading={loading}
@@ -1337,9 +1341,10 @@ function PiquimFooterColumn({ title, links }) {
     );
 }
 
-function PiquimSubcatalogPage({ catalog, categories, products, loading, loadError, onRetry, currency, locale, onProductClick, labels }) {
+function PiquimSubcatalogPage({ catalog, categories, initialGroup = "", products, loading, loadError, onRetry, currency, locale, onProductClick, labels }) {
     const [query, setQuery] = useState("");
-    const [typeFilters, setTypeFilters] = useState([]);
+    // `group` en la URL (ej. una categoria sugerida del buscador) preselecciona la subcategoria.
+    const [typeFilters, setTypeFilters] = useState(() => (initialGroup ? [initialGroup] : []));
     const [formatFilters, setFormatFilters] = useState([]);
     const [flavorFilters, setFlavorFilters] = useState([]);
     const [stockOnly, setStockOnly] = useState(false);

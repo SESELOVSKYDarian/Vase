@@ -25,6 +25,11 @@ const DEFAULT_PROPS = {
     videoMuted: true,
     videoControls: false,
     videoObjectPosition: 'center center',
+    imageMobile: '',
+    imageObjectPosition: 'center center',
+    statProductsLabel: 'productos',
+    statCategoriesLabel: 'categorias',
+    statYearsLabel: 'anos de oficio',
 };
 
 export default function PiquimHero(props) {
@@ -37,7 +42,10 @@ export default function PiquimHero(props) {
     const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches);
     const [videoReady, setVideoReady] = useState(false);
     const [videoFailed, setVideoFailed] = useState(false);
-    const videoSource = isMobile ? mobileVideoUrl : desktopVideoUrl;
+    // Con "Imagen" elegida en el editor se muestra la imagen y no el video.
+    const imageSource = (isMobile && data.imageMobile) || data.image || '';
+    const useImage = data.mediaType === 'image' && Boolean(imageSource);
+    const videoSource = useImage ? '' : (isMobile ? mobileVideoUrl : desktopVideoUrl);
     const markVideoReady = useCallback(() => setVideoReady(true), []);
 
     useEffect(() => {
@@ -56,8 +64,16 @@ export default function PiquimHero(props) {
     return (
         <section className="relative isolate overflow-hidden bg-[#1a1614]">
             <div className="relative min-h-screen min-h-[100svh] w-full bg-[#1a1614]">
-                {!videoReady && !videoFailed ? <div className="absolute inset-0 animate-pulse bg-[linear-gradient(110deg,#2c2522_8%,#463b36_18%,#2c2522_33%)] bg-[length:200%_100%] transition-opacity duration-[400ms] motion-reduce:animate-none" /> : null}
-                {videoSource ? (
+                {videoSource && !videoReady && !videoFailed ? <div className="absolute inset-0 animate-pulse bg-[linear-gradient(110deg,#2c2522_8%,#463b36_18%,#2c2522_33%)] bg-[length:200%_100%] transition-opacity duration-[400ms] motion-reduce:animate-none" /> : null}
+                {useImage ? (
+                    <img
+                        src={imageSource}
+                        alt=""
+                        fetchPriority="high"
+                        style={{ objectPosition: data.imageObjectPosition || 'center center' }}
+                        className="absolute inset-0 h-full w-full object-cover"
+                    />
+                ) : videoSource ? (
                     <video
                         key={videoSource}
                         src={videoSource}
@@ -113,15 +129,15 @@ export default function PiquimHero(props) {
                     <div className="mx-auto flex w-full max-w-[420px] items-start justify-between border-t border-[#e8dfd8]/50 pt-6 text-center md:ml-auto md:mr-0">
                         <div className="w-[100px]">
                             <p className="text-[30px] font-black text-white">{data.statProducts}</p>
-                            <p className="text-[11px] tracking-[1.1px] text-[#fff0e8]">productos</p>
+                            <p className="text-[11px] tracking-[1.1px] text-[#fff0e8]">{data.statProductsLabel}</p>
                         </div>
                         <div className="w-[100px]">
                             <p className="text-[30px] font-black text-white">{data.statCategories}</p>
-                            <p className="text-[11px] tracking-[1.1px] text-[#fff0e8]">categorias</p>
+                            <p className="text-[11px] tracking-[1.1px] text-[#fff0e8]">{data.statCategoriesLabel}</p>
                         </div>
                         <div className="w-[100px]">
                             <p className="text-[30px] font-black text-white">{data.statYears}</p>
-                            <p className="text-[11px] tracking-[1.1px] text-[#fff0e8]">anos de oficio</p>
+                            <p className="text-[11px] tracking-[1.1px] text-[#fff0e8]">{data.statYearsLabel}</p>
                         </div>
                     </div>
                 </div>

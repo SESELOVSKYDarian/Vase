@@ -8,6 +8,7 @@ export default function PiquimCatalog3Panel({
     titleHighlight = 'Inspirate.',
     eyebrow = 'NUESTRO CATALOGO',
     subtitle = '',
+    buttonLabel = 'VER CATALOGO',
     cards = PIQUIM_CATALOG_CARDS,
 }) {
     const list = Array.isArray(cards) && cards.length ? cards : PIQUIM_CATALOG_CARDS;
@@ -50,10 +51,10 @@ export default function PiquimCatalog3Panel({
                             <p className="max-w-[320px] text-[13px] leading-[1.5] text-[#fffaf6]">{card.description}</p>
                             <button
                                 type="button"
-                                onClick={() => navigate(`/catalog?category=${encodeURIComponent(card.categorySlug || card.category || card.id || '')}`)}
+                                onClick={() => navigate(`/catalog?category=${encodeURIComponent(card.category || card.categorySlug || card.id || '')}`)}
                                 className="border-b-2 border-[#ff4d00] pb-1 text-[11px] font-bold tracking-[0.88px] text-[#fffaf6]"
                             >
-                                VER CATALOGO
+                                {card.buttonLabel || buttonLabel}
                             </button>
                         </div>
                     </article>

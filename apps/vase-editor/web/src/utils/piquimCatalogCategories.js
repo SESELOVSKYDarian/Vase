@@ -205,3 +205,27 @@ export async function fetchAllCatalogPages(fetchPage, onProgress) {
 
   return { items, total: total ?? items.length };
 }
+
+const PIQUIM_CATALOG_SLUGS = ["heladeria", "panaderia"];
+
+// Rubro de Piquim (heladeria/panaderia) al que corresponde una categoria raiz, o "".
+export function resolvePiquimCatalogSlug(category) {
+  const values = getCategoryValues(category);
+  return PIQUIM_CATALOG_SLUGS.find((slug) =>
+    values.some((value) => getCatalogAliases(slug).has(value)),
+  ) || "";
+}
+
+// Link del catalogo para una categoria sugerida. En Piquim, una subcategoria de un
+// rubro abre ese rubro con la subcategoria ya filtrada (`group`).
+export function buildCategorySuggestionHref({ category, parent = null, isPiquim = false }) {
+  if (isPiquim) {
+    const rootSlug = resolvePiquimCatalogSlug(parent || category);
+    if (rootSlug) {
+      const params = new URLSearchParams({ category: rootSlug });
+      if (parent) params.set("group", String(category?.name || "").trim());
+      return `/catalog?${params.toString()}`;
+    }
+  }
+  return `/catalog?category=${encodeURIComponent(category?.id || category?.slug || "")}`;
+}

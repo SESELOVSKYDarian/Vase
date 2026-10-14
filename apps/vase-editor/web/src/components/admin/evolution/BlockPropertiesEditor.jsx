@@ -1733,7 +1733,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                 <div className="space-y-1.5">
                     <label className="pl-1 text-[10px] font-bold uppercase text-zinc-600">Media hero</label>
                     <select
-                        value={block.props?.mediaType || 'image'}
+                        value={block.props?.mediaType || 'video'}
                         onChange={(event) => handlePropChange('mediaType', event.target.value)}
                         className={selectFieldClass}
                     >
@@ -1742,7 +1742,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                     </select>
                 </div>
 
-                {(block.props?.mediaType || 'image') === 'video' ? (
+                {(block.props?.mediaType || 'video') === 'video' ? (
                     <>
                         {renderVideoControl({ label: 'Video desktop (PC)', value: block.props?.videoUrlDesktop, uploadKey: 'piquim-hero-video-desktop', onChange: (value) => handlePropChange('videoUrlDesktop', value) })}
                         {renderVideoControl({ label: 'Video mobile (celular)', value: block.props?.videoUrlMobile, uploadKey: 'piquim-hero-video-mobile', onChange: (value) => handlePropChange('videoUrlMobile', value) })}
@@ -1765,13 +1765,20 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                         </div>
                     </>
                 ) : (
-                    <p className="text-xs text-zinc-500">Este bloque esta configurado para trabajar con videos desktop/mobile.</p>
+                    <>
+                        {renderImageControl({ label: 'Imagen desktop (PC)', value: block.props?.image, uploadKey: 'piquim-hero-image', onChange: (value) => handlePropChange('image', value), largePreview: true })}
+                        {renderImageControl({ label: 'Imagen mobile (opcional)', value: block.props?.imageMobile, uploadKey: 'piquim-hero-image-mobile', onChange: (value) => handlePropChange('imageMobile', value) })}
+                        <EvolutionInput label="Encuadre de la imagen" value={block.props?.imageObjectPosition || 'center center'} onChange={(e) => handlePropChange('imageObjectPosition', e.target.value)} placeholder="center 45%" />
+                    </>
                 )}
 
                 <div className="grid grid-cols-3 gap-2">
                     <EvolutionInput label="Stat 1" value={block.props?.statProducts || ''} onChange={(e) => handlePropChange('statProducts', e.target.value)} />
                     <EvolutionInput label="Stat 2" value={block.props?.statCategories || ''} onChange={(e) => handlePropChange('statCategories', e.target.value)} />
                     <EvolutionInput label="Stat 3" value={block.props?.statYears || ''} onChange={(e) => handlePropChange('statYears', e.target.value)} />
+                    <EvolutionInput label="Texto stat 1" value={block.props?.statProductsLabel ?? 'productos'} onChange={(e) => handlePropChange('statProductsLabel', e.target.value)} />
+                    <EvolutionInput label="Texto stat 2" value={block.props?.statCategoriesLabel ?? 'categorias'} onChange={(e) => handlePropChange('statCategoriesLabel', e.target.value)} />
+                    <EvolutionInput label="Texto stat 3" value={block.props?.statYearsLabel ?? 'anos de oficio'} onChange={(e) => handlePropChange('statYearsLabel', e.target.value)} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                     <EvolutionInput label="Boton primario" value={block.props?.primaryLabel || ''} onChange={(e) => handlePropChange('primaryLabel', e.target.value)} />
@@ -1890,15 +1897,19 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
         const cards = getArrayProp('cards');
         return (
             <div className={panelClass}>
-                <SectionHeading icon={Baseline}>Catalogo 3 paneles</SectionHeading>
+                <SectionHeading icon={Baseline}>Catalogo por especialidad</SectionHeading>
                 <div className="space-y-3">
                     <EvolutionInput label="Titulo" value={block.props?.title || ''} onChange={(e) => handlePropChange('title', e.target.value)} />
+                    <EvolutionInput label="Titulo destacado (naranja)" value={block.props?.titleHighlight ?? 'Inspirate.'} onChange={(e) => handlePropChange('titleHighlight', e.target.value)} />
+                    <EvolutionInput label="Texto superior derecho" value={block.props?.eyebrow ?? 'NUESTRO CATALOGO'} onChange={(e) => handlePropChange('eyebrow', e.target.value)} />
                     <EvolutionInput label="Subtitulo" value={block.props?.subtitle || ''} onChange={(e) => handlePropChange('subtitle', e.target.value)} multiline />
+                    <EvolutionInput label="Texto del boton" value={block.props?.buttonLabel ?? 'VER CATALOGO'} onChange={(e) => handlePropChange('buttonLabel', e.target.value)} />
+                    <p className="text-[11px] text-zinc-500">En la web se muestran las primeras 2 cards.</p>
                     {cards.map((card, index) => (
                         <div key={`cat-card-${index}`} className="space-y-2 rounded-xl border border-white/10 p-3">
                             <EvolutionInput label={`Card ${index + 1} titulo`} value={card?.title || ''} onChange={(e) => updateObjectArrayItem('cards', index, { title: e.target.value })} />
                             <EvolutionInput label="Prefijo" value={card?.prefix || ''} onChange={(e) => updateObjectArrayItem('cards', index, { prefix: e.target.value })} />
-                            <EvolutionInput label="Categoria" value={card?.category || ''} onChange={(e) => updateObjectArrayItem('cards', index, { category: e.target.value })} />
+                            <EvolutionInput label="Categoria (slug o rubro, ej: heladeria)" value={card?.category || card?.categorySlug || ''} onChange={(e) => updateObjectArrayItem('cards', index, { category: e.target.value, categorySlug: e.target.value })} />
                             <EvolutionInput label="Tags (coma separada)" value={Array.isArray(card?.tags) ? card.tags.join(', ') : ''} onChange={(e) => updateObjectArrayItem('cards', index, { tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })} />
                             <EvolutionInput label="Descripcion" value={card?.description || ''} onChange={(e) => updateObjectArrayItem('cards', index, { description: e.target.value })} multiline />
                             {renderImageControl({
