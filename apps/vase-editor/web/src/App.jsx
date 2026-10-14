@@ -9,24 +9,42 @@ import { navigate } from './utils/navigation';
 import { isEditorHost as resolveIsEditorHost } from './utils/vaseAuth';
 import { resolveTenantBrandName } from './utils/tenantBranding';
 
+// Tras un deploy los chunks con hash viejo dejan de existir. Si una pestaña abierta
+// pide uno, se recarga para tomar el index.html nuevo en vez de mostrar un error
+// (como maximo una vez cada 30s, para no entrar en loop si falla por otro motivo).
+const CHUNK_RELOAD_KEY = 'vase:chunk-reload-at';
+const lazyPage = (load) => lazy(() => load().catch((error) => {
+    try {
+        const lastReload = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
+        if (Date.now() - lastReload > 30000) {
+            sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+            window.location.reload();
+            return new Promise(() => {});
+        }
+    } catch {
+        // Sin sessionStorage no se puede evitar el loop: se muestra el error.
+    }
+    throw error;
+}));
+
 // Store pages
-const HomePage = lazy(() => import('./pages/store/HomePage'));
-const CatalogPage = lazy(() => import('./pages/store/CatalogPage'));
-const CartPage = lazy(() => import('./pages/store/CartPage'));
-const CheckoutPage = lazy(() => import('./pages/store/CheckoutPage'));
-const ProductDetail = lazy(() => import('./pages/store/ProductDetail'));
-const AboutPage = lazy(() => import('./pages/store/AboutPage'));
-const LoginPage = lazy(() => import('./pages/store/LoginPage'));
-const SignupPage = lazy(() => import('./pages/store/SignupPage'));
-const ProfilePage = lazy(() => import('./pages/store/ProfilePage'));
-const OrderSuccessPage = lazy(() => import('./pages/store/OrderSuccessPage'));
-const OrderDetailPage = lazy(() => import('./pages/store/OrderDetailPage'));
-const TermsPage = lazy(() => import('./pages/store/TermsPage'));
+const HomePage = lazyPage(() => import('./pages/store/HomePage'));
+const CatalogPage = lazyPage(() => import('./pages/store/CatalogPage'));
+const CartPage = lazyPage(() => import('./pages/store/CartPage'));
+const CheckoutPage = lazyPage(() => import('./pages/store/CheckoutPage'));
+const ProductDetail = lazyPage(() => import('./pages/store/ProductDetail'));
+const AboutPage = lazyPage(() => import('./pages/store/AboutPage'));
+const LoginPage = lazyPage(() => import('./pages/store/LoginPage'));
+const SignupPage = lazyPage(() => import('./pages/store/SignupPage'));
+const ProfilePage = lazyPage(() => import('./pages/store/ProfilePage'));
+const OrderSuccessPage = lazyPage(() => import('./pages/store/OrderSuccessPage'));
+const OrderDetailPage = lazyPage(() => import('./pages/store/OrderDetailPage'));
+const TermsPage = lazyPage(() => import('./pages/store/TermsPage'));
 
 // Admin pages
-const EditorPage = lazy(() => import('./pages/admin/EditorPage'));
-const EvolutionAdmin = lazy(() => import('./pages/admin/evolution/EvolutionAdmin'));
-const PreviewPage = lazy(() => import('./pages/admin/evolution/PreviewPage'));
+const EditorPage = lazyPage(() => import('./pages/admin/EditorPage'));
+const EvolutionAdmin = lazyPage(() => import('./pages/admin/evolution/EvolutionAdmin'));
+const PreviewPage = lazyPage(() => import('./pages/admin/evolution/PreviewPage'));
 
 function PageFallback() {
     return <div className="min-h-screen" aria-busy="true" />;
