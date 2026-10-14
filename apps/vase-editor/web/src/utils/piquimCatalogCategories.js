@@ -192,10 +192,15 @@ export async function fetchAllCatalogPages(fetchPage, onProgress) {
 
   onProgress?.({ items: [...items], total: total ?? items.length, page: 1, totalPages: pageCount });
 
-  for (let page = 2; page <= pageCount; page += 1) {
-    const response = await fetchPage(page);
+  // Las paginas restantes se piden todas juntas (en serie cada una esperaba a la
+  // anterior) y se publican en orden a medida que llegan.
+  const pending = [];
+  for (let page = 2; page <= pageCount; page += 1) pending.push(fetchPage(page));
+  pending.forEach((request) => request.catch(() => {}));
+  for (let index = 0; index < pending.length; index += 1) {
+    const response = await pending[index];
     if (Array.isArray(response?.items)) items.push(...response.items);
-    onProgress?.({ items: [...items], total: total ?? items.length, page, totalPages: pageCount });
+    onProgress?.({ items: [...items], total: total ?? items.length, page: index + 2, totalPages: pageCount });
   }
 
   return { items, total: total ?? items.length };

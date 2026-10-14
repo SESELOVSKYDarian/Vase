@@ -403,7 +403,7 @@ export default function CatalogPage() {
                 }
                 // El subcatalogo de Piquim filtra y pagina en el cliente: necesita todos los productos.
                 url.searchParams.set("page", String(isPiquimSubcatalog ? 1 : page));
-                url.searchParams.set("limit", String(isPiquimSubcatalog ? 100 : limit));
+                url.searchParams.set("limit", String(isPiquimSubcatalog ? 500 : limit));
                 url.searchParams.set("grouped", "true");
                 url.searchParams.set("sort", sort);
 

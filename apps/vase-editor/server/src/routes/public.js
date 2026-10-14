@@ -569,7 +569,9 @@ publicRouter.get('/products', async (req, res, next) => {
     const grouped = parseBooleanQuery(req.query.grouped, false);
     const sort = normalizeSortValue(req.query.sort);
 
-    const limit = Math.min(parseInt(req.query.limit || '24', 10), 100);
+    // Cada pedido arma el listado completo y recorta la pagina al final, asi que traer
+    // mas items por pedido no encarece la consulta: el subcatalogo de Piquim pide todo junto.
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '24', 10) || 24, 1), 500);
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
     const offset = (page - 1) * limit;
 
