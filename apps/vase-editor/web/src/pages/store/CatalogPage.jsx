@@ -18,6 +18,7 @@ import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
 import {
     buildCatalogPaginationModel,
     buildPiquimCategoryGroups,
+    fetchAllCatalogPages,
     paginateCatalogItems,
     resolvePiquimProductGroups,
     selectCanonicalCatalogMemberships,
@@ -400,8 +401,9 @@ export default function CatalogPage() {
                     setProducts([]);
                     setTotalItems(0);
                 }
-                url.searchParams.set("page", String(page));
-                url.searchParams.set("limit", String(limit));
+                // El subcatalogo de Piquim filtra y pagina en el cliente: necesita todos los productos.
+                url.searchParams.set("page", String(isPiquimSubcatalog ? 1 : page));
+                url.searchParams.set("limit", String(isPiquimSubcatalog ? 100 : limit));
                 url.searchParams.set("grouped", "true");
                 url.searchParams.set("sort", sort);
 
@@ -453,7 +455,9 @@ export default function CatalogPage() {
                     setTotalItems(Math.max(0, originalTotal - removedCount));
                 };
 
-                const data = await fetchPage(page);
+                const data = isPiquimSubcatalog
+                    ? await fetchAllCatalogPages(fetchPage, publishProducts)
+                    : await fetchPage(page);
                 if (!active) return;
                 publishProducts(data);
             } catch (error) {
@@ -461,8 +465,11 @@ export default function CatalogPage() {
                     console.error("No se pudieron cargar los productos", error);
                     if (active) {
                         setLoadError("No se pudieron cargar los productos");
-                        setProducts([]);
-                        setTotalItems(0);
+                        // En el subcatalogo se conservan las paginas que ya llegaron.
+                        if (!isPiquimSubcatalog) {
+                            setProducts([]);
+                            setTotalItems(0);
+                        }
                     }
                 }
             } finally {
@@ -1642,7 +1649,7 @@ function PiquimSubcatalogPage({ catalog, categories, products, loading, loadErro
                     ) : null}
 
                     {loading && normalizedProducts.length ? (
-                        <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--store-surface-soft)]" role="status" aria-label="Actualizando productos">
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--store-surface-soft)]" role="status" aria-label="Cargando más productos...">
                             <div className="h-full w-1/3 animate-pulse rounded-full bg-[var(--store-primary)]" />
                         </div>
                     ) : null}
