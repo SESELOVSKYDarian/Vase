@@ -1,0 +1,22 @@
+[
+ {"t": "Vendiste algo que no tenías.", "st": 1.5, "gap": 0.45},
+ {"t": "Otra vez.", "st": 2.0, "gap": 1.0},
+ {"t": "El Excel decía cinco…", "st": 0.0, "gap": 0.4},
+ {"t": "y en el estante, ni una.", "st": 0.5, "gap": 1.0},
+ {"t": "¿Y ahora quién le avisa?", "st": 2.0, "gap": 1.15},
+ {"t": "Vase Management.", "say": "Vase Mániyment.", "st": 1.5, "gap": 1.0},
+ {"t": "Vendés, y el stock se descuenta solo.", "st": 1.0, "gap": 0.5},
+ {"t": "Si no lo tenés, no te deja venderlo.", "st": 1.5, "gap": 1.3},
+ {"t": "Te avisa qué reponer…", "st": 0.5, "gap": 0.45},
+ {"t": "y no comprás lo que ya tenés.", "st": 1.0, "gap": 1.3},
+ {"t": "Los pedidos de tu tienda online entran solos,", "say": "Los pedidos de tu tienda onlain entran solos,", "st": 1.0, "gap": 0.4},
+ {"t": "sin cargarlos dos veces.", "st": 0.5, "gap": 1.3},
+ {"t": "Ves quién te debe y cuánto…", "st": 0.5, "gap": 0.45},
+ {"t": "y quién se pasó del límite.", "st": 1.5, "gap": 1.3},
+ {"t": "Tus ventas y tu caja, de un vistazo.", "st": 1.0, "gap": 1.2},
+ {"t": "Cargás una vez.", "st": -0.5, "gap": 0.7},
+ {"t": "Y todo cierra.", "st": 1.5, "gap": 1.3},
+ {"t": "Vase Management: tu negocio, en un solo lugar.", "say": "Vase Mániyment: tu negocio, en un solo lugar.", "st": 1.0, "gap": 0.5},
+ {"t": "Escribinos por WhatsApp y te lo mostramos con tu negocio.", "say": "Escribinos por guasap y te lo mostramos con tu negocio.", "st": 1.0, "gap": 0.35},
+ {"t": "¡Dale!", "st": 3.0, "gap": 0.6}
+]

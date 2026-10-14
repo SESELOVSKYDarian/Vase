@@ -1,0 +1,44 @@
+# Vase Management: funciones verificadas en el código
+
+Base: `apps/vase-management` (revisado el 13/10/2026). Las rutas son relativas a esa carpeta salvo que se indique otra cosa.
+
+## A. Usadas en el reel (respaldadas)
+
+| # | Función | Frase del guion | Respaldo en código | Notas |
+|---|---|---|---|---|
+| 1 | **La venta descuenta stock automáticamente** (tipo "Venta") y deja el movimiento en el kardex | 6 | `app/api/ventas/route.ts` (líneas ~145-158 llaman a `applyStockMovement` tipo SALE) · `lib/stock.service.ts` (única puerta para mover stock, actualiza `Product.stock` y `StockLevel`) · UI: `components/modules/ventas/VentasTable.tsx` (modal "Nueva venta", buscador con "Stock: N u") · `app/dashboard/stock/kardex/page.tsx` | Presupuesto, Pedido y Remito **no** mueven stock al crearse, solo la "Venta" directa y el POS. |
+| 2 | **No deja vender sin stock** | 7 | `lib/stock.service.ts` → `InsufficientStockError` cuando el stock quedaría negativo · `app/api/ventas/route.ts` y `app/api/pos/venta/route.ts` devuelven 409 · toast de error en `VentasTable.tsx` | El mensaje real incluye el ID interno del producto ("Stock insuficiente para producto <id>: disponible X, solicitado Y"). Compras y ajustes usan `allowNegative: true`, como corresponde. |
+| 3 | **Stock crítico / qué reponer** | 8, 9 | `app/dashboard/stock/critico/page.tsx` (tarjetas "Sin stock / Crítico", "Stock bajo", "Stock OK"; columnas Stock actual · Mínimo · Faltante · Costo reponer) · alerta `STOCK_BAJO` en `lib/alerts/system-alerts.ts` ("{producto} tiene N unidades (mínimo: M)") · `app/dashboard/alertas/page.tsx` · tarjeta "Stock crítico" en `app/dashboard/page.tsx` | Las alertas se generan con `POST /api/alertas` (`app/api/alertas/route.ts`), no por cron. También hay trigger `LOW_STOCK` en Automatizaciones. |
+| 4 | **Los pedidos de la tienda online entran solos** como venta "Confirmado" y crean el cliente | 10, 11 | Origen: `apps/vase-app/src/server/queries/business/orders.ts` (crea `platformSyncEvent` destino MANAGEMENT, entidad ORDER) → `apps/vase-app/src/server/services/management-sync-outbox.ts` → destino: `app/api/internal/platform/events/route.ts` (crea `Sale` status CONFIRMED + `Customer` + ítems) | Requiere que la empresa tenga `integrationProvider = VASE_MANAGEMENT`. **El pedido web no descuenta stock** (ver C). Si el SKU no existe, crea el producto con stock 0. |
+| 5 | **Quién te debe, cuánto y quién pasó el límite** (cuenta corriente y riesgo crediticio) | 12, 13 | `lib/ledger.service.ts` (`recordCustomerMovement` actualiza `Customer.totalDebt`; la venta con cliente registra "INVOICE" al debe) · `app/dashboard/clientes/riesgo/page.tsx` (Límite crédito, Deuda actual, Uso %, niveles Bajo/Medio/Alto/Bloqueado, KPI "Exceden límite") · `app/dashboard/clientes/estado-cuenta/page.tsx` (Debe/Haber/Saldo, exporta) | El límite de crédito se edita desde la misma pantalla. |
+| 6 | **Tablero: ventas y caja de un vistazo** | 14 | `app/dashboard/page.tsx` (tarjetas "Ventas del mes" con % vs. mes anterior, "Caja este mes", "Por cobrar", "Stock crítico"; gráfico de 30 días en `components/modules/dashboard/DashboardCharts.tsx`; últimas ventas, top productos y top clientes) | — |
+| 7 | **"Cargás una vez"** (sin doble carga) | 11, 15 | Combinación de 1, 4 y 5: una venta mueve stock, cuenta corriente y tablero. El alta de producto se encola hacia Business y Labs (`app/api/productos/route.ts` → `lib/integration/outbox.ts`), y lo consume `apps/vase-editor/server/src/routes/integrations.js` (`/management/events`). | La sincronización hacia la tienda solo ocurre **en el alta** del producto (ver C). |
+
+## B. Verificadas pero fuera del reel (por foco o por requisitos)
+
+| Función | Respaldo | Por qué no va |
+|---|---|---|
+| Punto de venta (POS) con lector de código de barras, pagos combinados (Efectivo, Tarjeta crédito/débito, Mercado Pago, Transferencia) y descuento de stock | `app/dashboard/pos/page.tsx`, `app/api/pos/venta/route.ts`, `app/api/pos/sync/route.ts` | Sirve para otra pieza ("el mostrador"). |
+| Compras a proveedor que suman stock y llevan la cuenta corriente del proveedor | `components/modules/compras/ComprasPanel.tsx`, `app/api/compras/route.ts` (`applyStockMovement` PURCHASE, `recordSupplierMovement`) | Ya cubierto por la idea de "no comprás lo que ya tenés". |
+| Multi-depósito, transferencias, ajustes con motivo, kardex | `app/dashboard/stock/{depositos,transferencias,ajustes,kardex}` | Muy detallado para 45 s. |
+| Caja diaria: apertura, arqueo y cierre con diferencia ("Arqueo exacto" / "Diferencia: $…") | `app/dashboard/tesoreria/caja/page.tsx`, `app/api/tesoreria/caja/...` | **No hay UI para crear la caja registradora** (solo `POST /api/tesoreria/cajas-registradoras`). Sin alta previa, la pantalla dice "No hay cajas registradoras configuradas todavía". |
+| Cartera de cheques, bancos, movimientos de tesorería, flujo de caja | `app/dashboard/tesoreria/{cheques,bancos,flujo}`, `components/modules/tesoreria/*` | Por foco. |
+| Reportes pedidos en lenguaje natural (ej. "Ventas mensuales por cliente"), guardados y exportables a Excel | `app/dashboard/reportes/generador/page.tsx`, `lib/ai/report-parser.ts` (Groq), `app/dashboard/reportes/guardados/page.tsx` | Depende de `GROQ_API_KEY` configurada. Buen material para otro reel. |
+| Automatizaciones "si esto, entonces esto" (alertas, webhooks y emails) | `app/dashboard/automatizaciones/page.tsx`, `lib/automation.service.ts` | Por foco. |
+| Depósito IA: ubicación física de productos, "¿Dónde está PC06?" por texto o audio, LEDs en racks con controladores ESP32 | `app/dashboard/deposito-ia/*`, `lib/warehouse/*` (con tests) | **Requiere hardware instalado.** El "IA" es un parser determinístico de intenciones (MVP). |
+| Distribución: rutas, pendientes y hoja de ruta del día | `app/dashboard/distribucion/*` | No se revisó a fondo. |
+| Auditoría y cierre de período | `app/dashboard/utilidades/{auditoria,cierre}`, `lib/audit.ts`, `lib/fiscal-period.ts` | Por foco. |
+
+## C. A confirmar o no anunciar
+
+| Tema | Qué encontré | Recomendación |
+|---|---|---|
+| **Facturación electrónica ARCA con CAE** | `services/afip.service.ts` usa `MockAFIPService`: el CAE se genera localmente con la observación "⚠️ MODO DEMO: CAE generado localmente". `RealAFIPService` está comentado y, con `AFIP_ENV=production`, el servicio tira error a propósito. En Industria, `app/api/industria/[...path]/route.ts` devuelve ARCA "NOT_CONFIGURED". `modules/arca/` es solo el catálogo de comprobantes (Factura A/B/C/M, NC/ND; FCE MiPyME deshabilitada). WSMTXCA y WSFEX no están implementados. | **No mencionar ARCA ni facturación electrónica** hasta que esté la integración WSAA/WSFEv1 real. Por eso se descartó el gancho 3. |
+| **Actualizar listas de precios por inflación (masivo / por %)** | No existe actualización masiva. Los precios se editan producto por producto. `app/dashboard/industria/precios/page.tsx` arranca con `lib/mock-data.ts`. | **No usar el gancho 1** ("¿Seguís actualizando precios a mano?"). |
+| **Stock y precio sincronizados "en tiempo real" con la tienda** | `enqueueManagementProduct` solo se llama en el **alta** (`app/api/productos/route.ts`). Ediciones de precio, ventas y ajustes de stock no se envían a Business. Los pedidos web que entran a Management **no** descuentan stock. | No decir "tu tienda se actualiza sola". El portal (`apps/vase-portal/.../vase-management/page.tsx`) promete "Catálogo y stock en tiempo real": conviene revisarlo. |
+| **Registrar cobranzas** (cobro total o parcial de una venta en cuenta corriente) | `paidAmount` solo se completa en el POS. No hay pantalla para imputar un cobro a una venta pendiente ni a la cuenta corriente del cliente. | Se habla de "ver quién te debe", no de "cobrar". |
+| **Cuentas por cobrar con "Vencidas"** | `app/dashboard/tesoreria/cobrar/page.tsx` solo toma ventas en estado Confirmado/Entregado/Facturado. Las ventas creadas desde "Nueva venta" quedan "Pendiente" y el formulario no tiene campo de vencimiento (`dueDate` está en el estado pero sin input). | Por eso E8 usa **Riesgo crediticio** ("pasó del límite") y no "se pasó de la fecha". |
+| **Conversión Presupuesto → Pedido → Remito → Venta** | La API existe (`app/api/ventas/[id]/convertir/route.ts`), pero ningún botón de la UI la llama. | No anunciar el circuito completo. |
+| **Asistente IA** | `app/api/ia/route.ts` responde por palabras clave contra la base ("Arquitectura preparada para conectar con Anthropic API / OpenAI"). No es un modelo de IA. | No venderlo como IA conversacional. |
+| **Módulo Industria (vidrio/DVH)** | Varias pantallas usan `lib/mock-data.ts` (clientes, cuenta corriente, precios, presupuestos nuevos). | Fuera del público objetivo y con datos mock. |
+| Multiempresa / super-admin / contabilidad (IVA ventas/compras) | Páginas cortas y no revisadas a fondo. | No mencionar. |

@@ -1,0 +1,21 @@
+[
+ {"t": "¡Pará, pará!", "st": 1.5, "gap": 0.35},
+ {"t": "¿Otra vez dejaste un cliente en visto?", "st": 1.0, "gap": 0.9},
+ {"t": "Son las tres de la mañana…", "st": -0.5, "gap": 0.45},
+ {"t": "y alguien te quiere comprar.", "st": 0.5, "gap": 0.9},
+ {"t": "¿Quién le contesta?", "st": 2.0, "gap": 1.0},
+ {"t": "Vase Labs.", "say": "Vase Labs.", "st": 1.5, "gap": 1.0},
+ {"t": "Tu inteligencia artificial atiende WhatsApp, Instagram y Facebook,", "say": "Tu inteligencia artificial atiende guasap, Instagram y feisbuk,", "st": 0.5, "gap": 0.35},
+ {"t": "todo en una sola bandeja.", "st": 1.0, "gap": 1.3},
+ {"t": "Responde en segundos, las veinticuatro horas,", "st": 1.0, "gap": 0.3},
+ {"t": "con tus precios y tu stock.", "st": 0.5, "gap": 1.5},
+ {"t": "La entrenás con tu negocio:", "st": 1.0, "gap": 0.35},
+ {"t": "tu catálogo, tus preguntas frecuentes y tu forma de hablar.", "st": 0.5, "gap": 1.4},
+ {"t": "Detecta quién está listo para comprar…", "st": 0.5, "gap": 1.3},
+ {"t": "¡y te arma el pedido solita!", "st": 2.0, "gap": 1.6},
+ {"t": "Vos dormís.", "st": -0.5, "gap": 0.7},
+ {"t": "Tu negocio vende.", "st": 1.5, "gap": 1.5},
+ {"t": "Vase Labs: atención con inteligencia artificial para tu negocio.", "say": "Vase Labs: atención con inteligencia artificial para tu negocio.", "st": 1.0, "gap": 0.6},
+ {"t": "Escribinos y probala.", "st": 1.0, "gap": 0.35},
+ {"t": "¡Dale!", "st": 3.0, "gap": 0.6}
+]
