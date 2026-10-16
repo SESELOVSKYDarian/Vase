@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowDown, Bell, CheckCheck, CircleAlert, Clock3, Loader2, MessageCircle, PauseCircle, PlayCircle, RefreshCw, Send, UserRoundCheck } from "lucide-react";
-import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, Bell, CheckCheck, CircleAlert, Clock3, Loader2, PauseCircle, PlayCircle, RefreshCw, Send, Sparkles, UserRoundCheck } from "lucide-react";
+import { type FormEvent, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LabsStatusPill } from "../labs-ui";
 import {
   countInboxConversationsByChannel,
@@ -63,6 +63,8 @@ type RawInboxConversation = Partial<Omit<InboxConversationItem, "messages" | "ha
   handoffs?: unknown;
 };
 
+const inboxTimeZone = "America/Argentina/Buenos_Aires";
+
 function formatDate(value: string | null) {
   if (!value) return "Sin fecha";
   return new Intl.DateTimeFormat("es-AR", {
@@ -70,6 +72,49 @@ function formatDate(value: string | null) {
     timeStyle: "short",
     timeZone: "America/Argentina/Buenos_Aires",
   }).format(new Date(value));
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat("es-AR", { timeStyle: "short", timeZone: inboxTimeZone }).format(new Date(value));
+}
+
+function dayKey(value: string | Date) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: inboxTimeZone }).format(new Date(value));
+}
+
+function formatDay(value: string) {
+  const key = dayKey(value);
+  const today = new Date();
+  if (key === dayKey(today)) return "Hoy";
+  if (key === dayKey(new Date(today.getTime() - 86_400_000))) return "Ayer";
+  return new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long", year: "numeric", timeZone: inboxTimeZone }).format(new Date(value));
+}
+
+function formatQueueTime(value: string | null) {
+  if (!value) return "";
+  if (dayKey(value) === dayKey(new Date())) return formatTime(value);
+  return new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: inboxTimeZone }).format(new Date(value));
+}
+
+function initials(name: string) {
+  const parts = name.replace(/[^\p{L}\p{N}\s]/gu, "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "#";
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+}
+
+const conversationStatusLabels: Record<string, string> = {
+  OPEN: "Abierta",
+  ESCALATED: "Con humano",
+  CLOSED: "Cerrada",
+};
+
+function conversationStatusLabel(status: string) {
+  return conversationStatusLabels[status] ?? status;
+}
+
+function resizeDraft(textarea: HTMLTextAreaElement) {
+  textarea.style.height = "auto";
+  textarea.style.height = `${textarea.scrollHeight}px`;
 }
 
 function messageAuthor(message: Pick<InboxMessage, "role" | "direction">) {
@@ -168,6 +213,8 @@ export function InboxWorkstation({
   const [notice, setNotice] = useState("");
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLFormElement>(null);
+  const draftRef = useRef<HTMLTextAreaElement>(null);
   const nearBottomRef = useRef(true);
   const operatorSentRef = useRef(false);
   const previousThreadRef = useRef({ conversationId: "", messageCount: 0 });
@@ -197,6 +244,10 @@ export function InboxWorkstation({
       ?? null,
     [activeId, visibleConversations],
   );
+  const activeName = activeConversation?.customerName ?? activeConversation?.customerContact ?? "Cliente";
+  const activeContact = activeConversation?.customerContact && activeConversation.customerContact !== activeName
+    ? activeConversation.customerContact
+    : null;
   const pendingHumanCount = conversations.filter(
     (conversation) => conversation.escalatedToHuman || conversation.handoffs.length > 0,
   ).length;
@@ -207,6 +258,10 @@ export function InboxWorkstation({
       : visibleConversations[0]?.id ?? "";
     if (nextActiveId !== activeId) setActiveId(nextActiveId);
   }, [activeId, visibleConversations]);
+
+  useLayoutEffect(() => {
+    if (draftRef.current) resizeDraft(draftRef.current);
+  }, [draft]);
 
   function scrollToLatest(behavior: ScrollBehavior = "smooth") {
     const thread = threadRef.current;
@@ -534,25 +589,30 @@ export function InboxWorkstation({
           const latestMessage = conversation.messages.at(-1);
           const active = conversation.id === activeId;
           const hasHandoff = conversation.escalatedToHuman || conversation.handoffs.length > 0;
+          const name = conversation.customerName ?? conversation.customerContact ?? "Cliente";
+          const preview = latestMessage
+            ? latestMessage.direction === "OUTBOUND"
+              ? `${messageAuthor(latestMessage)}: ${latestMessage.content}`
+              : latestMessage.content
+            : conversation.summary ?? "Sin mensajes";
           return (
             <button
               type="button"
               key={conversation.id}
               onClick={() => setActiveId(conversation.id)}
               className={active ? "is-active" : ""}
+              aria-current={active ? "true" : undefined}
             >
-              <span className="labs-inbox-queue-title">
-                <strong>{conversation.customerName ?? conversation.customerContact ?? "Cliente"}</strong>
-                <em>{conversation.channel ?? "LABS"}</em>
-              </span>
-              <small>
-                {latestMessage ? `${messageAuthor(latestMessage)}: ${latestMessage.content}` : conversation.summary ?? "Sin mensajes"}
-              </small>
-              <span className="labs-inbox-queue-meta">
-                <LabsStatusPill label={conversation.status} tone={conversation.status === "ESCALATED" ? "warning" : "info"} />
-                {hasHandoff ? <LabsStatusPill label="Humano" tone="warning" /> : null}
-                <small><MessageCircle aria-hidden="true" />{conversation.messageCount}</small>
-                <small><Clock3 aria-hidden="true" />{formatDate(conversation.lastMessageAt)}</small>
+              <span className="labs-inbox-avatar" aria-hidden="true">{initials(name)}</span>
+              <span className="labs-inbox-queue-body">
+                <span className="labs-inbox-queue-title">
+                  <strong>{name}</strong>
+                  <time dateTime={conversation.lastMessageAt ?? undefined}>{formatQueueTime(conversation.lastMessageAt)}</time>
+                </span>
+                <span className="labs-inbox-queue-meta">
+                  <small>{preview}</small>
+                  {hasHandoff ? <em title="Atendida por el equipo">Humano</em> : null}
+                </span>
               </span>
             </button>
           );
@@ -562,16 +622,23 @@ export function InboxWorkstation({
       {activeConversation ? (
       <article className="labs-inbox-thread labs-inbox-thread-card">
         <header>
-          <div>
-            <p className="vase-kicker">{activeConversation.channel ?? "LABS"}</p>
-            <h2>{activeConversation.customerName ?? activeConversation.customerContact ?? "Cliente"}</h2>
-            <span>{formatDate(activeConversation.lastMessageAt)}</span>
+          <div className="labs-inbox-contact">
+            <span className="labs-inbox-avatar is-large" aria-hidden="true">{initials(activeName)}</span>
+            <div>
+              <h2>{activeName}</h2>
+              <span>
+                <img src={`/icons/channels/${selectedChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
+                {inboxChannelLabels[selectedChannel]}
+                {activeContact ? ` · ${activeContact}` : ""}
+                {` · ${activeConversation.messageCount} mensaje${activeConversation.messageCount === 1 ? "" : "s"}`}
+              </span>
+            </div>
           </div>
           <div className="labs-inbox-actions">
-            <LabsStatusPill label={activeConversation.status} tone={activeConversation.status === "ESCALATED" ? "warning" : "info"} />
-            {activeConversation.escalatedToHuman ? (
-              <LabsStatusPill label="Humano activo" tone="warning" />
-            ) : null}
+            <LabsStatusPill
+              label={activeConversation.escalatedToHuman ? "Humano activo" : conversationStatusLabel(activeConversation.status)}
+              tone={activeConversation.escalatedToHuman || activeConversation.status === "ESCALATED" ? "warning" : "success"}
+            />
             <button
               type="button"
               onClick={() => void (activeConversation.escalatedToHuman ? reactivateAi() : requestHandoff())}
@@ -606,41 +673,57 @@ export function InboxWorkstation({
             aria-live="polite"
             onScroll={handleThreadScroll}
           >
-            {activeConversation.messages.map((message) => {
+            {activeConversation.messages.length === 0 ? (
+              <p className="labs-inbox-day"><span>Sin mensajes todavía</span></p>
+            ) : null}
+            {activeConversation.messages.map((message, index) => {
+              const previous = activeConversation.messages[index - 1];
+              const startsDay = !previous || dayKey(previous.createdAt) !== dayKey(message.createdAt);
+              const author = messageAuthor(message);
+              const continuesGroup = Boolean(previous) && !startsDay && messageAuthor(previous) === author;
               const delivery = message.direction === "OUTBOUND"
                 ? resolveInboxMessageDelivery(message.delivery)
                 : null;
+              const bubbleKind = message.direction !== "OUTBOUND" ? "is-inbound" : author === "IA" ? "is-outbound is-ai" : "is-outbound is-human";
               return (
-                <div
-                  key={message.id}
-                  className={`labs-inbox-bubble ${message.direction === "OUTBOUND" ? "is-outbound" : "is-inbound"}`}
-                >
-                  <span>{messageAuthor(message)}</span>
-                  <p>{message.content}</p>
-                  <div className="labs-inbox-bubble-meta">
-                    <time>{formatDate(message.createdAt)}</time>
-                    {delivery ? (
-                      <span
-                        className={`labs-inbox-delivery is-${delivery.tone}`}
-                        title={delivery.detail}
-                      >
-                        {delivery.tone === "sent"
-                          ? <CheckCheck aria-hidden="true" />
-                          : delivery.tone === "failed"
-                            ? <CircleAlert aria-hidden="true" />
-                            : <Clock3 aria-hidden="true" />}
-                        {delivery.label}
+                <Fragment key={message.id}>
+                  {startsDay ? (
+                    <p className="labs-inbox-day"><span>{formatDay(message.createdAt)}</span></p>
+                  ) : null}
+                  <div className={`labs-inbox-bubble ${bubbleKind}${continuesGroup ? " is-grouped" : ""}`}>
+                    {message.direction === "OUTBOUND" && !continuesGroup ? (
+                      <span className="labs-inbox-bubble-author">
+                        {author === "IA" ? <Sparkles aria-hidden="true" /> : <UserRoundCheck aria-hidden="true" />}
+                        {author === "IA" ? "Respuesta IA" : "Equipo"}
                       </span>
                     ) : null}
+                    <p>{message.content}</p>
+                    <div className="labs-inbox-bubble-meta">
+                      <time dateTime={message.createdAt} title={formatDate(message.createdAt)}>{formatTime(message.createdAt)}</time>
+                      {delivery ? (
+                        <span
+                          className={`labs-inbox-delivery is-${delivery.tone}`}
+                          title={delivery.detail}
+                          aria-label={delivery.label}
+                        >
+                          {delivery.tone === "sent"
+                            ? <CheckCheck aria-hidden="true" />
+                            : delivery.tone === "failed"
+                              ? <CircleAlert aria-hidden="true" />
+                              : <Clock3 aria-hidden="true" />}
+                          {delivery.tone === "sent" ? null : delivery.label}
+                        </span>
+                      ) : null}
+                    </div>
+                    {delivery?.tone === "failed" ? (
+                      <small className="labs-inbox-delivery-error" role="status">
+                        {formatInboxDeliveryError({
+                          code: message.delivery?.error ?? "META_SEND_FAILED",
+                        })}
+                      </small>
+                    ) : null}
                   </div>
-                  {delivery?.tone === "failed" ? (
-                    <small className="labs-inbox-delivery-error" role="status">
-                      {formatInboxDeliveryError({
-                        code: message.delivery?.error ?? "META_SEND_FAILED",
-                      })}
-                    </small>
-                  ) : null}
-                </div>
+                </Fragment>
               );
             })}
           </div>
@@ -657,22 +740,22 @@ export function InboxWorkstation({
           ) : null}
         </div>
 
-        <form onSubmit={sendReply} className="labs-inbox-composer">
-          <div className="labs-inbox-composer-heading">
-            <label htmlFor="inbox-human-reply">
-              <UserRoundCheck aria-hidden="true" />
-              Respuesta humana
-            </label>
-            <span>{activeConversation.channel ?? "Canal"}</span>
-          </div>
+        <form ref={composerRef} onSubmit={sendReply} className="labs-inbox-composer">
+          <label htmlFor="inbox-human-reply" className="sr-only">Respuesta humana</label>
           <div className="labs-inbox-composer-field">
             <textarea
+              ref={draftRef}
               id="inbox-human-reply"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              rows={3}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+                event.preventDefault();
+                composerRef.current?.requestSubmit();
+              }}
+              rows={1}
               maxLength={2000}
-              placeholder="Escribi la respuesta del equipo..."
+              placeholder="Escribí un mensaje…"
               disabled={busy}
             />
             <button type="submit" disabled={busy || !draft.trim()} aria-label="Enviar respuesta humana">
@@ -681,6 +764,14 @@ export function InboxWorkstation({
           </div>
           {error ? <p role="alert">{error}</p> : null}
           {notice ? <p className="is-success" aria-live="polite">{notice}</p> : null}
+          {!error && !notice ? (
+            <small className="labs-inbox-composer-hint">
+              {activeConversation.escalatedToHuman
+                ? "La IA está pausada en esta conversación."
+                : "Al responder, la IA se pausa en esta conversación."}
+              {" "}Enter envía · Shift + Enter agrega una línea.
+            </small>
+          ) : null}
         </form>
       </article>
       ) : (
