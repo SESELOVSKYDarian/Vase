@@ -78,7 +78,7 @@ describe.skipIf(!editorDepsInstalled)("public media routes", () => {
     expect((await sharp(body).metadata()).width).toBe(800);
 
     const thumb = await fetch(`${baseUrl}/public/products/${PRODUCT_ID}/images/0?w=200`);
-    expect((await sharp(Buffer.from(await thumb.arrayBuffer())).metadata()).width).toBe(200);
+    expect((await sharp(Buffer.from(await thumb.arrayBuffer())).metadata()).width).toBe(320);
 
     const etag = response.headers.get("etag") as string;
     const again = await fetch(`${baseUrl}/public/products/${PRODUCT_ID}/images/0`, { headers: { "if-none-match": etag } });
@@ -96,6 +96,17 @@ describe.skipIf(!editorDepsInstalled)("public media routes", () => {
 
     queryMock.mockResolvedValue({ rows: [{ image: { url: "data:text/html;base64,PGI+" }, version: "1" }] });
     expect((await fetch(`${baseUrl}/public/products/${PRODUCT_ID}/images/1`)).status).toBe(404);
+  });
+
+  it("never redirects to unsafe schemes or protocol-relative targets", async () => {
+    for (const source of ["javascript:alert(1)", "//evil.example.com/a.png", "file:///etc/passwd", "ftp://x/y.png"]) {
+      queryMock.mockResolvedValue({ rows: [{ image: { url: source }, version: "1" }] });
+      const response = await fetch(`${baseUrl}/public/products/${PRODUCT_ID}/images/0`, { redirect: "manual" });
+      expect(response.status).toBe(404);
+    }
+    queryMock.mockResolvedValue({ rows: [{ image: "/uploads/local.png", version: "1" }] });
+    const local = await fetch(`${baseUrl}/public/products/${PRODUCT_ID}/images/0`, { redirect: "manual" });
+    expect(local.status).toBe(302);
   });
 
   it("redirects images that are already normal URLs", async () => {

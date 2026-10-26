@@ -33,20 +33,22 @@ publicRouter.use(mediaRouter);
 publicRouter.use(resolveTenant);
 
 // Catalogo anonimo: se arma una vez por minuto en vez de una vez por visita.
-const publicListingCache = createLoadingCache({ ttlMs: 60_000, maxEntries: 60, maxEntryBytes: 4_000_000 });
+const publicListingCache = createLoadingCache({ ttlMs: 60_000, maxEntries: 60, maxEntryBytes: 4_000_000, maxTotalBytes: 32_000_000 });
 const publicNamesCache = createLoadingCache({ ttlMs: 5 * 60_000, maxEntries: 50 });
 const publicMediaCache = createLoadingCache({
   ttlMs: 60 * 60_000,
-  maxEntries: 300,
+  maxEntries: 400,
   sizeOf: (value) => value?.buffer?.length || 0,
   maxEntryBytes: 6_000_000,
+  maxTotalBytes: 96_000_000,
 });
+const MAX_SEARCH_LENGTH = 120;
 const LISTING_CACHE_PARAMS = ['q', 'category', 'brand', 'minPrice', 'maxPrice', 'inStock', 'grouped', 'sort', 'limit', 'page', 'featured'];
 
 function buildListingCacheKey(req) {
   const parts = LISTING_CACHE_PARAMS
     .filter((name) => req.query[name] !== undefined)
-    .map((name) => `${name}=${String(req.query[name])}`);
+    .map((name) => `${name}=${String(req.query[name]).slice(0, MAX_SEARCH_LENGTH)}`);
   return `${req.tenant.id}|${parts.join('&')}`;
 }
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -599,7 +601,7 @@ publicRouter.get('/pages/:slug', async (req, res, next) => {
 async function buildProductsListing(req) {
   const pricingContext = await buildPricingContext(req);
   const tenantId = req.tenant.id;
-  const q = String(req.query.q || '').trim();
+  const q = String(req.query.q || '').trim().slice(0, MAX_SEARCH_LENGTH);
   const category = req.query.category;
   const brand = req.query.brand;
   const minPrice = parseNumericQuery(req.query.minPrice);
@@ -1037,7 +1039,11 @@ mediaRouter.get('/products/:id/images/:idx', async (req, res, next) => {
     const image = row?.image;
     const source = typeof image === 'string' ? image : image?.url || image?.src;
     if (!source) return res.sendStatus(404);
-    if (!source.startsWith('data:')) return res.redirect(302, source);
+    if (!source.startsWith('data:')) {
+      // Solo URLs normales: nunca un esquema raro (javascript:, file:) ni un destino de protocolo relativo.
+      const isSafeUrl = /^https?:\/\//i.test(source) || (source.startsWith('/') && !source.startsWith('//'));
+      return isSafeUrl ? res.redirect(302, source) : res.sendStatus(404);
+    }
 
     const width = normalizeImageWidth(req.query.w);
     const media = await publicMediaCache.get(`product:${req.params.id}:${index}:${row.version}:${width}`, async () => {

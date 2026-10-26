@@ -20,8 +20,8 @@ const CONVERTIBLE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 
 
 export const MIN_DATA_URI_LENGTH_TO_EXTERNALIZE = 2000;
 const DEFAULT_IMAGE_WIDTH = 900;
-const MIN_IMAGE_WIDTH = 48;
-const MAX_IMAGE_WIDTH = 1600;
+// Solo se generan estos anchos: pedir cualquier numero permitiria forzar conversiones sin limite.
+const IMAGE_WIDTH_BUCKETS = [160, 320, 480, 640, 900, 1200, 1600];
 
 // SQL que reemplaza, dentro de data.images, cada data URI por la ruta que sirve esa imagen.
 // El numero de version (updated_at) cambia cuando el producto se sincroniza, asi que el cache
@@ -103,7 +103,7 @@ export function externalizePageProps(props, { slug, sectionId, version }) {
 export function normalizeImageWidth(value, fallback = DEFAULT_IMAGE_WIDTH) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(Math.max(parsed, MIN_IMAGE_WIDTH), MAX_IMAGE_WIDTH);
+  return IMAGE_WIDTH_BUCKETS.find((bucket) => bucket >= parsed) ?? IMAGE_WIDTH_BUCKETS[IMAGE_WIDTH_BUCKETS.length - 1];
 }
 
 let sharpPromise;
@@ -136,15 +136,32 @@ export async function optimizeMedia({ mime, buffer }, width = DEFAULT_IMAGE_WIDT
   }
 }
 
-export function createLoadingCache({ ttlMs, maxEntries = 100, maxEntryBytes = Infinity, sizeOf = (value) => value?.length || 0 }) {
+export function createLoadingCache({
+  ttlMs,
+  maxEntries = 100,
+  maxEntryBytes = Infinity,
+  maxTotalBytes = Infinity,
+  sizeOf = (value) => value?.length || 0,
+}) {
   const entries = new Map();
   const inflight = new Map();
+  let totalBytes = 0;
+
+  const remove = (key) => {
+    const existing = entries.get(key);
+    if (!existing) return;
+    totalBytes -= existing.size;
+    entries.delete(key);
+  };
 
   const store = (key, value) => {
-    if (sizeOf(value) > maxEntryBytes) return;
-    entries.delete(key);
-    entries.set(key, { value, expires: Date.now() + ttlMs });
-    while (entries.size > maxEntries) entries.delete(entries.keys().next().value);
+    const size = sizeOf(value);
+    if (size > maxEntryBytes) return;
+    remove(key);
+    entries.set(key, { value, size, expires: Date.now() + ttlMs });
+    totalBytes += size;
+    // Se descartan primero las entradas mas viejas hasta entrar en el limite de memoria.
+    while (entries.size > maxEntries || totalBytes > maxTotalBytes) remove(entries.keys().next().value);
   };
 
   return {
@@ -171,6 +188,7 @@ export function createLoadingCache({ ttlMs, maxEntries = 100, maxEntryBytes = In
     },
     clear() {
       entries.clear();
+      totalBytes = 0;
     },
   };
 }

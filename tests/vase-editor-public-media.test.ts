@@ -53,12 +53,17 @@ describe("public media helpers", () => {
     expect(props.video.length).toBeGreaterThan(3000);
   });
 
-  it("clamps requested image widths", () => {
+  it("snaps requested image widths to a few fixed sizes", () => {
     expect(normalizeImageWidth(undefined)).toBe(900);
     expect(normalizeImageWidth("abc")).toBe(900);
-    expect(normalizeImageWidth("10")).toBe(48);
+    expect(normalizeImageWidth("10")).toBe(160);
+    expect(normalizeImageWidth("200")).toBe(320);
+    expect(normalizeImageWidth("420")).toBe(480);
+    expect(normalizeImageWidth("900")).toBe(900);
     expect(normalizeImageWidth("99999")).toBe(1600);
-    expect(normalizeImageWidth("420")).toBe(420);
+    // Cualquier numero cae en uno de pocos tamanos: no se pueden forzar conversiones ilimitadas.
+    const sizes = new Set(Array.from({ length: 2000 }, (_, i) => normalizeImageWidth(String(i))));
+    expect(sizes.size).toBeLessThanOrEqual(7);
   });
 
   it("builds one value per key, serves stale values on failure and does not cache errors", async () => {
@@ -88,6 +93,23 @@ describe("public media helpers", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("evicts the oldest entries when the memory budget is exceeded", async () => {
+    const cache = createLoadingCache({ ttlMs: 60_000, maxEntries: 100, maxTotalBytes: 10, maxEntryBytes: 8 });
+    const loaders = { a: vi.fn().mockResolvedValue("aaaaaa"), b: vi.fn().mockResolvedValue("bbbbbb") };
+
+    await cache.get("a", loaders.a);
+    await cache.get("b", loaders.b);
+    await cache.get("b", loaders.b);
+    expect(loaders.b).toHaveBeenCalledTimes(1);
+    await cache.get("a", loaders.a);
+    expect(loaders.a).toHaveBeenCalledTimes(2);
+
+    const tooBig = vi.fn().mockResolvedValue("123456789");
+    await cache.get("big", tooBig);
+    await cache.get("big", tooBig);
+    expect(tooBig).toHaveBeenCalledTimes(2);
   });
 
   it("keeps the product data SQL free of user input and pointing at the image route", () => {
