@@ -8,6 +8,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { navigate } from './utils/navigation';
 import { isEditorHost as resolveIsEditorHost } from './utils/vaseAuth';
 import { resolveTenantBrandName } from './utils/tenantBranding';
+import { prefetchPublicPage } from './utils/publicPageCache';
 
 // Tras un deploy los chunks con hash viejo dejan de existir. Si una pestaña abierta
 // pide uno, se recarga para tomar el index.html nuevo en vez de mostrar un error
@@ -28,18 +29,45 @@ const lazyPage = (load) => lazy(() => load().catch((error) => {
 }));
 
 // Store pages
-const HomePage = lazyPage(() => import('./pages/store/HomePage'));
-const CatalogPage = lazyPage(() => import('./pages/store/CatalogPage'));
-const CartPage = lazyPage(() => import('./pages/store/CartPage'));
+const loadHome = () => import('./pages/store/HomePage');
+const loadCatalog = () => import('./pages/store/CatalogPage');
+const loadCart = () => import('./pages/store/CartPage');
+const loadProduct = () => import('./pages/store/ProductDetail');
+const loadAbout = () => import('./pages/store/AboutPage');
+const loadLogin = () => import('./pages/store/LoginPage');
+const loadSignup = () => import('./pages/store/SignupPage');
+
+const HomePage = lazyPage(loadHome);
+const CatalogPage = lazyPage(loadCatalog);
+const CartPage = lazyPage(loadCart);
 const CheckoutPage = lazyPage(() => import('./pages/store/CheckoutPage'));
-const ProductDetail = lazyPage(() => import('./pages/store/ProductDetail'));
-const AboutPage = lazyPage(() => import('./pages/store/AboutPage'));
-const LoginPage = lazyPage(() => import('./pages/store/LoginPage'));
-const SignupPage = lazyPage(() => import('./pages/store/SignupPage'));
+const ProductDetail = lazyPage(loadProduct);
+const AboutPage = lazyPage(loadAbout);
+const LoginPage = lazyPage(loadLogin);
+const SignupPage = lazyPage(loadSignup);
 const ProfilePage = lazyPage(() => import('./pages/store/ProfilePage'));
 const OrderSuccessPage = lazyPage(() => import('./pages/store/OrderSuccessPage'));
 const OrderDetailPage = lazyPage(() => import('./pages/store/OrderDetailPage'));
 const TermsPage = lazyPage(() => import('./pages/store/TermsPage'));
+
+// Precarga del codigo (y de los datos de Inicio/Nosotros) de la pagina a la que se va a navegar:
+// al pasar el mouse o tocar un enlace, o cuando el navegador esta libre. Asi el cambio es inmediato.
+const ROUTE_PRELOADERS = {
+    '/': () => { loadHome(); prefetchPublicPage('home'); },
+    '/catalog': () => { loadCatalog(); },
+    '/about': () => { loadAbout(); prefetchPublicPage('about'); },
+    '/sobre-nosotros': () => { loadAbout(); prefetchPublicPage('about'); },
+    '/cart': () => { loadCart(); },
+    '/login': () => { loadLogin(); },
+    '/signup': () => { loadSignup(); },
+    '/register': () => { loadSignup(); },
+};
+
+const preloadRoute = (pathname) => {
+    const key = pathname.startsWith('/product') ? '/product' : pathname;
+    if (key === '/product') loadProduct();
+    else ROUTE_PRELOADERS[key]?.();
+};
 
 // Admin pages
 const EditorPage = lazyPage(() => import('./pages/admin/EditorPage'));
@@ -79,6 +107,24 @@ function AppContent() {
         if (route !== '/') return;
         navigate('/admin/evolution');
     }, [isEditorHost, route]);
+
+    useEffect(() => {
+        if (isEditorHost || isLocalHost) return undefined;
+        const onIntent = (event) => {
+            const link = event.target instanceof Element ? event.target.closest('a[href^="/"]') : null;
+            if (link) preloadRoute(new URL(link.href, window.location.origin).pathname);
+        };
+        document.addEventListener('pointerover', onIntent, { passive: true });
+        document.addEventListener('touchstart', onIntent, { passive: true });
+
+        const idle = window.requestIdleCallback || ((callback) => setTimeout(callback, 1200));
+        const idleHandle = idle(() => ['/', '/about', '/catalog'].forEach((path) => ROUTE_PRELOADERS[path]()));
+        return () => {
+            document.removeEventListener('pointerover', onIntent);
+            document.removeEventListener('touchstart', onIntent);
+            if (window.cancelIdleCallback && typeof idleHandle === 'number') window.cancelIdleCallback(idleHandle);
+        };
+    }, [isEditorHost, isLocalHost]);
 
     useEffect(() => {
         if (allowLocalAdmin) return;
@@ -127,7 +173,7 @@ function AppContent() {
 
     return (
         <div className="w-full min-h-screen bg-gray-50 text-[#181411] transition-colors duration-200 dark:bg-[#090b0f] dark:text-[#e6edf7]">
-            <div key={route} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div key={route}>
                 <Suspense fallback={<PageFallback />}>
                     <Component />
                 </Suspense>

@@ -193,7 +193,7 @@ export default function StoreLayout({ children, overlay = false }) {
                     Tu cuenta mayorista esta pendiente de aprobacion. Mientras tanto ves precios minoristas.
                 </div>
             ) : null}
-            <main className="relative z-0 flex-grow">
+            <main className="page-enter relative z-0 flex-grow">
                 {children}
             </main>
             {isPiquim ? <PiquimFooter /> : <Footer />}
