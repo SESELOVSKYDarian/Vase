@@ -29,7 +29,7 @@ test('las páginas internas Piquim mantienen separación de flujo sin centrado v
 
     assert.match(storeLayout, /<main className="relative z-0 flex-grow">/);
     assert.match(login, /isPiquim \? 'flex justify-center px-4 pt-8 pb-16 md:pt-10'/);
-    assert.match(signup, /isPiquim \? 'flex justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4 pt-8 pb-16 md:pt-10'/);
+    assert.match(signup, /isPiquim \? 'flex justify-center bg-gradient-to-b from-white via-gray-50 to-white [^']*p-4 pt-8 pb-16 md:pt-10'/);
     assert.match(cart, /isPiquim \? 'pt-8 md:pt-10'/);
     assert.match(about, /isPiquim \? 'pt-8 md:pt-10'/);
 });

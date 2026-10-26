@@ -94,22 +94,22 @@ export default function PiquimHero(props) {
                     <div className="absolute inset-0 bg-[linear-gradient(135deg,#8a3a17,#f28a46_52%,#4a2216)]" />
                 )}
                 {videoFailed ? <div className="absolute inset-0 bg-cover bg-center bg-[linear-gradient(135deg,#8a3a17,#f28a46_52%,#4a2216)]" style={data.videoPoster ? { backgroundImage: `url(${data.videoPoster})` } : undefined} aria-label="No se pudo cargar el video" /> : null}
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(26,22,20,0.10),rgba(26,22,20,0.20)_48%,rgba(26,22,20,0.48))]" />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(26,22,20,0.55),rgba(26,22,20,0.45)_45%,rgba(26,22,20,0.65))] md:bg-[linear-gradient(90deg,rgba(26,22,20,0.12),rgba(26,22,20,0.38)_45%,rgba(26,22,20,0.78))]" />
 
             <div className="absolute inset-0 z-10 mx-auto flex max-w-[1438px] flex-col justify-center px-4 pb-8 pt-32 md:px-[60px] md:pb-10 md:pt-40 lg:pt-44">
                 <div className="space-y-6 text-center md:text-right lg:ml-auto lg:max-w-[640px]">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-[#fff0e8] px-[14px] py-[8px]">
+                    <div className="piquim-hero-reveal inline-flex items-center gap-2 rounded-full bg-[#fff0e8] px-[14px] py-[8px]" style={{ animationDelay: '0.1s' }}>
                         <span className="h-2 w-2 rounded-full bg-[#ff4d00]" />
                         <p className="text-[11px] tracking-[1.98px] text-[#ff4d00]">{data.badgeText}</p>
                     </div>
 
-                    <div className="leading-[0.89]">
-                        <p className="text-[40px] font-black tracking-[-1.6px] text-[#fff0e8] md:text-[76px]">{preTitle}</p>
-                        <p className="text-[40px] font-black tracking-[-1.6px] text-[#ff4d00] md:text-[76px]">{titleHighlight}</p>
-                        <p className="text-[40px] font-black tracking-[-1.6px] text-[#fff0e8] md:text-[76px]">{postTitle}</p>
+                    <div className="leading-[0.89] [text-shadow:0_2px_28px_rgba(0,0,0,0.55)]">
+                        <p className="piquim-hero-reveal text-[40px] font-black tracking-[-1.6px] text-[#fff0e8] md:text-[76px]" style={{ animationDelay: '0.2s' }}>{preTitle}</p>
+                        <p className="piquim-hero-reveal text-[40px] font-black tracking-[-1.6px] text-[#ff6a2b] md:text-[76px]" style={{ animationDelay: '0.38s' }}>{titleHighlight}</p>
+                        <p className="piquim-hero-reveal text-[40px] font-black tracking-[-1.6px] text-[#fff0e8] md:text-[76px]" style={{ animationDelay: '0.56s' }}>{postTitle}</p>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-center gap-4 md:justify-end">
+                    <div className="piquim-hero-reveal flex flex-wrap items-center justify-center gap-4 md:justify-end" style={{ animationDelay: '0.76s' }}>
                         <button
                             type="button"
                             onClick={() => navigate(data.primaryHref || '/catalog')}
@@ -126,7 +126,7 @@ export default function PiquimHero(props) {
                         </button>
                     </div>
 
-                    <div className="mx-auto flex w-full max-w-[420px] items-start justify-between border-t border-[#e8dfd8]/50 pt-6 text-center md:ml-auto md:mr-0">
+                    <div className="piquim-hero-reveal mx-auto flex w-full max-w-[420px] items-start justify-between border-t border-[#e8dfd8]/50 pt-6 text-center md:ml-auto md:mr-0" style={{ animationDelay: '0.95s' }}>
                         <div className="w-[100px]">
                             <p className="text-[30px] font-black text-white">{data.statProducts}</p>
                             <p className="text-[11px] tracking-[1.1px] text-[#fff0e8]">{data.statProductsLabel}</p>

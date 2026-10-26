@@ -1,4 +1,5 @@
 import React from 'react';
+import { adaptiveColor } from '../../utils/adaptiveColor';
 
 export default function AboutTeam({
     title = 'Precisión e inspiración en cada detalle.',
@@ -9,10 +10,10 @@ export default function AboutTeam({
     backgroundImage = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDd5sRN9c3Iyg5tub-t6DownNaquR6DBO7x9kWyTXKAhtTfCcSMSUTP3XZGAiL1-Mj-9MbM-m0jm0ijRI13F0_dNFIyToqwNriV9r4akyx6ZAWADgUH407R7Tas-tfzDuwHbfz29pugtdtM3dlMJNOiv20x3Gv8czAs6T9Sq2RN7e0tDp-X78LAcNw4Fz02UVghwohyhXjshm1zUxjj620L3W_ET5Q_zILEvX-EgPT6IDycP7lycSMQhu25nTE1qZeNJUjPddDvAg0',
     styles = {},
 }) {
-    const backgroundColor = styles.backgroundColor || '#ffffff';
+    const backgroundColor = adaptiveColor(styles.backgroundColor || '#ffffff', 'background');
     const overlayColor = styles.overlayColor || '#000000';
     const overlayOpacity = typeof styles.overlayOpacity === 'number' ? styles.overlayOpacity : 0.25;
-    const textColor = styles.textColor || '#181411';
+    const textColor = adaptiveColor(styles.textColor || '#181411', 'text');
 
     return (
         <section className="py-16 md:py-20">

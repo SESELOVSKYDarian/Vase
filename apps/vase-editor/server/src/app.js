@@ -21,6 +21,21 @@ import { pool } from './db.js';
 import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from './services/seo.js';
 import { normalizeDomainInput } from './services/tenantDomains.js';
 import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from './services/tenantSettings.js';
+import {
+  applyTenantSeoDefaults,
+  buildFaviconLinks,
+  buildRobotsTxt,
+  buildSitemapXml,
+  buildStructuredData,
+  cleanDescription,
+  isAssetLikePath,
+  isPiquimTenant,
+  PIQUIM_SEO_DEFAULTS,
+  renderJsonLd,
+  renderLinkTags,
+  resolveRequestOrigin,
+  toAbsoluteUrl,
+} from './services/tenantSeo.js';
 
 const app = express();
 app.set('trust proxy', true);
@@ -184,6 +199,113 @@ if (hasWebBuild) {
     return cachedIndexHtml;
   };
 
+  // robots.txt, sitemap.xml y favicon.ico: antes devolvian la pagina HTML de la tienda (200), por eso
+  // Google no leia el favicon ni el sitemap.
+  const loadTenantSeoContext = async (req) => {
+    const tenant = await resolvePublicTenant(req);
+    if (!tenant) return null;
+    await ensureTenantSettingsSeoColumn();
+    const settingsRes = await queryTenantSettingsWithSeo(tenant.id);
+    const rawSettings = settingsRes.rows[0] || {};
+    const branding = rawSettings.branding || {};
+    const seo = applyTenantSeoDefaults(rawSettings.seo || {}, tenant, branding);
+    return { tenant, branding, seo, indexable: seo.indexable !== false };
+  };
+
+  app.get('/robots.txt', async (req, res, next) => {
+    try {
+      const context = await loadTenantSeoContext(req);
+      res.type('text/plain').set('Cache-Control', 'public, max-age=3600');
+      return res.send(buildRobotsTxt({ origin: resolveRequestOrigin(req), indexable: context ? context.indexable : true }));
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  const sitemapCache = new Map();
+  app.get('/sitemap.xml', async (req, res, next) => {
+    try {
+      const context = await loadTenantSeoContext(req);
+      const origin = resolveRequestOrigin(req);
+      if (!context || !origin || !context.indexable) return res.sendStatus(404);
+
+      const cached = sitemapCache.get(context.tenant.id);
+      let xml = cached && cached.expires > Date.now() ? cached.xml : null;
+      if (!xml) {
+        const products = await pool.query(
+          [
+            'select p.id, p.updated_at',
+            'from product_cache p',
+            'left join product_overrides o on o.product_id = p.id and o.tenant_id = p.tenant_id',
+            "where p.tenant_id = $1 and p.status = 'active' and p.deleted_at is null",
+            'and coalesce(p.is_active_source, true) = true and coalesce(p.is_visible_web, true) = true',
+            'and (o.hidden is null or o.hidden = false)',
+            'order by p.name asc limit 5000',
+          ].join(' '),
+          [context.tenant.id]
+        );
+        xml = buildSitemapXml({
+          origin,
+          entries: [
+            { path: '/', changefreq: 'weekly', priority: '1.0' },
+            { path: '/catalog', changefreq: 'daily', priority: '0.9' },
+            { path: '/about', changefreq: 'monthly', priority: '0.5' },
+            ...products.rows.map((row) => ({ path: `/product/${row.id}`, lastmod: row.updated_at, changefreq: 'weekly', priority: '0.7' })),
+          ],
+        });
+        sitemapCache.set(context.tenant.id, { xml, expires: Date.now() + 10 * 60_000 });
+      }
+      return res.type('application/xml').set('Cache-Control', 'public, max-age=600').send(xml);
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  app.get('/favicon.ico', async (req, res, next) => {
+    try {
+      const context = await loadTenantSeoContext(req);
+      if (!context) return res.sendStatus(404);
+
+      const configured = String(context.branding?.favicon_url || '').trim();
+      if (/^data:image\/(png|jpeg|webp|gif|x-icon|vnd\.microsoft\.icon);base64,/i.test(configured)) {
+        const comma = configured.indexOf(',');
+        const mime = configured.slice(5, configured.indexOf(';'));
+        res.set({ 'Content-Type': mime, 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' });
+        return res.send(Buffer.from(configured.slice(comma + 1), 'base64'));
+      }
+      if (/^https?:\/\//i.test(configured) || (configured.startsWith('/') && !configured.startsWith('//'))) {
+        return res.redirect(302, configured);
+      }
+      if (isPiquimTenant(context.tenant, context.branding)) return res.redirect(302, '/piquim/favicon.ico');
+      return res.sendStatus(404);
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  async function resolveProductSeo(req) {
+    const match = /^\/product\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i.exec(req.path);
+    if (!match) return null;
+    const result = await pool.query(
+      [
+        'select p.name, p.description, p.brand',
+        'from product_cache p',
+        'left join product_overrides o on o.product_id = p.id and o.tenant_id = p.tenant_id',
+        "where p.tenant_id = $1 and p.id = $2 and p.status = 'active' and p.deleted_at is null",
+        'and coalesce(p.is_active_source, true) = true and coalesce(p.is_visible_web, true) = true',
+        'and (o.hidden is null or o.hidden = false)',
+      ].join(' '),
+      [req.tenant.id, match[1]]
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    const name = String(row.name || '').trim();
+    return {
+      title: name,
+      description: cleanDescription(row.description && row.description !== name ? row.description : `${name}${row.brand ? ` de ${row.brand}` : ''}. Consultá precios y disponibilidad.`),
+    };
+  }
+
   app.get('*', async (req, res, next) => {
     if (!req.accepts('html')) {
       return next();
@@ -192,6 +314,11 @@ if (hasWebBuild) {
     const blockedPrefixes = ['/auth', '/api', '/public', '/checkout', '/webhooks', '/tenant', '/uploads'];
     if (blockedPrefixes.some((prefix) => req.path.startsWith(prefix))) {
       return next();
+    }
+
+    // Un archivo que no existe (imagen, .xml, .js...) debe dar 404, no la pagina de la tienda.
+    if (isAssetLikePath(req.path)) {
+      return res.sendStatus(404);
     }
 
     const isAdminSpaRoute =
@@ -217,36 +344,65 @@ if (hasWebBuild) {
       await ensureTenantSettingsSeoColumn();
       const settingsRes = await queryTenantSettingsWithSeo(req.tenant.id);
       const rawSettings = settingsRes.rows[0] || {};
-      const seo = normalizeSeoSettings(rawSettings.seo || {});
-      const brandName = String(rawSettings.branding?.name || req.tenant?.name || 'Vase Business').trim();
-      const title = seo.title || brandName;
-      const description = seo.description || '';
-      const canonicalUrl = resolveCanonicalUrl({
-        pathname: req.path || '/',
-        canonicalPath: seo.canonicalPath,
-      });
+      const branding = rawSettings.branding || {};
+      const rawSeo = applyTenantSeoDefaults(rawSettings.seo || {}, req.tenant, branding);
+      const seo = normalizeSeoSettings(rawSeo);
+      const brandName = String(branding?.name || req.tenant?.name || 'Vase Business').trim();
+      const origin = resolveRequestOrigin(req);
+      const product = await resolveProductSeo(req);
+      const isHome = (req.path || '/') === '/';
+
+      const title = product?.title ? `${product.title} | ${brandName}` : (seo.title || brandName);
+      const description = product?.description || seo.description || '';
+      const canonicalPath = isHome ? seo.canonicalPath : '';
+      const canonicalUrl = toAbsoluteUrl(
+        origin,
+        resolveCanonicalUrl({ pathname: req.path || '/', canonicalPath })
+      );
       const robots = seo.indexable ? 'index,follow' : 'noindex,nofollow';
-      const ogTitle = seo.ogTitle || title;
-      const ogDescription = seo.ogDescription || description;
+      const ogTitle = product?.title ? title : (seo.ogTitle || title);
+      const ogDescription = product?.description || seo.ogDescription || description;
+      const isPiquim = isPiquimTenant(req.tenant, branding);
+      const ogImage = isPiquim ? toAbsoluteUrl(origin, PIQUIM_SEO_DEFAULTS.ogImage) : '';
+      const faviconLinks = buildFaviconLinks({ branding, seo: rawSeo, tenant: req.tenant });
+      const structuredData = isHome ? buildStructuredData({ tenant: req.tenant, branding, seo, origin }) : null;
       const { head, body } = buildGtmSnippets(seo.tracking?.enabled ? seo.tracking.googleTagManagerContainerId : '');
       const taggedHead = head ? head.replace('<script>', '<script id="vase-gtm-script">') : '';
       const taggedBody = body ? body.replace('<noscript>', '<noscript id="vase-gtm-noscript">') : '';
 
       const titleTag = title ? `<title>${escapeHtml(title)}</title>` : '';
+      const meta = (attr, name, content) => (content ? `<meta ${attr}="${name}" content="${escapeHtml(content)}" />` : '');
       const headTags = [
-        description ? `<meta name="description" content="${escapeHtml(description)}" />` : '',
+        meta('name', 'description', description),
         `<meta name="robots" content="${escapeHtml(robots)}" />`,
         canonicalUrl ? `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />` : '',
-        ogTitle ? `<meta property="og:title" content="${escapeHtml(ogTitle)}" />` : '',
-        ogDescription ? `<meta property="og:description" content="${escapeHtml(ogDescription)}" />` : '',
+        meta('property', 'og:type', 'website'),
+        meta('property', 'og:site_name', brandName),
+        meta('property', 'og:locale', 'es_AR'),
+        meta('property', 'og:url', canonicalUrl),
+        meta('property', 'og:title', ogTitle),
+        meta('property', 'og:description', ogDescription),
+        meta('property', 'og:image', ogImage),
+        meta('name', 'twitter:card', ogImage ? 'summary_large_image' : 'summary'),
+        meta('name', 'twitter:title', ogTitle),
+        meta('name', 'twitter:description', ogDescription),
+        meta('name', 'twitter:image', ogImage),
+        isPiquim ? meta('name', 'theme-color', PIQUIM_SEO_DEFAULTS.themeColor) : '',
+        structuredData ? renderJsonLd(structuredData) : '',
         taggedHead || '',
       ].filter(Boolean).join('\n');
 
       const bodyTags = taggedBody || '';
-      const renderedHtml = html
-        .replace(/<title>.*?<\/title>/i, titleTag || '')
-        .replace('<head>', `<head>\n${headTags}\n`)
-        .replace('<body>', `<body>\n${bodyTags}\n`);
+      const iconTags = faviconLinks.length ? renderLinkTags(faviconLinks, origin) : '';
+      const injectedHead = [iconTags, headTags].filter(Boolean).join('\n');
+      let renderedHtml = html
+        .replace(/<title>.*?<\/title>/i, () => titleTag)
+        .replace('<body>', () => `<body>\n${bodyTags}\n`);
+      if (iconTags) renderedHtml = renderedHtml.replace(/<link rel="icon"[^>]*>\s*/i, '');
+      // Despues de <meta charset>, que debe estar en los primeros 1024 bytes del documento.
+      renderedHtml = /<meta charset[^>]*>/i.test(renderedHtml)
+        ? renderedHtml.replace(/<meta charset[^>]*>/i, (charset) => `${charset}\n${injectedHead}`)
+        : renderedHtml.replace('<head>', () => `<head>\n${injectedHead}\n`);
 
       return res.send(renderedHtml);
     } catch (err) {

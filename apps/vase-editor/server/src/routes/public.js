@@ -11,6 +11,7 @@ import {
   resolveBestOfferForProduct,
 } from '../services/offers.js';
 import { buildPublicProductSearchSql } from '../services/publicProductSearch.js';
+import { applyTenantSeoDefaults } from '../services/tenantSeo.js';
 
 export const publicRouter = express.Router();
 
@@ -448,7 +449,8 @@ publicRouter.get('/tenant', async (req, res, next) => {
       ...rawSettings,
       branding: rawSettings.branding || {},
       theme: rawSettings.theme || {},
-      seo: rawSettings.seo || {},
+      // Titulo, descripcion y favicon por defecto de la tienda cuando el panel admin los deja vacios.
+      seo: applyTenantSeoDefaults(rawSettings.seo || {}, req.tenant, rawSettings.branding),
       commerce: {
         ...commerce,
         price_tier_labels: normalizePriceTierLabels(commerce.price_tier_labels),

@@ -1,4 +1,5 @@
 import React from 'react';
+import { adaptiveColor } from '../../utils/adaptiveColor';
 
 const ICONS = {
     quality: (
@@ -42,11 +43,11 @@ export default function AboutValues({
     ],
     styles = {},
 }) {
-    const backgroundColor = styles.backgroundColor || '#f8f7f5';
-    const cardBackground = styles.cardBackground || '#ffffff';
+    const backgroundColor = adaptiveColor(styles.backgroundColor || '#f8f7f5', 'background');
+    const cardBackground = adaptiveColor(styles.cardBackground || '#ffffff', 'card');
     const accentColor = styles.accentColor || 'var(--color-primary, #f97316)';
-    const textColor = styles.textColor || '#181411';
-    const mutedColor = styles.mutedColor || '#6b7280';
+    const textColor = adaptiveColor(styles.textColor || '#181411', 'text');
+    const mutedColor = adaptiveColor(styles.mutedColor || '#6b7280', 'muted');
 
     return (
         <section className="py-12 lg:py-24" style={{ backgroundColor }}>
@@ -61,7 +62,7 @@ export default function AboutValues({
                     {items.map((item, idx) => (
                         <div
                             key={idx}
-                            className="p-6 lg:p-10 rounded-xl border border-slate-200/80 hover:border-primary/50 transition-colors group"
+                            className="p-6 lg:p-10 rounded-xl border border-slate-200/80 dark:border-[var(--store-border)] hover:border-primary/50 transition-colors group"
                             style={{ backgroundColor: cardBackground }}
                         >
                             <div className="p-4 rounded-full w-fit mb-6 transition-transform group-hover:scale-110" style={{ backgroundColor: 'rgba(0,0,0,0.04)', color: accentColor }}>

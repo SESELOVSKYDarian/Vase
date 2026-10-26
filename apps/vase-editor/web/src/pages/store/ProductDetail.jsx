@@ -755,7 +755,7 @@ export default function ProductDetail() {
                                     </p>
                                 ) : null}
 
-                                <h1 className="mt-3 max-w-[520px] text-4xl font-black leading-[0.96] text-[#1A1614] md:text-5xl">
+                                <h1 className="mt-3 max-w-[520px] text-4xl font-black leading-[0.96] text-[#1A1614] dark:text-[var(--store-text)] md:text-5xl">
                                     {displayName}
                                 </h1>
 
@@ -768,7 +768,7 @@ export default function ProductDetail() {
                                     ) : null}
                                 </div>
 
-                                <p className="mt-5 max-w-[560px] text-sm leading-7 text-[#6F625C]">
+                                <p className="mt-5 max-w-[560px] text-sm leading-7 text-[#6F625C] dark:text-[var(--store-muted-text)]">
                                     {view.longDescription || view.shortDescription || "Producto cargado desde el panel administrativo."}
                                 </p>
 
@@ -797,7 +797,7 @@ export default function ProductDetail() {
 
                                 {presentationOptions.length ? (
                                     <div className="mt-6 space-y-2">
-                                        <p className="text-xs font-bold text-[#6F625C]">
+                                        <p className="text-xs font-bold text-[#6F625C] dark:text-[var(--store-muted-text)]">
                                             {view.variationGroupLabel || "Presentación"}
                                         </p>
                                         <div className="flex flex-wrap gap-2">
@@ -809,8 +809,8 @@ export default function ProductDetail() {
                                                         type="button"
                                                         onClick={() => setSelectedPresentationId(option.id)}
                                                         className={`min-h-10 rounded-md border px-4 text-xs font-semibold transition-colors ${selected
-                                                            ? 'border-[#FF4D00] bg-white text-[#FF4D00]'
-                                                            : 'border-[#E7C6B6] bg-[#FFF9F5] text-[#6F625C] hover:border-[#FF4D00]/70'
+                                                            ? 'border-[#FF4D00] bg-white text-[#FF4D00] dark:bg-[var(--store-card-bg)]'
+                                                            : 'border-[#E7C6B6] bg-[#FFF9F5] text-[#6F625C] hover:border-[#FF4D00]/70 dark:border-[var(--store-border)] dark:bg-[var(--store-surface-soft)] dark:text-[var(--store-muted-text)]'
                                                             }`}
                                                     >
                                                         {option.label}

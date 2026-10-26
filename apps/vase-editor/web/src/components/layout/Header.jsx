@@ -178,6 +178,20 @@ export default function Header({
   const [searchSuggestionsOpen, setSearchSuggestionsOpen] = useState(false);
   const desktopSearchInputRef = useRef(null);
   const searchBoxRef = useRef(null);
+  const piquimHeaderRef = useRef(null);
+  const [piquimHeaderHeight, setPiquimHeaderHeight] = useState(0);
+
+  // Con overlay el contenido (hero) sube por debajo del header. El desplazamiento se mide en vez de
+  // fijarlo a mano: un valor fijo dejaba una franja de ~3 px del color del tema sobre el hero.
+  useEffect(() => {
+    const element = piquimHeaderRef.current;
+    if (!overlay || !element || typeof ResizeObserver === "undefined") return undefined;
+    const measure = () => setPiquimHeaderHeight(Math.ceil(element.getBoundingClientRect().height));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [overlay]);
 
   const resolvedBrand = brandName || settings?.branding?.name || tenant?.name || "Mi Negocio";
   const logoUrl = settings?.branding?.logo_url;
@@ -567,7 +581,11 @@ export default function Header({
 
     return (
       <>
-       <header className={`sticky top-0 z-[1000] isolate w-full font-[var(--font-family)] ${overlay ? '-mt-[6px] -mb-[113px] max-md:-mb-[93px]' : ''}`}>
+       <header
+        ref={piquimHeaderRef}
+        className={`sticky top-0 z-[1000] isolate w-full font-[var(--font-family)] ${overlay ? '-mt-[6px] -mb-[116px] max-md:-mb-[96px]' : ''}`}
+        style={overlay && piquimHeaderHeight ? { marginBottom: `-${piquimHeaderHeight - 6}px` } : undefined}
+       >
         <div className="w-full px-[60px] py-[18px] max-md:px-4">
           <div className="relative flex min-h-[68px] items-center gap-3 overflow-visible rounded-[30px] border border-[var(--store-border)] bg-[var(--store-header-bg)] px-[60px] py-[18px] shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition-colors duration-300 max-md:px-5">
             <button
@@ -833,7 +851,6 @@ export default function Header({
           ) : null}
         </div>
       </header>
-      {!overlay ? <div className="h-[113px] max-md:h-[93px]" aria-hidden="true" /> : null}
       </>
     );
   }

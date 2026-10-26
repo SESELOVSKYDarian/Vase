@@ -1,4 +1,5 @@
 import React from 'react';
+import { adaptiveColor } from '../../utils/adaptiveColor';
 
 const ICONS = {
     verified: (
@@ -33,9 +34,9 @@ export default function AboutMission({
     styles = {},
 }) {
     const accentColor = styles.accentColor || 'var(--color-primary, #f97316)';
-    const backgroundColor = styles.backgroundColor || 'transparent';
-    const textColor = styles.textColor || '#181411';
-    const mutedColor = styles.mutedColor || '#6b7280';
+    const backgroundColor = adaptiveColor(styles.backgroundColor || 'transparent', 'background');
+    const textColor = adaptiveColor(styles.textColor || '#181411', 'text');
+    const mutedColor = adaptiveColor(styles.mutedColor || '#6b7280', 'muted');
 
     return (
         <section className="py-12 lg:py-24" style={{ backgroundColor }}>

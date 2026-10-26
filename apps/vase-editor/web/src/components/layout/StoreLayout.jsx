@@ -46,6 +46,22 @@ export default function StoreLayout({ children, overlay = false }) {
     const navbarConfig = settings?.branding?.navbar || {};
     const seo = useMemo(() => normalizeSeoSettings(settings?.seo || {}), [settings?.seo]);
 
+    // El fondo de la pagina (html/body) sigue el tema de la tienda: sin esto se ve una franja clara
+    // sobre el hero y al hacer scroll elastico en modo oscuro.
+    useEffect(() => {
+        if (typeof document === 'undefined') return undefined;
+        const targets = [document.documentElement, document.body];
+        const previous = targets.map((element) => element.style.backgroundColor);
+        targets.forEach((element) => {
+            element.style.backgroundColor = 'var(--store-background)';
+        });
+        return () => {
+            targets.forEach((element, index) => {
+                element.style.backgroundColor = previous[index];
+            });
+        };
+    }, []);
+
     useEffect(() => {
         if (typeof document === 'undefined') return undefined;
 
