@@ -14,6 +14,7 @@ export const DEFAULT_STOREFRONT_LIGHT_THEME = {
     input_bg: '#fffaf6',
     font_family: 'Gilroy, Manrope, sans-serif',
     catalog: {
+        shell_bg: '#f7f3ee',
         panel_bg: '#fff3eb',
         surface_bg: '#fffaf6',
         card_bg: '#ffffff',
@@ -38,6 +39,7 @@ export const DEFAULT_STOREFRONT_DARK_THEME = {
     input_bg: '#15110f',
     font_family: 'Gilroy, Manrope, sans-serif',
     catalog: {
+        shell_bg: '#0d0b0a',
         panel_bg: '#211812',
         surface_bg: '#0d0b0a',
         card_bg: '#181411',

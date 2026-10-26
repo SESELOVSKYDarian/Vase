@@ -65,6 +65,32 @@ const FooterLink = ({ href, children }) => (
     </a>
 );
 
+const VASE_URL = "https://vase.ar";
+
+// "(c) 2026 Vase Business. Todos los derechos reservados." -> "© 2026 Vase. ..." con Vase enlazado a vase.ar.
+function LegalText({ text }) {
+    const value = String(text || "").replace(/^\(c\)/i, "\u00a9");
+    return (
+        <>
+            {value.split(/(Vase(?: Business)?)/).map((part, index) =>
+                /^Vase(?: Business)?$/.test(part) ? (
+                    <a
+                        key={index}
+                        href={VASE_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold underline-offset-4 transition-colors hover:text-[var(--store-primary,#ff4d00)] hover:underline"
+                    >
+                        Vase
+                    </a>
+                ) : (
+                    part
+                )
+            )}
+        </>
+    );
+}
+
 export default function Footer() {
     const { tenant, settings } = useTenant();
     const emailId = useId();
@@ -195,7 +221,7 @@ export default function Footer() {
                     </div>
 
                     <div className="flex flex-col items-center justify-between gap-4 text-sm text-white/40 md:flex-row">
-                        <p>{legalText}</p>
+                        <p><LegalText text={legalText} /></p>
                         <div className="flex gap-6 text-xs font-semibold uppercase tracking-widest">
                             {legalLinks.map((link, index) => (
                                 <FooterLink key={`${link.label}-${index}`} href={link.href}>{link.label}</FooterLink>
@@ -291,7 +317,7 @@ export default function Footer() {
                 </div>
 
                 <div className="mt-12 flex flex-col gap-4 border-t border-[#332822] pt-8 text-xs font-semibold text-[#8f8077] md:flex-row md:items-center md:justify-between">
-                    <p>{legalText}</p>
+                    <p><LegalText text={legalText} /></p>
                     {whatsappRaw ? (
                         <button
                             type="button"

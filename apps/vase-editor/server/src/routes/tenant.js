@@ -1011,7 +1011,8 @@ tenantRouter.put('/pages/:slug', async (req, res, next) => {
     console.log(`Saving ${sections.length} sections for slug: ${req.params.slug}`);
     for (const section of sections) {
       sortOrder += 1;
-      console.log(` - Section: ${section.type}, Props:`, JSON.stringify(section.props));
+      // Solo el tipo: las props pueden traer imagenes y videos en base64 de varios MB.
+      console.log(` - Section: ${section.type}`);
       await client.query(
         [
           'insert into page_sections (page_id, state, type, enabled, sort_order, props)',

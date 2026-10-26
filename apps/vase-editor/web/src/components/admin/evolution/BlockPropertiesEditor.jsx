@@ -1250,6 +1250,16 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                 </div>
 
                 <div className={panelClass}>
+                    <SectionHeading icon={Baseline}>Tamano de la portada</SectionHeading>
+                    <EvolutionInput
+                        label="Alto minimo"
+                        value={block.props?.styles?.minHeight || ''}
+                        onChange={(event) => handleStyleChange('minHeight', event.target.value.replace(/[^0-9a-z.%]/gi, ''))}
+                        placeholder="70vh (ej: 50vh, 80vh, 600px)"
+                    />
+                </div>
+
+                <div className={panelClass}>
                     <SectionHeading icon={Palette}>Colores del hero</SectionHeading>
                     <div className="grid grid-cols-1 gap-2">
                         <ColorField label="Acento" value={block.props?.styles?.accentColor} defaultColor="#111111" onChange={(value) => handleStyleChange('accentColor', value)} />
@@ -1593,6 +1603,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                             <EvolutionInput label="Autor" value={block.props?.author || ''} onChange={(event) => handlePropChange('author', event.target.value)} placeholder="Nombre" />
                             <EvolutionInput label="Rol" value={block.props?.role || ''} onChange={(event) => handlePropChange('role', event.target.value)} placeholder="Cargo" />
                         </div>
+                        <EvolutionInput label="Ancla (id)" value={block.props?.anchor ?? 'equipo'} onChange={(event) => handlePropChange('anchor', event.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))} placeholder="equipo" />
                     </div>
                 </div>
 
