@@ -6,6 +6,7 @@ export default function AboutTeam({
     quote = 'Nuestro trabajo no es solo vender productos: es ayudar a que cada marca se presente mejor y conecte con sus clientes.',
     author = 'Julian Sterling',
     role = 'Fundador y jefe de ingeniería',
+    anchor = 'equipo',
     avatarImage = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAea9Hk8KW-uNz2oCLHAOeVLaF4OEuHrLoMYAQ5icf0UpW2MbWEoppeOoK7-_ef46vSPLm9bOZn19yxGPkKgbqwzNxdl8pCXwjX84M0rsOM-14FdHnwu8rzaIZR1UJSvo2LVbbFvgWP_nntPKbU-nmwnPjWuzy9XiXqlmi62Yw8p6R5XWHQoEjxiw4mfhRuljOaKyPWkvPFELxYq8TKyXzDzeOlvj5ntTgVpCWOshfxNK3WLIQvRk7FstFclk10_lOYekLKXyXKEYA',
     backgroundImage = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDd5sRN9c3Iyg5tub-t6DownNaquR6DBO7x9kWyTXKAhtTfCcSMSUTP3XZGAiL1-Mj-9MbM-m0jm0ijRI13F0_dNFIyToqwNriV9r4akyx6ZAWADgUH407R7Tas-tfzDuwHbfz29pugtdtM3dlMJNOiv20x3Gv8czAs6T9Sq2RN7e0tDp-X78LAcNw4Fz02UVghwohyhXjshm1zUxjj620L3W_ET5Q_zILEvX-EgPT6IDycP7lycSMQhu25nTE1qZeNJUjPddDvAg0',
     styles = {},
@@ -16,7 +17,7 @@ export default function AboutTeam({
     const textColor = adaptiveColor(styles.textColor || '#181411', 'text');
 
     return (
-        <section className="py-16 md:py-20">
+        <section id={String(anchor || '').trim() || undefined} className="py-16 md:py-20 scroll-mt-28">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="rounded-2xl overflow-hidden shadow-xl" style={{ backgroundColor }}>
                     <div className="grid md:grid-cols-2 items-stretch">
