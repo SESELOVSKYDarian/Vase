@@ -335,7 +335,8 @@ export const TenantProvider = ({ children }) => {
     }, [authLoading, refreshTenantSettings]);
 
     if (loading) {
-        return <StoreSkeleton variant="page" />;
+        // En la tienda: pantalla en blanco del color del tema (el esqueleto gris parecia otra pagina).
+        return isEditorContext() ? <StoreSkeleton variant="page" /> : <div className="tenant-loading" aria-busy="true" />;
     }
 
     return (

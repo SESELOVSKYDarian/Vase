@@ -4,7 +4,7 @@ import StoreLayout from "../../components/layout/StoreLayout";
 import { getApiBase, getAuthHeaders, getTenantHeaders } from "../../utils/api";
 import { useAuth } from "../../context/AuthContext";
 import { createPlaceholderImage } from "../../utils/productImage";
-import StoreSkeleton from "../../components/StoreSkeleton";
+import { fetchPublicPage, getCachedPage } from "../../utils/publicPageCache";
 
 import HeroSlider from "../../components/blocks/HeroSlider";
 import BrandMarquee from "../../components/blocks/BrandMarquee";
@@ -82,15 +82,11 @@ export default function HomePage() {
     const { tenant, settings } = useTenant();
     const isPiquim = isPiquimTenantIdentity({ tenant, settings });
     const pageKey = isPiquim ? 'piquim-home' : 'home';
-    const [sections, setSections] = useState(null);
-    const [sectionsLoading, setSectionsLoading] = useState(true);
+    // Con la pagina precargada se muestra de entrada, sin esqueleto.
+    const [sections, setSections] = useState(() => getCachedPage('home'));
+    const [sectionsLoading, setSectionsLoading] = useState(() => !getCachedPage('home'));
     const [featuredProducts, setFeaturedProducts] = useState([]);
     const [featuredLoaded, setFeaturedLoaded] = useState(false);
-
-    useEffect(() => {
-        setSections(null);
-        setSectionsLoading(true);
-    }, [pageKey]);
 
     useEffect(() => {
         async function loadHome() {
@@ -99,16 +95,8 @@ export default function HomePage() {
                 const productsPromise = fetch(`${getApiBase()}/public/products?limit=4&featured=true`, {
                     headers: { ...getTenantHeaders(), ...getAuthHeaders() },
                 }).catch(() => null);
-                const response = await fetch(`${getApiBase()}/public/pages/home`, {
-                    headers: getTenantHeaders(),
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    const persisted = Array.isArray(data.sections) ? data.sections : [];
-                    setSections(persisted.length ? persisted : getDefaultSectionsForPage(pageKey));
-                } else {
-                    setSections(getDefaultSectionsForPage(pageKey));
-                }
+                const persisted = await fetchPublicPage('home');
+                setSections(persisted && persisted.length ? persisted : getDefaultSectionsForPage(pageKey));
 
                 const productsRes = await productsPromise;
                 if (productsRes?.ok) {
@@ -148,7 +136,7 @@ export default function HomePage() {
     return (
         <StoreLayout>
             <div className="flex flex-col">
-                {sectionsLoading ? <StoreSkeleton variant="home" /> : finalSections ? (
+                {sectionsLoading ? <div className="min-h-[70vh]" aria-busy="true" /> : finalSections ? (
                     <PageBuilder sections={finalSections} />
                 ) : (
                     <>

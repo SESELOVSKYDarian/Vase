@@ -18,6 +18,7 @@ import { normalizePriceTierLabels } from '../../utils/priceTierLabels';
 import { isPiquimTenantIdentity, resolveTenantDesignPreset } from '../../utils/tenantBranding';
 import { buildDefaultSeoSettings, normalizeSeoSettings } from '../../utils/seo';
 import { readSaveFailure } from '../../utils/saveResponse';
+import { normalizeAboutSectionsForBrand } from '../../utils/aboutSections';
 
 const RESERVED_PLACEHOLDER_TERMS = new Set(['messi']);
 
@@ -56,40 +57,6 @@ const normalizeHomeSectionsForBrand = (settings = {}, tenant = null, sections = 
         return PIQUIM_HOME_SECTIONS;
     }
     return mergeSectionsWithDefaults('piquim-home', source);
-};
-
-const STANDARD_ABOUT_SECTION_TYPES = new Set([
-    'AboutHero',
-    'AboutMission',
-    'AboutStats',
-    'AboutValues',
-    'AboutTeam',
-    'AboutCTA',
-]);
-
-const LEGACY_PIQUIM_ABOUT_SECTION_TYPES = new Set([
-    'PiquimHero',
-    'PiquimAnnounceBar',
-    'PiquimTresMundos',
-    'PiquimCatalog3Panel',
-    'PiquimCTABanner',
-]);
-
-const normalizeAboutSectionsForBrand = (settings = {}, tenant = null, sections = []) => {
-    const source = Array.isArray(sections) ? sections : [];
-    const isPiquim = isPiquimTenantIdentity({ tenant, settings });
-    const pageKey = isPiquim ? 'piquim-about' : 'about';
-
-    if (pageKey === 'about') {
-        const nonPiquimSections = source.filter((section) => !LEGACY_PIQUIM_ABOUT_SECTION_TYPES.has(section?.type));
-        return nonPiquimSections.length ? mergeSectionsWithDefaults('about', nonPiquimSections) : DEFAULT_ABOUT_SECTIONS;
-    }
-
-    const standardSections = source.filter((section) => STANDARD_ABOUT_SECTION_TYPES.has(section?.type));
-    if (!standardSections.length) {
-        return PIQUIM_ABOUT_SECTIONS;
-    }
-    return mergeSectionsWithDefaults('piquim-about', standardSections);
 };
 
 const getNavbarLinkLabel = (link) => {
