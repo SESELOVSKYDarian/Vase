@@ -1,0 +1,132 @@
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  PUBLIC_PRODUCT_DATA_SQL,
+  createLoadingCache,
+  externalizePageProps,
+  getValueByPath,
+  normalizeImageWidth,
+  parseDataUri,
+  sendMedia,
+} from "../apps/vase-editor/server/src/services/publicMedia.js";
+
+const SECTION_ID = "33333333-3333-4333-8333-333333333333";
+
+describe("public media helpers", () => {
+  it("parses base64 data URIs and rejects anything else", () => {
+    const parsed = parseDataUri(`data:image/png;base64,${Buffer.from("abc").toString("base64")}`);
+    expect(parsed?.mime).toBe("image/png");
+    expect(parsed?.buffer.toString()).toBe("abc");
+
+    expect(parseDataUri("https://example.com/a.png")).toBeNull();
+    expect(parseDataUri("data:text/html;base64,PHNjcmlwdD4=")).toBeNull();
+    expect(parseDataUri("data:image/png;base64,")).toBeNull();
+    expect(parseDataUri(null)).toBeNull();
+  });
+
+  it("reads nested values by path without touching prototypes", () => {
+    const props = { cards: [{ image: "x" }], hero: { src: "y" } };
+    expect(getValueByPath(props, "cards.0.image")).toBe("x");
+    expect(getValueByPath(props, "hero.src")).toBe("y");
+    expect(getValueByPath(props, "__proto__.polluted")).toBeUndefined();
+    expect(getValueByPath(props, "constructor.name")).toBeUndefined();
+    expect(getValueByPath(props, "cards.5.image")).toBeUndefined();
+  });
+
+  it("replaces only big data URIs in page props with media routes", () => {
+    const big = `data:image/png;base64,${"A".repeat(3000)}`;
+    const props = {
+      title: "Hola",
+      logo: "data:image/png;base64,AAAA",
+      video: `data:video/mp4;base64,${"B".repeat(3000)}`,
+      cards: [{ image: big }, { image: "https://cdn.example.com/a.jpg" }],
+    };
+
+    const result = externalizePageProps(props, { slug: "home", sectionId: SECTION_ID, version: 7 }) as typeof props;
+
+    expect(result.title).toBe("Hola");
+    expect(result.logo).toBe(props.logo);
+    expect(result.cards[1].image).toBe("https://cdn.example.com/a.jpg");
+    expect(result.video).toBe(`/public/pages/home/media/${SECTION_ID}?path=video&v=7`);
+    expect(result.cards[0].image).toBe(`/public/pages/home/media/${SECTION_ID}?path=cards.0.image&v=7`);
+    expect(JSON.stringify(result).length).toBeLessThan(900);
+    expect(props.video.length).toBeGreaterThan(3000);
+  });
+
+  it("clamps requested image widths", () => {
+    expect(normalizeImageWidth(undefined)).toBe(900);
+    expect(normalizeImageWidth("abc")).toBe(900);
+    expect(normalizeImageWidth("10")).toBe(48);
+    expect(normalizeImageWidth("99999")).toBe(1600);
+    expect(normalizeImageWidth("420")).toBe(420);
+  });
+
+  it("builds one value per key, serves stale values on failure and does not cache errors", async () => {
+    vi.useFakeTimers();
+    try {
+      const cache = createLoadingCache({ ttlMs: 1000, maxEntries: 2 });
+      const loader = vi.fn().mockResolvedValue("v1");
+
+      const [a, b] = await Promise.all([cache.get("k", loader), cache.get("k", loader)]);
+      expect([a, b]).toEqual(["v1", "v1"]);
+      expect(loader).toHaveBeenCalledTimes(1);
+
+      await cache.get("k", loader);
+      expect(loader).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(1500);
+      await expect(cache.get("k", vi.fn().mockRejectedValue(new Error("db down")))).resolves.toBe("v1");
+
+      await expect(cache.get("other", vi.fn().mockRejectedValue(new Error("boom")))).rejects.toThrow("boom");
+      await expect(cache.get("other", vi.fn().mockResolvedValue("ok"))).resolves.toBe("ok");
+
+      await cache.get("c", () => Promise.resolve("c"));
+      await cache.get("d", () => Promise.resolve("d"));
+      const reload = vi.fn().mockResolvedValue("k2");
+      await cache.get("k", reload);
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the product data SQL free of user input and pointing at the image route", () => {
+    expect(PUBLIC_PRODUCT_DATA_SQL).toContain("/public/products/");
+    expect(PUBLIC_PRODUCT_DATA_SQL).toContain("as data");
+    expect(PUBLIC_PRODUCT_DATA_SQL).not.toMatch(/\$\d/);
+  });
+
+  it("answers conditional and range requests", () => {
+    const buffer = Buffer.from("0123456789");
+    const run = (headers: Record<string, string>) => {
+      const res = {
+        statusCode: 200,
+        headers: {} as Record<string, unknown>,
+        body: undefined as Buffer | undefined,
+        status(code: number) {
+          this.statusCode = code;
+          return this;
+        },
+        setHeader(name: string, value: unknown) {
+          this.headers[name] = value;
+          return this;
+        },
+        end(chunk?: Buffer) {
+          this.body = chunk;
+        },
+      };
+      sendMedia({ headers } as never, res as never, { mime: "video/mp4", buffer, etag: "abc" });
+      return res;
+    };
+
+    expect(run({}).body?.toString()).toBe("0123456789");
+    expect(run({ "if-none-match": '"abc"' }).statusCode).toBe(304);
+
+    const partial = run({ range: "bytes=2-4" });
+    expect(partial.statusCode).toBe(206);
+    expect(partial.headers["Content-Range"]).toBe("bytes 2-4/10");
+    expect(partial.body?.toString()).toBe("234");
+    expect(run({ range: "bytes=-3" }).body?.toString()).toBe("789");
+    expect(run({ range: "bytes=50-60" }).statusCode).toBe(416);
+  });
+});
