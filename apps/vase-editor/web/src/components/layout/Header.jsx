@@ -264,15 +264,16 @@ export default function Header({
 
     const loadProductIndex = async () => {
       try {
-        const url = new URL(`${getApiBase()}/public/products`);
-        url.searchParams.set("limit", "200");
-        url.searchParams.set("page", "1");
-        url.searchParams.set("grouped", "true");
-        const response = await fetch(url.toString(), { headers: getTenantHeaders(), signal: controller.signal });
+        // Solo nombres: el listado completo de productos pesa cientos de MB por las imagenes.
+        const response = await fetch(`${getApiBase()}/public/products/names`, {
+          headers: getTenantHeaders(),
+          signal: controller.signal,
+        });
         if (!response.ok || !active) return;
         const data = await response.json();
-        const items = Array.isArray(data?.items) ? data.items : [];
-        const names = [...new Set(items.map((item) => String(item?.name || "").trim()).filter(Boolean))];
+        const names = Array.isArray(data?.names)
+          ? [...new Set(data.names.map((name) => String(name || "").trim()).filter(Boolean))]
+          : [];
         setProductIndex(names);
       } catch {
         // ignore index load failures

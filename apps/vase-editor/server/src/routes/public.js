@@ -11,10 +11,46 @@ import {
   resolveBestOfferForProduct,
 } from '../services/offers.js';
 import { buildPublicProductSearchSql } from '../services/publicProductSearch.js';
+import {
+  PUBLIC_PRODUCT_DATA_SQL,
+  createLoadingCache,
+  externalizePageProps,
+  getValueByPath,
+  hashBuffer,
+  normalizeImageWidth,
+  optimizeMedia,
+  parseDataUri,
+  sendMedia,
+} from '../services/publicMedia.js';
+
+// Las rutas de media las piden <img> y <video>, que no pueden mandar el header del tenant:
+// van antes de resolveTenant y se identifican solo por el id del producto o de la seccion.
+const mediaRouter = express.Router();
 
 export const publicRouter = express.Router();
 
+publicRouter.use(mediaRouter);
 publicRouter.use(resolveTenant);
+
+// Catalogo anonimo: se arma una vez por minuto en vez de una vez por visita.
+const publicListingCache = createLoadingCache({ ttlMs: 60_000, maxEntries: 60, maxEntryBytes: 4_000_000, maxTotalBytes: 32_000_000 });
+const publicNamesCache = createLoadingCache({ ttlMs: 5 * 60_000, maxEntries: 50 });
+const publicMediaCache = createLoadingCache({
+  ttlMs: 60 * 60_000,
+  maxEntries: 400,
+  sizeOf: (value) => value?.buffer?.length || 0,
+  maxEntryBytes: 6_000_000,
+  maxTotalBytes: 96_000_000,
+});
+const MAX_SEARCH_LENGTH = 120;
+const LISTING_CACHE_PARAMS = ['q', 'category', 'brand', 'minPrice', 'maxPrice', 'inStock', 'grouped', 'sort', 'limit', 'page', 'featured'];
+
+function buildListingCacheKey(req) {
+  const parts = LISTING_CACHE_PARAMS
+    .filter((name) => req.query[name] !== undefined)
+    .map((name) => `${name}=${String(req.query[name]).slice(0, MAX_SEARCH_LENGTH)}`);
+  return `${req.tenant.id}|${parts.join('&')}`;
+}
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PUBLIC_PRODUCT_VISIBILITY_SQL = [
   "p.status = 'active'",
@@ -537,7 +573,7 @@ publicRouter.get('/pages/:slug', async (req, res, next) => {
     }
 
     const sectionsRes = await pool.query(
-      'select id, type, enabled, sort_order, props from page_sections where page_id = $1 and state = $2 order by sort_order asc',
+      'select id, type, enabled, sort_order, props, updated_at from page_sections where page_id = $1 and state = $2 order by sort_order asc',
       [pageRes.rows[0].id, 'published']
     );
 
@@ -548,7 +584,12 @@ publicRouter.get('/pages/:slug', async (req, res, next) => {
         type: row.type,
         enabled: row.enabled,
         sort_order: row.sort_order,
-        props: row.props || {},
+        // Imagenes y videos en base64 se sirven aparte, con cache largo (ver mediaRouter).
+        props: externalizePageProps(row.props || {}, {
+          slug: req.params.slug,
+          sectionId: row.id,
+          version: Math.floor(new Date(row.updated_at || 0).getTime() / 1000),
+        }),
       }));
 
     return res.json({ slug: req.params.slug, sections });
@@ -557,103 +598,140 @@ publicRouter.get('/pages/:slug', async (req, res, next) => {
   }
 });
 
+async function buildProductsListing(req) {
+  const pricingContext = await buildPricingContext(req);
+  const tenantId = req.tenant.id;
+  const q = String(req.query.q || '').trim().slice(0, MAX_SEARCH_LENGTH);
+  const category = req.query.category;
+  const brand = req.query.brand;
+  const minPrice = parseNumericQuery(req.query.minPrice);
+  const maxPrice = parseNumericQuery(req.query.maxPrice);
+  const inStockOnly = parseBooleanQuery(req.query.inStock, false);
+  const grouped = parseBooleanQuery(req.query.grouped, false);
+  const sort = normalizeSortValue(req.query.sort);
+
+  // Cada pedido arma el listado completo y recorta la pagina al final, asi que traer
+  // mas items por pedido no encarece la consulta: el subcatalogo de Piquim pide todo junto.
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '24', 10) || 24, 1), 500);
+  const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+  const offset = (page - 1) * limit;
+
+  const params = [tenantId];
+  let where = `p.tenant_id = $1 and ${PUBLIC_PRODUCT_VISIBILITY_SQL}`;
+
+  const searchSql = buildPublicProductSearchSql(q, params);
+  if (searchSql) {
+    where += ` and ${searchSql}`;
+  }
+
+  if (category) {
+    const categoryAliases = resolvePublicCategoryAliases(category);
+    params.push(categoryAliases.length ? categoryAliases : [String(category)]);
+    where += [
+      ' and p.id in (',
+      'with recursive selected_categories as (',
+      'select c.id',
+      'from categories c',
+      'where c.tenant_id = $1',
+      `and (c.slug = any($${params.length}::text[]) or c.id::text = any($${params.length}::text[]))`,
+      'union',
+      'select child.id',
+      'from categories child',
+      'join selected_categories parent on nullif(child.data->>\'parent_id\', \'\') = parent.id::text',
+      'where child.tenant_id = $1',
+      ')',
+      'select pc.product_id',
+      'from product_categories pc',
+      'where pc.category_id in (select id from selected_categories)',
+      ')',
+    ].join(' ');
+  }
+
+  if (req.query.featured === 'true') {
+    where += ' and o.featured = true';
+  }
+
+  if (brand) {
+    params.push(brand);
+    where += ` and p.brand = $${params.length}`;
+  }
+
+  const sql = [
+    'select p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand,',
+      `${PUBLIC_PRODUCT_DATA_SQL},`,
+    PUBLIC_PRODUCT_CATEGORY_IDS_SQL,
+    'from product_cache p',
+    'left join product_overrides o on o.product_id = p.id and o.tenant_id = p.tenant_id',
+    `where ${where}`,
+    'order by p.name asc',
+  ].join(' ');
+
+  const productsRes = await pool.query(sql, params);
+  let products = productsRes.rows.map((row) => mapProductRow(row, pricingContext));
+
+  if (Number.isFinite(minPrice)) {
+    products = products.filter((item) => getComparablePrice(item) >= minPrice);
+  }
+  if (Number.isFinite(maxPrice)) {
+    products = products.filter((item) => getComparablePrice(item) <= maxPrice);
+  }
+  if (inStockOnly) {
+    products = products.filter((item) => Number(item.stock || 0) > 0);
+  }
+
+  const filteredItems = grouped
+    ? groupProductsByVariation(products, sort)
+    : sortPublicProducts(products, sort);
+  const total = filteredItems.length;
+  const paginatedItems = filteredItems.slice(offset, offset + limit);
+  await attachCategoryLabels(paginatedItems, tenantId);
+
+  return {
+    page,
+    limit,
+    total,
+    total_pages: total > 0 ? Math.ceil(total / limit) : 0,
+    sort,
+    grouped,
+    items: paginatedItems,
+  };
+}
+
 publicRouter.get('/products', async (req, res, next) => {
   try {
-    const pricingContext = await buildPricingContext(req);
+    res.set('Vary', 'Authorization');
+    // El precio depende del usuario: solo se cachea la vista anonima.
+    if (req.user) {
+      return res.json(await buildProductsListing(req));
+    }
+    const body = await publicListingCache.get(buildListingCacheKey(req), async () =>
+      JSON.stringify(await buildProductsListing(req))
+    );
+    return res.type('application/json').send(body);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Solo los nombres (sin imagenes ni variaciones): lo usa el buscador del header.
+publicRouter.get('/products/names', async (req, res, next) => {
+  try {
     const tenantId = req.tenant.id;
-    const q = String(req.query.q || '').trim();
-    const category = req.query.category;
-    const brand = req.query.brand;
-    const minPrice = parseNumericQuery(req.query.minPrice);
-    const maxPrice = parseNumericQuery(req.query.maxPrice);
-    const inStockOnly = parseBooleanQuery(req.query.inStock, false);
-    const grouped = parseBooleanQuery(req.query.grouped, false);
-    const sort = normalizeSortValue(req.query.sort);
-
-    // Cada pedido arma el listado completo y recorta la pagina al final, asi que traer
-    // mas items por pedido no encarece la consulta: el subcatalogo de Piquim pide todo junto.
-    const limit = Math.min(Math.max(parseInt(req.query.limit || '24', 10) || 24, 1), 500);
-    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-    const offset = (page - 1) * limit;
-
-    const params = [tenantId];
-    let where = `p.tenant_id = $1 and ${PUBLIC_PRODUCT_VISIBILITY_SQL}`;
-
-    const searchSql = buildPublicProductSearchSql(q, params);
-    if (searchSql) {
-      where += ` and ${searchSql}`;
-    }
-
-    if (category) {
-      const categoryAliases = resolvePublicCategoryAliases(category);
-      params.push(categoryAliases.length ? categoryAliases : [String(category)]);
-      where += [
-        ' and p.id in (',
-        'with recursive selected_categories as (',
-        'select c.id',
-        'from categories c',
-        'where c.tenant_id = $1',
-        `and (c.slug = any($${params.length}::text[]) or c.id::text = any($${params.length}::text[]))`,
-        'union',
-        'select child.id',
-        'from categories child',
-        'join selected_categories parent on nullif(child.data->>\'parent_id\', \'\') = parent.id::text',
-        'where child.tenant_id = $1',
-        ')',
-        'select pc.product_id',
-        'from product_categories pc',
-        'where pc.category_id in (select id from selected_categories)',
-        ')',
-      ].join(' ');
-    }
-
-    if (req.query.featured === 'true') {
-      where += ' and o.featured = true';
-    }
-
-    if (brand) {
-      params.push(brand);
-      where += ` and p.brand = $${params.length}`;
-    }
-
-    const sql = [
-      'select p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand, p.data,',
-      PUBLIC_PRODUCT_CATEGORY_IDS_SQL,
-      'from product_cache p',
-      'left join product_overrides o on o.product_id = p.id and o.tenant_id = p.tenant_id',
-      `where ${where}`,
-      'order by p.name asc',
-    ].join(' ');
-
-    const productsRes = await pool.query(sql, params);
-    let products = productsRes.rows.map((row) => mapProductRow(row, pricingContext));
-
-    if (Number.isFinite(minPrice)) {
-      products = products.filter((item) => getComparablePrice(item) >= minPrice);
-    }
-    if (Number.isFinite(maxPrice)) {
-      products = products.filter((item) => getComparablePrice(item) <= maxPrice);
-    }
-    if (inStockOnly) {
-      products = products.filter((item) => Number(item.stock || 0) > 0);
-    }
-
-    const filteredItems = grouped
-      ? groupProductsByVariation(products, sort)
-      : sortPublicProducts(products, sort);
-    const total = filteredItems.length;
-    const paginatedItems = filteredItems.slice(offset, offset + limit);
-    await attachCategoryLabels(paginatedItems, tenantId);
-
-    return res.json({
-      page,
-      limit,
-      total,
-      total_pages: total > 0 ? Math.ceil(total / limit) : 0,
-      sort,
-      grouped,
-      items: paginatedItems,
+    const body = await publicNamesCache.get(tenantId, async () => {
+      const result = await pool.query(
+        [
+          'select distinct p.name',
+          'from product_cache p',
+          'left join product_overrides o on o.product_id = p.id and o.tenant_id = p.tenant_id',
+          `where p.tenant_id = $1 and ${PUBLIC_PRODUCT_VISIBILITY_SQL}`,
+          'order by p.name asc',
+        ].join(' '),
+        [tenantId]
+      );
+      const names = result.rows.map((row) => String(row.name || '').trim()).filter(Boolean);
+      return JSON.stringify({ names });
     });
+    return res.type('application/json').send(body);
   } catch (err) {
     return next(err);
   }
@@ -670,7 +748,8 @@ publicRouter.get('/products/:id', async (req, res, next) => {
 
     const result = await pool.query(
       [
-        'select p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand, p.data,',
+        'select p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand,',
+        `${PUBLIC_PRODUCT_DATA_SQL},`,
         PUBLIC_PRODUCT_CATEGORY_SELECT_SQL,
         'from product_cache p',
         'left join product_overrides o on o.product_id = p.id and o.tenant_id = p.tenant_id',
@@ -689,7 +768,8 @@ publicRouter.get('/products/:id', async (req, res, next) => {
     if (variationGroup) {
       const variationsRes = await pool.query(
         [
-          'select p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand, p.data,',
+          'select p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand,',
+        `${PUBLIC_PRODUCT_DATA_SQL},`,
           PUBLIC_PRODUCT_CATEGORY_SELECT_SQL,
           'from product_cache p',
           'left join product_overrides o on o.product_id = p.id and o.tenant_id = p.tenant_id',
@@ -879,7 +959,8 @@ publicRouter.get('/products/:id/related', async (req, res, next) => {
 
     const relatedRes = await pool.query(
       [
-        'select distinct on (p.id) p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand, p.data,',
+        'select distinct on (p.id) p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand,',
+        `${PUBLIC_PRODUCT_DATA_SQL},`,
         PUBLIC_PRODUCT_CATEGORY_SELECT_SQL,
         'from product_cache p',
         'join product_categories pc on pc.product_id = p.id',
@@ -915,7 +996,8 @@ publicRouter.get('/collections/:slug', async (req, res, next) => {
     const collection = collectionRes.rows[0];
     const productsRes = await pool.query(
       [
-        'select p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand, p.data,',
+        'select p.id, p.erp_id, p.sku, p.name, p.description, p.price, p.price_wholesale, p.currency, p.stock, p.brand,',
+        `${PUBLIC_PRODUCT_DATA_SQL},`,
         PUBLIC_PRODUCT_CATEGORY_IDS_SQL,
         'from collection_items ci',
         'join product_cache p on p.id = ci.product_id',
@@ -930,6 +1012,80 @@ publicRouter.get('/collections/:slug', async (req, res, next) => {
     await attachCategoryLabels(products, req.tenant.id);
 
     return res.json({ collection, items: products });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// --- Media (imagenes y videos guardados como data URI en la base) ---------------------------
+
+mediaRouter.get('/products/:id/images/:idx', async (req, res, next) => {
+  try {
+    const index = Number(req.params.idx);
+    if (!UUID_REGEX.test(req.params.id) || !Number.isInteger(index) || index < 0 || index > 99) {
+      return res.sendStatus(404);
+    }
+
+    const result = await pool.query(
+      [
+        "select p.data->'images'->($2::int) as image, floor(extract(epoch from p.updated_at))::bigint as version",
+        'from product_cache p',
+        'left join product_overrides o on o.product_id = p.id and o.tenant_id = p.tenant_id',
+        `where p.id = $1 and ${PUBLIC_PRODUCT_VISIBILITY_SQL}`,
+      ].join(' '),
+      [req.params.id, index]
+    );
+    const row = result.rows[0];
+    const image = row?.image;
+    const source = typeof image === 'string' ? image : image?.url || image?.src;
+    if (!source) return res.sendStatus(404);
+    if (!source.startsWith('data:')) {
+      // Solo URLs normales: nunca un esquema raro (javascript:, file:) ni un destino de protocolo relativo.
+      const isSafeUrl = /^https?:\/\//i.test(source) || (source.startsWith('/') && !source.startsWith('//'));
+      return isSafeUrl ? res.redirect(302, source) : res.sendStatus(404);
+    }
+
+    const width = normalizeImageWidth(req.query.w);
+    const media = await publicMediaCache.get(`product:${req.params.id}:${index}:${row.version}:${width}`, async () => {
+      const parsed = parseDataUri(source);
+      if (!parsed) return null;
+      const optimized = await optimizeMedia(parsed, width);
+      return { ...optimized, etag: hashBuffer(optimized.buffer) };
+    });
+    if (!media) return res.sendStatus(404);
+    return sendMedia(req, res, media);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+mediaRouter.get('/pages/:slug/media/:sectionId', async (req, res, next) => {
+  try {
+    const path = String(req.query.path || '');
+    if (!UUID_REGEX.test(req.params.sectionId) || !path) return res.sendStatus(404);
+
+    const result = await pool.query(
+      [
+        'select s.props, floor(extract(epoch from s.updated_at))::bigint as version',
+        'from page_sections s',
+        'join pages pg on pg.id = s.page_id',
+        "where s.id = $1 and pg.slug = $2 and s.state = 'published' and s.enabled = true",
+      ].join(' '),
+      [req.params.sectionId, req.params.slug]
+    );
+    const row = result.rows[0];
+    if (!row) return res.sendStatus(404);
+
+    const width = normalizeImageWidth(req.query.w, 1600);
+    const media = await publicMediaCache.get(`page:${req.params.sectionId}:${path}:${row.version}:${width}`, async () => {
+      const value = getValueByPath(row.props, path);
+      const parsed = typeof value === 'string' ? parseDataUri(value) : null;
+      if (!parsed) return null;
+      const optimized = await optimizeMedia(parsed, width);
+      return { ...optimized, etag: hashBuffer(optimized.buffer) };
+    });
+    if (!media) return res.sendStatus(404);
+    return sendMedia(req, res, media);
   } catch (err) {
     return next(err);
   }

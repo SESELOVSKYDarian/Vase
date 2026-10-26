@@ -28,6 +28,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # El editor (Business) no es un workspace: sus tests necesitan sus propias dependencias.
+      - name: Install editor server dependencies
+        run: npm ci --prefix apps/vase-editor/server
+
       - name: Test V3 contracts and structure
         run: npm run test:v3
 
