@@ -558,8 +558,25 @@ async function bootstrapDb() {
   }
 }
 
+const TRANSIENT_DB_ERRORS = new Set(['ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', '57P03']);
+
+// En Easypanel la base puede tardar en resolverse o aceptar conexiones justo despues de un redeploy.
+// Reintentamos en vez de dejar el proceso vivo sin escuchar (el sitio queda caido sin reinicio).
+async function bootstrapDbWithRetry({ attempts = 12, delayMs = 5000 } = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await bootstrapDb();
+      return;
+    } catch (err) {
+      if (!TRANSIENT_DB_ERRORS.has(err?.code) || attempt >= attempts) throw err;
+      console.error(`DB not ready (attempt ${attempt}/${attempts}), retrying in ${delayMs / 1000}s`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 async function startServer() {
-  await bootstrapDb();
+  await bootstrapDbWithRetry();
 
   const port = Number(process.env.PORT || 4000);
   const server = http.createServer(app);
@@ -583,4 +600,6 @@ async function startServer() {
 
 startServer().catch((err) => {
   console.error('Fatal startup error:', err?.message || err);
+  // Salir con error para que Docker/Easypanel reinicie el contenedor en vez de dejarlo colgado.
+  process.exit(1);
 });
