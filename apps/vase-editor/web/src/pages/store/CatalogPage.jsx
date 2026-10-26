@@ -1618,7 +1618,7 @@ function PiquimSubcatalogPage({ catalog, categories, initialGroup = "", products
 
     return (
         <div className="min-h-screen bg-[var(--store-background)] font-[Inter] text-[var(--store-text)] transition-colors duration-300">
-            <main className="flex w-full items-start justify-center gap-0 bg-[var(--store-background)] px-[60px] pb-10 pt-[104px] max-lg:flex-col max-lg:px-5 max-md:pt-[86px]">
+            <main className="flex w-full items-start justify-center gap-0 bg-[var(--store-background)] px-[60px] pb-10 pt-8 max-lg:flex-col max-lg:px-5 max-lg:pt-3 max-md:pb-8">
                 <PiquimSubcatalogSidebar
                     catalog={resolvedCatalog}
                     labels={labels}
@@ -1638,6 +1638,7 @@ function PiquimSubcatalogPage({ catalog, categories, initialGroup = "", products
                     onToggleFlavor={(value) => toggleFilter(setFlavorFilters, value)}
                     stockOnly={stockOnly}
                     onStockChange={handleStockChange}
+                    resultCount={sections.reduce((total, section) => total + section.products.length, 0)}
                 />
                 <section className="flex flex-1 flex-col items-start justify-start gap-[30px] overflow-hidden bg-[var(--store-background)] px-[60px] py-[30px] max-xl:px-8 max-lg:w-full max-md:px-0">
                     <header ref={catalogTopRef} className="inline-flex w-full scroll-mt-24 items-end justify-between overflow-hidden">
@@ -1841,7 +1842,12 @@ function PiquimSubcatalogSidebar({
     onToggleFlavor,
     stockOnly,
     onStockChange,
+    resultCount = 0,
 }) {
+    // En el celular el panel arranca cerrado: ocupaba una pantalla entera antes de ver un solo producto.
+    const [mobileOpen, setMobileOpen] = useState(false);
+    const activeFilterCount =
+        selectedTypes.length + selectedFormats.length + selectedFlavors.length + (stockOnly ? 1 : 0) + (query.trim() ? 1 : 0);
     const titleLabel = labels?.title || catalog?.filters?.title || "Filtros";
     const subtitleLabel = labels?.subtitle || catalog?.filters?.subtitle || "Refina tu busqueda profesional";
     const searchPlaceholder = labels?.search_placeholder || catalog?.filters?.searchPlaceholder || "Buscar producto...";
@@ -1853,9 +1859,27 @@ function PiquimSubcatalogSidebar({
     const usesGroupedFilters = Array.isArray(catalog?.productGroups) && catalog.productGroups.length > 0;
 
     return (
-        <aside className="flex min-h-[1850px] w-64 shrink-0 flex-col items-start justify-start gap-2 overflow-hidden rounded-xl border border-[var(--store-border)] bg-[var(--store-panel-bg)] p-6 shadow-sm max-lg:min-h-0 max-lg:w-full">
-            <div className="flex w-full flex-col items-start justify-start gap-2">
-                <div className="flex w-full flex-col items-start justify-start pb-6">
+        <aside className="flex min-h-[1850px] w-64 shrink-0 flex-col items-start justify-start gap-2 overflow-hidden rounded-xl border border-[var(--store-border)] bg-[var(--store-panel-bg)] p-6 max-lg:p-4 shadow-sm max-lg:min-h-0 max-lg:w-full">
+            <button
+                type="button"
+                onClick={() => setMobileOpen((open) => !open)}
+                aria-expanded={mobileOpen}
+                aria-controls="piquim-filters-body"
+                className="flex w-full items-center justify-between gap-3 text-left lg:hidden"
+            >
+                <span className="flex items-center gap-3">
+                    <span className="text-lg font-bold text-[var(--store-primary)]" style={{ fontFamily: 'Epilogue, Gilroy, sans-serif' }}>{titleLabel}</span>
+                    {activeFilterCount > 0 ? (
+                        <span className="rounded-full bg-[var(--store-primary)] px-2 py-0.5 text-xs font-bold leading-4 text-white">{activeFilterCount}</span>
+                    ) : null}
+                </span>
+                <span className="flex items-center gap-2 text-xs font-semibold text-[var(--store-secondary)]">
+                    {mobileOpen ? 'Cerrar' : 'Mostrar'}
+                    <ChevronDownSmallIcon className={`size-5 text-[var(--store-primary)] transition-transform duration-200 ${mobileOpen ? 'rotate-180' : ''}`} />
+                </span>
+            </button>
+            <div id="piquim-filters-body" className={`${mobileOpen ? 'flex max-lg:mt-4 max-lg:border-t max-lg:border-[var(--store-border)] max-lg:pt-4' : 'hidden'} w-full flex-col items-start justify-start gap-2 lg:flex`}>
+                <div className="flex w-full flex-col items-start justify-start pb-6 max-lg:hidden">
                     <h2 className="flex w-full flex-col justify-center text-2xl font-bold leading-8 text-[var(--store-primary)]" style={{ fontFamily: 'Epilogue, Gilroy, sans-serif' }}>
                         {titleLabel}
                     </h2>
@@ -1902,6 +1926,14 @@ function PiquimSubcatalogSidebar({
                     <input type="checkbox" checked={stockOnly} onChange={(event) => onStockChange(event.target.checked)} />
                     <span className="text-sm font-normal leading-5 text-[var(--store-secondary)]">{stockLabel}</span>
                 </label>
+
+                <button
+                    type="button"
+                    onClick={() => setMobileOpen(false)}
+                    className="mt-2 h-12 w-full rounded-full bg-[var(--store-primary)] text-sm font-bold text-white transition-opacity hover:opacity-90 lg:hidden"
+                >
+                    {resultCount > 0 ? `Ver ${resultCount} ${resultCount === 1 ? 'producto' : 'productos'}` : 'Cerrar filtros'}
+                </button>
             </div>
         </aside>
     );

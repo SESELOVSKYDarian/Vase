@@ -6,36 +6,26 @@ import { navigate } from '../../utils/navigation';
 import { getCountryLabelByCode } from '../../utils/locations';
 import { useAddressLocationFields } from '../../hooks/useAddressLocationFields';
 import { getExternalLoginUrl, getExternalSignupUrl, isExternalAuthEnabled } from '../../utils/vaseAuth';
-import { isPiquimTenantIdentity } from '../../utils/tenantBranding';
+import { isPiquimTenantIdentity, resolveTenantBrandName } from '../../utils/tenantBranding';
+import AuthShell, {
+    AuthAlert,
+    PasswordInput,
+    StepProgress,
+    authErrorTextClass,
+    authHelperClass,
+    authInputClass,
+    authLabelClass,
+    authLinkButtonClass,
+    authPrimaryButtonClass,
+    authSecondaryButtonClass,
+} from '../../components/auth/AuthShell';
 
-const CheckIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-        <polyline points="20 6 9 17 4 12" />
-    </svg>
-);
-
-
-const EyeIcon = ({ open }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-        {open ? (
-            <>
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-            </>
-        ) : (
-            <>
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                <line x1="1" y1="1" x2="23" y2="23" />
-            </>
-        )}
-    </svg>
-);
-
-const inputClass = 'w-full rounded-lg border border-gray-200 dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] px-3.5 py-2.5 text-sm text-gray-900 dark:text-[var(--store-text)] outline-none transition-all placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/30';
-const labelClass = 'mb-1.5 block text-[13px] font-semibold text-gray-700 dark:text-[var(--store-text)]';
-const helperTextClass = 'mt-1.5 text-xs text-gray-500 dark:text-[var(--store-muted-text)]';
+const inputClass = authInputClass;
+const labelClass = authLabelClass;
+const helperTextClass = authHelperClass;
 
 function AutocompleteField({
+    id,
     value,
     onChange,
     onOptionSelect,
@@ -54,6 +44,7 @@ function AutocompleteField({
     return (
         <div className="relative">
             <input
+                id={id}
                 className={inputClass}
                 type="text"
                 placeholder={placeholder}
@@ -68,7 +59,7 @@ function AutocompleteField({
                 disabled={disabled}
             />
             {isOpen && filtered.length ? (
-                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-56 overflow-auto rounded-lg border border-gray-200 dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] p-1.5 shadow-xl">
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-56 overflow-auto rounded-xl border border-[var(--store-border)] bg-[var(--store-card-bg)] p-1.5 shadow-xl">
                     {filtered.map((item) => (
                         <button
                             key={item.value}
@@ -79,7 +70,7 @@ function AutocompleteField({
                                 onOptionSelect?.(item);
                                 setIsOpen(false);
                             }}
-                            className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 dark:text-[var(--store-text)] hover:bg-orange-50 dark:hover:bg-[var(--store-surface-soft)] hover:text-primary"
+                            className="w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--store-text)] hover:bg-[var(--store-surface-soft)] hover:text-[var(--store-primary)]"
                         >
                             {item.label}
                         </button>
@@ -117,30 +108,30 @@ function Step1({
     return (
         <div className="space-y-4">
             <div>
-                <label className={labelClass}>Nombre completo</label>
-                <input className={inputClass} type="text" placeholder="Tu nombre" value={data.name} onChange={(e) => onChange('name', e.target.value)} required minLength={2} maxLength={120} />
-                {getFieldError('name') ? <p className="mt-1 text-xs text-red-600">{getFieldError('name')}</p> : null}
+                <label htmlFor="signup-field-1" className={labelClass}>Nombre completo</label>
+                <input id="signup-field-1" className={inputClass} type="text" autoComplete="name" placeholder="Tu nombre" value={data.name} onChange={(e) => onChange('name', e.target.value)} required minLength={2} maxLength={120} />
+                {getFieldError('name') ? <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{getFieldError('name')}</p> : null}
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                    <label className={labelClass}>Telefono</label>
-                    <input className={inputClass} type="tel" placeholder="+54 11 ...." value={data.phone} onChange={(e) => onChange('phone', e.target.value)} required minLength={7} maxLength={25} pattern="^\+?[0-9()\-\s]{7,25}$" title="Ingresa un telefono valido (solo numeros, espacios, +, -, parentesis)." />
-                    {getFieldError('phone') ? <p className="mt-1 text-xs text-red-600">{getFieldError('phone')}</p> : null}
+                    <label htmlFor="signup-field-2" className={labelClass}>Teléfono</label>
+                    <input id="signup-field-2" className={inputClass} type="tel" autoComplete="tel" inputMode="tel" placeholder="+54 11 1234 5678" value={data.phone} onChange={(e) => onChange('phone', e.target.value)} required minLength={7} maxLength={25} pattern="^\+?[0-9()\-\s]{7,25}$" title="Ingresa un telefono valido (solo numeros, espacios, +, -, parentesis)." />
+                    {getFieldError('phone') ? <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{getFieldError('phone')}</p> : null}
                 </div>
                 <div>
-                    <label className={labelClass}>N° CUIL</label>
-                    <input className={inputClass} type="text" placeholder="20-12345678-9" value={data.cuit} onChange={(e) => onChange('cuit', e.target.value)} required maxLength={13} pattern="^[0-9]{2}-?[0-9]{8}-?[0-9]{1}$" title="Formato valido: 20-12345678-9" />
-                    {getFieldError('cuit') ? <p className="mt-1 text-xs text-red-600">{getFieldError('cuit')}</p> : null}
+                    <label htmlFor="signup-field-3" className={labelClass}>N° de CUIL</label>
+                    <input id="signup-field-3" className={inputClass} type="text" placeholder="20-12345678-9" value={data.cuit} onChange={(e) => onChange('cuit', e.target.value)} required maxLength={13} pattern="^[0-9]{2}-?[0-9]{8}-?[0-9]{1}$" title="Formato valido: 20-12345678-9" />
+                    {getFieldError('cuit') ? <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{getFieldError('cuit')}</p> : null}
                 </div>
             </div>
 
-            <div className="border-t border-gray-100 dark:border-[var(--store-border)] pt-2">
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-gray-400">Direccion</p>
+            <div className="border-t border-[var(--store-border)] pt-5">
+                <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--store-muted-text)]">Dirección</p>
                 <div className="space-y-3">
                     <div>
-                        <label className={labelClass}>Direccion</label>
-                        <AutocompleteField
+                        <label htmlFor="signup-field-4" className={labelClass}>Dirección</label>
+                        <AutocompleteField id="signup-field-4"
                             value={data.address}
                             onChange={onAddressInputChange}
                             onOptionSelect={onAddressOptionSelect}
@@ -149,20 +140,14 @@ function Step1({
                             autoComplete="street-address"
                         />
                         <input type="hidden" value={data.address} required />
-                        {getFieldError('address') ? <p className="mt-1 text-xs text-red-600">{getFieldError('address')}</p> : null}
-                        <p className={helperTextClass}>
-                            {isArgentinaCountry
-                                ? addressLoading
-                                    ? 'Buscando direcciones en GeoRef...'
-                                    : 'Escribe calle y altura (minimo 3 caracteres) para ver sugerencias reales.'
-                                : 'Completa la direccion manualmente.'}
-                        </p>
+                        {getFieldError('address') ? <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{getFieldError('address')}</p> : null}
+                        {isArgentinaCountry && addressLoading ? <p className={helperTextClass}>Buscando direcciones…</p> : null}
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                            <label className={labelClass}>Pais</label>
-                            <AutocompleteField
+                            <label htmlFor="signup-field-5" className={labelClass}>País</label>
+                            <AutocompleteField id="signup-field-5"
                                 value={countryInput}
                                 onChange={onCountryInputChange}
                                 options={countryOptions}
@@ -170,14 +155,12 @@ function Step1({
                                 autoComplete="country-name"
                             />
                             <input type="hidden" value={data.country} required />
-                            {getFieldError('country') ? <p className="mt-1 text-xs text-red-600">{getFieldError('country')}</p> : null}
-                            <p className={helperTextClass}>
-                                {countriesLoading ? 'Cargando paises...' : 'Escribe para buscar y selecciona un pais del listado.'}
-                            </p>
+                            {getFieldError('country') ? <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{getFieldError('country')}</p> : null}
+                            {countriesLoading ? <p className={helperTextClass}>Cargando países…</p> : null}
                         </div>
                         <div>
-                            <label className={labelClass}>Provincia</label>
-                            <AutocompleteField
+                            <label htmlFor="signup-field-6" className={labelClass}>Provincia</label>
+                            <AutocompleteField id="signup-field-6"
                                 value={data.province}
                                 onChange={onProvinceInputChange}
                                 options={provinceSuggestionsEnabled ? provinceOptions : []}
@@ -186,25 +169,15 @@ function Step1({
                                 disabled={!data.country}
                             />
                             <input type="hidden" value={data.province} required />
-                            {getFieldError('province') ? <p className="mt-1 text-xs text-red-600">{getFieldError('province')}</p> : null}
-                            <p className={helperTextClass}>
-                                {!data.country
-                                    ? 'Primero selecciona un pais.'
-                                    : isArgentinaCountry
-                                        ? provinceLoading
-                                            ? 'Cargando provincias de Argentina...'
-                                            : provinceSuggestionsEnabled
-                                                ? 'Selecciona una provincia valida para habilitar las ciudades.'
-                                                : 'No pudimos cargar provincias. Puedes escribirla manualmente.'
-                                        : 'Completa la provincia o estado manualmente.'}
-                            </p>
+                            {getFieldError('province') ? <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{getFieldError('province')}</p> : null}
+                            {!data.country ? <p className={helperTextClass}>Primero elige un país.</p> : isArgentinaCountry && provinceLoading ? <p className={helperTextClass}>Cargando provincias…</p> : isArgentinaCountry && !provinceSuggestionsEnabled ? <p className={helperTextClass}>No pudimos cargar las provincias; escríbela a mano.</p> : null}
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                            <label className={labelClass}>Ciudad</label>
-                            <AutocompleteField
+                            <label htmlFor="signup-field-7" className={labelClass}>Ciudad</label>
+                            <AutocompleteField id="signup-field-7"
                                 value={data.city}
                                 onChange={onCityInputChange}
                                 options={citySuggestionsEnabled ? cityOptions : []}
@@ -213,31 +186,19 @@ function Step1({
                                 disabled={!data.country || (provinceSuggestionsEnabled && !data.provinceId)}
                             />
                             <input type="hidden" value={data.city} required />
-                            {getFieldError('city') ? <p className="mt-1 text-xs text-red-600">{getFieldError('city')}</p> : null}
-                            <p className={helperTextClass}>
-                                {!data.country
-                                    ? 'Primero selecciona un pais.'
-                                    : isArgentinaCountry
-                                        ? !data.provinceId
-                                            ? 'Selecciona una provincia para ver las ciudades disponibles.'
-                                            : citiesLoading
-                                                ? 'Cargando ciudades de la provincia elegida...'
-                                                : citySuggestionsEnabled
-                                                    ? 'Selecciona una ciudad del listado oficial.'
-                                                    : 'No pudimos cargar las ciudades. Puedes escribirla manualmente.'
-                                        : 'Completa tu ciudad manualmente.'}
-                            </p>
+                            {getFieldError('city') ? <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{getFieldError('city')}</p> : null}
+                            {!data.country ? <p className={helperTextClass}>Primero elige un país.</p> : isArgentinaCountry && !data.provinceId ? <p className={helperTextClass}>Elige una provincia primero.</p> : isArgentinaCountry && citiesLoading ? <p className={helperTextClass}>Cargando ciudades…</p> : isArgentinaCountry && !citySuggestionsEnabled ? <p className={helperTextClass}>No pudimos cargar las ciudades; escríbela a mano.</p> : null}
                         </div>
                         <div>
-                            <label className={labelClass}>Codigo postal</label>
-                            <input className={inputClass} type="text" placeholder="7600" value={data.postalCode} onChange={(e) => onChange('postalCode', e.target.value)} autoComplete="postal-code" required minLength={3} maxLength={20} />
-                            {getFieldError('postalCode') ? <p className="mt-1 text-xs text-red-600">{getFieldError('postalCode')}</p> : null}
+                            <label htmlFor="signup-field-8" className={labelClass}>Código postal</label>
+                            <input id="signup-field-8" className={inputClass} type="text" placeholder="7600" value={data.postalCode} onChange={(e) => onChange('postalCode', e.target.value)} autoComplete="postal-code" required minLength={3} maxLength={20} />
+                            {getFieldError('postalCode') ? <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{getFieldError('postalCode')}</p> : null}
                         </div>
                     </div>
                 </div>
             </div>
 
-            <button onClick={onNext} className="mt-2 w-full rounded-lg bg-primary py-3 font-bold text-white shadow-lg shadow-primary/20 transition-all active:scale-[0.98] hover:bg-orange-600">
+            <button onClick={onNext} className={authPrimaryButtonClass}>
                 Continuar
             </button>
         </div>
@@ -245,42 +206,34 @@ function Step1({
 }
 
 function Step2({ data, onChange, onNext, onBack, fieldErrors }) {
-    const [showPass, setShowPass] = useState(false);
     const getFieldError = (field) => fieldErrors?.[field] || '';
 
     return (
         <div className="space-y-5">
             <div>
-                <label className={labelClass}>Mail</label>
-                <input className={inputClass} type="email" placeholder="tu@email.com" value={data.email} onChange={(e) => onChange('email', e.target.value)} required maxLength={160} />
-                {getFieldError('email') ? <p className="mt-1 text-xs text-red-600">{getFieldError('email')}</p> : null}
+                <label htmlFor="signup-email" className={labelClass}>Email</label>
+                <input id="signup-email" className={inputClass} type="email" autoComplete="email" placeholder="tu@email.com" value={data.email} onChange={(e) => onChange('email', e.target.value)} required maxLength={160} />
+                {getFieldError('email') ? <p className={authErrorTextClass}>{getFieldError('email')}</p> : null}
             </div>
             <div>
-                <label className={labelClass}>Contrasena</label>
-                <div className="relative">
-                    <input className={inputClass} type={showPass ? 'text' : 'password'} placeholder="********" value={data.password} onChange={(e) => onChange('password', e.target.value)} required minLength={8} maxLength={72} pattern="^(?=.*[A-Za-z])(?=.*\d).{8,72}$" title="Minimo 8 caracteres, al menos una letra y un numero." />
-                    <button type="button" onClick={() => setShowPass((value) => !value)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8a7560] transition-colors hover:text-[#181411] dark:hover:text-[var(--store-text)]">
-                        <EyeIcon open={showPass} />
-                    </button>
-                </div>
-                {getFieldError('password') ? <p className="mt-1 text-xs text-red-600">{getFieldError('password')}</p> : null}
+                <label htmlFor="signup-password" className={labelClass}>Contraseña</label>
+                <PasswordInput id="signup-password" autoComplete="new-password" placeholder="Mínimo 8 caracteres" value={data.password} onChange={(e) => onChange('password', e.target.value)} required minLength={8} maxLength={72} pattern="^(?=.*[A-Za-z])(?=.*\d).{8,72}$" title="Mínimo 8 caracteres, al menos una letra y un número." />
+                {getFieldError('password') ? <p className={authErrorTextClass}>{getFieldError('password')}</p> : <p className={helperTextClass}>Mínimo 8 caracteres, con una letra y un número.</p>}
             </div>
 
             <div>
-                <label className={labelClass}>Confirmar contrasena</label>
-                <input className={inputClass} type="password" placeholder="********" value={data.confirmPassword} onChange={(e) => onChange('confirmPassword', e.target.value)} required minLength={8} maxLength={72} />
-                {getFieldError('confirmPassword') ? <p className="mt-1 text-xs text-red-600">{getFieldError('confirmPassword')}</p> : null}
+                <label htmlFor="signup-confirm" className={labelClass}>Confirmar contraseña</label>
+                <PasswordInput id="signup-confirm" autoComplete="new-password" placeholder="Repite la contraseña" value={data.confirmPassword} onChange={(e) => onChange('confirmPassword', e.target.value)} required minLength={8} maxLength={72} />
+                {getFieldError('confirmPassword') ? <p className={authErrorTextClass}>{getFieldError('confirmPassword')}</p> : null}
             </div>
 
-            <div className="space-y-3 pt-1">
-                <button onClick={onNext} className="w-full rounded-lg bg-primary py-3 font-bold text-white shadow-lg shadow-primary/20 transition-all active:scale-[0.98] hover:bg-orange-600">
+            <div className="space-y-3 pt-2">
+                <button type="button" onClick={onNext} className={authPrimaryButtonClass}>
                     Continuar
                 </button>
-                <div className="text-center">
-                    <button onClick={onBack} className="text-sm font-semibold text-[#8a7560] transition-colors hover:text-[#181411] dark:hover:text-[var(--store-text)]">
-                        Volver al paso anterior
-                    </button>
-                </div>
+                <button type="button" onClick={onBack} className={`${authLinkButtonClass} block w-full text-center`}>
+                    Volver
+                </button>
             </div>
         </div>
     );
@@ -291,23 +244,23 @@ function Step3({ data, onChange, onBack, onSubmit, loading, fieldErrors }) {
     return (
         <div className="space-y-4">
             <div>
-                <label className={labelClass}>Razon social o negocio</label>
-                <input className={inputClass} type="text" placeholder="Nombre comercial o razon social" value={data.company} onChange={(e) => onChange('company', e.target.value)} required minLength={2} maxLength={180} />
-                {getFieldError('company') ? <p className="mt-1 text-xs text-red-600">{getFieldError('company')}</p> : null}
+                <label htmlFor="signup-field-12" className={labelClass}>Razón social o nombre del negocio</label>
+                <input id="signup-field-12" className={inputClass} type="text" autoComplete="organization" placeholder="Nombre comercial o razón social" value={data.company} onChange={(e) => onChange('company', e.target.value)} required minLength={2} maxLength={180} />
+                {getFieldError('company') ? <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{getFieldError('company')}</p> : null}
             </div>
             <div>
-                <label className={labelClass}>A que se dedica</label>
-                <input className={inputClass} type="text" placeholder="Actividad principal" value={data.businessActivity} onChange={(e) => onChange('businessActivity', e.target.value)} required minLength={2} maxLength={180} />
-                {getFieldError('businessActivity') ? <p className="mt-1 text-xs text-red-600">{getFieldError('businessActivity')}</p> : null}
+                <label htmlFor="signup-field-13" className={labelClass}>¿A qué se dedica?</label>
+                <input id="signup-field-13" className={inputClass} type="text" placeholder="Ej: heladería, panadería, confitería" value={data.businessActivity} onChange={(e) => onChange('businessActivity', e.target.value)} required minLength={2} maxLength={180} />
+                {getFieldError('businessActivity') ? <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">{getFieldError('businessActivity')}</p> : null}
             </div>
 
             <div className="space-y-3 pt-1">
-                <button onClick={onSubmit} disabled={loading} className="w-full rounded-lg bg-primary py-3 font-bold text-white shadow-lg shadow-primary/20 transition-all active:scale-[0.98] hover:bg-orange-600 disabled:opacity-70">
-                    {loading ? 'Creando cuenta...' : 'Finalizar registro'}
+                <button onClick={onSubmit} disabled={loading} className={authPrimaryButtonClass}>
+                    {loading ? 'Creando cuenta…' : 'Crear cuenta'}
                 </button>
-                <div className="text-center">
-                    <button onClick={onBack} className="text-sm font-semibold text-[#8a7560] transition-colors hover:text-[#181411] dark:hover:text-[var(--store-text)]">
-                        Volver al paso anterior
+                <div>
+                    <button type="button" onClick={onBack} className={`${authLinkButtonClass} block w-full text-center`}>
+                        Volver
                     </button>
                 </div>
             </div>
@@ -328,19 +281,20 @@ function Step4({
 }) {
     return (
         <div className="space-y-4">
-            <div className="rounded-lg border border-[#e5e1de] dark:border-[var(--store-border)] bg-[#faf7f4] dark:bg-[var(--store-surface-soft)] p-3 text-sm text-[#5b4632] dark:text-[var(--store-muted-text)]">
+            <AuthAlert tone="info">
                 {deliveryNotice || (
                     <>
-                        Te enviamos un codigo de verificacion a <span className="font-bold">{email}</span> desde el correo configurado en el panel admin.
+                        Te enviamos un código de 6 dígitos a <span className="font-semibold text-[var(--store-text)]">{email}</span>. Puede tardar un minuto.
                     </>
                 )}
-            </div>
+            </AuthAlert>
             <div>
-                <label className={labelClass}>Codigo de verificacion</label>
-                <input
-                    className={inputClass}
+                <label htmlFor="signup-field-14" className={labelClass}>Código de verificación</label>
+                <input id="signup-field-14"
+                    className={`${inputClass} text-center text-lg font-semibold tracking-[0.4em]`}
                     type="text"
                     inputMode="numeric"
+                    autoComplete="one-time-code"
                     maxLength={6}
                     placeholder="000000"
                     value={code}
@@ -351,52 +305,23 @@ function Step4({
                 <button
                     onClick={onVerify}
                     disabled={loading}
-                    className="w-full rounded-lg bg-primary py-3 font-bold text-white shadow-lg shadow-primary/20 transition-all active:scale-[0.98] hover:bg-orange-600 disabled:opacity-70"
+                    className={authPrimaryButtonClass}
                 >
-                    {loading ? 'Verificando...' : 'Verificar email'}
+                    {loading ? 'Verificando…' : 'Verificar email'}
                 </button>
                 <button
                     onClick={onResend}
                     disabled={resendLoading}
-                    className="w-full rounded-lg border border-[#e5e1de] dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] py-3 font-bold text-[#181411] dark:text-[var(--store-text)] transition-all active:scale-[0.98] disabled:opacity-60"
+                    className={authSecondaryButtonClass}
                 >
-                    {resendLoading ? 'Reenviando...' : 'Reenviar codigo'}
+                    {resendLoading ? 'Reenviando…' : 'Reenviar código'}
                 </button>
-                <div className="text-center">
-                    <button onClick={onBack} className="text-sm font-semibold text-[#8a7560] transition-colors hover:text-[#181411] dark:hover:text-[var(--store-text)]">
-                        Volver al paso anterior
+                <div>
+                    <button type="button" onClick={onBack} className={`${authLinkButtonClass} block w-full text-center`}>
+                        Volver
                     </button>
                 </div>
             </div>
-        </div>
-    );
-}
-
-function Stepper({ current, total = 3 }) {
-    const steps = total === 4
-        ? ['Personal', 'Cuenta', 'Negocio', 'Verificar']
-        : ['Personal', 'Cuenta', 'Negocio'];
-    const denominator = Math.max(1, steps.length - 1);
-    const progress = Math.max(0, Math.min(1, (current - 1) / denominator));
-    const progressWidth = `${Math.round(progress * 100)}%`;
-
-    return (
-        <div className="relative mb-8 flex items-start justify-between px-2">
-            <div className="absolute left-0 top-3.5 z-0 h-0.5 w-full bg-gray-200 dark:bg-[var(--store-border)]" />
-            <div className="absolute left-0 top-3.5 z-0 h-0.5 bg-primary transition-all duration-500" style={{ width: progressWidth }} />
-            {steps.map((label, index) => {
-                const stepNum = index + 1;
-                const done = stepNum < current;
-                const active = stepNum === current;
-                return (
-                    <div key={label} className="relative z-10 flex flex-col items-center">
-                        <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${done || active ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-white dark:bg-[var(--store-card-bg)] text-gray-500 dark:text-[var(--store-muted-text)] ring-1 ring-gray-200 dark:ring-[var(--store-border)]'}`}>
-                            {done ? <CheckIcon /> : stepNum}
-                        </div>
-                        <span className={`mt-1.5 text-[9px] font-bold uppercase tracking-wider transition-colors ${active ? 'text-primary' : done ? 'text-gray-700 dark:text-[var(--store-text)]' : 'text-gray-500 dark:text-[var(--store-muted-text)]'}`}>{label}</span>
-                    </div>
-                );
-            })}
         </div>
     );
 }
@@ -747,117 +672,117 @@ export default function SignupPage() {
         }
     };
 
+    const brandName = resolveTenantBrandName({ tenant, settings });
+
     if (externalAuthEnabled) {
         return (
             <StoreLayout>
-                <div className={isPiquim ? 'flex justify-center bg-gradient-to-b from-white via-gray-50 to-white dark:from-[var(--store-background)] dark:via-[var(--store-surface)] dark:to-[var(--store-background)] p-4 pt-8 pb-16 md:pt-10' : 'flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-white via-gray-50 to-white dark:from-[var(--store-background)] dark:via-[var(--store-surface)] dark:to-[var(--store-background)] p-4'}>
-                    <div className="w-full max-w-[460px] rounded-3xl border border-gray-200 dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.18)] md:p-8">
-                        <div className="text-center space-y-3">
-                            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-[var(--store-text)]">Registro centralizado</h1>
-                            <p className="text-sm font-medium text-gray-500 dark:text-[var(--store-muted-text)]">
-                                El alta de usuarios de Vase Business se resuelve desde Vase App.
-                            </p>
-                        </div>
-
-                        <div className="mt-8 space-y-4">
-                            {externalSignupUrl ? (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        window.location.href = externalSignupUrl;
-                                    }}
-                                    className="w-full rounded-lg bg-primary py-3 font-bold text-white shadow-lg shadow-primary/20 transition-all active:scale-[0.98] hover:bg-orange-600"
-                                >
-                                    Ir a crear cuenta
-                                </button>
-                            ) : null}
-
-                            {externalLoginUrl ? (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        window.location.href = externalLoginUrl;
-                                    }}
-                                    className="w-full rounded-lg border border-gray-200 dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] py-3 font-bold text-gray-900 dark:text-[var(--store-text)] transition-all active:scale-[0.98]"
-                                >
-                                    Ya tengo cuenta
-                                </button>
-                            ) : null}
-                        </div>
+                <AuthShell
+                    variant="signup"
+                    isPiquim={isPiquim}
+                    brandName={brandName}
+                    eyebrow="Registro centralizado"
+                    title="Crear cuenta"
+                    subtitle="El alta de usuarios se resuelve desde Vase App. Te llevamos allí y después vuelves a la tienda."
+                >
+                    <div className="space-y-3">
+                        {externalSignupUrl ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    window.location.href = externalSignupUrl;
+                                }}
+                                className={authPrimaryButtonClass}
+                            >
+                                Continuar con Vase
+                            </button>
+                        ) : null}
+                        {externalLoginUrl ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    window.location.href = externalLoginUrl;
+                                }}
+                                className={authSecondaryButtonClass}
+                            >
+                                Ya tengo cuenta
+                            </button>
+                        ) : null}
                     </div>
-                </div>
+                </AuthShell>
             </StoreLayout>
         );
     }
 
+    const STEP_LABELS = ['Tus datos', 'Tu cuenta', 'Tu negocio', 'Verificación'];
+
     return (
         <StoreLayout>
-            <div className={isPiquim ? 'flex justify-center bg-gradient-to-b from-white via-gray-50 to-white dark:from-[var(--store-background)] dark:via-[var(--store-surface)] dark:to-[var(--store-background)] p-4 pt-8 pb-16 md:pt-10' : 'flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-white via-gray-50 to-white dark:from-[var(--store-background)] dark:via-[var(--store-surface)] dark:to-[var(--store-background)] p-4'}>
-                <div className="w-full max-w-[460px] rounded-3xl border border-gray-200 dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.18)] md:p-8">
-                    <div className="mb-6 text-center">
-                        <h1 className="mb-1 text-2xl font-extrabold text-gray-900 dark:text-[var(--store-text)]">Crear cuenta</h1>
-                        <p className="text-sm font-medium text-gray-500 dark:text-[var(--store-muted-text)]">Crea tu cuenta para comprar y gestionar tus pedidos</p>
+            <AuthShell
+                variant="signup"
+                isPiquim={isPiquim}
+                brandName={brandName}
+                title="Crear cuenta"
+                subtitle="Con tu cuenta compras y sigues tus pedidos."
+                footer={
+                    <>
+                        ¿Ya tienes cuenta?{' '}
+                        <button type="button" onClick={() => navigate('/login')} className="font-bold text-[var(--store-primary)] underline-offset-4 hover:underline">
+                            Iniciar sesión
+                        </button>
+                    </>
+                }
+            >
+                <StepProgress current={step} labels={STEP_LABELS} />
+
+                {error ? (
+                    <div className="mb-5">
+                        <AuthAlert tone="error">{error}</AuthAlert>
                     </div>
+                ) : null}
 
-                    <Stepper current={step} total={4} />
+                {step === 1 && (
+                    <Step1
+                        data={formData}
+                        onChange={update}
+                        onNext={goStep2}
+                        fieldErrors={fieldErrors}
+                        countryInput={countryInput}
+                        onCountryInputChange={handleCountryInputChange}
+                        countryOptions={countryOptions}
+                        countriesLoading={countriesLoading}
+                        onProvinceInputChange={handleProvinceInputChange}
+                        provinceOptions={provinceOptions}
+                        provinceLoading={provinceLoading}
+                        provinceSuggestionsEnabled={provinceSuggestionsEnabled}
+                        onCityInputChange={handleCityInputChange}
+                        cityOptions={cityOptions}
+                        citiesLoading={citiesLoading}
+                        citySuggestionsEnabled={citySuggestionsEnabled}
+                        addressOptions={addressOptions}
+                        addressLoading={addressLoading}
+                        onAddressInputChange={handleAddressInputChange}
+                        onAddressOptionSelect={handleAddressOptionSelect}
+                        isArgentinaCountry={isArgentinaCountry}
+                    />
+                )}
+                {step === 2 && <Step2 data={formData} onChange={update} onNext={goStep3} onBack={() => setStep(1)} fieldErrors={fieldErrors} />}
+                {step === 3 && <Step3 data={formData} onChange={update} onBack={() => setStep(2)} onSubmit={submit} loading={loading} fieldErrors={fieldErrors} />}
+                {step === 4 && (
+                    <Step4
+                        email={verificationEmail || formData.email.trim()}
+                        code={verificationCode}
+                        onCodeChange={setVerificationCode}
+                        onVerify={handleVerifyEmail}
+                        onResend={handleResendVerification}
+                        onBack={() => setStep(3)}
+                        loading={verificationLoading}
+                        resendLoading={resendLoading}
+                        deliveryNotice={deliveryNotice}
+                    />
+                )}
 
-                    {error ? (
-                        <div className="mb-5 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-3 text-sm font-semibold text-red-700 dark:text-red-300">
-                            {error}
-                        </div>
-                    ) : null}
-
-                    {step === 1 && (
-                        <Step1
-                            data={formData}
-                            onChange={update}
-                            onNext={goStep2}
-                            fieldErrors={fieldErrors}
-                            countryInput={countryInput}
-                            onCountryInputChange={handleCountryInputChange}
-                            countryOptions={countryOptions}
-                            countriesLoading={countriesLoading}
-                            onProvinceInputChange={handleProvinceInputChange}
-                            provinceOptions={provinceOptions}
-                            provinceLoading={provinceLoading}
-                            provinceSuggestionsEnabled={provinceSuggestionsEnabled}
-                            onCityInputChange={handleCityInputChange}
-                            cityOptions={cityOptions}
-                            citiesLoading={citiesLoading}
-                            citySuggestionsEnabled={citySuggestionsEnabled}
-                            addressOptions={addressOptions}
-                            addressLoading={addressLoading}
-                            onAddressInputChange={handleAddressInputChange}
-                            onAddressOptionSelect={handleAddressOptionSelect}
-                            isArgentinaCountry={isArgentinaCountry}
-                        />
-                    )}
-                    {step === 2 && <Step2 data={formData} onChange={update} onNext={goStep3} onBack={() => setStep(1)} fieldErrors={fieldErrors} />}
-                    {step === 3 && <Step3 data={formData} onChange={update} onBack={() => setStep(2)} onSubmit={submit} loading={loading} fieldErrors={fieldErrors} />}
-                    {step === 4 && (
-                        <Step4
-                            email={verificationEmail || formData.email.trim()}
-                            code={verificationCode}
-                            onCodeChange={setVerificationCode}
-                            onVerify={handleVerifyEmail}
-                            onResend={handleResendVerification}
-                            onBack={() => setStep(3)}
-                            loading={verificationLoading}
-                            resendLoading={resendLoading}
-                            deliveryNotice={deliveryNotice}
-                        />
-                    )}
-
-                    <div className="mt-6 border-t border-gray-100 dark:border-[var(--store-border)] pt-4 text-center">
-                        <p className="text-sm text-gray-500 dark:text-[var(--store-muted-text)]">
-                            Ya tenes cuenta?{' '}
-                            <button onClick={() => navigate('/login')} className="font-bold text-primary hover:underline">
-                                Iniciar sesion
-                            </button>
-                        </p>
-                    </div>
-                </div>
-            </div>
+            </AuthShell>
         </StoreLayout>
     );
 }

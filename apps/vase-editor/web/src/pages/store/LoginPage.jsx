@@ -4,6 +4,15 @@ import { useTenant } from '../../context/TenantContext';
 import StoreLayout from '../../components/layout/StoreLayout';
 import { navigate, normalizeInternalPath } from '../../utils/navigation';
 import { isPiquimTenantIdentity, resolveTenantBrandName } from '../../utils/tenantBranding';
+import AuthShell, {
+    AuthAlert,
+    PasswordInput,
+    authInputClass,
+    authLabelClass,
+    authLinkButtonClass,
+    authPrimaryButtonClass,
+    authSecondaryButtonClass,
+} from '../../components/auth/AuthShell';
 import {
     getExternalBusinessLaunchUrl,
     getExternalLoginUrl,
@@ -30,14 +39,13 @@ export default function LoginPage() {
     const { tenant, settings } = useTenant();
     const isPiquim = isPiquimTenantIdentity({ tenant, settings });
     const brandName = resolveTenantBrandName({ tenant, settings });
-    const brandInitial = brandName.trim().charAt(0).toUpperCase() || 'S';
     const externalAuthEnabled = isExternalAuthEnabled();
     const externalLaunchUrl = getExternalBusinessLaunchUrl();
     const externalLoginUrl = getExternalLoginUrl();
     const externalSignupUrl = getExternalSignupUrl();
     const externalAccessUrl = externalLaunchUrl || externalLoginUrl;
-    const [email, setEmail] = useState('admin');
-    const [password, setPassword] = useState('admin123');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const [loading, setLoading] = useState(false);
@@ -138,42 +146,40 @@ export default function LoginPage() {
     if (externalAuthEnabled) {
         return (
             <StoreLayout>
-                <div className={isPiquim ? 'flex justify-center px-4 pt-8 pb-16 md:pt-10' : 'min-h-[80vh] flex items-center justify-center px-4'}>
-                    <div className="max-w-md w-full bg-white dark:bg-[#1a130c] p-10 rounded-2xl shadow-xl border border-[#e5e1de] dark:border-[#3d2f21]">
-                        <div className="text-center space-y-3">
-                            <h2 className="text-3xl font-black text-[#181411] dark:text-white">Acceso centralizado</h2>
-                            <p className="text-[#8a7560]">
-                                El inicio de sesion de Vase Business se gestiona desde Vase App.
-                            </p>
-                        </div>
-
-                        <div className="mt-8 space-y-4">
+                <AuthShell
+                    variant="login"
+                    isPiquim={isPiquim}
+                    brandName={brandName}
+                    eyebrow="Acceso centralizado"
+                    title="Iniciar sesión"
+                    subtitle="El inicio de sesión se gestiona desde Vase App. Te llevamos allí y después vuelves a la tienda."
+                    footer={externalSignupUrl ? 'Si todavía no tienes cuenta, puedes crearla desde Vase.' : null}
+                >
+                    <div className="space-y-3">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (externalAccessUrl) {
+                                    window.location.href = externalAccessUrl;
+                                }
+                            }}
+                            className={authPrimaryButtonClass}
+                        >
+                            Continuar con Vase
+                        </button>
+                        {externalSignupUrl ? (
                             <button
                                 type="button"
                                 onClick={() => {
-                                    if (externalAccessUrl) {
-                                        window.location.href = externalAccessUrl;
-                                    }
+                                    window.location.href = externalSignupUrl;
                                 }}
-                                className="w-full bg-primary hover:bg-orange-600 text-white font-bold py-4 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-[0.98]"
+                                className={authSecondaryButtonClass}
                             >
-                                Abrir desde Vase
+                                Crear cuenta
                             </button>
-
-                            {externalSignupUrl ? (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        window.location.href = externalSignupUrl;
-                                    }}
-                                    className="w-full border border-[#e5e1de] dark:border-[#3d2f21] text-[#181411] dark:text-white font-bold py-4 rounded-lg transition-all active:scale-[0.98]"
-                                >
-                                    Ir a registrarse
-                                </button>
-                            ) : null}
-                        </div>
+                        ) : null}
                     </div>
-                </div>
+                </AuthShell>
             </StoreLayout>
         );
     }
@@ -222,110 +228,95 @@ export default function LoginPage() {
 
     return (
         <StoreLayout>
-            <div className={isPiquim ? 'flex justify-center px-4 pt-8 pb-16 md:pt-10' : 'min-h-[80vh] flex items-center justify-center px-4'}>
-                <div className="relative max-w-md w-full overflow-hidden rounded-[32px] border border-[#f0d0bf] bg-[#fffaf6] p-8 shadow-[0_24px_80px_rgba(255,77,0,0.16)] dark:border-[#3d2f21] dark:bg-[#1a130c]">
-                    <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#ff4d00]/15 blur-2xl" />
-                    <div className="relative text-center mb-8">
-                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ff4d00] text-xl font-black text-white shadow-[0_16px_35px_rgba(255,77,0,0.35)]">
-                            {brandInitial}
-                        </div>
-                        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#ff4d00]">Panel {brandName}</p>
-                        <h2 className="mt-2 text-3xl font-black text-[#181411] dark:text-white">Iniciar sesion</h2>
-                        <p className="text-[#8a7560] mt-2">Ingresa con usuario y contrasena</p>
+            <AuthShell
+                variant="login"
+                isPiquim={isPiquim}
+                brandName={brandName}
+                eyebrow="Mi cuenta"
+                title="Iniciar sesión"
+                subtitle={isPiquim ? 'Ingresa para ver precios, tus pedidos y tus favoritos.' : 'Ingresa con tu email o usuario.'}
+                footer={
+                    <>
+                        ¿No tienes cuenta?{' '}
+                        <button type="button" onClick={() => navigate('/signup')} className="font-bold text-[var(--store-primary)] underline-offset-4 hover:underline">
+                            Crear cuenta
+                        </button>
+                    </>
+                }
+            >
+                {error || notice ? (
+                    <div className="mb-6 space-y-3">
+                        {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
+                        {notice ? <AuthAlert tone="success">{notice}</AuthAlert> : null}
+                    </div>
+                ) : null}
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <div>
+                        <label htmlFor="login-email" className={authLabelClass}>Email o usuario</label>
+                        <input
+                            id="login-email"
+                            type="text"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className={authInputClass}
+                            placeholder="tu@email.com"
+                            autoComplete="username"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="login-password" className={authLabelClass}>Contraseña</label>
+                        <PasswordInput
+                            id="login-password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Tu contraseña"
+                            autoComplete="current-password"
+                            required
+                        />
                     </div>
 
-                    {error && (
-                        <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6 text-sm font-medium border border-red-100">
-                            {error}
-                        </div>
-                    )}
-                    {notice && (
-                        <div className="bg-emerald-50 text-emerald-700 p-4 rounded-lg mb-6 text-sm font-medium border border-emerald-100">
-                            {notice}
-                        </div>
-                    )}
+                    <button type="submit" disabled={loading} className={authPrimaryButtonClass}>
+                        {loading ? 'Ingresando…' : 'Ingresar'}
+                    </button>
+                </form>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                {pendingVerificationEmail ? (
+                    <div className="mt-8 space-y-4 rounded-2xl border border-[var(--store-border)] bg-[var(--store-surface-soft)] p-5">
                         <div>
-                            <label className="block text-sm font-bold text-[#181411] dark:text-white mb-2">Usuario o email</label>
-                            <input
-                                type="text"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg border border-[#e5e1de] dark:border-[#3d2f21] bg-transparent focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all dark:text-white"
-                                placeholder="admin o tu@email.com"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-[#181411] dark:text-white mb-2">Contrasena</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg border border-[#e5e1de] dark:border-[#3d2f21] bg-transparent focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all dark:text-white"
-                                placeholder="Tu contrasena"
-                                required
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-primary hover:bg-orange-600 text-white font-bold py-4 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-70"
-                        >
-                            {loading ? 'Ingresando...' : 'Ingresar'}
-                        </button>
-                    </form>
-
-                    {pendingVerificationEmail ? (
-                        <div className="mt-6 rounded-xl border border-[#e5e1de] dark:border-[#3d2f21] bg-[#faf7f4] dark:bg-[#2b2219] p-4 space-y-3">
-                            <p className="text-[13px] font-semibold text-[#5b4632] dark:text-[#f4e7d8]">
-                                Verifica tu email para continuar: {pendingVerificationEmail}
+                            <p className="text-sm font-bold text-[var(--store-text)]">Verifica tu email</p>
+                            <p className="mt-1 text-sm leading-5 text-[var(--store-muted-text)]">
+                                Te enviamos un código de 6 dígitos a <span className="font-semibold text-[var(--store-text)]">{pendingVerificationEmail}</span>.
                             </p>
+                        </div>
+                        <div>
+                            <label htmlFor="login-code" className={authLabelClass}>Código de verificación</label>
                             <input
+                                id="login-code"
                                 type="text"
                                 inputMode="numeric"
+                                autoComplete="one-time-code"
                                 maxLength={6}
                                 value={verificationCode}
                                 onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                                className="w-full px-4 py-3 rounded-lg border border-[#e5e1de] dark:border-[#3d2f21] bg-transparent focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all dark:text-white"
-                                placeholder="Codigo de 6 digitos"
+                                className={`${authInputClass} text-center text-lg font-semibold tracking-[0.4em]`}
+                                placeholder="000000"
                             />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={handleVerifyPendingEmail}
-                                    disabled={verificationLoading}
-                                    className="w-full bg-primary hover:bg-orange-600 text-white font-bold py-3 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-70"
-                                >
-                                    {verificationLoading ? 'Verificando...' : 'Verificar'}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleResendCode}
-                                    disabled={resendLoading}
-                                    className="w-full border border-[#e5e1de] dark:border-[#3d2f21] text-[#181411] dark:text-white font-bold py-3 rounded-lg transition-all active:scale-[0.98] disabled:opacity-70"
-                                >
-                                    {resendLoading ? 'Reenviando...' : 'Reenviar codigo'}
-                                </button>
-                            </div>
                         </div>
-                    ) : null}
-
-                    <div className="mt-8 text-center">
-                        <p className="text-[#8a7560] text-sm">
-                            No tienes cuenta?{' '}
-                            <button
-                                onClick={() => navigate('/signup')}
-                                className="text-primary font-bold hover:underline"
-                            >
-                                Registrarse
+                        <div className="space-y-3">
+                            <button type="button" onClick={handleVerifyPendingEmail} disabled={verificationLoading} className={authPrimaryButtonClass}>
+                                {verificationLoading ? 'Verificando…' : 'Verificar'}
                             </button>
-                        </p>
+                            <button type="button" onClick={handleResendCode} disabled={resendLoading} className={`${authLinkButtonClass} block w-full text-center`}>
+                                {resendLoading ? 'Reenviando…' : 'Reenviar código'}
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </div>
+                ) : null}
+            </AuthShell>
         </StoreLayout>
     );
 }
