@@ -45,11 +45,14 @@ test('el header Piquim no agrega un separador extra debajo de la barra', async (
     assert.match(source, /overlay \? '-mt-\[6px\] -mb-\[116px\] max-md:-mb-\[96px\]' : ''/);
 });
 
-test('el registro tiene variante oscura en fondo, tarjeta y campos', async () => {
-    const source = await read('../src/pages/store/SignupPage.jsx');
-    assert.match(source, /dark:from-\[var\(--store-background\)\]/);
-    assert.match(source, /bg-white dark:bg-\[var\(--store-card-bg\)\]/);
-    assert.match(source, /const inputClass = '[^']*dark:bg-\[var\(--store-card-bg\)\][^']*dark:text-\[var\(--store-text\)\]/);
+test('el registro usa los colores del tema (claro y oscuro) en fondo, campos y botones', async () => {
+    const shell = await read('../src/components/auth/AuthShell.jsx');
+    assert.match(shell, /bg-\[var\(--store-background\)\]/);
+    assert.match(shell, /authInputClass =\s*'[^']*bg-\[var\(--store-input-bg\)\][^']*text-\[var\(--store-text\)\]/);
+    assert.match(shell, /bg-\[var\(--store-primary\)\]/);
+    assert.doesNotMatch(shell, /bg-white|text-gray-|border-gray-/);
+    const signup = await read('../src/pages/store/SignupPage.jsx');
+    assert.doesNotMatch(signup, /bg-white|text-gray-|border-gray-|from-white/);
 });
 
 test('el titulo del producto es legible en modo oscuro', async () => {
