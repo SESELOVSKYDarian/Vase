@@ -1,5 +1,6 @@
 import React from 'react';
 import { navigate } from '../../utils/navigation';
+import { adaptiveColor } from '../../utils/adaptiveColor';
 
 export default function AboutCTA({
     title = 'Listo para tu próximo proyecto?',
@@ -7,10 +8,10 @@ export default function AboutCTA({
     secondaryLink = { label: 'Contactar ventas', link: '/#contacto' },
     styles = {},
 }) {
-    const backgroundColor = styles.backgroundColor || 'transparent';
+    const backgroundColor = adaptiveColor(styles.backgroundColor || 'transparent', 'background');
     const accentColor = styles.accentColor || 'var(--color-primary, #f97316)';
-    const textColor = styles.textColor || '#181411';
-    const mutedColor = styles.mutedColor || '#6b7280';
+    const textColor = adaptiveColor(styles.textColor || '#181411', 'text');
+    const mutedColor = adaptiveColor(styles.mutedColor || '#6b7280', 'muted');
 
     const handleNavigate = (event, link) => {
         if (!link) return;

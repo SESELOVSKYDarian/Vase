@@ -22,6 +22,7 @@ import {
   parseDataUri,
   sendMedia,
 } from '../services/publicMedia.js';
+import { applyTenantSeoDefaults } from '../services/tenantSeo.js';
 
 // Las rutas de media las piden <img> y <video>, que no pueden mandar el header del tenant:
 // van antes de resolveTenant y se identifican solo por el id del producto o de la seccion.
@@ -484,7 +485,8 @@ publicRouter.get('/tenant', async (req, res, next) => {
       ...rawSettings,
       branding: rawSettings.branding || {},
       theme: rawSettings.theme || {},
-      seo: rawSettings.seo || {},
+      // Titulo, descripcion y favicon por defecto de la tienda cuando el panel admin los deja vacios.
+      seo: applyTenantSeoDefaults(rawSettings.seo || {}, req.tenant, rawSettings.branding),
       commerce: {
         ...commerce,
         price_tier_labels: normalizePriceTierLabels(commerce.price_tier_labels),

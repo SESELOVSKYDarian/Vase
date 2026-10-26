@@ -31,9 +31,9 @@ const EyeIcon = ({ open }) => (
     </svg>
 );
 
-const inputClass = 'w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/30';
-const labelClass = 'mb-1.5 block text-[13px] font-semibold text-gray-700';
-const helperTextClass = 'mt-1.5 text-xs text-gray-500';
+const inputClass = 'w-full rounded-lg border border-gray-200 dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] px-3.5 py-2.5 text-sm text-gray-900 dark:text-[var(--store-text)] outline-none transition-all placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/30';
+const labelClass = 'mb-1.5 block text-[13px] font-semibold text-gray-700 dark:text-[var(--store-text)]';
+const helperTextClass = 'mt-1.5 text-xs text-gray-500 dark:text-[var(--store-muted-text)]';
 
 function AutocompleteField({
     value,
@@ -68,7 +68,7 @@ function AutocompleteField({
                 disabled={disabled}
             />
             {isOpen && filtered.length ? (
-                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-56 overflow-auto rounded-lg border border-gray-200 bg-white p-1.5 shadow-xl">
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-56 overflow-auto rounded-lg border border-gray-200 dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] p-1.5 shadow-xl">
                     {filtered.map((item) => (
                         <button
                             key={item.value}
@@ -79,7 +79,7 @@ function AutocompleteField({
                                 onOptionSelect?.(item);
                                 setIsOpen(false);
                             }}
-                            className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-orange-50 hover:text-primary"
+                            className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 dark:text-[var(--store-text)] hover:bg-orange-50 dark:hover:bg-[var(--store-surface-soft)] hover:text-primary"
                         >
                             {item.label}
                         </button>
@@ -135,7 +135,7 @@ function Step1({
                 </div>
             </div>
 
-            <div className="border-t border-gray-100 pt-2">
+            <div className="border-t border-gray-100 dark:border-[var(--store-border)] pt-2">
                 <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-gray-400">Direccion</p>
                 <div className="space-y-3">
                     <div>
@@ -259,7 +259,7 @@ function Step2({ data, onChange, onNext, onBack, fieldErrors }) {
                 <label className={labelClass}>Contrasena</label>
                 <div className="relative">
                     <input className={inputClass} type={showPass ? 'text' : 'password'} placeholder="********" value={data.password} onChange={(e) => onChange('password', e.target.value)} required minLength={8} maxLength={72} pattern="^(?=.*[A-Za-z])(?=.*\d).{8,72}$" title="Minimo 8 caracteres, al menos una letra y un numero." />
-                    <button type="button" onClick={() => setShowPass((value) => !value)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8a7560] transition-colors hover:text-[#181411]">
+                    <button type="button" onClick={() => setShowPass((value) => !value)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8a7560] transition-colors hover:text-[#181411] dark:hover:text-[var(--store-text)]">
                         <EyeIcon open={showPass} />
                     </button>
                 </div>
@@ -277,7 +277,7 @@ function Step2({ data, onChange, onNext, onBack, fieldErrors }) {
                     Continuar
                 </button>
                 <div className="text-center">
-                    <button onClick={onBack} className="text-sm font-semibold text-[#8a7560] transition-colors hover:text-[#181411]">
+                    <button onClick={onBack} className="text-sm font-semibold text-[#8a7560] transition-colors hover:text-[#181411] dark:hover:text-[var(--store-text)]">
                         Volver al paso anterior
                     </button>
                 </div>
@@ -306,7 +306,7 @@ function Step3({ data, onChange, onBack, onSubmit, loading, fieldErrors }) {
                     {loading ? 'Creando cuenta...' : 'Finalizar registro'}
                 </button>
                 <div className="text-center">
-                    <button onClick={onBack} className="text-sm font-semibold text-[#8a7560] transition-colors hover:text-[#181411]">
+                    <button onClick={onBack} className="text-sm font-semibold text-[#8a7560] transition-colors hover:text-[#181411] dark:hover:text-[var(--store-text)]">
                         Volver al paso anterior
                     </button>
                 </div>
@@ -328,7 +328,7 @@ function Step4({
 }) {
     return (
         <div className="space-y-4">
-            <div className="rounded-lg border border-[#e5e1de] bg-[#faf7f4] p-3 text-sm text-[#5b4632]">
+            <div className="rounded-lg border border-[#e5e1de] dark:border-[var(--store-border)] bg-[#faf7f4] dark:bg-[var(--store-surface-soft)] p-3 text-sm text-[#5b4632] dark:text-[var(--store-muted-text)]">
                 {deliveryNotice || (
                     <>
                         Te enviamos un codigo de verificacion a <span className="font-bold">{email}</span> desde el correo configurado en el panel admin.
@@ -358,12 +358,12 @@ function Step4({
                 <button
                     onClick={onResend}
                     disabled={resendLoading}
-                    className="w-full rounded-lg border border-[#e5e1de] bg-white py-3 font-bold text-[#181411] transition-all active:scale-[0.98] disabled:opacity-60"
+                    className="w-full rounded-lg border border-[#e5e1de] dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] py-3 font-bold text-[#181411] dark:text-[var(--store-text)] transition-all active:scale-[0.98] disabled:opacity-60"
                 >
                     {resendLoading ? 'Reenviando...' : 'Reenviar codigo'}
                 </button>
                 <div className="text-center">
-                    <button onClick={onBack} className="text-sm font-semibold text-[#8a7560] transition-colors hover:text-[#181411]">
+                    <button onClick={onBack} className="text-sm font-semibold text-[#8a7560] transition-colors hover:text-[#181411] dark:hover:text-[var(--store-text)]">
                         Volver al paso anterior
                     </button>
                 </div>
@@ -382,7 +382,7 @@ function Stepper({ current, total = 3 }) {
 
     return (
         <div className="relative mb-8 flex items-start justify-between px-2">
-            <div className="absolute left-0 top-3.5 z-0 h-0.5 w-full bg-gray-200" />
+            <div className="absolute left-0 top-3.5 z-0 h-0.5 w-full bg-gray-200 dark:bg-[var(--store-border)]" />
             <div className="absolute left-0 top-3.5 z-0 h-0.5 bg-primary transition-all duration-500" style={{ width: progressWidth }} />
             {steps.map((label, index) => {
                 const stepNum = index + 1;
@@ -390,10 +390,10 @@ function Stepper({ current, total = 3 }) {
                 const active = stepNum === current;
                 return (
                     <div key={label} className="relative z-10 flex flex-col items-center">
-                        <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${done || active ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-white text-gray-500 ring-1 ring-gray-200'}`}>
+                        <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${done || active ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-white dark:bg-[var(--store-card-bg)] text-gray-500 dark:text-[var(--store-muted-text)] ring-1 ring-gray-200 dark:ring-[var(--store-border)]'}`}>
                             {done ? <CheckIcon /> : stepNum}
                         </div>
-                        <span className={`mt-1.5 text-[9px] font-bold uppercase tracking-wider transition-colors ${active ? 'text-primary' : done ? 'text-gray-700' : 'text-gray-500'}`}>{label}</span>
+                        <span className={`mt-1.5 text-[9px] font-bold uppercase tracking-wider transition-colors ${active ? 'text-primary' : done ? 'text-gray-700 dark:text-[var(--store-text)]' : 'text-gray-500 dark:text-[var(--store-muted-text)]'}`}>{label}</span>
                     </div>
                 );
             })}
@@ -750,11 +750,11 @@ export default function SignupPage() {
     if (externalAuthEnabled) {
         return (
             <StoreLayout>
-                <div className={isPiquim ? 'flex justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4 pt-8 pb-16 md:pt-10' : 'flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4'}>
-                    <div className="w-full max-w-[460px] rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.18)] md:p-8">
+                <div className={isPiquim ? 'flex justify-center bg-gradient-to-b from-white via-gray-50 to-white dark:from-[var(--store-background)] dark:via-[var(--store-surface)] dark:to-[var(--store-background)] p-4 pt-8 pb-16 md:pt-10' : 'flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-white via-gray-50 to-white dark:from-[var(--store-background)] dark:via-[var(--store-surface)] dark:to-[var(--store-background)] p-4'}>
+                    <div className="w-full max-w-[460px] rounded-3xl border border-gray-200 dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.18)] md:p-8">
                         <div className="text-center space-y-3">
-                            <h1 className="text-2xl font-extrabold text-gray-900">Registro centralizado</h1>
-                            <p className="text-sm font-medium text-gray-500">
+                            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-[var(--store-text)]">Registro centralizado</h1>
+                            <p className="text-sm font-medium text-gray-500 dark:text-[var(--store-muted-text)]">
                                 El alta de usuarios de Vase Business se resuelve desde Vase App.
                             </p>
                         </div>
@@ -778,7 +778,7 @@ export default function SignupPage() {
                                     onClick={() => {
                                         window.location.href = externalLoginUrl;
                                     }}
-                                    className="w-full rounded-lg border border-gray-200 bg-white py-3 font-bold text-gray-900 transition-all active:scale-[0.98]"
+                                    className="w-full rounded-lg border border-gray-200 dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] py-3 font-bold text-gray-900 dark:text-[var(--store-text)] transition-all active:scale-[0.98]"
                                 >
                                     Ya tengo cuenta
                                 </button>
@@ -792,17 +792,17 @@ export default function SignupPage() {
 
     return (
         <StoreLayout>
-            <div className={isPiquim ? 'flex justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4 pt-8 pb-16 md:pt-10' : 'flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-white via-gray-50 to-white p-4'}>
-                <div className="w-full max-w-[460px] rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.18)] md:p-8">
+            <div className={isPiquim ? 'flex justify-center bg-gradient-to-b from-white via-gray-50 to-white dark:from-[var(--store-background)] dark:via-[var(--store-surface)] dark:to-[var(--store-background)] p-4 pt-8 pb-16 md:pt-10' : 'flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-white via-gray-50 to-white dark:from-[var(--store-background)] dark:via-[var(--store-surface)] dark:to-[var(--store-background)] p-4'}>
+                <div className="w-full max-w-[460px] rounded-3xl border border-gray-200 dark:border-[var(--store-border)] bg-white dark:bg-[var(--store-card-bg)] p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.18)] md:p-8">
                     <div className="mb-6 text-center">
-                        <h1 className="mb-1 text-2xl font-extrabold text-gray-900">Crear cuenta</h1>
-                        <p className="text-sm font-medium text-gray-500">Crea tu cuenta para comprar y gestionar tus pedidos</p>
+                        <h1 className="mb-1 text-2xl font-extrabold text-gray-900 dark:text-[var(--store-text)]">Crear cuenta</h1>
+                        <p className="text-sm font-medium text-gray-500 dark:text-[var(--store-muted-text)]">Crea tu cuenta para comprar y gestionar tus pedidos</p>
                     </div>
 
                     <Stepper current={step} total={4} />
 
                     {error ? (
-                        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+                        <div className="mb-5 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-3 text-sm font-semibold text-red-700 dark:text-red-300">
                             {error}
                         </div>
                     ) : null}
@@ -848,8 +848,8 @@ export default function SignupPage() {
                         />
                     )}
 
-                    <div className="mt-6 border-t border-gray-100 pt-4 text-center">
-                        <p className="text-sm text-gray-500">
+                    <div className="mt-6 border-t border-gray-100 dark:border-[var(--store-border)] pt-4 text-center">
+                        <p className="text-sm text-gray-500 dark:text-[var(--store-muted-text)]">
                             Ya tenes cuenta?{' '}
                             <button onClick={() => navigate('/login')} className="font-bold text-primary hover:underline">
                                 Iniciar sesion

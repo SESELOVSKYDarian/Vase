@@ -95,6 +95,12 @@
     --store-card-bg: #181411;
     --store-border: #3a2d27;
     --store-muted-text: #b9aaa2;
+    /* Ver utils/adaptiveColor.js: colores claros por defecto de los bloques de pagina. */
+    --adaptive-background: var(--store-background);
+    --adaptive-surface: var(--store-surface);
+    --adaptive-card: var(--store-surface-soft);
+    --adaptive-text: var(--store-text);
+    --adaptive-muted: var(--store-muted-text);
   }
 }
 
@@ -692,4 +698,28 @@ body {
 @keyframes marquee {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
+}
+
+/* Hero de Piquim: entrada escalonada del texto. Sin movimiento si el usuario lo desactiva. */
+@keyframes piquim-hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.piquim-hero-reveal {
+  animation: piquim-hero-rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piquim-hero-reveal {
+    animation: none;
+  }
 }
