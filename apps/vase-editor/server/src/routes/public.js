@@ -34,8 +34,9 @@ publicRouter.use(mediaRouter);
 publicRouter.use(resolveTenant);
 
 // Catalogo anonimo: se arma una vez por minuto en vez de una vez por visita.
-const publicListingCache = createLoadingCache({ ttlMs: 60_000, maxEntries: 60, maxEntryBytes: 4_000_000, maxTotalBytes: 32_000_000 });
-const publicNamesCache = createLoadingCache({ ttlMs: 5 * 60_000, maxEntries: 50 });
+// La copia vencida se sigue sirviendo al instante (hasta 10 min) mientras se renueva en segundo plano.
+const publicListingCache = createLoadingCache({ ttlMs: 60_000, staleMs: 10 * 60_000, keepWarmMs: 45_000, maxEntries: 60, maxEntryBytes: 4_000_000, maxTotalBytes: 32_000_000 });
+const publicNamesCache = createLoadingCache({ ttlMs: 5 * 60_000, staleMs: 30 * 60_000, maxEntries: 50 });
 const publicMediaCache = createLoadingCache({
   ttlMs: 60 * 60_000,
   maxEntries: 400,
@@ -706,8 +707,10 @@ publicRouter.get('/products', async (req, res, next) => {
     if (req.user) {
       return res.json(await buildProductsListing(req));
     }
+    // La renovacion en segundo plano no debe retener la peticion: usa una copia minima de lo que necesita.
+    const snapshot = { tenant: req.tenant, query: { ...req.query }, user: undefined };
     const body = await publicListingCache.get(buildListingCacheKey(req), async () =>
-      JSON.stringify(await buildProductsListing(req))
+      JSON.stringify(await buildProductsListing(snapshot))
     );
     return res.type('application/json').send(body);
   } catch (err) {

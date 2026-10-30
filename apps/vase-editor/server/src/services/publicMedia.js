@@ -141,6 +141,14 @@ export function createLoadingCache({
   maxEntries = 100,
   maxEntryBytes = Infinity,
   maxTotalBytes = Infinity,
+  // Tiempo adicional tras vencer en el que se sigue sirviendo la copia vieja al instante mientras se
+  // renueva en segundo plano ("stale-while-revalidate"): nadie espera la consulta pesada a la base.
+  staleMs = 0,
+  // Renovacion periodica de lo que se pidio hace poco: asi la primera visita tras un rato sin trafico
+  // tampoco espera. Solo se renuevan las claves usadas en los ultimos `warmIdleMs` (maximo `warmMaxKeys`).
+  keepWarmMs = 0,
+  warmIdleMs = 10 * 60_000,
+  warmMaxKeys = 12,
   sizeOf = (value) => value?.length || 0,
 }) {
   const entries = new Map();
@@ -164,30 +172,58 @@ export function createLoadingCache({
     while (entries.size > maxEntries || totalBytes > maxTotalBytes) remove(entries.keys().next().value);
   };
 
-  return {
-    // Una sola carga por clave a la vez; si la carga falla y hay un valor vencido, se sirve ese.
-    async get(key, loader) {
-      const hit = entries.get(key);
-      if (hit && hit.expires > Date.now()) return hit.value;
-      if (inflight.has(key)) return inflight.get(key);
+  // Una sola carga por clave a la vez; si la carga falla y hay un valor vencido, se sirve ese.
+  const startLoad = (key, loader, hit) => {
+    if (inflight.has(key)) return inflight.get(key);
+    const pending = (async () => {
+      try {
+        const value = await loader();
+        store(key, value);
+        return value;
+      } catch (error) {
+        if (hit) return hit.value;
+        throw error;
+      } finally {
+        inflight.delete(key);
+      }
+    })();
+    inflight.set(key, pending);
+    return pending;
+  };
 
-      const pending = (async () => {
-        try {
-          const value = await loader();
-          store(key, value);
-          return value;
-        } catch (error) {
-          if (hit) return hit.value;
-          throw error;
-        } finally {
-          inflight.delete(key);
-        }
-      })();
-      inflight.set(key, pending);
-      return pending;
+  const hot = new Map();
+  if (keepWarmMs > 0) {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      for (const [key, item] of hot) {
+        if (now - item.lastUsed > warmIdleMs) hot.delete(key);
+        else if (!inflight.has(key)) startLoad(key, item.loader, entries.get(key)).catch(() => {});
+      }
+    }, keepWarmMs);
+    timer.unref?.();
+  }
+  const markHot = (key, loader) => {
+    if (keepWarmMs <= 0) return;
+    hot.delete(key);
+    hot.set(key, { loader, lastUsed: Date.now() });
+    while (hot.size > warmMaxKeys) hot.delete(hot.keys().next().value);
+  };
+
+  return {
+    async get(key, loader) {
+      markHot(key, loader);
+      const hit = entries.get(key);
+      const now = Date.now();
+      if (hit && hit.expires > now) return hit.value;
+      if (hit && staleMs > 0 && now - hit.expires < staleMs) {
+        startLoad(key, loader, hit).catch(() => {});
+        return hit.value;
+      }
+      return startLoad(key, loader, hit);
     },
     clear() {
       entries.clear();
+      hot.clear();
       totalBytes = 0;
     },
   };
