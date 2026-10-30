@@ -7,8 +7,19 @@ import { ThemeProvider } from './context/ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import { navigate } from './utils/navigation';
 import { isEditorHost as resolveIsEditorHost } from './utils/vaseAuth';
-import { resolveTenantBrandName } from './utils/tenantBranding';
+import { isPiquimTenantIdentity, resolveTenantBrandName } from './utils/tenantBranding';
 import { prefetchPublicPage } from './utils/publicPageCache';
+import { getApiBase, getAuthHeaders, getTenantHeaders } from './utils/api';
+import { buildSubcatalogProductsUrl, prefetchCatalogUrl } from './utils/catalogRequest';
+
+const PIQUIM_CATALOG_SLUGS = ['heladeria', 'panaderia'];
+
+// Precarga los productos de un rubro de Piquim: al entrar al catalogo ya estan y no hace falta "cargando".
+const prefetchPiquimCatalog = (category) =>
+    prefetchCatalogUrl({
+        url: buildSubcatalogProductsUrl({ apiBase: getApiBase(), category }),
+        headers: { ...getTenantHeaders(), ...getAuthHeaders() },
+    });
 
 // Tras un deploy los chunks con hash viejo dejan de existir. Si una pestaña abierta
 // pide uno, se recarga para tomar el index.html nuevo en vez de mostrar un error
@@ -83,6 +94,7 @@ function AppContent() {
     const { isAdmin, loading: authLoading, user } = useAuth();
     const { tenant, settings } = useTenant();
     const isEditorHost = resolveIsEditorHost();
+    const isPiquimStore = isPiquimTenantIdentity({ tenant, settings });
     const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     const allowLocalAdmin = isEditorHost || isLocalHost || import.meta.env.VITE_ALLOW_LOCAL_ADMIN === 'true';
     const isPreviewRoute = route === '/admin/preview';
@@ -112,19 +124,26 @@ function AppContent() {
         if (isEditorHost || isLocalHost) return undefined;
         const onIntent = (event) => {
             const link = event.target instanceof Element ? event.target.closest('a[href^="/"]') : null;
-            if (link) preloadRoute(new URL(link.href, window.location.origin).pathname);
+            if (!link) return;
+            const target = new URL(link.href, window.location.origin);
+            preloadRoute(target.pathname);
+            const category = (target.searchParams.get('category') || '').toLowerCase();
+            if (isPiquimStore && PIQUIM_CATALOG_SLUGS.includes(category)) prefetchPiquimCatalog(category);
         };
         document.addEventListener('pointerover', onIntent, { passive: true });
         document.addEventListener('touchstart', onIntent, { passive: true });
 
         const idle = window.requestIdleCallback || ((callback) => setTimeout(callback, 1200));
-        const idleHandle = idle(() => ['/', '/about', '/catalog'].forEach((path) => ROUTE_PRELOADERS[path]()));
+        const idleHandle = idle(() => {
+            ['/', '/about', '/catalog'].forEach((path) => ROUTE_PRELOADERS[path]());
+            if (isPiquimStore) PIQUIM_CATALOG_SLUGS.forEach(prefetchPiquimCatalog);
+        });
         return () => {
             document.removeEventListener('pointerover', onIntent);
             document.removeEventListener('touchstart', onIntent);
             if (window.cancelIdleCallback && typeof idleHandle === 'number') window.cancelIdleCallback(idleHandle);
         };
-    }, [isEditorHost, isLocalHost]);
+    }, [isEditorHost, isLocalHost, isPiquimStore]);
 
     useEffect(() => {
         if (allowLocalAdmin) return;

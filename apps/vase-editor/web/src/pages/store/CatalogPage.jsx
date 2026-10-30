@@ -24,6 +24,14 @@ import {
     selectCanonicalCatalogMemberships,
     synchronizeCatalogPageRequest,
 } from "../../utils/piquimCatalogCategories";
+import {
+    buildCatalogCacheKey,
+    getCatalogCache,
+    getProductsRequestPage,
+    isCatalogCacheFresh,
+    setCatalogCache,
+    withImageWidth,
+} from "../../utils/catalogRequest";
 import PriceAccessPrompt from "../../components/PriceAccessPrompt";
 import StoreSkeleton from "../../components/StoreSkeleton";
 const FALLBACK_IMAGE = createPlaceholderImage({ label: "Producto", width: 720, height: 720 });
@@ -375,6 +383,14 @@ export default function CatalogPage() {
         };
     }, [isPiquimTenant]);
 
+    // El subcatalogo de Piquim trae todos los productos y pagina en el navegador: la pagina de la URL no
+    // forma parte del pedido (antes, cambiar de pagina borraba y volvia a pedir todo, y la primera pulsacion
+    // se perdia).
+    const isPiquimSubcatalogRoute = isPiquimTenant && Boolean(
+        PIQUIM_SUBCATALOGS[normalizePiquimCatalogSlug(selectedCategory)]
+    );
+    const requestPage = getProductsRequestPage({ isPiquimSubcatalog: isPiquimSubcatalogRoute, page });
+
     useEffect(() => {
         let active = true;
         const controller = new AbortController();
@@ -386,7 +402,7 @@ export default function CatalogPage() {
             selectedMinPrice,
             inStockOnly,
             sort,
-            page,
+            requestPage,
         ]);
 
         const loadProducts = async () => {
@@ -400,12 +416,8 @@ export default function CatalogPage() {
                 );
                 const isNewRequest = productRequestKeyRef.current !== requestKey;
                 productRequestKeyRef.current = requestKey;
-                if (isPiquimSubcatalog && isNewRequest) {
-                    setProducts([]);
-                    setTotalItems(0);
-                }
                 // El subcatalogo de Piquim filtra y pagina en el cliente: necesita todos los productos.
-                url.searchParams.set("page", String(isPiquimSubcatalog ? 1 : page));
+                url.searchParams.set("page", String(isPiquimSubcatalog ? 1 : requestPage));
                 url.searchParams.set("limit", String(isPiquimSubcatalog ? 500 : limit));
                 url.searchParams.set("grouped", "true");
                 url.searchParams.set("sort", sort);
@@ -429,11 +441,21 @@ export default function CatalogPage() {
                     url.searchParams.set("inStock", "true");
                 }
 
+                const requestHeaders = { ...getTenantHeaders(), ...getAuthHeaders() };
+                // Copia en memoria (precargada o de una visita anterior): se muestra de inmediato y, si ya
+                // tiene mas de unos segundos, se actualiza en segundo plano sin pantalla de "cargando".
+                const cacheKey = isPiquimSubcatalog ? buildCatalogCacheKey(url.toString(), requestHeaders) : "";
+                const cachedEntry = cacheKey ? getCatalogCache(cacheKey) : null;
+                if (isPiquimSubcatalog && isNewRequest && !cachedEntry) {
+                    setProducts([]);
+                    setTotalItems(0);
+                }
+
                 const fetchPage = async (pageNumber) => {
                     const pageUrl = new URL(url.toString());
                     pageUrl.searchParams.set("page", String(pageNumber));
                     const response = await fetch(pageUrl.toString(), {
-                        headers: { ...getTenantHeaders(), ...getAuthHeaders() },
+                        headers: requestHeaders,
                         signal: controller.signal,
                     });
 
@@ -458,11 +480,18 @@ export default function CatalogPage() {
                     setTotalItems(Math.max(0, originalTotal - removedCount));
                 };
 
+                if (cachedEntry) {
+                    publishProducts(cachedEntry.data);
+                    setLoading(false);
+                    if (isCatalogCacheFresh(cachedEntry)) return;
+                }
+
                 const data = isPiquimSubcatalog
-                    ? await fetchAllCatalogPages(fetchPage, publishProducts)
-                    : await fetchPage(page);
+                    ? await fetchAllCatalogPages(fetchPage, cachedEntry ? undefined : publishProducts)
+                    : await fetchPage(requestPage);
                 if (!active) return;
-                publishProducts(data);
+                if (isPiquimSubcatalog) setCatalogCache(cacheKey, data);
+                if (!cachedEntry || JSON.stringify(cachedEntry.data) !== JSON.stringify(data)) publishProducts(data);
             } catch (error) {
                 if (error.name !== "AbortError") {
                     console.error("No se pudieron cargar los productos", error);
@@ -488,7 +517,7 @@ export default function CatalogPage() {
             active = false;
             controller.abort();
         };
-    }, [inStockOnly, isPiquimTenant, limit, page, retryKey, search, selectedBrand, selectedCategory, selectedMaxPrice, selectedMinPrice, sort]);
+    }, [inStockOnly, isPiquimTenant, limit, requestPage, retryKey, search, selectedBrand, selectedCategory, selectedMaxPrice, selectedMinPrice, sort]);
 
     const selectedCategoryEntry = useMemo(() => findCategory(categories, selectedCategory), [categories, selectedCategory]);
     const selectedBrandEntry = useMemo(() => findBrand(brands, selectedBrand), [brands, selectedBrand]);
@@ -531,7 +560,7 @@ export default function CatalogPage() {
                     "",
                 price: Number(variation.price || 0),
                 oldPrice: variationData.old_price ? Number(variationData.old_price) : null,
-                image: getProductImage(variation),
+                image: withImageWidth(getProductImage(variation)),
                 alt: variationData.image_alt || variation.name || "Producto",
                 stock: variation.stock,
                 isWholesaleItem: Boolean(variation?.pricing?.segment && variation.pricing.segment !== "retail"),
@@ -560,7 +589,7 @@ export default function CatalogPage() {
                 maxPrice: prices.length ? Math.max(...prices) : Number(product.price || 0),
                 oldPrice: data.old_price ? Number(data.old_price) : null,
                 tag: data.tag || null,
-                image: getProductImage(product),
+                image: withImageWidth(getProductImage(product)),
                 alt: data.image_alt || product.name || "Producto",
                 stock: stockLevels.reduce((total, current) => total + current, 0),
                 isWholesaleItem: Boolean(product?.pricing?.segment && product.pricing.segment !== "retail"),
@@ -1451,7 +1480,7 @@ function PiquimSubcatalogPage({ catalog, categories, initialGroup = "", products
                 format: format || "Sin especificar",
                 priceValue: Number.isFinite(effectivePrice) ? effectivePrice : 0,
                 stock: Number(product?.stock || 0),
-                image: image || getProductImage(product),
+                image: withImageWidth(image || getProductImage(product)),
                 hasImage: Boolean(image),
                 alt: product?.alt || product?.name || "Producto",
                 temperature: `${category} ${type}`.toLowerCase(),
@@ -1517,9 +1546,22 @@ function PiquimSubcatalogPage({ catalog, categories, initialGroup = "", products
         [catalogPage, filteredProducts]
     );
 
+    // Solo se ajusta la pagina cuando ya hay productos: mientras cargan, la lista esta vacia y "recortar" a la
+    // pagina 1 hacia perder la pagina pedida (al recargar o volver con el boton atras).
     useEffect(() => {
+        if (!normalizedProducts.length) return;
         setCatalogPage((currentPage) => synchronizeCatalogPageRequest(currentPage, paginatedProducts.currentPage));
-    }, [paginatedProducts.currentPage]);
+    }, [normalizedProducts.length, paginatedProducts.currentPage]);
+
+    // Boton atras/adelante del navegador: la pagina vuelve a la de la URL.
+    useEffect(() => {
+        const syncPageFromUrl = () => {
+            const urlPage = Math.max(1, Number(new URLSearchParams(window.location.search || '').get('page') || 1) || 1);
+            setCatalogPage((currentPage) => (currentPage === urlPage ? currentPage : urlPage));
+        };
+        window.addEventListener('popstate', syncPageFromUrl);
+        return () => window.removeEventListener('popstate', syncPageFromUrl);
+    }, []);
 
     const paginatedItems = paginatedProducts.items;
     const paginationItems = useMemo(

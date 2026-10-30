@@ -112,6 +112,61 @@ describe("public media helpers", () => {
     expect(tooBig).toHaveBeenCalledTimes(2);
   });
 
+  it("serves an expired value instantly and refreshes it in the background (stale-while-revalidate)", async () => {
+    vi.useFakeTimers();
+    try {
+      const cache = createLoadingCache({ ttlMs: 1000, staleMs: 5000 });
+      let release: (value: string) => void = () => {};
+      const slow = vi.fn(() => new Promise<string>((resolve) => { release = resolve; }));
+
+      await cache.get("k", () => Promise.resolve("v1"));
+      vi.advanceTimersByTime(2000);
+
+      // vencida pero dentro de la ventana: responde "v1" sin esperar la carga lenta
+      await expect(cache.get("k", slow)).resolves.toBe("v1");
+      expect(slow).toHaveBeenCalledTimes(1);
+      // una segunda visita mientras renueva no dispara otra carga
+      await expect(cache.get("k", slow)).resolves.toBe("v1");
+      expect(slow).toHaveBeenCalledTimes(1);
+
+      release("v2");
+      await vi.advanceTimersByTimeAsync(0);
+      await expect(cache.get("k", slow)).resolves.toBe("v2");
+
+      // pasada la ventana de gracia se espera la carga nueva
+      vi.advanceTimersByTime(10_000);
+      await expect(cache.get("k", () => Promise.resolve("v3"))).resolves.toBe("v3");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps recently used keys fresh on a timer and drops idle ones", async () => {
+    vi.useFakeTimers();
+    try {
+      const cache = createLoadingCache({ ttlMs: 60_000, keepWarmMs: 1000, warmIdleMs: 5000, warmMaxKeys: 2 });
+      const loaders = { a: vi.fn().mockResolvedValue("a"), b: vi.fn().mockResolvedValue("b"), c: vi.fn().mockResolvedValue("c") };
+
+      await cache.get("a", loaders.a);
+      await cache.get("b", loaders.b);
+      await cache.get("c", loaders.c); // supera warmMaxKeys: "a" deja de renovarse
+      vi.advanceTimersByTime(1100);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(loaders.a).toHaveBeenCalledTimes(1);
+      expect(loaders.b).toHaveBeenCalledTimes(2);
+      expect(loaders.c).toHaveBeenCalledTimes(2);
+
+      vi.advanceTimersByTime(6000); // pasan mas de warmIdleMs sin usarse
+      await vi.advanceTimersByTimeAsync(0);
+      const callsAfterIdle = loaders.b.mock.calls.length;
+      vi.advanceTimersByTime(3000);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(loaders.b.mock.calls.length).toBe(callsAfterIdle);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the product data SQL free of user input and pointing at the image route", () => {
     expect(PUBLIC_PRODUCT_DATA_SQL).toContain("/public/products/");
     expect(PUBLIC_PRODUCT_DATA_SQL).toContain("as data");
