@@ -13,6 +13,7 @@ import { getPriceAccessState } from "../../utils/priceVisibility";
 import { getLowStockThreshold, getStockStatus, isInStock } from "../../utils/stock";
 import { createPlaceholderImage } from "../../utils/productImage";
 import { PIQUIM_CATALOG_CARDS } from "../../data/piquimBranding";
+import { getVisibleCatalogCards } from "../../utils/catalogCards";
 import { PIQUIM_SUBCATALOGS } from "../../data/piquimSubcatalogs";
 import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
 import {
@@ -696,34 +697,12 @@ export default function CatalogPage() {
 
     const quickCategories = useMemo(() => categoryTree.slice(0, 4), [categoryTree]);
     const quickBrands = useMemo(() => brands.slice(0, 4), [brands]);
-    const catalogCards = useMemo(() => {
-        if (!isPiquimTenant) return [];
-        const configured = settings?.branding?.catalog_cards;
-        const source = Array.isArray(configured) && configured.length ? configured : PIQUIM_CATALOG_CARDS;
-        const heladeriaDefault = PIQUIM_CATALOG_CARDS.find((card) => card.id === "heladeria") || {};
-        const combinedPanaderia = PIQUIM_CATALOG_CARDS.find((card) => card.id === "panaderia") || {};
-        return source
-            .filter((card) => normalizeCatalogLabel(card?.categorySlug || card?.slug || card?.category || card?.id || card?.title) !== "confiteria")
-            .map((card) => {
-                const slug = normalizePiquimCatalogSlug(card?.categorySlug || card?.slug || card?.category || card?.id || card?.title);
-                if (slug === "heladeria") {
-                    return {
-                        ...card,
-                        image: heladeriaDefault.image,
-                        objectPosition: heladeriaDefault.objectPosition,
-                        category: "heladeria",
-                        categorySlug: "heladeria",
-                    };
-                }
-                if (slug !== "panaderia") return card;
-                return {
-                    ...card,
-                    ...combinedPanaderia,
-                    category: "panaderia",
-                    categorySlug: "panaderia",
-                };
-            });
-    }, [isPiquimTenant, settings?.branding?.catalog_cards]);
+    // Tarjetas de la portada del catalogo: lo guardado en el panel pisa los valores por defecto y las
+    // ocultas ("Pagina catalogo" en el admin) no se muestran.
+    const catalogCards = useMemo(
+        () => (isPiquimTenant ? getVisibleCatalogCards(settings?.branding?.catalog_cards) : []),
+        [isPiquimTenant, settings?.branding?.catalog_cards]
+    );
 
     const handleCatalogCardClick = useCallback((card) => {
         const directSlug = normalizePiquimCatalogSlug(card?.categorySlug || card?.slug || card?.category || card?.id);
@@ -771,7 +750,8 @@ export default function CatalogPage() {
         && !inStockOnly
         && normalizeSortValue(sort) === DEFAULT_SORT;
 
-    if (isPiquimTenant && isCatalogLanding) {
+    // Sin tarjetas visibles no hay portada: se abre directo el listado de productos.
+    if (isPiquimTenant && isCatalogLanding && catalogCards.length > 0) {
         return (
             <StoreLayout overlay>
                 <PiquimCatalogLanding cards={catalogCards} onSelectCard={handleCatalogCardClick} />
@@ -1058,8 +1038,8 @@ function PiquimCatalogLanding({ cards, onSelectCard }) {
         <div className="min-h-screen bg-[var(--store-background)] font-[Inter] text-[var(--store-text)] transition-colors duration-300">
             <div className="w-full overflow-hidden bg-[var(--store-background)]">
                 <section className="w-full overflow-hidden">
-                    <div className="grid min-h-[100svh] w-full grid-cols-1 items-stretch gap-0.5 overflow-hidden bg-[#FF4D00] lg:grid-cols-2">
-                        {(Array.isArray(cards) && cards.length ? cards : PIQUIM_CATALOG_CARDS).slice(0, 2).map((card) => (
+                    <div className={`grid min-h-[100svh] w-full grid-cols-1 items-stretch gap-0.5 overflow-hidden bg-[#FF4D00] ${cards.length > 1 ? "lg:grid-cols-2" : ""}`}>
+                        {cards.slice(0, 2).map((card) => (
                             <PiquimExactCatalogCard
                                 key={card.id}
                                 card={card}

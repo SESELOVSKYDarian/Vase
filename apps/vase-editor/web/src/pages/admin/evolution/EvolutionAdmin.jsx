@@ -19,6 +19,7 @@ import NotificationsEditor from '../../../components/admin/evolution/Notificatio
 import TenantsEditor from '../../../components/admin/evolution/TenantsEditor';
 import AppearanceEditor from '../../../components/admin/evolution/AppearanceEditor';
 import SeoEditor from '../../../components/admin/evolution/SeoEditor';
+import CatalogPageEditor from '../../../components/admin/evolution/CatalogPageEditor';
 import MediaLibrary from '../../../components/admin/evolution/MediaLibrary';
 import EvolutionInput from '../../../components/admin/evolution/EvolutionInput';
 import LegacyAdminFrame from '../../../components/admin/evolution/LegacyAdminFrame';
@@ -511,6 +512,8 @@ const EvolutionAdmin = () => {
         }
     };
 
+    const isPiquimStore = isPiquimTenantIdentity({ tenant, settings: editor.settings });
+
     const renderContent = () => {
         if (editor.loading) {
             return (
@@ -544,6 +547,15 @@ const EvolutionAdmin = () => {
                         sections={editor.pageSections?.about || []}
                         products={editor.products}
                         onChangeSections={(nextSections) => handlePageSectionsChange('about', nextSections)}
+                        onSave={handleSave}
+                        isSaving={editor.saving}
+                    />
+                );
+            case 'catalog_page':
+                return (
+                    <CatalogPageEditor
+                        settings={editor.settings}
+                        setSettings={editor.setSettings}
                         onSave={handleSave}
                         isSaving={editor.saving}
                     />
@@ -700,6 +712,7 @@ const EvolutionAdmin = () => {
             brands={editor.brands}
             notificationsManager={notificationsManager}
             searchItems={searchItems}
+            showCatalogPage={isPiquimStore}
         >
             {renderContent()}
         </EvolutionLayout>

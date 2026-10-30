@@ -15,6 +15,7 @@ import {
     Truck,
     MagnifyingGlass,
     Envelope,
+    SquaresFour,
 } from '@phosphor-icons/react';
 import useEvolutionStore from '../../../store/useEvolutionStore';
 import { cn } from '../../../utils/cn';
@@ -51,7 +52,7 @@ const SidebarItem = ({ icon: Icon, label, shortLabel, active, onClick, collapsed
     </button>
 );
 
-const EvolutionSidebar = ({ branding }) => {
+const EvolutionSidebar = ({ branding, showCatalogPage = false }) => {
     const {
         activeModule,
         setActiveModule,
@@ -65,6 +66,9 @@ const EvolutionSidebar = ({ branding }) => {
             items: [
                 { id: 'home', label: 'Inicio', shortLabel: 'Inicio', icon: HouseLine },
                 { id: 'about', label: 'Sobre nosotros', shortLabel: 'Nosotros', icon: Users },
+                ...(showCatalogPage
+                    ? [{ id: 'catalog_page', label: 'Pagina catalogo', shortLabel: 'Pag. cat.', icon: SquaresFour }]
+                    : []),
                 { id: 'appearance', label: 'Apariencia', shortLabel: 'Apar.', icon: Palette },
             ],
         },

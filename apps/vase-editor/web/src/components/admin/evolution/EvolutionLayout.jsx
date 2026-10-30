@@ -26,6 +26,7 @@ const EvolutionLayout = ({
     brands,
     notificationsManager,
     searchItems,
+    showCatalogPage = false,
 }) => {
     const adminTheme = getAdminPanelTheme(settings?.theme);
     const adminBranding = getAdminPanelBranding(settings?.branding);
@@ -34,7 +35,7 @@ const EvolutionLayout = ({
     return (
         <div className={`admin-shell admin-density-compact admin-${adminTheme.mode || 'dark'} flex h-[100dvh] flex-row overflow-hidden font-sans`} style={shellStyle}>
             {/* Column 1: Sidebar */}
-            <EvolutionSidebar branding={adminBranding} />
+            <EvolutionSidebar branding={adminBranding} showCatalogPage={showCatalogPage} />
 
             {/* Column 2: Central workspace */}
             <EvolutionCanvas
