@@ -370,11 +370,21 @@ export default function CheckoutPage() {
         }
     }, [user]);
 
+    // Canales que habilitó el comercio (Ajustes › Pagos). Sin configurar: WhatsApp y correo.
+    const allowedOrderChannels = useMemo(() => {
+        const source = checkoutSettings?.order_channels || commerce.order_channels || [];
+        const list = (Array.isArray(source) ? source : []).map(normalizeOrderChannel).filter(Boolean);
+        return list.length ? [...new Set(list)] : ["whatsapp", "email"];
+    }, [checkoutSettings, commerce]);
+    const orderChannelOptions = ORDER_CHANNEL_OPTIONS.filter((option) => allowedOrderChannels.includes(option.key));
+
     useEffect(() => {
-        if (!whatsappNumber && orderChannel === "whatsapp") {
+        if (!whatsappNumber && orderChannel === "whatsapp" && allowedOrderChannels.includes("email")) {
             setOrderChannel("email");
+        } else if (!allowedOrderChannels.includes(orderChannel)) {
+            setOrderChannel(allowedOrderChannels[0]);
         }
-    }, [orderChannel, whatsappNumber]);
+    }, [orderChannel, whatsappNumber, allowedOrderChannels]);
 
     useEffect(() => {
         if (deliveryMethod !== DISTANCE_DELIVERY_KEY) {
@@ -1705,7 +1715,7 @@ export default function CheckoutPage() {
                                             </p>
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {ORDER_CHANNEL_OPTIONS.map((option) => {
+                                            {orderChannelOptions.map((option) => {
                                                 const disabled = option.key === "whatsapp" && !whatsappNumber;
                                                 return (
                                                     <PayOption

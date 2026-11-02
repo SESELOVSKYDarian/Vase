@@ -59,10 +59,7 @@ export default function AjustesSucursales({ editor, toast, goEnvios }) {
                             <PlaceSearch placeholder="Buscá la dirección" onPick={(place) => { set(index, { latitude: Number(place.lat), longitude: Number(place.lon), address: branch.address || place.display_name.split(',').slice(0, 3).join(',') }); setLocating(null); }} />
                         ) : null}
                         <div className="vp-fld"><label htmlFor={`b-hours-${index}`}>Horarios</label><input id={`b-hours-${index}`} className="vp-inp" value={branch.hours || ''} onChange={(event) => set(index, { hours: event.target.value })} placeholder="Lun a vie 8 a 17 h" /></div>
-                        <div className="vp-row">
-                            <div className="g"><b>Sucursal activa</b><span>Se puede retirar acá y se usa para medir la distancia de los envíos</span></div>
-                            <button type="button" role="switch" aria-checked={branch.enabled !== false} aria-label={`Retiro en ${branch.name || 'la sucursal'}`} className={`vp-tog ${branch.enabled === false ? 'off' : ''}`} onClick={() => set(index, { enabled: branch.enabled === false })} />
-                        </div>
+                        <span className="vp-note">Los clientes pueden retirar acá y la distancia de los envíos se mide desde la sucursal más cercana.</span>
                     </div>
                 ))}
                 {!branches.length ? <div className="vp-empty">Todavía no cargaste sucursales.</div> : null}

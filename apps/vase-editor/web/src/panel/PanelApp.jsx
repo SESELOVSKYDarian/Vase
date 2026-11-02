@@ -15,6 +15,9 @@ import Pedidos from './screens/Pedidos';
 import Clientes from './screens/Clientes';
 import AjustesPrecios from './screens/AjustesPrecios';
 import AjustesSucursales from './screens/AjustesSucursales';
+import AjustesPagos from './screens/AjustesPagos';
+import AjustesEquipo from './screens/AjustesEquipo';
+import { AjustesCorreo, AjustesGestion, AjustesSeo } from './screens/AjustesForms';
 import Catalogo from './catalog/Catalogo';
 import Envios from './envios/Envios';
 import Diseno from './diseno/Diseno';
@@ -171,6 +174,16 @@ export default function PanelApp() {
         content = <AjustesPrecios editor={editor} user={user} toast={addToast} onSave={publish} />;
     } else if (sub === 'sucursales') {
         content = <AjustesSucursales editor={editor} toast={addToast} goEnvios={() => go('envios')} />;
+    } else if (sub === 'pagos') {
+        content = <AjustesPagos editor={editor} toast={addToast} />;
+    } else if (sub === 'seo') {
+        content = <AjustesSeo editor={editor} onSave={publish} />;
+    } else if (sub === 'correo') {
+        content = <AjustesCorreo />;
+    } else if (sub === 'gestion') {
+        content = <AjustesGestion />;
+    } else if (sub === 'equipo') {
+        content = <AjustesEquipo user={user} toast={addToast} />;
     } else if (settingsPage) {
         content = <ComingSoon title={settingsPage.label} phase={settingsPage.phase} onOpenLegacy={() => openLegacy(settingsPage.legacy)} />;
     } else {

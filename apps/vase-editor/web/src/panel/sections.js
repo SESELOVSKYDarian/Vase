@@ -3,13 +3,13 @@
 
 export const SETTINGS_PAGES = [
     { id: 'precios', label: 'Precios y listas', subtitle: 'Quién ve precios y qué precio usa cada lista' },
-    { id: 'pagos', label: 'Pagos', subtitle: 'Cómo terminan la compra tus clientes', legacy: 'checkout', phase: 7 },
+    { id: 'pagos', label: 'Pagos', subtitle: 'Cómo terminan la compra tus clientes' },
     { id: 'sucursales', label: 'Sucursales y retiro', subtitle: 'Dónde están y dónde pueden retirar' },
-    { id: 'seo', label: 'Google, redes y SEO', subtitle: 'Cómo te encuentran y cómo te ven al compartir', legacy: 'seo', phase: 7 },
-    { id: 'dominio', label: 'Dominio', subtitle: 'La dirección de tu tienda', legacy: 'home', phase: 7 },
-    { id: 'correo', label: 'Correo', subtitle: 'Desde dónde salen los avisos', legacy: 'email', phase: 7 },
-    { id: 'gestion', label: 'Sistema de gestión', subtitle: 'Productos, precios y stock automáticos', legacy: 'integrations', phase: 7 },
-    { id: 'equipo', label: 'Equipo', subtitle: 'Quién entra al panel', legacy: 'users', phase: 7 },
+    { id: 'seo', label: 'Google, redes y SEO', subtitle: 'Cómo te encuentran y cómo te ven al compartir' },
+    { id: 'dominio', label: 'Dominio', subtitle: 'La dirección de tu tienda', legacy: 'home', phase: 8 },
+    { id: 'correo', label: 'Correo', subtitle: 'Desde dónde salen los avisos' },
+    { id: 'gestion', label: 'Sistema de gestión', subtitle: 'Productos, precios y stock automáticos' },
+    { id: 'equipo', label: 'Equipo', subtitle: 'Quién entra al panel' },
 ];
 
 export const MENU = [
