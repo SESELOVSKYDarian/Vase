@@ -31,7 +31,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, 
     return (
         <aside className={`vp-side ${mini ? 'mini' : ''}`} aria-label="Menú del panel">
             <button type="button" className="vp-coll" onClick={onToggleMini} aria-label={mini ? 'Agrandar el menú' : 'Achicar el menú'}><Icon name="chevron" size={14} className={mini ? 'vp-rot-r' : 'vp-rot-l'} /></button>
-            <div className="vp-logo"><img src={LOGO[theme]} alt="Vase" /><b>vase business</b></div>
+            <div className="vp-logo"><img src={LOGO[theme]} alt="Vase" /><b>business</b></div>
             <nav>
                 {MENU.map((group) => (
                     <div key={group.group}>
