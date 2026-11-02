@@ -74,7 +74,7 @@
 .vp .vp-stepc .g { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .vp .vp-stepc b { font-weight: 800; }
 .vp .vp-mapw { position: relative; height: 100%; min-height: 520px; border-radius: 18px; overflow: hidden; background: var(--soft); border: 1px solid var(--line); }
-.vp .vp-mapw svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.vp .vp-mapw > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .vp .vp-maplegend { position: absolute; left: 14px; bottom: 14px; background: var(--card); border-radius: 12px; padding: 8px 12px; font-size: 11.5px; font-weight: 700; color: var(--mut); box-shadow: var(--sh-md); }
 @media (max-width: 1100px) { .vp .vp-sgrid, .vp .vp-ocards { grid-template-columns: 1fr; } .vp .vp-libgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .vp .vp-link { border: 0; background: none; padding: 0; color: var(--acc-tx); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
@@ -83,3 +83,13 @@
 .vp .vp-cpick label { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .vp .vp-cpick label:hover { background: var(--soft); }
 .vp .vp-cpick input { accent-color: var(--acc); width: 15px; height: 15px; }
+.vp .vp-envgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px; align-items: start; }
+.vp .vp-envmap { position: sticky; top: 0; }
+.vp .vp-envmap .vp-mapw { min-height: 460px; height: 460px; }
+.vp .vp-ringrow { display: grid; grid-template-columns: 12px auto 120px 150px 28px; gap: 8px; align-items: center; font-weight: 700; font-size: 12.5px; color: var(--mut); }
+.vp .vp-ringrow > i { width: 12px; height: 12px; border-radius: 50%; }
+.vp .vp-ringrow .vp-search input, .vp .vp-envgrid .vp-search input { width: 100%; min-width: 0; }
+.vp .vp-mapw .leaflet-container { font: inherit; background: var(--soft); }
+@media (max-width: 1100px) { .vp .vp-envgrid { grid-template-columns: 1fr; } .vp .vp-envmap { position: static; } }
+.vp .vp-mapw .leaflet-container img { max-width: none; max-height: none; height: auto; }
+.vp .vp-mapw .leaflet-tile { width: 256px; height: 256px; }

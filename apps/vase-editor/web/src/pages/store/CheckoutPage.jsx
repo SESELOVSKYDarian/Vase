@@ -83,7 +83,7 @@ const mapDistanceQuoteError = (code) => {
         case "shipping_location_required":
             return "Activa tu ubicacion para calcular el envio.";
         case "delivery_out_of_range":
-            return "La direccion esta fuera de las zonas de entrega configuradas.";
+            return "No llegamos con envio a esa direccion. Podes retirar tu pedido en una de nuestras sucursales.";
         case "shipping_origin_not_configured":
             return "La tienda todavia no configuro coordenadas para la sucursal de origen.";
         case "distance_shipping_not_configured":
@@ -889,7 +889,8 @@ export default function CheckoutPage() {
                 return;
             }
         }
-        if (!taxesAcknowledged) {
+
+        if (!taxesAcknowledged) {
             setCheckoutError("Debes aceptar y confirmar la informacion de impuestos antes de proceder con el pago.");
             return;
         }
