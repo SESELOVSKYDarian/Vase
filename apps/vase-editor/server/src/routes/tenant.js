@@ -6,7 +6,8 @@ import crypto from 'crypto';
 import { resolve4, resolveCname } from 'node:dns/promises';
 import { fileURLToPath } from 'url';
 import { ensureDefaultPriceLists, ensurePricingSchema } from '../services/userPricing.js';
-import { getTenantOffers } from '../services/offers.js';
+import { OFFER_KINDS, ensureOfferColumns, getTenantOffers, isClassicOffer } from '../services/offers.js';
+import { computeBulkPrice } from '../services/bulkPrice.js';
 import { buildTenantIntegrationManifest, resolveServerBaseUrl } from '../services/integrationManifest.js';
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
 import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
@@ -1551,6 +1552,196 @@ tenantRouter.get('/price-lists', async (req, res, next) => {
   }
 });
 
+tenantRouter.put('/price-lists/:id', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+
+  const listId = req.params.id;
+  if (!isUuid(listId)) {
+    return res.status(400).json({ error: 'invalid_price_list_id' });
+  }
+  const body = req.body || {};
+  const name = body.name === undefined ? null : String(body.name || '').trim();
+  if (name !== null && !name) {
+    return res.status(400).json({ error: 'name_required' });
+  }
+  const hasPercent = body.percent !== undefined;
+  const percent = Number(body.percent);
+  if (hasPercent && (!Number.isFinite(percent) || percent < -90 || percent > 500)) {
+    return res.status(400).json({ error: 'invalid_percent' });
+  }
+  const hasSegment = body.force_segment !== undefined;
+  const segment = body.force_segment === 'retail' || body.force_segment === 'wholesale' ? body.force_segment : null;
+
+  try {
+    await ensurePricingSchema();
+    const existing = await pool.query(
+      'select id, name, type, rules_json from price_lists where tenant_id = $1 and id = $2',
+      [tenantId, listId]
+    );
+    if (!existing.rowCount) {
+      return res.status(404).json({ error: 'price_list_not_found' });
+    }
+    const current = existing.rows[0];
+    const rules = { ...(current.rules_json && typeof current.rules_json === 'object' ? current.rules_json : {}) };
+    if (hasPercent) rules.percent = Math.round(percent * 100) / 100;
+    if (hasSegment) {
+      if (segment) rules.force_segment = segment;
+      else delete rules.force_segment;
+    }
+    const result = await pool.query(
+      [
+        'update price_lists set name = $3, rules_json = $4::jsonb',
+        'where tenant_id = $1 and id = $2',
+        'returning id, name, type, rules_json, created_at',
+      ].join(' '),
+      [tenantId, listId, name ?? current.name, JSON.stringify(rules)]
+    );
+    return res.json(result.rows[0]);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+tenantRouter.post('/products/bulk-price', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+
+  const body = req.body || {};
+  const mode = ['raise', 'lower', 'set'].includes(body.mode) ? body.mode : null;
+  const unit = body.unit === 'amount' ? 'amount' : 'percent';
+  const amount = Number(body.amount);
+  const field = ['price', 'price_wholesale', 'both'].includes(body.field) ? body.field : 'price';
+  const categoryId = body.category_id ? String(body.category_id) : null;
+  const brand = body.brand ? String(body.brand).trim() : null;
+  const apply = body.apply === true;
+
+  if (!mode) return res.status(400).json({ error: 'invalid_mode' });
+  if (!Number.isFinite(amount) || amount < 0 || (mode !== 'set' && amount === 0)) {
+    return res.status(400).json({ error: 'invalid_amount' });
+  }
+  if (mode === 'set' && unit === 'percent') return res.status(400).json({ error: 'invalid_unit' });
+  if (unit === 'percent' && mode === 'lower' && amount >= 100) return res.status(400).json({ error: 'invalid_amount' });
+  if (categoryId && !isUuid(categoryId)) return res.status(400).json({ error: 'invalid_category_id' });
+
+  const params = [tenantId];
+  const where = ['p.tenant_id = $1', 'p.deleted_at is null'];
+  if (categoryId) {
+    params.push(categoryId);
+    where.push([
+      'p.id in (select pc.product_id from product_categories pc where pc.category_id in (',
+      `with recursive tree as (select id from categories where tenant_id = $1 and id = $${params.length}`,
+      'union all select c.id from categories c join tree t on c.parent_id = t.id where c.tenant_id = $1)',
+      'select id from tree))',
+    ].join(' '));
+  }
+  if (brand) {
+    params.push(brand.toLowerCase());
+    where.push(`lower(coalesce(p.brand, '')) = $${params.length}`);
+  }
+
+  const client = await pool.connect();
+  try {
+    const rows = (await client.query(
+      [
+        'select p.id, p.name, p.price, p.price_wholesale, p.external_id, coalesce(p.admin_locked, false) as admin_locked',
+        'from product_cache p',
+        `where ${where.join(' and ')}`,
+        'order by p.name asc',
+      ].join(' '),
+      params
+    )).rows;
+
+    const changes = rows.map((row) => {
+      const price = field === 'price_wholesale' ? Number(row.price || 0) : computeBulkPrice(row.price, { mode, amount, unit });
+      const wholesale = field === 'price' ? Number(row.price_wholesale || 0) : computeBulkPrice(row.price_wholesale, { mode, amount, unit });
+      return { row, price, wholesale };
+    }).filter(({ row, price, wholesale }) => price !== Number(row.price || 0) || wholesale !== Number(row.price_wholesale || 0));
+
+    // Los que vienen del sistema y no están bloqueados vuelven a su precio en la próxima sincronización.
+    const syncedUnlocked = changes.filter(({ row }) => row.external_id && !row.admin_locked).length;
+
+    if (apply && changes.length) {
+      await client.query('begin');
+      await client.query(
+        [
+          'update product_cache p set price = v.price, price_wholesale = v.wholesale, updated_at = now()',
+          'from unnest($2::uuid[], $3::numeric[], $4::numeric[]) as v(id, price, wholesale)',
+          'where p.tenant_id = $1 and p.id = v.id',
+        ].join(' '),
+        [tenantId, changes.map((c) => c.row.id), changes.map((c) => c.price), changes.map((c) => c.wholesale)]
+      );
+      await client.query('commit');
+    }
+
+    return res.json({
+      applied: apply,
+      matched: rows.length,
+      changed: changes.length,
+      synced_unlocked: syncedUnlocked,
+      sample: changes.slice(0, 6).map(({ row, price, wholesale }) => ({
+        id: row.id,
+        name: row.name,
+        before: { price: Number(row.price || 0), price_wholesale: Number(row.price_wholesale || 0) },
+        after: { price, price_wholesale: wholesale },
+      })),
+    });
+  } catch (err) {
+    if (apply) await client.query('rollback').catch(() => {});
+    return next(err);
+  } finally {
+    client.release();
+  }
+});
+
+const OFFER_COLUMNS = 'id, tenant_id, name, label, percent, enabled, user_ids, category_ids, kind, value, product_ids, starts_at, ends_at, created_at, updated_at';
+
+function parseOptionalDate(value) {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null };
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? { ok: false } : { ok: true, value: date.toISOString() };
+}
+
+// Acepta el formato de siempre ({ percent }) y el del panel nuevo ({ kind, value, product_ids, starts_at, ends_at }).
+function parseOfferBody(body = {}) {
+  const name = String(body.name || '').trim();
+  const label = String(body.label || 'Oferta').trim() || 'Oferta';
+  const kind = OFFER_KINDS.includes(body.kind) ? body.kind : 'percent';
+  const value = Number(body.value ?? body.percent ?? 0);
+  const enabled = body.enabled !== false;
+  const usersParsed = parseUuidArray(body.user_ids);
+  const categoriesParsed = parseUuidArray(body.category_ids);
+  const productsParsed = parseUuidArray(body.product_ids);
+  const startsAt = parseOptionalDate(body.starts_at);
+  const endsAt = parseOptionalDate(body.ends_at);
+
+  if (!name) return { error: 'name_required' };
+  if (!Number.isFinite(value) || value <= 0 || (kind === 'percent' && value > 100)) {
+    return { error: kind === 'percent' ? 'invalid_percent' : 'invalid_value' };
+  }
+  if (!usersParsed.ok) return { error: 'invalid_user_ids' };
+  if (!categoriesParsed.ok) return { error: 'invalid_category_ids' };
+  if (!productsParsed.ok) return { error: 'invalid_product_ids' };
+  if (!startsAt.ok || !endsAt.ok) return { error: 'invalid_dates' };
+  if (startsAt.value && endsAt.value && startsAt.value > endsAt.value) return { error: 'invalid_dates' };
+
+  const offer = {
+    name,
+    label,
+    kind,
+    value,
+    enabled,
+    user_ids: usersParsed.items,
+    category_ids: categoriesParsed.items,
+    product_ids: productsParsed.items,
+    starts_at: startsAt.value,
+    ends_at: endsAt.value,
+  };
+  // Solo las clásicas llevan el porcentaje en `percent`: las demás quedan en 0 para versiones anteriores.
+  offer.percent = isClassicOffer(offer) ? value : 0;
+  return { offer };
+}
+
 tenantRouter.get('/offers', async (req, res, next) => {
   const tenantId = getTenantId(req, res);
   if (!tenantId) return;
@@ -1568,34 +1759,33 @@ tenantRouter.post('/offers', async (req, res, next) => {
   const tenantId = getTenantId(req, res);
   if (!tenantId) return;
 
-  const name = String(req.body?.name || '').trim();
-  const label = String(req.body?.label || 'Oferta').trim() || 'Oferta';
-  const percent = Number(req.body?.percent || 0);
-  const enabled = req.body?.enabled !== false;
-  const usersParsed = parseUuidArray(req.body?.user_ids);
-  const categoriesParsed = parseUuidArray(req.body?.category_ids);
-
-  if (!name) {
-    return res.status(400).json({ error: 'name_required' });
-  }
-  if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
-    return res.status(400).json({ error: 'invalid_percent' });
-  }
-  if (!usersParsed.ok) {
-    return res.status(400).json({ error: 'invalid_user_ids' });
-  }
-  if (!categoriesParsed.ok) {
-    return res.status(400).json({ error: 'invalid_category_ids' });
+  const { offer, error } = parseOfferBody(req.body || {});
+  if (error) {
+    return res.status(400).json({ error });
   }
 
   try {
+    await ensureOfferColumns();
     const result = await pool.query(
       [
-        'insert into tenant_offers (tenant_id, name, label, percent, enabled, user_ids, category_ids)',
-        'values ($1, $2, $3, $4, $5, $6::uuid[], $7::uuid[])',
-        'returning id, tenant_id, name, label, percent, enabled, user_ids, category_ids, created_at, updated_at',
+        'insert into tenant_offers (tenant_id, name, label, percent, enabled, user_ids, category_ids, kind, value, product_ids, starts_at, ends_at)',
+        'values ($1, $2, $3, $4, $5, $6::uuid[], $7::uuid[], $8, $9, $10::uuid[], $11, $12)',
+        `returning ${OFFER_COLUMNS}`,
       ].join(' '),
-      [tenantId, name, label, percent, enabled, usersParsed.items, categoriesParsed.items]
+      [
+        tenantId,
+        offer.name,
+        offer.label,
+        offer.percent,
+        offer.enabled,
+        offer.user_ids,
+        offer.category_ids,
+        offer.kind,
+        offer.value,
+        offer.product_ids,
+        offer.starts_at,
+        offer.ends_at,
+      ]
     );
     return res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -1612,27 +1802,13 @@ tenantRouter.put('/offers/:id', async (req, res, next) => {
     return res.status(400).json({ error: 'invalid_offer_id' });
   }
 
-  const name = String(req.body?.name || '').trim();
-  const label = String(req.body?.label || 'Oferta').trim() || 'Oferta';
-  const percent = Number(req.body?.percent || 0);
-  const enabled = req.body?.enabled !== false;
-  const usersParsed = parseUuidArray(req.body?.user_ids);
-  const categoriesParsed = parseUuidArray(req.body?.category_ids);
-
-  if (!name) {
-    return res.status(400).json({ error: 'name_required' });
-  }
-  if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
-    return res.status(400).json({ error: 'invalid_percent' });
-  }
-  if (!usersParsed.ok) {
-    return res.status(400).json({ error: 'invalid_user_ids' });
-  }
-  if (!categoriesParsed.ok) {
-    return res.status(400).json({ error: 'invalid_category_ids' });
+  const { offer, error } = parseOfferBody(req.body || {});
+  if (error) {
+    return res.status(400).json({ error });
   }
 
   try {
+    await ensureOfferColumns();
     const result = await pool.query(
       [
         'update tenant_offers',
@@ -1642,19 +1818,29 @@ tenantRouter.put('/offers/:id', async (req, res, next) => {
         'enabled = $6,',
         'user_ids = $7::uuid[],',
         'category_ids = $8::uuid[],',
+        'kind = $9,',
+        'value = $10,',
+        'product_ids = $11::uuid[],',
+        'starts_at = $12,',
+        'ends_at = $13,',
         'updated_at = now()',
         'where tenant_id = $1 and id = $2',
-        'returning id, tenant_id, name, label, percent, enabled, user_ids, category_ids, created_at, updated_at',
+        `returning ${OFFER_COLUMNS}`,
       ].join(' '),
       [
         tenantId,
         offerId,
-        name,
-        label,
-        percent,
-        enabled,
-        usersParsed.items,
-        categoriesParsed.items,
+        offer.name,
+        offer.label,
+        offer.percent,
+        offer.enabled,
+        offer.user_ids,
+        offer.category_ids,
+        offer.kind,
+        offer.value,
+        offer.product_ids,
+        offer.starts_at,
+        offer.ends_at,
       ]
     );
     if (!result.rowCount) {

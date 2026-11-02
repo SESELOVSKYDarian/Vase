@@ -214,6 +214,8 @@ function mapProductRow(row, pricingContext) {
     offers,
     userId,
     categoryIds: row.category_ids || [],
+    productId: row.id,
+    price: effective,
   });
   const finalPrice = applyOfferDiscount(effective, bestOffer.percent);
   const data = row.data && typeof row.data === 'object' ? row.data : {};
@@ -296,7 +298,8 @@ function mapProductRow(row, pricingContext) {
         ? {
             id: bestOffer.id,
             label: bestOffer.label,
-            percent: bestOffer.percent,
+            percent: Math.round(bestOffer.percent),
+            kind: bestOffer.kind,
           }
         : null,
     },

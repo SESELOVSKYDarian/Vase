@@ -129,6 +129,8 @@ async function validateItems(tenantId, items, adjustments, context = {}) {
         offers,
         userId,
         categoryIds: product.category_ids || [],
+        productId: product.id,
+        price: effective,
       });
       const unitPrice = Number(applyOfferDiscount(effective, bestOffer.percent) || 0);
       subtotal += unitPrice * item.qty;
