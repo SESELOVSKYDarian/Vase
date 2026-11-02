@@ -31,11 +31,19 @@
 .vp h1, .vp h2, .vp h3, .vp p { margin: 0; }
 
 /* menú lateral */
-.vp-side { width: 236px; flex: none; height: 100%; overflow-y: auto; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 20px 14px 14px; position: relative; }
+.vp-side { width: 236px; flex: none; height: 100%; min-height: 0; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 20px 14px 14px; position: relative; z-index: 6; }
+/* Solo el menú scrollea, y solo para arriba y abajo: el botón de achicar sobresale sin cortarse. */
+.vp-side > nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; margin: 0 -8px; padding: 0 8px; scrollbar-width: thin; scrollbar-color: var(--sb) transparent; }
+.vp .vp-side > nav::-webkit-scrollbar { width: 6px; }
+.vp .vp-side > nav::-webkit-scrollbar-thumb { border: 0; background: transparent; }
+.vp .vp-side > nav:hover::-webkit-scrollbar-thumb { background: var(--sb); }
+.vp-side .vp-acc { flex: none; }
+.vp-side .vp-logo { flex: none; }
 .vp-side.mini { width: 76px; }
 .vp-side.mini .vp-lbl, .vp-side.mini .vp-grp, .vp-side.mini .vp-badge, .vp-side.mini .vp-logo b, .vp-side.mini .vp-subnav, .vp-side.mini .vp-acc-text, .vp-side.mini .vp-chev { display: none; }
 .vp-side.mini .vp-logo { justify-content: center; padding-left: 0; padding-right: 0; }
-.vp-coll { position: absolute; right: -14px; top: 30px; width: 28px; height: 28px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mut); box-shadow: var(--sh-sm); z-index: 5; }
+.vp-coll:hover { color: var(--tx); border-color: var(--line2); }
+.vp-coll { position: absolute; right: -14px; top: 19px; width: 28px; height: 28px; padding: 0; border-radius: 50%; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mut); box-shadow: var(--sh-sm); z-index: 5; }
 .vp-logo { display: flex; align-items: center; gap: 9px; padding: 0 8px 18px; }
 .vp-logo img { width: 26px; height: 26px; }
 .vp-logo b { font-size: 18px; font-weight: 800; letter-spacing: -.03em; white-space: nowrap; }
