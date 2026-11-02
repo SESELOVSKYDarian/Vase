@@ -3,7 +3,7 @@ import Icon from './Icon';
 import { Modal } from './Overlays';
 import { HELP, HELP_SECTIONS, MENU, SETTINGS_PAGES } from '../sections';
 
-const LOGO = { light: '/brand/vase-logo-green.png', dark: '/brand/vase-logo-white.png' };
+const LOGO = { light: '/brand/vase-logo-green.png?v=2', dark: '/brand/vase-logo-white.png?v=2' };
 
 export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, badges, store, account }) {
     const [ajOpen, setAjOpen] = useState(section === 'ajustes');
@@ -30,7 +30,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, 
 
     return (
         <aside className={`vp-side ${mini ? 'mini' : ''}`} aria-label="Menú del panel">
-            <button type="button" className="vp-coll" onClick={onToggleMini} aria-label={mini ? 'Agrandar el menú' : 'Achicar el menú'}>{mini ? '›' : '‹'}</button>
+            <button type="button" className="vp-coll" onClick={onToggleMini} aria-label={mini ? 'Agrandar el menú' : 'Achicar el menú'}><Icon name="chevron" size={14} className={mini ? 'vp-rot-r' : 'vp-rot-l'} /></button>
             <div className="vp-logo"><img src={LOGO[theme]} alt="Vase" /><b>vase business</b></div>
             <nav>
                 {MENU.map((group) => (
@@ -65,7 +65,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, 
                 >
                     <Icon name="sliders" />
                     <span className="vp-lbl">Ajustes</span>
-                    <span className="vp-chev">{ajOpen ? '▾' : '▸'}</span>
+                    <span className={`vp-chev ${ajOpen ? 'open' : ''}`} aria-hidden="true"><Icon name="chevron" size={14} /></span>
                 </button>
                 {ajOpen ? (
                     <div className="vp-subnav">
@@ -95,7 +95,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, 
                 <button type="button" className="vp-accbtn" onClick={() => setAccOpen((open) => !open)} aria-expanded={accOpen} aria-haspopup="menu">
                     <span className="vp-acc-ini">{store.logo ? <img src={store.logo} alt="" /> : store.initial}</span>
                     <span className="vp-acc-text"><b>{store.name}</b><small>{account.name}</small></span>
-                    <span className="vp-chev">⌃</span>
+                    <span className="vp-chev acc" aria-hidden="true"><Icon name="updown" size={15} /></span>
                 </button>
             </div>
         </aside>

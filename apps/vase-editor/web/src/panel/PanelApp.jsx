@@ -168,7 +168,7 @@ export default function PanelApp() {
                 {SETTINGS_PAGES.map((page) => (
                     <button key={page.id} type="button" className="vp-arow" onClick={() => go('ajustes', page.id)}>
                         <span className="g"><b>{page.label}</b><span>{page.subtitle}</span></span>
-                        <span className="vp-chev">›</span>
+                        <span className="vp-chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>
                     </button>
                 ))}
             </div>

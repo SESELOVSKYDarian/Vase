@@ -66,7 +66,7 @@ export function LinkPicker({ value, onChange, categories, products, whatsapp, la
             <button type="button" className={`vp-linkf ${open ? 'open' : ''}`} onClick={() => setOpen((state) => !state)} aria-expanded={open}>
                 <Icon name="link" size={15} />
                 {current.title} {current.detail ? <span>· {current.detail}</span> : null}
-                <span style={{ marginLeft: 'auto' }}>▾</span>
+                <span className={`vp-chev ${open ? 'open' : ''}`} aria-hidden="true"><Icon name="chevron" size={14} /></span>
             </button>
             {open ? (
                 <div className="vp-lmenu">
