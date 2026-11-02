@@ -7,7 +7,7 @@ import { useEditorState } from '../hooks/admin/useEditorState';
 import useNotificationsManager from '../hooks/admin/useNotificationsManager';
 import useEvolutionStore from '../store/useEvolutionStore';
 import { navigate } from '../utils/navigation';
-import { resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
+import { isPiquimTenantIdentity, resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
 import { ComingSoon, GeneralHelp, SectionHelp, Sidebar, Topbar } from './components/Shell';
 import './screens/screens.css';
 import Resumen from './screens/Resumen';
@@ -17,6 +17,7 @@ import AjustesPrecios from './screens/AjustesPrecios';
 import AjustesSucursales from './screens/AjustesSucursales';
 import Catalogo from './catalog/Catalogo';
 import Envios from './envios/Envios';
+import Diseno from './diseno/Diseno';
 import Icon from './components/Icon';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
 
@@ -136,6 +137,8 @@ export default function PanelApp() {
         fullScreen = <Pedidos user={user} theme={theme} toast={addToast} onChanged={notifications.refresh} />;
     } else if (section === 'clientes') {
         fullScreen = <Clientes user={user} toast={addToast} onChanged={notifications.refresh} />;
+    } else if (section === 'diseno' && !editor.loading) {
+        fullScreen = <Diseno editor={editor} isPiquim={isPiquimTenantIdentity({ tenant, settings })} theme={theme} toast={addToast} onPublish={publish} />;
     } else if (section === 'envios' && !editor.loading) {
         fullScreen = <Envios editor={editor} toast={addToast} theme={theme} goSettings={(page) => go('ajustes', page)} />;
     }

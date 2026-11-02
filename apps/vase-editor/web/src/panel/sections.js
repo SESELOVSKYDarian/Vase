@@ -39,7 +39,7 @@ export const SECTIONS = {
     catalogo: { title: 'Catálogo', subtitle: 'Productos, categorías, marcas, ofertas y precios' },
     imagenes: { title: 'Imágenes', subtitle: 'Todas las fotos de tu tienda en un lugar', legacy: 'home', phase: 8 },
     envios: { title: 'Envíos', subtitle: 'Hasta dónde llegás y cuánto cobrás' },
-    diseno: { title: 'Diseño de la tienda', subtitle: 'Tocá la página para editarla', legacy: 'home', phase: 6 },
+    diseno: { title: 'Diseño de la tienda', subtitle: 'Bloques, textos, fotos, colores y pie de página' },
     ajustes: { title: 'Ajustes', subtitle: 'Lo que se configura una vez' },
 };
 
