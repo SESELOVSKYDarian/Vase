@@ -161,12 +161,12 @@ export function GeneralHelp({ open, onClose, theme }) {
 }
 
 // Sección que todavía se está rehaciendo: dice en qué fase llega y la abre en el panel anterior.
-export function ComingSoon({ title, phase, onOpenLegacy }) {
+export function ComingSoon({ title, hint, onOpenLegacy }) {
     return (
         <div className="vp-soon">
             <span className="ic"><Icon name="tool" size={26} /></span>
-            <h2>{title} se está rehaciendo</h2>
-            <p className="vp-note" style={{ fontSize: 13 }}>Esta pantalla llega en la fase {phase} del panel nuevo. Mientras tanto la podés usar en el panel anterior, con todos tus datos.</p>
+            <h2>{title} todavía está en el panel anterior</h2>
+            <p className="vp-note" style={{ fontSize: 13 }}>{hint || 'La podés usar ahí con todos tus datos. Pronto la vas a tener acá.'}</p>
             <button type="button" className="vp-btn ink" onClick={onOpenLegacy}>Abrir en el panel anterior</button>
         </div>
     );

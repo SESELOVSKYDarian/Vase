@@ -11,6 +11,7 @@ import { isPiquimTenantIdentity, resolveBrandLogo, resolveTenantBrandName } from
 import { ComingSoon, GeneralHelp, SectionHelp, Sidebar, Topbar } from './components/Shell';
 import './screens/screens.css';
 import Resumen from './screens/Resumen';
+import Imagenes from './screens/Imagenes';
 import Pedidos from './screens/Pedidos';
 import Clientes from './screens/Clientes';
 import AjustesPrecios from './screens/AjustesPrecios';
@@ -158,6 +159,8 @@ export default function PanelApp() {
                 go={go}
             />
         );
+    } else if (section === 'imagenes') {
+        content = <Imagenes editor={editor} toast={addToast} />;
     } else if (section === 'ajustes' && !sub) {
         content = (
             <div className="vp-alist">
@@ -185,9 +188,9 @@ export default function PanelApp() {
     } else if (sub === 'equipo') {
         content = <AjustesEquipo user={user} toast={addToast} />;
     } else if (settingsPage) {
-        content = <ComingSoon title={settingsPage.label} phase={settingsPage.phase} onOpenLegacy={() => openLegacy(settingsPage.legacy)} />;
+        content = <ComingSoon title={settingsPage.label} hint={settingsPage.hint} onOpenLegacy={() => openLegacy(settingsPage.legacy)} />;
     } else {
-        content = <ComingSoon title={meta.title} phase={meta.phase} onOpenLegacy={() => openLegacy(meta.legacy)} />;
+        content = <ComingSoon title={meta.title} hint={meta.hint} onOpenLegacy={() => openLegacy(meta.legacy)} />;
     }
 
     return (
