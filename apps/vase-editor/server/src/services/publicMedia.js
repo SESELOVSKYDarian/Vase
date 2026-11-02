@@ -29,7 +29,7 @@ const IMAGE_WIDTH_BUCKETS = [160, 320, 480, 640, 900, 1200, 1600];
 const IMAGE_ROUTE_SQL =
   "'/public/products/' || p.id::text || '/images/' || (t.ord - 1)::text || '?v=' || floor(extract(epoch from p.updated_at))::bigint::text";
 
-export const PUBLIC_PRODUCT_DATA_SQL = [
+export const PRODUCT_DATA_WITH_IMAGE_ROUTES_SQL = [
   "case when jsonb_typeof(p.data->'images') = 'array' then jsonb_set(p.data, '{images}', coalesce((",
   'select jsonb_agg(case',
   "when jsonb_typeof(im) = 'object' and left(coalesce(im->>'url', ''), 5) = 'data:'",
@@ -38,8 +38,32 @@ export const PUBLIC_PRODUCT_DATA_SQL = [
   `then to_jsonb(${IMAGE_ROUTE_SQL})`,
   'else im end order by t.ord)',
   "from jsonb_array_elements(p.data->'images') with ordinality as t(im, ord)",
-  "), '[]'::jsonb)) else p.data end as data",
+  "), '[]'::jsonb)) else p.data end",
 ].join(' ');
+
+export const PUBLIC_PRODUCT_DATA_SQL = `${PRODUCT_DATA_WITH_IMAGE_ROUTES_SQL} as data`;
+
+const imageSourceOf = (image) => (typeof image === 'string' ? image : image?.url || image?.src || '');
+
+// El panel recibe las imagenes como rutas cortas (/public/products/:id/images/:idx). Al guardar, una ruta
+// que apunta a una imagen de este mismo producto se reemplaza por la imagen original: guardar la ruta
+// haria que la imagen se redirija a si misma y se pierda.
+export function restoreProductImageRoutes(images, existingImages, productId) {
+  if (!Array.isArray(images)) return images;
+  const existing = Array.isArray(existingImages) ? existingImages : [];
+  const routePattern = new RegExp(`^/public/products/${String(productId)}/images/(\\d+)(?:\\?.*)?$`, 'i');
+  return images
+    .map((image) => {
+      const match = routePattern.exec(imageSourceOf(image));
+      if (!match) return image;
+      const originalSource = imageSourceOf(existing[Number(match[1])]);
+      if (!originalSource) return null;
+      if (typeof image === 'string') return originalSource;
+      const { src: _src, ...rest } = image;
+      return { ...rest, url: originalSource };
+    })
+    .filter(Boolean);
+}
 
 export function parseDataUri(value) {
   if (typeof value !== 'string' || !value.startsWith('data:')) return null;

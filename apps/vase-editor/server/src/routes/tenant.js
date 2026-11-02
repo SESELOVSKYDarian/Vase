@@ -21,6 +21,17 @@ import {
   removeTenantDomain as removeTenantDomainService,
   upsertTenantDomain as upsertTenantDomainService,
 } from '../services/tenantDomains.js';
+import { PRODUCT_DATA_WITH_IMAGE_ROUTES_SQL, restoreProductImageRoutes } from '../services/publicMedia.js';
+
+// Mismas condiciones que la ruta publica de imagenes (/public/products/:id/images/:idx): solo los
+// productos que esa ruta puede servir reciben las imagenes como rutas cortas; el resto sigue igual.
+const PUBLIC_IMAGE_ROUTE_VISIBLE_SQL = [
+  "p.status = 'active'",
+  'and p.deleted_at is null',
+  'and coalesce(p.is_active_source, true) = true',
+  'and coalesce(p.is_visible_web, true) = true',
+  'and (o.hidden is null or o.hidden = false)',
+].join(' ');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1402,7 +1413,10 @@ tenantRouter.get('/products', async (req, res, next) => {
       pool.query(
       [
         [
-          'select p.id, p.erp_id, p.external_id, p.source_system, p.sku, p.name, p.description, p.price, p.price_wholesale, p.stock, p.brand, p.data,',
+          'select p.id, p.erp_id, p.external_id, p.source_system, p.sku, p.name, p.description, p.price, p.price_wholesale, p.stock, p.brand,',
+          // Las fotos guardadas en base64 viajan como rutas cortas: con todas las fotos adentro el panel
+          // descargaba cientos de MB al abrir y se quedaba en "Cargando datos".
+          `case when ${PUBLIC_IMAGE_ROUTE_VISIBLE_SQL} then ${PRODUCT_DATA_WITH_IMAGE_ROUTES_SQL} else p.data end as data,`,
           "(o.featured = true) as is_featured,",
           "case when o.hidden = true then false else coalesce(p.is_visible_web, true) end as is_visible_web,",
           'coalesce(p.admin_locked, false) as admin_locked,',
@@ -2018,7 +2032,7 @@ tenantRouter.put('/products/:id', async (req, res, next) => {
     }
 
     const rawImages = Object.prototype.hasOwnProperty.call(req.body || {}, 'images')
-      ? req.body?.images
+      ? restoreProductImageRoutes(req.body?.images, existingData.images, productId)
       : existingData.images;
     let imageData = [];
     if (Array.isArray(rawImages) && rawImages.length > 0) {
