@@ -51,7 +51,7 @@ test('el panel nuevo vive aislado: todos sus estilos están dentro de .vp y tien
     for (const raw of selectors) {
         const selector = raw.replace(/^\}/, '').replace(/\{$/, '').trim();
         if (!selector || /^(from|to)$/.test(selector)) continue;
-        for (const part of selector.split(',')) assert.match(part.trim(), /^\.vp(\b|-)/, `selector fuera del panel: ${part.trim()}`);
+        for (const part of selector.split(',')) assert.match(part.trim(), /^(:where\(\.vp\)|\.vp(\b|-))/, `selector fuera del panel: ${part.trim()}`);
     }
     assert.match(css, /\.vp\[data-theme="dark"\]/);
     assert.match(css, /--page: #000000/);

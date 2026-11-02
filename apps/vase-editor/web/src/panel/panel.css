@@ -26,7 +26,7 @@
 .vp *::-webkit-scrollbar-track { background: transparent; }
 .vp *::-webkit-scrollbar-thumb { background: var(--sb); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
 .vp *::-webkit-scrollbar-thumb:hover { background: var(--sbh); border: 3px solid transparent; background-clip: padding-box; }
-.vp button { font: inherit; color: inherit; }
+:where(.vp) button { font: inherit; color: inherit; }
 .vp :focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 .vp h1, .vp h2, .vp h3, .vp p { margin: 0; }
 

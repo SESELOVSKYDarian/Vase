@@ -10,6 +10,7 @@ import { navigate } from '../utils/navigation';
 import { resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
 import { ComingSoon, GeneralHelp, SectionHelp, Sidebar, Topbar } from './components/Shell';
 import Resumen from './screens/Resumen';
+import Catalogo from './catalog/Catalogo';
 import Icon from './components/Icon';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
 
@@ -174,13 +175,26 @@ export default function PanelApp() {
                     onNotifications={() => go(badges.payments ? 'pedidos' : 'clientes')}
                     onHelp={() => setHelp('section')}
                 />
-                <div className="vp-page">
-                    <div className="vp-body">
-                        {editor.loading && section !== 'resumen' ? (
-                            <div className="vp-empty"><Icon name="grid" /> Preparando tus datos…</div>
-                        ) : content}
+                {section === 'catalogo' && !editor.loading ? (
+                    // Catálogo arma su propia barra de pestañas y su barra lateral.
+                    <Catalogo
+                        editor={editor}
+                        user={user}
+                        theme={theme}
+                        toast={addToast}
+                        openLegacy={openLegacy}
+                        goSettings={(page) => go('ajustes', page)}
+                        storeHost={window.location.host}
+                    />
+                ) : (
+                    <div className="vp-page">
+                        <div className="vp-body">
+                            {editor.loading && section !== 'resumen' ? (
+                                <div className="vp-empty"><Icon name="grid" /> Preparando tus datos…</div>
+                            ) : content}
+                        </div>
                     </div>
-                </div>
+                )}
             </main>
             <SectionHelp
                 open={help === 'section'}
