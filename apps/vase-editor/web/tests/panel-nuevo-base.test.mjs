@@ -20,11 +20,11 @@ test('las direcciones del panel nuevo llevan a cada sección y vuelven a armarse
 
 test('cada sección pendiente dice en qué fase llega y a qué módulo del panel anterior lleva', () => {
     for (const [id, meta] of Object.entries(SECTIONS)) {
-        if (id === 'resumen' || id === 'ajustes') continue;
+        if (!meta.phase) continue; // ya rehecha en el panel nuevo
         assert.ok(meta.phase >= 2 && meta.phase <= 8, id);
         assert.ok(meta.legacy, id);
     }
-    for (const page of SETTINGS_PAGES) assert.ok(page.legacy && page.phase, page.id);
+    for (const page of SETTINGS_PAGES) if (page.phase) assert.ok(page.legacy, page.id);
 });
 
 test('estados reales de los pedidos con nombre y color', () => {

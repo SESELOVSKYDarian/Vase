@@ -34,8 +34,8 @@ export const MENU = [
 
 export const SECTIONS = {
     resumen: { title: 'Resumen', subtitle: 'Esto es lo que pasa hoy en tu tienda' },
-    pedidos: { title: 'Pedidos', subtitle: 'Todo lo que entra por la tienda', legacy: 'users', phase: 3 },
-    clientes: { title: 'Clientes', subtitle: 'Quién compra y quién espera aprobación', legacy: 'users', phase: 3 },
+    pedidos: { title: 'Pedidos', subtitle: 'Todo lo que entra por la tienda' },
+    clientes: { title: 'Clientes', subtitle: 'Quién compra y quién espera aprobación' },
     catalogo: { title: 'Catálogo', subtitle: 'Productos, categorías, marcas, ofertas y precios', legacy: 'catalog', phase: 2 },
     imagenes: { title: 'Imágenes', subtitle: 'Todas las fotos de tu tienda en un lugar', legacy: 'home', phase: 8 },
     envios: { title: 'Envíos', subtitle: 'Hasta dónde llegás y cuánto cobrás', legacy: 'shipping', phase: 5 },

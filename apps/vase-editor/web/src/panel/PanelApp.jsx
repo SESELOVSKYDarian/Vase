@@ -9,7 +9,10 @@ import useEvolutionStore from '../store/useEvolutionStore';
 import { navigate } from '../utils/navigation';
 import { resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
 import { ComingSoon, GeneralHelp, SectionHelp, Sidebar, Topbar } from './components/Shell';
+import './screens/screens.css';
 import Resumen from './screens/Resumen';
+import Pedidos from './screens/Pedidos';
+import Clientes from './screens/Clientes';
 import Catalogo from './catalog/Catalogo';
 import Icon from './components/Icon';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
@@ -112,6 +115,26 @@ export default function PanelApp() {
     const status = editor.canUndo ? { dirty: true, text: 'Cambios sin publicar' } : { dirty: false, text: 'Todo publicado' };
     const vaseUrl = String(import.meta.env.VITE_VASE_APP_URL || 'https://app.vase.ar').replace(/\/+$/, '');
 
+    // Pantallas que arman su propio diseño (pestañas a todo el ancho y barra lateral derecha).
+    let fullScreen = null;
+    if (section === 'catalogo' && !editor.loading) {
+        fullScreen = (
+            <Catalogo
+                editor={editor}
+                user={user}
+                theme={theme}
+                toast={addToast}
+                openLegacy={openLegacy}
+                goSettings={(page) => go('ajustes', page)}
+                storeHost={window.location.host}
+            />
+        );
+    } else if (section === 'pedidos') {
+        fullScreen = <Pedidos user={user} theme={theme} toast={addToast} onChanged={notifications.refresh} />;
+    } else if (section === 'clientes') {
+        fullScreen = <Clientes user={user} toast={addToast} onChanged={notifications.refresh} />;
+    }
+
     let content;
     if (section === 'resumen') {
         content = (
@@ -175,18 +198,7 @@ export default function PanelApp() {
                     onNotifications={() => go(badges.payments ? 'pedidos' : 'clientes')}
                     onHelp={() => setHelp('section')}
                 />
-                {section === 'catalogo' && !editor.loading ? (
-                    // Catálogo arma su propia barra de pestañas y su barra lateral.
-                    <Catalogo
-                        editor={editor}
-                        user={user}
-                        theme={theme}
-                        toast={addToast}
-                        openLegacy={openLegacy}
-                        goSettings={(page) => go('ajustes', page)}
-                        storeHost={window.location.host}
-                    />
-                ) : (
+                {fullScreen || (
                     <div className="vp-page">
                         <div className="vp-body">
                             {editor.loading && section !== 'resumen' ? (
