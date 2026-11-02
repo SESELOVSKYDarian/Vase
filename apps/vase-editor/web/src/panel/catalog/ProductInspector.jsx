@@ -102,7 +102,7 @@ export default function ProductInspector({ product, isNew, products, categories,
                             </span>
                         </div>
                     </div>
-                    {fromSystem ? <span className="vp-note">Precio y stock llegan de tu sistema: si los cambiás acá, la próxima sincronización los vuelve a poner.</span> : null}
+                    {fromSystem ? <span className="vp-note">Precio y stock llegan de tu sistema: si cambiás el precio acá, la próxima sincronización pone el del sistema, salvo que actives “No pisar mis cambios” (en Más).</span> : null}
                     {tiers.length > 1 ? (
                         <div className="vp-fld"><span className="vp-fl">Precios por lista</span>
                             {tiers.map((tier) => (
@@ -186,7 +186,7 @@ export default function ProductInspector({ product, isNew, products, categories,
                     </div>
                     {fromSystem ? (
                         <>
-                            <div className="vp-row"><div className="g"><b>No pisar mis cambios</b><span>La sincronización no cambia nombre, SKU, descripción ni marca. Precio y stock se siguen actualizando.</span></div><button type="button" className={`vp-tog ${draft.admin_locked ? '' : 'off'}`} role="switch" aria-checked={draft.admin_locked} aria-label="No pisar mis cambios" onClick={() => set({ admin_locked: !draft.admin_locked })} /></div>
+                            <div className="vp-row"><div className="g"><b>No pisar mis cambios</b><span>La sincronización no cambia nombre, SKU, descripción, marca ni precio. El stock se sigue actualizando.</span></div><button type="button" className={`vp-tog ${draft.admin_locked ? '' : 'off'}`} role="switch" aria-checked={draft.admin_locked} aria-label="No pisar mis cambios" onClick={() => set({ admin_locked: !draft.admin_locked })} /></div>
                             <div className="vp-row"><div className="g"><b>Sincronización</b><span>{product?.last_sync_at ? `Última: ${new Date(product.last_sync_at).toLocaleString('es-AR')}` : 'Sin datos de la última vez'}{product?.external_id ? ` · ID ${product.external_id}` : ''}</span></div><span className={`vp-tag ${product?.sync_status === 'synced' ? 'g' : 'y'}`}><i />{product?.sync_status === 'synced' ? 'Al día' : 'Revisar'}</span></div>
                         </>
                     ) : null}

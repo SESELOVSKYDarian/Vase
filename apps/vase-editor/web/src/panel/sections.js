@@ -2,7 +2,7 @@
 // lleva cada sección mientras se rehace.
 
 export const SETTINGS_PAGES = [
-    { id: 'precios', label: 'Precios y listas', subtitle: 'Quién ve precios y qué precio usa cada lista', legacy: 'pricing', phase: 4 },
+    { id: 'precios', label: 'Precios y listas', subtitle: 'Quién ve precios y qué precio usa cada lista' },
     { id: 'pagos', label: 'Pagos', subtitle: 'Cómo terminan la compra tus clientes', legacy: 'checkout', phase: 7 },
     { id: 'sucursales', label: 'Sucursales y retiro', subtitle: 'Dónde pueden retirar', legacy: 'shipping', phase: 7 },
     { id: 'seo', label: 'Google, redes y SEO', subtitle: 'Cómo te encuentran y cómo te ven al compartir', legacy: 'seo', phase: 7 },
@@ -36,7 +36,7 @@ export const SECTIONS = {
     resumen: { title: 'Resumen', subtitle: 'Esto es lo que pasa hoy en tu tienda' },
     pedidos: { title: 'Pedidos', subtitle: 'Todo lo que entra por la tienda' },
     clientes: { title: 'Clientes', subtitle: 'Quién compra y quién espera aprobación' },
-    catalogo: { title: 'Catálogo', subtitle: 'Productos, categorías, marcas, ofertas y precios', legacy: 'catalog', phase: 2 },
+    catalogo: { title: 'Catálogo', subtitle: 'Productos, categorías, marcas, ofertas y precios' },
     imagenes: { title: 'Imágenes', subtitle: 'Todas las fotos de tu tienda en un lugar', legacy: 'home', phase: 8 },
     envios: { title: 'Envíos', subtitle: 'Hasta dónde llegás y cuánto cobrás', legacy: 'shipping', phase: 5 },
     diseno: { title: 'Diseño de la tienda', subtitle: 'Tocá la página para editarla', legacy: 'home', phase: 6 },

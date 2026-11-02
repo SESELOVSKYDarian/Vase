@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import './catalog.css';
 import DataTable from '../components/DataTable';
 import { Modal, SidePanel } from '../components/Overlays';
-import { ComingSoon } from '../components/Shell';
 import Icon from '../components/Icon';
 import ProductInspector from './ProductInspector';
+import ProductSearch from './ProductSearch';
+import Ofertas from './Ofertas';
+import Precios from './Precios';
 import { errorText, panelFetch } from '../api';
 import { formatMoney } from '../format';
 import {
@@ -208,7 +210,19 @@ export default function Catalogo({ editor, user, theme, toast, openLegacy, goSet
                 <div className="vp-sp" />
                 {sync ? <button type="button" className="vp-sync" onClick={() => goSettings('gestion')}><i />Sincronizado · {sync}</button> : null}
             </div>
-            <div className="vp-page">
+            {tab === 'ofertas' ? <Ofertas user={user} products={products} categories={categories} toast={toast} theme={theme} /> : null}
+            {tab === 'precios' ? (
+                <Precios
+                    user={user}
+                    products={products}
+                    categories={categories}
+                    brands={brands}
+                    toast={toast}
+                    onApplied={(items) => setProducts(items)}
+                    goSettings={goSettings}
+                />
+            ) : null}
+            <div className="vp-page" style={tab === 'ofertas' || tab === 'precios' ? { display: 'none' } : undefined}>
                 <div className="vp-body">
                     {tab === 'productos' ? (
                         <>
@@ -321,8 +335,6 @@ export default function Catalogo({ editor, user, theme, toast, openLegacy, goSet
                         </div>
                     ) : null}
 
-                    {tab === 'ofertas' ? <ComingSoon title="Ofertas" phase={4} onOpenLegacy={() => openLegacy('pricing')} /> : null}
-                    {tab === 'precios' ? <ComingSoon title="Cambiar precios" phase={4} onOpenLegacy={() => openLegacy('pricing')} /> : null}
                 </div>
 
                 {tab === 'productos' && active ? (
@@ -489,21 +501,5 @@ export default function Catalogo({ editor, user, theme, toast, openLegacy, goSet
                 {null}
             </Modal>
         </>
-    );
-}
-
-function ProductSearch({ products, exclude, onPick }) {
-    const [query, setQuery] = useState('');
-    const q = query.trim().toLowerCase();
-    const options = q.length < 2 ? [] : products.filter((product) => !exclude.has(product.id) && `${product.name} ${product.sku || ''}`.toLowerCase().includes(q)).slice(0, 8);
-    return (
-        <div className="vp-fld">
-            <input className="vp-inp" placeholder="+ Sumar productos: buscá por nombre o SKU…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Sumar productos a la categoría" />
-            {options.length ? (
-                <div className="vp-lmenu">
-                    {options.map((product) => <button key={product.id} type="button" className="vp-mi" onClick={() => { onPick(product); setQuery(''); }}>{product.name}<em>{product.sku}</em></button>)}
-                </div>
-            ) : null}
-        </div>
     );
 }

@@ -13,6 +13,7 @@ import './screens/screens.css';
 import Resumen from './screens/Resumen';
 import Pedidos from './screens/Pedidos';
 import Clientes from './screens/Clientes';
+import AjustesPrecios from './screens/AjustesPrecios';
 import Catalogo from './catalog/Catalogo';
 import Icon from './components/Icon';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
@@ -159,6 +160,8 @@ export default function PanelApp() {
                 ))}
             </div>
         );
+    } else if (sub === 'precios') {
+        content = <AjustesPrecios editor={editor} user={user} toast={addToast} onSave={publish} />;
     } else if (settingsPage) {
         content = <ComingSoon title={settingsPage.label} phase={settingsPage.phase} onOpenLegacy={() => openLegacy(settingsPage.legacy)} />;
     } else {

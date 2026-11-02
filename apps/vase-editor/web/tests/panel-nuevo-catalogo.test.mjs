@@ -105,14 +105,10 @@ test('paginación: muestra primera, última y vecinas', () => {
     assert.deepEqual(pageWindow(15, 31), [1, '…', 14, 15, 16, '…', 31]);
 });
 
-test('el catálogo vive en el panel nuevo con barra lateral, precios y pestañas pendientes de la fase 4', async () => {
+test('el catálogo vive en el panel nuevo con barra lateral, stock y categorías', async () => {
     const app = await read('../src/panel/PanelApp.jsx');
     assert.match(app, /section === 'catalogo' && !editor\.loading/);
     const screen = await read('../src/panel/catalog/Catalogo.jsx');
-    assert.match(screen, /ComingSoon title="Ofertas" phase=\{4\}/);
-    assert.match(screen, /ComingSoon title="Cambiar precios" phase=\{4\}/);
     assert.match(screen, /\/tenant\/products\/\$\{product\.id\}\/stock/);
     assert.match(screen, /\/tenant\/categories\/\$\{currentCat\.id\}/);
-    const inspector = await read('../src/panel/catalog/ProductInspector.jsx');
-    assert.match(inspector, /Precio y stock se siguen actualizando/);
 });
