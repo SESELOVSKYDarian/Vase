@@ -352,6 +352,9 @@ export default function Catalogo({ editor, user, theme, toast, openLegacy, goSet
                         onSave={saveProduct}
                         onDelete={() => setConfirm({ kind: 'product', item: activeProduct })}
                         onVariantChange={(other, group) => updateFields(other, { variant_group: group }, group ? 'Producto sumado al grupo' : 'Producto sacado del grupo')}
+                        toast={toast}
+                        user={user}
+                        goPriceLists={goSettings ? () => goSettings('precios') : undefined}
                     />
                 ) : null}
 

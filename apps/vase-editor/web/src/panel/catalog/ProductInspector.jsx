@@ -1,8 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { SidePanel } from '../components/Overlays';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, SidePanel } from '../components/Overlays';
 import { ImagePickerModal } from '../components/Pickers';
 import Select from '../components/Select';
-import { categoryPath, productToDraft, variantMembers } from './model';
+import { panelFetch } from '../api';
+import { uploadPublicFile } from '../../utils/uploadsClient';
+import { formatFileSize } from '../../utils/specSheet';
+import { categoryPath, productThumb, productToDraft, tierUsage, variantMembers } from './model';
+
+const MAX_PDF_MB = 15;
 
 const TABS = [['datos', 'Datos'], ['fotos', 'Fotos y descripción'], ['mas', 'Más']];
 
@@ -54,10 +59,35 @@ function ProductAdder({ products, exclude, onAdd, placeholder }) {
     );
 }
 
-export default function ProductInspector({ product, isNew, products, categories, brands, theme, saving, onClose, onSave, onDelete, onVariantChange }) {
+export default function ProductInspector({ product, isNew, products, categories, brands, theme, saving, onClose, onSave, onDelete, onVariantChange, toast, user, goPriceLists }) {
     const [tab, setTab] = useState('datos');
     const [draft, setDraft] = useState(() => productToDraft(product));
     const [picker, setPicker] = useState(false);
+    const [pricesOpen, setPricesOpen] = useState(false);
+    const [priceLists, setPriceLists] = useState(null);
+    const [uploadingPdf, setUploadingPdf] = useState(false);
+    const pdfRef = useRef(null);
+
+    useEffect(() => {
+        if (!pricesOpen || priceLists) return;
+        panelFetch('/tenant/price-lists', { user }).then((payload) => setPriceLists(payload.items || [])).catch(() => setPriceLists([]));
+    }, [pricesOpen, priceLists, user]);
+
+    const uploadPdf = async (file) => {
+        if (!file) return;
+        if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) { toast?.('Elegí un archivo PDF.', 'error'); return; }
+        if (file.size > MAX_PDF_MB * 1024 * 1024) { toast?.(`El PDF pesa más de ${MAX_PDF_MB} MB. Achicalo y probá de nuevo.`, 'error'); return; }
+        setUploadingPdf(true);
+        try {
+            const url = await uploadPublicFile(file);
+            set({ spec_sheet: { url, name: file.name, size: file.size } });
+            toast?.('Ficha subida. Guardá el producto para que se vea en la tienda.', 'success');
+        } catch (err) {
+            toast?.(`No se pudo subir el PDF: ${err.message || 'error'}`, 'error');
+        } finally {
+            setUploadingPdf(false);
+        }
+    };
 
     useEffect(() => {
         setDraft(productToDraft(product));
@@ -105,10 +135,9 @@ export default function ProductInspector({ product, isNew, products, categories,
                     </div>
                     {fromSystem ? <span className="vp-note">Precio y stock llegan de tu sistema: si cambiás el precio acá, la próxima sincronización pone el del sistema, salvo que actives “No pisar mis cambios” (en Más).</span> : null}
                     {tiers.length > 1 ? (
-                        <div className="vp-fld"><span className="vp-fl">Precios por lista</span>
-                            {tiers.map((tier) => (
-                                <div key={tier.key || tier.slot} className="vp-row"><div className="g"><b>{tier.label || `Precio ${tier.slot}`}</b></div><b>${Math.round(Number(tier.value)).toLocaleString('es-AR')}</b></div>
-                            ))}
+                        <div className="vp-row">
+                            <div className="g"><b>{tiers.length} precios del sistema</b><span>{tiers.slice(0, 2).map((tier) => `${tier.label || `Precio ${tier.slot}`} $${Math.round(Number(tier.value)).toLocaleString('es-AR')}`).join(' · ')}{tiers.length > 2 ? ' · …' : ''}</span></div>
+                            <button type="button" className="vp-btn line sm" onClick={() => setPricesOpen(true)}>Ver precios</button>
                         </div>
                     ) : null}
                     <div className="vp-fld"><span className="vp-fl">Categorías</span>
@@ -159,9 +188,25 @@ export default function ProductInspector({ product, isNew, products, categories,
                         </div>
                         {draft.variant_group ? (
                             <>
+                                <div className="vp-vprev" aria-label="Así se ve en la tienda">
+                                    {draft.images[0] ? <img src={draft.images[0]} alt="" /> : <span className="ph" />}
+                                    <div>
+                                        <b>{draft.variant_group}</b>
+                                        <div className="opts">
+                                            <span className="on">{draft.variant_label || draft.name}</span>
+                                            {members.slice(0, 5).map((member) => <span key={member.id}>{member.data?.variant_label || member.name}</span>)}
+                                            {members.length > 5 ? <span>+{members.length - 5}</span> : null}
+                                        </div>
+                                    </div>
+                                </div>
                                 <div className="vp-vchips">
+                                    <span className="vp-vchip main">
+                                        {draft.images[0] ? <img src={draft.images[0]} alt="" /> : null}
+                                        {draft.variant_label || draft.name || 'Este producto'}
+                                    </span>
                                     {members.map((member) => (
                                         <span key={member.id} className="vp-vchip">
+                                            {productThumb(member) ? <img src={productThumb(member)} alt="" /> : null}
                                             {member.data?.variant_label || member.name}
                                             <button type="button" aria-label={`Sacar ${member.name} del grupo`} onClick={() => onVariantChange(member, null)}>×</button>
                                         </span>
@@ -182,6 +227,21 @@ export default function ProductInspector({ product, isNew, products, categories,
                         ))}
                         <button type="button" className="vp-addc" onClick={() => set({ specifications: [...draft.specifications, { key: '', value: '' }] })}>+ Agregar dato</button>
                     </div>
+                    <div className="vp-fld"><span className="vp-fl">Ficha técnica</span>
+                        {draft.spec_sheet?.url ? (
+                            <div className="vp-file">
+                                <span className="ic">PDF</span>
+                                <div className="g">
+                                    <b title={draft.spec_sheet.name}>{draft.spec_sheet.name || 'ficha-tecnica.pdf'}</b>
+                                    <span>{[formatFileSize(draft.spec_sheet.size), 'se descarga desde el producto'].filter(Boolean).join(' · ')}</span>
+                                </div>
+                                <a className="vp-btn line sm" href={draft.spec_sheet.url} target="_blank" rel="noopener noreferrer">Ver</a>
+                                <button type="button" className="vp-x" aria-label="Quitar la ficha técnica" onClick={() => set({ spec_sheet: null })}>×</button>
+                            </div>
+                        ) : <span className="vp-note">Subí un PDF (hasta {MAX_PDF_MB} MB) y en la tienda aparece el botón “Descargar ficha técnica”.</span>}
+                        <button type="button" className="vp-addc" disabled={uploadingPdf} onClick={() => pdfRef.current?.click()}>{uploadingPdf ? 'Subiendo…' : draft.spec_sheet?.url ? 'Cambiar PDF' : '+ Subir PDF'}</button>
+                        <input ref={pdfRef} type="file" accept="application/pdf,.pdf" hidden onChange={(event) => { uploadPdf(event.target.files?.[0]); event.target.value = ''; }} />
+                    </div>
                     {fromSystem ? (
                         <>
                             <div className="vp-row"><div className="g"><b>No pisar mis cambios</b><span>La sincronización no cambia nombre, SKU, descripción, marca ni precio. El stock se sigue actualizando.</span></div><button type="button" className={`vp-tog ${draft.admin_locked ? '' : 'off'}`} role="switch" aria-checked={draft.admin_locked} aria-label="No pisar mis cambios" onClick={() => set({ admin_locked: !draft.admin_locked })} /></div>
@@ -192,6 +252,37 @@ export default function ProductInspector({ product, isNew, products, categories,
             ) : null}
 
             <ImagePickerModal open={picker} onClose={() => setPicker(false)} theme={theme} library={library} onPick={(src) => set({ images: [...draft.images, src] })} />
+            <Modal
+                open={pricesOpen}
+                onClose={() => setPricesOpen(false)}
+                theme={theme}
+                wide
+                title={`Precios de ${draft.name || 'este producto'}`}
+                description="Llegan de tu sistema de gestión. Cada lista usa uno de estos precios."
+                footer={<>
+                    {goPriceLists ? <button type="button" className="vp-btn soft" onClick={() => { setPricesOpen(false); goPriceLists(); }}>Ir a Precios y listas</button> : null}
+                    <button type="button" className="vp-btn acc" onClick={() => setPricesOpen(false)}>Listo</button>
+                </>}
+            >
+                <div className="vp-tblw">
+                    <table className="vp-ltbl vp-ptbl">
+                        <thead><tr><th>Precio del sistema</th><th>Lo usa</th><th>Valor</th></tr></thead>
+                        <tbody>
+                            {tiers.map((tier) => {
+                                const used = priceLists ? tierUsage(tier.slot, priceLists) : [];
+                                return (
+                                    <tr key={tier.key || tier.slot}>
+                                        <td><b>{tier.label || `Precio ${tier.slot}`}</b>{tier.label && tier.label !== `Precio ${tier.slot}` ? <span className="vp-note">Precio {tier.slot}</span> : null}</td>
+                                        <td>{!priceLists ? <span className="vp-note">Cargando…</span> : used.length ? used.map((name) => <span key={name} className="vp-tag g" style={{ marginRight: 6 }}><i />{name}</span>) : <span className="vp-tag"><i />Sin usar</span>}</td>
+                                        <td className="num"><b>${Math.round(Number(tier.value)).toLocaleString('es-AR')}</b></td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                <span className="vp-note">Qué precio usa cada lista se elige en Ajustes › Precios y listas. Si este producto tiene una oferta activa, el cliente ve el precio con descuento.</span>
+            </Modal>
         </SidePanel>
     );
 }

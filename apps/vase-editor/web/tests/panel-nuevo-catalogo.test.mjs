@@ -112,3 +112,27 @@ test('el catálogo vive en el panel nuevo con barra lateral, stock y categorías
     assert.match(screen, /\/tenant\/products\/\$\{product\.id\}\/stock/);
     assert.match(screen, /\/tenant\/categories\/\$\{currentCat\.id\}/);
 });
+
+test('ficha técnica en PDF y qué lista usa cada precio', async () => {
+    const { draftToPayload, productToDraft, tierUsage } = await import('../src/panel/catalog/model.js');
+    const draft = productToDraft({ name: 'Base', data: { spec_sheet: { url: 'https://uploads.vase.ar/f.pdf', name: 'f.pdf', size: 1000 } } });
+    assert.deepEqual(draft.spec_sheet, { url: 'https://uploads.vase.ar/f.pdf', name: 'f.pdf', size: 1000 });
+    const payload = draftToPayload({ ...draft, images: [], category_ids: [] });
+    assert.equal(payload.spec_sheet.url, 'https://uploads.vase.ar/f.pdf');
+    assert.equal(payload.show_specifications, true);
+    assert.equal(draftToPayload({ ...draft, spec_sheet: null, images: [], category_ids: [] }).spec_sheet, null);
+    const lists = [
+        { name: 'Retail', type: 'retail', rules_json: {} },
+        { name: 'Mayorista', type: 'wholesale', rules_json: {} },
+        { name: 'Distribuidor', type: 'special', rules_json: { force_segment: 'wholesale' } },
+        { name: 'Especial', type: 'special', rules_json: {} },
+    ];
+    assert.deepEqual(tierUsage(1, lists), ['Retail']);
+    assert.deepEqual(tierUsage(2, lists), ['Mayorista', 'Distribuidor']);
+    assert.deepEqual(tierUsage(3, lists), []);
+    const { specSheetFrom, formatFileSize } = await import('../src/utils/specSheet.js');
+    assert.equal(specSheetFrom({ url: 'javascript:alert(1)' }, { url: 'https://x.test/a.pdf' }).url, 'https://x.test/a.pdf');
+    assert.equal(specSheetFrom(null, {}), null);
+    assert.equal(formatFileSize(245760), '240 KB');
+    assert.equal(formatFileSize(3 * 1024 * 1024), '3,0 MB');
+});

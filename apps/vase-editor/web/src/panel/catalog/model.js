@@ -140,6 +140,7 @@ export function productToDraft(product = {}) {
         is_featured: product.is_featured === true,
         admin_locked: product.admin_locked === true,
         specifications: Object.entries(specs).map(([key, value]) => ({ key, value: String(value ?? '') })),
+        spec_sheet: data.spec_sheet && data.spec_sheet.url ? { ...data.spec_sheet } : null,
         variant_group: data.variant_group || data.variantGroup || '',
         variant_label: data.variant_label || data.variantLabel || '',
     };
@@ -166,7 +167,8 @@ export function draftToPayload(draft) {
         is_featured: draft.is_featured,
         admin_locked: draft.admin_locked,
         specifications,
-        show_specifications: Object.keys(specifications).length > 0,
+        show_specifications: Object.keys(specifications).length > 0 || Boolean(draft.spec_sheet?.url),
+        spec_sheet: draft.spec_sheet?.url ? draft.spec_sheet : null,
         variant_group: String(draft.variant_group || '').trim() || null,
         variant_label: String(draft.variant_label || '').trim() || null,
     };
@@ -194,4 +196,14 @@ export function mainCategory(product, categories) {
         .filter((id) => byId.has(id))
         .sort((a, b) => depthOf(b) - depthOf(a))
         .map((id) => byId.get(id))[0] || null;
+}
+
+// Qué lista usa cada precio del sistema: Precio 1 es la base minorista y Precio 2 la mayorista.
+export function tierUsage(slot, lists = []) {
+    const segment = Number(slot) === 1 ? 'retail' : Number(slot) === 2 ? 'wholesale' : null;
+    if (!segment) return [];
+    return lists.filter((list) => {
+        const forced = list.rules_json?.force_segment;
+        return forced ? forced === segment : list.type === segment;
+    }).map((list) => list.name);
 }

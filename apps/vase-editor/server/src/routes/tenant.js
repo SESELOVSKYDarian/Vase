@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { normalizeSpecSheet } from '../services/specSheet.js';
 import { pool } from '../db.js';
 import multer from 'multer';
 import path from 'path';
@@ -2400,6 +2401,9 @@ tenantRouter.put('/products/:id', async (req, res, next) => {
     const warranty = Object.prototype.hasOwnProperty.call(req.body || {}, 'warranty')
       ? (req.body?.warranty || null)
       : (existingData.warranty || null);
+    const specSheet = Object.prototype.hasOwnProperty.call(req.body || {}, 'spec_sheet')
+      ? normalizeSpecSheet(req.body?.spec_sheet)
+      : (existingData.spec_sheet || null);
     const isVisibleWeb = hasVisiblePayload
       ? parseBooleanInput(req.body?.is_visible_web, existing.is_visible_web !== false)
       : existing.is_visible_web !== false;
@@ -2429,6 +2433,7 @@ tenantRouter.put('/products/:id', async (req, res, next) => {
       delivery_time: deliveryTime,
       shipping_details: shippingDetails,
       warranty,
+      spec_sheet: specSheet,
     };
 
     await client.query(
@@ -2550,6 +2555,7 @@ tenantRouter.post('/products', async (req, res, next) => {
     delivery_time,
     shipping_details,
     warranty,
+    spec_sheet,
     external_id,
     source_system,
     is_visible_web,
@@ -2611,7 +2617,8 @@ tenantRouter.post('/products', async (req, res, next) => {
       is_variant_root: parseBooleanInput(is_variant_root, false),
       delivery_time: delivery_time || null,
       shipping_details: shipping_details || null,
-      warranty: warranty || null
+      warranty: warranty || null,
+      spec_sheet: normalizeSpecSheet(spec_sheet),
     };
 
     const result = await client.query(

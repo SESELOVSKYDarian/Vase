@@ -70,3 +70,24 @@
 .vp .vp-url .slug { flex: 1; padding: 0 10px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vp .vp-url button { border: 0; background: none; padding: 0 12px; height: 100%; cursor: pointer; color: var(--mut); font-weight: 700; font-size: 12px; border-left: 1px solid var(--line); }
 @media (max-width: 1100px) { .vp .vp-brands { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* variantes: vista previa y chips con foto */
+.vp .vp-vprev { display: flex; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.vp .vp-vprev img, .vp .vp-vprev .ph { width: 56px; height: 56px; border-radius: 10px; object-fit: contain; background: var(--imgbg, var(--soft)); flex: none; }
+.vp .vp-vprev > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.vp .vp-vprev b { font-size: 12.5px; font-weight: 800; }
+.vp .vp-vprev .opts { display: flex; flex-wrap: wrap; gap: 4px; }
+.vp .vp-vprev .opts span { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--mut); }
+.vp .vp-vprev .opts span.on { border-color: var(--acc); color: var(--acc-tx); background: var(--accsoft); }
+.vp .vp-vchip img { width: 22px; height: 22px; border-radius: 6px; object-fit: contain; background: var(--card); margin-left: -6px; }
+.vp .vp-vchip.main { background: var(--accsoft); color: var(--acc-tx); padding-right: 12px; }
+/* ficha técnica */
+.vp .vp-file { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.vp .vp-file .ic { width: 38px; height: 38px; border-radius: 9px; background: #fde8e8; color: #c0262d; font-size: 10.5px; font-weight: 900; display: flex; align-items: center; justify-content: center; flex: none; }
+.vp .vp-file .g { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.vp .vp-file .g b { font-size: 12.5px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vp .vp-file .g span { font-size: 11.5px; color: var(--mut); font-weight: 600; }
+.vp .vp-file .vp-x { margin-left: 0; }
+.vp .vp-addc:disabled { opacity: .5; cursor: default; }
+.vp .vp-ptbl { min-width: 480px; }
+.vp .vp-ptbl td .vp-note { display: block; margin-top: 3px; }
+.vp .vp-ptbl th:nth-child(3), .vp .vp-ptbl td:nth-child(3) { text-align: right; width: auto; }

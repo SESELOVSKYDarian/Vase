@@ -1,4 +1,5 @@
 import express from 'express';
+import { normalizeSpecSheet } from '../services/specSheet.js';
 import { resolveTenant } from '../middleware/tenant.js';
 import { normalizePriceAdjustments } from '../services/pricing.js';
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
@@ -273,6 +274,8 @@ function mapProductRow(row, pricingContext) {
       data.longDescription ||
       fallbackDescription,
     show_specifications: data.show_specifications !== false,
+    // Ficha técnica en PDF (se vuelve a validar por si quedó un link viejo).
+    spec_sheet: normalizeSpecSheet(data.spec_sheet),
     price: finalPrice,
     price_retail: retail,
     price_wholesale: wholesale,
