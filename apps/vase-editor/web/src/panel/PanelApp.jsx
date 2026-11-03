@@ -23,6 +23,7 @@ import Catalogo from './catalog/Catalogo';
 import Envios from './envios/Envios';
 import Diseno from './diseno/Diseno';
 import Icon from './components/Icon';
+import Notifications from './components/Notifications';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
 
 const THEME_KEY = 'vase_panel_theme';
@@ -73,6 +74,7 @@ export default function PanelApp() {
     const [theme, setThemeState] = useState(initialTheme);
     const [mini, setMini] = useState(() => readStorage(MINI_KEY) === '1');
     const [help, setHelp] = useState(null);
+    const [notesOpen, setNotesOpen] = useState(false);
 
     useEffect(() => {
         const sync = () => setPath(window.location.pathname);
@@ -223,7 +225,7 @@ export default function PanelApp() {
                     onPublish={publish}
                     publishing={editor.saving}
                     badges={badges}
-                    onNotifications={() => go(badges.payments ? 'pedidos' : 'clientes')}
+                    onNotifications={() => { setNotesOpen(true); notifications.refresh?.(); }}
                     onHelp={() => setHelp('section')}
                 />
                 {fullScreen || (
@@ -236,6 +238,7 @@ export default function PanelApp() {
                     </div>
                 )}
             </main>
+            <Notifications open={notesOpen} onClose={() => setNotesOpen(false)} theme={theme} notifications={notifications} go={go} />
             <SectionHelp
                 open={help === 'section'}
                 onClose={() => setHelp(null)}
