@@ -73,3 +73,17 @@ export const FOOTER_COLUMNS = [
 ];
 
 export const linksSummary = (links = []) => links.map((link) => link?.label).filter(Boolean).join(' · ') || 'Sin links';
+
+export const SOCIALS = [
+    ['instagram', 'Instagram', 'https://instagram.com/tu-tienda'],
+    ['facebook', 'Facebook', 'https://facebook.com/tu-tienda'],
+    ['tiktok', 'TikTok', 'https://tiktok.com/@tu-tienda'],
+    ['youtube', 'YouTube', 'https://youtube.com/@tu-tienda'],
+];
+
+// Aviso si el link de una red no es una dirección completa.
+export function socialError(value) {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    return /^https?:\/\/\S+\.\S+/i.test(text) ? '' : 'Pegá el link completo, que empiece con https://';
+}

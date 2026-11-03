@@ -5,10 +5,11 @@ import {
     EyeSlash,
     FloppyDisk,
     Plus,
-    UploadSimple,
     X,
 } from '@phosphor-icons/react';
 import EvolutionInput from './EvolutionInput';
+import MediaField from './MediaField';
+import './mediaField.css';
 import { PIQUIM_CATALOG_CARDS } from '../../../data/piquimBranding';
 import { normalizeCardTags, resolveCatalogCards } from '../../../utils/catalogCards';
 import { uploadPublicFile } from '../../../utils/uploadsClient';
@@ -127,8 +128,7 @@ const CatalogPageEditor = ({ settings, setSettings, onSave, isSaving }) => {
         if (base) updateCard(id, { ...base, hidden: false });
     };
 
-    const handleImageUpload = async (card, event) => {
-        const file = event.target.files?.[0];
+    const handleImageUpload = async (card, file) => {
         if (!file) return;
         setUploadingId(card.id);
         try {
@@ -147,7 +147,6 @@ const CatalogPageEditor = ({ settings, setSettings, onSave, isSaving }) => {
             addToast?.('No se pudo subir la imagen. Proba de nuevo o pega una URL.', 'error');
         } finally {
             setUploadingId('');
-            event.target.value = '';
         }
     };
 
@@ -206,13 +205,6 @@ const CatalogPageEditor = ({ settings, setSettings, onSave, isSaving }) => {
                         <div className="grid gap-5 md:grid-cols-[180px_minmax(0,1fr)]">
                             <div className="space-y-3">
                                 <CardPreview card={card} />
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20">
-                                        <input type="file" accept="image/*" className="hidden" disabled={uploadingId === card.id} onChange={(event) => handleImageUpload(card, event)} />
-                                        <UploadSimple size={14} weight="bold" />
-                                        {uploadingId === card.id ? 'Subiendo...' : 'Cambiar imagen'}
-                                    </label>
-                                </div>
                             </div>
 
                             <div className="space-y-4">
@@ -220,11 +212,14 @@ const CatalogPageEditor = ({ settings, setSettings, onSave, isSaving }) => {
                                 <EvolutionInput label="Prefijo" value={card.prefix} onChange={(event) => updateCard(card.id, { prefix: event.target.value })} placeholder="Ej: 01 - Frio que enamora" />
                                 <TagsField tags={card.tags} onChange={(tags) => updateCard(card.id, { tags })} />
                                 <EvolutionInput label="Descripcion" value={card.description} onChange={(event) => updateCard(card.id, { description: event.target.value })} multiline />
-                                <EvolutionInput
-                                    label="Imagen (URL)"
-                                    value={card.image?.startsWith('data:') ? '' : card.image}
-                                    onChange={(event) => updateCard(card.id, { image: event.target.value })}
-                                    placeholder={card.image?.startsWith('data:') ? 'Imagen cargada desde tu equipo' : 'https://...'}
+                                <MediaField
+                                    label="Foto de la tarjeta"
+                                    value={card.image || ''}
+                                    onChange={(value) => updateCard(card.id, { image: value })}
+                                    onFile={(file) => handleImageUpload(card, file)}
+                                    busy={uploadingId === card.id}
+                                    kind="image"
+                                    hint="Se ve de fondo en la tarjeta del rubro. Mejor horizontal y de hasta 2000 px."
                                 />
                             </div>
                         </div>

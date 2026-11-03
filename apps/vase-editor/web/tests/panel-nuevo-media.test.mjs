@@ -35,3 +35,21 @@ test('el editor de bloques usa el campo nuevo de foto, video y link', async () =
     assert.ok((editor.match(/<LinkInput/g) || []).length >= 10);
     assert.match(editor, /onDrop=\{\(event\) => \{/);
 });
+
+test('colores, logos, catálogo y pie usan los campos nuevos', async () => {
+    const { normalizeHex } = await import('../src/utils/colorField.js');
+    assert.equal(normalizeHex('#FF6A00'), '#ff6a00');
+    assert.equal(normalizeHex('f60'), '#ff6600');
+    assert.equal(normalizeHex('rojo'), '');
+    const appearance = await readFile(new URL('../src/components/admin/evolution/AppearanceEditor.jsx', import.meta.url), 'utf8');
+    assert.match(appearance, /label="Logo de la tienda"/);
+    assert.match(appearance, /uploadMedia\(file\)/);
+    assert.doesNotMatch(appearance, /readImageAsDataUrl/);
+    assert.ok((appearance.match(/<LinkInput/g) || []).length >= 4);
+    const catalog = await readFile(new URL('../src/components/admin/evolution/CatalogPageEditor.jsx', import.meta.url), 'utf8');
+    assert.match(catalog, /label="Foto de la tarjeta"/);
+    const { socialError } = await import('../src/panel/diseno/chrome.js');
+    assert.equal(socialError(''), '');
+    assert.equal(socialError('https://instagram.com/piquim'), '');
+    assert.match(socialError('@piquim'), /https:\/\//);
+});

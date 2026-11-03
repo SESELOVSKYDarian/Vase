@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import EvolutionInput from './EvolutionInput';
-import { FloppyDisk, MoonStars, Storefront, Sun, UploadSimple } from '@phosphor-icons/react';
+import MediaField from './MediaField';
+import LinkInput from './LinkInput';
+import { uploadMedia } from '../../../utils/uploadMedia';
+import { normalizeHex } from '../../../utils/colorField';
+import './mediaField.css';
+import { FloppyDisk, MoonStars, Storefront, Sun } from '@phosphor-icons/react';
 import {
     DEFAULT_ADMIN_PANEL_THEME,
     LIGHT_ADMIN_PANEL_THEME,
@@ -32,14 +37,6 @@ const GENERIC_FOOTER_DEFAULTS = {
     },
 };
 
-const readImageAsDataUrl = (file) =>
-    new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-        reader.onerror = (err) => reject(err);
-        reader.readAsDataURL(file);
-    });
-
 const paletteLabelMap = {
     primary: 'Acento',
     background: 'Fondo',
@@ -62,23 +59,36 @@ const PaletteChip = ({ label, value }) => (
     </div>
 );
 
-const ColorField = ({ label, value, onChange }) => (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 pl-3 pr-2 py-1.5 focus-within:border-white/20 transition-colors">
-        <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-            <p className="mt-0.5 font-mono text-xs text-zinc-300">{value}</p>
+// Color: muestra grande que abre el selector y el código editable (#ff6a00).
+const ColorField = ({ label, value, onChange }) => {
+    const [draft, setDraft] = useState(null);
+    const shown = draft ?? String(value || '');
+    const commit = () => {
+        if (draft === null) return;
+        const hex = normalizeHex(draft);
+        if (hex) onChange(hex);
+        setDraft(null);
+    };
+    return (
+        <div className="cf">
+            <label className="cf-sw" style={{ backgroundColor: normalizeHex(value) || '#000000' }} title={`Elegir ${label}`}>
+                <input type="color" value={normalizeHex(value) || '#000000'} onChange={(e) => { setDraft(null); onChange(e.target.value); }} aria-label={`Elegir ${label}`} />
+            </label>
+            <div className="cf-tx">
+                <span>{label}</span>
+                <input
+                    value={shown}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={commit}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } if (e.key === 'Escape') setDraft(null); }}
+                    spellCheck={false}
+                    aria-label={`Código de ${label}`}
+                    className={draft !== null && !normalizeHex(draft) ? 'bad' : ''}
+                />
+            </div>
         </div>
-        <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-white/15">
-            <input
-                type="color"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="absolute -left-2 -top-2 h-12 w-12 cursor-pointer bg-transparent"
-                title="Editar color"
-            />
-        </div>
-    </div>
-);
+    );
+};
 
 const ThemeModeButton = ({ active, icon, title, description, onClick }) => (
     <button
@@ -143,7 +153,7 @@ const LinkListEditor = ({ title, links, onAdd, onRemove, onChange }) => (
         </div>
         <div className="space-y-2">
             {links.map((link, idx) => (
-                <div key={`${title}-${idx}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                <div key={`${title}-${idx}`} className="grid grid-cols-[1fr_1fr_auto] items-start gap-2">
                     <input
                         type="text"
                         value={link.label || ''}
@@ -151,12 +161,10 @@ const LinkListEditor = ({ title, links, onAdd, onRemove, onChange }) => (
                         onChange={(e) => onChange(idx, 'label', e.target.value)}
                         className={fieldClass}
                     />
-                    <input
-                        type="text"
+                    <LinkInput
                         value={link.href || ''}
-                        placeholder="Link"
+                        placeholder="/catalog o https://…"
                         onChange={(e) => onChange(idx, 'href', e.target.value)}
-                        className={fieldClass}
                     />
                     <button
                         type="button"
@@ -396,33 +404,29 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
         });
     };
 
-    const handleLogoUpload = async (event) => {
-        const file = event.target.files?.[0];
+    const handleLogoUpload = async (file) => {
         if (!file) return;
         setLogoUploading(true);
         try {
-            const dataUrl = await readImageAsDataUrl(file);
-            if (dataUrl) updateBranding({ logo_url: dataUrl });
+            const url = await uploadMedia(file);
+            if (url) updateBranding({ logo_url: url });
         } catch (err) {
             console.error('Logo upload failed', err);
         } finally {
             setLogoUploading(false);
-            event.target.value = '';
         }
     };
 
-    const handleAdminLogoUpload = async (event) => {
-        const file = event.target.files?.[0];
+    const handleAdminLogoUpload = async (file) => {
         if (!file) return;
         setAdminLogoUploading(true);
         try {
-            const dataUrl = await readImageAsDataUrl(file);
-            if (dataUrl) updateAdminBranding({ logo_url: dataUrl });
+            const url = await uploadMedia(file);
+            if (url) updateAdminBranding({ logo_url: url });
         } catch (err) {
             console.error('Admin logo upload failed', err);
         } finally {
             setAdminLogoUploading(false);
-            event.target.value = '';
         }
     };
 
@@ -556,27 +560,15 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Logo de la tienda</p>
-                        <div className="flex items-center gap-3">
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20">
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleLogoUpload}
-                                    className="hidden"
-                                    disabled={logoUploading}
-                                />
-                                <UploadSimple size={14} weight="bold" />
-                                {logoUploading ? 'Subiendo...' : 'Subir logo'}
-                            </label>
-                            {branding.logo_url ? (
-                                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-white">
-                                    <img src={branding.logo_url} alt="Logo" className="h-10 w-10 object-contain" />
-                                </div>
-                            ) : null}
-                        </div>
-                    </div>
+                    <MediaField
+                        label="Logo de la tienda"
+                        value={branding.logo_url || ''}
+                        onChange={(value) => updateBranding({ logo_url: value })}
+                        onFile={handleLogoUpload}
+                        busy={logoUploading}
+                        kind="image"
+                        hint="Mejor un PNG o SVG sin fondo. Se ve en el menú de arriba y en el pie."
+                    />
                 </section>
 
                 <section className="space-y-6 rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -625,39 +617,15 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
                         helperText="Si lo dejas vacio, el panel muestra automaticamente el nombre de la empresa."
                     />
 
-                    <EvolutionInput
-                        label="Logo URL del panel"
+                    <MediaField
+                        label="Logo del panel"
                         value={adminBranding.logo_url || ''}
-                        onChange={(e) => updateAdminBranding({ logo_url: e.target.value })}
-                        placeholder="https://tu-dominio.com/logo-admin.png"
-                        helperText="Si lo dejas vacio, usa el logo general."
+                        onChange={(value) => updateAdminBranding({ logo_url: value })}
+                        onFile={handleAdminLogoUpload}
+                        busy={adminLogoUploading}
+                        kind="image"
+                        hint="Si lo dejás vacío, usa el logo de la tienda."
                     />
-
-                    <div className="space-y-2">
-                        <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Logo del panel</p>
-                        <div className="flex items-center gap-3">
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20">
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleAdminLogoUpload}
-                                    className="hidden"
-                                    disabled={adminLogoUploading}
-                                />
-                                <UploadSimple size={14} weight="bold" />
-                                {adminLogoUploading ? 'Subiendo...' : 'Subir logo admin'}
-                            </label>
-                            {(adminBranding.logo_url || branding.logo_url) ? (
-                                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-white">
-                                    <img
-                                        src={adminBranding.logo_url || branding.logo_url}
-                                        alt="Logo admin"
-                                        className="h-10 w-10 object-contain"
-                                    />
-                                </div>
-                            ) : null}
-                        </div>
-                    </div>
                 </section>
 
                 <section className="space-y-6 rounded-2xl border border-white/10 bg-white/5 p-4 xl:col-span-2">
@@ -673,7 +641,7 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
                             onChange={(e) => updateNavbar({ register_label: e.target.value })}
                             placeholder="Registrarse"
                         />
-                        <EvolutionInput
+                        <LinkInput
                             label="Link boton registro"
                             value={navbar?.register_href || '/register'}
                             onChange={(e) => updateNavbar({ register_href: e.target.value })}
@@ -759,9 +727,9 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
                         </div>
                         <div className="space-y-2">
                             {navbarLinks.map((link, idx) => (
-                                <div key={`navbar-link-${idx}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                                <div key={`navbar-link-${idx}`} className="grid grid-cols-[1fr_1fr_auto] items-start gap-2">
                                     <input type="text" value={link.label || ''} placeholder="Etiqueta" onChange={(e) => updateNavbarLink(idx, 'label', e.target.value)} className={fieldClass} />
-                                    <input type="text" value={link.href || ''} placeholder="Link" onChange={(e) => updateNavbarLink(idx, 'href', e.target.value)} className={fieldClass} />
+                                    <LinkInput value={link.href || ''} placeholder="/catalog o https://…" onChange={(e) => updateNavbarLink(idx, 'href', e.target.value)} />
                                     <button type="button" onClick={() => removeNavbarLink(idx)} className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-xs font-bold text-rose-300">X</button>
                                 </div>
                             ))}
@@ -880,7 +848,7 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
 
                         <div className="space-y-2">
                             {quickLinks.map((link, idx) => (
-                                <div key={`quick-link-${idx}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                                <div key={`quick-link-${idx}`} className="grid grid-cols-[1fr_1fr_auto] items-start gap-2">
                                     <input
                                         type="text"
                                         value={link.label || ''}
@@ -888,12 +856,10 @@ const AppearanceEditor = ({ settings, setSettings, onSave, isSaving }) => {
                                         onChange={(e) => updateQuickLink(idx, 'label', e.target.value)}
                                         className={fieldClass}
                                     />
-                                    <input
-                                        type="text"
+                                    <LinkInput
                                         value={link.href || ''}
-                                        placeholder="Link"
+                                        placeholder="/catalog o https://…"
                                         onChange={(e) => updateQuickLink(idx, 'href', e.target.value)}
-                                        className={fieldClass}
                                     />
                                     <button
                                         type="button"

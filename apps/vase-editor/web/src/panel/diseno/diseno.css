@@ -122,3 +122,10 @@
 .vp .vp-inspl[data-show="contenido"] [data-tab="estilo"],
 .vp .vp-inspl[data-show="estilo"] [data-tab="contenido"],
 .vp .vp-inspl[data-show="celular"] { display: none; }
+/* redes del pie */
+.vp .vp-soc { display: flex; gap: 10px; align-items: flex-start; }
+.vp .vp-soc .ic { width: 40px; height: 40px; border-radius: 11px; background: var(--soft); color: var(--mut); font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; flex: none; text-transform: uppercase; }
+.vp .vp-soc .g { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.vp .vp-note.bad { color: #f79009; }
+/* colores, logo y catálogo: campos nuevos dentro del formulario anterior */
+.vp .vp-legacy .mf, .vp .vp-legacy .cf, .vp .vp-legacy .lf { color: var(--tx); }

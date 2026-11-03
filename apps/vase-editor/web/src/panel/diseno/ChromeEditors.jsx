@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LinkPicker } from '../components/Pickers';
-import { FOOTER_COLUMNS, footerValues, linksSummary, navLinksFromSettings } from './chrome';
+import { FOOTER_COLUMNS, SOCIALS, footerValues, linksSummary, navLinksFromSettings, socialError } from './chrome';
 
 const Toggle = ({ on, onChange, label }) => (
     <button type="button" role="switch" aria-checked={on} aria-label={label} className={`vp-tog ${on ? '' : 'off'}`} onClick={() => onChange(!on)} />
@@ -79,6 +79,8 @@ export function FooterEditor({ settings, setSettings, pickers, isPiquim }) {
     }));
     const setContact = (patch) => update({ contact: { ...values.contact, ...patch } });
     const setNewsletter = (patch) => update({ newsletter: { ...values.newsletter, ...patch } });
+    const socials = settings?.branding?.footer?.socials || {};
+    const setSocial = (key, value) => update({ socials: { ...socials, [key]: value } });
 
     return (
         <>
@@ -119,7 +121,22 @@ export function FooterEditor({ settings, setSettings, pickers, isPiquim }) {
                 <label htmlFor="ft-legal">Texto legal</label>
                 <input id="ft-legal" className="vp-inp" value={values.legalText} onChange={(event) => update({ legalText: event.target.value })} />
             </div>
-            <span className="vp-note">Las redes sociales se cargan en “Colores, logo y pie”.</span>
+            <div className="vp-fld">
+                <span className="vp-fl">Redes sociales</span>
+                {SOCIALS.map(([key, label, placeholder]) => {
+                    const error = socialError(socials[key]);
+                    return (
+                        <div key={key} className="vp-soc">
+                            <span className="ic" aria-hidden="true">{label.slice(0, 2)}</span>
+                            <div className="g">
+                                <input className="vp-inp" aria-label={label} placeholder={placeholder} value={socials[key] || ''} onChange={(event) => setSocial(key, event.target.value)} />
+                                {error ? <span className="vp-note bad">{error}</span> : null}
+                            </div>
+                        </div>
+                    );
+                })}
+                <span className="vp-note">Dejá vacía la que no uses: no aparece en la tienda.</span>
+            </div>
         </>
     );
 }
