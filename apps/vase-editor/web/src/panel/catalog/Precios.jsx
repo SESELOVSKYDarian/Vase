@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { errorText, panelFetch } from '../api';
 import { formatMoney } from '../format';
+import Select from '../components/Select';
 import { buildCategoryTree } from './model';
 import { bulkPriceError, bulkPricePayload } from './pricing';
 
@@ -62,40 +63,21 @@ export default function Precios({ user, products, categories, brands, toast, onA
                     <h3>Cambiar precios de muchos productos a la vez</h3>
                     <p>Armá la frase. Abajo ves cómo quedan antes de aplicar.</p>
                     <div className="vp-sentence">
-                        <select className="vp-slot" aria-label="Qué hacer" value={form.mode} onChange={(event) => set({ mode: event.target.value })}>
-                            <option value="raise">Subir</option>
-                            <option value="lower">Bajar</option>
-                            <option value="set">Cambiar a</option>
-                        </select>
+                        <Select variant="slot" ariaLabel="Qué hacer" value={form.mode} onChange={(next) => set({ mode: next })} options={[{ value: 'raise', label: 'Subir' }, { value: 'lower', label: 'Bajar' }, { value: 'set', label: 'Cambiar a' }]} />
                         <span>el</span>
-                        <select className="vp-slot" aria-label="Qué precio" value={form.field} onChange={(event) => set({ field: event.target.value })}>
-                            {Object.entries(FIELD_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-                        </select>
+                        <Select variant="slot" ariaLabel="Qué precio" value={form.field} onChange={(next) => set({ field: next })} options={Object.entries(FIELD_LABEL).map(([id, label]) => ({ value: id, label }))} />
                         <span>{form.mode === 'set' ? 'a' : 'un'}</span>
                         <input className="vp-slot" aria-label="Cuánto" inputMode="decimal" placeholder={form.unit === 'percent' && form.mode !== 'set' ? '8' : '1.500'} value={form.amount} onChange={(event) => set({ amount: event.target.value })} />
                         {form.mode === 'set' ? <span>pesos</span> : (
-                            <select className="vp-slot" aria-label="En porcentaje o pesos" value={form.unit} onChange={(event) => set({ unit: event.target.value })}>
-                                <option value="percent">%</option>
-                                <option value="amount">pesos</option>
-                            </select>
+                            <Select variant="slot" ariaLabel="En porcentaje o pesos" value={form.unit} onChange={(next) => set({ unit: next })} options={[{ value: 'percent', label: '%' }, { value: 'amount', label: 'pesos' }]} />
                         )}
                         <span>de</span>
-                        <select className="vp-slot" aria-label="A qué productos" value={form.scope} onChange={(event) => set({ scope: event.target.value, scopeId: '' })}>
-                            <option value="all">todo el catálogo</option>
-                            <option value="category">un rubro o categoría</option>
-                            <option value="brand">una marca</option>
-                        </select>
+                        <Select variant="slot" ariaLabel="A qué productos" value={form.scope} onChange={(next) => set({ scope: next, scopeId: '' })} options={[{ value: 'all', label: 'todo el catálogo' }, { value: 'category', label: 'un rubro o categoría' }, { value: 'brand', label: 'una marca' }]} />
                         {form.scope === 'category' ? (
-                            <select className="vp-slot" aria-label="Categoría" value={form.scopeId} onChange={(event) => set({ scopeId: event.target.value })}>
-                                <option value="">elegí…</option>
-                                {tree.map((category) => <option key={category.id} value={category.id}>{'— '.repeat(category.depth)}{category.name}</option>)}
-                            </select>
+                            <Select variant="slot" ariaLabel="Categoría" placeholder="elegí…" value={form.scopeId} onChange={(next) => set({ scopeId: next })} options={tree.map((category) => ({ value: category.id, label: category.name, depth: category.depth }))} />
                         ) : null}
                         {form.scope === 'brand' ? (
-                            <select className="vp-slot" aria-label="Marca" value={form.scopeId} onChange={(event) => set({ scopeId: event.target.value })}>
-                                <option value="">elegí…</option>
-                                {brands.map((brand) => <option key={brand} value={brand}>{brand}</option>)}
-                            </select>
+                            <Select variant="slot" ariaLabel="Marca" placeholder="elegí…" value={form.scopeId} onChange={(next) => set({ scopeId: next })} options={brands.map((brand) => ({ value: brand, label: brand }))} />
                         ) : null}
                     </div>
                     <span className="vp-note">

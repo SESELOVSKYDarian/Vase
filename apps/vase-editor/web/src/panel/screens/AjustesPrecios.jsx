@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { errorText, panelFetch } from '../api';
 import { isClient } from '../clients';
+import Select from '../components/Select';
 import { PRICE_VISIBILITY, getPriceVisibilityMode } from '../../utils/priceVisibility';
 import { PRICE_TIER_SLOT_COUNT, getDefaultPriceTierLabel, normalizePriceTierLabels } from '../../utils/priceTierLabels';
 import { adjustText, countClientsByList, listDirty, listDraftError, listPayload, listToDraft, newListDraft } from '../precios';
@@ -152,11 +153,16 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                                             <span className="vp-note">{WHO[list.type] || WHO.special}</span>
                                         </td>
                                         <td>
-                                            <select className="vp-inp" aria-label={`Precio que usa ${draft.name || 'la lista'}`} value={draft.force_segment} onChange={(event) => setDraft(list.id, { force_segment: event.target.value })}>
-                                                <option value="">Según el cliente</option>
-                                                <option value="retail">{tierName(1)}</option>
-                                                <option value="wholesale">{tierName(2)}</option>
-                                            </select>
+                                            <Select
+                                                ariaLabel={`Precio que usa ${draft.name || 'la lista'}`}
+                                                value={draft.force_segment}
+                                                onChange={(next) => setDraft(list.id, { force_segment: next })}
+                                                options={[
+                                                    { value: '', label: 'Según el cliente', hint: 'Minorista o mayorista según su cuenta' },
+                                                    { value: 'retail', label: tierName(1) },
+                                                    { value: 'wholesale', label: tierName(2) },
+                                                ]}
+                                            />
                                         </td>
                                         <td>
                                             <label className="vp-pct">

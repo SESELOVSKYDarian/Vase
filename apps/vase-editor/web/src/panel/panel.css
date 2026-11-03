@@ -254,3 +254,48 @@
 .vp-modal.dr { overflow: hidden; }
 .vp-modal.dr .vp-mb { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 .vp-modal.dr .vp-mf { border-top: 1px solid var(--line); padding-top: 14px; align-items: center; }
+
+/* selector propio del panel (reemplaza al <select> del navegador) */
+.vp-sel { display: inline-flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; font: inherit; text-align: left; color: var(--tx); transition: border-color .15s, box-shadow .15s, background .15s; }
+.vp-sel .v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vp-sel .v.ph { color: var(--mut); }
+.vp-sel .ch { flex: none; color: var(--mut); transition: transform .18s ease; }
+.vp-sel.open .ch { transform: rotate(180deg); }
+.vp-sel:disabled { opacity: .55; cursor: default; }
+.vp-sel.inp { width: 100%; height: 40px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--line); background: var(--card); font-weight: 600; }
+.vp-sel.inp:hover:not(:disabled) { border-color: var(--line2); }
+.vp-sel.inp.open, .vp-sel.inp:focus-visible { border-color: var(--acc); box-shadow: 0 0 0 3px var(--accsoft); outline: 0; }
+.vp-sel.slot { height: 44px; padding: 0 12px 0 14px; border-radius: 12px; background: var(--accsoft); color: var(--acc-tx); font-weight: 800; font-size: 17px; border: 1.5px solid transparent; }
+.vp-sel.slot .ch { color: currentColor; }
+.vp-sel.slot:hover, .vp-sel.slot.open { border-color: var(--acc); }
+.vp-sel.fp { height: 34px; padding: 0 10px 0 13px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-weight: 700; font-size: 12.5px; color: var(--mut); }
+.vp-sel.fp:hover, .vp-sel.fp.open { color: var(--tx); border-color: var(--line2); }
+.vp-selpop { position: fixed; z-index: 90; display: flex; flex-direction: column; background: var(--card); color: var(--tx); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--sh-lg); padding: 6px; font-family: inherit; animation: vp-selin .12s ease-out; overflow: hidden; }
+.vp-selpop.up { animation-name: vp-selup; }
+@keyframes vp-selin { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes vp-selup { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .vp-selpop { animation: none; } }
+.vp-selsearch { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; margin-bottom: 6px; border-radius: 10px; background: var(--soft); color: var(--mut); flex: none; }
+.vp-selsearch input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--tx); font: inherit; font-weight: 600; font-size: 13px; }
+.vp-selpop ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; overflow-x: hidden; min-height: 0; scrollbar-width: thin; }
+.vp-selpop li { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 8px 12px; border-radius: 9px; cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--tx); }
+.vp-selpop li .l { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.vp-selpop li .l em { display: block; font-style: normal; font-size: 11.5px; color: var(--mut); font-weight: 600; }
+.vp-selpop li.act { background: var(--hover); }
+.vp-selpop li.sel { color: var(--acc-tx); font-weight: 800; }
+.vp-selpop li.sel.act { background: var(--accsoft); }
+.vp-selpop li .ck { flex: none; color: var(--acc); }
+.vp-selpop li.dis { opacity: .45; cursor: default; }
+.vp-selpop li.none { color: var(--mut); cursor: default; justify-content: center; font-size: 12.5px; }
+
+/* Selectores del editor anterior: en navegadores que lo permiten, la lista también toma la estética del panel. */
+.vp .vp-legacy select, .vp-selpop select { accent-color: var(--acc); }
+@supports (appearance: base-select) {
+    .vp .vp-legacy select { appearance: base-select; }
+    .vp .vp-legacy select::picker(select) { appearance: base-select; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--tx); box-shadow: var(--sh-lg); padding: 6px; margin-top: 6px; }
+    .vp .vp-legacy select option { border-radius: 9px; padding: 8px 12px; font-weight: 600; font-size: 13.5px; }
+    .vp .vp-legacy select option:hover, .vp .vp-legacy select option:focus { background: var(--hover); }
+    .vp .vp-legacy select option:checked { color: var(--acc-tx); font-weight: 800; background: var(--accsoft); }
+    .vp .vp-legacy select option::checkmark { color: var(--acc); }
+}
+.vp .vp-legacy select option { background: var(--card); color: var(--tx); }

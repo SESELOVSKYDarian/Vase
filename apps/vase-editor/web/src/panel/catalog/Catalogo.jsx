@@ -3,6 +3,7 @@ import './catalog.css';
 import DataTable from '../components/DataTable';
 import { Modal, SidePanel } from '../components/Overlays';
 import Icon from '../components/Icon';
+import Select from '../components/Select';
 import ProductInspector from './ProductInspector';
 import ProductSearch from './ProductSearch';
 import Ofertas from './Ofertas';
@@ -378,11 +379,14 @@ export default function Catalogo({ editor, user, theme, toast, openLegacy, goSet
                         </div>
                         {activeCat === 'new' || currentCat?.parent_id ? (
                             <div className="vp-fld"><label htmlFor="cat-parent">Está dentro de</label>
-                                <select id="cat-parent" className="vp-inp" value={catDraft.parent_id} onChange={(event) => setCatDraft((draft) => ({ ...draft, parent_id: event.target.value }))}>
-                                    {tree
+                                <Select
+                                    id="cat-parent"
+                                    value={catDraft.parent_id}
+                                    onChange={(next) => setCatDraft((draft) => ({ ...draft, parent_id: next }))}
+                                    options={tree
                                         .filter((category) => !currentCat || !descendantIds(categories, currentCat.id).has(category.id))
-                                        .map((category) => <option key={category.id} value={category.id}>{'— '.repeat(category.depth)}{category.name}</option>)}
-                                </select>
+                                        .map((category) => ({ value: category.id, label: category.name, depth: category.depth }))}
+                                />
                             </div>
                         ) : null}
                         {currentCat ? (

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { pageWindow } from '../paging';
+import Select from './Select';
 
 export function Pager({ page, pageSize, total, onPage, onPageSize, sizes = [25, 50, 100] }) {
     const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -17,9 +18,7 @@ export function Pager({ page, pageSize, total, onPage, onPageSize, sizes = [25, 
             )}
             <button type="button" className="vp-pg" onClick={() => onPage(page + 1)} disabled={page >= pages} aria-label="Página siguiente">›</button>
             {onPageSize ? (
-                <select className="vp-fp" style={{ marginLeft: 8 }} value={pageSize} onChange={(event) => onPageSize(Number(event.target.value))} aria-label="Cantidad por página">
-                    {sizes.map((size) => <option key={size} value={size}>{size} por página</option>)}
-                </select>
+                <Select variant="fp" style={{ marginLeft: 8 }} value={pageSize} onChange={(next) => onPageSize(Number(next))} ariaLabel="Cantidad por página" options={sizes.map((size) => ({ value: size, label: `${size} por página` }))} />
             ) : null}
         </div>
     );

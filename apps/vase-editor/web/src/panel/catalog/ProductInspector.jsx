@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { SidePanel } from '../components/Overlays';
 import { ImagePickerModal } from '../components/Pickers';
+import Select from '../components/Select';
 import { categoryPath, productToDraft, variantMembers } from './model';
 
 const TABS = [['datos', 'Datos'], ['fotos', 'Fotos y descripción'], ['mas', 'Más']];
@@ -120,10 +121,7 @@ export default function ProductInspector({ product, isNew, products, categories,
                         <CategoryAdder categories={categories} selected={draft.category_ids} onAdd={(id) => set({ category_ids: [...draft.category_ids, id] })} />
                     </div>
                     <div className="vp-fld"><label htmlFor="pi-brand">Marca</label>
-                        <select id="pi-brand" className="vp-inp" value={draft.brand} onChange={(event) => set({ brand: event.target.value })}>
-                            <option value="">Sin marca</option>
-                            {[...new Set([draft.brand, ...brands].filter(Boolean))].map((brand) => <option key={brand} value={brand}>{brand}</option>)}
-                        </select>
+                        <Select id="pi-brand" value={draft.brand} onChange={(next) => set({ brand: next })} options={[{ value: '', label: 'Sin marca' }, ...[...new Set([draft.brand, ...brands].filter(Boolean))].map((brand) => ({ value: brand, label: brand }))]} />
                     </div>
                     <div className="vp-row"><div className="g"><b>Visible en la tienda</b><span>Apagalo para ocultarlo sin borrarlo</span></div><button type="button" className={`vp-tog ${draft.is_visible_web ? '' : 'off'}`} role="switch" aria-checked={draft.is_visible_web} aria-label="Visible en la tienda" onClick={() => set({ is_visible_web: !draft.is_visible_web })} /></div>
                     <div className="vp-row"><div className="g"><b>Destacado en Inicio</b><span>Sale en los productos destacados</span></div><button type="button" className={`vp-tog ${draft.is_featured ? '' : 'off'}`} role="switch" aria-checked={draft.is_featured} aria-label="Destacado" onClick={() => set({ is_featured: !draft.is_featured })} /></div>

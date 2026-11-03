@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import DataTable from '../components/DataTable';
 import { SidePanel } from '../components/Overlays';
 import Icon from '../components/Icon';
+import Select from '../components/Select';
 import { errorText, panelFetch } from '../api';
 import { formatMoney, orderStatus } from '../format';
 import { CLIENT_FILTERS as FILTERS, ROLE, clientState, isClient } from '../clients';
@@ -163,10 +164,7 @@ export default function Clientes({ user, toast, onChanged }) {
                         </div>
                     </div>
                     <div className="vp-fld"><label htmlFor="client-list">Lista de precios</label>
-                        <select id="client-list" className="vp-inp" value={current.price_list_id || ''} disabled={saving} onChange={(event) => setPriceList(current, event.target.value)}>
-                            <option value="">Según su tipo (minorista o mayorista)</option>
-                            {priceLists.map((list) => <option key={list.id} value={list.id}>{list.name}</option>)}
-                        </select>
+                        <Select id="client-list" value={current.price_list_id || ''} disabled={saving} onChange={(next) => setPriceList(current, next)} options={[{ value: '', label: 'Según su tipo (minorista o mayorista)' }, ...priceLists.map((list) => ({ value: list.id, label: list.name }))]} />
                     </div>
                     <div className="vp-fld"><span className="vp-fl">Ofertas para este cliente</span>
                         {clientOffers.length ? (
