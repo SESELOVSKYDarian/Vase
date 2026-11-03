@@ -30,16 +30,20 @@ export function offerState(offer, now = new Date()) {
 }
 
 // A quién y a qué se aplica, en una frase.
-export function offerScope(offer, { categories = [], products = [], clients = [] } = {}) {
+export function offerScope(offer, { categories = [], products = [], clients = [], priceLists = [] } = {}) {
     const name = (list, id) => list.find((item) => item.id === id)?.name;
     const what = (offer.product_ids || []).length
         ? (offer.product_ids.length === 1 ? name(products, offer.product_ids[0]) || '1 producto' : `${offer.product_ids.length} productos`)
         : (offer.category_ids || []).length
             ? (offer.category_ids.length === 1 ? name(categories, offer.category_ids[0]) || '1 categoría' : `${offer.category_ids.length} categorías`)
             : 'Todo el catálogo';
-    const who = (offer.user_ids || []).length
+    const lists = offer.price_list_ids || [];
+    const listWho = lists.length
+        ? (lists.length === 1 ? `clientes de la lista ${priceLists.find((list) => list.id === lists[0])?.name || 'elegida'}` : `clientes de ${lists.length} listas`)
+        : '';
+    const who = listWho || ((offer.user_ids || []).length
         ? (offer.user_ids.length === 1 ? clients.find((c) => c.id === offer.user_ids[0])?.name || clients.find((c) => c.id === offer.user_ids[0])?.email || '1 cliente' : `${offer.user_ids.length} clientes`)
-        : 'todos los clientes';
+        : 'todos los clientes');
     return `${what} · ${who}`;
 }
 
@@ -91,7 +95,8 @@ export function offerDraftError(draft) {
 }
 
 // Cambiar precios: la frase arma el pedido al servidor.
-export function bulkPricePayload({ mode, amount, unit, field, scope, scopeId }, apply = false) {
+// target: 'all' cambia el precio del producto; 'lists' o 'users' crean un precio especial solo para ellos.
+export function bulkPricePayload({ mode, amount, unit, field, scope, scopeId, target = 'all', listIds = [], userIds = [] }, apply = false) {
     return {
         mode,
         amount: parseAmount(amount),
@@ -99,14 +104,19 @@ export function bulkPricePayload({ mode, amount, unit, field, scope, scopeId }, 
         field,
         category_id: scope === 'category' ? scopeId || null : null,
         brand: scope === 'brand' ? scopeId || null : null,
+        ...(target === 'all' ? {} : { target, price_list_ids: target === 'lists' ? listIds : [], user_ids: target === 'users' ? userIds : [] }),
         apply,
     };
 }
 
-export function bulkPriceError({ mode, amount, unit, scope, scopeId }) {
+export function bulkPriceError({ mode, amount, unit, scope, scopeId, target = 'all', listIds = [], userIds = [] }) {
     const value = parseAmount(amount);
     if (!Number.isFinite(value) || value < 0 || (mode !== 'set' && value === 0)) return 'Escribí un número';
     if (mode === 'lower' && unit === 'percent' && value >= 100) return 'No se puede bajar 100% o más';
     if (scope !== 'all' && !scopeId) return scope === 'brand' ? 'Elegí una marca' : 'Elegí una categoría';
+    if (target === 'lists' && !listIds.length) return 'Elegí la lista de precios';
+    if (target === 'users' && !userIds.length) return 'Elegí al menos un cliente';
+    if (target !== 'all' && mode === 'raise') return 'Para algunos clientes solo se puede bajar o poner un precio especial. Para subir, elegí “todos los clientes”.';
+    if (target !== 'all' && mode !== 'set' && unit === 'percent' && value > 100) return 'No se puede bajar más de 100%';
     return null;
 }

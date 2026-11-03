@@ -176,3 +176,12 @@
 .vp .vp-dnstbl th:nth-child(2), .vp .vp-dnstbl td:nth-child(2) { width: 110px; }
 .vp .vp-dnstbl th:nth-child(3), .vp .vp-dnstbl td:nth-child(3) { width: auto; }
 .vp .vp-dnstbl td.num { width: 90px; padding-top: 12px; }
+
+/* Catálogo › Cambiar precios: vista previa y botones */
+.vp .vp-slotfix { display: inline-flex; align-items: center; height: 44px; padding: 0 14px; border-radius: 12px; background: var(--soft); color: var(--tx); font-weight: 800; font-size: 17px; }
+.vp .vp-prevtbl { min-width: 460px; }
+.vp .vp-prevtbl th:nth-child(1), .vp .vp-prevtbl td:nth-child(1) { width: 46%; }
+.vp .vp-prevtbl td b.dn { color: var(--ok, #079455); }
+.vp .vp-prevtbl td b.up { color: #f79009; }
+.vp .vp-prevact { display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 14px; }
+.vp .vp-prevact .vp-note { margin-right: auto; }

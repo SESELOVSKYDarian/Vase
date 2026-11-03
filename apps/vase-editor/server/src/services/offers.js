@@ -9,11 +9,15 @@ function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
-function isOfferMatchUser(offer, userId) {
-  const targets = asArray(offer.user_ids);
-  if (!targets.length) return true;
-  if (!userId) return false;
-  return targets.includes(userId);
+// Una oferta puede ser para clientes puntuales (user_ids), para los de una lista de precios
+// (price_list_ids) o para todos (las dos vacías).
+function isOfferMatchUser(offer, userId, priceListId = null) {
+  const users = asArray(offer.user_ids);
+  const lists = asArray(offer.price_list_ids);
+  if (!users.length && !lists.length) return true;
+  if (userId && users.includes(userId)) return true;
+  if (priceListId && lists.includes(priceListId)) return true;
+  return false;
 }
 
 function isOfferMatchCategory(offer, categoryIds) {
@@ -51,8 +55,8 @@ export function offerValue(offer) {
 }
 
 // Las clásicas son las únicas que entiende una versión anterior del sistema.
-export function isClassicOffer({ kind, product_ids, starts_at, ends_at }) {
-  return (kind || 'percent') === 'percent' && !asArray(product_ids).length && !starts_at && !ends_at;
+export function isClassicOffer({ kind, product_ids, price_list_ids, starts_at, ends_at }) {
+  return (kind || 'percent') === 'percent' && !asArray(product_ids).length && !asArray(price_list_ids).length && !starts_at && !ends_at;
 }
 
 export function applyOfferDiscount(price, percent) {
@@ -81,10 +85,10 @@ export function offerFinalPrice(offer, price) {
 
 // Si hay varias ofertas, gana la que deja el precio más bajo para el cliente.
 // `percent` es el descuento efectivo, así quien llama sigue usando applyOfferDiscount(price, percent).
-export function resolveBestOfferForProduct({ offers, userId, categoryIds, productId = null, price = null, now = new Date() }) {
+export function resolveBestOfferForProduct({ offers, userId, priceListId = null, categoryIds, productId = null, price = null, now = new Date() }) {
   const active = asArray(offers).filter((offer) => {
     if (!offer || !offer.enabled) return false;
-    if (!isOfferMatchUser(offer, userId)) return false;
+    if (!isOfferMatchUser(offer, userId, priceListId)) return false;
     if (!isOfferMatchCategory(offer, categoryIds)) return false;
     if (!isOfferMatchProduct(offer, productId)) return false;
     if (!isOfferInDates(offer, now)) return false;
@@ -135,7 +139,8 @@ export function ensureOfferColumns() {
         'ADD COLUMN IF NOT EXISTS value numeric(14,2) NOT NULL DEFAULT 0,',
         "ADD COLUMN IF NOT EXISTS product_ids uuid[] NOT NULL DEFAULT '{}',",
         'ADD COLUMN IF NOT EXISTS starts_at timestamptz,',
-        'ADD COLUMN IF NOT EXISTS ends_at timestamptz',
+        'ADD COLUMN IF NOT EXISTS ends_at timestamptz,',
+        "ADD COLUMN IF NOT EXISTS price_list_ids uuid[] NOT NULL DEFAULT '{}'",
       ].join(' ')
     ).catch((err) => {
       offerColumnsReady = null;
@@ -158,7 +163,7 @@ export async function getTenantOffers(tenantId, { onlyEnabled = false } = {}) {
   const result = await pool.query(
     [
       'select id, tenant_id, name, label, percent, enabled, user_ids, category_ids,',
-      'kind, value, product_ids, starts_at, ends_at, created_at, updated_at',
+      'kind, value, product_ids, price_list_ids, starts_at, ends_at, created_at, updated_at',
       'from tenant_offers',
       `where ${where}`,
       'order by created_at desc',

@@ -7,7 +7,7 @@ import crypto from 'crypto';
 import { resolve4, resolveCname } from 'node:dns/promises';
 import { fileURLToPath } from 'url';
 import { ensureDefaultPriceLists, ensurePricingSchema } from '../services/userPricing.js';
-import { OFFER_KINDS, ensureOfferColumns, getTenantOffers, isClassicOffer } from '../services/offers.js';
+import { OFFER_KINDS, ensureOfferColumns, getTenantOffers, isClassicOffer, offerFinalPrice } from '../services/offers.js';
 import { computeBulkPrice } from '../services/bulkPrice.js';
 import { buildTenantIntegrationManifest, resolveServerBaseUrl } from '../services/integrationManifest.js';
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
@@ -1652,6 +1652,10 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
   const categoryId = body.category_id ? String(body.category_id) : null;
   const brand = body.brand ? String(body.brand).trim() : null;
   const apply = body.apply === true;
+  // Para quién: todos (cambia el precio del producto) o una lista / clientes puntuales (precio especial = oferta).
+  const target = ['lists', 'users'].includes(body.target) ? body.target : 'all';
+  const listsParsed = parseUuidArray(body.price_list_ids);
+  const usersParsed = parseUuidArray(body.user_ids);
 
   if (!mode) return res.status(400).json({ error: 'invalid_mode' });
   if (!Number.isFinite(amount) || amount < 0 || (mode !== 'set' && amount === 0)) {
@@ -1660,17 +1664,28 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
   if (mode === 'set' && unit === 'percent') return res.status(400).json({ error: 'invalid_unit' });
   if (unit === 'percent' && mode === 'lower' && amount >= 100) return res.status(400).json({ error: 'invalid_amount' });
   if (categoryId && !isUuid(categoryId)) return res.status(400).json({ error: 'invalid_category_id' });
+  if (target !== 'all') {
+    if (mode === 'raise') return res.status(400).json({ error: 'raise_needs_all' });
+    if (!listsParsed.ok || !usersParsed.ok) return res.status(400).json({ error: 'invalid_target' });
+    if (target === 'lists' && !listsParsed.items.length) return res.status(400).json({ error: 'target_required' });
+    if (target === 'users' && !usersParsed.items.length) return res.status(400).json({ error: 'target_required' });
+  }
 
   const params = [tenantId];
   const where = ['p.tenant_id = $1', 'p.deleted_at is null'];
+  let categoryTree = [];
   if (categoryId) {
-    params.push(categoryId);
-    where.push([
-      'p.id in (select pc.product_id from product_categories pc where pc.category_id in (',
-      `with recursive tree as (select id from categories where tenant_id = $1 and id = $${params.length}`,
-      'union all select c.id from categories c join tree t on c.parent_id = t.id where c.tenant_id = $1)',
-      'select id from tree))',
-    ].join(' '));
+    // El rubro o la categoría elegida con todas sus subcategorías (la madre se guarda en data.parent_id).
+    categoryTree = (await pool.query(
+      [
+        'with recursive tree as (select id from categories where tenant_id = $1 and id = $2',
+        "union all select c.id from categories c join tree t on nullif(c.data->>'parent_id', '') = t.id::text where c.tenant_id = $1)",
+        'select id from tree',
+      ].join(' '),
+      [tenantId, categoryId]
+    )).rows.map((row) => row.id);
+    params.push(categoryTree.length ? categoryTree : [categoryId]);
+    where.push(`p.id in (select pc.product_id from product_categories pc where pc.category_id = any($${params.length}::uuid[]))`);
   }
   if (brand) {
     params.push(brand.toLowerCase());
@@ -1688,6 +1703,60 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
       ].join(' '),
       params
     )).rows;
+
+    if (target !== 'all') {
+      const offerDraft = {
+        kind: mode === 'set' ? 'fixed' : unit === 'percent' ? 'percent' : 'amount',
+        value: amount,
+      };
+      if (offerDraft.kind === 'percent' && amount > 100) return res.status(400).json({ error: 'invalid_amount' });
+      const special = rows.map((row) => {
+        const before = { price: Number(row.price || 0), price_wholesale: Number(row.price_wholesale || 0) };
+        const finalRetail = offerFinalPrice(offerDraft, before.price);
+        const finalWholesale = offerFinalPrice(offerDraft, before.price_wholesale);
+        return { row, before, after: { price: finalRetail ?? before.price, price_wholesale: finalWholesale ?? before.price_wholesale }, lowers: finalRetail !== null || finalWholesale !== null };
+      }).filter((item) => item.lowers);
+
+      let created = null;
+      if (apply && special.length) {
+        await ensureOfferColumns();
+        const categoryName = categoryId
+          ? (await pool.query('select name from categories where tenant_id = $1 and id = $2', [tenantId, categoryId])).rows[0]?.name
+          : null;
+        const listNames = target === 'lists'
+          ? (await pool.query('select name from price_lists where tenant_id = $1 and id = any($2::uuid[])', [tenantId, listsParsed.items])).rows.map((row) => row.name)
+          : [];
+        const scopeName = categoryId ? (categoryName || 'categoría elegida') : brand ? `marca ${brand}` : 'todo el catálogo';
+        const who = target === 'lists' ? `lista ${listNames.join(', ') || 'elegida'}` : `${usersParsed.items.length} ${usersParsed.items.length === 1 ? 'cliente' : 'clientes'}`;
+        created = (await pool.query(
+          [
+            'insert into tenant_offers (tenant_id, name, label, percent, enabled, user_ids, category_ids, kind, value, product_ids, starts_at, ends_at, price_list_ids)',
+            "values ($1, $2, 'Precio especial', 0, true, $3::uuid[], $4::uuid[], $5, $6, $7::uuid[], null, null, $8::uuid[])",
+            `returning ${OFFER_COLUMNS}`,
+          ].join(' '),
+          [
+            tenantId,
+            `Precio especial · ${scopeName} · ${who}`.slice(0, 120),
+            target === 'users' ? usersParsed.items : [],
+            categoryId ? categoryTree : [],
+            offerDraft.kind,
+            amount,
+            !categoryId && brand ? special.map((item) => item.row.id) : [],
+            target === 'lists' ? listsParsed.items : [],
+          ]
+        )).rows[0];
+      }
+
+      return res.json({
+        applied: Boolean(created),
+        target,
+        matched: rows.length,
+        changed: special.length,
+        synced_unlocked: 0,
+        offer: created,
+        sample: special.slice(0, 8).map(({ row, before, after }) => ({ id: row.id, name: row.name, before, after })),
+      });
+    }
 
     const changes = rows.map((row) => {
       const price = field === 'price_wholesale' ? Number(row.price || 0) : computeBulkPrice(row.price, { mode, amount, unit });
@@ -1716,7 +1785,8 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
       matched: rows.length,
       changed: changes.length,
       synced_unlocked: syncedUnlocked,
-      sample: changes.slice(0, 6).map(({ row, price, wholesale }) => ({
+      target,
+      sample: changes.slice(0, 8).map(({ row, price, wholesale }) => ({
         id: row.id,
         name: row.name,
         before: { price: Number(row.price || 0), price_wholesale: Number(row.price_wholesale || 0) },
@@ -1731,7 +1801,7 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
   }
 });
 
-const OFFER_COLUMNS = 'id, tenant_id, name, label, percent, enabled, user_ids, category_ids, kind, value, product_ids, starts_at, ends_at, created_at, updated_at';
+const OFFER_COLUMNS = 'id, tenant_id, name, label, percent, enabled, user_ids, category_ids, kind, value, product_ids, price_list_ids, starts_at, ends_at, created_at, updated_at';
 
 function parseOptionalDate(value) {
   if (value === undefined || value === null || value === '') return { ok: true, value: null };
@@ -1749,6 +1819,9 @@ function parseOfferBody(body = {}) {
   const usersParsed = parseUuidArray(body.user_ids);
   const categoriesParsed = parseUuidArray(body.category_ids);
   const productsParsed = parseUuidArray(body.product_ids);
+  // Si no llega, queda undefined: al editar se conserva la lista que ya tenía la oferta.
+  const hasLists = Object.prototype.hasOwnProperty.call(body, 'price_list_ids');
+  const listsParsed = hasLists ? parseUuidArray(body.price_list_ids) : { ok: true, items: undefined };
   const startsAt = parseOptionalDate(body.starts_at);
   const endsAt = parseOptionalDate(body.ends_at);
 
@@ -1759,6 +1832,7 @@ function parseOfferBody(body = {}) {
   if (!usersParsed.ok) return { error: 'invalid_user_ids' };
   if (!categoriesParsed.ok) return { error: 'invalid_category_ids' };
   if (!productsParsed.ok) return { error: 'invalid_product_ids' };
+  if (!listsParsed.ok) return { error: 'invalid_price_list_ids' };
   if (!startsAt.ok || !endsAt.ok) return { error: 'invalid_dates' };
   if (startsAt.value && endsAt.value && startsAt.value > endsAt.value) return { error: 'invalid_dates' };
 
@@ -1771,6 +1845,7 @@ function parseOfferBody(body = {}) {
     user_ids: usersParsed.items,
     category_ids: categoriesParsed.items,
     product_ids: productsParsed.items,
+    price_list_ids: listsParsed.items,
     starts_at: startsAt.value,
     ends_at: endsAt.value,
   };
@@ -1805,8 +1880,8 @@ tenantRouter.post('/offers', async (req, res, next) => {
     await ensureOfferColumns();
     const result = await pool.query(
       [
-        'insert into tenant_offers (tenant_id, name, label, percent, enabled, user_ids, category_ids, kind, value, product_ids, starts_at, ends_at)',
-        'values ($1, $2, $3, $4, $5, $6::uuid[], $7::uuid[], $8, $9, $10::uuid[], $11, $12)',
+        'insert into tenant_offers (tenant_id, name, label, percent, enabled, user_ids, category_ids, kind, value, product_ids, starts_at, ends_at, price_list_ids)',
+        'values ($1, $2, $3, $4, $5, $6::uuid[], $7::uuid[], $8, $9, $10::uuid[], $11, $12, $13::uuid[])',
         `returning ${OFFER_COLUMNS}`,
       ].join(' '),
       [
@@ -1822,6 +1897,7 @@ tenantRouter.post('/offers', async (req, res, next) => {
         offer.product_ids,
         offer.starts_at,
         offer.ends_at,
+        offer.price_list_ids || [],
       ]
     );
     return res.status(201).json(result.rows[0]);
@@ -1846,6 +1922,11 @@ tenantRouter.put('/offers/:id', async (req, res, next) => {
 
   try {
     await ensureOfferColumns();
+    if (offer.price_list_ids === undefined) {
+      const existingLists = await pool.query('select price_list_ids from tenant_offers where tenant_id = $1 and id = $2', [tenantId, offerId]);
+      offer.price_list_ids = existingLists.rows[0]?.price_list_ids || [];
+      offer.percent = isClassicOffer(offer) ? offer.value : 0;
+    }
     const result = await pool.query(
       [
         'update tenant_offers',
@@ -1860,6 +1941,7 @@ tenantRouter.put('/offers/:id', async (req, res, next) => {
         'product_ids = $11::uuid[],',
         'starts_at = $12,',
         'ends_at = $13,',
+        'price_list_ids = $14::uuid[],',
         'updated_at = now()',
         'where tenant_id = $1 and id = $2',
         `returning ${OFFER_COLUMNS}`,
@@ -1878,6 +1960,7 @@ tenantRouter.put('/offers/:id', async (req, res, next) => {
         offer.product_ids,
         offer.starts_at,
         offer.ends_at,
+        offer.price_list_ids,
       ]
     );
     if (!result.rowCount) {

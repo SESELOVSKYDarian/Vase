@@ -192,6 +192,9 @@ export default function Ofertas({ user, products, categories, toast, theme }) {
                     ) : null}
 
                     <div className="vp-fld"><span className="vp-fl">¿Para quién?</span>
+                        {(current?.price_list_ids || []).length ? (
+                            <div className="vp-lock ok">Este precio especial es para los clientes de una lista de precios. Se mantiene así aunque lo edites acá.</div>
+                        ) : null}
                         <div className="vp-seg">
                             {[['all', 'Todos los clientes'], ['clients', 'Clientes elegidos']].map(([id, label]) => (
                                 <button key={id} type="button" className={draft.audience === id ? 'on' : ''} onClick={() => set({ audience: id })}>{label}</button>

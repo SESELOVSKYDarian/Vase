@@ -64,3 +64,14 @@ test('cambiar precios en bloque: subir, bajar y cambiar a', () => {
   assert.equal(computeBulkPrice(100, { mode: 'lower', amount: 250, unit: 'amount' }), 0);
   assert.equal(computeBulkPrice(1000, { mode: 'set', amount: 1999.99, unit: 'amount' }), 1999.99);
 });
+
+test('ofertas para una lista de precios: solo para los clientes de esa lista', () => {
+  const offers = [{ id: 'l', enabled: true, kind: 'percent', value: 10, user_ids: [], price_list_ids: ['lista-mayo'], category_ids: [] }];
+  const base = { offers, categoryIds: [], productId: 'p', price: 1000 };
+  assert.equal(resolveBestOfferForProduct({ ...base, userId: 'u1', priceListId: 'lista-mayo' }).id, 'l');
+  assert.equal(resolveBestOfferForProduct({ ...base, userId: 'u1', priceListId: 'otra' }).id, null);
+  assert.equal(resolveBestOfferForProduct({ ...base, userId: null, priceListId: null }).id, null);
+  // Con lista no es "clásica": guarda percent = 0 y una versión anterior la ignora.
+  assert.equal(isClassicOffer({ kind: 'percent', price_list_ids: ['lista-mayo'] }), false);
+  assert.equal(isClassicOffer({ kind: 'percent', price_list_ids: [] }), true);
+});

@@ -128,6 +128,7 @@ async function validateItems(tenantId, items, adjustments, context = {}) {
       const bestOffer = resolveBestOfferForProduct({
         offers,
         userId,
+        priceListId: pricingProfile?.priceList?.id || null,
         categoryIds: product.category_ids || [],
         productId: product.id,
         price: effective,

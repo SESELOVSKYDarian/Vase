@@ -65,3 +65,20 @@ test('Ofertas, Cambiar precios y Precios y listas ya están en el panel nuevo', 
     const inspector = await read('../src/panel/catalog/ProductInspector.jsx');
     assert.match(inspector, /marca ni precio\. El stock se sigue actualizando/);
 });
+
+test('cambiar precios: para quién y botones Aplicar / Cancelar', async () => {
+    const { bulkPriceError, bulkPricePayload } = await import('../src/panel/catalog/pricing.js');
+    const base = { mode: 'lower', amount: '10', unit: 'percent', field: 'price', scope: 'all', scopeId: '' };
+    assert.equal(bulkPriceError({ ...base, target: 'lists', listIds: [] }), 'Elegí la lista de precios');
+    assert.equal(bulkPriceError({ ...base, target: 'users', userIds: [] }), 'Elegí al menos un cliente');
+    assert.match(bulkPriceError({ ...base, mode: 'raise', target: 'lists', listIds: ['l'] }), /todos los clientes/);
+    assert.equal(bulkPriceError({ ...base, target: 'lists', listIds: ['l'] }), null);
+    assert.deepEqual(bulkPricePayload({ ...base, target: 'lists', listIds: ['l'] }).price_list_ids, ['l']);
+    assert.equal(bulkPricePayload(base).target, undefined);
+    const screen = await (await import('node:fs/promises')).readFile(new URL('../src/panel/catalog/Precios.jsx', import.meta.url), 'utf8');
+    assert.match(screen, />Cancelar</);
+    assert.match(screen, />Aplicar</);
+    assert.doesNotMatch(screen, /Precios distintos solo para algunos clientes/);
+    const server = await (await import('node:fs/promises')).readFile(new URL('../../server/src/routes/tenant.js', import.meta.url), 'utf8');
+    assert.doesNotMatch(server, /c\.parent_id = t\.id/);
+});

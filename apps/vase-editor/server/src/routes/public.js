@@ -214,6 +214,7 @@ function mapProductRow(row, pricingContext) {
   const bestOffer = resolveBestOfferForProduct({
     offers,
     userId,
+    priceListId: pricingProfile?.priceList?.id || null,
     categoryIds: row.category_ids || [],
     productId: row.id,
     price: effective,
