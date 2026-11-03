@@ -5,7 +5,7 @@ import { HELP, HELP_SECTIONS, MENU, SETTINGS_PAGES } from '../sections';
 
 const LOGO = { light: '/brand/vase-logo-green.png?v=2', dark: '/brand/vase-logo-white.png?v=2' };
 
-export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, badges, store, account }) {
+export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, badges, store, account, phone = false, mobileOpen = false, onCloseMobile }) {
     const [ajOpen, setAjOpen] = useState(section === 'ajustes');
     const [accOpen, setAccOpen] = useState(false);
     const accRef = useRef(null);
@@ -28,9 +28,22 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, 
         };
     }, [accOpen]);
 
+    useEffect(() => {
+        if (!phone || !mobileOpen) return undefined;
+        const onKey = (event) => event.key === 'Escape' && onCloseMobile?.();
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [phone, mobileOpen, onCloseMobile]);
+
     return (
-        <aside className={`vp-side ${mini ? 'mini' : ''}`} aria-label="Menú del panel">
-            <button type="button" className="vp-coll" onClick={onToggleMini} aria-label={mini ? 'Agrandar el menú' : 'Achicar el menú'}><Icon name="chevron" size={14} className={mini ? 'vp-rot-r' : 'vp-rot-l'} /></button>
+        <>
+        {phone && mobileOpen ? <div className="vp-mscrim" onClick={onCloseMobile} aria-hidden="true" /> : null}
+        <aside className={`vp-side ${mini ? 'mini' : ''} ${phone ? 'phone' : ''} ${mobileOpen ? 'm-open' : ''}`} aria-label="Menú del panel" aria-hidden={phone && !mobileOpen ? true : undefined}>
+            {phone ? (
+                <button type="button" className="vp-mclose" onClick={onCloseMobile} aria-label="Cerrar el menú">×</button>
+            ) : (
+                <button type="button" className="vp-coll" onClick={onToggleMini} aria-label={mini ? 'Agrandar el menú' : 'Achicar el menú'}><Icon name="chevron" size={14} className={mini ? 'vp-rot-r' : 'vp-rot-l'} /></button>
+            )}
             <div className="vp-logo"><img src={LOGO[theme]} alt="Vase" /><b>business</b></div>
             <nav>
                 {MENU.map((group) => (
@@ -99,12 +112,14 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, 
                 </button>
             </div>
         </aside>
+        </>
     );
 }
 
-export function Topbar({ title, subtitle, crumb, onBack, status, onPublish, publishing, badges, onNotifications, onHelp }) {
+export function Topbar({ title, subtitle, crumb, onBack, status, onPublish, publishing, badges, onNotifications, onHelp, onMenu }) {
     return (
         <header className="vp-top">
+            {onMenu ? <button type="button" className="vp-ibtn vp-menu" onClick={onMenu} aria-label="Abrir el menú"><Icon name="list" size={18} /></button> : null}
             <div style={{ minWidth: 0 }}>
                 {crumb ? <div className="vp-crumb"><button type="button" onClick={onBack}>{crumb}</button>›<span>{title}</span></div> : null}
                 <div style={{ display: 'flex', alignItems: 'center' }}>

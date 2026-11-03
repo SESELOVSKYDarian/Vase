@@ -272,9 +272,9 @@ export default function ProductInspector({ product, isNew, products, categories,
                                 const used = priceLists ? tierUsage(tier.slot, priceLists) : [];
                                 return (
                                     <tr key={tier.key || tier.slot}>
-                                        <td><b>{tier.label || `Precio ${tier.slot}`}</b>{tier.label && tier.label !== `Precio ${tier.slot}` ? <span className="vp-note">Precio {tier.slot}</span> : null}</td>
-                                        <td>{!priceLists ? <span className="vp-note">Cargando…</span> : used.length ? used.map((name) => <span key={name} className="vp-tag g" style={{ marginRight: 6 }}><i />{name}</span>) : <span className="vp-tag"><i />Sin usar</span>}</td>
-                                        <td className="num"><b>${Math.round(Number(tier.value)).toLocaleString('es-AR')}</b></td>
+                                        <td data-label="Precio del sistema"><b>{tier.label || `Precio ${tier.slot}`}</b>{tier.label && tier.label !== `Precio ${tier.slot}` ? <span className="vp-note">Precio {tier.slot}</span> : null}</td>
+                                        <td data-label="Lo usa">{!priceLists ? <span className="vp-note">Cargando…</span> : used.length ? used.map((name) => <span key={name} className="vp-tag g" style={{ marginRight: 6 }}><i />{name}</span>) : <span className="vp-tag"><i />Sin usar</span>}</td>
+                                        <td data-label="Valor" className="num"><b>${Math.round(Number(tier.value)).toLocaleString('es-AR')}</b></td>
                                     </tr>
                                 );
                             })}

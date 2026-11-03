@@ -25,6 +25,8 @@ import Diseno from './diseno/Diseno';
 import Icon from './components/Icon';
 import Notifications from './components/Notifications';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
+// Último: los ajustes para celular le ganan a los estilos de cada pantalla.
+import './mobile.css';
 
 const THEME_KEY = 'vase_panel_theme';
 const MINI_KEY = 'vase_panel_mini';
@@ -62,6 +64,20 @@ function useFonts() {
     }, []);
 }
 
+// Celular o tablet vertical (hasta 900 px): el menú pasa a abrirse con un botón.
+function useIsPhone() {
+    const query = '(max-width: 900px)';
+    const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+    useEffect(() => {
+        const media = window.matchMedia(query);
+        const update = () => setPhone(media.matches);
+        update();
+        media.addEventListener('change', update);
+        return () => media.removeEventListener('change', update);
+    }, []);
+    return phone;
+}
+
 export default function PanelApp() {
     useFonts();
     const { user, logout } = useAuth();
@@ -73,6 +89,8 @@ export default function PanelApp() {
     const [path, setPath] = useState(window.location.pathname);
     const [theme, setThemeState] = useState(initialTheme);
     const [mini, setMini] = useState(() => readStorage(MINI_KEY) === '1');
+    const isPhone = useIsPhone();
+    const [navOpen, setNavOpen] = useState(false);
     const [help, setHelp] = useState(null);
     const [notesOpen, setNotesOpen] = useState(false);
 
@@ -87,7 +105,7 @@ export default function PanelApp() {
     }, []);
 
     const { section, sub } = parsePanelPath(path);
-    const go = useCallback((nextSection, nextSub = null) => navigate(panelPath(nextSection, nextSub)), []);
+    const go = useCallback((nextSection, nextSub = null) => { setNavOpen(false); navigate(panelPath(nextSection, nextSub)); }, []);
     const setTheme = (value) => { setThemeState(value); writeStorage(THEME_KEY, value); };
     const toggleMini = () => setMini((value) => { writeStorage(MINI_KEY, value ? '0' : '1'); return !value; });
 
@@ -157,6 +175,8 @@ export default function PanelApp() {
                 badges={badges}
                 onNotifications={openNotifications}
                 onHelp={() => setHelp('section')}
+                onMenu={isPhone ? () => setNavOpen(true) : undefined}
+                phone={isPhone}
             />
         );
     } else if (section === 'envios' && !editor.loading) {
@@ -215,8 +235,11 @@ export default function PanelApp() {
                 section={section}
                 sub={sub}
                 go={go}
-                mini={mini}
+                mini={mini && !isPhone}
                 onToggleMini={toggleMini}
+                phone={isPhone}
+                mobileOpen={navOpen}
+                onCloseMobile={() => setNavOpen(false)}
                 theme={theme}
                 onTheme={setTheme}
                 badges={badges}
@@ -242,6 +265,7 @@ export default function PanelApp() {
                         badges={badges}
                         onNotifications={openNotifications}
                         onHelp={() => setHelp('section')}
+                        onMenu={isPhone ? () => setNavOpen(true) : undefined}
                     />
                 )}
                 {fullScreen || (

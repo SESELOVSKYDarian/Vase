@@ -148,11 +148,11 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                                 const count = counts[list.id] || 0;
                                 return (
                                     <tr key={list.id} className={listDirty(list, draft) ? 'dirty' : ''}>
-                                        <td>
+                                        <td data-label="Nombre de la lista">
                                             <input className="vp-inp" aria-label="Nombre de la lista" placeholder="Ej.: Distribuidor" value={draft.name} onChange={(event) => setDraft(list.id, { name: event.target.value })} />
                                             <span className="vp-note">{WHO[list.type] || WHO.special}</span>
                                         </td>
-                                        <td>
+                                        <td data-label="Usa el precio">
                                             <Select
                                                 ariaLabel={`Precio que usa ${draft.name || 'la lista'}`}
                                                 value={draft.force_segment}
@@ -164,14 +164,14 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                                                 ]}
                                             />
                                         </td>
-                                        <td>
+                                        <td data-label="Ajuste">
                                             <label className="vp-pct">
                                                 <input inputMode="decimal" aria-label={`Ajuste de ${draft.name || 'la lista'}`} value={draft.percent} onChange={(event) => setDraft(list.id, { percent: event.target.value })} />
                                                 <span>%</span>
                                             </label>
                                             <span className="vp-note">{adjustText(draft.percent)}</span>
                                         </td>
-                                        <td className="num">
+                                        <td data-label="Clientes" className="num">
                                             {list.isNew ? <span className="vp-note">Nueva</span> : <b>{list.type === 'retail' ? `Nuevos + ${count}` : count}</b>}
                                         </td>
                                     </tr>

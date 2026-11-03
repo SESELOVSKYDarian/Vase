@@ -40,7 +40,7 @@ const previewProduct = (product) => ({
 });
 
 // Diseño de la tienda: bloques a la izquierda, la tienda en el medio (se toca para elegir) y el editor a la derecha.
-export default function Diseno({ editor, isPiquim, theme, toast, status, onPublish, publishing, badges, onNotifications, onHelp }) {
+export default function Diseno({ editor, isPiquim, theme, toast, status, onPublish, publishing, badges, onNotifications, onHelp, onMenu, phone = false }) {
     const [page, setPage] = useState('home');
     const [selectedId, setSelectedId] = useState(null);
     const [viewport, setViewport] = useState('desktop');
@@ -50,6 +50,8 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [dragIndex, setDragIndex] = useState(null);
     const [inspTab, setInspTab] = useState('contenido');
+    // En celular se ve una cosa a la vez: la lista de bloques, la tienda o el editor.
+    const [phoneView, setPhoneView] = useState('preview');
 
     const isBlocksPage = page === 'home' || page === 'about';
     const pageKey = editorPageKey(page, isPiquim);
@@ -77,7 +79,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
         },
     })), [blocks, featured]);
 
-    const select = (id) => { setSelectedId(id); setShowInspector(true); setAdding(false); };
+    const select = (id) => { setSelectedId(id); setShowInspector(true); setAdding(false); if (phone) setPhoneView('editor'); };
     const add = (type) => {
         const block = createBlock(type, TEMPLATES[pageKey] || []);
         setBlocks((list) => [...list, block]);
@@ -99,6 +101,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
     return (
         <div className="vp-page vp-dz">
             <div className="vp-dzbar">
+                {onMenu ? <button type="button" className="vp-ibtn vp-menu" onClick={onMenu} aria-label="Abrir el menú"><Icon name="list" size={18} /></button> : null}
                 <div className="vp-tabs2" role="tablist" aria-label="Página que estás editando">
                     {PAGES.map(([id, label]) => (
                         <button key={id} type="button" role="tab" aria-selected={page === id} className={`vp-t2 ${page === id ? 'on' : ''}`} onClick={() => switchPage(id)}>{label}</button>
@@ -126,10 +129,10 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
             </div>
 
             {isBlocksPage ? (
-                <div className={`vp-dzgrid ${showBlocks ? '' : 'no-l'} ${showInspector ? '' : 'no-r'}`}>
-                    {showBlocks ? (
+                <div className={phone ? `vp-dzgrid phone v-${phoneView}` : `vp-dzgrid ${showBlocks ? '' : 'no-l'} ${showInspector ? '' : 'no-r'}`}>
+                    {showBlocks || phone ? (
                         <aside className="vp-dzl" aria-label="Bloques de la página">
-                            <div className="vp-dzh"><b>Bloques</b><button type="button" className="vp-x" aria-label="Cerrar los bloques" onClick={() => setShowBlocks(false)}>×</button></div>
+                            <div className="vp-dzh"><b>Bloques</b><button type="button" className="vp-x" aria-label="Cerrar los bloques" onClick={() => (phone ? setPhoneView('preview') : setShowBlocks(false))}>×</button></div>
                             <div className="vp-dzsep">En todas las páginas</div>
                             {chromeRow(HEADER_ID, 'layout', 'Menú de arriba', linksSummary(navLinksFromSettings(settings)))}
                             <div className="vp-dzsep">Esta página · arrastrá para ordenar</div>
@@ -180,15 +183,15 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                     ) : null}
 
                     <section className="vp-dzc" aria-label="Vista previa de la tienda">
-                        <div className={`vp-dzframe ${viewport}`}>
-                            <ResponsivePreviewFrame viewport={viewport}>
-                                <StorePreview settings={settings} sections={previewSections} labelFor={labelFor} selectedId={selectedId} onSelect={select} isPiquim={isPiquim} viewport={viewport} />
+                        <div className={`vp-dzframe ${phone ? 'fill' : viewport}`}>
+                            <ResponsivePreviewFrame viewport={phone ? 'desktop' : viewport}>
+                                <StorePreview settings={settings} sections={previewSections} labelFor={labelFor} selectedId={selectedId} onSelect={select} isPiquim={isPiquim} viewport={phone ? 'mobile' : viewport} />
                             </ResponsivePreviewFrame>
                         </div>
                         <span className="vp-dzhint">Tocá cualquier parte de la tienda para editarla.</span>
                     </section>
 
-                    {showInspector ? (
+                    {showInspector || phone ? (
                         <aside className="vp-dzr" aria-label="Editor del bloque">
                             <div className="vp-dzih">
                                 <div style={{ minWidth: 0 }}>
@@ -198,7 +201,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                                 {selected ? (
                                     <button type="button" role="switch" aria-checked={selected.enabled !== false} aria-label="Visible en la tienda" title={selected.enabled === false ? 'Oculto en la tienda' : 'Visible en la tienda'} className={`vp-tog ${selected.enabled === false ? 'off' : ''}`} onClick={() => setBlocks((list) => toggleBlock(list, selected.id))} />
                                 ) : null}
-                                <button type="button" className="vp-x" aria-label="Cerrar el editor" onClick={() => setShowInspector(false)}>×</button>
+                                <button type="button" className="vp-x" aria-label="Cerrar el editor" onClick={() => (phone ? setPhoneView('preview') : setShowInspector(false))}>×</button>
                             </div>
                             <div className="vp-dzib">
                                 {selectedId === HEADER_ID ? <HeaderEditor settings={settings} setSettings={editor.setSettings} pickers={pickers} /> : null}
@@ -231,6 +234,16 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                     </div>
                 </div>
             )}
+
+            {phone && isBlocksPage ? (
+                <nav className="vp-dzmnav" aria-label="Qué ver">
+                    {[['blocks', 'list', 'Bloques'], ['preview', 'monitor', 'Vista'], ['editor', 'sliders', 'Editar']].map(([id, icon, label]) => (
+                        <button key={id} type="button" className={phoneView === id ? 'on' : ''} aria-pressed={phoneView === id} onClick={() => setPhoneView(id)}>
+                            <Icon name={icon} size={17} /><span>{label}</span>
+                        </button>
+                    ))}
+                </nav>
+            ) : null}
 
             <Modal
                 open={Boolean(confirmDelete)}

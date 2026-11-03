@@ -58,7 +58,7 @@ export default function DataTable({
     return (
         <>
             <div className="vp-card" style={{ padding: '8px 10px' }}>
-                <table className="vp-tbl">
+                <table className="vp-tbl dt">
                     <thead>
                         <tr>
                             {selectable ? <th style={{ width: 40 }}><span className="vp-note">Elegir</span></th> : null}
@@ -78,7 +78,7 @@ export default function DataTable({
                                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                                 >
                                     {selectable ? (
-                                        <td onClick={(event) => event.stopPropagation()}>
+                                        <td className="sel" onClick={(event) => event.stopPropagation()}>
                                             <button
                                                 type="button"
                                                 className={`vp-check ${selectedSet.has(key) ? 'on' : ''}`}
@@ -89,8 +89,8 @@ export default function DataTable({
                                             >✓</button>
                                         </td>
                                     ) : null}
-                                    {columns.map((column) => (
-                                        <td key={column.key} className={column.align === 'right' ? 'r' : undefined}>
+                                    {columns.map((column, index) => (
+                                        <td key={column.key} data-label={column.label} className={[column.align === 'right' ? 'r' : '', index === 0 ? 'main' : ''].filter(Boolean).join(' ') || undefined}>
                                             {column.render ? column.render(row) : row[column.key]}
                                         </td>
                                     ))}

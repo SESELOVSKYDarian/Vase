@@ -223,13 +223,32 @@
   .vp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .vp-rbar { position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; box-shadow: var(--sh-lg); }
 }
-@media (max-width: 760px) {
-  .vp-side { position: absolute; z-index: 30; height: 100%; }
-  .vp-side.mini { position: relative; }
-  .vp-top { padding: 12px 16px; flex-wrap: wrap; }
-  .vp-body { padding: 16px; }
+/* ───── Celular y tablet vertical (hasta 900 px) ───── */
+.vp-menu, .vp-mclose { display: none; }
+@media (max-width: 900px) {
+  /* menú: cajón que se abre con ☰ */
+  .vp-side.phone { position: fixed; left: 0; top: 0; bottom: 0; width: min(300px, 86vw); z-index: 70; transform: translateX(-105%); transition: transform .22s ease; box-shadow: none; padding-top: 16px; }
+  .vp-side.phone.m-open { transform: none; box-shadow: var(--sh-lg); }
+  .vp-mscrim { position: fixed; inset: 0; z-index: 65; background: var(--scrim); animation: vp-fade .18s ease-out; }
+  @keyframes vp-fade { from { opacity: 0; } to { opacity: 1; } }
+  .vp-mclose { display: flex; position: absolute; right: 10px; top: 12px; width: 36px; height: 36px; border-radius: 10px; border: 0; background: none; color: var(--mut); font-size: 22px; align-items: center; justify-content: center; cursor: pointer; z-index: 2; }
+  .vp-menu { display: flex; }
+  /* barra de arriba */
+  .vp-top { padding: 10px 12px; gap: 8px; min-height: 60px; flex-wrap: nowrap; }
+  .vp-top > div:first-of-type { min-width: 0; flex: 1; }
+  .vp-top .vp-sp { display: none; }
+  .vp-ttl { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vp-sub, .vp-crumb { display: none; }
+  .vp-back { height: 32px; padding: 0 8px; margin-right: 6px; font-size: 0; }
+  .vp-back::before { content: "←"; font-size: 15px; }
+  .vp-top .vp-btn.acc { height: 36px; padding: 0 12px; }
+  .vp-top .vp-ibtn, .vp-ibtn.vp-menu { width: 36px; height: 36px; }
   .vp-status { display: none; }
+  .vp-body { padding: 14px 12px 24px; }
   .vp-rbar { width: 100%; }
+}
+@media (max-width: 380px) {
+  .vp-top .vp-ibtn[aria-label^="Ayuda"] { display: none; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .vp-rbar { animation: vp-slide .18s ease-out; }
