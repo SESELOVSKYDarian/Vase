@@ -24,3 +24,9 @@ test('las tablas pasan a tarjetas con el nombre de cada dato', async () => {
     assert.match(css, /\.vp \.vp-tbl\.dt thead \{ display: none; \}/);
     assert.match(css, /content: attr\(data-label\)/);
 });
+
+test('el panel usa el ícono de Vase en la pestaña', async () => {
+    const app = await read('../src/panel/PanelApp.jsx');
+    assert.match(app, /'\/brand\/vase-favicon\.png'/);
+    assert.match(app, /usePanelFavicon\(\);/);
+});

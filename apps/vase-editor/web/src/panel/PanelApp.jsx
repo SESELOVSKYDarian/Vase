@@ -52,6 +52,31 @@ const initialTheme = () => {
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 };
 
+// El panel es de Vase Business: en la pestaña va el ícono de Vase, no el de la tienda. Al salir se deja como estaba.
+const PANEL_ICONS = [['icon', '/brand/vase-favicon.png', 'image/png'], ['apple-touch-icon', '/brand/vase-touch-icon.png', 'image/png']];
+function usePanelFavicon() {
+    useEffect(() => {
+        const restore = PANEL_ICONS.map(([rel, href, type]) => {
+            let link = document.head.querySelector(`link[rel="${rel}"]`);
+            const created = !link;
+            if (!link) {
+                link = document.createElement('link');
+                link.setAttribute('rel', rel);
+                document.head.appendChild(link);
+            }
+            const before = { href: link.getAttribute('href'), type: link.getAttribute('type') };
+            link.setAttribute('href', href);
+            link.setAttribute('type', type);
+            return () => {
+                if (created) { link.remove(); return; }
+                if (before.href) link.setAttribute('href', before.href); else link.removeAttribute('href');
+                if (before.type) link.setAttribute('type', before.type); else link.removeAttribute('type');
+            };
+        });
+        return () => restore.forEach((undo) => undo());
+    }, []);
+}
+
 function useFonts() {
     useEffect(() => {
         const id = 'vp-font-manrope';
@@ -80,6 +105,7 @@ function useIsPhone() {
 
 export default function PanelApp() {
     useFonts();
+    usePanelFavicon();
     const { user, logout } = useAuth();
     const { tenant } = useTenant();
     const { addToast } = useToast();
