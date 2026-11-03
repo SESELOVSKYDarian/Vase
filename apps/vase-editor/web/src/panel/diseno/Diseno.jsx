@@ -21,6 +21,9 @@ const PAGES = [
     ['apariencia', 'Colores, logo y pie'],
 ];
 
+// La página Catálogo edita las tarjetas de rubro propias de Piquim: en las demás tiendas no aparece (igual que en el panel anterior).
+export const pagesFor = (isPiquim) => PAGES.filter(([id]) => id !== 'catalogo' || isPiquim);
+
 const TEMPLATES = {
     home: DEFAULT_HOME_SECTIONS,
     about: DEFAULT_ABOUT_SECTIONS,
@@ -103,7 +106,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
             <div className="vp-dzbar">
                 {onMenu ? <button type="button" className="vp-ibtn vp-menu" onClick={onMenu} aria-label="Abrir el menú"><Icon name="list" size={18} /></button> : null}
                 <div className="vp-tabs2" role="tablist" aria-label="Página que estás editando">
-                    {PAGES.map(([id, label]) => (
+                    {pagesFor(isPiquim).map(([id, label]) => (
                         <button key={id} type="button" role="tab" aria-selected={page === id} className={`vp-t2 ${page === id ? 'on' : ''}`} onClick={() => switchPage(id)}>{label}</button>
                     ))}
                 </div>

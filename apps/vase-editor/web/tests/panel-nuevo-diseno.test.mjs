@@ -85,3 +85,12 @@ test('estilo y celular del bloque: se guarda en props y la tienda lo aplica', as
     const builder = await read('../src/components/PageBuilder.jsx');
     assert.match(builder, /className=\{ignoreDevice \? undefined : deviceClass\(section\.props\)\}/);
 });
+
+test('otras tiendas (Teflón) usan los bloques generales y no ven el Catálogo de Piquim', async () => {
+    const { editorPageKey, BLOCK_TYPES } = await import('../src/panel/diseno/model.js');
+    assert.equal(editorPageKey('home', false), 'home');
+    assert.deepEqual(BLOCK_TYPES.home.map(([type]) => type), ['HeroSlider', 'BrandMarquee', 'FeaturedProducts', 'Services']);
+    const screen = await read('../src/panel/diseno/Diseno.jsx');
+    assert.match(screen, /PAGES\.filter\(\(\[id\]\) => id !== 'catalogo' \|\| isPiquim\)/);
+    assert.match(screen, /\{pagesFor\(isPiquim\)\.map\(/);
+});
