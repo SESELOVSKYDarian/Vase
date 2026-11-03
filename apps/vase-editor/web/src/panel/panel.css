@@ -149,7 +149,8 @@
 .vp-pg:hover:not(:disabled) { background: var(--hover); }
 .vp-pg.on { background: var(--ink); color: var(--ink-on); }
 .vp-pg:disabled { opacity: .4; cursor: default; }
-.vp-bulk { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 16px; background: var(--ink); color: var(--ink-on); font-weight: 800; box-shadow: var(--sh-lg); z-index: 30; }
+/* Queda pegada abajo de la pantalla mientras se recorre la lista (sticky dentro del área que scrollea). */
+.vp-bulk { position: sticky; bottom: 22px; width: max-content; max-width: calc(100% - 24px); margin: 14px auto 0; flex-wrap: wrap; justify-content: center; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 16px; background: var(--ink); color: var(--ink-on); font-weight: 800; box-shadow: var(--sh-lg); z-index: 30; }
 .vp-bulk .vp-btn { background: rgba(127, 127, 127, .22); color: inherit; }
 .vp-bulk .x { border: 0; background: none; color: inherit; cursor: pointer; opacity: .7; padding: 0 6px; font-size: 16px; }
 .vp-empty { padding: 34px; text-align: center; color: var(--mut); font-weight: 600; }
