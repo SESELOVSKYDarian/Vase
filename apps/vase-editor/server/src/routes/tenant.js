@@ -6,8 +6,10 @@ import path from 'path';
 import crypto from 'crypto';
 import { resolve4, resolveCname } from 'node:dns/promises';
 import { fileURLToPath } from 'url';
-import { ensureDefaultPriceLists, ensurePricingSchema } from '../services/userPricing.js';
-import { OFFER_KINDS, ensureOfferColumns, getTenantOffers, isClassicOffer, offerFinalPrice } from '../services/offers.js';
+import { ensureDefaultPriceLists, ensurePricingSchema, resolveEffectiveProductPrice, resolvePricingProfile } from '../services/userPricing.js';
+import { ensureSpecialPricesSchema, pickSpecialPrices, upsertSpecialPrices } from '../services/specialPrices.js';
+import { normalizePriceAdjustments } from '../services/pricing.js';
+import { OFFER_KINDS, ensureOfferColumns, getTenantOffers, isClassicOffer } from '../services/offers.js';
 import { computeBulkPrice } from '../services/bulkPrice.js';
 import { buildTenantIntegrationManifest, resolveServerBaseUrl } from '../services/integrationManifest.js';
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
@@ -1652,10 +1654,12 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
   const categoryId = body.category_id ? String(body.category_id) : null;
   const brand = body.brand ? String(body.brand).trim() : null;
   const apply = body.apply === true;
-  // Para quién: todos (cambia el precio del producto) o una lista / clientes puntuales (precio especial = oferta).
+  // Para quién: todos (cambia el precio del producto) o una lista / clientes puntuales (precio especial fijo).
   const target = ['lists', 'users'].includes(body.target) ? body.target : 'all';
   const listsParsed = parseUuidArray(body.price_list_ids);
   const usersParsed = parseUuidArray(body.user_ids);
+  // Productos del sistema de gestión: si lock, quedan con "No pisar mis cambios" y la sincronización no los toca.
+  const lock = body.lock === true;
 
   if (!mode) return res.status(400).json({ error: 'invalid_mode' });
   if (!Number.isFinite(amount) || amount < 0 || (mode !== 'set' && amount === 0)) {
@@ -1665,7 +1669,6 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
   if (unit === 'percent' && mode === 'lower' && amount >= 100) return res.status(400).json({ error: 'invalid_amount' });
   if (categoryId && !isUuid(categoryId)) return res.status(400).json({ error: 'invalid_category_id' });
   if (target !== 'all') {
-    if (mode === 'raise') return res.status(400).json({ error: 'raise_needs_all' });
     if (!listsParsed.ok || !usersParsed.ok) return res.status(400).json({ error: 'invalid_target' });
     if (target === 'lists' && !listsParsed.items.length) return res.status(400).json({ error: 'target_required' });
     if (target === 'users' && !usersParsed.items.length) return res.status(400).json({ error: 'target_required' });
@@ -1705,56 +1708,110 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
     )).rows;
 
     if (target !== 'all') {
-      const offerDraft = {
-        kind: mode === 'set' ? 'fixed' : unit === 'percent' ? 'percent' : 'amount',
-        value: amount,
-      };
-      if (offerDraft.kind === 'percent' && amount > 100) return res.status(400).json({ error: 'invalid_amount' });
-      const special = rows.map((row) => {
-        const before = { price: Number(row.price || 0), price_wholesale: Number(row.price_wholesale || 0) };
-        const finalRetail = offerFinalPrice(offerDraft, before.price);
-        const finalWholesale = offerFinalPrice(offerDraft, before.price_wholesale);
-        return { row, before, after: { price: finalRetail ?? before.price, price_wholesale: finalWholesale ?? before.price_wholesale }, lowers: finalRetail !== null || finalWholesale !== null };
-      }).filter((item) => item.lowers);
+      await ensureSpecialPricesSchema();
+      const commerce = (await client.query('select commerce from tenant_settings where tenant_id = $1', [tenantId])).rows[0]?.commerce || {};
+      const adjustments = normalizePriceAdjustments(commerce);
 
-      let created = null;
-      if (apply && special.length) {
-        await ensureOfferColumns();
-        const categoryName = categoryId
-          ? (await pool.query('select name from categories where tenant_id = $1 and id = $2', [tenantId, categoryId])).rows[0]?.name
-          : null;
-        const listNames = target === 'lists'
-          ? (await pool.query('select name from price_lists where tenant_id = $1 and id = any($2::uuid[])', [tenantId, listsParsed.items])).rows.map((row) => row.name)
-          : [];
-        const scopeName = categoryId ? (categoryName || 'categoría elegida') : brand ? `marca ${brand}` : 'todo el catálogo';
-        const who = target === 'lists' ? `lista ${listNames.join(', ') || 'elegida'}` : `${usersParsed.items.length} ${usersParsed.items.length === 1 ? 'cliente' : 'clientes'}`;
-        created = (await pool.query(
+      // Cada destino (una lista o un cliente) con el precio que paga hoy.
+      let targets = [];
+      if (target === 'lists') {
+        const lists = (await client.query(
+          'select id, name, type, rules_json from price_lists where tenant_id = $1 and id = any($2::uuid[]) order by name',
+          [tenantId, listsParsed.items]
+        )).rows;
+        targets = lists.map((list) => ({
+          key: list.id,
+          label: list.name,
+          price_list_id: list.id,
+          user_id: null,
+          profile: { segment: list.type === 'wholesale' ? 'wholesale' : 'retail', allowWholesale: true, pendingWholesale: false, priceList: list, priceListSource: 'manual' },
+        }));
+      } else {
+        const users = (await client.query(
           [
-            'insert into tenant_offers (tenant_id, name, label, percent, enabled, user_ids, category_ids, kind, value, product_ids, starts_at, ends_at, price_list_ids)',
-            "values ($1, $2, 'Precio especial', 0, true, $3::uuid[], $4::uuid[], $5, $6, $7::uuid[], null, null, $8::uuid[])",
-            `returning ${OFFER_COLUMNS}`,
+            'select u.id, u.email, ut.role, ut.status from user_tenants ut join users u on u.id = ut.user_id',
+            'where ut.tenant_id = $1 and ut.user_id = any($2::uuid[]) order by u.email',
           ].join(' '),
-          [
-            tenantId,
-            `Precio especial · ${scopeName} · ${who}`.slice(0, 120),
-            target === 'users' ? usersParsed.items : [],
-            categoryId ? categoryTree : [],
-            offerDraft.kind,
-            amount,
-            !categoryId && brand ? special.map((item) => item.row.id) : [],
-            target === 'lists' ? listsParsed.items : [],
-          ]
-        )).rows[0];
+          [tenantId, usersParsed.items]
+        )).rows;
+        for (const user of users) {
+          targets.push({
+            key: user.id,
+            label: user.email,
+            price_list_id: null,
+            user_id: user.id,
+            profile: await resolvePricingProfile({ tenantId, user }),
+          });
+        }
+      }
+      if (!targets.length) return res.status(400).json({ error: 'target_required' });
+
+      const productIds = rows.map((row) => row.id);
+      const listIds = [...new Set(targets.map((item) => item.profile?.priceList?.id).filter(Boolean))];
+      const existing = productIds.length ? (await client.query(
+        [
+          'select product_id, price_list_id, user_id, price from tenant_special_prices',
+          'where tenant_id = $1 and product_id = any($2::uuid[]) and (user_id = any($3::uuid[]) or (user_id is null and price_list_id = any($4::uuid[])))',
+        ].join(' '),
+        [tenantId, productIds, targets.map((item) => item.user_id).filter(Boolean), listIds]
+      )).rows : [];
+
+      const pairs = [];
+      targets.forEach((item) => {
+        const current = pickSpecialPrices(existing, { userId: item.user_id, priceListId: item.profile?.priceList?.id || null });
+        rows.forEach((row) => {
+          const before = resolveEffectiveProductPrice({
+            priceRetail: Number(row.price || 0),
+            priceWholesale: Number(row.price_wholesale || 0),
+            adjustments,
+            profile: item.profile,
+            specialPrice: current.get(row.id) ?? null,
+          }).effective;
+          if (!before && mode !== 'set') return;
+          const after = computeBulkPrice(before, { mode, amount, unit });
+          if (after === before) return;
+          pairs.push({ row, item, before, after });
+        });
+      });
+      const changedProducts = new Set(pairs.map((pair) => pair.row.id)).size;
+
+      let batch = null;
+      if (apply && pairs.length) {
+        const categoryName = categoryId
+          ? (await client.query('select name from categories where tenant_id = $1 and id = $2', [tenantId, categoryId])).rows[0]?.name
+          : null;
+        const scopeName = categoryId ? (categoryName || 'categoría elegida') : brand ? `marca ${brand}` : 'todo el catálogo';
+        const who = target === 'lists'
+          ? `lista ${targets.map((item) => item.label).join(', ')}`
+          : targets.length === 1 ? targets[0].label : `${targets.length} clientes`;
+        const verb = mode === 'raise' ? 'Subir' : mode === 'lower' ? 'Bajar' : 'Precio fijo';
+        const howMuch = mode === 'set' ? `$${amount}` : unit === 'percent' ? `${amount}%` : `$${amount}`;
+        batch = { id: crypto.randomUUID(), name: `${verb} ${howMuch} · ${scopeName} · ${who}`.slice(0, 160) };
+        await client.query('begin');
+        await upsertSpecialPrices(client, {
+          tenantId,
+          batchId: batch.id,
+          batchName: batch.name,
+          rows: pairs.map(({ row, item, after }) => ({ product_id: row.id, price_list_id: item.price_list_id, user_id: item.user_id, price: after })),
+        });
+        await client.query('commit');
       }
 
       return res.json({
-        applied: Boolean(created),
+        applied: Boolean(batch),
         target,
         matched: rows.length,
-        changed: special.length,
+        changed: changedProducts,
+        special_prices: pairs.length,
         synced_unlocked: 0,
-        offer: created,
-        sample: special.slice(0, 8).map(({ row, before, after }) => ({ id: row.id, name: row.name, before, after })),
+        batch,
+        sample: pairs.slice(0, 8).map(({ row, item, before, after }) => ({
+          id: `${row.id}:${item.key}`,
+          name: row.name,
+          who: item.label,
+          before: { price: before },
+          after: { price: after },
+        })),
       });
     }
 
@@ -1771,11 +1828,12 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
       await client.query('begin');
       await client.query(
         [
-          'update product_cache p set price = v.price, price_wholesale = v.wholesale, updated_at = now()',
+          'update product_cache p set price = v.price, price_wholesale = v.wholesale, updated_at = now(),',
+          'admin_locked = coalesce(p.admin_locked, false) or ($5 and p.external_id is not null)',
           'from unnest($2::uuid[], $3::numeric[], $4::numeric[]) as v(id, price, wholesale)',
           'where p.tenant_id = $1 and p.id = v.id',
         ].join(' '),
-        [tenantId, changes.map((c) => c.row.id), changes.map((c) => c.price), changes.map((c) => c.wholesale)]
+        [tenantId, changes.map((c) => c.row.id), changes.map((c) => c.price), changes.map((c) => c.wholesale), lock]
       );
       await client.query('commit');
     }
@@ -1785,6 +1843,7 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
       matched: rows.length,
       changed: changes.length,
       synced_unlocked: syncedUnlocked,
+      locked: apply && lock ? syncedUnlocked : 0,
       target,
       sample: changes.slice(0, 8).map(({ row, price, wholesale }) => ({
         id: row.id,
@@ -1798,6 +1857,40 @@ tenantRouter.post('/products/bulk-price', async (req, res, next) => {
     return next(err);
   } finally {
     client.release();
+  }
+});
+
+// Precios especiales agrupados por cambio (cada vez que se tocó Aplicar).
+tenantRouter.get('/special-prices', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    await ensureSpecialPricesSchema();
+    const result = await pool.query(
+      [
+        'select batch_id as id, batch_name as name, max(created_at) as created_at,',
+        'count(*)::int as prices, count(distinct product_id)::int as products',
+        'from tenant_special_prices where tenant_id = $1',
+        'group by batch_id, batch_name order by max(created_at) desc limit 200',
+      ].join(' '),
+      [tenantId]
+    );
+    return res.json({ items: result.rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+tenantRouter.delete('/special-prices/:batchId', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  if (!isUuid(req.params.batchId)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    await ensureSpecialPricesSchema();
+    const result = await pool.query('delete from tenant_special_prices where tenant_id = $1 and batch_id = $2', [tenantId, req.params.batchId]);
+    return res.json({ ok: true, removed: result.rowCount });
+  } catch (err) {
+    return next(err);
   }
 });
 

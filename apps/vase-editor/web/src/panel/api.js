@@ -34,7 +34,6 @@ const ERRORS = {
     category_not_found: 'La categoría ya no existe.',
     product_not_found: 'El producto ya no existe.',
     price_list_name_taken: 'Ya tenés una lista con ese nombre.',
-    raise_needs_all: 'Para algunos clientes solo se puede bajar o poner un precio especial.',
     target_required: 'Elegí a qué clientes va.',
     invalid_amount: 'Revisá el número.',
     invalid_category_id: 'Elegí la categoría de nuevo.',

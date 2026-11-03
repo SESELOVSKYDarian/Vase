@@ -95,8 +95,9 @@ export function offerDraftError(draft) {
 }
 
 // Cambiar precios: la frase arma el pedido al servidor.
-// target: 'all' cambia el precio del producto; 'lists' o 'users' crean un precio especial solo para ellos.
-export function bulkPricePayload({ mode, amount, unit, field, scope, scopeId, target = 'all', listIds = [], userIds = [] }, apply = false) {
+// target: 'all' cambia el precio del producto; 'lists' o 'users' guardan un precio especial fijo solo para ellos.
+// lock (solo para todos): los productos del sistema de gestión quedan con “No pisar mis cambios”.
+export function bulkPricePayload({ mode, amount, unit, field, scope, scopeId, target = 'all', listIds = [], userIds = [], lock = false }, apply = false) {
     return {
         mode,
         amount: parseAmount(amount),
@@ -105,6 +106,7 @@ export function bulkPricePayload({ mode, amount, unit, field, scope, scopeId, ta
         category_id: scope === 'category' ? scopeId || null : null,
         brand: scope === 'brand' ? scopeId || null : null,
         ...(target === 'all' ? {} : { target, price_list_ids: target === 'lists' ? listIds : [], user_ids: target === 'users' ? userIds : [] }),
+        ...(target === 'all' && lock ? { lock: true } : {}),
         apply,
     };
 }
@@ -116,7 +118,5 @@ export function bulkPriceError({ mode, amount, unit, scope, scopeId, target = 'a
     if (scope !== 'all' && !scopeId) return scope === 'brand' ? 'Elegí una marca' : 'Elegí una categoría';
     if (target === 'lists' && !listIds.length) return 'Elegí la lista de precios';
     if (target === 'users' && !userIds.length) return 'Elegí al menos un cliente';
-    if (target !== 'all' && mode === 'raise') return 'Para algunos clientes solo se puede bajar o poner un precio especial. Para subir, elegí “todos los clientes”.';
-    if (target !== 'all' && mode !== 'set' && unit === 'percent' && value > 100) return 'No se puede bajar más de 100%';
     return null;
 }

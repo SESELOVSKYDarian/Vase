@@ -71,7 +71,9 @@ test('cambiar precios: para quién y botones Aplicar / Cancelar', async () => {
     const base = { mode: 'lower', amount: '10', unit: 'percent', field: 'price', scope: 'all', scopeId: '' };
     assert.equal(bulkPriceError({ ...base, target: 'lists', listIds: [] }), 'Elegí la lista de precios');
     assert.equal(bulkPriceError({ ...base, target: 'users', userIds: [] }), 'Elegí al menos un cliente');
-    assert.match(bulkPriceError({ ...base, mode: 'raise', target: 'lists', listIds: ['l'] }), /todos los clientes/);
+    assert.equal(bulkPriceError({ ...base, mode: 'raise', target: 'lists', listIds: ['l'] }), null);
+    assert.equal(bulkPricePayload({ ...base, lock: true }).lock, true);
+    assert.equal(bulkPricePayload({ ...base, target: 'lists', listIds: ['l'], lock: true }).lock, undefined);
     assert.equal(bulkPriceError({ ...base, target: 'lists', listIds: ['l'] }), null);
     assert.deepEqual(bulkPricePayload({ ...base, target: 'lists', listIds: ['l'] }).price_list_ids, ['l']);
     assert.equal(bulkPricePayload(base).target, undefined);

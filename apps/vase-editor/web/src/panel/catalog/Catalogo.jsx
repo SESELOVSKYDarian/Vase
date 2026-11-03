@@ -220,7 +220,7 @@ export default function Catalogo({ editor, user, theme, toast, openLegacy, goSet
                     brands={brands}
                     toast={toast}
                     onApplied={(items) => setProducts(items)}
-                    goOffers={() => setTab('ofertas')}
+                   
                 />
             ) : null}
             <div className="vp-page" style={tab === 'ofertas' || tab === 'precios' ? { display: 'none' } : undefined}>

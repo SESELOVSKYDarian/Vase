@@ -5,6 +5,7 @@ import { normalizePriceAdjustments } from '../services/pricing.js';
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
 import { pool } from '../db.js';
 import { resolveEffectiveProductPrice, resolvePricingProfile } from '../services/userPricing.js';
+import { loadSpecialPrices } from '../services/specialPrices.js';
 import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
 import {
   applyOfferDiscount,
@@ -155,6 +156,13 @@ async function buildPricingContext(req) {
   const pricingProfile = await resolvePricingProfile({
     tenantId: req.tenant.id,
     user: req.user || null,
+
+    commerce,
+  });
+  const specialPrices = await loadSpecialPrices({
+    tenantId: req.tenant.id,
+    userId: req.user?.id || null,
+    priceListId: pricingProfile?.priceList?.id || null,
   });
 
   let offers = [];
@@ -170,6 +178,7 @@ async function buildPricingContext(req) {
     priceTierLabels: normalizePriceTierLabels(commerce.price_tier_labels),
     offers,
     userId: req.user?.id || null,
+    specialPrices,
   };
 }
 
@@ -200,7 +209,7 @@ function normalizeStoredPriceTiers(data, priceRetail, priceWholesale) {
 }
 
 function mapProductRow(row, pricingContext) {
-  const { adjustments, pricingProfile, priceTierLabels, offers, userId } = pricingContext;
+  const { adjustments, pricingProfile, priceTierLabels, offers, userId, specialPrices } = pricingContext;
   const priceRetail = Number(row.price || 0);
   const priceWholesale = Number(row.price_wholesale || 0);
   const { retail, wholesale, effective, segment, priceList, pendingWholesale } =
@@ -209,6 +218,7 @@ function mapProductRow(row, pricingContext) {
       priceWholesale,
       profile: pricingProfile,
       adjustments,
+      specialPrice: specialPrices?.get(row.id) ?? null,
     });
 
   const bestOffer = resolveBestOfferForProduct({

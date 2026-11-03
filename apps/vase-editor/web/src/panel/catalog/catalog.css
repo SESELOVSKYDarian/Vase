@@ -91,3 +91,7 @@
 .vp .vp-ptbl { min-width: 480px; }
 .vp .vp-ptbl td .vp-note { display: block; margin-top: 3px; }
 .vp .vp-ptbl th:nth-child(3), .vp .vp-ptbl td:nth-child(3) { text-align: right; width: auto; }
+
+/* Cambiar precios: mantener fijos los precios del sistema de gestión */
+.vp .vp-lockchk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-weight: 600; color: var(--tx); cursor: pointer; }
+.vp .vp-lockchk input { width: 16px; height: 16px; accent-color: var(--acc); margin: 0; }

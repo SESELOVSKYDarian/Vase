@@ -12,11 +12,11 @@ const TARGETS = [
     { value: 'lists', label: 'los clientes de una lista' },
     { value: 'users', label: 'ciertos clientes' },
 ];
-const EMPTY = { mode: 'raise', amount: '', unit: 'percent', field: 'price', scope: 'all', scopeId: '', target: 'all', listIds: [], userIds: [] };
+const EMPTY = { mode: 'raise', amount: '', unit: 'percent', field: 'price', scope: 'all', scopeId: '', target: 'all', listIds: [], userIds: [], lock: false };
 
 // Pestaña Cambiar precios del Catálogo: una frase que se arma tocando cada parte, la vista previa abajo
 // y recién al tocar Aplicar se cambia algo. Cancelar deja todo como estaba.
-export default function Precios({ user, products, categories, brands, toast, onApplied, goOffers }) {
+export default function Precios({ user, products, categories, brands, toast, onApplied }) {
     const [form, setForm] = useState(EMPTY);
     const [preview, setPreview] = useState(null);
     const [previewError, setPreviewError] = useState('');
@@ -25,11 +25,30 @@ export default function Precios({ user, products, categories, brands, toast, onA
     const [confirm, setConfirm] = useState(false);
     const [priceLists, setPriceLists] = useState(null);
     const [clients, setClients] = useState(null);
+    const [batches, setBatches] = useState(null);
+    const [removing, setRemoving] = useState('');
 
     const set = (patch) => { setForm((value) => ({ ...value, ...patch })); setConfirm(false); };
     const tree = useMemo(() => buildCategoryTree(categories), [categories]);
     const error = bulkPriceError(form);
     const everyone = form.target === 'all';
+
+    const loadBatches = () => panelFetch('/tenant/special-prices', { user }).then((payload) => setBatches(payload.items || [])).catch(() => setBatches([]));
+    useEffect(() => { loadBatches(); }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const removeBatch = async (batch) => {
+        if (removing !== `ask-${batch.id}`) { setRemoving(`ask-${batch.id}`); return; }
+        setRemoving(batch.id);
+        try {
+            await panelFetch(`/tenant/special-prices/${batch.id}`, { method: 'DELETE', user });
+            toast('Precio especial quitado: vuelven a pagar el precio de siempre.', 'success');
+            await loadBatches();
+        } catch (err) {
+            toast(errorText(err), 'error');
+        } finally {
+            setRemoving('');
+        }
+    };
 
     // Listas y clientes se piden solo si se eligen.
     useEffect(() => {
@@ -76,9 +95,10 @@ export default function Precios({ user, products, categories, brands, toast, onA
             if (everyone) {
                 const fresh = await panelFetch('/tenant/products', { user });
                 onApplied?.(fresh.items || products);
-                toast(`Listo: cambiaste el precio de ${result.changed} productos`, 'success');
+                toast(`Listo: cambiaste el precio de ${result.changed} productos${result.locked ? ` y ${result.locked} quedaron fijos` : ''}`, 'success');
             } else {
-                toast(`Listo: precio especial para ${result.changed} productos. Lo ves en Catálogo › Ofertas.`, 'success');
+                toast(`Listo: precio especial en ${result.changed} productos. Lo ves abajo, en Precios especiales.`, 'success');
+                loadBatches();
             }
             cancel();
         } catch (err) {
@@ -91,13 +111,14 @@ export default function Precios({ user, products, categories, brands, toast, onA
     const listOptions = (priceLists || []).map((list) => ({ value: list.id, label: list.name }));
     const chosenClients = (clients || []).filter((client) => form.userIds.includes(client.id));
     const clientOptions = (clients || []).filter((client) => !form.userIds.includes(client.id)).map((client) => ({ value: client.id, label: client.name || client.full_name || client.email, hint: client.email }));
-    const showWholesale = !everyone || form.field !== 'price';
-    const showRetail = !everyone || form.field !== 'price_wholesale';
+    const showWholesale = everyone && form.field !== 'price';
+    const showRetail = everyone && form.field !== 'price_wholesale';
     const modeOptions = [
-        { value: 'raise', label: 'Subir', disabled: !everyone },
+        { value: 'raise', label: 'Subir' },
         { value: 'lower', label: 'Bajar' },
         { value: 'set', label: 'Cambiar a' },
     ];
+    const tone = (before, after) => (after < before ? 'dn' : after > before ? 'up' : '');
 
     return (
         <div className="vp-page">
@@ -125,7 +146,7 @@ export default function Precios({ user, products, categories, brands, toast, onA
                             <Select variant="slot" ariaLabel="Marca" placeholder="elegí…" value={form.scopeId} onChange={(next) => set({ scopeId: next })} options={brands.map((brand) => ({ value: brand, label: brand }))} />
                         ) : null}
                         <span>para</span>
-                        <Select variant="slot" ariaLabel="Para quién" value={form.target} onChange={(next) => set({ target: next, mode: next !== 'all' && form.mode === 'raise' ? 'lower' : form.mode })} options={TARGETS} />
+                        <Select variant="slot" ariaLabel="Para quién" value={form.target} onChange={(next) => set({ target: next })} options={TARGETS} />
                         {form.target === 'lists' ? (
                             <Select variant="slot" ariaLabel="Lista de precios" placeholder={priceLists ? 'elegí la lista…' : 'cargando…'} value={form.listIds[0] || ''} onChange={(next) => set({ listIds: [next] })} options={listOptions} />
                         ) : null}
@@ -140,11 +161,15 @@ export default function Precios({ user, products, categories, brands, toast, onA
                             ))}
                         </div>
                     ) : null}
-                    <span className="vp-note">
-                        {everyone
-                            ? 'Cambia el precio del producto: lo ven todos los clientes.'
-                            : <>Para ellos se crea un precio especial y el resto sigue viendo el precio de siempre. Después lo encontrás en {goOffers ? <button type="button" className="vp-link" onClick={goOffers}>Catálogo › Ofertas</button> : 'Catálogo › Ofertas'}.</>}
-                    </span>
+                    {everyone ? (
+                        <span className="vp-note">Cambia el precio del producto: lo ven todos los clientes.</span>
+                    ) : (
+                        <div className="vp-lock">
+                            Para ellos se guarda un <b>precio especial fijo</b>, calculado sobre lo que pagan hoy; el resto sigue con el precio de siempre.
+                            Ese precio queda en esa cantidad: aunque después cambies el precio del producto o lo actualice tu sistema de gestión, no se mueve.
+                            Lo podés quitar cuando quieras en Precios especiales, acá abajo.
+                        </div>
+                    )}
                 </div>
 
                 <div className="vp-card vp-sec" style={{ maxWidth: 1120, marginTop: 18 }}>
@@ -156,36 +181,44 @@ export default function Precios({ user, products, categories, brands, toast, onA
                         <>
                             <p>
                                 {preview.changed
-                                    ? <>{everyone ? 'Cambia el precio de' : 'Precio especial en'} <b>{preview.changed}</b> de {preview.matched} productos{preview.matched > preview.changed ? (everyone ? ' (los demás ya tienen ese precio o están en $0)' : ' (en los demás el precio ya es igual o menor)') : ''}.</>
-                                    : `Ningún producto cambia con esta frase (${preview.matched} productos revisados). Puede ser que tengan ese precio en /usr/bin/bash o que ya valgan eso.`}
+                                    ? <>{everyone ? 'Cambia el precio de' : 'Precio especial en'} <b>{preview.changed}</b> de {preview.matched} productos{preview.matched > preview.changed ? ' (los demás ya tienen ese precio o están en $0)' : ''}.</>
+                                    : `Ningún producto cambia con esta frase (${preview.matched} productos revisados). Puede ser que tengan ese precio en $0 o que ya valgan eso.`}
                             </p>
                             {everyone && preview.synced_unlocked ? (
                                 <div className="vp-lock">
-                                    <b>{preview.synced_unlocked}</b> de estos productos vienen de tu sistema de gestión. En la próxima sincronización
-                                    vuelven al precio del sistema, salvo los que tengan activado “No pisar mis cambios”.
+                                    <b>{preview.synced_unlocked}</b> de estos productos vienen de tu sistema de gestión.
+                                    {form.lock
+                                        ? ' Van a quedar fijos en el precio nuevo: la sincronización ya no les cambia el precio (se marca “No pisar mis cambios”).'
+                                        : ' En la próxima sincronización vuelven al precio del sistema, salvo los que tengan activado “No pisar mis cambios”.'}
+                                    <label className="vp-lockchk">
+                                        <input type="checkbox" checked={form.lock} onChange={(event) => set({ lock: event.target.checked })} />
+                                        Mantener fijos estos precios aunque cambien en el sistema de gestión
+                                    </label>
                                 </div>
                             ) : null}
                             {preview.sample.length ? (
                                 <div className="vp-tblw">
                                     <table className="vp-ltbl vp-prevtbl">
-                                        <thead><tr><th>Producto</th>{showRetail ? <th>Minorista</th> : null}{showWholesale ? <th>Mayorista</th> : null}</tr></thead>
+                                        <thead><tr><th>Producto</th>{everyone ? null : <th>Para</th>}{showRetail ? <th>Minorista</th> : null}{showWholesale ? <th>Mayorista</th> : null}{everyone ? null : <th>Lo que pagan</th>}</tr></thead>
                                         <tbody>
                                             {preview.sample.map((row) => (
                                                 <tr key={row.id}>
                                                     <td data-label="Producto"><b>{row.name}</b></td>
-                                                    {showRetail ? <td data-label="Minorista">{formatMoney(row.before.price)} → <b className={row.after.price < row.before.price ? 'dn' : row.after.price > row.before.price ? 'up' : ''}>{formatMoney(row.after.price)}</b></td> : null}
-                                                    {showWholesale ? <td data-label="Mayorista">{formatMoney(row.before.price_wholesale)} → <b className={row.after.price_wholesale < row.before.price_wholesale ? 'dn' : row.after.price_wholesale > row.before.price_wholesale ? 'up' : ''}>{formatMoney(row.after.price_wholesale)}</b></td> : null}
+                                                    {everyone ? null : <td data-label="Para">{row.who}</td>}
+                                                    {showRetail ? <td data-label="Minorista">{formatMoney(row.before.price)} → <b className={tone(row.before.price, row.after.price)}>{formatMoney(row.after.price)}</b></td> : null}
+                                                    {showWholesale ? <td data-label="Mayorista">{formatMoney(row.before.price_wholesale)} → <b className={tone(row.before.price_wholesale, row.after.price_wholesale)}>{formatMoney(row.after.price_wholesale)}</b></td> : null}
+                                                    {everyone ? null : <td data-label="Lo que pagan">{formatMoney(row.before.price)} → <b className={tone(row.before.price, row.after.price)}>{formatMoney(row.after.price)}</b></td>}
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
                             ) : null}
-                            {preview.changed > preview.sample.length ? <span className="vp-note">y {preview.changed - preview.sample.length} productos más.</span> : null}
+                            {(preview.special_prices ?? preview.changed) > preview.sample.length ? <span className="vp-note">y {(preview.special_prices ?? preview.changed) - preview.sample.length} {everyone ? 'productos' : 'precios'} más.</span> : null}
                         </>
                     ) : null}
                     <div className="vp-prevact">
-                        {confirm && preview?.changed ? <span className="vp-note">{everyone ? 'Se cambia enseguida en la tienda.' : 'Se crea el precio especial y se ve enseguida en la tienda.'}</span> : null}
+                        {confirm && preview?.changed ? <span className="vp-note">{everyone ? 'Se cambia enseguida en la tienda.' : 'Se guarda el precio especial fijo y se ve enseguida en la tienda.'}</span> : null}
                         <button type="button" className="vp-btn soft" onClick={cancel} disabled={applying}>Cancelar</button>
                         {confirm ? (
                             <button type="button" className="vp-btn acc" onClick={apply} disabled={applying || !preview?.changed}>{applying ? 'Aplicando…' : `Sí, aplicar a ${preview?.changed || 0} productos`}</button>
@@ -193,6 +226,24 @@ export default function Precios({ user, products, categories, brands, toast, onA
                             <button type="button" className="vp-btn acc" onClick={() => setConfirm(true)} disabled={Boolean(error) || !preview?.changed || loading}>Aplicar</button>
                         )}
                     </div>
+                </div>
+
+                <div className="vp-card vp-sec" style={{ maxWidth: 1120, marginTop: 18 }}>
+                    <h3>Precios especiales</h3>
+                    <p>Cada cambio que aplicaste para una lista o para ciertos clientes. Son precios fijos: si lo quitás, vuelven a pagar el precio de siempre.</p>
+                    {batches === null ? <div className="vp-note">Cargando…</div> : null}
+                    {batches && !batches.length ? <div className="vp-note">Todavía no hay precios especiales.</div> : null}
+                    {(batches || []).map((batch) => (
+                        <div key={batch.id} className="vp-row">
+                            <div className="g">
+                                <b>{batch.name || 'Precio especial'}</b>
+                                <span>{batch.products} {batch.products === 1 ? 'producto' : 'productos'} · {new Date(batch.created_at).toLocaleDateString('es-AR')}</span>
+                            </div>
+                            <button type="button" className={`vp-btn sm ${removing === `ask-${batch.id}` ? 'red' : 'line'}`} disabled={removing === batch.id} onClick={() => removeBatch(batch)}>
+                                {removing === batch.id ? 'Quitando…' : removing === `ask-${batch.id}` ? 'Sí, quitar' : 'Quitar'}
+                            </button>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>

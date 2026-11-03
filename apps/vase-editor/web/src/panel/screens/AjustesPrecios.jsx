@@ -12,7 +12,7 @@ const VISIBILITY = [
     [PRICE_VISIBILITY.HIDDEN, 'Nadie', 'La tienda muestra “Consultar precio”.'],
 ];
 
-const WHO = { retail: 'Minoristas y visitantes', wholesale: 'Mayoristas aprobados', special: 'Asignada a mano' };
+const WHO = { retail: 'Minoristas', wholesale: 'Mayoristas aprobados', special: 'Asignada a mano' };
 
 // Ajustes › Precios y listas: quién ve precios, tus listas y cómo se llama cada precio.
 export default function AjustesPrecios({ editor, user, toast, onSave, goClients }) {
@@ -54,6 +54,8 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
     const updateCommerce = (patch) => editor.setSettings((prev) => ({ ...prev, commerce: { ...(prev?.commerce || {}), ...patch } }));
     const setDraft = (id, patch) => setDrafts((all) => ({ ...all, [id]: { ...all[id], ...patch } }));
     const dirtyLists = lists.filter((list) => listDirty(list, drafts[list.id]));
+    // Lista que ven los visitantes sin cuenta; si la borraron, vuelve al precio de siempre.
+    const guestList = lists.find((list) => !list.isNew && list.id === commerce.guest_price_list_id) || null;
 
     const addList = () => {
         const draft = newListDraft(newCount);
@@ -109,6 +111,23 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                             </button>
                         ))}
                     </div>
+                    {visibility === PRICE_VISIBILITY.PUBLIC ? (
+                        <div className="vp-row">
+                            <div className="g">
+                                <b>Qué precio ven sin iniciar sesión</b>
+                                <span>{guestList
+                                    ? `Los visitantes ven los precios de la lista ${guestList.name}${guestList.type === 'wholesale' ? ' (mayorista)' : ''}.`
+                                    : 'Los visitantes ven el precio minorista de siempre.'}</span>
+                            </div>
+                            <Select
+                                variant="inp"
+                                ariaLabel="Qué precio ven sin iniciar sesión"
+                                value={guestList ? guestList.id : ''}
+                                onChange={(next) => updateCommerce({ guest_price_list_id: next || null })}
+                                options={[{ value: '', label: 'Precio minorista de siempre' }, ...lists.filter((list) => !list.isNew).map((list) => ({ value: list.id, label: `Lista ${list.name}` }))]}
+                            />
+                        </div>
+                    ) : null}
                     <div className="vp-row">
                         <div className="g">
                             <b>Aprobar clientes nuevos a mano</b>
@@ -150,7 +169,7 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                                     <tr key={list.id} className={listDirty(list, draft) ? 'dirty' : ''}>
                                         <td data-label="Nombre de la lista">
                                             <input className="vp-inp" aria-label="Nombre de la lista" placeholder="Ej.: Distribuidor" value={draft.name} onChange={(event) => setDraft(list.id, { name: event.target.value })} />
-                                            <span className="vp-note">{WHO[list.type] || WHO.special}</span>
+                                            <span className="vp-note">{WHO[list.type] || WHO.special}{(guestList ? guestList.id === list.id : list.type === 'retail') && visibility === PRICE_VISIBILITY.PUBLIC ? ' y visitantes' : ''}</span>
                                         </td>
                                         <td data-label="Usa el precio">
                                             <Select

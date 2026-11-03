@@ -117,6 +117,23 @@ async function getUserPriceList(tenantId, userId) {
   return result.rows[0] || null;
 }
 
+async function getPriceListById(tenantId, priceListId) {
+  await ensurePricingSchema();
+  const result = await pool.query(
+    'select id, name, type, rules_json from price_lists where tenant_id = $1 and id = $2 limit 1',
+    [tenantId, priceListId]
+  );
+  return result.rows[0] || null;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Qué lista de precios ven los visitantes sin cuenta (Ajustes › Precios). Sin elegir, la de siempre.
+export function guestPriceListId(commerce = {}) {
+  const value = String(commerce?.guest_price_list_id || '').trim();
+  return UUID_RE.test(value) ? value : null;
+}
+
 async function getAutoPriceList(tenantId, segment = 'retail') {
   await ensurePricingSchema();
   const wantedType = segment === 'wholesale' ? 'wholesale' : 'retail';
@@ -133,12 +150,23 @@ async function getAutoPriceList(tenantId, segment = 'retail') {
   return result.rows[0] || null;
 }
 
-export async function resolvePricingProfile({ tenantId, user }) {
+export async function resolvePricingProfile({ tenantId, user, commerce = null }) {
   const role = user?.role || 'retail';
   const status = user?.status || 'active';
   const pendingWholesale = role === 'wholesale' && status !== 'active';
   const allowWholesale = role === 'wholesale' && status === 'active';
   const segment = allowWholesale ? 'wholesale' : 'retail';
+
+  if (tenantId && !user?.id && guestPriceListId(commerce)) {
+    try {
+      const guestList = await getPriceListById(tenantId, guestPriceListId(commerce));
+      if (guestList) {
+        return { segment, allowWholesale, pendingWholesale, priceList: guestList, priceListSource: 'guest' };
+      }
+    } catch (err) {
+      console.warn('Guest price list unavailable:', err?.message || err);
+    }
+  }
 
   if (!tenantId || !user?.id) {
     return {
@@ -183,8 +211,10 @@ export async function resolvePricingProfile({ tenantId, user }) {
 }
 
 function resolveSegmentForList({ profile, rules }) {
+  // La lista elegida para visitantes se muestra tal cual, aunque sea mayorista.
+  const wholesaleOk = profile.allowWholesale || profile.priceListSource === 'guest';
   if (rules.forceSegment) {
-    if (rules.forceSegment === 'wholesale' && !profile.allowWholesale) {
+    if (rules.forceSegment === 'wholesale' && !wholesaleOk) {
       return 'retail';
     }
     return rules.forceSegment;
@@ -197,7 +227,7 @@ function resolveSegmentForList({ profile, rules }) {
 
   if (listType === 'retail') return 'retail';
   if (listType === 'wholesale') {
-    return profile.allowWholesale ? 'wholesale' : 'retail';
+    return wholesaleOk ? 'wholesale' : 'retail';
   }
 
   return profile.segment;
@@ -208,6 +238,7 @@ export function resolveEffectiveProductPrice({
   priceWholesale,
   adjustments,
   profile,
+  specialPrice = null,
 }) {
   const safeProfile = profile || {
     segment: 'retail',
@@ -229,7 +260,9 @@ export function resolveEffectiveProductPrice({
     priceSegment === 'wholesale' && adjusted.wholesale != null
       ? adjusted.wholesale
       : adjusted.retail;
-  const effective = applyPriceListRules(basePrice, rules);
+  // Un precio especial (fijo, por lista o por cliente) reemplaza al de la lista.
+  const special = specialPrice != null && Number.isFinite(Number(specialPrice)) ? Math.max(0, Number(specialPrice)) : null;
+  const effective = special ?? applyPriceListRules(basePrice, rules);
 
   return {
     retail: adjusted.retail,
@@ -245,6 +278,7 @@ export function resolveEffectiveProductPrice({
         }
       : null,
     pendingWholesale: !!safeProfile.pendingWholesale,
+    special: special != null,
   };
 }
 
