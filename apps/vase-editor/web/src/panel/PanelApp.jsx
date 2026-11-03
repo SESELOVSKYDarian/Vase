@@ -194,13 +194,13 @@ export default function PanelApp() {
     } else if (sub === 'sucursales') {
         content = <AjustesSucursales editor={editor} toast={addToast} goEnvios={() => go('envios')} />;
     } else if (sub === 'pagos') {
-        content = <AjustesPagos editor={editor} toast={addToast} />;
+        content = <AjustesPagos editor={editor} toast={addToast} onSave={publish} storeName={storeName} />;
     } else if (sub === 'seo') {
-        content = <AjustesSeo editor={editor} onSave={publish} />;
+        content = <AjustesSeo editor={editor} onSave={publish} storeName={storeName} domain={tenant?.domain || tenant?.primary_domain || window.location.host} />;
     } else if (sub === 'correo') {
-        content = <AjustesCorreo />;
+        content = <AjustesCorreo toast={addToast} goPagos={() => go('ajustes', 'pagos')} />;
     } else if (sub === 'gestion') {
-        content = <AjustesGestion />;
+        content = <AjustesGestion editor={editor} toast={addToast} />;
     } else if (sub === 'equipo') {
         content = <AjustesEquipo user={user} toast={addToast} />;
     } else if (settingsPage) {

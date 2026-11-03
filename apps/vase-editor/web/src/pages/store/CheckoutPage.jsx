@@ -299,6 +299,10 @@ export default function CheckoutPage() {
     }, [deliveryLocation, deliveryMethod, pickupBranches, shippingZones]);
 
     const bankTransfer = checkoutSettings?.bank_transfer || commerce.bank_transfer || {};
+    // Lo que la tienda eligió mostrar grande (alias o CBU), solo si está cargado.
+    const highlightedTransfer = ['alias', 'cbu'].includes(bankTransfer.highlight) && String(bankTransfer[bankTransfer.highlight] || '').trim()
+        ? { label: bankTransfer.highlight === 'cbu' ? 'CBU' : 'Alias', value: String(bankTransfer[bankTransfer.highlight]).trim() }
+        : null;
     const whatsappNumber = String(checkoutSettings?.whatsapp_number || commerce.whatsapp_number || "").replace(/\D/g, "");
     const enabledMethods = useMemo(() => {
         const settingsMethods = uniquePaymentMethods(checkoutSettings?.enabled_methods);
@@ -1750,6 +1754,21 @@ export default function CheckoutPage() {
                                     {paymentMethod === "transfer" ? (
                                         <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
                                             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Datos para la transferencia</p>
+                                            {highlightedTransfer ? (
+                                                <div className="mb-2.5 flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[10px] uppercase tracking-wider text-gray-400">{highlightedTransfer.label} para transferir</p>
+                                                        <p className="mt-0.5 break-all text-lg font-bold text-gray-900">{highlightedTransfer.value}</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        className="shrink-0 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                                                        onClick={() => navigator.clipboard?.writeText(highlightedTransfer.value)}
+                                                    >
+                                                        Copiar
+                                                    </button>
+                                                </div>
+                                            ) : null}
                                             <div className="grid grid-cols-2 gap-2.5">
                                                 {[
                                                     { label: "CBU", value: bankTransfer.cbu || "-" },

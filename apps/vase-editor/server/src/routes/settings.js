@@ -154,6 +154,7 @@ function normalizeCheckoutSettings(commerce = {}) {
       alias: bankTransfer.alias || '',
       bank: bankTransfer.bank || '',
       holder: bankTransfer.holder || '',
+      highlight: ['alias', 'cbu'].includes(bankTransfer.highlight) ? bankTransfer.highlight : '',
     },
     gmail_sender_email: commerce.gmail_sender_email || '',
     has_gmail_app_password: Boolean(String(commerce.gmail_app_password || '').trim()),
@@ -240,6 +241,7 @@ function sanitizeCheckoutPayload(payload = {}) {
             alias: bankTransfer.alias ? String(bankTransfer.alias).trim() : '',
             bank: bankTransfer.bank ? String(bankTransfer.bank).trim() : '',
             holder: bankTransfer.holder ? String(bankTransfer.holder).trim() : '',
+            highlight: ['alias', 'cbu'].includes(bankTransfer.highlight) ? bankTransfer.highlight : '',
           },
         }
       : {}),
