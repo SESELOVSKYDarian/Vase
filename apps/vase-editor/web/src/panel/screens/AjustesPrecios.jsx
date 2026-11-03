@@ -1,32 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { errorText, panelFetch } from '../api';
+import { isClient } from '../clients';
 import { PRICE_VISIBILITY, getPriceVisibilityMode } from '../../utils/priceVisibility';
 import { PRICE_TIER_SLOT_COUNT, getDefaultPriceTierLabel, normalizePriceTierLabels } from '../../utils/priceTierLabels';
+import { adjustText, countClientsByList, listDirty, listDraftError, listPayload, listToDraft, newListDraft } from '../precios';
 
 const VISIBILITY = [
     [PRICE_VISIBILITY.PUBLIC, 'Todos', 'Cualquier visitante ve los precios.'],
-    [PRICE_VISIBILITY.AUTHENTICATED, 'Solo con cuenta', 'Los precios aparecen cuando el cliente entra con su cuenta.'],
+    [PRICE_VISIBILITY.AUTHENTICATED, 'Clientes con cuenta', 'El resto ve “Ingresá para ver precios”.'],
     [PRICE_VISIBILITY.HIDDEN, 'Nadie', 'La tienda muestra “Consultar precio”.'],
 ];
 
-const LIST_TYPE = { retail: 'Minoristas', wholesale: 'Mayoristas' };
+const WHO = { retail: 'Minoristas y visitantes', wholesale: 'Mayoristas aprobados', special: 'Asignada a mano' };
 
-const listToDraft = (list) => ({
-    name: list.name || '',
-    percent: String(Number(list.rules_json?.percent || 0)),
-    force_segment: list.rules_json?.force_segment || '',
-});
-
-// Ajustes › Precios y listas: quién ve precios, cada lista y los nombres de los precios.
-export default function AjustesPrecios({ editor, user, toast, onSave }) {
+// Ajustes › Precios y listas: quién ve precios, tus listas y cómo se llama cada precio.
+export default function AjustesPrecios({ editor, user, toast, onSave, goClients }) {
     const settings = editor.settings || {};
     const commerce = settings.commerce || {};
     const visibility = getPriceVisibilityMode(settings);
     const tierLabels = normalizePriceTierLabels(commerce.price_tier_labels);
+    const tierName = (slot) => tierLabels[`price_${slot}`] || getDefaultPriceTierLabel(slot);
 
     const [lists, setLists] = useState([]);
     const [drafts, setDrafts] = useState({});
-    const [savingList, setSavingList] = useState(null);
+    const [clients, setClients] = useState([]);
+    const [savingLists, setSavingLists] = useState(false);
+    const [newCount, setNewCount] = useState(0);
 
     useEffect(() => {
         panelFetch('/tenant/price-lists', { user })
@@ -36,45 +35,69 @@ export default function AjustesPrecios({ editor, user, toast, onSave }) {
                 setDrafts(Object.fromEntries(items.map((list) => [list.id, listToDraft(list)])));
             })
             .catch(() => toast('No se pudieron cargar las listas de precios.', 'error'));
+        (async () => {
+            const all = [];
+            for (let page = 1; page <= 20; page += 1) {
+                const payload = await panelFetch(`/tenant/users?page=${page}&limit=50`, { user });
+                all.push(...(payload.items || []));
+                if (all.length >= Number(payload.total || 0) || !(payload.items || []).length) break;
+            }
+            setClients(all.filter(isClient));
+        })().catch(() => {});
     }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    const counts = useMemo(() => countClientsByList(lists, clients), [lists, clients]);
+    const pending = clients.filter((client) => client.status === 'pending').length;
     const updateCommerce = (patch) => editor.setSettings((prev) => ({ ...prev, commerce: { ...(prev?.commerce || {}), ...patch } }));
+    const setDraft = (id, patch) => setDrafts((all) => ({ ...all, [id]: { ...all[id], ...patch } }));
+    const dirtyLists = lists.filter((list) => listDirty(list, drafts[list.id]));
 
-    const saveList = async (list) => {
-        const draft = drafts[list.id];
-        const percent = Number(String(draft.percent).replace(',', '.'));
-        if (!draft.name.trim() || !Number.isFinite(percent)) {
-            toast('Revisá el nombre y el porcentaje.', 'error');
-            return;
-        }
-        setSavingList(list.id);
+    const addList = () => {
+        const draft = newListDraft(newCount);
+        setNewCount((value) => value + 1);
+        setLists((items) => [...items, draft]);
+        setDrafts((all) => ({ ...all, [draft.id]: listToDraft({ name: '', rules_json: {} }) }));
+    };
+
+    const discard = () => {
+        const kept = lists.filter((list) => !list.isNew);
+        setLists(kept);
+        setDrafts(Object.fromEntries(kept.map((list) => [list.id, listToDraft(list)])));
+    };
+
+    const saveLists = async () => {
+        const problem = dirtyLists.map((list) => listDraftError(drafts[list.id])).find(Boolean);
+        if (problem) { toast(problem, 'error'); return; }
+        setSavingLists(true);
+        const saved = {};
         try {
-            const saved = await panelFetch(`/tenant/price-lists/${list.id}`, {
-                method: 'PUT',
-                body: { name: draft.name.trim(), percent, force_segment: draft.force_segment || null },
-                user,
-            });
-            setLists((items) => items.map((item) => (item.id === saved.id ? saved : item)));
-            toast('Lista guardada', 'success');
+            for (const list of dirtyLists) {
+                const body = listPayload(drafts[list.id]);
+                saved[list.id] = list.isNew
+                    ? await panelFetch('/tenant/price-lists', { method: 'POST', body, user })
+                    : await panelFetch(`/tenant/price-lists/${list.id}`, { method: 'PUT', body, user });
+            }
+            toast(dirtyLists.length > 1 ? 'Listas guardadas' : 'Lista guardada', 'success');
         } catch (err) {
             toast(errorText(err), 'error');
         } finally {
-            setSavingList(null);
+            // Lo que llegó a guardarse queda guardado aunque otra lista haya fallado.
+            setLists((items) => items.map((list) => saved[list.id] || list));
+            setDrafts((all) => {
+                const next = { ...all };
+                Object.entries(saved).forEach(([oldId, list]) => { delete next[oldId]; next[list.id] = listToDraft(list); });
+                return next;
+            });
+            setSavingLists(false);
         }
     };
 
-    const setDraft = (id, patch) => setDrafts((all) => ({ ...all, [id]: { ...all[id], ...patch } }));
-    const listDirty = (list) => {
-        const draft = drafts[list.id];
-        const base = listToDraft(list);
-        return draft && (draft.name !== base.name || Number(draft.percent) !== Number(base.percent) || draft.force_segment !== base.force_segment);
-    };
-
     return (
-        <div className="vp-sgrid">
-            <div className="vp-scol">
+        <div className="vp-scol vp-precios">
+            <div className="vp-pgrid">
                 <div className="vp-card vp-sec">
                     <h3>¿Quién ve los precios?</h3>
+                    <p>Qué pasa cuando alguien entra sin cuenta.</p>
                     <div className="vp-three">
                         {VISIBILITY.map(([mode, label, help]) => (
                             <button key={mode} type="button" className={`vp-choice ${visibility === mode ? 'on' : ''}`} onClick={() => updateCommerce({ price_visibility: mode, show_prices: mode !== PRICE_VISIBILITY.HIDDEN })}>
@@ -83,59 +106,73 @@ export default function AjustesPrecios({ editor, user, toast, onSave }) {
                             </button>
                         ))}
                     </div>
+                    <div className="vp-row">
+                        <div className="g"><b>Los clientes nuevos esperan tu aprobación</b><span>Hasta que los apruebes no ven precios de mayorista.{pending ? ` Hoy hay ${pending} esperando.` : ''}</span></div>
+                        {goClients ? <button type="button" className="vp-btn line sm" onClick={goClients}>{pending ? 'Ver pendientes' : 'Ver clientes'}</button> : null}
+                    </div>
                 </div>
 
-                <div className="vp-card vp-sec">
-                    <h3>Listas de precios</h3>
-                    <p>Cada cliente usa la lista de su tipo, salvo que le asignes otra en Clientes. El porcentaje se suma (o resta) al precio base.</p>
-                    {lists.map((list) => {
-                        const draft = drafts[list.id] || listToDraft(list);
-                        return (
-                            <div key={list.id} className="vp-stepc">
-                                <div className="g">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                                        <b>{list.name}</b>
-                                        <span className="vp-note">{LIST_TYPE[list.type] ? `Para ${LIST_TYPE[list.type].toLowerCase()}` : 'Se asigna a mano'}</span>
-                                    </div>
-                                    <div className="vp-three">
-                                        <input className="vp-inp" aria-label={`Nombre de ${list.name}`} value={draft.name} onChange={(event) => setDraft(list.id, { name: event.target.value })} />
-                                        <select className="vp-inp" aria-label={`Precio base de ${list.name}`} value={draft.force_segment} onChange={(event) => setDraft(list.id, { force_segment: event.target.value })}>
-                                            <option value="">Base: según el cliente</option>
-                                            <option value="retail">Base: precio minorista</option>
-                                            <option value="wholesale">Base: precio mayorista</option>
-                                        </select>
-                                        <label className="vp-search" style={{ minWidth: 0 }}>
-                                            <input inputMode="decimal" aria-label={`Porcentaje de ${list.name}`} value={draft.percent} onChange={(event) => setDraft(list.id, { percent: event.target.value })} />%
-                                        </label>
-                                    </div>
-                                    <span className="vp-note">
-                                        {Number(draft.percent) > 0 ? `${draft.percent}% más caro que la base` : Number(draft.percent) < 0 ? `${Math.abs(Number(draft.percent))}% más barato que la base` : 'Igual a la base'}
-                                    </span>
-                                    {listDirty(list) ? (
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                            <button type="button" className="vp-btn soft sm" onClick={() => setDraft(list.id, listToDraft(list))}>Descartar</button>
-                                            <button type="button" className="vp-btn acc sm" disabled={savingList === list.id} onClick={() => saveList(list)}>{savingList === list.id ? 'Guardando…' : 'Guardar lista'}</button>
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            <div className="vp-scol">
                 <div className="vp-card vp-sec">
                     <h3>Opiniones de clientes</h3>
+                    <p>Las estrellas y comentarios en cada producto.</p>
                     <div className="vp-row">
                         <div className="g"><b>Mostrar opiniones en los productos</b><span>Solo pueden opinar clientes con cuenta.</span></div>
                         <button type="button" role="switch" aria-checked={commerce.reviews_enabled !== false} aria-label="Mostrar opiniones" className={`vp-tog ${commerce.reviews_enabled === false ? 'off' : ''}`} onClick={() => updateCommerce({ reviews_enabled: commerce.reviews_enabled === false })} />
                     </div>
                 </div>
+            </div>
 
-                <div className="vp-card vp-sec">
-                    <h3>Nombres de los precios</h3>
-                    <p>Cómo se llama cada precio que llega de tu sistema (se ven en el detalle de precios del producto).</p>
+            <div className="vp-card vp-sec">
+                <h3>Tus listas de precios</h3>
+                <p>Poneles el nombre que quieras. Cada cliente usa la lista de su tipo, salvo que le asignes otra en Clientes.</p>
+                <div className="vp-tblw">
+                    <table className="vp-ltbl">
+                        <thead><tr><th>Nombre de la lista</th><th>Usa el precio</th><th>Ajuste</th><th>Clientes</th></tr></thead>
+                        <tbody>
+                            {lists.map((list) => {
+                                const draft = drafts[list.id] || listToDraft(list);
+                                const count = counts[list.id] || 0;
+                                return (
+                                    <tr key={list.id} className={listDirty(list, draft) ? 'dirty' : ''}>
+                                        <td>
+                                            <input className="vp-inp" aria-label="Nombre de la lista" placeholder="Ej.: Distribuidor" value={draft.name} onChange={(event) => setDraft(list.id, { name: event.target.value })} />
+                                            <span className="vp-note">{WHO[list.type] || WHO.special}</span>
+                                        </td>
+                                        <td>
+                                            <select className="vp-inp" aria-label={`Precio que usa ${draft.name || 'la lista'}`} value={draft.force_segment} onChange={(event) => setDraft(list.id, { force_segment: event.target.value })}>
+                                                <option value="">Según el cliente</option>
+                                                <option value="retail">{tierName(1)}</option>
+                                                <option value="wholesale">{tierName(2)}</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <label className="vp-pct">
+                                                <input inputMode="decimal" aria-label={`Ajuste de ${draft.name || 'la lista'}`} value={draft.percent} onChange={(event) => setDraft(list.id, { percent: event.target.value })} />
+                                                <span>%</span>
+                                            </label>
+                                            <span className="vp-note">{adjustText(draft.percent)}</span>
+                                        </td>
+                                        <td className="num">
+                                            {list.isNew ? <span className="vp-note">Nueva</span> : <b>{list.type === 'retail' ? `Nuevos + ${count}` : count}</b>}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="vp-lfoot">
+                    <button type="button" className="vp-addc" onClick={addList}>+ Nueva lista</button>
+                    <span className="vp-sp" />
+                    {dirtyLists.length ? <button type="button" className="vp-btn soft" onClick={discard} disabled={savingLists}>Descartar</button> : null}
+                    <button type="button" className="vp-btn acc" onClick={saveLists} disabled={!dirtyLists.length || savingLists}>{savingLists ? 'Guardando…' : 'Guardar listas'}</button>
+                </div>
+            </div>
+
+            <div className="vp-card vp-sec">
+                <h3>Nombres de los precios</h3>
+                <p>Cómo se llama cada precio que llega de tu sistema de gestión. Se ven en el detalle de precios del producto.</p>
+                <div className="vp-tiers">
                     {Array.from({ length: PRICE_TIER_SLOT_COUNT }, (_, index) => index + 1).slice(0, 6).map((slot) => (
                         <div key={slot} className="vp-fld">
                             <label htmlFor={`tier-${slot}`}>Precio {slot}</label>
@@ -143,17 +180,17 @@ export default function AjustesPrecios({ editor, user, toast, onSave }) {
                         </div>
                     ))}
                 </div>
-
                 <div className="vp-lock ok">
-                    ¿Subiste un precio acá y después volvió al anterior? Si el producto viene de tu sistema de gestión, en cada sincronización gana el precio del sistema.
-                    Para que no lo pise, abrí el producto y activá “No pisar mis cambios”.
+                    Si un producto viene de tu sistema de gestión, en cada sincronización gana el precio del sistema. Para que no lo pise, abrí el producto y activá “No pisar mis cambios”.
                 </div>
             </div>
 
-            <div className="vp-savebar" style={{ gridColumn: '1 / -1' }}>
-                <span className="vp-note" style={{ alignSelf: 'center' }}>{editor.canUndo ? 'Tenés cambios sin guardar en estos ajustes.' : 'Las listas se guardan cada una con su botón.'}</span>
-                <button type="button" className="vp-btn acc" onClick={onSave} disabled={!editor.canUndo || editor.saving}>{editor.saving ? 'Guardando…' : 'Guardar ajustes'}</button>
-            </div>
+            {editor.canUndo ? (
+                <div className="vp-floatsave" role="status">
+                    <span>Tenés cambios sin guardar en estos ajustes.</span>
+                    <button type="button" className="vp-btn acc" onClick={onSave} disabled={editor.saving}>{editor.saving ? 'Guardando…' : 'Guardar ajustes'}</button>
+                </div>
+            ) : null}
         </div>
     );
 }

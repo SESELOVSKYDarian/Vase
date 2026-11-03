@@ -1552,6 +1552,42 @@ tenantRouter.get('/price-lists', async (req, res, next) => {
   }
 });
 
+// Nueva lista de precios (tipo especial: se asigna a mano a cada cliente).
+tenantRouter.post('/price-lists', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+
+  const body = req.body || {};
+  const name = String(body.name || '').trim().slice(0, 80);
+  if (!name) {
+    return res.status(400).json({ error: 'name_required' });
+  }
+  const percent = body.percent === undefined || body.percent === '' ? 0 : Number(body.percent);
+  if (!Number.isFinite(percent) || percent < -90 || percent > 500) {
+    return res.status(400).json({ error: 'invalid_percent' });
+  }
+  const rules = { percent: Math.round(percent * 100) / 100 };
+  if (body.force_segment === 'retail' || body.force_segment === 'wholesale') rules.force_segment = body.force_segment;
+
+  try {
+    await ensurePricingSchema();
+    await ensureDefaultPriceLists(tenantId);
+    const result = await pool.query(
+      [
+        "insert into price_lists (tenant_id, name, type, rules_json) values ($1, $2, 'special', $3::jsonb)",
+        'returning id, name, type, rules_json, created_at',
+      ].join(' '),
+      [tenantId, name, JSON.stringify(rules)]
+    );
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err?.code === '23505') {
+      return res.status(409).json({ error: 'price_list_name_taken' });
+    }
+    return next(err);
+  }
+});
+
 tenantRouter.put('/price-lists/:id', async (req, res, next) => {
   const tenantId = getTenantId(req, res);
   if (!tenantId) return;

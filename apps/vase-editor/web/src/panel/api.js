@@ -33,6 +33,8 @@ const ERRORS = {
     parent_category_not_found: 'La categoría elegida ya no existe.',
     category_not_found: 'La categoría ya no existe.',
     product_not_found: 'El producto ya no existe.',
+    price_list_name_taken: 'Ya tenés una lista con ese nombre.',
+    invalid_percent: 'El ajuste va de -90% a 500%.',
 };
 
 export const errorText = (error) => ERRORS[error?.message] || 'No se pudo guardar. Probá de nuevo.';

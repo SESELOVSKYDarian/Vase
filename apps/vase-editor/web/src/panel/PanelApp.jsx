@@ -190,7 +190,7 @@ export default function PanelApp() {
             </div>
         );
     } else if (sub === 'precios') {
-        content = <AjustesPrecios editor={editor} user={user} toast={addToast} onSave={publish} />;
+        content = <AjustesPrecios editor={editor} user={user} toast={addToast} onSave={publish} goClients={() => go('clientes')} />;
     } else if (sub === 'sucursales') {
         content = <AjustesSucursales editor={editor} toast={addToast} goEnvios={() => go('envios')} />;
     } else if (sub === 'pagos') {
