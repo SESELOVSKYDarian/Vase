@@ -24,6 +24,7 @@ import Envios from './envios/Envios';
 import Diseno from './diseno/Diseno';
 import Icon from './components/Icon';
 import Notifications from './components/Notifications';
+import AjustesDominio from './screens/AjustesDominio';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
 // Último: los ajustes para celular le ganan a los estilos de cada pantalla.
 import './mobile.css';
@@ -247,6 +248,8 @@ export default function PanelApp() {
         content = <AjustesCorreo toast={addToast} goPagos={() => go('ajustes', 'pagos')} />;
     } else if (sub === 'gestion') {
         content = <AjustesGestion editor={editor} toast={addToast} />;
+    } else if (sub === 'dominio') {
+        content = <AjustesDominio user={user} toast={addToast} theme={theme} />;
     } else if (sub === 'equipo') {
         content = <AjustesEquipo user={user} toast={addToast} />;
     } else if (settingsPage) {

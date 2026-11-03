@@ -14,8 +14,8 @@ test('canal del pedido: sin configurar son los dos', () => {
     assert.equal(channelChoice(['email']), 'email');
 });
 
-test('solo Dominio sigue en el panel anterior', () => {
-    assert.deepEqual(SETTINGS_PAGES.filter((page) => page.phase).map((page) => page.id), ['dominio']);
+test('ningún ajuste sigue en el panel anterior (Dominio ya está en el nuevo)', () => {
+    assert.deepEqual(SETTINGS_PAGES.filter((page) => page.phase || page.legacy).map((page) => page.id), []);
 });
 
 test('la tienda respeta los canales elegidos y el servidor los guarda', async () => {

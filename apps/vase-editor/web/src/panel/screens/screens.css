@@ -160,3 +160,19 @@
 .vp .vp-inline { display: flex; gap: 8px; }
 .vp .vp-inline .vp-inp { flex: 1; min-width: 0; }
 .vp .vp-inp.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+
+/* Ajustes › Dominio */
+.vp .vp-dominio { max-width: 1120px; }
+.vp .vp-drow { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; flex-wrap: wrap; }
+.vp .vp-drow.on { border-color: var(--acc); background: var(--accsoft); }
+.vp .vp-drow .g { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 2px; }
+.vp .vp-drow .g span { font-size: 11.5px; color: var(--mut); font-weight: 600; }
+.vp .vp-dname { font-weight: 800; font-size: 14px; color: var(--tx); text-decoration: none; overflow-wrap: anywhere; }
+.vp .vp-dname:hover { text-decoration: underline; }
+.vp .vp-drow .vp-x { margin-left: 0; }
+.vp .vp-dnstbl code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; background: var(--soft); padding: 3px 7px; border-radius: 7px; overflow-wrap: anywhere; }
+.vp .vp-dnstbl { min-width: 520px; }
+.vp .vp-dnstbl th:nth-child(1), .vp .vp-dnstbl td:nth-child(1) { width: 80px; }
+.vp .vp-dnstbl th:nth-child(2), .vp .vp-dnstbl td:nth-child(2) { width: 110px; }
+.vp .vp-dnstbl th:nth-child(3), .vp .vp-dnstbl td:nth-child(3) { width: auto; }
+.vp .vp-dnstbl td.num { width: 90px; padding-top: 12px; }
