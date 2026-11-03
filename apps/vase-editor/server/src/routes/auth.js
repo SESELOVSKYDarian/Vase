@@ -10,6 +10,7 @@ import {
   sendSmtpEmail,
 } from '../services/mailer.js';
 import { exchangeVaseLaunchToken } from '../services/vaseBridge.js';
+import { resolveInitialMembershipStatus } from '../services/customerApproval.js';
 import { ensureUserProfileSchema, normalizeProfileFields, profileColumnsToSelect } from '../services/userProfile.js';
 
 export const authRouter = express.Router();
@@ -719,15 +720,15 @@ async function handleSignup(req, res, next) {
     );
 
     const user = userRes.rows[0];
-    // New accounts require manual approval from admin.
-    const membershipStatus = 'pending';
+    // Las cuentas nuevas esperan aprobación, salvo minoristas si la tienda lo apagó (Ajustes › Precios y listas).
+    const membershipStatus = await resolveInitialMembershipStatus(tenant_id, assignedRole);
     await pool.query(
       'insert into user_tenants (user_id, tenant_id, role, status) values ($1, $2, $3, $4)',
       [user.id, tenant_id, assignedRole, membershipStatus]
     );
     const verification = await issueEmailVerificationCode(user.id, user.email, name, tenant_id);
     return res.status(201).json({
-      requires_approval: true,
+      requires_approval: membershipStatus !== 'active',
       requires_email_verification: true,
       verification,
       user: { id: user.id, email: user.email, role: assignedRole, status: membershipStatus, tenant_id },
@@ -939,14 +940,16 @@ authRouter.post('/verify-email', async (req, res, next) => {
       [user.id]
     );
 
-    // Notify admin ONLY after email is verified
+    // Notify admin ONLY after email is verified (y solo si la cuenta espera aprobación)
+    let pendingApproval = true;
     try {
       const membershipRes = await pool.query(
-        'select tenant_id, role from user_tenants where user_id = $1 limit 1',
+        'select tenant_id, role, status from user_tenants where user_id = $1 limit 1',
         [user.id]
       );
       const membership = membershipRes.rows[0];
-      if (membership) {
+      pendingApproval = membership ? membership.status !== 'active' : true;
+      if (membership && pendingApproval) {
         await sendApprovalRequestedEmail({
           tenantId: membership.tenant_id,
           applicantEmail: user.email,
@@ -957,7 +960,7 @@ authRouter.post('/verify-email', async (req, res, next) => {
       console.error('[pending-approval-notification] No se pudo notificar al admin tras verificacion', notificationError);
     }
 
-    return res.json({ ok: true, verified: true, pending_approval: true });
+    return res.json({ ok: true, verified: true, pending_approval: pendingApproval });
   } catch (err) {
     return next(err);
   }

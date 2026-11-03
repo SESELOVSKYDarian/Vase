@@ -641,10 +641,12 @@ export default function SignupPage() {
         setError('');
         setVerificationLoading(true);
         try {
-            await verifyEmailCode(verificationEmail, verificationCode.trim());
+            const result = await verifyEmailCode(verificationEmail, verificationCode.trim());
             sessionStorage.setItem(
                 'teflon_auth_notice',
-                'Email verificado. Tu cuenta quedo pendiente de aprobacion del administrador.',
+                result?.pending_approval === false
+                    ? 'Email verificado. Ya podes ingresar con tu cuenta.'
+                    : 'Email verificado. Tu cuenta quedo pendiente de aprobacion del administrador.',
             );
             navigate('/login');
         } catch (err) {

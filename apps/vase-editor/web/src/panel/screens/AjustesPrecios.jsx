@@ -48,6 +48,8 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
 
     const counts = useMemo(() => countClientsByList(lists, clients), [lists, clients]);
     const pending = clients.filter((client) => client.status === 'pending').length;
+    // Sin ajuste cargado se aprueba a mano, como siempre.
+    const manualApproval = commerce.manual_approval !== false;
     const updateCommerce = (patch) => editor.setSettings((prev) => ({ ...prev, commerce: { ...(prev?.commerce || {}), ...patch } }));
     const setDraft = (id, patch) => setDrafts((all) => ({ ...all, [id]: { ...all[id], ...patch } }));
     const dirtyLists = lists.filter((list) => listDirty(list, drafts[list.id]));
@@ -107,9 +109,20 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                         ))}
                     </div>
                     <div className="vp-row">
-                        <div className="g"><b>Los clientes nuevos esperan tu aprobación</b><span>Hasta que los apruebes no ven precios de mayorista.{pending ? ` Hoy hay ${pending} esperando.` : ''}</span></div>
-                        {goClients ? <button type="button" className="vp-btn line sm" onClick={goClients}>{pending ? 'Ver pendientes' : 'Ver clientes'}</button> : null}
+                        <div className="g">
+                            <b>Aprobar clientes nuevos a mano</b>
+                            <span>{manualApproval
+                                ? 'Cada cuenta nueva espera que la apruebes antes de poder entrar.'
+                                : 'Los minoristas entran solos apenas verifican su correo. Los mayoristas siempre esperan tu aprobación.'}</span>
+                        </div>
+                        <button type="button" role="switch" aria-checked={manualApproval} aria-label="Aprobar clientes nuevos a mano" className={`vp-tog ${manualApproval ? '' : 'off'}`} onClick={() => updateCommerce({ manual_approval: !manualApproval })} />
                     </div>
+                    {pending ? (
+                        <div className="vp-lock">
+                            Hoy hay {pending} {pending === 1 ? 'cuenta esperando' : 'cuentas esperando'} tu aprobación.
+                            {goClients ? <> <button type="button" className="vp-link" onClick={goClients}>Ver pendientes</button></> : null}
+                        </div>
+                    ) : null}
                 </div>
 
                 <div className="vp-card vp-sec">

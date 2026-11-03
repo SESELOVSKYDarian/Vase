@@ -34,3 +34,10 @@ test('borradores de lista: cambios, errores y lo que se manda', () => {
     assert.equal(adjustText('-5'), '5% más barato');
     assert.equal(adjustText('12'), '12% más caro');
 });
+
+test('el interruptor de aprobar a mano guarda commerce.manual_approval y arranca prendido', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const screen = await readFile(new URL('../src/panel/screens/AjustesPrecios.jsx', import.meta.url), 'utf8');
+    assert.match(screen, /const manualApproval = commerce\.manual_approval !== false;/);
+    assert.match(screen, /updateCommerce\(\{ manual_approval: !manualApproval \}\)/);
+});
