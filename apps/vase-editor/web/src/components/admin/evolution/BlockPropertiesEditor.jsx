@@ -131,7 +131,7 @@ const readFileAsDataUrl = (file) =>
     });
 
 const SectionHeading = ({ icon: Icon, children }) => (
-    <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+    <div data-section-heading="" className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">
         <Icon size={14} weight="bold" />
         {children}
     </div>

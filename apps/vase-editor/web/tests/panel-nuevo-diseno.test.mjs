@@ -34,7 +34,10 @@ test('Diseño de la tienda ya es del panel nuevo y adapta los formularios anteri
     assert.match(app, /section === 'diseno' && !editor\.loading\) \{\s*fullScreen = \(\s*<Diseno/);
     assert.match(app, /section === 'diseno' \? null : \(\s*<Topbar/);
     const screen = await read('../src/panel/diseno/Diseno.jsx');
-    assert.match(screen, /<BlockPropertiesEditor/);
+    assert.match(screen, /<BlockInspector/);
+    const inspector = await read('../src/panel/diseno/BlockInspector.jsx');
+    assert.match(inspector, /<BlockPropertiesEditor/);
+    assert.match(inspector, /INSPECTOR_TABS/);
     assert.match(screen, /<StorePreview settings=\{settings\} sections=\{previewSections\}/);
     assert.match(screen, /aria-label="Cerrar el editor"/);
     assert.match(screen, /aria-label="Cerrar los bloques"/);
@@ -59,4 +62,26 @@ test('menú de arriba y pie: links y valores de la plantilla', async () => {
     assert.equal(linksSummary(own.shopLinks), 'A');
     assert.equal(own.whatsapp_enabled, false);
     assert.equal(linksSummary([]), 'Sin links');
+});
+
+test('estilo y celular del bloque: se guarda en props y la tienda lo aplica', async () => {
+    const { deviceClass, spacingStyle, sectionStyleOf, withSectionStyle, hiddenOn, headingTab } = await import('../src/utils/sectionStyle.js');
+    assert.equal(deviceClass({}), undefined);
+    assert.equal(spacingStyle({}), undefined);
+    const props = withSectionStyle({ title: 'Hola' }, { spaceTop: 'lg', hideMobile: true });
+    assert.deepEqual(props, { title: 'Hola', section_style: { spaceTop: 'lg', hideMobile: true } });
+    assert.equal(deviceClass(props), 'hidden md:block');
+    assert.deepEqual(spacingStyle(props), { marginTop: 88 });
+    assert.equal(hiddenOn(props, 'mobile'), true);
+    assert.equal(hiddenOn(props, 'desktop'), false);
+    assert.equal(deviceClass(withSectionStyle({}, { hideDesktop: true })), 'md:hidden');
+    // Volver todo a lo de siempre borra section_style.
+    assert.deepEqual(withSectionStyle(props, { spaceTop: 'none', hideMobile: false }), { title: 'Hola' });
+    assert.deepEqual(sectionStyleOf({ section_style: { spaceTop: 'xx' } }).spaceTop, 'none');
+    assert.equal(headingTab('Colores del hero'), 'estilo');
+    assert.equal(headingTab('Plantilla'), 'estilo');
+    assert.equal(headingTab('Tamano de la portada'), 'estilo');
+    assert.equal(headingTab('Botones'), 'contenido');
+    const builder = await read('../src/components/PageBuilder.jsx');
+    assert.match(builder, /className=\{ignoreDevice \? undefined : deviceClass\(section\.props\)\}/);
 });

@@ -112,3 +112,13 @@
 .vp .vp-inspl > div > div:first-child { display: none; }
 .vp .vp-inspl > .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 14px; }
 .vp .vp-inspl .rounded-2xl, .vp .vp-inspl .rounded-xl { border-radius: 12px; }
+/* pestañas del editor del bloque */
+.vp .vp-itabs { display: flex; gap: 2px; padding: 3px; border-radius: 11px; background: var(--soft); position: sticky; top: -16px; z-index: 3; box-shadow: 0 -16px 0 var(--card); }
+.vp .vp-itabs button { flex: 1; height: 32px; border: 0; border-radius: 8px; background: none; color: var(--mut); font: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.vp .vp-itabs button.on { background: var(--card); color: var(--tx); box-shadow: var(--sh-sm); }
+.vp .vp-isub { display: flex; flex-direction: column; gap: 12px; padding: 14px; }
+.vp .vp-isub > b { font-size: 13px; font-weight: 800; }
+.vp .vp-isub .vp-seg button { padding: 0 4px; }
+.vp .vp-inspl[data-show="contenido"] [data-tab="estilo"],
+.vp .vp-inspl[data-show="estilo"] [data-tab="contenido"],
+.vp .vp-inspl[data-show="celular"] { display: none; }

@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ResponsivePreviewFrame from '../../components/admin/evolution/ResponsivePreviewFrame';
-import BlockPropertiesEditor from '../../components/admin/evolution/BlockPropertiesEditor';
 import CatalogPageEditor from '../../components/admin/evolution/CatalogPageEditor';
 import AppearanceEditor from '../../components/admin/evolution/AppearanceEditor';
 import { DEFAULT_ABOUT_SECTIONS, DEFAULT_HOME_SECTIONS, PIQUIM_ABOUT_SECTIONS, PIQUIM_HOME_SECTIONS } from '../../data/defaultSections';
@@ -12,6 +11,7 @@ import { BLOCK_TYPES, blockLabel, blockSummary, createBlock, editorPageKey, move
 import { FOOTER_ID, HEADER_ID, linksSummary, navLinksFromSettings } from './chrome';
 import StorePreview from './StorePreview';
 import { FooterEditor, HeaderEditor } from './ChromeEditors';
+import BlockInspector from './BlockInspector';
 import './diseno.css';
 
 const PAGES = [
@@ -49,6 +49,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
     const [adding, setAdding] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [dragIndex, setDragIndex] = useState(null);
+    const [inspTab, setInspTab] = useState('contenido');
 
     const isBlocksPage = page === 'home' || page === 'about';
     const pageKey = editorPageKey(page, isPiquim);
@@ -181,7 +182,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                     <section className="vp-dzc" aria-label="Vista previa de la tienda">
                         <div className={`vp-dzframe ${viewport}`}>
                             <ResponsivePreviewFrame viewport={viewport}>
-                                <StorePreview settings={settings} sections={previewSections} labelFor={labelFor} selectedId={selectedId} onSelect={select} isPiquim={isPiquim} />
+                                <StorePreview settings={settings} sections={previewSections} labelFor={labelFor} selectedId={selectedId} onSelect={select} isPiquim={isPiquim} viewport={viewport} />
                             </ResponsivePreviewFrame>
                         </div>
                         <span className="vp-dzhint">Tocá cualquier parte de la tienda para editarla.</span>
@@ -203,9 +204,13 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                                 {selectedId === HEADER_ID ? <HeaderEditor settings={settings} setSettings={editor.setSettings} pickers={pickers} /> : null}
                                 {selectedId === FOOTER_ID ? <FooterEditor settings={settings} setSettings={editor.setSettings} pickers={pickers} isPiquim={isPiquim} /> : null}
                                 {selected ? (
-                                    <div className="vp-legacy vp-inspl">
-                                        <BlockPropertiesEditor key={selected.id} block={selected} onChange={(next) => setBlocks((list) => replaceBlock(list, { ...selected, ...next, id: selected.id }))} />
-                                    </div>
+                                    <BlockInspector
+                                        block={selected}
+                                        onChange={(next) => setBlocks((list) => replaceBlock(list, { ...next, id: selected.id }))}
+                                        tab={inspTab}
+                                        onTab={setInspTab}
+                                        onViewport={setViewport}
+                                    />
                                 ) : null}
                                 {!inspectorTitle ? (
                                     <div className="vp-dzempty">

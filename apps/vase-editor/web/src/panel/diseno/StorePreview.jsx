@@ -4,6 +4,7 @@ import Header from '../../components/layout/Header';
 import Footer from '../../components/layout/Footer';
 import { TenantContext } from '../../context/TenantContext';
 import { FOOTER_ID, HEADER_ID, navbarProps } from './chrome';
+import { hiddenOn } from '../../utils/sectionStyle';
 
 // Estilos que viven dentro del iframe de la vista previa (ahí no llega .vp).
 const PREVIEW_CSS = `
@@ -28,7 +29,7 @@ function Selectable({ id, label, selectedId, hidden, children, chrome }) {
 
 // La tienda dentro del editor: misma cabecera, bloques y pie que ve el cliente, con los cambios sin publicar.
 // Tocar un bloque lo elige; los links y botones no navegan.
-export default function StorePreview({ settings, sections, labelFor, selectedId, onSelect, isPiquim }) {
+export default function StorePreview({ settings, sections, labelFor, selectedId, onSelect, isPiquim, viewport = 'desktop' }) {
     const tenantContext = useContext(TenantContext) || {};
     const rootRef = useRef(null);
 
@@ -68,11 +69,15 @@ export default function StorePreview({ settings, sections, labelFor, selectedId,
                 <Selectable id={HEADER_ID} label="Menú de arriba" selectedId={selectedId} chrome="header">
                     <Header {...navbarProps(settings, isPiquim)} />
                 </Selectable>
-                {sections.length ? sections.map((section) => (
-                    <Selectable key={section.id} id={section.id} label={labelFor(section)} selectedId={selectedId} hidden={section.enabled === false}>
-                        <PageBuilder sections={[{ ...section, enabled: true }]} />
-                    </Selectable>
-                )) : <PageBuilder sections={[]} />}
+                {sections.length ? sections.map((section) => {
+                    const offHere = hiddenOn(section.props, viewport);
+                    const label = section.enabled === false ? `${labelFor(section)} · oculto` : offHere ? `${labelFor(section)} · oculto en ${viewport === 'mobile' ? 'celular' : 'compu'}` : labelFor(section);
+                    return (
+                        <Selectable key={section.id} id={section.id} label={label} selectedId={selectedId} hidden={section.enabled === false || offHere}>
+                            <PageBuilder sections={[{ ...section, enabled: true }]} ignoreDevice />
+                        </Selectable>
+                    );
+                }) : <PageBuilder sections={[]} />}
                 <Selectable id={FOOTER_ID} label="Pie de página" selectedId={selectedId}>
                     <Footer />
                 </Selectable>
