@@ -31,11 +31,32 @@ test('agregar, mover, ocultar, reemplazar y quitar bloques', () => {
 
 test('Diseño de la tienda ya es del panel nuevo y adapta los formularios anteriores al tema', async () => {
     const app = await read('../src/panel/PanelApp.jsx');
-    assert.match(app, /section === 'diseno' && !editor\.loading\) \{\s*fullScreen = <Diseno/);
+    assert.match(app, /section === 'diseno' && !editor\.loading\) \{\s*fullScreen = \(\s*<Diseno/);
+    assert.match(app, /section === 'diseno' \? null : \(\s*<Topbar/);
     const screen = await read('../src/panel/diseno/Diseno.jsx');
     assert.match(screen, /<BlockPropertiesEditor/);
-    assert.match(screen, /<PageBuilder sections=\{previewSections\}/);
+    assert.match(screen, /<StorePreview settings=\{settings\} sections=\{previewSections\}/);
+    assert.match(screen, /aria-label="Cerrar el editor"/);
+    assert.match(screen, /aria-label="Cerrar los bloques"/);
+    const preview = await read('../src/panel/diseno/StorePreview.jsx');
+    assert.match(preview, /addEventListener\(\'click\', pick, true\)/);
+    assert.match(preview, /<Header /);
+    assert.match(preview, /<Footer \/>/);
     const css = await read('../src/panel/diseno/diseno.css');
     assert.match(css, /\.vp \.vp-legacy \.text-white/);
     assert.match(css, /\.vp \.vp-legacy \.border-white\\\/10/);
+});
+
+test('menú de arriba y pie: links y valores de la plantilla', async () => {
+    const { navLinksFromSettings, footerValues, linksSummary } = await import('../src/panel/diseno/chrome.js');
+    assert.deepEqual(navLinksFromSettings({}).map((link) => link.href), ['/', '/catalog', '/about']);
+    assert.deepEqual(navLinksFromSettings({ branding: { navbar: { links: [{ label: 'Ofertas', href: '/catalog?ofertas=1' }] } } }).map((link) => link.label), ['Ofertas']);
+    const generic = footerValues({}, false);
+    assert.equal(generic.newsletter.enabled, false);
+    assert.equal(generic.whatsapp_enabled, true);
+    const own = footerValues({ branding: { footer: { description: 'Hola', shopLinks: [{ label: 'A', href: '/' }], whatsapp_enabled: false } } }, false);
+    assert.equal(own.description, 'Hola');
+    assert.equal(linksSummary(own.shopLinks), 'A');
+    assert.equal(own.whatsapp_enabled, false);
+    assert.equal(linksSummary([]), 'Sin links');
 });

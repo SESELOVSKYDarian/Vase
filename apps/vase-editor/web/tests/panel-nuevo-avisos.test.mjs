@@ -26,6 +26,7 @@ test('junta pagos y registros, lo más nuevo arriba, y filtra por pestaña', () 
 
 test('la campanita abre el panel de avisos en vez de cambiar de sección', async () => {
     const app = await readFile(new URL('../src/panel/PanelApp.jsx', import.meta.url), 'utf8');
-    assert.match(app, /onNotifications=\{\(\) => \{ setNotesOpen\(true\)/);
+    assert.match(app, /const openNotifications = \(\) => \{ setNotesOpen\(true\)/);
+    assert.match(app, /onNotifications=\{openNotifications\}/);
     assert.match(app, /<Notifications open=\{notesOpen\}/);
 });

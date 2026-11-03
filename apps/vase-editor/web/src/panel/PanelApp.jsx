@@ -122,6 +122,7 @@ export default function PanelApp() {
         }
     };
 
+    const openNotifications = () => { setNotesOpen(true); notifications.refresh?.(); };
     const status = editor.canUndo ? { dirty: true, text: 'Cambios sin publicar' } : { dirty: false, text: 'Todo publicado' };
     const vaseUrl = String(import.meta.env.VITE_VASE_APP_URL || 'https://app.vase.ar').replace(/\/+$/, '');
 
@@ -144,7 +145,20 @@ export default function PanelApp() {
     } else if (section === 'clientes') {
         fullScreen = <Clientes user={user} toast={addToast} onChanged={notifications.refresh} />;
     } else if (section === 'diseno' && !editor.loading) {
-        fullScreen = <Diseno editor={editor} isPiquim={isPiquimTenantIdentity({ tenant, settings })} theme={theme} toast={addToast} onPublish={publish} />;
+        fullScreen = (
+            <Diseno
+                editor={editor}
+                isPiquim={isPiquimTenantIdentity({ tenant, settings })}
+                theme={theme}
+                toast={addToast}
+                status={status}
+                onPublish={publish}
+                publishing={editor.saving}
+                badges={badges}
+                onNotifications={openNotifications}
+                onHelp={() => setHelp('section')}
+            />
+        );
     } else if (section === 'envios' && !editor.loading) {
         fullScreen = <Envios editor={editor} toast={addToast} theme={theme} goSettings={(page) => go('ajustes', page)} />;
     }
@@ -216,18 +230,20 @@ export default function PanelApp() {
                 }}
             />
             <main className="vp-main">
-                <Topbar
-                    title={meta.title}
-                    subtitle={meta.subtitle}
-                    crumb={settingsPage ? 'Ajustes' : null}
-                    onBack={() => go('ajustes')}
-                    status={status}
-                    onPublish={publish}
-                    publishing={editor.saving}
-                    badges={badges}
-                    onNotifications={() => { setNotesOpen(true); notifications.refresh?.(); }}
-                    onHelp={() => setHelp('section')}
-                />
+                {section === 'diseno' ? null : (
+                    <Topbar
+                        title={meta.title}
+                        subtitle={meta.subtitle}
+                        crumb={settingsPage ? 'Ajustes' : null}
+                        onBack={() => go('ajustes')}
+                        status={status}
+                        onPublish={publish}
+                        publishing={editor.saving}
+                        badges={badges}
+                        onNotifications={openNotifications}
+                        onHelp={() => setHelp('section')}
+                    />
+                )}
                 {fullScreen || (
                     <div className="vp-page">
                         <div className="vp-body">

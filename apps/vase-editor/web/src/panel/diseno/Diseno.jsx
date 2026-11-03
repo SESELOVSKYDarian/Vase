@@ -1,14 +1,17 @@
-import React, { useMemo, useState } from 'react';
-import PageBuilder from '../../components/PageBuilder';
+import React, { useEffect, useMemo, useState } from 'react';
 import ResponsivePreviewFrame from '../../components/admin/evolution/ResponsivePreviewFrame';
 import BlockPropertiesEditor from '../../components/admin/evolution/BlockPropertiesEditor';
 import CatalogPageEditor from '../../components/admin/evolution/CatalogPageEditor';
 import AppearanceEditor from '../../components/admin/evolution/AppearanceEditor';
 import { DEFAULT_ABOUT_SECTIONS, DEFAULT_HOME_SECTIONS, PIQUIM_ABOUT_SECTIONS, PIQUIM_HOME_SECTIONS } from '../../data/defaultSections';
 import { PRODUCT_PLACEHOLDER_IMAGE } from '../../utils/productImage';
+import Icon from '../components/Icon';
 import { Modal } from '../components/Overlays';
 import { productThumb } from '../catalog/model';
 import { BLOCK_TYPES, blockLabel, blockSummary, createBlock, editorPageKey, moveBlock, removeBlock, replaceBlock, toggleBlock } from './model';
+import { FOOTER_ID, HEADER_ID, linksSummary, navLinksFromSettings } from './chrome';
+import StorePreview from './StorePreview';
+import { FooterEditor, HeaderEditor } from './ChromeEditors';
 import './diseno.css';
 
 const PAGES = [
@@ -36,8 +39,8 @@ const previewProduct = (product) => ({
     is_featured: Boolean(product.is_featured),
 });
 
-// Diseño de la tienda: bloques a la izquierda, la página en el medio y lo que se edita a la derecha.
-export default function Diseno({ editor, isPiquim, theme, toast, onPublish }) {
+// Diseño de la tienda: bloques a la izquierda, la tienda en el medio (se toca para elegir) y el editor a la derecha.
+export default function Diseno({ editor, isPiquim, theme, toast, status, onPublish, publishing, badges, onNotifications, onHelp }) {
     const [page, setPage] = useState('home');
     const [selectedId, setSelectedId] = useState(null);
     const [viewport, setViewport] = useState('desktop');
@@ -51,6 +54,13 @@ export default function Diseno({ editor, isPiquim, theme, toast, onPublish }) {
     const pageKey = editorPageKey(page, isPiquim);
     const blocks = isBlocksPage && Array.isArray(editor.pageSections?.[page]) ? editor.pageSections[page] : [];
     const selected = blocks.find((block) => block.id === selectedId) || null;
+    const selectedChrome = selectedId === HEADER_ID || selectedId === FOOTER_ID ? selectedId : null;
+    const settings = editor.settings || {};
+    const pickers = { categories: editor.categories || [], products: editor.products || [], whatsapp: settings.commerce?.whatsapp_number || '' };
+
+    useEffect(() => {
+        if (selectedId && !selected && !selectedChrome) setSelectedId(null);
+    }, [selectedId, selected, selectedChrome]);
 
     const setBlocks = (updater) => editor.setPageSections((prev) => {
         const current = Array.isArray(prev?.[page]) ? prev[page] : [];
@@ -58,62 +68,70 @@ export default function Diseno({ editor, isPiquim, theme, toast, onPublish }) {
     });
 
     const featured = useMemo(() => (editor.products || []).filter((product) => product.is_featured).slice(0, 8).map(previewProduct), [editor.products]);
-    const previewSections = useMemo(() => blocks
-        .filter((block) => block.enabled !== false)
-        .map((block) => ({
-            ...block,
-            props: {
-                ...(block.props || {}),
-                ...(block.type === 'FeaturedProducts' || block.type === 'PiquimFeaturedProducts' ? { products: featured } : {}),
-            },
-        })), [blocks, featured]);
+    const previewSections = useMemo(() => blocks.map((block) => ({
+        ...block,
+        props: {
+            ...(block.props || {}),
+            ...(block.type === 'FeaturedProducts' || block.type === 'PiquimFeaturedProducts' ? { products: featured } : {}),
+        },
+    })), [blocks, featured]);
 
+    const select = (id) => { setSelectedId(id); setShowInspector(true); setAdding(false); };
     const add = (type) => {
         const block = createBlock(type, TEMPLATES[pageKey] || []);
         setBlocks((list) => [...list, block]);
-        setSelectedId(block.id);
-        setShowInspector(true);
-        setAdding(false);
+        select(block.id);
     };
 
     const big = !showBlocks && !showInspector;
     const switchPage = (id) => { setPage(id); setSelectedId(null); setAdding(false); };
+    const labelFor = (block) => blockLabel(pageKey, block.type);
+    const inspectorTitle = selectedId === HEADER_ID ? 'Menú de arriba' : selectedId === FOOTER_ID ? 'Pie de página' : selected ? labelFor(selected) : null;
+
+    const chromeRow = (id, icon, label, summary) => (
+        <button type="button" className={`vp-dzb chrome ${selectedId === id ? 'on' : ''}`} onClick={() => select(id)}>
+            <span className="bic" aria-hidden="true"><Icon name={icon} size={15} /></span>
+            <span className="g"><b>{label}</b><span>{summary}</span></span>
+        </button>
+    );
 
     return (
         <div className="vp-page vp-dz">
             <div className="vp-dzbar">
-                <div className="vp-tabs2" role="tablist" aria-label="Páginas de la tienda">
+                <div className="vp-tabs2" role="tablist" aria-label="Página que estás editando">
                     {PAGES.map(([id, label]) => (
                         <button key={id} type="button" role="tab" aria-selected={page === id} className={`vp-t2 ${page === id ? 'on' : ''}`} onClick={() => switchPage(id)}>{label}</button>
                     ))}
                 </div>
                 <div className="vp-sp" />
-                {isPiquim ? <span className="vp-tag g" title="Tu tienda usa un diseño hecho a medida"><i />Plantilla personalizada</span> : null}
                 {isBlocksPage ? (
-                    <>
-                        <div className="vp-seg" style={{ width: 180 }}>
-                            <button type="button" className={viewport === 'desktop' ? 'on' : ''} onClick={() => setViewport('desktop')}>Compu</button>
-                            <button type="button" className={viewport === 'mobile' ? 'on' : ''} onClick={() => setViewport('mobile')}>Celular</button>
+                    <div className="vp-dztools">
+                        <button type="button" className={`vp-ibtn sq ${showBlocks ? 'on' : ''}`} onClick={() => setShowBlocks((value) => !value)} aria-pressed={showBlocks} aria-label="Mostrar u ocultar los bloques" title="Bloques"><Icon name="list" size={17} /></button>
+                        <button type="button" className={`vp-ibtn sq ${showInspector ? 'on' : ''}`} onClick={() => setShowInspector((value) => !value)} aria-pressed={showInspector} aria-label="Mostrar u ocultar el editor del bloque" title="Editor del bloque"><Icon name="sliders" size={17} /></button>
+                        <button type="button" className="vp-btn line sm" onClick={() => { setShowBlocks(big); setShowInspector(big); }}><Icon name="expand" size={14} />{big ? 'Ver paneles' : 'Pantalla grande'}</button>
+                        <div className="vp-seg vp-dev" role="group" aria-label="Vista previa">
+                            <button type="button" className={viewport === 'desktop' ? 'on' : ''} onClick={() => setViewport('desktop')} aria-label="Computadora" title="Computadora"><Icon name="monitor" size={16} /></button>
+                            <button type="button" className={viewport === 'mobile' ? 'on' : ''} onClick={() => setViewport('mobile')} aria-label="Celular" title="Celular"><Icon name="phone" size={16} /></button>
                         </div>
-                        <button type="button" className={`vp-btn ${showBlocks ? 'soft' : 'line'} sm`} onClick={() => setShowBlocks((value) => !value)}>Bloques</button>
-                        <button type="button" className={`vp-btn ${showInspector ? 'soft' : 'line'} sm`} onClick={() => setShowInspector((value) => !value)}>Editar</button>
-                        <button type="button" className="vp-btn line sm" onClick={() => { setShowBlocks(big); setShowInspector(big); }}>{big ? 'Ver paneles' : 'Pantalla grande'}</button>
-                    </>
+                    </div>
                 ) : null}
+                <span className="vp-status" role="status"><i className={status.dirty ? '' : 'ok'} />{status.text}</span>
+                <button type="button" className="vp-btn acc" onClick={onPublish} disabled={publishing}>{publishing ? 'Publicando…' : 'Publicar'}</button>
+                <button type="button" className="vp-ibtn" onClick={onNotifications} aria-label={`Avisos: ${badges.total || 0}`}>
+                    <Icon name="bell" size={17} />
+                    {badges.total ? <span className="n">{badges.total}</span> : null}
+                </button>
+                <button type="button" className="vp-ibtn" onClick={onHelp} aria-label="Ayuda de esta sección" title="Ayuda de esta sección">?</button>
             </div>
 
             {isBlocksPage ? (
                 <div className={`vp-dzgrid ${showBlocks ? '' : 'no-l'} ${showInspector ? '' : 'no-r'}`}>
                     {showBlocks ? (
                         <aside className="vp-dzl" aria-label="Bloques de la página">
-                            <div className="vp-dzh"><b>Bloques</b><button type="button" className="vp-btn acc sm" onClick={() => setAdding((value) => !value)}>+ Agregar</button></div>
-                            {adding ? (
-                                <div className="vp-dzadd">
-                                    {(BLOCK_TYPES[pageKey] || []).map(([type, label]) => (
-                                        <button key={type} type="button" className="vp-mi" onClick={() => add(type)}>{label}</button>
-                                    ))}
-                                </div>
-                            ) : null}
+                            <div className="vp-dzh"><b>Bloques</b><button type="button" className="vp-x" aria-label="Cerrar los bloques" onClick={() => setShowBlocks(false)}>×</button></div>
+                            <div className="vp-dzsep">En todas las páginas</div>
+                            {chromeRow(HEADER_ID, 'layout', 'Menú de arriba', linksSummary(navLinksFromSettings(settings)))}
+                            <div className="vp-dzsep">Esta página · arrastrá para ordenar</div>
                             <div className="vp-dzlist">
                                 {blocks.map((block, index) => (
                                     <div
@@ -126,47 +144,77 @@ export default function Diseno({ editor, isPiquim, theme, toast, onPublish }) {
                                         onDragEnd={() => setDragIndex(null)}
                                     >
                                         <span className="grip" aria-hidden="true">⋮⋮</span>
-                                        <button type="button" className="g" onClick={() => { setSelectedId(block.id); setShowInspector(true); }}>
-                                            <b>{blockLabel(pageKey, block.type)}</b>
-                                            <span>{block.enabled === false ? 'Oculto' : blockSummary(block) || 'Visible'}</span>
+                                        <button type="button" className="g" onClick={() => select(block.id)}>
+                                            <b>{labelFor(block)}</b>
+                                            <span>{block.enabled === false ? 'Oculto en la tienda' : blockSummary(block) || 'Visible'}</span>
                                         </button>
                                         <div className="acts">
-                                            <button type="button" aria-label="Subir" disabled={index === 0} onClick={() => setBlocks((list) => moveBlock(list, index, index - 1))}>↑</button>
-                                            <button type="button" aria-label="Bajar" disabled={index === blocks.length - 1} onClick={() => setBlocks((list) => moveBlock(list, index, index + 1))}>↓</button>
-                                            <button type="button" aria-label={block.enabled === false ? 'Mostrar' : 'Ocultar'} onClick={() => setBlocks((list) => toggleBlock(list, block.id))}>{block.enabled === false ? '◌' : '●'}</button>
-                                            <button type="button" aria-label="Eliminar" className="del" onClick={() => setConfirmDelete(block)}>×</button>
+                                            <button type="button" aria-label="Subir" title="Subir" disabled={index === 0} onClick={() => setBlocks((list) => moveBlock(list, index, index - 1))}>↑</button>
+                                            <button type="button" aria-label="Bajar" title="Bajar" disabled={index === blocks.length - 1} onClick={() => setBlocks((list) => moveBlock(list, index, index + 1))}>↓</button>
+                                            <button type="button" aria-label="Eliminar" title="Eliminar" className="del" onClick={() => setConfirmDelete(block)}><Icon name="trash" size={14} /></button>
                                         </div>
+                                        <button type="button" className="eye" aria-label={block.enabled === false ? 'Mostrar en la tienda' : 'Ocultar en la tienda'} title={block.enabled === false ? 'Mostrar' : 'Ocultar'} onClick={() => setBlocks((list) => toggleBlock(list, block.id))}>
+                                            <Icon name={block.enabled === false ? 'eyeoff' : 'eye'} size={15} />
+                                        </button>
                                     </div>
                                 ))}
                                 {!blocks.length ? <div className="vp-note" style={{ padding: 12 }}>Esta página todavía no tiene bloques.</div> : null}
                             </div>
-                            <span className="vp-note" style={{ padding: '8px 4px' }}>Arrastrá para ordenar. Los ocultos no se ven en la tienda.</span>
+                            <button type="button" className="vp-btn soft sm vp-dzaddb" onClick={() => setAdding((value) => !value)} aria-expanded={adding}><Icon name="plus" size={14} />Agregar bloque</button>
+                            {adding ? (
+                                <div className="vp-dzadd">
+                                    {(BLOCK_TYPES[pageKey] || []).map(([type, label]) => (
+                                        <button key={type} type="button" className="vp-mi" onClick={() => add(type)}>{label}</button>
+                                    ))}
+                                </div>
+                            ) : null}
+                            <div className="vp-dzsep">En todas las páginas</div>
+                            {chromeRow(FOOTER_ID, 'layout', 'Pie de página', 'Links, contacto y texto legal')}
+                            <div className="vp-dzsep">Estilo general</div>
+                            <button type="button" className="vp-dzb chrome" onClick={() => switchPage('apariencia')}>
+                                <span className="bic" aria-hidden="true"><Icon name="palette" size={15} /></span>
+                                <span className="g"><b>Colores, letras y logo</b><span>Para toda la tienda</span></span>
+                            </button>
                         </aside>
                     ) : null}
 
-                    <section className="vp-dzc" aria-label="Vista previa">
+                    <section className="vp-dzc" aria-label="Vista previa de la tienda">
                         <div className={`vp-dzframe ${viewport}`}>
                             <ResponsivePreviewFrame viewport={viewport}>
-                                <PageBuilder sections={previewSections} />
+                                <StorePreview settings={settings} sections={previewSections} labelFor={labelFor} selectedId={selectedId} onSelect={select} isPiquim={isPiquim} />
                             </ResponsivePreviewFrame>
                         </div>
+                        <span className="vp-dzhint">Tocá cualquier parte de la tienda para editarla.</span>
                     </section>
 
                     {showInspector ? (
-                        <aside className="vp-dzr" aria-label="Editar bloque">
-                            {selected ? (
-                                <>
-                                    <div className="vp-dzh"><b>{blockLabel(pageKey, selected.type)}</b><button type="button" className="vp-x" aria-label="Cerrar" onClick={() => setSelectedId(null)}>×</button></div>
-                                    <div className="vp-legacy">
+                        <aside className="vp-dzr" aria-label="Editor del bloque">
+                            <div className="vp-dzih">
+                                <div style={{ minWidth: 0 }}>
+                                    <small>{inspectorTitle ? 'Editando' : 'Editor'}</small>
+                                    <b>{inspectorTitle || 'Elegí un bloque'}</b>
+                                </div>
+                                {selected ? (
+                                    <button type="button" role="switch" aria-checked={selected.enabled !== false} aria-label="Visible en la tienda" title={selected.enabled === false ? 'Oculto en la tienda' : 'Visible en la tienda'} className={`vp-tog ${selected.enabled === false ? 'off' : ''}`} onClick={() => setBlocks((list) => toggleBlock(list, selected.id))} />
+                                ) : null}
+                                <button type="button" className="vp-x" aria-label="Cerrar el editor" onClick={() => setShowInspector(false)}>×</button>
+                            </div>
+                            <div className="vp-dzib">
+                                {selectedId === HEADER_ID ? <HeaderEditor settings={settings} setSettings={editor.setSettings} pickers={pickers} /> : null}
+                                {selectedId === FOOTER_ID ? <FooterEditor settings={settings} setSettings={editor.setSettings} pickers={pickers} isPiquim={isPiquim} /> : null}
+                                {selected ? (
+                                    <div className="vp-legacy vp-inspl">
                                         <BlockPropertiesEditor key={selected.id} block={selected} onChange={(next) => setBlocks((list) => replaceBlock(list, { ...selected, ...next, id: selected.id }))} />
                                     </div>
-                                </>
-                            ) : (
-                                <div className="vp-dzempty">
-                                    <b>Elegí un bloque</b>
-                                    <span>Tocá un bloque de la lista para cambiar sus textos, fotos, botones y links.</span>
-                                </div>
-                            )}
+                                ) : null}
+                                {!inspectorTitle ? (
+                                    <div className="vp-dzempty">
+                                        <span className="ic"><Icon name="layout" size={22} /></span>
+                                        <span>Tocá un bloque en la tienda o en la lista para cambiar sus textos, fotos, botones y links.</span>
+                                    </div>
+                                ) : null}
+                            </div>
+                            {inspectorTitle ? <div className="vp-dzif">Se guarda como borrador. <b>Publicar</b> sube los cambios a la tienda.</div> : null}
                         </aside>
                     ) : null}
                 </div>
@@ -184,7 +232,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, onPublish }) {
                 onClose={() => setConfirmDelete(null)}
                 theme={theme}
                 title="¿Eliminar este bloque?"
-                description="Si solo querés que no se vea un tiempo, ocultalo. Hasta que publiques podés deshacerlo."
+                description="Si solo querés que no se vea un tiempo, ocultalo con el ojito. Hasta que publiques podés deshacerlo."
                 footer={<>
                     <button type="button" className="vp-btn soft" onClick={() => setConfirmDelete(null)}>Cancelar</button>
                     <button type="button" className="vp-btn red" onClick={() => { setBlocks((list) => removeBlock(list, confirmDelete.id)); if (selectedId === confirmDelete.id) setSelectedId(null); setConfirmDelete(null); toast('Bloque eliminado. Publicá para que se vea en la tienda.', 'success'); }}>Eliminar</button>
