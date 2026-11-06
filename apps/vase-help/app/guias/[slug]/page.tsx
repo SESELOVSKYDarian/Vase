@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: guide.title,
     description: guide.summary,
-    openGraph: guide.video ? { images: [guide.video.poster] } : undefined,
+    openGraph: guide.video ? { images: [guide.video.posterLight] } : undefined,
   };
 }
 
@@ -52,7 +52,10 @@ export default async function Page({ params }: Props) {
         <>
           {guide.video ? (
             <div className="video">
-              <video controls preload="metadata" playsInline poster={guide.video.poster} src={guide.video.src}>
+              <video className="v-dark" controls preload="none" playsInline poster={guide.video.poster} src={guide.video.src}>
+                Tu navegador no puede reproducir este video.
+              </video>
+              <video className="v-light" controls preload="none" playsInline poster={guide.video.posterLight} src={guide.video.srcLight}>
                 Tu navegador no puede reproducir este video.
               </video>
             </div>

@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import "./globals.css";
+import ThemeToggle from "./_components/ThemeToggle";
+
+// Pone el tema antes de pintar para que no parpadee: lo guardado, o el del sistema.
+const THEME_SCRIPT = `try{var t=localStorage.getItem("vase-help-theme");if(t!=="light"&&t!=="dark"){t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.dataset.theme=t}catch(e){}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://help.vase.ar"),
@@ -11,8 +15,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="es-AR">
+    <html lang="es-AR" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
@@ -31,6 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <div className="sp" />
             <Link className="top-link hide-sm" href="/seccion/programadores">Programadores</Link>
             <a className="top-link" href="https://business.vase.ar/admin">Ir al panel ↗</a>
+            <ThemeToggle />
           </div>
         </header>
         {children}

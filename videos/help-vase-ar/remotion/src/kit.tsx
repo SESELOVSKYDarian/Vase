@@ -2,7 +2,7 @@
 // apertura y cierre. Todo el panel se dibuja en un lienzo de 1440×810 y se escala a 1920×1080, así las
 // coordenadas del cursor son las mismas que las de los elementos.
 import React from 'react';
-import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } from 'remotion';
+import { AbsoluteFill, Easing, Img, getInputProps, interpolate, staticFile, useCurrentFrame } from 'remotion';
 import { loadFont } from '@remotion/google-fonts/Manrope';
 
 const { fontFamily } = loadFont('normal', { weights: ['400', '500', '600', '700', '800'], subsets: ['latin'] });
@@ -15,12 +15,29 @@ export const PW = 1440;
 export const PH = 810;
 const K = W / PW;
 
-export const C = {
+// Tema: `--props='{"theme":"light"}'` al renderizar. Sin nada, oscuro (como el panel en modo oscuro).
+export const THEME: 'light' | 'dark' = (getInputProps() as { theme?: string }).theme === 'light' ? 'light' : 'dark';
+
+const DARK = {
   page: '#000000', card: '#0a0a0a', soft: '#121212', hover: '#161616', active: '#1a1a1a',
   line: '#1e1e1e', line2: '#2e2e2e', tx: '#f2f2f2', mut: '#9b9b9b', mut2: '#6e6e6e',
   acc: '#47e098', accOn: '#00260f', accTx: '#5ff0a8', accSoft: 'rgba(71, 224, 152, .12)',
   warn: '#f5c56b', warnSoft: 'rgba(245, 197, 107, .10)', red: '#ff6b5e', badge: 'rgba(240, 68, 56, .18)', badgeTx: '#ff8a80',
+  inkOn: '#000000', knob: '#000000', imgbg: '#141414', scrim: 'rgba(0,0,0,.45)', capBg: 'rgba(14,14,14,.94)',
+  glow: 'rgba(71,224,152,.10)', accLine: 'rgba(71,224,152,.35)', redLine: 'rgba(255,107,94,.4)', warnLine: 'rgba(245,197,107,.35)',
+  shadow: 'rgba(0,0,0,.7)', logo: 'vase-logo-white.png',
 };
+// Mismos valores que el tema claro de panel.css.
+const LIGHT: typeof DARK = {
+  page: '#ffffff', card: '#ffffff', soft: '#f4f5f7', hover: '#f2f4f5', active: '#eceef0',
+  line: '#eaecef', line2: '#d5d9de', tx: '#111418', mut: '#667085', mut2: '#98a2b3',
+  acc: '#006d43', accOn: '#ffffff', accTx: '#006d43', accSoft: 'rgba(24, 195, 126, .10)',
+  warn: '#93370d', warnSoft: '#fef6e7', red: '#d92d20', badge: '#ffd9d4', badgeTx: '#b42318',
+  inkOn: '#ffffff', knob: '#ffffff', imgbg: '#f7f7f8', scrim: 'rgba(17,20,24,.32)', capBg: 'rgba(255,255,255,.96)',
+  glow: 'rgba(24,195,126,.10)', accLine: 'rgba(0,109,67,.35)', redLine: 'rgba(217,45,32,.35)', warnLine: 'rgba(147,55,13,.25)',
+  shadow: 'rgba(16,24,40,.18)', logo: 'vase-logo-green.png',
+};
+export const C = THEME === 'light' ? LIGHT : DARK;
 
 // ---------------------------------------------------------------- tiempo
 
@@ -90,7 +107,7 @@ export function Cursor({ keys, clicks = [], show = [0, 99999] }: { keys: CursorK
       {since < 18 ? (
         <div style={{ position: 'absolute', left: -22, top: -22, width: 44, height: 44, borderRadius: '50%', border: `2px solid ${C.acc}`, opacity: 1 - since / 18, transform: `scale(${0.4 + since / 14})` }} />
       ) : null}
-      <svg width="22" height="26" viewBox="0 0 22 26" style={{ transform: `scale(${press})`, transformOrigin: '2px 2px', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,.6))' }}>
+      <svg width="22" height="26" viewBox="0 0 22 26" style={{ transform: `scale(${press})`, transformOrigin: '2px 2px', filter: `drop-shadow(0 3px 6px ${C.shadow})` }}>
         <path d="M2 2 L2 21 L7 16.5 L10.5 24 L14 22.5 L10.5 15.2 L17.5 15.2 Z" fill="#fff" stroke="#000" strokeWidth="1.4" strokeLinejoin="round" />
       </svg>
     </div>
@@ -119,7 +136,7 @@ export function Captions({ steps }: { steps: Step[] }) {
   const lift = (1 - fade(frame, from, 10)) * 14;
   return (
     <div style={{ position: 'absolute', left: 0, right: 0, ...(pos === 'top' ? { top: 130 } : { bottom: 54 }), display: 'flex', justifyContent: 'center', opacity: o, transform: `translateY(${lift}px)`, zIndex: 100 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '18px 30px 18px 18px', borderRadius: 26, background: 'rgba(14,14,14,.94)', border: `1px solid ${C.line2}`, boxShadow: '0 24px 60px rgba(0,0,0,.7)', fontFamily: FONT, maxWidth: 1500 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '18px 30px 18px 18px', borderRadius: 26, background: C.capBg, border: `1px solid ${C.line2}`, boxShadow: `0 24px 60px ${C.shadow}`, fontFamily: FONT, maxWidth: 1500 }}>
         <span style={{ width: 52, height: 52, borderRadius: 16, background: C.acc, color: C.accOn, fontWeight: 800, fontSize: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{index + 1}</span>
         <span style={{ color: C.tx, fontSize: 34, fontWeight: 700, letterSpacing: '-.01em' }}>{text}</span>
       </div>
@@ -132,10 +149,10 @@ export function Intro({ kicker, title, time, dur }: { kicker: string; title: str
   const out = 1 - fade(frame, dur - 12, 12);
   return (
     <AbsoluteFill style={{ background: C.page, fontFamily: FONT, alignItems: 'center', justifyContent: 'center', opacity: out, zIndex: 200 }}>
-      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(900px 500px at 50% 60%, rgba(71,224,152,.10), transparent 70%)` }} />
+      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(900px 500px at 50% 60%, ${C.glow}, transparent 70%)` }} />
       <div style={{ textAlign: 'center', transform: `translateY(${(1 - fade(frame, 4, 16)) * 24}px)`, opacity: fade(frame, 4, 16) }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, color: C.accTx, fontSize: 30, fontWeight: 700 }}>
-          <Img src={staticFile('vase-logo-white.png')} style={{ width: 40, height: 40 }} />{kicker}
+          <Img src={staticFile(C.logo)} style={{ width: 40, height: 40 }} />{kicker}
         </div>
         <div style={{ color: C.tx, fontSize: 92, fontWeight: 800, letterSpacing: '-.04em', marginTop: 22, lineHeight: 1.05 }}>{title}</div>
         <div style={{ display: 'inline-block', marginTop: 30, padding: '10px 22px', borderRadius: 14, background: C.soft, color: C.mut, fontSize: 28, fontWeight: 700, opacity: fade(frame, 14, 12) }}>{time}</div>
@@ -150,7 +167,7 @@ export function Outro({ start, title }: { start: number; title: string }) {
   if (o <= 0) return null;
   return (
     <AbsoluteFill style={{ background: C.page, fontFamily: FONT, alignItems: 'center', justifyContent: 'center', opacity: o, zIndex: 200 }}>
-      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(900px 500px at 50% 60%, rgba(71,224,152,.10), transparent 70%)` }} />
+      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(900px 500px at 50% 60%, ${C.glow}, transparent 70%)` }} />
       <div style={{ textAlign: 'center', transform: `translateY(${(1 - fade(frame, start + 4, 16)) * 20}px)` }}>
         <div style={{ width: 96, height: 96, borderRadius: 30, background: C.acc, color: C.accOn, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 56, fontWeight: 800 }}>✓</div>
         <div style={{ color: C.tx, fontSize: 76, fontWeight: 800, letterSpacing: '-.035em', marginTop: 28 }}>{title}</div>
@@ -196,7 +213,7 @@ export function PanelFrame({ active = 'Catálogo', title, subtitle, tabs, tab, c
     <div style={{ position: 'absolute', inset: 0, background: C.page, color: C.tx, fontFamily: FONT, fontSize: 13.5, overflow: 'hidden' }}>
       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: SIDE_W, borderRight: `1px solid ${C.line}`, padding: '20px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 8px 18px' }}>
-          <Img src={staticFile('vase-logo-white.png')} style={{ width: 26, height: 26 }} />
+          <Img src={staticFile(C.logo)} style={{ width: 26, height: 26 }} />
           <b style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.03em' }}>business</b>
         </div>
         {MENU.map(([label, icon, badge]) => icon ? (
@@ -252,13 +269,13 @@ export const tabCenter = (id: string) => {
 // ---------------------------------------------------------------- piezas sueltas
 
 export const Btn = ({ x, y, w, h = 34, kind = 'ink', children, style }: { x: number; y: number; w: number; h?: number; kind?: 'ink' | 'acc' | 'soft' | 'red' | 'line'; children: React.ReactNode; style?: React.CSSProperties }) => {
-  const look = { ink: [C.tx, '#000'], acc: [C.acc, C.accOn], soft: [C.soft, C.tx], red: [C.soft, C.red], line: ['transparent', C.tx] }[kind];
+  const look = { ink: [C.tx, C.inkOn], acc: [C.acc, C.accOn], soft: [C.soft, C.tx], red: [C.soft, C.red], line: ['transparent', C.tx] }[kind];
   return <div style={{ position: 'absolute', left: x, top: y, width: w, height: h, borderRadius: 11, background: look[0], color: look[1], border: kind === 'line' ? `1px solid ${C.line2}` : 'none', fontWeight: 800, fontSize: 13.5, display: 'flex', alignItems: 'center', justifyContent: 'center', ...style }}>{children}</div>;
 };
 
 export const Toggle = ({ on }: { on: boolean }) => (
   <span style={{ width: 38, height: 22, borderRadius: 11, background: on ? C.acc : C.line2, position: 'relative', display: 'inline-block', flex: 'none' }}>
-    <span style={{ position: 'absolute', top: 3, left: on ? 19 : 3, width: 16, height: 16, borderRadius: '50%', background: on ? '#000' : C.mut }} />
+    <span style={{ position: 'absolute', top: 3, left: on ? 19 : 3, width: 16, height: 16, borderRadius: '50%', background: on ? C.knob : C.mut }} />
   </span>
 );
 
@@ -279,8 +296,8 @@ export function Side({ from, to = 99999, kicker, title, children, footer }: { fr
   if (inn <= 0) return null;
   return (
     <>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.45)', opacity: inn, zIndex: 20 }} />
-      <div style={{ position: 'absolute', top: 12, right: 12, bottom: 12, width: 420, borderRadius: 22, background: C.card, border: `1px solid ${C.line}`, boxShadow: '0 30px 90px rgba(0,0,0,.8)', transform: `translateX(${(1 - inn) * 460}px)`, zIndex: 30, overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, background: C.scrim, opacity: inn, zIndex: 20 }} />
+      <div style={{ position: 'absolute', top: 12, right: 12, bottom: 12, width: 420, borderRadius: 22, background: C.card, border: `1px solid ${C.line}`, boxShadow: `0 30px 90px ${C.shadow}`, transform: `translateX(${(1 - inn) * 460}px)`, zIndex: 30, overflow: 'hidden' }}>
         <div style={{ position: 'absolute', left: 24, top: 22, color: C.mut, fontSize: 12, fontWeight: 700 }}>{kicker}</div>
         <div style={{ position: 'absolute', left: 24, top: 40, fontSize: 21, fontWeight: 800, letterSpacing: '-.02em', width: 330, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
         <div style={{ position: 'absolute', right: 22, top: 24, width: 32, height: 32, borderRadius: 10, border: `1px solid ${C.line2}`, color: C.mut, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</div>
@@ -301,7 +318,7 @@ export function Toast({ text, from, dur = s(2.2) }: { text: string; from: number
   const o = Math.min(fade(frame, from, 8), 1 - fade(frame, from + dur, 10));
   if (o <= 0) return null;
   return (
-    <div style={{ position: 'absolute', left: '50%', top: 40, transform: `translate(-50%, ${(1 - o) * -20}px)`, opacity: o, zIndex: 150, display: 'flex', alignItems: 'center', gap: 14, padding: '16px 26px 16px 16px', borderRadius: 20, background: C.soft, border: `1px solid ${C.line2}`, boxShadow: '0 24px 60px rgba(0,0,0,.7)', fontFamily: FONT, fontWeight: 700, fontSize: 26, color: C.tx, whiteSpace: 'nowrap' }}>
+    <div style={{ position: 'absolute', left: '50%', top: 40, transform: `translate(-50%, ${(1 - o) * -20}px)`, opacity: o, zIndex: 150, display: 'flex', alignItems: 'center', gap: 14, padding: '16px 26px 16px 16px', borderRadius: 20, background: C.soft, border: `1px solid ${C.line2}`, boxShadow: `0 24px 60px ${C.shadow}`, fontFamily: FONT, fontWeight: 700, fontSize: 26, color: C.tx, whiteSpace: 'nowrap' }}>
       <span style={{ width: 34, height: 34, borderRadius: 10, background: C.acc, color: C.accOn, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 800 }}>✓</span>{text}
     </div>
   );
@@ -324,7 +341,7 @@ export const PRODUCTS: Product[] = [
 ];
 
 export const Thumb = ({ color, size = 36 }: { color: string; size?: number }) => (
-  <span style={{ width: size, height: size, borderRadius: 10, background: '#141414', border: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
+  <span style={{ width: size, height: size, borderRadius: 10, background: C.imgbg, border: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
     <span style={{ width: size * 0.5, height: size * 0.56, borderRadius: `${size * 0.12}px ${size * 0.12}px ${size * 0.2}px ${size * 0.2}px`, background: color, boxShadow: 'inset 0 -4px 0 rgba(0,0,0,.25)' }} />
   </span>
 );

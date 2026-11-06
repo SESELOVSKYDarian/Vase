@@ -24,7 +24,7 @@ export type Guide = {
   summary: string;
   status: "listo" | "borrador";
   /** seconds: duración real del video, la que se muestra en la página. */
-  video?: { src: string; poster: string; seconds: number };
+  video?: { src: string; poster: string; srcLight: string; posterLight: string; seconds: number };
   body: Block[];
 };
 
@@ -45,7 +45,12 @@ export const SECTIONS: Section[] = [
   { slug: "programadores", label: "Datos técnicos para el programador", aliases: ["programadores"], description: "JSON, cURL y claves para conectar tu sistema." },
 ];
 
-const video = (slug: string, seconds: number) => ({ src: `/videos/${slug}.mp4`, poster: `/videos/${slug}.jpg`, seconds });
+// Cada video tiene versión oscura (<slug>.mp4) y clara (<slug>-claro.mp4); la página muestra la del tema.
+const video = (slug: string, seconds: number) => ({
+  src: `/videos/${slug}.mp4`, poster: `/videos/${slug}.jpg`,
+  srcLight: `/videos/${slug}-claro.mp4`, posterLight: `/videos/${slug}-claro.jpg`,
+  seconds,
+});
 
 const draft = (slug: string, title: string, section: string, screen: string, time: string, summary: string, aliases?: string[]): Guide => ({
   slug, title, section, screen, time, summary, aliases, status: "borrador", body: [],

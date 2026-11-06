@@ -43,7 +43,7 @@ function Menu({ x, y, options, pick, from, to }: { x: number; y: number; options
   if (o <= 0) return null;
   const hot = frame >= to - 10;
   return (
-    <div style={{ position: 'absolute', left: x, top: y, width: 230, padding: 6, borderRadius: 14, background: C.card, border: `1px solid ${C.line2}`, boxShadow: '0 24px 60px rgba(0,0,0,.8)', opacity: o, transform: `translateY(${(1 - o) * -6}px)`, zIndex: 45 }}>
+    <div style={{ position: 'absolute', left: x, top: y, width: 230, padding: 6, borderRadius: 14, background: C.card, border: `1px solid ${C.line2}`, boxShadow: `0 24px 60px ${C.shadow}`, opacity: o, transform: `translateY(${(1 - o) * -6}px)`, zIndex: 45 }}>
       {options.map(([label, depth = 0], index) => (
         <div key={label} style={{ height: 34, display: 'flex', alignItems: 'center', padding: `0 10px 0 ${10 + depth * 16}px`, borderRadius: 9, fontWeight: depth ? 600 : 700, color: depth ? C.mut : C.tx, background: hot && index === pick ? C.active : 'transparent' }}>{label}</div>
       ))}
@@ -107,7 +107,7 @@ export function SubirPreciosRubro() {
               {parts.map((part) => part.kind === 'word' ? (
                 <span key={part.text} style={{ position: 'absolute', left: part.x, top: SY + 9, width: part.w, color: C.mut, fontWeight: 600, fontSize: 15, textAlign: 'center' }}>{part.text}</span>
               ) : (
-                <span key={part.id || part.text} style={{ position: 'absolute', left: part.x, top: SY, width: part.w, height: 38, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 800, fontSize: 14.5, color: part.text === 'elegí…' ? C.mut : C.accTx, background: C.accSoft, border: `1px solid ${part.kind === 'input' && frame >= F.amount && frame < F.preview + 10 ? C.acc : 'rgba(71,224,152,.25)'}` }}>
+                <span key={part.id || part.text} style={{ position: 'absolute', left: part.x, top: SY, width: part.w, height: 38, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 800, fontSize: 14.5, color: part.text === 'elegí…' ? C.mut : C.accTx, background: C.accSoft, border: `1px solid ${part.kind === 'input' && frame >= F.amount && frame < F.preview + 10 ? C.acc : C.accLine}` }}>
                   {part.kind === 'input' ? (part.text || <span style={{ color: C.mut2 }}>8</span>) : part.text}{part.kind === 'slot' ? <span style={{ fontSize: 10, opacity: 0.7 }}>▾</span> : null}
                 </span>
               ))}

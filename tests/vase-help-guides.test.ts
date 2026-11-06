@@ -40,6 +40,8 @@ describe("help.vase.ar", () => {
       if (guide.video) {
         expect(existsSync(path.join(__dirname, "../apps/vase-help/public", guide.video.src)), guide.video.src).toBe(true);
         expect(existsSync(path.join(__dirname, "../apps/vase-help/public", guide.video.poster)), guide.video.poster).toBe(true);
+        expect(existsSync(path.join(__dirname, "../apps/vase-help/public", guide.video.srcLight)), guide.video.srcLight).toBe(true);
+        expect(existsSync(path.join(__dirname, "../apps/vase-help/public", guide.video.posterLight)), guide.video.posterLight).toBe(true);
       }
     }
   });

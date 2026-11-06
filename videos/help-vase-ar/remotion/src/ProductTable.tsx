@@ -31,7 +31,7 @@ export function ProductTable({ query = '', rows: overrides = {}, focusSearch = f
           </span>
         ))}
       </div>
-      <div style={{ position: 'absolute', right: 32, top: T.barY + 3, height: 34, padding: '0 14px', borderRadius: 11, background: C.tx, color: '#000', fontWeight: 800, display: 'flex', alignItems: 'center' }}>+ Producto</div>
+      <div style={{ position: 'absolute', right: 32, top: T.barY + 3, height: 34, padding: '0 14px', borderRadius: 11, background: C.tx, color: C.inkOn, fontWeight: 800, display: 'flex', alignItems: 'center' }}>+ Producto</div>
 
       <div style={{ position: 'absolute', left: T.left, top: T.tableY, width: T.width, height: T.headH + T.rowH * Math.max(list.length, 1), borderRadius: 18, border: `1px solid ${C.line}`, background: C.card, overflow: 'hidden' }}>
         <div style={{ position: 'relative', height: T.headH, color: C.mut, fontSize: 12.5, fontWeight: 700, borderBottom: `1px solid ${C.line}` }}>
@@ -52,7 +52,7 @@ export function ProductTable({ query = '', rows: overrides = {}, focusSearch = f
               <b style={{ fontSize: 14 }}>{money(product.price)}</b>
               {product.tiers ? <span style={{ display: 'block', color: C.mut, fontSize: 11.5, fontWeight: 700 }}>{product.tiers} precios ▾</span> : null}
             </span>
-            <span style={{ position: 'absolute', left: COL.stock, top: 14, display: 'flex', alignItems: 'center', height: 30, borderRadius: 10, border: `1px solid ${product.stock <= 0 ? 'rgba(255,107,94,.4)' : C.line2}` }}>
+            <span style={{ position: 'absolute', left: COL.stock, top: 14, display: 'flex', alignItems: 'center', height: 30, borderRadius: 10, border: `1px solid ${product.stock <= 0 ? C.redLine : C.line2}` }}>
               <span style={{ width: 28, textAlign: 'center', color: product.stock <= 0 ? C.mut2 : C.mut, fontWeight: 700 }}>−</span>
               <span style={{ width: 40, textAlign: 'center', fontWeight: 800, color: product.stock <= 0 ? C.red : C.tx }}>{product.stock}</span>
               <span style={{ width: 28, textAlign: 'center', color: C.mut, fontWeight: 700 }}>+</span>

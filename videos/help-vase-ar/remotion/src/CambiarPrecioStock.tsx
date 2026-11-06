@@ -108,7 +108,7 @@ export function CambiarPrecioStock() {
                   <span style={{ color: C.mut, fontSize: 12.5 }}>Subí un PDF y aparece “Descargar ficha técnica”.</span>
                 </div>
                 <div style={{ position: 'absolute', left: 24, top: 290, color: C.mut, fontSize: 12, fontWeight: 700 }}>Sistema de gestión</div>
-                <div style={{ position: 'absolute', left: 24, top: 316, width: 372, minHeight: 58, display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: 14, border: `1px solid ${locked ? 'rgba(71,224,152,.35)' : C.line}`, background: locked ? C.accSoft : 'transparent' }}>
+                <div style={{ position: 'absolute', left: 24, top: 316, width: 372, minHeight: 58, display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: 14, border: `1px solid ${locked ? C.accLine : C.line}`, background: locked ? C.accSoft : 'transparent' }}>
                   <span style={{ flex: 1 }}><b style={{ display: 'block' }}>No pisar mis cambios</b><span style={{ color: C.mut, fontSize: 12 }}>La sincronización no cambia nombre, SKU, descripción, marca ni precio. El stock se sigue actualizando.</span></span>
                   <Toggle on={locked} />
                 </div>

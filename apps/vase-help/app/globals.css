@@ -4,16 +4,25 @@
   --tx: #111418; --mut: #667085; --mut2: #98a2b3; --ink: #111418; --ink-on: #ffffff;
   --acc: #006d43; --acc-tx: #006d43; --accsoft: rgba(24, 195, 126, .10);
   --warn: #93370d; --warnsoft: #fef6e7;
-  --logo-dark: none; --logo-light: block;
+  --logo-dark: none; --logo-light: block; --v-dark: none; --v-light: block;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
+/* Tema: el script del layout pone data-theme (lo elegido o el del sistema). Sin JS, sigue al sistema. */
+:root[data-theme="dark"] {
     --page: #000000; --card: #0a0a0a; --soft: #121212; --hover: #161616; --line: #1e1e1e; --line2: #2e2e2e;
     --tx: #f2f2f2; --mut: #9b9b9b; --mut2: #6e6e6e; --ink: #f2f2f2; --ink-on: #000000;
     --acc: #47e098; --acc-tx: #5ff0a8; --accsoft: rgba(71, 224, 152, .10);
     --warn: #f5c56b; --warnsoft: rgba(245, 197, 107, .10);
-    --logo-dark: block; --logo-light: none;
+    --logo-dark: block; --logo-light: none; --v-dark: block; --v-light: none;
+    color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --page: #000000; --card: #0a0a0a; --soft: #121212; --hover: #161616; --line: #1e1e1e; --line2: #2e2e2e;
+    --tx: #f2f2f2; --mut: #9b9b9b; --mut2: #6e6e6e; --ink: #f2f2f2; --ink-on: #000000;
+    --acc: #47e098; --acc-tx: #5ff0a8; --accsoft: rgba(71, 224, 152, .10);
+    --warn: #f5c56b; --warnsoft: rgba(245, 197, 107, .10);
+    --logo-dark: block; --logo-light: none; --v-dark: block; --v-light: none;
     color-scheme: dark;
   }
 }
@@ -43,6 +52,8 @@ h1, h2, h3, p { margin: 0; }
 .sp { flex: 1; }
 .top-link { color: var(--mut); font-weight: 600; font-size: 14px; }
 .top-link:hover { color: var(--tx); }
+.theme-btn { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--line2); background: var(--card); color: var(--tx); font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.theme-btn:hover { background: var(--hover); }
 
 /* búsqueda */
 .search { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 8px 0 18px; border: 1px solid var(--line2); border-radius: 16px; background: var(--card); }
@@ -91,8 +102,10 @@ a.gl:hover { background: var(--hover); }
 .art-head p { color: var(--mut); font-size: 17px; margin-top: 10px; }
 .art-head .meta { display: flex; gap: 8px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
 
-.video { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; }
+.video { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--soft); aspect-ratio: 16 / 9; }
 .video video { width: 100%; height: 100%; display: block; }
+.video .v-dark { display: var(--v-dark); }
+.video .v-light { display: var(--v-light); }
 .video.empty { display: flex; align-items: center; justify-content: center; color: var(--mut); background: var(--soft); font-weight: 600; font-size: 14px; }
 
 .prose { padding: 8px 0 24px; }

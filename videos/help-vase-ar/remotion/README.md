@@ -5,7 +5,8 @@ con una réplica del panel nuevo en tema oscuro (`src/kit.tsx`), así que se pue
 cambie el panel, sin grabar pantalla.
 
 - Ver y ajustar: `npm run studio`
-- Renderizar todos: `npm run render` → `apps/vase-help/public/videos/<slug>.mp4` + `<slug>.jpg`
+- Renderizar todos: `npm run render` → `apps/vase-help/public/videos/<slug>.mp4` (oscuro) y `<slug>-claro.mp4` (claro), cada uno con su `.jpg` de portada
+- Solo un tema: `npm run render -- --theme=light`
 - Renderizar uno: `npm run render -- crear-una-oferta`
 
 El id de cada composición es el slug de la guía en `apps/vase-help/lib/guides.ts`.

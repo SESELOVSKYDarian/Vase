@@ -10,7 +10,7 @@ const OUTRO = RECAP + s(4.4);
 export const POR_QUE_FRAMES = OUTRO + s(2.8);
 
 const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
-  <div style={{ borderRadius: 28, border: `1px solid ${C.line2}`, background: C.card, padding: 32, boxShadow: '0 30px 80px rgba(0,0,0,.6)', ...style }}>{children}</div>
+  <div style={{ borderRadius: 28, border: `1px solid ${C.line2}`, background: C.card, padding: 32, boxShadow: `0 30px 80px ${C.shadow}`, ...style }}>{children}</div>
 );
 
 const ProductHead = () => (
@@ -31,7 +31,7 @@ function Sync({ f }: { f: number }) {
         <i style={{ width: 10, height: 10, borderRadius: '50%', background: C.acc, transform: `scale(${1 + Math.sin(f / 5) * 0.2})` }} />Sincronizado · hace 1 min
       </div>
       <div style={{ fontSize: 64, fontWeight: 800, letterSpacing: '-.03em', marginTop: 10, color: back && !fixed ? C.warn : C.tx }}>{money(price)}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 24, padding: '18px 20px', borderRadius: 18, border: `1px solid ${fixed ? 'rgba(71,224,152,.4)' : C.line}`, background: fixed ? C.accSoft : 'transparent', opacity: fade(f, s(2.6), 10) }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 24, padding: '18px 20px', borderRadius: 18, border: `1px solid ${fixed ? C.accLine : C.line}`, background: fixed ? C.accSoft : 'transparent', opacity: fade(f, s(2.6), 10) }}>
         <span style={{ flex: 1 }}><b style={{ fontSize: 22, display: 'block' }}>No pisar mis cambios</b><span style={{ color: C.mut, fontSize: 17 }}>Producto › Más</span></span>
         <div style={{ transform: 'scale(1.5)', transformOrigin: 'right center' }}><Toggle on={fixed} /></div>
       </div>
@@ -64,7 +64,7 @@ function Lists({ f }: { f: number }) {
       <ProductHead />
       <div style={{ marginTop: 26 }}>
         {rows.map(([who, price, hot], index) => (
-          <div key={who} style={{ display: 'flex', alignItems: 'center', padding: '18px 20px', borderRadius: 18, marginTop: 12, border: `1px solid ${hot && f > s(2) ? 'rgba(71,224,152,.4)' : C.line}`, background: hot && f > s(2) ? C.accSoft : 'transparent', opacity: fade(f, s(0.6) + index * s(0.8), 10) }}>
+          <div key={who} style={{ display: 'flex', alignItems: 'center', padding: '18px 20px', borderRadius: 18, marginTop: 12, border: `1px solid ${hot && f > s(2) ? C.accLine : C.line}`, background: hot && f > s(2) ? C.accSoft : 'transparent', opacity: fade(f, s(0.6) + index * s(0.8), 10) }}>
             <span style={{ flex: 1, fontSize: 22, fontWeight: 700 }}>{who}</span>
             <b style={{ fontSize: 30 }}>{money(price)}</b>
           </div>
@@ -84,7 +84,7 @@ function Special({ f }: { f: number }) {
         <span style={{ flex: 1, fontSize: 22, fontWeight: 700 }}>Precio del producto</span>
         <b style={{ fontSize: 30, color: raised ? C.accTx : C.tx }}>{money(raised ? 19900 : 18500)}</b>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', borderRadius: 18, marginTop: 12, border: '1px solid rgba(245,197,107,.35)', background: C.warnSoft }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', borderRadius: 18, marginTop: 12, border: `1px solid ${C.warnLine}`, background: C.warnSoft }}>
         <span style={{ fontSize: 26 }}>🔒</span>
         <span style={{ flex: 1 }}><b style={{ fontSize: 22, display: 'block' }}>Precio especial · Bar La Esquina</b><span style={{ color: C.mut, fontSize: 17 }}>Catálogo › Cambiar precios › Precios especiales</span></span>
         <b style={{ fontSize: 30 }}>{money(16650)}</b>
@@ -153,7 +153,7 @@ function Recap() {
 export function PorQueCambioPrecio() {
   return (
     <AbsoluteFill style={{ background: C.page }}>
-      <AbsoluteFill style={{ background: 'radial-gradient(1000px 600px at 75% 50%, rgba(71,224,152,.07), transparent 70%)' }} />
+      <AbsoluteFill style={{ background: `radial-gradient(1000px 600px at 75% 50%, ${C.glow}, transparent 70%)` }} />
       {REASONS.map((_, index) => <Reason key={index} index={index} start={INTRO + SCENE * index} />)}
       <Recap />
       <Intro kicker="Ayuda · Catálogo · Preguntas frecuentes" title="¿Por qué volvió a cambiar un precio?" time="4 causas" dur={INTRO} />
