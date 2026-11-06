@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import EvolutionInput from './EvolutionInput';
+import MediaField from './MediaField';
+import LinkInput from './LinkInput';
+import './mediaField.css';
 import { cn } from '../../../utils/cn';
 import {
     Palette,
@@ -131,7 +134,7 @@ const readFileAsDataUrl = (file) =>
     });
 
 const SectionHeading = ({ icon: Icon, children }) => (
-    <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+    <div data-section-heading="" className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">
         <Icon size={14} weight="bold" />
         {children}
     </div>
@@ -154,13 +157,27 @@ const ColorField = ({ label, value, defaultColor = '#000000', onChange }) => (
     </label>
 );
 
-const UploadButton = ({ busy, label, onChange, accept = 'image/*' }) => (
-    <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-[11px] font-bold text-white transition-colors hover:bg-white/20">
-        <input type="file" accept={accept} onChange={onChange} className="hidden" disabled={busy} />
-        <UploadSimple size={14} weight="bold" />
-        {busy ? 'Subiendo...' : label}
-    </label>
-);
+const UploadButton = ({ busy, label, onChange, accept = 'image/*' }) => {
+    const [over, setOver] = useState(false);
+    return (
+        <label
+            className={cn('mf-up w-fit', over && 'over')}
+            onDragOver={(event) => { event.preventDefault(); if (!busy) setOver(true); }}
+            onDragLeave={() => setOver(false)}
+            onDrop={(event) => {
+                event.preventDefault();
+                setOver(false);
+                const files = event.dataTransfer?.files;
+                if (!busy && files?.length) onChange({ target: { files, value: '' } });
+            }}
+        >
+            <input type="file" accept={accept} onChange={onChange} className="hidden" disabled={busy} />
+            <UploadSimple size={14} weight="bold" />
+            {busy ? 'Subiendo…' : label}
+            {!busy ? <small>o arrastralo acá</small> : null}
+        </label>
+    );
+};
 
 const SlideCard = ({
     slide,
@@ -460,6 +477,15 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
     const handleImageUpload = async (target, event, callback) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        try {
+            await handleFileUpload(target, file, callback);
+        } finally {
+            if (event.target && 'value' in event.target) event.target.value = '';
+        }
+    };
+
+    const handleFileUpload = async (target, file, callback) => {
+        if (!file) return;
         setUploadingTarget(target);
         try {
             // Se sube al servidor de archivos y se guarda la URL: un base64 dentro de la
@@ -475,39 +501,25 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                     return;
                 }
             }
-            addToast?.('No se pudo subir la imagen. Proba de nuevo o pega una URL.', 'error');
+            addToast?.('No se pudo subir el archivo. Proba de nuevo o pega un link.', 'error');
         } finally {
             setUploadingTarget('');
-            event.target.value = '';
         }
     };
 
-    const renderImageControl = ({ label, value, placeholder = 'https://...', uploadKey, onChange, uploadLabel = 'Subir imagen', largePreview = false }) => (
-        <div className="space-y-2">
-            {largePreview && value ? (
-                <div className="h-40 w-full overflow-hidden rounded-xl border border-white/10 bg-white">
-                    <img src={value} alt="" className="h-full w-full object-cover" />
-                </div>
-            ) : null}
-            <EvolutionInput
-                label={label}
-                value={value || ''}
-                onChange={(event) => onChange(event.target.value)}
-                placeholder={placeholder}
-            />
-            <div className="flex items-center gap-2">
-                <UploadButton
-                    busy={uploadingTarget === uploadKey}
-                    label={uploadLabel}
-                    onChange={(event) => handleImageUpload(uploadKey, event, onChange)}
-                />
-                {value && !largePreview ? (
-                    <div className="h-12 w-12 overflow-hidden rounded-lg border border-white/10 bg-white">
-                        <img src={value} alt="" className="h-full w-full object-cover" />
-                    </div>
-                ) : null}
-            </div>
-        </div>
+    const renderImageControl = ({ label, value, placeholder = 'https://...', uploadKey, onChange, largePreview = false, accept, hint }) => (
+        <MediaField
+            label={label}
+            value={value}
+            onChange={onChange}
+            onFile={(file) => handleFileUpload(uploadKey, file, onChange)}
+            busy={uploadingTarget === uploadKey}
+            kind="image"
+            accept={accept}
+            hint={hint}
+            large={largePreview}
+            placeholder={placeholder}
+        />
     );
 
     const renderHeroClassicEditor = () => (
@@ -551,7 +563,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                         }
                         placeholder="Ej: Comprar ahora"
                     />
-                    <EvolutionInput
+                    <LinkInput
                         label="Primario: link"
                         value={block.props?.primaryButton?.link || ''}
                         onChange={(event) =>
@@ -573,7 +585,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                         }
                         placeholder="Ej: Ver mas"
                     />
-                    <EvolutionInput
+                    <LinkInput
                         label="Secundario: link"
                         value={block.props?.secondaryButton?.link || ''}
                         onChange={(event) =>
@@ -750,7 +762,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                             onChange={(event) => handlePropChange('ctaLabel', event.target.value)}
                             placeholder="Ej: Ver catalogo"
                         />
-                        <EvolutionInput
+                        <LinkInput
                             label="CTA: link"
                             value={block.props?.ctaLink || ''}
                             onChange={(event) => handlePropChange('ctaLink', event.target.value)}
@@ -1021,7 +1033,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                                 }
                                 placeholder="Ej: Ver mas"
                             />
-                            <EvolutionInput
+                            <LinkInput
                                 label="Boton: link"
                                 value={block.props?.primaryButton?.link || ''}
                                 onChange={(event) =>
@@ -1092,7 +1104,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                                     onChange={(event) => updateBrandItem(index, { image: event.target.value })}
                                     placeholder="https://..."
                                 />
-                                <EvolutionInput
+                                <LinkInput
                                     label="Link opcional"
                                     value={item?.link || ''}
                                     onChange={(event) => updateBrandItem(index, { link: event.target.value })}
@@ -1215,7 +1227,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                                 onChange={(event) => handlePropChange('primaryButton', { ...(block.props?.primaryButton || {}), label: event.target.value })}
                                 placeholder="Ej: Ver catalogo"
                             />
-                            <EvolutionInput
+                            <LinkInput
                                 label="Primario: link"
                                 value={block.props?.primaryButton?.link || ''}
                                 onChange={(event) => handlePropChange('primaryButton', { ...(block.props?.primaryButton || {}), link: event.target.value })}
@@ -1229,7 +1241,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                                 onChange={(event) => handlePropChange('secondaryButton', { ...(block.props?.secondaryButton || {}), label: event.target.value })}
                                 placeholder="Ej: Conocer al equipo"
                             />
-                            <EvolutionInput
+                            <LinkInput
                                 label="Secundario: link"
                                 value={block.props?.secondaryButton?.link || ''}
                                 onChange={(event) => handlePropChange('secondaryButton', { ...(block.props?.secondaryButton || {}), link: event.target.value })}
@@ -1674,7 +1686,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                             onChange={(event) => handlePropChange('primaryLink', { ...(block.props?.primaryLink || {}), label: event.target.value })}
                             placeholder="Ej: Ver catalogo"
                         />
-                        <EvolutionInput
+                        <LinkInput
                             label="Primario: link"
                             value={block.props?.primaryLink?.link || ''}
                             onChange={(event) => handlePropChange('primaryLink', { ...(block.props?.primaryLink || {}), link: event.target.value })}
@@ -1688,7 +1700,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                             onChange={(event) => handlePropChange('secondaryLink', { ...(block.props?.secondaryLink || {}), label: event.target.value })}
                             placeholder="Ej: Contacto"
                         />
-                        <EvolutionInput
+                        <LinkInput
                             label="Secundario: link"
                             value={block.props?.secondaryLink?.link || ''}
                             onChange={(event) => handlePropChange('secondaryLink', { ...(block.props?.secondaryLink || {}), link: event.target.value })}
@@ -1711,25 +1723,16 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
     );
 
     const renderVideoControl = ({ label, value, placeholder = 'https://.../video.mp4', uploadKey, onChange }) => (
-        <div className="space-y-2">
-            <EvolutionInput
-                label={label}
-                value={value || ''}
-                onChange={(event) => onChange(event.target.value)}
-                placeholder={placeholder}
-            />
-            <div className="flex items-center gap-2">
-                <UploadButton
-                    busy={uploadingTarget === uploadKey}
-                    label="Subir video"
-                    accept="video/*"
-                    onChange={(event) => handleImageUpload(uploadKey, event, onChange)}
-                />
-            </div>
-            {value ? (
-                <video src={value} controls className="h-24 w-full rounded-lg border border-white/10 object-cover" />
-            ) : null}
-        </div>
+        <MediaField
+            label={label}
+            value={value}
+            onChange={onChange}
+            onFile={(file) => handleFileUpload(uploadKey, file, onChange)}
+            busy={uploadingTarget === uploadKey}
+            kind="video"
+            large
+            placeholder={placeholder}
+        />
     );
 
     const renderPiquimHeroEditor = () => (
@@ -1793,9 +1796,9 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                     <EvolutionInput label="Boton primario" value={block.props?.primaryLabel || ''} onChange={(e) => handlePropChange('primaryLabel', e.target.value)} />
-                    <EvolutionInput label="Link primario" value={block.props?.primaryHref || ''} onChange={(e) => handlePropChange('primaryHref', e.target.value)} />
+                    <LinkInput label="Link primario" value={block.props?.primaryHref || ''} onChange={(e) => handlePropChange('primaryHref', e.target.value)} />
                     <EvolutionInput label="Boton secundario" value={block.props?.secondaryLabel || ''} onChange={(e) => handlePropChange('secondaryLabel', e.target.value)} />
-                    <EvolutionInput label="Link secundario" value={block.props?.secondaryHref || ''} onChange={(e) => handlePropChange('secondaryHref', e.target.value)} />
+                    <LinkInput label="Link secundario" value={block.props?.secondaryHref || ''} onChange={(e) => handlePropChange('secondaryHref', e.target.value)} />
                 </div>
             </div>
         </div>
@@ -1816,9 +1819,9 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                 <EvolutionInput label="Subtitulo" value={block.props?.subtitle || ''} onChange={(e) => handlePropChange('subtitle', e.target.value)} multiline />
                 <div className="grid grid-cols-2 gap-3">
                     <EvolutionInput label="Boton primario" value={block.props?.primaryLabel || ''} onChange={(e) => handlePropChange('primaryLabel', e.target.value)} />
-                    <EvolutionInput label="Link primario" value={block.props?.primaryHref || ''} onChange={(e) => handlePropChange('primaryHref', e.target.value)} />
+                    <LinkInput label="Link primario" value={block.props?.primaryHref || ''} onChange={(e) => handlePropChange('primaryHref', e.target.value)} />
                     <EvolutionInput label="Boton secundario" value={block.props?.secondaryLabel || ''} onChange={(e) => handlePropChange('secondaryLabel', e.target.value)} />
-                    <EvolutionInput label="Link secundario" value={block.props?.secondaryHref || ''} onChange={(e) => handlePropChange('secondaryHref', e.target.value)} />
+                    <LinkInput label="Link secundario" value={block.props?.secondaryHref || ''} onChange={(e) => handlePropChange('secondaryHref', e.target.value)} />
                 </div>
             </div>
         </div>
@@ -1973,7 +1976,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                             }}
                             placeholder="Ej: Ver catalogo"
                         />
-                        <EvolutionInput
+                        <LinkInput
                             label="Enlace"
                             value={block.props?.ctaLink || block.props?.primaryButton?.link || ''}
                             onChange={(event) => {

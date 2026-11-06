@@ -197,8 +197,10 @@ export default function LoginPage() {
         setError('');
         setVerificationLoading(true);
         try {
-            await verifyEmailCode(pendingVerificationEmail, verificationCode.trim());
-            setNotice('Email verificado. Tu cuenta quedo pendiente de aprobacion del administrador.');
+            const result = await verifyEmailCode(pendingVerificationEmail, verificationCode.trim());
+            setNotice(result?.pending_approval === false
+                ? 'Email verificado. Ya podes ingresar con tu cuenta.'
+                : 'Email verificado. Tu cuenta quedo pendiente de aprobacion del administrador.');
             setPendingVerificationEmail('');
             setVerificationCode('');
         } catch (err) {

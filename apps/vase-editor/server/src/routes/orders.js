@@ -3,6 +3,7 @@ import { pool } from '../db.js';
 import { resolveTenant } from '../middleware/tenant.js';
 import { normalizePriceAdjustments } from '../services/pricing.js';
 import { resolveEffectiveProductPrice, resolvePricingProfile } from '../services/userPricing.js';
+import { loadSpecialPrices } from '../services/specialPrices.js';
 import {
   applyOfferDiscount,
   getTenantOffers,
@@ -165,7 +166,7 @@ function normalizeItems(items) {
 }
 
 async function validateItems(tenantId, items, adjustments, context = {}) {
-  const { pricingProfile, offers = [], userId = null } = context;
+  const { pricingProfile, offers = [], userId = null, specialPrices = null } = context;
   const normalized = normalizeItems(items);
   const ids = normalized.map((item) => item.product_id);
 
@@ -206,11 +207,15 @@ async function validateItems(tenantId, items, adjustments, context = {}) {
         priceWholesale: product.price_wholesale,
         profile: pricingProfile,
         adjustments,
+        specialPrice: specialPrices?.get(product.id) ?? null,
       });
       const bestOffer = resolveBestOfferForProduct({
         offers,
         userId,
+        priceListId: pricingProfile?.priceList?.id || null,
         categoryIds: product.category_ids || [],
+        productId: product.id,
+        price: effective,
       });
       const unitPrice = Number(applyOfferDiscount(effective, bestOffer.percent) || 0);
       subtotal += unitPrice * item.qty;
@@ -1034,6 +1039,13 @@ ordersRouter.post('/submit', async (req, res, next) => {
     const pricingProfile = await resolvePricingProfile({
       tenantId: req.tenant.id,
       user: req.user || null,
+
+      commerce,
+    });
+    const specialPrices = await loadSpecialPrices({
+      tenantId: req.tenant.id,
+      userId: req.user?.id || null,
+      priceListId: pricingProfile?.priceList?.id || null,
     });
 
     let offers = [];
@@ -1047,6 +1059,7 @@ ordersRouter.post('/submit', async (req, res, next) => {
       pricingProfile,
       offers,
       userId: req.user?.id || null,
+      specialPrices,
     });
     if (!validation.valid) {
       return res.status(400).json(validation);

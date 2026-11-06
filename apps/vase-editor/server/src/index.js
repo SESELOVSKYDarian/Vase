@@ -11,6 +11,7 @@ import { ensureProductSyncSchema } from './services/integration.service.js';
 import { ensureVaseBridgeSchema } from './services/vaseBridge.js';
 import { selectTeflonBootstrapTargetTenant } from './services/teflonBootstrapTarget.js';
 import { ensureLabsCatalogOutboxSchema, processLabsCatalogOutbox } from './services/labsCatalogOutbox.js';
+import { ensureOfferColumns } from './services/offers.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DEFAULT_TEFLON_TENANT_ID = '636736e2-e135-44cd-ac5c-5d4ccb839a73';
@@ -495,6 +496,9 @@ async function runStartupMigrations() {
   await pool.query(
     'CREATE INDEX IF NOT EXISTS tenant_offers_tenant_idx ON tenant_offers(tenant_id, enabled)'
   );
+
+  // Panel nuevo: ofertas por monto, precio fijo, productos y fechas. Solo agrega columnas.
+  await ensureOfferColumns();
 
   await pool.query(
     [

@@ -83,7 +83,7 @@ const mapDistanceQuoteError = (code) => {
         case "shipping_location_required":
             return "Activa tu ubicacion para calcular el envio.";
         case "delivery_out_of_range":
-            return "La direccion esta fuera de las zonas de entrega configuradas.";
+            return "No llegamos con envio a esa direccion. Podes retirar tu pedido en una de nuestras sucursales.";
         case "shipping_origin_not_configured":
             return "La tienda todavia no configuro coordenadas para la sucursal de origen.";
         case "distance_shipping_not_configured":
@@ -299,6 +299,10 @@ export default function CheckoutPage() {
     }, [deliveryLocation, deliveryMethod, pickupBranches, shippingZones]);
 
     const bankTransfer = checkoutSettings?.bank_transfer || commerce.bank_transfer || {};
+    // Lo que la tienda eligió mostrar grande (alias o CBU), solo si está cargado.
+    const highlightedTransfer = ['alias', 'cbu'].includes(bankTransfer.highlight) && String(bankTransfer[bankTransfer.highlight] || '').trim()
+        ? { label: bankTransfer.highlight === 'cbu' ? 'CBU' : 'Alias', value: String(bankTransfer[bankTransfer.highlight]).trim() }
+        : null;
     const whatsappNumber = String(checkoutSettings?.whatsapp_number || commerce.whatsapp_number || "").replace(/\D/g, "");
     const enabledMethods = useMemo(() => {
         const settingsMethods = uniquePaymentMethods(checkoutSettings?.enabled_methods);
@@ -370,11 +374,21 @@ export default function CheckoutPage() {
         }
     }, [user]);
 
+    // Canales que habilitó el comercio (Ajustes › Pagos). Sin configurar: WhatsApp y correo.
+    const allowedOrderChannels = useMemo(() => {
+        const source = checkoutSettings?.order_channels || commerce.order_channels || [];
+        const list = (Array.isArray(source) ? source : []).map(normalizeOrderChannel).filter(Boolean);
+        return list.length ? [...new Set(list)] : ["whatsapp", "email"];
+    }, [checkoutSettings, commerce]);
+    const orderChannelOptions = ORDER_CHANNEL_OPTIONS.filter((option) => allowedOrderChannels.includes(option.key));
+
     useEffect(() => {
-        if (!whatsappNumber && orderChannel === "whatsapp") {
+        if (!whatsappNumber && orderChannel === "whatsapp" && allowedOrderChannels.includes("email")) {
             setOrderChannel("email");
+        } else if (!allowedOrderChannels.includes(orderChannel)) {
+            setOrderChannel(allowedOrderChannels[0]);
         }
-    }, [orderChannel, whatsappNumber]);
+    }, [orderChannel, whatsappNumber, allowedOrderChannels]);
 
     useEffect(() => {
         if (deliveryMethod !== DISTANCE_DELIVERY_KEY) {
@@ -889,7 +903,8 @@ export default function CheckoutPage() {
                 return;
             }
         }
-        if (!taxesAcknowledged) {
+
+        if (!taxesAcknowledged) {
             setCheckoutError("Debes aceptar y confirmar la informacion de impuestos antes de proceder con el pago.");
             return;
         }
@@ -1704,7 +1719,7 @@ export default function CheckoutPage() {
                                             </p>
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {ORDER_CHANNEL_OPTIONS.map((option) => {
+                                            {orderChannelOptions.map((option) => {
                                                 const disabled = option.key === "whatsapp" && !whatsappNumber;
                                                 return (
                                                     <PayOption
@@ -1739,6 +1754,21 @@ export default function CheckoutPage() {
                                     {paymentMethod === "transfer" ? (
                                         <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
                                             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Datos para la transferencia</p>
+                                            {highlightedTransfer ? (
+                                                <div className="mb-2.5 flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[10px] uppercase tracking-wider text-gray-400">{highlightedTransfer.label} para transferir</p>
+                                                        <p className="mt-0.5 break-all text-lg font-bold text-gray-900">{highlightedTransfer.value}</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        className="shrink-0 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                                                        onClick={() => navigator.clipboard?.writeText(highlightedTransfer.value)}
+                                                    >
+                                                        Copiar
+                                                    </button>
+                                                </div>
+                                            ) : null}
                                             <div className="grid grid-cols-2 gap-2.5">
                                                 {[
                                                     { label: "CBU", value: bankTransfer.cbu || "-" },

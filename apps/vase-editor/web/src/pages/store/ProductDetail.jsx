@@ -16,6 +16,8 @@ import ProductDetailImmersive from "./ProductDetailImmersive";
 import ProductBreadcrumb from "../../components/ProductBreadcrumb";
 import { resolveProductCategoryContext } from "../../utils/productCategoryContext";
 import { ArrowRight, Bookmark, ShoppingCart } from "lucide-react";
+import SpecSheetDownload from "../../components/store/SpecSheetDownload";
+import { specSheetFrom } from "../../utils/specSheet";
 
 const FALLBACK_IMAGE = createPlaceholderImage({ label: "Producto", width: 900, height: 900 });
 
@@ -396,6 +398,7 @@ export default function ProductDetail() {
             sourceCategory: product.source_category || data.source_category || "",
             sourceCategoryPath,
             specifications,
+            specSheet: specSheetFrom(product.spec_sheet, data.spec_sheet),
             presentationLabel:
                 product.variation_label ||
                 data.variant_label ||
@@ -476,7 +479,8 @@ export default function ProductDetail() {
             }))
             .filter((item) => item.label && item.value);
     }, [view]);
-    const canShowSpecifications = Boolean(view?.showSpecifications && specificationEntries.length);
+    // La pestaña aparece si hay datos para mostrar o una ficha técnica para descargar.
+    const canShowSpecifications = Boolean((view?.showSpecifications && specificationEntries.length) || view?.specSheet);
     const categoryContext = useMemo(
         () => (product ? resolveProductCategoryContext(product, categories) : null),
         [categories, product],
@@ -882,6 +886,7 @@ export default function ProductDetail() {
                                                 {view.longDescription || view.shortDescription || "Sin descripción disponible."}
                                             </p>
                                         </div>
+                                        <SpecSheetDownload sheet={view.specSheet} compact />
                                     </div>
                                 ) : null}
 
@@ -891,13 +896,17 @@ export default function ProductDetail() {
                                             <h3 className="text-xl font-black text-[#181411] dark:text-white mb-2">
                                                 Especificaciones técnicas
                                             </h3>
-                                            <p className="text-sm text-[#8a7560]">
-                                                Detalle rápido del producto en formato de celdas.
-                                            </p>
+                                            {view.showSpecifications && specificationEntries.length ? (
+                                                <p className="text-sm text-[#8a7560]">
+                                                    Detalle rápido del producto en formato de celdas.
+                                                </p>
+                                            ) : null}
                                         </div>
 
+                                        <SpecSheetDownload sheet={view.specSheet} />
+
                                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                            {specificationEntries.map((item) => (
+                                            {(view.showSpecifications ? specificationEntries : []).map((item) => (
                                                 <div
                                                     key={`spec-${item.label}`}
                                                     className="rounded-2xl border border-[#e5e1de] bg-[#faf8f6] px-4 py-3 dark:border-[#3d2f21] dark:bg-[#120d08]"

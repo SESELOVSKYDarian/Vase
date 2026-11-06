@@ -134,6 +134,7 @@ function normalizeCheckoutSettings(commerce = {}) {
     enabled_methods: methods,
     whatsapp_number: commerce.whatsapp_number || '',
     whatsapp_template: commerce.whatsapp_template || '',
+    order_channels: Array.isArray(commerce.order_channels) && commerce.order_channels.length ? commerce.order_channels : ['whatsapp', 'email'],
     order_notification_email: commerce.order_notification_email || commerce.email || '',
     admin_order_confirmation_label: commerce.admin_order_confirmation_label || 'En confirmacion',
     customer_order_processing_label: commerce.customer_order_processing_label || 'En proceso',
@@ -153,6 +154,7 @@ function normalizeCheckoutSettings(commerce = {}) {
       alias: bankTransfer.alias || '',
       bank: bankTransfer.bank || '',
       holder: bankTransfer.holder || '',
+      highlight: ['alias', 'cbu'].includes(bankTransfer.highlight) ? bankTransfer.highlight : '',
     },
     gmail_sender_email: commerce.gmail_sender_email || '',
     has_gmail_app_password: Boolean(String(commerce.gmail_app_password || '').trim()),
@@ -202,6 +204,15 @@ function sanitizeCheckoutPayload(payload = {}) {
       ? String(payload.gmail_app_password).trim()
       : null;
 
+  // Panel nuevo: por dónde se manda el pedido y textos de los avisos de pago.
+  const orderChannels = Array.isArray(payload.order_channels)
+    ? [...new Set(payload.order_channels.map((item) => String(item || '').trim().toLowerCase()))].filter((item) => ['whatsapp', 'email'].includes(item))
+    : null;
+  const paymentTexts = {};
+  for (const key of ['customer_payment_approved_subject', 'customer_payment_approved_text', 'customer_payment_cancelled_subject', 'customer_payment_cancelled_text']) {
+    if (payload[key] !== undefined && payload[key] !== null) paymentTexts[key] = String(payload[key]).trim();
+  }
+
   const normalizedMode = methods?.length ? toLegacyMode(methods) : mode;
 
   return {
@@ -214,6 +225,8 @@ function sanitizeCheckoutPayload(payload = {}) {
     ...(adminOrderConfirmationText !== null ? { admin_order_confirmation_text: adminOrderConfirmationText } : {}),
     ...(customerOrderProcessingText !== null ? { customer_order_processing_text: customerOrderProcessingText } : {}),
     ...(methods ? { payment_methods: methods } : {}),
+    ...(orderChannels?.length ? { order_channels: orderChannels } : {}),
+    ...paymentTexts,
     ...(taxRate !== null ? { tax_rate: taxRate } : {}),
     ...(shippingFlat !== null ? { shipping_flat: shippingFlat } : {}),
     ...(shippingZones ? { shipping_zones: shippingZones } : {}),
@@ -228,6 +241,7 @@ function sanitizeCheckoutPayload(payload = {}) {
             alias: bankTransfer.alias ? String(bankTransfer.alias).trim() : '',
             bank: bankTransfer.bank ? String(bankTransfer.bank).trim() : '',
             holder: bankTransfer.holder ? String(bankTransfer.holder).trim() : '',
+            highlight: ['alias', 'cbu'].includes(bankTransfer.highlight) ? bankTransfer.highlight : '',
           },
         }
       : {}),

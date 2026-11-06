@@ -5,6 +5,7 @@ import ProductBreadcrumb from "../../components/ProductBreadcrumb";
 import StoreSkeleton from "../../components/StoreSkeleton";
 import { formatCurrency } from "../../utils/format";
 import { navigate } from "../../utils/navigation";
+import SpecSheetDownload from "../../components/store/SpecSheetDownload";
 
 export default function ProductDetailImmersive({
     view, loading, error, images, activeImage, setActiveImage, qty, setQty,
@@ -50,6 +51,7 @@ export default function ProductDetailImmersive({
                             <div className="pt-12 mt-12 border-t border-zinc-800">
                                 <h2 className="text-3xl font-bold mb-8">Acerca de este producto</h2>
                                 <p className="text-zinc-500 whitespace-pre-line text-lg leading-loose">{view.longDescription}</p>
+                                {view.specSheet ? <div className="mt-6"><SpecSheetDownload sheet={view.specSheet} /></div> : null}
                             </div>
                         </div>
 

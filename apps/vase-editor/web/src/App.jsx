@@ -83,6 +83,7 @@ const preloadRoute = (pathname) => {
 // Admin pages
 const EditorPage = lazyPage(() => import('./pages/admin/EditorPage'));
 const EvolutionAdmin = lazyPage(() => import('./pages/admin/evolution/EvolutionAdmin'));
+const PanelApp = lazyPage(() => import('./panel/PanelApp'));
 const PreviewPage = lazyPage(() => import('./pages/admin/evolution/PreviewPage'));
 
 function PageFallback() {
@@ -98,7 +99,9 @@ function AppContent() {
     const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     const allowLocalAdmin = isEditorHost || isLocalHost || import.meta.env.VITE_ALLOW_LOCAL_ADMIN === 'true';
     const isPreviewRoute = route === '/admin/preview';
-    const isAdminRoute = route === '/admin' || route === '/admin/evolution' || route === '/admin/legacy';
+    const isAdminRoute = route === '/admin' || (route.startsWith('/admin/') && !isPreviewRoute);
+    // /admin/* es el panel nuevo; el panel anterior queda en /admin/anterior como respaldo.
+    const isLegacyAdminRoute = route === '/admin/anterior' || route === '/admin/legacy';
 
     useEffect(() => {
         const handleLocationChange = () => setRoute(window.location.pathname);
@@ -117,7 +120,7 @@ function AppContent() {
     useEffect(() => {
         if (!isEditorHost) return;
         if (route !== '/') return;
-        navigate('/admin/evolution');
+        navigate('/admin');
     }, [isEditorHost, route]);
 
     useEffect(() => {
@@ -153,10 +156,10 @@ function AppContent() {
 
     useEffect(() => {
         const brandName = resolveTenantBrandName({ tenant, settings });
-        if (isAdminRoute || isPreviewRoute) {
+        if (isLegacyAdminRoute || isPreviewRoute) {
             document.title = `${brandName} | Editor`;
         }
-    }, [isAdminRoute, isPreviewRoute, settings, tenant]);
+    }, [isLegacyAdminRoute, isPreviewRoute, settings, tenant]);
 
     let Component = HomePage;
 
@@ -172,7 +175,9 @@ function AppContent() {
                 </div>
             );
         } else if (isAdmin) {
-            Component = route === '/admin/legacy' ? EditorPage : EvolutionAdmin;
+            if (route === '/admin/legacy') Component = EditorPage;
+            else if (route === '/admin/anterior') Component = EvolutionAdmin;
+            else Component = PanelApp;
         } else if (user) {
             Component = ProfilePage;
         } else {
@@ -192,7 +197,8 @@ function AppContent() {
 
     return (
         <div className="w-full min-h-screen bg-gray-50 text-[#181411] transition-colors duration-200 dark:bg-[#090b0f] dark:text-[#e6edf7]">
-            <div key={route}>
+            {/* El panel no se reinicia al cambiar de sección: mantiene datos y estado entre pantallas. */}
+            <div key={isAdminRoute && !isLegacyAdminRoute ? 'vase-panel' : route}>
                 <Suspense fallback={<PageFallback />}>
                     <Component />
                 </Suspense>

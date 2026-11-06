@@ -18,6 +18,7 @@ import PiquimCatalog3Panel from './blocks/PiquimCatalog3Panel';
 import PiquimFeaturedProducts from './blocks/PiquimFeaturedProducts';
 import PiquimCTABanner from './blocks/PiquimCTABanner';
 import { useTenant } from '../context/TenantContext';
+import { deviceClass, spacingStyle } from '../utils/sectionStyle';
 
 const COMPONENT_MAP = {
     HeroSlider,
@@ -46,7 +47,8 @@ const ANCHOR_MAP = {
     Services: 'sobre-nosotros',
 };
 
-export default function PageBuilder({ sections = [] }) {
+// ignoreDevice: en la vista previa del editor los bloques ocultos en un dispositivo se muestran atenuados en vez de desaparecer.
+export default function PageBuilder({ sections = [], ignoreDevice = false }) {
     const { settings } = useTenant();
     const catalogCards = Array.isArray(settings?.branding?.catalog_cards) && settings.branding.catalog_cards.length
         ? settings.branding.catalog_cards
@@ -84,7 +86,12 @@ export default function PageBuilder({ sections = [] }) {
                 }
 
                 return (
-                    <section key={section.id || index} id={anchorId || undefined}>
+                    <section
+                        key={section.id || index}
+                        id={anchorId || undefined}
+                        className={ignoreDevice ? undefined : deviceClass(section.props)}
+                        style={spacingStyle(section.props)}
+                    >
                         <Component {...section.props} {...(section.type === 'PiquimCatalog3Panel' && catalogCards ? { cards: catalogCards } : {})} />
                     </section>
                 );

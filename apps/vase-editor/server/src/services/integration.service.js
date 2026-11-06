@@ -1603,8 +1603,9 @@ export async function syncIntegrationProducts({
         }
 
         const allowEditorialSync = existing.admin_locked !== true;
-        const nextPrice = item.hasPriceRetail ? item.priceRetail : Number(existing.price || 0);
-        const nextPriceWholesale = item.hasPriceWholesale
+        // Producto bloqueado en el panel: el precio que puso el comercio no lo pisa el sistema.
+        const nextPrice = allowEditorialSync && item.hasPriceRetail ? item.priceRetail : Number(existing.price || 0);
+        const nextPriceWholesale = allowEditorialSync && item.hasPriceWholesale
           ? item.priceWholesale
           : Number(existing.price_wholesale ?? nextPrice ?? 0);
         const nextStock = item.hasStock ? item.stock : Number(existing.stock || 0);

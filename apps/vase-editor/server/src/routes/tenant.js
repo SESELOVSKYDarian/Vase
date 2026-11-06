@@ -1,12 +1,16 @@
 import { Router } from 'express';
+import { normalizeSpecSheet } from '../services/specSheet.js';
 import { pool } from '../db.js';
 import multer from 'multer';
 import path from 'path';
 import crypto from 'crypto';
 import { resolve4, resolveCname } from 'node:dns/promises';
 import { fileURLToPath } from 'url';
-import { ensureDefaultPriceLists, ensurePricingSchema } from '../services/userPricing.js';
-import { getTenantOffers } from '../services/offers.js';
+import { ensureDefaultPriceLists, ensurePricingSchema, resolveEffectiveProductPrice, resolvePricingProfile } from '../services/userPricing.js';
+import { ensureSpecialPricesSchema, pickSpecialPrices, upsertSpecialPrices } from '../services/specialPrices.js';
+import { normalizePriceAdjustments } from '../services/pricing.js';
+import { OFFER_KINDS, ensureOfferColumns, getTenantOffers, isClassicOffer } from '../services/offers.js';
+import { computeBulkPrice } from '../services/bulkPrice.js';
 import { buildTenantIntegrationManifest, resolveServerBaseUrl } from '../services/integrationManifest.js';
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
 import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
@@ -1102,7 +1106,10 @@ tenantRouter.get('/categories', async (req, res, next) => {
       [
         'select c.id, c.name, c.slug,',
         "nullif(c.data->>'parent_id', '') as parent_id,",
-        'parent.name as parent_name',
+        'parent.name as parent_name,',
+        // Cómo se llama en el sistema de gestión (si vino de ahí), para mostrarlo al renombrarla.
+        "coalesce(nullif(c.data->>'source_category_label', ''), nullif(c.erp_id, '')) as source_name,",
+        "(c.data->>'auto_created_by') = 'integration_sync' as from_sync",
         'from categories c',
         "left join categories parent on parent.tenant_id = c.tenant_id and parent.id::text = nullif(c.data->>'parent_id', '')",
         'where c.tenant_id = $1',
@@ -1115,6 +1122,92 @@ tenantRouter.get('/categories', async (req, res, next) => {
       [tenantId]
     );
     return res.json(result.rows);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Renombrar una categoría o moverla dentro de otra. Si la categoría vino del sistema de gestión, su
+// nombre original queda en erp_id: la sincronización la sigue encontrando por ese nombre y no crea
+// una copia, y en la tienda se ve el nombre nuevo.
+tenantRouter.put('/categories/:id', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+
+  const categoryId = req.params.id;
+  if (!isUuid(categoryId)) {
+    return res.status(400).json({ error: 'invalid_category_id' });
+  }
+  const body = req.body || {};
+  const hasName = Object.prototype.hasOwnProperty.call(body, 'name');
+  const hasParent = Object.prototype.hasOwnProperty.call(body, 'parent_id');
+  const name = hasName ? String(body.name || '').trim() : '';
+  const parentId = hasParent ? String(body.parent_id || '').trim() : '';
+  if (hasName && !name) {
+    return res.status(400).json({ error: 'name_required' });
+  }
+  if (parentId && !isUuid(parentId)) {
+    return res.status(400).json({ error: 'invalid_parent_category_id' });
+  }
+  if (parentId && parentId === categoryId) {
+    return res.status(400).json({ error: 'category_cycle' });
+  }
+
+  try {
+    const existingRes = await pool.query(
+      'select id, name, slug, erp_id, data from categories where tenant_id = $1 and id = $2',
+      [tenantId, categoryId]
+    );
+    if (!existingRes.rowCount) {
+      return res.status(404).json({ error: 'category_not_found' });
+    }
+    const existing = existingRes.rows[0];
+    const data = existing.data && typeof existing.data === 'object' ? { ...existing.data } : {};
+
+    if (hasParent) {
+      if (parentId) {
+        // No se puede mover una categoría dentro de una de sus propias subcategorías.
+        let cursor = parentId;
+        for (let depth = 0; cursor && depth < 20; depth += 1) {
+          const parentRes = await pool.query(
+            "select id, nullif(data->>'parent_id', '') as parent_id from categories where tenant_id = $1 and id = $2",
+            [tenantId, cursor]
+          );
+          if (!parentRes.rowCount) {
+            return res.status(404).json({ error: 'parent_category_not_found' });
+          }
+          if (parentRes.rows[0].parent_id === categoryId) {
+            return res.status(400).json({ error: 'category_cycle' });
+          }
+          cursor = parentRes.rows[0].parent_id;
+        }
+        data.parent_id = parentId;
+      } else {
+        delete data.parent_id;
+      }
+    }
+
+    const nextName = hasName ? name : existing.name;
+    const renamed = nextName !== existing.name;
+    const erpId = String(existing.erp_id || '').trim() || (renamed ? existing.name : null);
+    if (renamed && !data.source_category_label && data.auto_created_by === 'integration_sync') {
+      data.source_category_label = existing.name;
+    }
+
+    const updated = await pool.query(
+      [
+        'update categories set name = $3, erp_id = $4, data = $5::jsonb',
+        'where tenant_id = $1 and id = $2',
+        'returning id, name, slug',
+      ].join(' '),
+      [tenantId, categoryId, nextName, erpId, data]
+    );
+    return res.json({
+      ...updated.rows[0],
+      parent_id: data.parent_id || null,
+      source_name: data.source_category_label || erpId || null,
+      from_sync: data.auto_created_by === 'integration_sync',
+    });
   } catch (err) {
     return next(err);
   }
@@ -1462,6 +1555,398 @@ tenantRouter.get('/price-lists', async (req, res, next) => {
   }
 });
 
+// Nueva lista de precios (tipo especial: se asigna a mano a cada cliente).
+tenantRouter.post('/price-lists', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+
+  const body = req.body || {};
+  const name = String(body.name || '').trim().slice(0, 80);
+  if (!name) {
+    return res.status(400).json({ error: 'name_required' });
+  }
+  const percent = body.percent === undefined || body.percent === '' ? 0 : Number(body.percent);
+  if (!Number.isFinite(percent) || percent < -90 || percent > 500) {
+    return res.status(400).json({ error: 'invalid_percent' });
+  }
+  const rules = { percent: Math.round(percent * 100) / 100 };
+  if (body.force_segment === 'retail' || body.force_segment === 'wholesale') rules.force_segment = body.force_segment;
+
+  try {
+    await ensurePricingSchema();
+    await ensureDefaultPriceLists(tenantId);
+    const result = await pool.query(
+      [
+        "insert into price_lists (tenant_id, name, type, rules_json) values ($1, $2, 'special', $3::jsonb)",
+        'returning id, name, type, rules_json, created_at',
+      ].join(' '),
+      [tenantId, name, JSON.stringify(rules)]
+    );
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err?.code === '23505') {
+      return res.status(409).json({ error: 'price_list_name_taken' });
+    }
+    return next(err);
+  }
+});
+
+tenantRouter.put('/price-lists/:id', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+
+  const listId = req.params.id;
+  if (!isUuid(listId)) {
+    return res.status(400).json({ error: 'invalid_price_list_id' });
+  }
+  const body = req.body || {};
+  const name = body.name === undefined ? null : String(body.name || '').trim();
+  if (name !== null && !name) {
+    return res.status(400).json({ error: 'name_required' });
+  }
+  const hasPercent = body.percent !== undefined;
+  const percent = Number(body.percent);
+  if (hasPercent && (!Number.isFinite(percent) || percent < -90 || percent > 500)) {
+    return res.status(400).json({ error: 'invalid_percent' });
+  }
+  const hasSegment = body.force_segment !== undefined;
+  const segment = body.force_segment === 'retail' || body.force_segment === 'wholesale' ? body.force_segment : null;
+
+  try {
+    await ensurePricingSchema();
+    const existing = await pool.query(
+      'select id, name, type, rules_json from price_lists where tenant_id = $1 and id = $2',
+      [tenantId, listId]
+    );
+    if (!existing.rowCount) {
+      return res.status(404).json({ error: 'price_list_not_found' });
+    }
+    const current = existing.rows[0];
+    const rules = { ...(current.rules_json && typeof current.rules_json === 'object' ? current.rules_json : {}) };
+    if (hasPercent) rules.percent = Math.round(percent * 100) / 100;
+    if (hasSegment) {
+      if (segment) rules.force_segment = segment;
+      else delete rules.force_segment;
+    }
+    const result = await pool.query(
+      [
+        'update price_lists set name = $3, rules_json = $4::jsonb',
+        'where tenant_id = $1 and id = $2',
+        'returning id, name, type, rules_json, created_at',
+      ].join(' '),
+      [tenantId, listId, name ?? current.name, JSON.stringify(rules)]
+    );
+    return res.json(result.rows[0]);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+tenantRouter.post('/products/bulk-price', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+
+  const body = req.body || {};
+  const mode = ['raise', 'lower', 'set'].includes(body.mode) ? body.mode : null;
+  const unit = body.unit === 'amount' ? 'amount' : 'percent';
+  const amount = Number(body.amount);
+  const field = ['price', 'price_wholesale', 'both'].includes(body.field) ? body.field : 'price';
+  const categoryId = body.category_id ? String(body.category_id) : null;
+  const brand = body.brand ? String(body.brand).trim() : null;
+  const apply = body.apply === true;
+  // Para quién: todos (cambia el precio del producto) o una lista / clientes puntuales (precio especial fijo).
+  const target = ['lists', 'users'].includes(body.target) ? body.target : 'all';
+  const listsParsed = parseUuidArray(body.price_list_ids);
+  const usersParsed = parseUuidArray(body.user_ids);
+  // Productos del sistema de gestión: si lock, quedan con "No pisar mis cambios" y la sincronización no los toca.
+  const lock = body.lock === true;
+
+  if (!mode) return res.status(400).json({ error: 'invalid_mode' });
+  if (!Number.isFinite(amount) || amount < 0 || (mode !== 'set' && amount === 0)) {
+    return res.status(400).json({ error: 'invalid_amount' });
+  }
+  if (mode === 'set' && unit === 'percent') return res.status(400).json({ error: 'invalid_unit' });
+  if (unit === 'percent' && mode === 'lower' && amount >= 100) return res.status(400).json({ error: 'invalid_amount' });
+  if (categoryId && !isUuid(categoryId)) return res.status(400).json({ error: 'invalid_category_id' });
+  if (target !== 'all') {
+    if (!listsParsed.ok || !usersParsed.ok) return res.status(400).json({ error: 'invalid_target' });
+    if (target === 'lists' && !listsParsed.items.length) return res.status(400).json({ error: 'target_required' });
+    if (target === 'users' && !usersParsed.items.length) return res.status(400).json({ error: 'target_required' });
+  }
+
+  const params = [tenantId];
+  const where = ['p.tenant_id = $1', 'p.deleted_at is null'];
+  let categoryTree = [];
+  if (categoryId) {
+    // El rubro o la categoría elegida con todas sus subcategorías (la madre se guarda en data.parent_id).
+    categoryTree = (await pool.query(
+      [
+        'with recursive tree as (select id from categories where tenant_id = $1 and id = $2',
+        "union all select c.id from categories c join tree t on nullif(c.data->>'parent_id', '') = t.id::text where c.tenant_id = $1)",
+        'select id from tree',
+      ].join(' '),
+      [tenantId, categoryId]
+    )).rows.map((row) => row.id);
+    params.push(categoryTree.length ? categoryTree : [categoryId]);
+    where.push(`p.id in (select pc.product_id from product_categories pc where pc.category_id = any($${params.length}::uuid[]))`);
+  }
+  if (brand) {
+    params.push(brand.toLowerCase());
+    where.push(`lower(coalesce(p.brand, '')) = $${params.length}`);
+  }
+
+  const client = await pool.connect();
+  try {
+    const rows = (await client.query(
+      [
+        'select p.id, p.name, p.price, p.price_wholesale, p.external_id, coalesce(p.admin_locked, false) as admin_locked',
+        'from product_cache p',
+        `where ${where.join(' and ')}`,
+        'order by p.name asc',
+      ].join(' '),
+      params
+    )).rows;
+
+    if (target !== 'all') {
+      await ensureSpecialPricesSchema();
+      const commerce = (await client.query('select commerce from tenant_settings where tenant_id = $1', [tenantId])).rows[0]?.commerce || {};
+      const adjustments = normalizePriceAdjustments(commerce);
+
+      // Cada destino (una lista o un cliente) con el precio que paga hoy.
+      let targets = [];
+      if (target === 'lists') {
+        const lists = (await client.query(
+          'select id, name, type, rules_json from price_lists where tenant_id = $1 and id = any($2::uuid[]) order by name',
+          [tenantId, listsParsed.items]
+        )).rows;
+        targets = lists.map((list) => ({
+          key: list.id,
+          label: list.name,
+          price_list_id: list.id,
+          user_id: null,
+          profile: { segment: list.type === 'wholesale' ? 'wholesale' : 'retail', allowWholesale: true, pendingWholesale: false, priceList: list, priceListSource: 'manual' },
+        }));
+      } else {
+        const users = (await client.query(
+          [
+            'select u.id, u.email, ut.role, ut.status from user_tenants ut join users u on u.id = ut.user_id',
+            'where ut.tenant_id = $1 and ut.user_id = any($2::uuid[]) order by u.email',
+          ].join(' '),
+          [tenantId, usersParsed.items]
+        )).rows;
+        for (const user of users) {
+          targets.push({
+            key: user.id,
+            label: user.email,
+            price_list_id: null,
+            user_id: user.id,
+            profile: await resolvePricingProfile({ tenantId, user }),
+          });
+        }
+      }
+      if (!targets.length) return res.status(400).json({ error: 'target_required' });
+
+      const productIds = rows.map((row) => row.id);
+      const listIds = [...new Set(targets.map((item) => item.profile?.priceList?.id).filter(Boolean))];
+      const existing = productIds.length ? (await client.query(
+        [
+          'select product_id, price_list_id, user_id, price from tenant_special_prices',
+          'where tenant_id = $1 and product_id = any($2::uuid[]) and (user_id = any($3::uuid[]) or (user_id is null and price_list_id = any($4::uuid[])))',
+        ].join(' '),
+        [tenantId, productIds, targets.map((item) => item.user_id).filter(Boolean), listIds]
+      )).rows : [];
+
+      const pairs = [];
+      targets.forEach((item) => {
+        const current = pickSpecialPrices(existing, { userId: item.user_id, priceListId: item.profile?.priceList?.id || null });
+        rows.forEach((row) => {
+          const before = resolveEffectiveProductPrice({
+            priceRetail: Number(row.price || 0),
+            priceWholesale: Number(row.price_wholesale || 0),
+            adjustments,
+            profile: item.profile,
+            specialPrice: current.get(row.id) ?? null,
+          }).effective;
+          if (!before && mode !== 'set') return;
+          const after = computeBulkPrice(before, { mode, amount, unit });
+          if (after === before) return;
+          pairs.push({ row, item, before, after });
+        });
+      });
+      const changedProducts = new Set(pairs.map((pair) => pair.row.id)).size;
+
+      let batch = null;
+      if (apply && pairs.length) {
+        const categoryName = categoryId
+          ? (await client.query('select name from categories where tenant_id = $1 and id = $2', [tenantId, categoryId])).rows[0]?.name
+          : null;
+        const scopeName = categoryId ? (categoryName || 'categoría elegida') : brand ? `marca ${brand}` : 'todo el catálogo';
+        const who = target === 'lists'
+          ? `lista ${targets.map((item) => item.label).join(', ')}`
+          : targets.length === 1 ? targets[0].label : `${targets.length} clientes`;
+        const verb = mode === 'raise' ? 'Subir' : mode === 'lower' ? 'Bajar' : 'Precio fijo';
+        const howMuch = mode === 'set' ? `$${amount}` : unit === 'percent' ? `${amount}%` : `$${amount}`;
+        batch = { id: crypto.randomUUID(), name: `${verb} ${howMuch} · ${scopeName} · ${who}`.slice(0, 160) };
+        await client.query('begin');
+        await upsertSpecialPrices(client, {
+          tenantId,
+          batchId: batch.id,
+          batchName: batch.name,
+          rows: pairs.map(({ row, item, after }) => ({ product_id: row.id, price_list_id: item.price_list_id, user_id: item.user_id, price: after })),
+        });
+        await client.query('commit');
+      }
+
+      return res.json({
+        applied: Boolean(batch),
+        target,
+        matched: rows.length,
+        changed: changedProducts,
+        special_prices: pairs.length,
+        synced_unlocked: 0,
+        batch,
+        sample: pairs.slice(0, 8).map(({ row, item, before, after }) => ({
+          id: `${row.id}:${item.key}`,
+          name: row.name,
+          who: item.label,
+          before: { price: before },
+          after: { price: after },
+        })),
+      });
+    }
+
+    const changes = rows.map((row) => {
+      const price = field === 'price_wholesale' ? Number(row.price || 0) : computeBulkPrice(row.price, { mode, amount, unit });
+      const wholesale = field === 'price' ? Number(row.price_wholesale || 0) : computeBulkPrice(row.price_wholesale, { mode, amount, unit });
+      return { row, price, wholesale };
+    }).filter(({ row, price, wholesale }) => price !== Number(row.price || 0) || wholesale !== Number(row.price_wholesale || 0));
+
+    // Los que vienen del sistema y no están bloqueados vuelven a su precio en la próxima sincronización.
+    const syncedUnlocked = changes.filter(({ row }) => row.external_id && !row.admin_locked).length;
+
+    if (apply && changes.length) {
+      await client.query('begin');
+      await client.query(
+        [
+          'update product_cache p set price = v.price, price_wholesale = v.wholesale, updated_at = now(),',
+          'admin_locked = coalesce(p.admin_locked, false) or ($5 and p.external_id is not null)',
+          'from unnest($2::uuid[], $3::numeric[], $4::numeric[]) as v(id, price, wholesale)',
+          'where p.tenant_id = $1 and p.id = v.id',
+        ].join(' '),
+        [tenantId, changes.map((c) => c.row.id), changes.map((c) => c.price), changes.map((c) => c.wholesale), lock]
+      );
+      await client.query('commit');
+    }
+
+    return res.json({
+      applied: apply,
+      matched: rows.length,
+      changed: changes.length,
+      synced_unlocked: syncedUnlocked,
+      locked: apply && lock ? syncedUnlocked : 0,
+      target,
+      sample: changes.slice(0, 8).map(({ row, price, wholesale }) => ({
+        id: row.id,
+        name: row.name,
+        before: { price: Number(row.price || 0), price_wholesale: Number(row.price_wholesale || 0) },
+        after: { price, price_wholesale: wholesale },
+      })),
+    });
+  } catch (err) {
+    if (apply) await client.query('rollback').catch(() => {});
+    return next(err);
+  } finally {
+    client.release();
+  }
+});
+
+// Precios especiales agrupados por cambio (cada vez que se tocó Aplicar).
+tenantRouter.get('/special-prices', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    await ensureSpecialPricesSchema();
+    const result = await pool.query(
+      [
+        'select batch_id as id, batch_name as name, max(created_at) as created_at,',
+        'count(*)::int as prices, count(distinct product_id)::int as products',
+        'from tenant_special_prices where tenant_id = $1',
+        'group by batch_id, batch_name order by max(created_at) desc limit 200',
+      ].join(' '),
+      [tenantId]
+    );
+    return res.json({ items: result.rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+tenantRouter.delete('/special-prices/:batchId', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  if (!isUuid(req.params.batchId)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    await ensureSpecialPricesSchema();
+    const result = await pool.query('delete from tenant_special_prices where tenant_id = $1 and batch_id = $2', [tenantId, req.params.batchId]);
+    return res.json({ ok: true, removed: result.rowCount });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+const OFFER_COLUMNS = 'id, tenant_id, name, label, percent, enabled, user_ids, category_ids, kind, value, product_ids, price_list_ids, starts_at, ends_at, created_at, updated_at';
+
+function parseOptionalDate(value) {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null };
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? { ok: false } : { ok: true, value: date.toISOString() };
+}
+
+// Acepta el formato de siempre ({ percent }) y el del panel nuevo ({ kind, value, product_ids, starts_at, ends_at }).
+function parseOfferBody(body = {}) {
+  const name = String(body.name || '').trim();
+  const label = String(body.label || 'Oferta').trim() || 'Oferta';
+  const kind = OFFER_KINDS.includes(body.kind) ? body.kind : 'percent';
+  const value = Number(body.value ?? body.percent ?? 0);
+  const enabled = body.enabled !== false;
+  const usersParsed = parseUuidArray(body.user_ids);
+  const categoriesParsed = parseUuidArray(body.category_ids);
+  const productsParsed = parseUuidArray(body.product_ids);
+  // Si no llega, queda undefined: al editar se conserva la lista que ya tenía la oferta.
+  const hasLists = Object.prototype.hasOwnProperty.call(body, 'price_list_ids');
+  const listsParsed = hasLists ? parseUuidArray(body.price_list_ids) : { ok: true, items: undefined };
+  const startsAt = parseOptionalDate(body.starts_at);
+  const endsAt = parseOptionalDate(body.ends_at);
+
+  if (!name) return { error: 'name_required' };
+  if (!Number.isFinite(value) || value <= 0 || (kind === 'percent' && value > 100)) {
+    return { error: kind === 'percent' ? 'invalid_percent' : 'invalid_value' };
+  }
+  if (!usersParsed.ok) return { error: 'invalid_user_ids' };
+  if (!categoriesParsed.ok) return { error: 'invalid_category_ids' };
+  if (!productsParsed.ok) return { error: 'invalid_product_ids' };
+  if (!listsParsed.ok) return { error: 'invalid_price_list_ids' };
+  if (!startsAt.ok || !endsAt.ok) return { error: 'invalid_dates' };
+  if (startsAt.value && endsAt.value && startsAt.value > endsAt.value) return { error: 'invalid_dates' };
+
+  const offer = {
+    name,
+    label,
+    kind,
+    value,
+    enabled,
+    user_ids: usersParsed.items,
+    category_ids: categoriesParsed.items,
+    product_ids: productsParsed.items,
+    price_list_ids: listsParsed.items,
+    starts_at: startsAt.value,
+    ends_at: endsAt.value,
+  };
+  // Solo las clásicas llevan el porcentaje en `percent`: las demás quedan en 0 para versiones anteriores.
+  offer.percent = isClassicOffer(offer) ? value : 0;
+  return { offer };
+}
+
 tenantRouter.get('/offers', async (req, res, next) => {
   const tenantId = getTenantId(req, res);
   if (!tenantId) return;
@@ -1479,34 +1964,34 @@ tenantRouter.post('/offers', async (req, res, next) => {
   const tenantId = getTenantId(req, res);
   if (!tenantId) return;
 
-  const name = String(req.body?.name || '').trim();
-  const label = String(req.body?.label || 'Oferta').trim() || 'Oferta';
-  const percent = Number(req.body?.percent || 0);
-  const enabled = req.body?.enabled !== false;
-  const usersParsed = parseUuidArray(req.body?.user_ids);
-  const categoriesParsed = parseUuidArray(req.body?.category_ids);
-
-  if (!name) {
-    return res.status(400).json({ error: 'name_required' });
-  }
-  if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
-    return res.status(400).json({ error: 'invalid_percent' });
-  }
-  if (!usersParsed.ok) {
-    return res.status(400).json({ error: 'invalid_user_ids' });
-  }
-  if (!categoriesParsed.ok) {
-    return res.status(400).json({ error: 'invalid_category_ids' });
+  const { offer, error } = parseOfferBody(req.body || {});
+  if (error) {
+    return res.status(400).json({ error });
   }
 
   try {
+    await ensureOfferColumns();
     const result = await pool.query(
       [
-        'insert into tenant_offers (tenant_id, name, label, percent, enabled, user_ids, category_ids)',
-        'values ($1, $2, $3, $4, $5, $6::uuid[], $7::uuid[])',
-        'returning id, tenant_id, name, label, percent, enabled, user_ids, category_ids, created_at, updated_at',
+        'insert into tenant_offers (tenant_id, name, label, percent, enabled, user_ids, category_ids, kind, value, product_ids, starts_at, ends_at, price_list_ids)',
+        'values ($1, $2, $3, $4, $5, $6::uuid[], $7::uuid[], $8, $9, $10::uuid[], $11, $12, $13::uuid[])',
+        `returning ${OFFER_COLUMNS}`,
       ].join(' '),
-      [tenantId, name, label, percent, enabled, usersParsed.items, categoriesParsed.items]
+      [
+        tenantId,
+        offer.name,
+        offer.label,
+        offer.percent,
+        offer.enabled,
+        offer.user_ids,
+        offer.category_ids,
+        offer.kind,
+        offer.value,
+        offer.product_ids,
+        offer.starts_at,
+        offer.ends_at,
+        offer.price_list_ids || [],
+      ]
     );
     return res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -1523,27 +2008,18 @@ tenantRouter.put('/offers/:id', async (req, res, next) => {
     return res.status(400).json({ error: 'invalid_offer_id' });
   }
 
-  const name = String(req.body?.name || '').trim();
-  const label = String(req.body?.label || 'Oferta').trim() || 'Oferta';
-  const percent = Number(req.body?.percent || 0);
-  const enabled = req.body?.enabled !== false;
-  const usersParsed = parseUuidArray(req.body?.user_ids);
-  const categoriesParsed = parseUuidArray(req.body?.category_ids);
-
-  if (!name) {
-    return res.status(400).json({ error: 'name_required' });
-  }
-  if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
-    return res.status(400).json({ error: 'invalid_percent' });
-  }
-  if (!usersParsed.ok) {
-    return res.status(400).json({ error: 'invalid_user_ids' });
-  }
-  if (!categoriesParsed.ok) {
-    return res.status(400).json({ error: 'invalid_category_ids' });
+  const { offer, error } = parseOfferBody(req.body || {});
+  if (error) {
+    return res.status(400).json({ error });
   }
 
   try {
+    await ensureOfferColumns();
+    if (offer.price_list_ids === undefined) {
+      const existingLists = await pool.query('select price_list_ids from tenant_offers where tenant_id = $1 and id = $2', [tenantId, offerId]);
+      offer.price_list_ids = existingLists.rows[0]?.price_list_ids || [];
+      offer.percent = isClassicOffer(offer) ? offer.value : 0;
+    }
     const result = await pool.query(
       [
         'update tenant_offers',
@@ -1553,19 +2029,31 @@ tenantRouter.put('/offers/:id', async (req, res, next) => {
         'enabled = $6,',
         'user_ids = $7::uuid[],',
         'category_ids = $8::uuid[],',
+        'kind = $9,',
+        'value = $10,',
+        'product_ids = $11::uuid[],',
+        'starts_at = $12,',
+        'ends_at = $13,',
+        'price_list_ids = $14::uuid[],',
         'updated_at = now()',
         'where tenant_id = $1 and id = $2',
-        'returning id, tenant_id, name, label, percent, enabled, user_ids, category_ids, created_at, updated_at',
+        `returning ${OFFER_COLUMNS}`,
       ].join(' '),
       [
         tenantId,
         offerId,
-        name,
-        label,
-        percent,
-        enabled,
-        usersParsed.items,
-        categoriesParsed.items,
+        offer.name,
+        offer.label,
+        offer.percent,
+        offer.enabled,
+        offer.user_ids,
+        offer.category_ids,
+        offer.kind,
+        offer.value,
+        offer.product_ids,
+        offer.starts_at,
+        offer.ends_at,
+        offer.price_list_ids,
       ]
     );
     if (!result.rowCount) {
@@ -2089,6 +2577,9 @@ tenantRouter.put('/products/:id', async (req, res, next) => {
     const warranty = Object.prototype.hasOwnProperty.call(req.body || {}, 'warranty')
       ? (req.body?.warranty || null)
       : (existingData.warranty || null);
+    const specSheet = Object.prototype.hasOwnProperty.call(req.body || {}, 'spec_sheet')
+      ? normalizeSpecSheet(req.body?.spec_sheet)
+      : (existingData.spec_sheet || null);
     const isVisibleWeb = hasVisiblePayload
       ? parseBooleanInput(req.body?.is_visible_web, existing.is_visible_web !== false)
       : existing.is_visible_web !== false;
@@ -2118,6 +2609,7 @@ tenantRouter.put('/products/:id', async (req, res, next) => {
       delivery_time: deliveryTime,
       shipping_details: shippingDetails,
       warranty,
+      spec_sheet: specSheet,
     };
 
     await client.query(
@@ -2239,6 +2731,7 @@ tenantRouter.post('/products', async (req, res, next) => {
     delivery_time,
     shipping_details,
     warranty,
+    spec_sheet,
     external_id,
     source_system,
     is_visible_web,
@@ -2300,7 +2793,8 @@ tenantRouter.post('/products', async (req, res, next) => {
       is_variant_root: parseBooleanInput(is_variant_root, false),
       delivery_time: delivery_time || null,
       shipping_details: shipping_details || null,
-      warranty: warranty || null
+      warranty: warranty || null,
+      spec_sheet: normalizeSpecSheet(spec_sheet),
     };
 
     const result = await client.query(

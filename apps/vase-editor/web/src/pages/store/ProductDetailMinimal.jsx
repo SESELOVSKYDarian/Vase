@@ -5,6 +5,7 @@ import ProductBreadcrumb from "../../components/ProductBreadcrumb";
 import StoreSkeleton from "../../components/StoreSkeleton";
 import { formatCurrency } from "../../utils/format";
 import { navigate } from "../../utils/navigation";
+import SpecSheetDownload from "../../components/store/SpecSheetDownload";
 
 export default function ProductDetailMinimal({
     view, loading, error, images, activeImage, setActiveImage, qty, setQty,
@@ -55,6 +56,8 @@ export default function ProductDetailMinimal({
                         <div className="mb-8 text-zinc-600 leading-relaxed font-serif text-lg">
                             {view.shortDescription || view.longDescription || "Un producto diseñado con simpleza y utilidad."}
                         </div>
+
+                        {view.specSheet ? <div className="mb-8"><SpecSheetDownload sheet={view.specSheet} compact /></div> : null}
 
                         <div className="flex flex-col gap-4 w-full max-w-sm mb-12">
                             <div className="flex items-center gap-4">
