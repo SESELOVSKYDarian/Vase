@@ -54,6 +54,15 @@ export const HELP = {
     ajustes: [['Pedido por WhatsApp', '1 min'], ['Configurar el correo', '3 min'], ['Conectar tu dominio', '5 min']],
 };
 
+// Guías que ya tienen video. Los archivos están en public/help/videos/<slug>.mp4 (tema oscuro)
+// y <slug>-claro.mp4 (tema claro); salen de videos/help-vase-ar en main.
+export const HELP_VIDEOS = {
+    'Cambiar precio o stock': 'cambiar-precio-o-stock',
+    'Crear una oferta': 'crear-una-oferta',
+    'Subir precios de un rubro': 'subir-precios-de-un-rubro',
+    '¿Por qué volvió a cambiar un precio?': 'por-que-volvio-a-cambiar-un-precio',
+};
+
 export const HELP_SECTIONS = [
     ['Resumen y pedidos', 4], ['Clientes', 3], ['Catálogo, ofertas y precios', 7], ['Envíos', 2], ['Diseño de la tienda', 5], ['Ajustes', 6],
 ];

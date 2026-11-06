@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import { Modal } from './Overlays';
-import { HELP, HELP_SECTIONS, MENU, SETTINGS_PAGES } from '../sections';
+import { HELP, HELP_VIDEOS, MENU, SETTINGS_PAGES } from '../sections';
 
 const LOGO = { light: '/brand/vase-logo-green.png?v=2', dark: '/brand/vase-logo-white.png?v=2' };
 
@@ -140,37 +140,69 @@ export function Topbar({ title, subtitle, crumb, onBack, status, onPublish, publ
     );
 }
 
-export function SectionHelp({ open, onClose, section, title, onAll, theme }) {
+export function SectionHelp({ open, onClose, section, title, onAll, onPlay, theme }) {
     const items = HELP[section] || [];
     return (
         <Modal open={open} onClose={onClose} side theme={theme} title={`Ayuda · ${title}`} description="Lo que podés hacer en esta pantalla.">
             <div>
                 {items.map(([text, time], index) => (
-                    <a key={text} className="vp-hl" href={`https://help.vase.ar/?q=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
-                        <i>{index + 1}</i>{text}<em>{time}</em>
-                    </a>
+                    <button key={text} type="button" className="vp-hl" onClick={() => onPlay(text)}>
+                        <i>{index + 1}</i>{text}<em>{HELP_VIDEOS[text] ? `▶ ${time}` : 'Pronto'}</em>
+                    </button>
                 ))}
             </div>
-            <span className="vp-note">Cada guía tiene un video corto en help.vase.ar.</span>
+            <span className="vp-note">Tocá una guía para ver su video corto.</span>
             <button type="button" className="vp-btn soft" onClick={onAll}>Ver toda la ayuda</button>
         </Modal>
     );
 }
 
-export function GeneralHelp({ open, onClose, theme }) {
+// Por ahora la ayuda vive acá: las guías con video se ven en esta ventana y el resto avisa que está en proceso.
+export function HelpVideo({ title, onClose, onBack, theme }) {
+    const slug = title ? HELP_VIDEOS[title] : null;
+    const file = slug ? `/help/videos/${slug}${theme === 'light' ? '-claro' : ''}` : null;
     return (
-        <Modal open={open} onClose={onClose} side theme={theme} title="Ayuda y soporte" description="Guías, preguntas frecuentes y videos.">
-            <a className="vp-btn line" href="https://help.vase.ar" target="_blank" rel="noreferrer" style={{ justifyContent: 'flex-start' }}><Icon name="search" size={15} />Buscar en help.vase.ar</a>
-            <span className="vp-fl">Por sección</span>
+        <Modal
+            open={Boolean(title)}
+            onClose={onClose}
+            wide={Boolean(slug)}
+            theme={theme}
+            title={title || ''}
+            description={slug ? 'Video corto, paso a paso.' : 'Esta guía está en proceso.'}
+            footer={<>
+                <button type="button" className="vp-btn soft" onClick={onBack}>← Otras guías</button>
+                <button type="button" className="vp-btn acc" onClick={onClose}>Listo</button>
+            </>}
+        >
+            {slug ? (
+                <video key={file} src={`${file}.mp4`} poster={`${file}.jpg`} controls autoPlay playsInline style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', borderRadius: 12, background: 'var(--soft)' }}>
+                    Tu navegador no puede reproducir este video.
+                </video>
+            ) : (
+                <div className="vp-soon" style={{ padding: '28px 12px' }}>
+                    <span className="ic"><Icon name="tool" size={26} /></span>
+                    <h2>Estamos preparando esta guía</h2>
+                    <p className="vp-note" style={{ fontSize: 13 }}>Pronto vas a tener acá un video corto que te muestra cómo hacerlo. Mientras tanto, escribinos y te ayudamos.</p>
+                </div>
+            )}
+        </Modal>
+    );
+}
+
+export function GeneralHelp({ open, onClose, onPlay, theme }) {
+    const ready = Object.keys(HELP_VIDEOS);
+    return (
+        <Modal open={open} onClose={onClose} side theme={theme} title="Ayuda y soporte" description="Guías y videos.">
+            <div className="vp-lock">El manual completo en help.vase.ar está en proceso. Mientras tanto, cada pantalla tiene su ayuda en el botón <b>?</b> de arriba.</div>
+            <span className="vp-fl">Videos disponibles</span>
             <div>
-                {HELP_SECTIONS.map(([label, count]) => (
-                    <a key={label} className="vp-hl" href={`https://help.vase.ar/?seccion=${encodeURIComponent(label)}`} target="_blank" rel="noreferrer">
-                        <i>{label.charAt(0)}</i>{label}<em>{count} guías</em>
-                    </a>
+                {ready.map((text, index) => (
+                    <button key={text} type="button" className="vp-hl" onClick={() => onPlay(text)}>
+                        <i>{index + 1}</i>{text}<em>▶</em>
+                    </button>
                 ))}
-                <a className="vp-hl" href="https://help.vase.ar/?seccion=programadores" target="_blank" rel="noreferrer"><i>{'{}'}</i>Datos técnicos para el programador<em>JSON, cURL, claves</em></a>
             </div>
-            <a className="vp-btn ink" href="https://help.vase.ar" target="_blank" rel="noreferrer">Abrir el manual completo ↗</a>
+            <span className="vp-note">Estamos grabando el resto: Pedidos, Clientes, Envíos, Diseño y Ajustes.</span>
         </Modal>
     );
 }
