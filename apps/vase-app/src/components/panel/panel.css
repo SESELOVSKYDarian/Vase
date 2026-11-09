@@ -243,6 +243,38 @@
 .vpa-area { height: 96px; padding: 10px 12px; resize: vertical; }
 .vpa-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 
+/* vase business: tus webs */
+.vpa-backl { align-self: flex-start; font-size: 13px; font-weight: 800; color: var(--mut); }
+.vpa-backl:hover { color: var(--tx); }
+.vpa-wgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.vpa-wcard { border: 1px solid var(--line); border-radius: 24px; background: var(--card); display: flex; flex-direction: column; }
+.vpa-wthumb { height: 208px; border-radius: 23px 23px 0 0; position: relative; overflow: hidden; padding: 28px 36px 0; }
+.vpa-wbrow { height: 100%; background: #ffffff; border-radius: 14px 14px 0 0; box-shadow: 0 12px 32px rgba(16, 24, 40, .16); overflow: hidden; }
+.vpa-wbar { height: 30px; display: flex; align-items: center; gap: 5px; padding: 0 12px; background: #f4f5f7; }
+.vpa-wbar i { width: 8px; height: 8px; border-radius: 50%; background: #d5d9de; }
+.vpa-wbar span { margin-left: 8px; font-size: 11px; font-weight: 700; color: #667085; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpa-whero { height: 74px; margin: 10px 12px 0; border-radius: 9px; }
+.vpa-wtiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 12px 0; }
+.vpa-wtiles i { height: 60px; border-radius: 8px; background: #eceef0; }
+.vpa-wthumb > .vpa-tag { position: absolute; top: 14px; right: 14px; background: #ffffff; color: #111418; }
+.vpa-wbody { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.vpa-wbody h3 { font-size: 19px; font-weight: 800; letter-spacing: -.02em; }
+.vpa-wbody p { margin-top: 3px; color: var(--mut); font-weight: 600; font-size: 13px; }
+.vpa-wacts { display: flex; align-items: center; gap: 8px; margin-top: auto; }
+.vpa-fmenu.right { left: auto; right: 0; }
+.vpa-wadd { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 340px; border: 1.5px dashed var(--line2); border-radius: 24px; background: none; cursor: pointer; text-align: center; }
+.vpa-wadd:hover:not(:disabled) { border-color: var(--acc); background: var(--accsoft); }
+.vpa-wadd:disabled { cursor: default; opacity: .6; }
+.vpa-wadd .pl { width: 52px; height: 52px; border-radius: 50%; background: var(--soft); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 600; margin-bottom: 6px; }
+.vpa-wadd b { font-size: 16px; font-weight: 800; }
+.vpa-wadd small { font-size: 13px; color: var(--mut); font-weight: 600; }
+.vpa-flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.vpa-flowc { display: flex; flex-direction: column; gap: 6px; padding: 22px; border: 1.5px solid var(--line); border-radius: 18px; background: none; cursor: pointer; text-align: left; }
+.vpa-flowc:hover { border-color: var(--acc); background: var(--accsoft); }
+.vpa-flowc b { font-size: 16px; font-weight: 800; }
+.vpa-flowc span { font-size: 13px; color: var(--mut); font-weight: 600; line-height: 1.45; }
+.vpa-dialog > form { width: 420px; max-width: 100%; background: var(--card); border-radius: 22px; box-shadow: var(--sh-lg); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
 /* temas */
 .vpa-themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 560px; }
 .vpa-theme { display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: 18px; border: 1.5px solid var(--line); cursor: pointer; background: none; text-align: left; }
@@ -305,6 +337,7 @@
   .vpa-top { padding: 12px 16px; flex-wrap: wrap; }
   .vpa-body { padding: 16px; overflow: visible; }
   .vpa-tw.free { overflow-x: auto; }
+  .vpa-wgrid, .vpa-flow,
   .vpa-tiles, .vpa-pgrid, .vpa-payhero, .vpa-cplans, .vpa-form, .vpa-themes, .vpa-g2, .vpa-two { grid-template-columns: minmax(0, 1fr); }
   .vpa-ov, .vpa-dialog { position: fixed; }
 }

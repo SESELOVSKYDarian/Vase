@@ -300,7 +300,7 @@ export function ClientShell({
   const unread = notifications.filter((notification) => !notification.isRead).length;
   const themeValue = useMemo(() => ({ theme, setTheme }), [theme]);
   const accountName = tenantLabel?.trim() || "Tu cuenta";
-  const navClass = (id: string) => (section === id ? "vpa-nb on" : "vpa-nb");
+  const navClass = (id: string) => (section === id || (id === "productos" && section === "business") ? "vpa-nb on" : "vpa-nb");
   const accountNav = NAV_CUENTA.filter((item) => ROLE_WEIGHT[viewerRole] >= ROLE_WEIGHT[item.minRole]);
 
   return (

@@ -11,6 +11,7 @@ describe("panel sections", () => {
   it.each([
     ["/app", "inicio"],
     ["/app/products", "productos"],
+    ["/app/business", "business"],
     ["/app/billing", "pagos"],
     ["/app/owner/customizations", "trabajos"],
     ["/app/team", "equipo"],

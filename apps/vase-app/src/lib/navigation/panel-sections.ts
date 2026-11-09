@@ -1,6 +1,7 @@
 export type PanelSectionId =
   | "inicio"
   | "productos"
+  | "business"
   | "pagos"
   | "trabajos"
   | "equipo"
@@ -11,6 +12,7 @@ export type PanelSectionId =
 export function resolvePanelSection(pathname: string): PanelSectionId {
   if (pathname === "/app" || pathname === "/app/manager" || pathname === "/app/member") return "inicio";
   if (pathname.startsWith("/app/products")) return "productos";
+  if (pathname === "/app/business") return "business";
   if (pathname.startsWith("/app/billing")) return "pagos";
   if (pathname.startsWith("/app/owner/customizations")) return "trabajos";
   if (pathname.startsWith("/app/team")) return "equipo";
@@ -43,6 +45,15 @@ export const PANEL_HELP: Record<PanelSectionId, PanelHelp> = {
       "Tocá Entrar para abrir un producto que ya tenés.",
       "Tocá Ver detalle para saber qué incluye y ver los planes.",
       "Si querés sumar uno, tocá Conocer y hablá con Vase.",
+    ],
+  },
+  business: {
+    title: "Cómo usar Vase Business",
+    intro: "Acá están todas las webs que tenés con Vase.",
+    steps: [
+      "Tocá Editar para cambiar lo que se ve en tu web.",
+      "En los tres puntos conectás tu dominio o eliminás la web.",
+      "Tocá Nueva web para hacer otra, con plantilla o a medida.",
     ],
   },
   pagos: {
