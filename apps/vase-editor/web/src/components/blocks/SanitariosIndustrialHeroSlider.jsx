@@ -61,7 +61,7 @@ const cleanSlides = (slides) => {
         cardTitle: slide?.cardTitle || '',
         specLabel: slide?.specLabel || '',
         image: slide?.image || DEFAULT_SLIDES[0].image,
-        primaryButtonLabel: slide?.primaryButtonLabel || 'SHOP NOW',
+        primaryButtonLabel: slide?.primaryButtonLabel || '',
         primaryButtonLink: slide?.primaryButtonLink || '/catalog',
         secondaryButtonLabel: slide?.secondaryButtonLabel || '',
         secondaryButtonLink: slide?.secondaryButtonLink || '',
@@ -125,13 +125,13 @@ export default function SanitariosIndustrialHeroSlider({ slides = [], styles = {
 
     const slide = normalizedSlides[current] || normalizedSlides[0];
     const headingLines = [
-        slide.title || 'DUCHA',
-        slide.subtitle || 'PREMIUM',
+        slide.title,
+        slide.subtitle,
     ].filter(Boolean);
-    const cardEyebrow = slide.cardEyebrow || 'Linea destacada';
-    const cardTitle = slide.cardTitle || slide.featured || 'Mi Negocio';
-    const specLabel = slide.specLabel || slide.secondaryButtonLabel || 'Spec: Chrome_04 // 2024';
-    const cardDescription = slide.description || 'Precision tecnica y durabilidad extrema en cada componente.';
+    const cardEyebrow = slide.cardEyebrow;
+    const cardTitle = slide.cardTitle || slide.featured;
+    const specLabel = slide.specLabel || slide.secondaryButtonLabel;
+    const cardDescription = slide.description;
     const motionSign = direction === 'next' ? 1 : -1;
     const stageTransition = `all ${contentVisible ? TRANSITION_IN_MS : TRANSITION_OUT_MS}ms ${MOTION_EASE}`;
     const panelOffsetX = contentVisible ? 0 : -34 * motionSign;

@@ -1,6 +1,7 @@
 // Menú de arriba y pie de página: lo que se ve en la tienda, con los valores de siempre si no hay nada cargado.
 import { PIQUIM_FOOTER_DEFAULTS } from '../../data/piquimBranding.js';
 import { normalizeInternalPath } from '../../utils/navigation.js';
+import { isExtraNavLink } from '../../utils/storeTexts.js';
 
 export const HEADER_ID = '__header';
 export const FOOTER_ID = '__footer';
@@ -36,6 +37,14 @@ export function navLinksFromSettings(settings = {}) {
     });
 }
 
+// Tiendas sin plantilla propia: Productos, Sobre nosotros y Contactanos son fijos; el resto son links agregados.
+export const headerExtraLinks = (settings = {}) => navLinksFromSettings(settings).filter(isExtraNavLink);
+
+export function withHeaderExtraLinks(settings = {}, extras = []) {
+    const fixed = navLinksFromSettings(settings).filter((link) => !isExtraNavLink(link));
+    return [...fixed, ...extras.map((link) => ({ ...link, custom: true }))];
+}
+
 export function navbarProps(settings = {}, isPiquim = false) {
     const navbar = settings?.branding?.navbar || {};
     return {
@@ -56,12 +65,16 @@ export function footerValues(settings = {}, isPiquim = false) {
     const base = isPiquim ? PIQUIM_FOOTER_DEFAULTS : GENERIC_FOOTER;
     return {
         description: footer.description || base.description || '',
-        shopLinks: list(footer.shopLinks, list(footer.quickLinks, base.shopLinks || [])),
+        // El pie de las tiendas sin plantilla propia lee primero quickLinks.
+        shopLinks: isPiquim
+            ? list(footer.shopLinks, list(footer.quickLinks, base.shopLinks || []))
+            : list(footer.quickLinks, list(footer.shopLinks, base.shopLinks || [])),
         helpLinks: list(footer.helpLinks, base.helpLinks || []),
         legalLinks: list(footer.legalLinks, base.legalLinks || []),
         newsletter: { ...(base.newsletter || { enabled: false }), ...(footer.newsletter || {}) },
         legalText: footer.legalText || base.legalText || '',
         contact: { ...(footer.contact || {}) },
+        labels: { ...(footer.labels || {}) },
         whatsapp_enabled: footer.whatsapp_enabled !== false,
     };
 }
@@ -71,6 +84,19 @@ export const FOOTER_COLUMNS = [
     ['helpLinks', 'Ayuda'],
     ['legalLinks', 'Legales'],
 ];
+
+// El pie de las tiendas sin plantilla propia solo tiene una columna de links y los legales.
+export const footerColumns = (isPiquim) => (isPiquim ? FOOTER_COLUMNS : [['shopLinks', 'Enlaces'], ['legalLinks', 'Legales']]);
+
+export function footerSocials(footer = {}) {
+    const fromLinks = {};
+    (Array.isArray(footer.socialLinks) ? footer.socialLinks : []).forEach((item) => {
+        const href = String(item?.href || '');
+        const type = item?.type || SOCIALS.map(([key]) => key).find((key) => href.toLowerCase().includes(key));
+        if (type && href) fromLinks[type] = href;
+    });
+    return { ...fromLinks, ...(footer.socials || {}) };
+}
 
 export const linksSummary = (links = []) => links.map((link) => link?.label).filter(Boolean).join(' · ') || 'Sin links';
 

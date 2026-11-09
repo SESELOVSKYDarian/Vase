@@ -12,6 +12,7 @@ import { useTenant } from "../../context/TenantContext";
 import { useStore } from "../../context/StoreContext";
 import { useAuth } from "../../context/AuthContext";
 import { isExternalPath, navigate, normalizeInternalPath } from "../../utils/navigation";
+import { isExtraNavLink, storeText } from "../../utils/storeTexts";
 import { getApiBase, getTenantHeaders } from "../../utils/api";
 import { isPiquimTenantIdentity } from "../../utils/tenantBranding";
 import { buildCategorySuggestionHref } from "../../utils/piquimCatalogCategories";
@@ -147,7 +148,7 @@ function MenuAnchor({ href, label, active = false, external = false, className =
 
 export default function Header({
   navLinks = [],
-  searchPlaceholder = DEFAULT_PLACEHOLDER,
+  searchPlaceholder: searchPlaceholderProp = DEFAULT_PLACEHOLDER,
   brandName,
   brandUppercase = false,
   isPiquimPreset: isPiquimPresetProp,
@@ -161,6 +162,8 @@ export default function Header({
   containerClassName = "max-w-[1408px]",
 }) {
   const { tenant, settings } = useTenant();
+  const navbarTexts = settings?.branding?.navbar || {};
+  const searchPlaceholder = String(navbarTexts.search_placeholder || "").trim() || searchPlaceholderProp;
   const { search, setSearch, cartCount } = useStore();
   const { user, isAdmin } = useAuth();
   const [activeRoute, setActiveRoute] = useState(() => `${window.location.pathname}${window.location.search || ""}${window.location.hash || ""}`);
@@ -378,7 +381,7 @@ export default function Header({
         href: normalizeInternalPath(rawHref, fallbackByLabel),
       };
     })
-    .filter((item) => !HIDDEN_TOPICS.has(normalizeLabel(item?.label)));
+    .filter((item) => item?.custom || !HIDDEN_TOPICS.has(normalizeLabel(item?.label)));
 
   const normalizeRoute = (value) => {
     if (!value) return "/";
@@ -543,14 +546,12 @@ export default function Header({
     href: `/catalog?brand=${encodeURIComponent(brand)}`,
   }));
 
-  const staticLinks = [
-    { label: "Sobre nosotros", href: "/about", external: false },
+  const aboutHref = navbarTexts.about_href || "/about";
+  const staticLinks = navbarTexts.show_about === false ? [] : [
+    { label: storeText("header", "about_label", navbarTexts), href: aboutHref, external: isExternalPath(aboutHref) },
   ];
 
-  const extraLinks = links.filter((item) => {
-    const key = normalizeLabel(item?.label);
-    return !["inicio", "home", "catalogo", "catalog", "productos", "sobre nosotros", "nosotros", "contactanos", "contacto", "whatsapp", "ofertas"].includes(key);
-  });
+  const extraLinks = links.filter(isExtraNavLink);
 
   const productsActive = activeRoute.startsWith("/catalog");
   const accountLabel = user ? "Mi cuenta" : "Ingresar";
@@ -1022,7 +1023,7 @@ export default function Header({
                     : "border-transparent text-[#1f2937] hover:text-[color:var(--color-primary,#0099e5)] dark:text-[#e7ddd3]"
                 }`}
               >
-                Productos
+                {storeText("header", "products_label", navbarTexts)}
                 <ChevronDown className="size-3" />
               </button>
 
@@ -1122,10 +1123,10 @@ export default function Header({
               );
             })}
 
-            {whatsappHref ? (
+            {whatsappHref && navbarTexts.show_contact !== false ? (
               <MenuAnchor
                 href={whatsappHref}
-                label="Contactanos"
+                label={storeText("header", "contact_label", navbarTexts)}
                 external
                 className="h-full"
               />
@@ -1285,8 +1286,8 @@ export default function Header({
                 <div className="mt-auto border-t border-[#e4e9ef] bg-[#f8fafc] p-6 dark:border-[#3d2f21] dark:bg-[#1a130c]/50">
                    <div className="flex items-center gap-4">
                       <div className="flex-1">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-[#8a7560]">¿Necesitas ayuda?</p>
-                        <p className="text-xs font-bold text-[#1f2937] dark:text-[#e7ddd3]">Escribenos por WhatsApp</p>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-[#8a7560]">{storeText("header", "help_title", navbarTexts)}</p>
+                        <p className="text-xs font-bold text-[#1f2937] dark:text-[#e7ddd3]">{storeText("header", "help_text", navbarTexts)}</p>
                       </div>
                       {whatsappHref && (
                         <a

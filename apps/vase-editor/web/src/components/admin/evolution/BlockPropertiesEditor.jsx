@@ -186,138 +186,68 @@ const SlideCard = ({
     variant,
     onChange,
     onRemove,
-    onUpload,
+    onFile,
     uploading,
-}) => (
-    <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-3">
-        <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
-                Slide {index + 1}
-            </p>
-            <button
-                type="button"
-                onClick={onRemove}
-                disabled={total <= 1}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-300 disabled:opacity-40"
-            >
-                <Trash size={12} weight="bold" />
-                Eliminar
-            </button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-2">
-            <input
-                type="text"
-                value={slide.label || ''}
-                placeholder="Etiqueta"
-                onChange={(event) => onChange({ label: event.target.value })}
-                className={compactFieldClass}
-            />
-            <input
-                type="text"
-                value={slide.title || ''}
-                placeholder="Titulo principal"
-                onChange={(event) => onChange({ title: event.target.value })}
-                className={compactFieldClass}
-            />
-            <input
-                type="text"
-                value={slide.subtitle || ''}
-                placeholder="Subtitulo"
-                onChange={(event) => onChange({ subtitle: event.target.value })}
-                className={compactFieldClass}
-            />
-            <textarea
-                rows={3}
-                value={slide.description || ''}
-                placeholder="Descripcion"
-                onChange={(event) => onChange({ description: event.target.value })}
-                className={cn(compactFieldClass, 'resize-y')}
-            />
-            <input
-                type="text"
-                value={slide.featured || ''}
-                placeholder="Texto destacado"
-                onChange={(event) => onChange({ featured: event.target.value })}
-                className={compactFieldClass}
-            />
-
-            {variant === 'sanitarios_industrial' ? (
-                <>
-                    <input
-                        type="text"
-                        value={slide.cardEyebrow || ''}
-                        placeholder="Card: etiqueta superior"
-                        onChange={(event) => onChange({ cardEyebrow: event.target.value })}
-                        className={compactFieldClass}
-                    />
-                    <input
-                        type="text"
-                        value={slide.cardTitle || ''}
-                        placeholder="Card: titulo"
-                        onChange={(event) => onChange({ cardTitle: event.target.value })}
-                        className={compactFieldClass}
-                    />
-                    <input
-                        type="text"
-                        value={slide.specLabel || ''}
-                        placeholder="Texto superior derecho"
-                        onChange={(event) => onChange({ specLabel: event.target.value })}
-                        className={compactFieldClass}
-                    />
-                </>
-            ) : null}
-
-            <div className="grid grid-cols-2 gap-2">
-                <input
-                    type="text"
-                    value={slide.primaryButtonLabel || ''}
-                    placeholder="Boton principal"
-                    onChange={(event) => onChange({ primaryButtonLabel: event.target.value })}
-                    className={compactFieldClass}
-                />
-                <input
-                    type="text"
-                    value={slide.primaryButtonLink || ''}
-                    placeholder="Link principal"
-                    onChange={(event) => onChange({ primaryButtonLink: event.target.value })}
-                    className={compactFieldClass}
-                />
-                <input
-                    type="text"
-                    value={slide.secondaryButtonLabel || ''}
-                    placeholder="Boton secundario"
-                    onChange={(event) => onChange({ secondaryButtonLabel: event.target.value })}
-                    className={compactFieldClass}
-                />
-                <input
-                    type="text"
-                    value={slide.secondaryButtonLink || ''}
-                    placeholder="Link secundario"
-                    onChange={(event) => onChange({ secondaryButtonLink: event.target.value })}
-                    className={compactFieldClass}
-                />
+}) => {
+    // La portada Industrial no tiene segundo boton: esos datos viejos se muestran como texto de la tarjeta.
+    const isIndustrial = variant === 'sanitarios_industrial';
+    const text = (label, key, props = {}) => (
+        <EvolutionInput label={label} value={slide[key] || ''} onChange={(event) => onChange({ [key]: event.target.value })} {...props} />
+    );
+    return (
+        <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
+                    Slide {index + 1}
+                </p>
+                <button
+                    type="button"
+                    onClick={onRemove}
+                    disabled={total <= 1}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-300 disabled:opacity-40"
+                >
+                    <Trash size={12} weight="bold" />
+                    Eliminar
+                </button>
             </div>
 
-            <input
-                type="text"
-                value={slide.image || ''}
-                placeholder="URL imagen"
-                onChange={(event) => onChange({ image: event.target.value })}
-                className={compactFieldClass}
-            />
+            <div className="grid grid-cols-1 gap-2">
+                {text('Etiqueta', 'label')}
+                {text('Titulo principal', 'title')}
+                {text(isIndustrial ? 'Segunda linea del titulo' : 'Subtitulo', 'subtitle')}
+                {text('Descripcion', 'description', { multiline: true })}
 
-            <div className="flex items-center gap-2">
-                <UploadButton busy={uploading} label="Subir imagen" onChange={onUpload} />
-                {slide.image ? (
-                    <div className="h-12 w-12 overflow-hidden rounded-lg border border-white/10 bg-white">
-                        <img src={slide.image} alt="" className="h-full w-full object-cover" />
-                    </div>
-                ) : null}
+                {isIndustrial ? (
+                    <>
+                        {text('Tarjeta: etiqueta superior', 'cardEyebrow')}
+                        <EvolutionInput label="Tarjeta: titulo" value={slide.cardTitle || slide.featured || ''} onChange={(event) => onChange({ cardTitle: event.target.value, featured: event.target.value })} />
+                        <EvolutionInput label="Texto superior derecho" value={slide.specLabel || slide.secondaryButtonLabel || ''} onChange={(event) => onChange({ specLabel: event.target.value, secondaryButtonLabel: event.target.value })} />
+                    </>
+                ) : text('Texto destacado', 'featured')}
+
+                <div className="grid grid-cols-2 gap-2">
+                    {text('Boton principal', 'primaryButtonLabel')}
+                    <LinkInput label="Boton principal: link" value={slide.primaryButtonLink || ''} onChange={(event) => onChange({ primaryButtonLink: event.target.value })} />
+                    {isIndustrial ? null : (
+                        <>
+                            {text('Boton secundario', 'secondaryButtonLabel')}
+                            <LinkInput label="Boton secundario: link" value={slide.secondaryButtonLink || ''} onChange={(event) => onChange({ secondaryButtonLink: event.target.value })} />
+                        </>
+                    )}
+                </div>
+
+                <MediaField
+                    label="Imagen"
+                    value={slide.image || ''}
+                    onChange={(value) => onChange({ image: value })}
+                    onFile={onFile}
+                    busy={uploading}
+                    kind="image"
+                />
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 const BlockPropertiesEditor = ({ block, onChange }) => {
     const [uploadingTarget, setUploadingTarget] = useState('');
@@ -374,7 +304,8 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
         return normalizeHeroSlides(heroVariant, block.props?.slides);
     }, [block.props?.slides, heroVariant, isHeroBlock, isHeroClassic]);
 
-    const heroColorFields = HERO_COLOR_FIELDS[heroVariant] || [];
+    // La portada Industrial no tiene segundo boton.
+    const heroColorFields = (HERO_COLOR_FIELDS[heroVariant] || []).filter((field) => heroVariant !== 'sanitarios_industrial' || !field.key.startsWith('secondaryButton'));
     const featuredColorFields = FEATURED_COLOR_FIELDS[featuredVariant] || [];
     const themeColors = useStorefrontThemeColors();
     const featuredStyles = normalizeFeaturedStyles(featuredVariant, block.props?.styles, themeColors);
@@ -706,9 +637,7 @@ const BlockPropertiesEditor = ({ block, onChange }) => {
                             onChange={(patch) => updateHeroSlide(index, patch)}
                             onRemove={() => removeHeroSlide(index)}
                             uploading={uploadingTarget === `hero-slide-${index}`}
-                            onUpload={(event) =>
-                                handleImageUpload(`hero-slide-${index}`, event, (value) => updateHeroSlide(index, { image: value }))
-                            }
+                            onFile={(file) => handleFileUpload(`hero-slide-${index}`, file, (value) => updateHeroSlide(index, { image: value }))}
                         />
                     ))}
                 </div>

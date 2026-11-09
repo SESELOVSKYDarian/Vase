@@ -11,6 +11,7 @@ import { BLOCK_TYPES, blockLabel, blockSummary, createBlock, editorPageKey, move
 import { FOOTER_ID, HEADER_ID, linksSummary, navLinksFromSettings } from './chrome';
 import StorePreview from './StorePreview';
 import { FooterEditor, HeaderEditor } from './ChromeEditors';
+import CatalogTextsEditor from './CatalogTextsEditor';
 import BlockInspector from './BlockInspector';
 import './diseno.css';
 
@@ -20,9 +21,6 @@ const PAGES = [
     ['catalogo', 'Catálogo'],
     ['apariencia', 'Colores, logo y pie'],
 ];
-
-// La página Catálogo edita las tarjetas de rubro propias de Piquim: en las demás tiendas no aparece (igual que en el panel anterior).
-export const pagesFor = (isPiquim) => PAGES.filter(([id]) => id !== 'catalogo' || isPiquim);
 
 const TEMPLATES = {
     home: DEFAULT_HOME_SECTIONS,
@@ -106,7 +104,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
             <div className="vp-dzbar">
                 {onMenu ? <button type="button" className="vp-ibtn vp-menu" onClick={onMenu} aria-label="Abrir el menú"><Icon name="list" size={18} /></button> : null}
                 <div className="vp-tabs2" role="tablist" aria-label="Página que estás editando">
-                    {pagesFor(isPiquim).map(([id, label]) => (
+                    {PAGES.map(([id, label]) => (
                         <button key={id} type="button" role="tab" aria-selected={page === id} className={`vp-t2 ${page === id ? 'on' : ''}`} onClick={() => switchPage(id)}>{label}</button>
                     ))}
                 </div>
@@ -137,7 +135,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                         <aside className="vp-dzl" aria-label="Bloques de la página">
                             <div className="vp-dzh"><b>Bloques</b><button type="button" className="vp-x" aria-label="Cerrar los bloques" onClick={() => (phone ? setPhoneView('preview') : setShowBlocks(false))}>×</button></div>
                             <div className="vp-dzsep">En todas las páginas</div>
-                            {chromeRow(HEADER_ID, 'layout', 'Menú de arriba', linksSummary(navLinksFromSettings(settings)))}
+                            {chromeRow(HEADER_ID, 'layout', 'Menú de arriba', isPiquim ? linksSummary(navLinksFromSettings(settings)) : 'Menú, buscador y botones')}
                             <div className="vp-dzsep">Esta página · arrastrá para ordenar</div>
                             <div className="vp-dzlist">
                                 {blocks.map((block, index) => (
@@ -207,7 +205,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                                 <button type="button" className="vp-x" aria-label="Cerrar el editor" onClick={() => (phone ? setPhoneView('preview') : setShowInspector(false))}>×</button>
                             </div>
                             <div className="vp-dzib">
-                                {selectedId === HEADER_ID ? <HeaderEditor settings={settings} setSettings={editor.setSettings} pickers={pickers} /> : null}
+                                {selectedId === HEADER_ID ? <HeaderEditor settings={settings} setSettings={editor.setSettings} pickers={pickers} isPiquim={isPiquim} /> : null}
                                 {selectedId === FOOTER_ID ? <FooterEditor settings={settings} setSettings={editor.setSettings} pickers={pickers} isPiquim={isPiquim} /> : null}
                                 {selected ? (
                                     <BlockInspector
@@ -232,7 +230,9 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
             ) : (
                 <div className="vp-body">
                     <div className="vp-legacy vp-dzform">
-                        {page === 'catalogo' ? <CatalogPageEditor settings={editor.settings} setSettings={editor.setSettings} onSave={onPublish} isSaving={editor.saving} /> : null}
+                        {page === 'catalogo' && isPiquim ? <CatalogPageEditor settings={editor.settings} setSettings={editor.setSettings} onSave={onPublish} isSaving={editor.saving} /> : null}
+                        {/* En las demás tiendas la página Catálogo no tiene tarjetas de rubro: solo sus textos. */}
+                        {page === 'catalogo' && !isPiquim ? <CatalogTextsEditor settings={editor.settings} setSettings={editor.setSettings} /> : null}
                         {page === 'apariencia' ? <AppearanceEditor settings={editor.settings} setSettings={editor.setSettings} onSave={onPublish} isSaving={editor.saving} /> : null}
                     </div>
                 </div>

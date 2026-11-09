@@ -91,6 +91,44 @@ test('otras tiendas (Teflón) usan los bloques generales y no ven el Catálogo d
     assert.equal(editorPageKey('home', false), 'home');
     assert.deepEqual(BLOCK_TYPES.home.map(([type]) => type), ['HeroSlider', 'BrandMarquee', 'FeaturedProducts', 'Services']);
     const screen = await read('../src/panel/diseno/Diseno.jsx');
-    assert.match(screen, /PAGES\.filter\(\(\[id\]\) => id !== 'catalogo' \|\| isPiquim\)/);
-    assert.match(screen, /\{pagesFor\(isPiquim\)\.map\(/);
+    assert.match(screen, /\{PAGES\.map\(/);
+    assert.match(screen, /page === 'catalogo' && isPiquim \? <CatalogPageEditor/);
+    assert.match(screen, /page === 'catalogo' && !isPiquim \? <CatalogTextsEditor/);
+});
+
+test('tiendas sin plantilla propia: menú, pie y textos editables', async () => {
+    const { footerColumns, footerSocials, footerValues, headerExtraLinks, withHeaderExtraLinks } = await import('../src/panel/diseno/chrome.js');
+    const { isExtraNavLink, storeText } = await import('../src/utils/storeTexts.js');
+
+    assert.equal(storeText('footer', 'contact_title', {}), 'Contacto');
+    assert.equal(storeText('footer', 'contact_title', { contact_title: 'Hablemos' }), 'Hablemos');
+    assert.equal(storeText('catalog', 'title', { title: '  ' }), 'Todos los productos');
+
+    // "Ofertas" se oculta si viene de antes, pero se ve si se agregó desde el editor.
+    assert.equal(isExtraNavLink({ label: 'Ofertas' }), false);
+    assert.equal(isExtraNavLink({ label: 'Ofertas', custom: true }), true);
+    const settings = { branding: { navbar: { links: [{ label: 'Inicio', href: '/' }, { label: 'Obras', href: '/obras' }] } } };
+    assert.deepEqual(headerExtraLinks(settings).map((link) => link.label), ['Obras']);
+    assert.deepEqual(withHeaderExtraLinks(settings, [{ label: 'Ofertas', href: '/catalog' }]).map((link) => [link.label, Boolean(link.custom)]), [['Inicio', false], ['Ofertas', true]]);
+
+    // El pie genérico muestra quickLinks antes que shopLinks: el editor tiene que ver lo mismo.
+    const footer = { quickLinks: [{ label: 'Rapido', href: '/' }], shopLinks: [{ label: 'Tienda', href: '/' }] };
+    assert.equal(footerValues({ branding: { footer } }, false).shopLinks[0].label, 'Rapido');
+    assert.equal(footerValues({ branding: { footer } }, true).shopLinks[0].label, 'Tienda');
+    assert.deepEqual(footerColumns(false).map(([key]) => key), ['shopLinks', 'legalLinks']);
+
+    assert.deepEqual(footerSocials({ socialLinks: [{ href: 'https://instagram.com/x' }], socials: { whatsapp: '54' } }), { instagram: 'https://instagram.com/x', whatsapp: '54' });
+
+    const chrome = await read('../src/panel/diseno/ChromeEditors.jsx');
+    assert.match(chrome, /shopLinks: links, quickLinks: links/);
+    assert.match(chrome, /socialLinks: \[\]/);
+});
+
+test('portada Industrial: lo que se borra deja de verse', async () => {
+    const hero = await read('../src/components/blocks/SanitariosIndustrialHeroSlider.jsx');
+    assert.doesNotMatch(hero.slice(hero.indexOf('const slide = normalizedSlides')), /'PREMIUM'|Chrome_04|'SHOP NOW'/);
+    assert.doesNotMatch(hero.slice(hero.indexOf('const cleanSlides')), /\|\| 'SHOP NOW'/);
+    const editor = await read('../src/components/admin/evolution/BlockPropertiesEditor.jsx');
+    assert.match(editor, /variant === 'sanitarios_industrial'/);
+    assert.match(editor, /<MediaField\r?\n\s+label="Imagen"/);
 });

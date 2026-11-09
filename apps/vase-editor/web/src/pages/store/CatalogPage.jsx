@@ -35,6 +35,7 @@ import {
 } from "../../utils/catalogRequest";
 import PriceAccessPrompt from "../../components/PriceAccessPrompt";
 import StoreSkeleton from "../../components/StoreSkeleton";
+import { storeText } from "../../utils/storeTexts";
 const FALLBACK_IMAGE = createPlaceholderImage({ label: "Producto", width: 720, height: 720 });
 const PIQUIM_PAGE_SIZE = 20;
 const EXCLUDED_TERMS = [
@@ -287,6 +288,7 @@ export default function CatalogPage() {
     const { search, showToast } = useStore();
     const { tenant, settings } = useTenant();
     const isPiquimTenant = isPiquimTenantIdentity({ tenant, settings });
+    const catalogText = (key) => storeText("catalog", key, settings?.branding?.catalog_page);
     const { user, loading: authLoading } = useAuth();
     const currency = settings?.commerce?.currency || "ARS";
     const locale = settings?.commerce?.locale || "es-AR";
@@ -739,8 +741,8 @@ export default function CatalogPage() {
         }
         return isPiquimTenant
             ? "Materia prima profesional para heladerias, panaderias y confiterias."
-            : "Catalogo online para consultar productos, disponibilidad y opciones comerciales.";
-    }, [inStockOnly, isPiquimTenant, search, selectedBrandEntry, selectedCategoryEntry, selectedMaxPrice, selectedMinPrice]);
+            : catalogText("description");
+    }, [inStockOnly, isPiquimTenant, settings?.branding?.catalog_page, search, selectedBrandEntry, selectedCategoryEntry, selectedMaxPrice, selectedMinPrice]);
 
     const isCatalogLanding = !search.trim()
         && !selectedCategory
@@ -821,11 +823,11 @@ export default function CatalogPage() {
                     <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                         <div className="max-w-3xl space-y-3">
                             <span className="inline-flex w-fit items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-primary">
-                                Catalogo completo
+                                {catalogText("badge")}
                             </span>
                             <div className="space-y-2">
                                 <h1 className="text-3xl font-black tracking-tight text-[#181411] dark:text-white md:text-4xl">
-                                    {selectedCategoryEntry?.name || selectedBrandEntry?.name || "Todos los productos"}
+                                    {selectedCategoryEntry?.name || selectedBrandEntry?.name || catalogText("title")}
                                 </h1>
                                 <p className="max-w-2xl text-sm leading-6 md:text-base" style={CATALOG_STYLES.muted}>{resultsSummary}</p>
                             </div>
@@ -929,8 +931,8 @@ export default function CatalogPage() {
                             <StoreSkeleton variant="catalog" />
                         ) : catalogProducts.length === 0 ? (
                             <div className="rounded-2xl border border-dashed px-6 py-14 text-center" style={{ ...CATALOG_STYLES.border, ...CATALOG_STYLES.muted }}>
-                                <p className="text-lg font-bold text-[#181411] dark:text-white">No encontramos productos para esta busqueda.</p>
-                                <p className="mt-2 text-sm">Prueba con otra categoria, otra marca o limpia los filtros activos.</p>
+                                <p className="text-lg font-bold text-[#181411] dark:text-white">{catalogText("empty_title")}</p>
+                                <p className="mt-2 text-sm">{catalogText("empty_text")}</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">

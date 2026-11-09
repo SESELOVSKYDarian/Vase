@@ -2,6 +2,7 @@ import React, { useId, useMemo, useState } from "react";
 import { Instagram, Facebook, Youtube, Music2, MessageCircle, Linkedin, Globe, MapPin, Phone, Mail } from "lucide-react";
 import { useTenant } from "../../context/TenantContext";
 import { navigate } from "../../utils/navigation";
+import { storeText } from "../../utils/storeTexts";
 import { PIQUIM_FOOTER_DEFAULTS } from "../../data/piquimBranding";
 import { isPiquimTenantIdentity, resolveBrandLogo } from "../../utils/tenantBranding";
 
@@ -99,6 +100,7 @@ export default function Footer() {
 
     const branding = settings?.branding || {};
     const footer = branding.footer || {};
+    const footerText = (key) => storeText("footer", key, footer.labels);
     const commerce = settings?.commerce || {};
     const brandName = branding.name || tenant?.name || "Mi Negocio";
     const displayBrandName = String(brandName || "").toUpperCase();
@@ -170,7 +172,7 @@ export default function Footer() {
                         </div>
 
                         <div>
-                            <h3 className="mb-6 text-lg font-bold">Enlaces Rapidos</h3>
+                            <h3 className="mb-6 text-lg font-bold">{footerText("links_title")}</h3>
                             <ul className="space-y-4 text-white/60">
                                 {toArray(footer.quickLinks, shopLinks).map((link, index) => (
                                     <li key={`${link.label}-${index}`}>
@@ -181,7 +183,7 @@ export default function Footer() {
                         </div>
 
                         <div>
-                            <h3 className="mb-6 text-lg font-bold">Contacto</h3>
+                            <h3 className="mb-6 text-lg font-bold">{footerText("contact_title")}</h3>
                             <ul className="space-y-4 text-white/60">
                                 {address ? (
                                     <li className="flex gap-3 text-left">
@@ -206,15 +208,15 @@ export default function Footer() {
 
                         {showWhatsappFooter ? (
                             <div>
-                                <h3 className="mb-6 text-lg font-bold">Atencion WhatsApp</h3>
-                                <p className="mb-4 text-white/60">Contactanos directamente para presupuestos rapidos.</p>
+                                <h3 className="mb-6 text-lg font-bold">{footerText("whatsapp_title")}</h3>
+                                <p className="mb-4 text-white/60">{footerText("whatsapp_text")}</p>
                                 <button
                                     type="button"
                                     onClick={() => window.open(`https://wa.me/${whatsappCleaned}`, "_blank", "noopener,noreferrer")}
                                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] py-3 font-bold text-white transition-opacity hover:opacity-90"
                                 >
                                     <MessageCircle size={20} strokeWidth={2.5} />
-                                    Enviar mensaje
+                                    {footerText("whatsapp_button")}
                                 </button>
                             </div>
                         ) : null}
