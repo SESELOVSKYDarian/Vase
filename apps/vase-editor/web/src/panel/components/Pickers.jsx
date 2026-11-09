@@ -9,6 +9,7 @@ const STORE_PAGES = [
     { label: 'Nosotros', href: '/about', hint: 'página' },
     { label: 'Registrarse', href: '/register', hint: 'página' },
     { label: 'Términos y condiciones', href: '/terms', hint: 'página' },
+    { label: 'Privacidad y seguridad', href: '/privacy', hint: 'página' },
 ];
 
 const normalize = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');

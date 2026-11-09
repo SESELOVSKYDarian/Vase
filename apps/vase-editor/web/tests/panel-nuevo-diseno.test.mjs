@@ -132,3 +132,38 @@ test('portada Industrial: lo que se borra deja de verse', async () => {
     assert.match(editor, /variant === 'sanitarios_industrial'/);
     assert.match(editor, /<MediaField\r?\n\s+label="Imagen"/);
 });
+
+test('términos y privacidad: editables en cualquier tienda', async () => {
+    const { LEGAL_DEFAULTS, fillCompany, legalBlocks, legalInline, legalPage, withPrivacyLink } = await import('../src/data/legalPages.js');
+    assert.equal(LEGAL_DEFAULTS.terms.sections.length, 14);
+    assert.ok(LEGAL_DEFAULTS.privacy.sections.length >= 10);
+
+    assert.equal(legalPage('terms', {}).customized, false);
+    assert.equal(legalPage('terms', {}).title, 'Terminos y Condiciones de Uso');
+    const own = { branding: { legal_pages: { privacy: { title: 'Datos', sections: [{ title: 'A', body: 'B' }], updated_at: '2026-11-01T00:00:00Z' } } } };
+    assert.equal(legalPage('privacy', own).title, 'Datos');
+    assert.equal(legalPage('privacy', own).sections.length, 1);
+    assert.equal(legalPage('terms', own).customized, false);
+    // Quitar todas las secciones se respeta: no vuelve el texto original.
+    assert.equal(legalPage('terms', { branding: { legal_pages: { terms: { sections: [] } } } }).sections.length, 0);
+
+    assert.equal(fillCompany('Hola {empresa} y {EMPRESA}', 'Teflon'), 'Hola Teflon y Teflon');
+    assert.deepEqual(legalBlocks(['Uno', 'dos', '', '- a', '- b'].join('\n')), [{ type: 'text', text: 'Uno dos' }, { type: 'list', items: ['a', 'b'] }]);
+    assert.deepEqual(legalInline('x **y** z').map((part) => part.bold), [false, true, false]);
+
+    assert.equal(withPrivacyLink([], {}).at(-1).href, '/privacy');
+    assert.equal(withPrivacyLink([{ label: 'P', href: '/privacy' }], {}).length, 1);
+    assert.equal(withPrivacyLink([], { branding: { legal_pages: { privacy: { hide_footer_link: true } } } }).length, 0);
+
+    const screen = await read('../src/panel/diseno/Diseno.jsx');
+    assert.match(screen, /\['legales', 'Términos y políticas'\]/);
+    const app = await read('../src/App.jsx');
+    assert.match(app, /route === '\/privacy'/);
+});
+
+test('editor de Piquim: sin los campos de las otras tiendas', async () => {
+    const chrome = await read('../src/panel/diseno/ChromeEditors.jsx');
+    assert.equal((chrome.match(/\{searchField\}/g) || []).length, 1);
+    assert.match(chrome, /isPiquim \? footer\.socials \|\| \{\} : footerSocials\(footer\)/);
+    assert.match(chrome, /\.\.\.\(isPiquim \? \{\} : \{ socialLinks: \[\] \}\)/);
+});

@@ -60,6 +60,7 @@ const ProfilePage = lazyPage(() => import('./pages/store/ProfilePage'));
 const OrderSuccessPage = lazyPage(() => import('./pages/store/OrderSuccessPage'));
 const OrderDetailPage = lazyPage(() => import('./pages/store/OrderDetailPage'));
 const TermsPage = lazyPage(() => import('./pages/store/TermsPage'));
+const PrivacyPage = lazyPage(() => import('./pages/store/TermsPage').then((module) => ({ default: module.PrivacyPage })));
 
 // Precarga del codigo (y de los datos de Inicio/Nosotros) de la pagina a la que se va a navegar:
 // al pasar el mouse o tocar un enlace, o cuando el navegador esta libre. Asi el cambio es inmediato.
@@ -191,6 +192,7 @@ function AppContent() {
     else if (route === '/order-success') Component = OrderSuccessPage;
     else if (route === '/order-details') Component = OrderDetailPage;
     else if (route === '/terms') Component = TermsPage;
+    else if (route === '/privacy' || route === '/privacidad' || route === '/politicas') Component = PrivacyPage;
     else if (route.startsWith('/product')) Component = ProductDetail;
     else if (route === '/login') Component = LoginPage;
     else if (route === '/signup' || route === '/register') Component = SignupPage;

@@ -3,6 +3,7 @@ import { Instagram, Facebook, Youtube, Music2, MessageCircle, Linkedin, Globe, M
 import { useTenant } from "../../context/TenantContext";
 import { navigate } from "../../utils/navigation";
 import { storeText } from "../../utils/storeTexts";
+import { withPrivacyLink } from "../../data/legalPages";
 import { PIQUIM_FOOTER_DEFAULTS } from "../../data/piquimBranding";
 import { isPiquimTenantIdentity, resolveBrandLogo } from "../../utils/tenantBranding";
 
@@ -116,7 +117,7 @@ export default function Footer() {
     const shopLinks = toArray(footer.shopLinks, toArray(footer.quickLinks, isPiquim ? PIQUIM_FOOTER_DEFAULTS.shopLinks : genericLinks));
     const helpLinks = toArray(footer.helpLinks, isPiquim ? PIQUIM_FOOTER_DEFAULTS.helpLinks : []);
     const accountLinks = toArray(footer.accountLinks, isPiquim ? PIQUIM_FOOTER_DEFAULTS.accountLinks : []);
-    const legalLinks = toArray(footer.legalLinks, isPiquim ? PIQUIM_FOOTER_DEFAULTS.legalLinks : [{ label: "Terminos", href: "/terms" }]);
+    const legalLinks = withPrivacyLink(toArray(footer.legalLinks, isPiquim ? PIQUIM_FOOTER_DEFAULTS.legalLinks : [{ label: "Terminos", href: "/terms" }]), settings);
     const socialLinks = normalizeSocials(footer).filter((item) => item?.label);
     const newsletter = { ...(isPiquim ? PIQUIM_FOOTER_DEFAULTS.newsletter : { enabled: false }), ...(footer.newsletter || {}) };
     const legalText = footer.legalText || (isPiquim ? PIQUIM_FOOTER_DEFAULTS.legalText : '© 2026 Vase. Todos los derechos reservados.');

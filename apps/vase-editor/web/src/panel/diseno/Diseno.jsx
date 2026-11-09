@@ -12,6 +12,7 @@ import { FOOTER_ID, HEADER_ID, linksSummary, navLinksFromSettings } from './chro
 import StorePreview from './StorePreview';
 import { FooterEditor, HeaderEditor } from './ChromeEditors';
 import CatalogTextsEditor from './CatalogTextsEditor';
+import LegalEditor from './LegalEditor';
 import BlockInspector from './BlockInspector';
 import './diseno.css';
 
@@ -20,6 +21,7 @@ const PAGES = [
     ['about', 'Nosotros'],
     ['catalogo', 'Catálogo'],
     ['apariencia', 'Colores, logo y pie'],
+    ['legales', 'Términos y políticas'],
 ];
 
 const TEMPLATES = {
@@ -233,6 +235,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                         {page === 'catalogo' && isPiquim ? <CatalogPageEditor settings={editor.settings} setSettings={editor.setSettings} onSave={onPublish} isSaving={editor.saving} /> : null}
                         {/* En las demás tiendas la página Catálogo no tiene tarjetas de rubro: solo sus textos. */}
                         {page === 'catalogo' && !isPiquim ? <CatalogTextsEditor settings={editor.settings} setSettings={editor.setSettings} /> : null}
+                        {page === 'legales' ? <LegalEditor settings={editor.settings} setSettings={editor.setSettings} theme={theme} /> : null}
                         {page === 'apariencia' ? <AppearanceEditor settings={editor.settings} setSettings={editor.setSettings} onSave={onPublish} isSaving={editor.saving} /> : null}
                     </div>
                 </div>

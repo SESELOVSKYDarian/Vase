@@ -44,6 +44,8 @@ export const LINK_SUGGESTIONS = [
     { href: '/', label: 'Inicio' },
     { href: '/catalog', label: 'Catálogo' },
     { href: '/about', label: 'Nosotros' },
+    { href: '/terms', label: 'Términos y condiciones' },
+    { href: '/privacy', label: 'Privacidad y seguridad' },
     { href: '/signup', label: 'Crear cuenta' },
     { href: '/login', label: 'Ingresar' },
     { href: '/cart', label: 'Carrito' },

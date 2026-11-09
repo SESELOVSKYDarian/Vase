@@ -115,7 +115,6 @@ export function HeaderEditor({ settings, setSettings, pickers, isPiquim }) {
                 <input id="nav-reg" className="vp-inp" value={navbar.register_label ?? ''} placeholder="Registrarse" onChange={(event) => update({ register_label: event.target.value })} />
             </div>
             <LinkPicker label="El botón de registro lleva a" value={navbar.register_href || '/signup'} onChange={(href) => update({ register_href: href })} {...pickers} />
-            {searchField}
             <span className="vp-note">El logo y los colores se cambian en “Colores, logo y pie”.</span>
         </>
     );
@@ -130,9 +129,10 @@ export function FooterEditor({ settings, setSettings, pickers, isPiquim }) {
     }));
     const setContact = (patch) => update({ contact: { ...values.contact, ...patch } });
     const setNewsletter = (patch) => update({ newsletter: { ...values.newsletter, ...patch } });
-    const socials = footerSocials(settings?.branding?.footer || {});
-    // socialLinks (formato viejo) tiene prioridad en la tienda: al editar pasa todo a socials.
-    const setSocial = (key, value) => update({ socials: { ...socials, [key]: value }, socialLinks: [] });
+    const footer = settings?.branding?.footer || {};
+    const socials = isPiquim ? footer.socials || {} : footerSocials(footer);
+    // socialLinks (formato viejo) tiene prioridad en el pie genérico: al editar pasa todo a socials.
+    const setSocial = (key, value) => update({ socials: { ...socials, [key]: value }, ...(isPiquim ? {} : { socialLinks: [] }) });
     const setLabel = (key, value) => update({ labels: { ...values.labels, [key]: value } });
     const setColumn = (key, links) => update(key === 'shopLinks' && !isPiquim ? { shopLinks: links, quickLinks: links } : { [key]: links });
     const commerce = settings?.commerce || {};
