@@ -2,6 +2,7 @@ export type PanelSectionId =
   | "inicio"
   | "productos"
   | "business"
+  | "dominios"
   | "pagos"
   | "trabajos"
   | "equipo"
@@ -13,6 +14,7 @@ export function resolvePanelSection(pathname: string): PanelSectionId {
   if (pathname === "/app" || pathname === "/app/manager" || pathname === "/app/member") return "inicio";
   if (pathname.startsWith("/app/products")) return "productos";
   if (pathname === "/app/business") return "business";
+  if (/^\/app\/owner\/pages\/[^/]+\/domains$/.test(pathname)) return "dominios";
   if (pathname.startsWith("/app/billing")) return "pagos";
   if (pathname.startsWith("/app/owner/customizations")) return "trabajos";
   if (pathname.startsWith("/app/team")) return "equipo";
@@ -54,6 +56,15 @@ export const PANEL_HELP: Record<PanelSectionId, PanelHelp> = {
       "Tocá Editar para cambiar lo que se ve en tu web.",
       "En los tres puntos conectás tu dominio o eliminás la web.",
       "Tocá Nueva web para hacer otra, con plantilla o a medida.",
+    ],
+  },
+  dominios: {
+    title: "Cómo conectar tu dominio",
+    intro: "Tu web puede tener una dirección propia, como tunegocio.com.ar.",
+    steps: [
+      "Tocá Agregar dominio y escribilo.",
+      "Cargá los dos datos que te mostramos donde compraste el dominio.",
+      "Esperá: el estado cambia a Conectado y seguro cuando esté listo.",
     ],
   },
   pagos: {

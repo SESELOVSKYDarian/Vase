@@ -12,6 +12,7 @@ describe("panel sections", () => {
     ["/app", "inicio"],
     ["/app/products", "productos"],
     ["/app/business", "business"],
+    ["/app/owner/pages/abc/domains", "dominios"],
     ["/app/billing", "pagos"],
     ["/app/owner/customizations", "trabajos"],
     ["/app/team", "equipo"],

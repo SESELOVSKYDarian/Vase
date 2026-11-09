@@ -72,12 +72,18 @@ export function getBillingLabel(status: BillingStatus) {
   }
 }
 
+export const MAX_BUSINESS_WEB_LIMIT = 100;
+
+/** Cuántas webs puede tener el cliente: lo define el superadmin para cada cuenta. */
+export function resolveBusinessWebLimit(plan: Pick<PlanSnapshot, "businessProjectLimit">) {
+  return Math.max(1, plan.businessProjectLimit || 1);
+}
+
 export function canCreateStorefrontPage(
   pages: Array<Pick<StorefrontPage, "status">>,
   plan: PlanSnapshot,
 ) {
-  const limits = getPlanLimits(plan);
   const activePages = pages.filter((page) => page.status !== "ARCHIVED").length;
 
-  return activePages < limits.maxPages;
+  return activePages < resolveBusinessWebLimit(plan);
 }

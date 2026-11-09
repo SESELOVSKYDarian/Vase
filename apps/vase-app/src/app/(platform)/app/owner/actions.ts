@@ -7,7 +7,7 @@ import type { AuthActionState } from "@/app/(auth)/actions";
 import { requireTenantRole, requireVerifiedUser, tenantRoles } from "@/lib/auth/guards";
 import { createInitialBuilderDocument } from "@/lib/business/builder";
 import { calculateTemporaryLifecycle } from "@/lib/business/lifecycle";
-import { canCreateStorefrontPage, getEffectivePlan, getPlanLimits } from "@/lib/business/plans";
+import { canCreateStorefrontPage, resolveBusinessWebLimit, getEffectivePlan, getPlanLimits } from "@/lib/business/plans";
 import { prisma } from "@/lib/db/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { getRequestContext } from "@/lib/security/request";
@@ -152,13 +152,11 @@ export async function createStorefrontPageAction(
     select: { status: true },
   });
   const effectivePlan = getEffectivePlan(subscription);
-  const limits = getPlanLimits(effectivePlan);
-  const activePagesCount = currentPages.filter((page) => page.status !== "ARCHIVED").length;
-  const effectiveProjectLimit = Math.max(1, Math.min(limits.maxPages, effectivePlan.businessProjectLimit || 1));
 
-  if (!canCreateStorefrontPage(currentPages, effectivePlan) || activePagesCount >= effectiveProjectLimit) {
+  if (!canCreateStorefrontPage(currentPages, effectivePlan)) {
+    const limit = resolveBusinessWebLimit(effectivePlan);
     return {
-      error: `Tu plan actual permite hasta ${effectiveProjectLimit} proyecto(s) Business activo(s).`,
+      error: limit === 1 ? "Tu cuenta permite 1 web." : `Tu cuenta permite hasta ${limit} webs.`,
     };
   }
 
@@ -752,7 +750,8 @@ export async function requestDomainConnectionAction(
     },
   });
 
-  revalidatePath("/app/owner");
+  revalidatePath("/app/owner", "layout");
+  revalidatePath("/app/business");
   return {
     success: "Dominio enviado. Te mostraremos el estado de verificacion en el panel.",
   };

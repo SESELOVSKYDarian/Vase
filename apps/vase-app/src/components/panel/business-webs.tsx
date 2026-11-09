@@ -205,7 +205,7 @@ function NewWebDialog({
   );
 }
 
-function DomainDialog({ web, canUseDomain, onClose }: { web: BusinessWeb; canUseDomain: boolean; onClose: () => void }) {
+function DomainDialog({ web, canUseDomain, onClose }: { web: { id: string; name: string }; canUseDomain: boolean; onClose: () => void }) {
   const [state, formAction, pending] = useActionState(requestDomainConnectionAction, initialState);
   useCloseOnSuccess(state, onClose);
 
@@ -272,6 +272,18 @@ function DeleteDialog({ web, onClose }: { web: BusinessWeb; onClose: () => void 
         </div>
       </form>
     </div>
+  );
+}
+
+export function AddDomainButton({ web, canUseDomain }: { web: { id: string; name: string }; canUseDomain: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="vpa-btn acc sm" onClick={() => setOpen(true)}>
+        Agregar dominio
+      </button>
+      {open ? <DomainDialog web={web} canUseDomain={canUseDomain} onClose={() => setOpen(false)} /> : null}
+    </>
   );
 }
 

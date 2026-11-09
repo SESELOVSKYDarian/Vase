@@ -1,7 +1,7 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { BusinessWebs, type BusinessWeb } from "@/components/panel/business-webs";
-import { getEffectivePlan, getPlanLimits } from "@/lib/business/plans";
+import { canCreateStorefrontPage, getEffectivePlan, getPlanLimits, resolveBusinessWebLimit } from "@/lib/business/plans";
 import { formatMeetingTime, formatSlotDay } from "@/lib/business/work-board";
 import { describeWebState, webLimitText, webPalette, webRemainingText } from "@/lib/business/web-cards";
 import { prisma } from "@/lib/db/prisma";
@@ -57,10 +57,9 @@ export default async function BusinessPage() {
   const canUseCustomFlow =
     !hasExplicitBusinessSubmoduleAccess ||
     businessSubmoduleAccess.some((submodule) => submodule.key === "personalizado" && submodule.tenantLinks.some((link) => link.isActive));
-  const canCreatePage = dashboard.plan.plan === "PREMIUM" || dashboard.summary.activePages < (effectivePlan.businessProjectLimit ?? 1);
-  const isUnlimited = dashboard.plan.plan === "PREMIUM";
-  const limit = isUnlimited ? null : (effectivePlan.businessProjectLimit ?? 1);
+  const limit = resolveBusinessWebLimit(effectivePlan);
   const visiblePages = dashboard.storefrontPages.filter((page) => page.status !== "ARCHIVED");
+  const canCreatePage = canCreateStorefrontPage(visiblePages, effectivePlan);
 
   const webs: BusinessWeb[] = visiblePages.map((page, index) => {
     const connected = page.domainConnections.filter((domain) => domain.status === "CONNECTED");
