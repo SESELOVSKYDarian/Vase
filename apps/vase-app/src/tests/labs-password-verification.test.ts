@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createLabsPasswordVerifyHandler } from "@/app/api/internal/labs/verify-password/route";
+import { createLabsPasswordVerifyHandler } from "@/app/api/internal/labs/verify-password/handler";
 
 describe("internal Labs password verification", () => {
   it("returns only a boolean result for a valid service request", async () => {

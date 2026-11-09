@@ -6,7 +6,7 @@ const { prisma } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db/prisma", () => ({ prisma }));
 
-import { createBusinessExternalManagementCredentialsHandler } from "../apps/vase-app/src/app/api/internal/business/external-management-credentials/route";
+import { createBusinessExternalManagementCredentialsHandler } from "../apps/vase-app/src/app/api/internal/business/external-management-credentials/handler";
 
 function handler(options?: {
   tenant?: { id: string } | null;

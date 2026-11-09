@@ -5,7 +5,7 @@ const { prisma } = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/db/prisma", () => ({ prisma }));
 
-import { createBusinessCatalogSnapshotBrokerHandler } from "../apps/vase-app/src/app/api/internal/business/catalog-snapshot/route";
+import { createBusinessCatalogSnapshotBrokerHandler } from "../apps/vase-app/src/app/api/internal/business/catalog-snapshot/handler";
 
 const payload = (globalTenantId = "tenant_123") => ({
   eventId: "event-1",

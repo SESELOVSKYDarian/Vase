@@ -12,9 +12,9 @@ const { service } = vi.hoisted(() => ({
 vi.mock("../apps/vase-app/src/server/services/labs-business-orders", () => service);
 vi.mock("@/server/services/labs-business-orders", () => service);
 
-import { createLabsFulfillmentRouteHandler } from "../apps/vase-app/src/app/api/internal/business/labs/fulfillment/route";
-import { createLabsOrderQuoteRouteHandler } from "../apps/vase-app/src/app/api/internal/business/labs/orders/quote/route";
-import { createLabsOrderCreateRouteHandler } from "../apps/vase-app/src/app/api/internal/business/labs/orders/route";
+import { createLabsFulfillmentRouteHandler } from "../apps/vase-app/src/app/api/internal/business/labs/fulfillment/handler";
+import { createLabsOrderQuoteRouteHandler } from "../apps/vase-app/src/app/api/internal/business/labs/orders/quote/handler";
+import { createLabsOrderCreateRouteHandler } from "../apps/vase-app/src/app/api/internal/business/labs/orders/handler";
 
 function request(url: string, init?: RequestInit) {
   return new Request(url, { headers: { authorization: "Bearer service-token", "content-type": "application/json" }, ...init });
