@@ -8,7 +8,7 @@ import useNotificationsManager from '../hooks/admin/useNotificationsManager';
 import useEvolutionStore from '../store/useEvolutionStore';
 import { navigate } from '../utils/navigation';
 import { isPiquimTenantIdentity, resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
-import { ComingSoon, GeneralHelp, SectionHelp, Sidebar, Topbar } from './components/Shell';
+import { ComingSoon, GeneralHelp, HelpVideo, SectionHelp, Sidebar, Topbar } from './components/Shell';
 import './screens/screens.css';
 import Resumen from './screens/Resumen';
 import Imagenes from './screens/Imagenes';
@@ -314,9 +314,11 @@ export default function PanelApp() {
                 section={section}
                 title={meta.title}
                 onAll={() => setHelp('general')}
+                onPlay={(text) => setHelp({ video: text, from: 'section' })}
                 theme={theme}
             />
-            <GeneralHelp open={help === 'general'} onClose={() => setHelp(null)} theme={theme} />
+            <GeneralHelp open={help === 'general'} onClose={() => setHelp(null)} onPlay={(text) => setHelp({ video: text, from: 'general' })} theme={theme} />
+            <HelpVideo title={help?.video || null} onClose={() => setHelp(null)} onBack={() => setHelp(help?.from || 'section')} theme={theme} />
         </div>
     );
 }

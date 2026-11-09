@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import { Modal } from './Overlays';
-import { HELP, HELP_SECTIONS, MENU, SETTINGS_PAGES } from '../sections';
+import { HELP, HELP_VIDEOS, MENU, SETTINGS_PAGES } from '../sections';
 
 const LOGO = { light: '/brand/vase-logo-green.png?v=2', dark: '/brand/vase-logo-white.png?v=2' };
 
@@ -140,37 +140,106 @@ export function Topbar({ title, subtitle, crumb, onBack, status, onPublish, publ
     );
 }
 
-export function SectionHelp({ open, onClose, section, title, onAll, theme }) {
+const helpFile = (slug, theme) => `/help/videos/${slug}${theme === 'light' ? '-claro' : ''}`;
+
+// Video dentro del panel de ayuda: muestra la portada y se reproduce ahí mismo al tocarla.
+function HelpVideoCard({ text, time, index, theme, playing, onPlay }) {
+    const file = helpFile(HELP_VIDEOS[text], theme);
+    return (
+        <div style={{ marginBottom: 14 }}>
+            <div style={{ position: 'relative', aspectRatio: '16 / 9', borderRadius: 14, overflow: 'hidden', background: 'var(--soft)', border: '1px solid var(--line)' }}>
+                {playing ? (
+                    <video key={file} src={`${file}.mp4`} poster={`${file}.jpg`} controls autoPlay playsInline style={{ width: '100%', height: '100%', display: 'block' }}>
+                        Tu navegador no puede reproducir este video.
+                    </video>
+                ) : (
+                    <button type="button" onClick={onPlay} aria-label={`Ver el video: ${text}`} style={{ position: 'absolute', inset: 0, padding: 0, border: 0, cursor: 'pointer', background: `center / cover no-repeat url(${file}.jpg)` }}>
+                        <span style={{ position: 'absolute', left: 12, bottom: 12, width: 40, height: 40, borderRadius: '50%', background: 'var(--acc)', color: 'var(--acc-on)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, boxShadow: 'var(--sh-md)' }}>▶</span>
+                    </button>
+                )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                <span style={{ width: 24, height: 24, borderRadius: 8, background: 'var(--accsoft)', color: 'var(--acc-tx)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flex: 'none' }}>{index + 1}</span>
+                <b style={{ fontSize: 13.5 }}>{text}</b>
+                <span className="vp-note" style={{ marginLeft: 'auto' }}>{time}</span>
+            </div>
+        </div>
+    );
+}
+
+function HelpVideoList({ items, theme, onSoon }) {
+    const [playing, setPlaying] = useState(null);
+    const withVideo = items.filter(([text]) => HELP_VIDEOS[text]);
+    const soon = items.filter(([text]) => !HELP_VIDEOS[text]);
+    return (
+        <>
+            {withVideo.map(([text, time], index) => (
+                <HelpVideoCard key={text} text={text} time={time} index={index} theme={theme} playing={playing === text} onPlay={() => setPlaying(text)} />
+            ))}
+            {soon.length ? (
+                <>
+                    {withVideo.length ? <span className="vp-fl">Próximamente</span> : <div className="vp-lock">Los videos de esta pantalla están en proceso.</div>}
+                    <div>
+                        {soon.map(([text], index) => (
+                            <button key={text} type="button" className="vp-hl" onClick={() => onSoon(text)}>
+                                <i>{withVideo.length + index + 1}</i>{text}<em>Pronto</em>
+                            </button>
+                        ))}
+                    </div>
+                </>
+            ) : null}
+        </>
+    );
+}
+
+export function SectionHelp({ open, onClose, section, title, onAll, onPlay, theme }) {
     const items = HELP[section] || [];
     return (
-        <Modal open={open} onClose={onClose} side theme={theme} title={`Ayuda · ${title}`} description="Lo que podés hacer en esta pantalla.">
-            <div>
-                {items.map(([text, time], index) => (
-                    <a key={text} className="vp-hl" href={`https://help.vase.ar/?q=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
-                        <i>{index + 1}</i>{text}<em>{time}</em>
-                    </a>
-                ))}
-            </div>
-            <span className="vp-note">Cada guía tiene un video corto en help.vase.ar.</span>
+        <Modal open={open} onClose={onClose} side theme={theme} title={`Ayuda · ${title}`} description="Videos cortos de lo que podés hacer en esta pantalla.">
+            <HelpVideoList items={items} theme={theme} onSoon={onPlay} />
             <button type="button" className="vp-btn soft" onClick={onAll}>Ver toda la ayuda</button>
         </Modal>
     );
 }
 
-export function GeneralHelp({ open, onClose, theme }) {
+// Por ahora la ayuda vive acá: las guías con video se ven en esta ventana y el resto avisa que está en proceso.
+export function HelpVideo({ title, onClose, onBack, theme }) {
+    const slug = title ? HELP_VIDEOS[title] : null;
+    const file = slug ? `/help/videos/${slug}${theme === 'light' ? '-claro' : ''}` : null;
     return (
-        <Modal open={open} onClose={onClose} side theme={theme} title="Ayuda y soporte" description="Guías, preguntas frecuentes y videos.">
-            <a className="vp-btn line" href="https://help.vase.ar" target="_blank" rel="noreferrer" style={{ justifyContent: 'flex-start' }}><Icon name="search" size={15} />Buscar en help.vase.ar</a>
-            <span className="vp-fl">Por sección</span>
-            <div>
-                {HELP_SECTIONS.map(([label, count]) => (
-                    <a key={label} className="vp-hl" href={`https://help.vase.ar/?seccion=${encodeURIComponent(label)}`} target="_blank" rel="noreferrer">
-                        <i>{label.charAt(0)}</i>{label}<em>{count} guías</em>
-                    </a>
-                ))}
-                <a className="vp-hl" href="https://help.vase.ar/?seccion=programadores" target="_blank" rel="noreferrer"><i>{'{}'}</i>Datos técnicos para el programador<em>JSON, cURL, claves</em></a>
-            </div>
-            <a className="vp-btn ink" href="https://help.vase.ar" target="_blank" rel="noreferrer">Abrir el manual completo ↗</a>
+        <Modal
+            open={Boolean(title)}
+            onClose={onClose}
+            wide={Boolean(slug)}
+            theme={theme}
+            title={title || ''}
+            description={slug ? 'Video corto, paso a paso.' : 'Esta guía está en proceso.'}
+            footer={<>
+                <button type="button" className="vp-btn soft" onClick={onBack}>← Otras guías</button>
+                <button type="button" className="vp-btn acc" onClick={onClose}>Listo</button>
+            </>}
+        >
+            {slug ? (
+                <video key={file} src={`${file}.mp4`} poster={`${file}.jpg`} controls autoPlay playsInline style={{ width: '100%', aspectRatio: '16 / 9', display: 'block', borderRadius: 12, background: 'var(--soft)' }}>
+                    Tu navegador no puede reproducir este video.
+                </video>
+            ) : (
+                <div className="vp-soon" style={{ padding: '28px 12px' }}>
+                    <span className="ic"><Icon name="tool" size={26} /></span>
+                    <h2>Estamos preparando esta guía</h2>
+                    <p className="vp-note" style={{ fontSize: 13 }}>Pronto vas a tener acá un video corto que te muestra cómo hacerlo. Mientras tanto, escribinos y te ayudamos.</p>
+                </div>
+            )}
+        </Modal>
+    );
+}
+
+export function GeneralHelp({ open, onClose, onPlay, theme }) {
+    const items = Object.values(HELP).flat().filter(([text], index, all) => all.findIndex(([other]) => other === text) === index);
+    return (
+        <Modal open={open} onClose={onClose} side theme={theme} title="Ayuda y soporte" description="Todos los videos de ayuda.">
+            <div className="vp-lock">El manual completo en help.vase.ar está en proceso. Mientras tanto, los videos están acá.</div>
+            <HelpVideoList items={items} theme={theme} onSoon={onPlay} />
         </Modal>
     );
 }
