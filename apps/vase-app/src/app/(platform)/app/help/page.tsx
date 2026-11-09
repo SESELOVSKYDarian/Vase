@@ -1,11 +1,17 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { ClientSupportTicketForm } from "@/components/support/client-support-ticket-form";
+import { NewTicketButton } from "@/components/panel/new-ticket";
 import { OpenSupportChatButton } from "@/components/support/open-support-chat-button";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
-import { getSupportStatusLabel } from "@/lib/support/tickets";
-import { getTenantSupportOverview, getTenantSupportWidgetContext } from "@/server/queries/support";
+import { describeSupportTicket } from "@/lib/business/work-board";
+import { getTenantSupportOverview } from "@/server/queries/support";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
+
+const updatedLabel = new Intl.DateTimeFormat("es-AR", {
+  timeZone: "America/Argentina/Buenos_Aires",
+  day: "numeric",
+  month: "long",
+});
 
 const GUIDES = [
   "Cómo funciona mi plan",
@@ -23,10 +29,9 @@ export default async function HelpPage() {
     forbidden();
   }
 
-  const [dashboard, supportOverview, supportWidget] = await Promise.all([
+  const [dashboard, supportOverview] = await Promise.all([
     getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
     getTenantSupportOverview(membership.tenantId),
-    getTenantSupportWidgetContext(membership.tenantId),
   ]);
 
   if (!dashboard) forbidden();
@@ -44,50 +49,33 @@ export default async function HelpPage() {
     >
       <div className="vpa-g2">
         <div className="vpa-gs">
-          {canAsk ? (
-          <>
-          <section className="vpa-card" aria-label="Nueva consulta">
-            <div className="vpa-sech">
-              <div>
-                <h3>Nueva consulta</h3>
-                <p>Contanos qué pasa y te responde alguien del equipo.</p>
-              </div>
-            </div>
-            <ClientSupportTicketForm conversationOptions={supportWidget.conversationOptions} />
-          </section>
           <section className="vpa-card" aria-label="Mis consultas">
             <div className="vpa-sech">
               <div>
                 <h3>Mis consultas</h3>
-                <p>Lo que le preguntaste al equipo de Vase.</p>
+                <p>{canAsk ? "Lo que le preguntaste al equipo de Vase." : "Las consultas a Vase las hace el Dueño o un Encargado de tu cuenta."}</p>
               </div>
+              {canAsk ? <NewTicketButton /> : null}
             </div>
-            {supportOverview.tickets.length === 0 ? (
-              <div className="vpa-empty">Todavía no hiciste consultas.</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {supportOverview.tickets.map((ticket) => (
-                  <div className="vpa-hrow" key={ticket.id}>
-                    <div className="vpa-g1">
-                      <b>{ticket.subject}</b>
-                      {ticket.aiSummary ? <span>{ticket.aiSummary}</span> : null}
+            {canAsk && supportOverview.tickets.length === 0 ? <div className="vpa-empty">Todavía no hiciste consultas.</div> : null}
+            {canAsk
+              ? supportOverview.tickets.map((ticket) => {
+                  const shown = describeSupportTicket(ticket.status, updatedLabel.format(ticket.updatedAt));
+                  return (
+                    <div className="vpa-todo" key={ticket.id}>
+                      <div className="vpa-g1">
+                        <b>{ticket.subject}</b>
+                        <span>{shown.detail}</span>
+                      </div>
+                      <span className={`vpa-tag ${shown.tone}`}>
+                        <i />
+                        {shown.state}
+                      </span>
                     </div>
-                    <span className="vpa-tag">
-                      <i />
-                      {getSupportStatusLabel(ticket.status)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+                  );
+                })
+              : null}
           </section>
-          </>
-          ) : (
-            <section className="vpa-card">
-              <h3>Consultas</h3>
-              <p>Las consultas a Vase las hace el Dueño o un Encargado de tu cuenta.</p>
-            </section>
-          )}
         </div>
         <div className="vpa-gs">
           <section className="vpa-card" aria-label="Guías">
@@ -104,13 +92,13 @@ export default async function HelpPage() {
             </a>
           </section>
           {membership.role === "OWNER" ? (
-          <section className="vpa-card" aria-label="Hablar con Vase">
-            <h3>¿Es urgente?</h3>
-            <p>Escribinos por el chat.</p>
-            <div style={{ marginTop: 12 }}>
-              <OpenSupportChatButton className="vpa-btn soft wide" />
-            </div>
-          </section>
+            <section className="vpa-card" aria-label="Hablar con Vase">
+              <h3>¿Es urgente?</h3>
+              <p>Escribinos por el chat y te responde alguien del equipo.</p>
+              <div style={{ marginTop: 12 }}>
+                <OpenSupportChatButton className="vpa-btn soft wide" label="Abrir el chat" />
+              </div>
+            </section>
           ) : null}
         </div>
       </div>

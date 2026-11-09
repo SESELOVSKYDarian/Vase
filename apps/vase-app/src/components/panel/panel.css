@@ -21,6 +21,7 @@
 .vpa *, .vpa *::before, .vpa *::after { box-sizing: border-box; }
 .vpa :focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 .vpa h1, .vpa h2, .vpa h3, .vpa p { margin: 0; }
+.vpa h1, .vpa h2, .vpa h3, .vpa h4, .vpa button, .vpa input, .vpa select, .vpa textarea { font-family: var(--font-manrope), system-ui, sans-serif; }
 .vpa a { color: inherit; text-decoration: none; }
 .vpa button { font: inherit; color: inherit; }
 
@@ -235,6 +236,12 @@
 .vpa-cardrow { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .vpa-cardrow:last-child { border-bottom: 0; padding-bottom: 0; }
 .vpa-notice { padding: 14px 18px; border-radius: 14px; background: var(--accsoft); color: var(--acc-tx); font-weight: 700; }
+
+.vpa-todo { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.vpa-todo:last-child { border-bottom: 0; padding-bottom: 0; }
+.vpa-todo:first-child { padding-top: 0; }
+.vpa-area { height: 96px; padding: 10px 12px; resize: vertical; }
+.vpa-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 
 /* temas */
 .vpa-themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 560px; }

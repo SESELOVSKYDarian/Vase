@@ -86,8 +86,8 @@ export const PANEL_HELP: Record<PanelSectionId, PanelHelp> = {
     title: "Cómo usar Ayuda y soporte",
     intro: "Acá le escribís al equipo de Vase.",
     steps: [
-      "Completá el formulario para abrir una consulta.",
-      "Abajo seguís el estado de cada consulta.",
+      "Tocá Nueva consulta y contanos qué pasa.",
+      "En Mis consultas ves el estado de cada una.",
       "En el manual tenés guías y videos.",
     ],
   },

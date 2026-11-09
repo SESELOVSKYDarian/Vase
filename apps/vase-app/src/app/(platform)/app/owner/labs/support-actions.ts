@@ -68,6 +68,7 @@ export async function createClientSupportTicketAction(
     });
 
     revalidatePath("/app/owner/labs");
+    revalidatePath("/app/help");
     revalidatePath("/app/support");
     revalidatePath("/app/admin");
     return { success: "Ticket enviado al equipo humano de Vase." };

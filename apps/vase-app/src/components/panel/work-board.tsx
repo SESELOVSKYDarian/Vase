@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { ClientCustomQuoteResponseForm } from "@/components/business/client-custom-quote-response-form";
 import { CustomProjectMeetingRequestForm } from "@/components/business/custom-project-meeting-request-form";
+import { scheduleClientMeetingAction } from "@/app/(platform)/app/owner/customizations/actions";
 import { NavLink } from "@/components/layout/nav-link";
 import { matchesWorkDate, type WorkDateFilter, type WorkProgress } from "@/lib/business/work-board";
 
@@ -42,7 +43,114 @@ export type WorkItem = {
   } | null;
 };
 
+export type BoardMeeting = {
+  id: string;
+  kind: "v2" | "booking" | "request";
+  title: string;
+  when: string;
+  dayLabel: string;
+  duration: string | null;
+  month: string;
+  day: string;
+  url: string | null;
+  atMs: number;
+};
+
+export type BoardSlot = { id: string; day: string; time: string };
+
 type FilterKey = "product" | "kind" | "date";
+
+function ScheduleDialog({
+  slots,
+  replace,
+  onClose,
+}: {
+  slots: BoardSlot[];
+  replace: BoardMeeting | null;
+  onClose: () => void;
+}) {
+  const [topic, setTopic] = useState("");
+  const [slotId, setSlotId] = useState(slots[0]?.id ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const confirm = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await scheduleClientMeetingAction({
+        topic,
+        slotId,
+        replace: replace && replace.kind !== "request" ? { kind: replace.kind, id: replace.id } : null,
+      });
+      if (result.ok) {
+        onClose();
+        return;
+      }
+      setError(result.message ?? "No pudimos agendar la reunión.");
+    });
+  };
+
+  return (
+    <div className="vpa-dialog">
+      <div role="dialog" aria-label={replace ? "Cambiar horario" : "Agendar reunión"} style={{ width: 560 }}>
+        <div style={{ display: "flex", alignItems: "flex-start" }}>
+          <div>
+            <h3>{replace ? "Cambiar horario" : "Agendar reunión"}</h3>
+            <p>{replace ? replace.title : "Elegí un horario con el equipo de Vase."}</p>
+          </div>
+          <button type="button" className="vpa-x" aria-label="Cerrar" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        {replace ? null : (
+          <label className="vpa-fld">
+            <span>¿De qué querés hablar?</span>
+            <input
+              className="vpa-inp"
+              value={topic}
+              maxLength={160}
+              placeholder="Por ejemplo: sumar una función a mi tienda"
+              onChange={(event) => setTopic(event.target.value)}
+            />
+          </label>
+        )}
+        {slots.length === 0 ? (
+          <div className="vpa-hrow">
+            <div className="vpa-g1">
+              <b>Por ahora no hay horarios disponibles</b>
+              <span>Escribinos desde Ayuda y soporte y coordinamos.</span>
+            </div>
+          </div>
+        ) : (
+          <div className="vpa-slots" role="radiogroup" aria-label="Horarios">
+            {slots.map((slot) => (
+              <button
+                key={slot.id}
+                type="button"
+                role="radio"
+                aria-checked={slotId === slot.id}
+                className={slotId === slot.id ? "vpa-choice on" : "vpa-choice"}
+                onClick={() => setSlotId(slot.id)}
+              >
+                <b>{slot.day}</b>
+                <span>{slot.time}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {error ? <p role="alert" style={{ color: "var(--red)" }}>{error}</p> : null}
+        <div className="row">
+          <button type="button" className="vpa-btn soft" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="button" className="vpa-btn acc" disabled={isPending || !slotId} onClick={confirm}>
+            {isPending ? "Agendando..." : "Confirmar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const DATE_OPTIONS: Array<{ id: WorkDateFilter; label: string }> = [
   { id: "todas", label: "Cualquiera" },
@@ -51,7 +159,6 @@ const DATE_OPTIONS: Array<{ id: WorkDateFilter; label: string }> = [
   { id: "anio", label: "Este año" },
 ];
 
-const longDate = new Intl.DateTimeFormat("es-AR", { dateStyle: "long", timeStyle: "short" });
 const ALL = "todos";
 
 function FilterMenu({
@@ -99,10 +206,16 @@ function FilterMenu({
 export function WorkBoard({
   items,
   nowMs,
+  upcomingMeetings,
+  pastMeetings,
+  slots,
   newRequestHref,
 }: {
   items: WorkItem[];
   nowMs: number;
+  upcomingMeetings: BoardMeeting[];
+  pastMeetings: BoardMeeting[];
+  slots: BoardSlot[];
   newRequestHref: string | null;
 }) {
   const [tab, setTab] = useState<"trabajos" | "reuniones">("trabajos");
@@ -111,6 +224,7 @@ export function WorkBoard({
   const [kind, setKind] = useState(ALL);
   const [date, setDate] = useState<WorkDateFilter>("todas");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [scheduling, setScheduling] = useState<{ replace: BoardMeeting | null } | null>(null);
 
   const products = useMemo(() => Array.from(new Set(items.map((item) => item.product))), [items]);
   const kinds = useMemo(() => Array.from(new Set(items.map((item) => item.kind))), [items]);
@@ -119,16 +233,7 @@ export function WorkBoard({
     (item) => (kind === ALL || item.kind === kind) && matchesWorkDate(new Date(item.createdAt), date, new Date(nowMs)),
   );
 
-  const meetings = inScope
-    .flatMap((item) => item.meetings.map((meeting) => ({ ...meeting, requestTitle: item.title, requestId: item.id })))
-    .filter((meeting) => meeting.when);
-  const upcoming = meetings
-    .filter((meeting) => meeting.when && new Date(meeting.when).getTime() >= nowMs && meeting.status !== "COMPLETED" && meeting.status !== "CANCELED")
-    .sort((left, right) => new Date(left.when!).getTime() - new Date(right.when!).getTime());
-  const past = meetings
-    .filter((meeting) => !upcoming.includes(meeting) && matchesWorkDate(new Date(meeting.when!), date, new Date(nowMs)))
-    .sort((left, right) => new Date(right.when!).getTime() - new Date(left.when!).getTime());
-  const schedulable = inScope.filter((item) => item.meetings.some((meeting) => meeting.isEnabledByAdmin));
+  const visiblePast = pastMeetings.filter((meeting) => matchesWorkDate(new Date(meeting.atMs), date, new Date(nowMs)));
 
   const dirty = product !== ALL || date !== "todas" || (tab === "trabajos" && kind !== ALL);
   const open = items.find((item) => item.id === openId) ?? null;
@@ -148,6 +253,11 @@ export function WorkBoard({
           <NavLink href={newRequestHref} className="vpa-btn acc">
             Pedir algo nuevo
           </NavLink>
+        ) : null}
+        {tab === "reuniones" ? (
+          <button type="button" className="vpa-btn acc" onClick={() => setScheduling({ replace: null })}>
+            Agendar reunión
+          </button>
         ) : null}
       </div>
 
@@ -247,66 +357,48 @@ export function WorkBoard({
         </>
       ) : (
         <>
-          {upcoming.length === 0 ? (
-            <div className="vpa-empty">No tenés reuniones próximas.</div>
-          ) : (
-            upcoming.map((meeting) => {
-              const when = new Date(meeting.when!);
-              return (
-                <article className="vpa-job" key={meeting.id}>
-                  <div className="vpa-meet">
-                    <div className="vpa-cal" aria-hidden="true">
-                      <small>{new Intl.DateTimeFormat("es-AR", { month: "short" }).format(when).toUpperCase()}</small>
-                      <b>{when.getDate()}</b>
-                    </div>
-                    <div className="vpa-g1">
-                      <b style={{ fontSize: 18, fontWeight: 800 }}>{longDate.format(when)}</b>
-                      <span style={{ fontSize: 13 }}>
-                        {meeting.typeLabel} · {meeting.requestTitle}
-                      </span>
-                    </div>
-                    {meeting.status === "CONFIRMED" && meeting.url ? (
-                      <a className="vpa-btn acc" href={meeting.url} target="_blank" rel="noreferrer">
-                        Unirme
-                      </a>
-                    ) : (
-                      <span className="vpa-tag y">
-                        <i />
-                        Por confirmar
-                      </span>
-                    )}
-                  </div>
-                </article>
-              );
-            })
-          )}
-          {schedulable.length > 0 ? (
-            <section className="vpa-card" aria-label="Pedir reunión">
-              <h3>Pedir una reunión</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-                {schedulable.map((item) => (
-                  <div className="vpa-hrow" key={item.id}>
-                    <div className="vpa-g1">
-                      <b>{item.title}</b>
-                    </div>
-                    <button type="button" className="vpa-btn line sm" onClick={() => setOpenId(item.id)}>
-                      Agendar
-                    </button>
-                  </div>
-                ))}
+          {upcomingMeetings.length === 0 ? <div className="vpa-empty">No tenés reuniones próximas.</div> : null}
+          {upcomingMeetings.map((meeting, index) => (
+            <article className="vpa-job" key={`${meeting.kind}:${meeting.id}`}>
+              <div className="vpa-lab" style={{ marginBottom: 0 }}>
+                {index === 0 ? "Próxima reunión" : "Después"}
               </div>
-            </section>
-          ) : null}
+              <div className="vpa-meet">
+                <div className="vpa-cal" aria-hidden="true">
+                  <small>{meeting.month}</small>
+                  <b>{meeting.day}</b>
+                </div>
+                <div className="vpa-g1">
+                  <b style={{ fontSize: 18, fontWeight: 800 }}>{meeting.when}</b>
+                  <span style={{ fontSize: 13 }}>
+                    {meeting.title}
+                    {meeting.duration ? ` · ${meeting.duration}` : ""}
+                  </span>
+                </div>
+                {meeting.url ? (
+                  <a className="vpa-btn acc" href={meeting.url} target="_blank" rel="noreferrer">
+                    Unirme
+                  </a>
+                ) : null}
+                {meeting.kind !== "request" ? (
+                  <button type="button" className="vpa-btn line" onClick={() => setScheduling({ replace: meeting })}>
+                    Cambiar horario
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          ))}
           <section className="vpa-card" aria-label="Reuniones anteriores">
             <h3>Anteriores</h3>
-            {past.length === 0 ? <p>No hay reuniones anteriores.</p> : null}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-              {past.map((meeting) => (
-                <div className="vpa-hrow" key={meeting.id}>
+            {visiblePast.length === 0 ? <p>No hay reuniones anteriores.</p> : null}
+            <div style={{ marginTop: 8 }}>
+              {visiblePast.map((meeting) => (
+                <div className="vpa-todo" key={`${meeting.kind}:${meeting.id}`}>
                   <div className="vpa-g1">
-                    <b>{meeting.typeLabel}</b>
+                    <b>{meeting.title}</b>
                     <span>
-                      {meeting.requestTitle} · {longDate.format(new Date(meeting.when!))}
+                      {meeting.dayLabel}
+                      {meeting.duration ? ` · ${meeting.duration}` : ""}
                     </span>
                   </div>
                 </div>
@@ -317,6 +409,7 @@ export function WorkBoard({
       )}
 
       {menu ? <div className="vpa-menuscrim" onClick={() => setMenu(null)} /> : null}
+      {scheduling ? <ScheduleDialog slots={slots} replace={scheduling.replace} onClose={() => setScheduling(null)} /> : null}
 
       {open ? (
         <div className="vpa-ov" onClick={() => setOpenId(null)}>

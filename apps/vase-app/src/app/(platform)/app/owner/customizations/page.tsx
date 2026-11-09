@@ -1,10 +1,21 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { WorkBoard, type WorkItem } from "@/components/panel/work-board";
+import { WorkBoard, type BoardMeeting, type BoardSlot, type WorkItem } from "@/components/panel/work-board";
 import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
 import { formatMoneyFromCents } from "@/lib/business/custom-quotes";
 import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
-import { describeWorkProgress } from "@/lib/business/work-board";
+import { prisma } from "@/lib/db/prisma";
+import {
+  describeWorkProgress,
+  formatCalendarTile,
+  formatMeetingDayMonth,
+  formatMeetingTime,
+  formatMeetingWhen,
+  formatSlotDay,
+  meetingMinutes,
+  mergeClientMeetings,
+  type ClientMeetingSource,
+} from "@/lib/business/work-board";
 import { getTenantCustomizationQuoteWorkspace } from "@/server/queries/custom-quotes";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 
@@ -33,9 +44,42 @@ export default async function OwnerCustomizationsPage() {
     forbidden();
   }
 
-  const [workspace, dashboard] = await Promise.all([
-    getTenantCustomizationQuoteWorkspace(membership.tenantId),
-    getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
+  const tenantId = membership.tenantId;
+  const [workspace, dashboard, meetingsV2, bookings, slots] = await Promise.all([
+    getTenantCustomizationQuoteWorkspace(tenantId),
+    getUnifiedTenantDashboard(tenantId, session.user.id, session.user.platformRole),
+    prisma.meetingV2.findMany({
+      where: { tenantId, scheduledAt: { not: null } },
+      orderBy: { scheduledAt: "desc" },
+      take: 40,
+      select: { id: true, title: true, meetUrl: true, scheduledAt: true, sourceCustomMeetingId: true },
+    }),
+    prisma.customProjectMeetingBooking.findMany({
+      where: { tenantId },
+      orderBy: { scheduledStart: "desc" },
+      take: 40,
+      select: {
+        id: true,
+        status: true,
+        scheduledStart: true,
+        scheduledEnd: true,
+        meetingUrl: true,
+        customMeetingId: true,
+        customPageRequest: { select: { pageScope: true } },
+        customMeeting: { select: { meetingUrl: true } },
+      },
+    }),
+    prisma.meetingAvailabilitySlot.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        startsAt: { gte: new Date() },
+        reservedCount: { lt: prisma.meetingAvailabilitySlot.fields.capacity },
+      },
+      orderBy: { startsAt: "asc" },
+      take: 8,
+      select: { id: true, startsAt: true },
+    }),
   ]);
 
   const isOwner = membership.role === "OWNER";
@@ -90,6 +134,72 @@ export default async function OwnerCustomizationsPage() {
     };
   });
 
+  const now = new Date(nowMs);
+  const sources: ClientMeetingSource[] = [
+    ...bookings
+      .filter((booking) => booking.status !== "CANCELED")
+      .map((booking) => ({
+        id: booking.id,
+        kind: "booking" as const,
+        title: booking.customPageRequest.pageScope,
+        start: booking.scheduledStart,
+        end: booking.scheduledEnd,
+        url: booking.meetingUrl ?? booking.customMeeting?.meetingUrl ?? null,
+        finished: booking.status === "COMPLETED",
+        customMeetingId: booking.customMeetingId,
+      })),
+    ...meetingsV2.map((meeting) => ({
+      id: meeting.id,
+      kind: "v2" as const,
+      title: meeting.title,
+      start: meeting.scheduledAt as Date,
+      end: null,
+      url: meeting.meetUrl,
+      finished: false,
+      customMeetingId: meeting.sourceCustomMeetingId,
+    })),
+    ...workspace.requests.flatMap((request) =>
+      request.meetings.flatMap((meeting) => {
+        const start = meeting.confirmedDate ?? meeting.scheduledStart ?? meeting.requestedDate;
+        if (!start || meeting.status === "CANCELED") return [];
+        return [
+          {
+            id: meeting.id,
+            kind: "request" as const,
+            title: `${MEETING_LABEL[meeting.type] ?? "Reunión"} · ${request.pageScope}`,
+            start,
+            end: meeting.scheduledEnd,
+            url: meeting.meetingUrl,
+            finished: meeting.status === "COMPLETED",
+            customMeetingId: meeting.id,
+          },
+        ];
+      }),
+    ),
+  ];
+  const merged = mergeClientMeetings(sources, now);
+  const toBoard = (meeting: ClientMeetingSource): BoardMeeting => {
+    const minutes = meetingMinutes(meeting.start, meeting.end);
+    const tile = formatCalendarTile(meeting.start);
+    return {
+      id: meeting.id,
+      kind: meeting.kind,
+      title: meeting.title,
+      when: formatMeetingWhen(meeting.start, now),
+      dayLabel: formatMeetingDayMonth(meeting.start),
+      duration: minutes ? `${minutes} minutos` : null,
+      month: tile.month,
+      day: tile.day,
+      url: meeting.url,
+      atMs: meeting.start.getTime(),
+    };
+  };
+  const boardSlots: BoardSlot[] = slots.map((slot) => ({
+    id: slot.id,
+    day: formatSlotDay(slot.startsAt),
+    time: formatMeetingTime(slot.startsAt),
+  }));
+
   return (
     <AppShell
       title="Trabajos a medida"
@@ -100,7 +210,7 @@ export default async function OwnerCustomizationsPage() {
       currentUserName={session.user.name ?? membership.tenant.name}
       viewerRole={membership.role}
     >
-      <WorkBoard items={items} nowMs={nowMs} newRequestHref={isOwner ? BUSINESS_WORKSPACE_PATH : null} />
+      <WorkBoard items={items} nowMs={nowMs} upcomingMeetings={merged.upcoming.map(toBoard)} pastMeetings={merged.past.map(toBoard)} slots={boardSlots} newRequestHref={isOwner ? BUSINESS_WORKSPACE_PATH : null} />
     </AppShell>
   );
 }

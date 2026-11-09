@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { describeWorkProgress, matchesWorkDate } from "@/lib/business/work-board";
+import {
+  describeSupportTicket,
+  describeWorkProgress,
+  formatCalendarTile,
+  formatMeetingWhen,
+  matchesWorkDate,
+  mergeClientMeetings,
+  meetingMinutes,
+  type ClientMeetingSource,
+} from "@/lib/business/work-board";
 import { formatPlanPrice } from "@/components/panel/products";
 import { assignableModuleIds, effectiveModuleIds, sanitizeModuleSelection } from "@/lib/team/team-access";
 
@@ -70,5 +79,64 @@ describe("plan prices from admin", () => {
 
   it("asks to consult when admin has no price", () => {
     expect(formatPlanPrice([])).toBe("A consultar");
+  });
+});
+
+describe("client meetings", () => {
+  const now = new Date("2026-11-09T18:00:00Z");
+  const base: ClientMeetingSource = {
+    id: "a",
+    kind: "v2",
+    title: "Revisión",
+    start: new Date("2026-11-10T18:30:00Z"),
+    end: null,
+    url: null,
+    finished: false,
+    customMeetingId: null,
+  };
+
+  it("shows a meeting once when it exists in two sources, preferring the booking", () => {
+    const { upcoming } = mergeClientMeetings(
+      [
+        { ...base, id: "v2", customMeetingId: "m1" },
+        { ...base, id: "b1", kind: "booking", customMeetingId: "m1" },
+      ],
+      now,
+    );
+    expect(upcoming.map((meeting) => meeting.id)).toEqual(["b1"]);
+  });
+
+  it("splits upcoming and past, soonest and latest first", () => {
+    const { upcoming, past } = mergeClientMeetings(
+      [
+        { ...base, id: "later", start: new Date("2026-12-01T10:00:00Z") },
+        { ...base, id: "soon" },
+        { ...base, id: "old", start: new Date("2026-10-01T10:00:00Z") },
+        { ...base, id: "older", start: new Date("2026-09-01T10:00:00Z") },
+        { ...base, id: "done", finished: true },
+      ],
+      now,
+    );
+    expect(upcoming.map((meeting) => meeting.id)).toEqual(["soon", "later"]);
+    expect(past.map((meeting) => meeting.id)).toEqual(["done", "old", "older"]);
+  });
+
+  it("writes times in Argentina", () => {
+    expect(formatMeetingWhen(new Date("2026-11-10T18:30:00Z"), now)).toBe("Mañana, 15:30");
+    expect(formatMeetingWhen(new Date("2026-11-09T20:00:00Z"), now)).toBe("Hoy, 17:00");
+    expect(formatCalendarTile(new Date("2026-11-10T18:30:00Z")).day).toBe("10");
+  });
+
+  it("computes duration only when it is known", () => {
+    expect(meetingMinutes(new Date(0), new Date(30 * 60000))).toBe(30);
+    expect(meetingMinutes(new Date(0), null)).toBeNull();
+  });
+});
+
+describe("support tickets", () => {
+  it("speaks the client's language", () => {
+    expect(describeSupportTicket("WAITING_CUSTOMER", "2 de noviembre").state).toBe("Respondida");
+    expect(describeSupportTicket("QUEUED", "2 de noviembre").state).toBe("En revisión");
+    expect(describeSupportTicket("CLOSED", "2 de noviembre").state).toBe("Cerrada");
   });
 });
