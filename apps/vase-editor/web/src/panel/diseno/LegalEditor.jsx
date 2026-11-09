@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal } from '../components/Overlays';
-import { LEGAL_DEFAULTS, legalPage } from '../../data/legalPages';
+import { LEGAL_DEFAULTS, legalDisplaySections, legalPage } from '../../data/legalPages';
 
 const KINDS = ['terms', 'privacy'];
 
@@ -73,26 +73,41 @@ export default function LegalEditor({ settings, setSettings, theme }) {
                 </span>
             </div>
 
-            {page.sections.map((section, index) => (
-                <div key={index} className="vp-card vp-sec">
-                    <div className="vp-sech">
-                        <h3>Sección {index + 1}</h3>
-                        <div className="vp-inline">
-                            <button type="button" className="vp-ibtn sm" aria-label={`Subir sección ${index + 1}`} disabled={index === 0} onClick={() => move(index, index - 1)}>↑</button>
-                            <button type="button" className="vp-ibtn sm" aria-label={`Bajar sección ${index + 1}`} disabled={index === page.sections.length - 1} onClick={() => move(index, index + 1)}>↓</button>
-                            <button type="button" className="vp-ibtn sm del" aria-label={`Quitar sección ${index + 1}`} onClick={() => setSections(page.sections.filter((_, i) => i !== index))}>×</button>
+            {legalDisplaySections(page).map((section, position) => {
+                if (section.fixed) {
+                    return (
+                        <div key="fixed" className="vp-card vp-sec">
+                            <div className="vp-sech">
+                                <h3>Sección {position + 1} · {section.title}</h3>
+                                <span className="vp-tag"><i />Fija</span>
+                            </div>
+                            <p>{section.body.replace(/\*\*/g, '')}</p>
+                            <span className="vp-note">Esta cláusula la pone Vase en todas las tiendas y no se puede cambiar ni quitar.</span>
+                        </div>
+                    );
+                }
+                const index = section.sourceIndex;
+                return (
+                    <div key={index} className="vp-card vp-sec">
+                        <div className="vp-sech">
+                            <h3>Sección {position + 1}</h3>
+                            <div className="vp-inline">
+                                <button type="button" className="vp-ibtn sm" aria-label={`Subir sección ${position + 1}`} disabled={index === 0} onClick={() => move(index, index - 1)}>↑</button>
+                                <button type="button" className="vp-ibtn sm" aria-label={`Bajar sección ${position + 1}`} disabled={index === page.sections.length - 1} onClick={() => move(index, index + 1)}>↓</button>
+                                <button type="button" className="vp-ibtn sm del" aria-label={`Quitar sección ${position + 1}`} onClick={() => setSections(page.sections.filter((_, i) => i !== index))}>×</button>
+                            </div>
+                        </div>
+                        <div className="vp-fld">
+                            <label htmlFor={`legal-t-${index}`}>Título</label>
+                            <input id={`legal-t-${index}`} className="vp-inp" value={section.title || ''} onChange={(event) => setSection(index, { title: event.target.value })} />
+                        </div>
+                        <div className="vp-fld">
+                            <label htmlFor={`legal-b-${index}`}>Texto</label>
+                            <textarea id={`legal-b-${index}`} className="vp-inp ta" rows={Math.min(14, Math.max(4, Math.ceil(String(section.body || '').length / 90) + 1))} value={section.body || ''} onChange={(event) => setSection(index, { body: event.target.value })} />
                         </div>
                     </div>
-                    <div className="vp-fld">
-                        <label htmlFor={`legal-t-${index}`}>Título</label>
-                        <input id={`legal-t-${index}`} className="vp-inp" value={section.title || ''} onChange={(event) => setSection(index, { title: event.target.value })} />
-                    </div>
-                    <div className="vp-fld">
-                        <label htmlFor={`legal-b-${index}`}>Texto</label>
-                        <textarea id={`legal-b-${index}`} className="vp-inp ta" rows={Math.min(14, Math.max(4, Math.ceil(String(section.body || '').length / 90) + 1))} value={section.body || ''} onChange={(event) => setSection(index, { body: event.target.value })} />
-                    </div>
-                </div>
-            ))}
+                );
+            })}
 
             <div className="vp-inline" style={{ justifyContent: 'space-between' }}>
                 <button type="button" className="vp-btn line" onClick={() => setSections([...page.sections, { title: 'Nueva sección', body: '' }])}>+ Agregar sección</button>

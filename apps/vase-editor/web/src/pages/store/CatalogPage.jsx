@@ -1153,7 +1153,7 @@ function PiquimCatalogFooter() {
         { label: 'Promociones', href: '/catalog' },
     ];
     const helpLinks = ['Envíos y entregas', 'Pagos y facturación', 'Cambios y devoluciones', 'Preguntas frecuentes'];
-    const legalLinks = ['Términos', 'Privacidad', 'Cookies', 'Defensa al consumidor'];
+    const legalLinks = [['Términos', '/terms'], ['Privacidad', '/privacy'], ['Cookies', '/privacy'], ['Defensa al consumidor', '/about']];
 
     return (
         <footer className="flex w-full flex-col items-start justify-start overflow-hidden bg-[#1A1614]">
@@ -1199,8 +1199,8 @@ function PiquimCatalogFooter() {
                     © 2026 Piquim Profesional S.A.  ·  Mar del Plata, Argentina  ·  CUIT 30-XXXXXXXX-X
                 </p>
                 <div className="flex items-start justify-start gap-7 overflow-hidden">
-                    {legalLinks.map((label) => (
-                        <button key={label} type="button" onClick={() => navigate('/about')} className="text-xs font-medium text-[#FFFAF6]">
+                    {legalLinks.map(([label, href]) => (
+                        <button key={label} type="button" onClick={() => navigate(href)} className="text-xs font-medium text-[#FFFAF6]">
                             {label}
                         </button>
                     ))}

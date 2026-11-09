@@ -135,7 +135,7 @@ test('portada Industrial: lo que se borra deja de verse', async () => {
 
 test('términos y privacidad: editables en cualquier tienda', async () => {
     const { LEGAL_DEFAULTS, fillCompany, legalBlocks, legalInline, legalPage, withPrivacyLink } = await import('../src/data/legalPages.js');
-    assert.equal(LEGAL_DEFAULTS.terms.sections.length, 14);
+    assert.equal(LEGAL_DEFAULTS.terms.sections.length, 13);
     assert.ok(LEGAL_DEFAULTS.privacy.sections.length >= 10);
 
     assert.equal(legalPage('terms', {}).customized, false);
@@ -166,4 +166,33 @@ test('editor de Piquim: sin los campos de las otras tiendas', async () => {
     assert.equal((chrome.match(/\{searchField\}/g) || []).length, 1);
     assert.match(chrome, /isPiquim \? footer\.socials \|\| \{\} : footerSocials\(footer\)/);
     assert.match(chrome, /\.\.\.\(isPiquim \? \{\} : \{ socialLinks: \[\] \}\)/);
+});
+
+test('la cláusula de Vase va siempre y en cualquier tienda', async () => {
+    const { LEGAL_DEFAULTS, legalDisplaySections, legalPage } = await import('../src/data/legalPages.js');
+    const titles = (settings) => legalDisplaySections(legalPage('terms', settings)).map((section) => section.title);
+    assert.equal(titles({}).length, 14);
+    assert.equal(titles({})[1], 'Plataforma tecnologica');
+
+    // Ni borrando todo, ni guardando otra versión con el mismo nombre.
+    assert.deepEqual(titles({ branding: { legal_pages: { terms: { sections: [] } } } }), ['Plataforma tecnologica']);
+    const tampered = { branding: { design_preset: 'otra', legal_pages: { terms: { sections: [{ title: 'A', body: 'x' }, { title: 'PLATAFORMA TECNOLOGICA', body: 'cambiada' }] } } } };
+    const shown = legalDisplaySections(legalPage('terms', tampered));
+    assert.deepEqual(shown.map((section) => section.title), ['A', 'Plataforma tecnologica']);
+    assert.equal(shown[1].body, LEGAL_DEFAULTS.terms.fixed.body);
+    assert.match(shown[1].body, /no procesa pagos/);
+
+    // Privacidad no lleva cláusula fija.
+    assert.equal(legalPage('privacy', {}).fixed, null);
+});
+
+test('términos y políticas no dependen de la tienda', async () => {
+    const screen = await read('../src/panel/diseno/Diseno.jsx');
+    assert.match(screen, /\{PAGES\.map\(/);
+    assert.doesNotMatch(screen, /page === 'legales' &&/);
+    const app = await read('../src/App.jsx');
+    assert.match(app, /else if \(route === '\/terms'\) Component = TermsPage;/);
+    assert.match(app, /else if \(route === '\/privacy'/);
+    const legal = await read('../src/data/legalPages.js');
+    assert.doesNotMatch(legal, /isPiquim|design_preset/);
 });

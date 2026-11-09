@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import StoreLayout from '../../components/layout/StoreLayout';
 import { useTenant } from '../../context/TenantContext';
 import { navigate } from '../../utils/navigation';
-import { LEGAL_DEFAULTS, fillCompany, legalBlocks, legalInline, legalPage } from '../../data/legalPages';
+import { LEGAL_DEFAULTS, fillCompany, legalBlocks, legalDisplaySections, legalInline, legalPage } from '../../data/legalPages';
 
 const Inline = ({ text, company }) => legalInline(fillCompany(text, company)).map((part, index) => (
     part.bold ? <strong key={index}>{part.text}</strong> : <React.Fragment key={index}>{part.text}</React.Fragment>
@@ -65,7 +65,7 @@ export function LegalDocument({ kind }) {
                 </header>
 
                 <article className="bg-white dark:bg-[#1a130c] border border-[#e5e1de] dark:border-[#3d2f21] rounded-2xl p-6 md:p-10 shadow-sm">
-                    {page.sections.map((section, index) => (
+                    {legalDisplaySections(page).map((section, index) => (
                         <Section key={index} title={`${index + 1}. ${section.title}`} body={section.body} company={companyName} />
                     ))}
                 </article>

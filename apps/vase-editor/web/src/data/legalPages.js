@@ -6,14 +6,16 @@ export const LEGAL_DEFAULTS = {
         tab: 'Términos y condiciones',
         crumb: 'Terminos y condiciones',
         title: 'Terminos y Condiciones de Uso',
+        // La cláusula de Vase va siempre, en todas las tiendas: no se guarda con la tienda ni se puede editar.
+        fixed: {
+            index: 1,
+            title: "Plataforma tecnologica",
+            body: "El sitio funciona sobre la plataforma **Vase.ar**, un proveedor independiente de software como servicio (SaaS) que provee la infraestructura tecnica, el alojamiento y las herramientas de administracion.\n\n**Vase.ar no comercializa productos, no procesa pagos, no realiza envios, no emite facturas y no tiene relacion contractual con los compradores.** Toda la operacion comercial (catalogo, precios, stock, cobros, despachos, garantias y atencion postventa) es responsabilidad exclusiva de {empresa}. Cualquier reclamo derivado de una compra debe dirigirse directamente a {empresa} a traves de los canales de contacto publicados en el sitio.",
+        },
         sections: [
             {
                 title: "Aceptacion de los terminos",
                 body: "El presente documento regula el acceso y uso del sitio de comercio electronico operado por **{empresa}** (en adelante, \"la Empresa\"). Al navegar el sitio, registrar una cuenta o realizar una compra, el usuario acepta de forma expresa estos terminos. Si no esta de acuerdo con alguna clausula, debe abstenerse de utilizar el servicio."
-            },
-            {
-                title: "Plataforma tecnologica",
-                body: "El sitio funciona sobre la plataforma **Vase.ar**, un proveedor independiente de software como servicio (SaaS) que provee la infraestructura tecnica, el alojamiento y las herramientas de administracion.\n\n**Vase.ar no comercializa productos, no procesa pagos, no realiza envios, no emite facturas y no tiene relacion contractual con los compradores.** Toda la operacion comercial (catalogo, precios, stock, cobros, despachos, garantias y atencion postventa) es responsabilidad exclusiva de {empresa}. Cualquier reclamo derivado de una compra debe dirigirse directamente a {empresa} a traves de los canales de contacto publicados en el sitio."
             },
             {
                 title: "Registro y cuenta de usuario",
@@ -120,6 +122,7 @@ export const LEGAL_DEFAULTS = {
 };
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
+const sameTitle = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
 // Lo que muestra la página: lo que cargó la tienda o, si no tocó nada, el texto de partida.
 export function legalPage(kind, settings = {}) {
@@ -128,11 +131,20 @@ export function legalPage(kind, settings = {}) {
     const hasOwn = Array.isArray(saved.sections);
     return {
         title: String(saved.title || '').trim() || base.title,
-        sections: hasOwn ? saved.sections : clone(base.sections),
+        // Las secciones que edita la tienda; una copia guardada de la cláusula fija no cuenta.
+        sections: hasOwn ? saved.sections.filter((section) => !base.fixed || !sameTitle(section?.title, base.fixed.title)) : clone(base.sections),
+        fixed: base.fixed ? { ...base.fixed } : null,
         updated_at: saved.updated_at || null,
         customized: hasOwn,
         hide_footer_link: saved.hide_footer_link === true,
     };
+}
+
+// Lo que se lee en la página: las secciones de la tienda con la cláusula fija en su lugar.
+export function legalDisplaySections(page) {
+    const list = page.sections.map((section, sourceIndex) => ({ ...section, sourceIndex }));
+    if (page.fixed) list.splice(Math.min(page.fixed.index, list.length), 0, { title: page.fixed.title, body: page.fixed.body, fixed: true });
+    return list;
 }
 
 export const fillCompany = (text, company) => String(text || '').replace(/\{empresa\}/gi, company);
