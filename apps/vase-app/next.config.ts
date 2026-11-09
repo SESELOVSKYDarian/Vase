@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 
-const scriptSrc = ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com"];
+const mercadoPagoHosts = ["https://*.mercadopago.com", "https://*.mercadolibre.com", "https://*.mlstatic.com"];
+const scriptSrc = ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com", ...mercadoPagoHosts];
 const connectSrc = ["'self'", "https:"];
 
 if (isDevelopment) {
@@ -17,7 +18,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' https://fonts.gstatic.com",
   `connect-src ${connectSrc.join(" ")}`,
-  "frame-src 'self'",
+  `frame-src 'self' ${mercadoPagoHosts.join(" ")}`,
   "media-src 'self'",
   "object-src 'none'",
   "frame-ancestors 'self'",

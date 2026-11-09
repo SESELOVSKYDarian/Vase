@@ -577,6 +577,7 @@ model Tenant {
   invitations       TenantInvitation[]
   auditLogs         AuditLog[]
   subscription      TenantSubscription?
+  billingProfile    TenantBillingProfile?
   storefrontPages   StorefrontPage[]
   customPageRequests CustomPageRequest[]
   customProjectMilestones CustomProjectMilestone[]
@@ -2793,11 +2794,39 @@ model ClientPayment {
   module             Module?           @relation(fields: [moduleId], references: [id], onDelete: SetNull)
   submodule          ModuleSubmodule?  @relation(fields: [submoduleId], references: [id], onDelete: SetNull)
   partialItems       PaymentPartialItem[]
+  mercadoPagoRecords MercadoPagoPaymentRecord[]
   allocations        PaymentAllocation[]
 
   @@index([tenantId, status, dueAt])
   @@index([clientAccountId, category, status])
   @@index([moduleId, submoduleId, createdAt])
+}
+
+model TenantBillingProfile {
+  id                    String   @id @default(cuid())
+  tenantId              String   @unique
+  legalName             String?
+  taxId                 String?
+  taxCondition          String?
+  fiscalAddress         String?
+  mercadoPagoCustomerId String?
+  defaultCardId         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model MercadoPagoPaymentRecord {
+  id                   String        @id @default(cuid())
+  mercadoPagoPaymentId String        @unique
+  clientPaymentId      String
+  tenantId             String
+  amount               Decimal       @db.Decimal(14, 2)
+  createdAt            DateTime      @default(now())
+  clientPayment        ClientPayment @relation(fields: [clientPaymentId], references: [id], onDelete: Cascade)
+
+  @@index([clientPaymentId])
+  @@index([tenantId, createdAt])
 }
 
 model PaymentPartialItem {

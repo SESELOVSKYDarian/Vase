@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { requireTenantRole, requireVerifiedUser, tenantRoles } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
+import {
+  DISMISSED_NOTIFICATION_SOURCE,
+  buildDismissedNotificationKey,
+} from "@/lib/navigation/panel-sections";
 import { buildNotificationReadKey, type ShellNotificationType } from "@/server/services/labs-notifications";
 
 export async function markAdminNotificationAsReadAction(notificationId: string) {
@@ -107,5 +111,41 @@ export async function markAllNotificationsAsReadAction(input: {
     return { success: true };
   } catch {
     return { error: "No pudimos marcar todas las notificaciones como leidas." };
+  }
+}
+
+const NOTIFICATION_TYPES: readonly ShellNotificationType[] = [
+  "platform_update",
+  "admin_notification",
+  "system_hint",
+  "labs_system",
+];
+const MAX_DISMISS_BATCH = 200;
+
+export async function dismissNotificationsAction(
+  items: Array<{ id: string; notificationType: ShellNotificationType }>,
+) {
+  try {
+    const { session, membership } = await requireTenantRole(tenantRoles.MEMBER);
+    const valid = items
+      .slice(0, MAX_DISMISS_BATCH)
+      .filter((item) => typeof item.id === "string" && item.id && NOTIFICATION_TYPES.includes(item.notificationType));
+
+    if (valid.length > 0) {
+      await prisma.systemNotificationRead.createMany({
+        data: valid.map((item) => ({
+          tenantId: membership.tenantId,
+          userId: session.user.id,
+          notificationKey: buildDismissedNotificationKey(buildNotificationReadKey(item.notificationType, item.id)),
+          source: DISMISSED_NOTIFICATION_SOURCE,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    revalidatePath("/app", "layout");
+    return { success: true };
+  } catch {
+    return { error: "No pudimos borrar las notificaciones." };
   }
 }

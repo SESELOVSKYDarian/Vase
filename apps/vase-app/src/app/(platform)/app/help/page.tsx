@@ -1,21 +1,24 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { ClientSupportTicketForm } from "@/components/support/client-support-ticket-form";
-import { PanelCard } from "@/components/ui/panel-card";
-import { StatusBadge } from "@/components/business/status-badge";
+import { OpenSupportChatButton } from "@/components/support/open-support-chat-button";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
-import { getSupportPriorityLabel, getSupportPriorityTone, getSupportStatusLabel, getSupportTicketTone } from "@/lib/support/tickets";
+import { getSupportStatusLabel } from "@/lib/support/tickets";
 import { getTenantSupportOverview, getTenantSupportWidgetContext } from "@/server/queries/support";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
+
+const GUIDES = [
+  "Cómo funciona mi plan",
+  "Cómo pago y descargo facturas",
+  "Primeros pasos con Vase Business",
+];
 
 export default async function HelpPage() {
   let membership;
   let session;
 
   try {
-    ({ membership, session } = await requireTenantRole(tenantRoles.OWNER));
+    ({ membership, session } = await requireTenantRole(tenantRoles.MEMBER));
   } catch {
     forbidden();
   }
@@ -28,68 +31,89 @@ export default async function HelpPage() {
 
   if (!dashboard) forbidden();
 
+  const canAsk = membership.role !== "MEMBER";
+
   return (
     <AppShell
-      title="Ayuda"
-      subtitle="Centro de ayuda del cliente para abrir tickets, seguir casos activos y acceder a respuestas rápidas sin salir del panel."
+      title="Ayuda y soporte"
+      subtitle="Guías, videos y el equipo de Vase"
       tenantLabel={membership.tenant.name}
       notifications={dashboard.notifications}
       currentUserName={session.user.name ?? membership.tenant.name}
-      projectCreation={dashboard.projectCreation}
+      viewerRole={membership.role}
     >
-      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <PanelCard
-          eyebrow="Centro de ayuda"
-          title="Abrir un ticket humano"
-          description="Cuando la asistencia automática no alcanza, el equipo de Vase puede tomar el caso desde aquí."
-        >
-          <ClientSupportTicketForm conversationOptions={supportWidget.conversationOptions} />
-        </PanelCard>
-
-        <PanelCard
-          eyebrow="Recursos"
-          title="Accesos útiles"
-          description="Accesos directos para resolver lo más frecuente."
-        >
-          <div className="grid gap-3">
-            <Link href={"/app/billing" as Route} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]">
-              Revisar planes y facturación
-            </Link>
-            <Link href={"/app/settings" as Route} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]">
-              Ir a configuración del tenant
-            </Link>
-            <Link href={"/politica-de-privacidad" as Route} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]">
-              Política de privacidad
-            </Link>
-          </div>
-        </PanelCard>
-      </section>
-
-      <PanelCard eyebrow="Estado del soporte" title="Tickets recientes" description="Historial reciente del tenant con prioridad, estado y asignación.">
-        <div className="grid gap-4">
-          {supportOverview.tickets.length === 0 ? (
-            <div className="rounded-3xl bg-[var(--surface-strong)] p-5 text-sm leading-6 text-[var(--muted)]">
-              Todavía no hay tickets para este tenant.
-            </div>
-          ) : (
-            supportOverview.tickets.map((ticket) => (
-              <div key={ticket.id} className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div className="space-y-2">
-                    <p className="text-lg font-semibold text-[var(--foreground)]">{ticket.subject}</p>
-                    <p className="text-sm leading-6 text-[var(--muted)]">{ticket.aiSummary ?? "Sin contexto adicional cargado."}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <StatusBadge tone={getSupportTicketTone(ticket.status)} label={getSupportStatusLabel(ticket.status)} />
-                    <StatusBadge tone={getSupportPriorityTone(ticket.priority)} label={getSupportPriorityLabel(ticket.priority)} />
-                  </div>
-                </div>
+      <div className="vpa-g2">
+        <div className="vpa-gs">
+          {canAsk ? (
+          <>
+          <section className="vpa-card" aria-label="Nueva consulta">
+            <div className="vpa-sech">
+              <div>
+                <h3>Nueva consulta</h3>
+                <p>Contanos qué pasa y te responde alguien del equipo.</p>
               </div>
-            ))
+            </div>
+            <ClientSupportTicketForm conversationOptions={supportWidget.conversationOptions} />
+          </section>
+          <section className="vpa-card" aria-label="Mis consultas">
+            <div className="vpa-sech">
+              <div>
+                <h3>Mis consultas</h3>
+                <p>Lo que le preguntaste al equipo de Vase.</p>
+              </div>
+            </div>
+            {supportOverview.tickets.length === 0 ? (
+              <div className="vpa-empty">Todavía no hiciste consultas.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {supportOverview.tickets.map((ticket) => (
+                  <div className="vpa-hrow" key={ticket.id}>
+                    <div className="vpa-g1">
+                      <b>{ticket.subject}</b>
+                      {ticket.aiSummary ? <span>{ticket.aiSummary}</span> : null}
+                    </div>
+                    <span className="vpa-tag">
+                      <i />
+                      {getSupportStatusLabel(ticket.status)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+          </>
+          ) : (
+            <section className="vpa-card">
+              <h3>Consultas</h3>
+              <p>Las consultas a Vase las hace el Dueño o un Encargado de tu cuenta.</p>
+            </section>
           )}
         </div>
-      </PanelCard>
+        <div className="vpa-gs">
+          <section className="vpa-card" aria-label="Guías">
+            <h3>Guías y videos</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+              {GUIDES.map((guide) => (
+                <a className="vpa-guide" key={guide} href="https://help.vase.ar" target="_blank" rel="noreferrer">
+                  {guide}
+                </a>
+              ))}
+            </div>
+            <a className="vpa-btn ink wide" style={{ marginTop: 12 }} href="https://help.vase.ar" target="_blank" rel="noreferrer">
+              Abrir el manual completo
+            </a>
+          </section>
+          {membership.role === "OWNER" ? (
+          <section className="vpa-card" aria-label="Hablar con Vase">
+            <h3>¿Es urgente?</h3>
+            <p>Escribinos por el chat.</p>
+            <div style={{ marginTop: 12 }}>
+              <OpenSupportChatButton className="vpa-btn soft wide" />
+            </div>
+          </section>
+          ) : null}
+        </div>
+      </div>
     </AppShell>
   );
 }
-

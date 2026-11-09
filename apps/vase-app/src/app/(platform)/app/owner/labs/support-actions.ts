@@ -21,7 +21,7 @@ export async function createClientSupportTicketAction(
   try {
     const requestContext = await getRequestContext();
     const session = await requireVerifiedUser();
-    const { membership } = await requireTenantRole(tenantRoles.OWNER);
+    const { membership } = await requireTenantRole(tenantRoles.MANAGER);
 
     const parsed = createClientSupportTicketSchema.safeParse({
       subject: sanitizeText(String(formData.get("subject") ?? "")),

@@ -801,7 +801,7 @@ export async function requestCustomProjectMeetingAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   const verifiedSession = await requireVerifiedUser();
-  const { membership } = await requireTenantRole(tenantRoles.OWNER);
+  const { membership } = await requireTenantRole(tenantRoles.MANAGER);
   const requestId = String(formData.get("requestId") ?? "");
   const meetingType = String(formData.get("meetingType") ?? "");
   const requestedDateRaw = String(formData.get("requestedDate") ?? "");

@@ -38,6 +38,24 @@ export async function updateTenantBusinessDataAction(formData: FormData) {
   revalidatePath("/app/billing");
 }
 
+const MAX_PROFILE_NAME_LENGTH = 120;
+
+export async function updateProfileNameAction(formData: FormData) {
+  const { session } = await requireTenantRole(tenantRoles.MEMBER);
+  const name = normalize(formData.get("name")).slice(0, MAX_PROFILE_NAME_LENGTH);
+
+  if (!name) {
+    return;
+  }
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { name },
+  });
+
+  revalidatePath("/app", "layout");
+}
+
 export async function deleteTenantAccountAction() {
   const { membership, session } = await requireTenantRole(tenantRoles.OWNER);
   const userId = session.user.id;

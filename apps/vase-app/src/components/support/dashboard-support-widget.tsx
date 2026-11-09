@@ -23,7 +23,7 @@ type ChatMessage = {
   createdAt: string;
 };
 
-export function DashboardSupportWidget() {
+export function DashboardSupportWidget({ hideLauncher = false }: { hideLauncher?: boolean }) {
   const { isOpen, openSupportChat, closeSupportChat } = useSupportChat();
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
@@ -115,17 +115,19 @@ export function DashboardSupportWidget() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={openSupportChat}
-        className="fixed bottom-6 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-strong)] text-[var(--accent-contrast)] shadow-[0_20px_40px_rgba(0,109,67,0.22)] transition hover:scale-[1.02] hover:opacity-95"
-        aria-label="Abrir Vase AI"
-      >
-        <BotMessageSquare className="size-6" />
-      </button>
+      {hideLauncher ? null : (
+        <button
+          type="button"
+          onClick={openSupportChat}
+          className="fixed bottom-6 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-strong)] text-[var(--accent-contrast)] shadow-[0_20px_40px_rgba(0,109,67,0.22)] transition hover:scale-[1.02] hover:opacity-95"
+          aria-label="Abrir Vase AI"
+        >
+          <BotMessageSquare className="size-6" />
+        </button>
+      )}
 
       {isOpen ? (
-        <section className="fixed bottom-6 right-24 z-40 flex h-[78vh] w-[min(96vw,980px)] overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--background)] shadow-[0_30px_80px_rgba(15,23,42,0.22)]">
+        <section className={`fixed bottom-6 ${hideLauncher ? "right-6" : "right-24"} z-40 flex h-[78vh] w-[min(96vw,980px)] overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--background)] shadow-[0_30px_80px_rgba(15,23,42,0.22)]`}>
           <aside className="hidden w-72 border-r border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 md:block">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm font-semibold text-[var(--foreground)]">Conversaciones</p>

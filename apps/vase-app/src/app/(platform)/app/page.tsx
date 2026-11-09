@@ -1,28 +1,21 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/layout/app-shell";
-import type { Shortcut } from "@/components/layout/app-shell";
-import { PanelCard } from "@/components/ui/panel-card";
 import Link from "next/link";
 import type { Route } from "next";
+import { CircleHelp, ClipboardCheck, CreditCard, Settings2 } from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
+import { NavLink } from "@/components/layout/nav-link";
+import { ProductArt } from "@/components/panel/product-art";
+import { PANEL_PRODUCTS, formatArs, panelProductHref } from "@/components/panel/products";
+import { PanelCard } from "@/components/ui/panel-card";
 import { requireUser } from "@/lib/auth/guards";
 import { getAppIndexRedirectPath } from "@/lib/auth/protected-app-redirect";
 import { getTenantMembership } from "@/lib/tenancy/resolve-tenant";
 import { prisma } from "@/lib/db/prisma";
+import { getTenantCustomizationQuoteWorkspace } from "@/server/queries/custom-quotes";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
-import { getTenantAnalytics } from "@/server/queries/analytics";
-import { getBillingLabel, getPlanLabel } from "@/lib/business/plans";
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatDate(value: Date | null) {
-  if (!value) return "Sin fecha definida";
-  return new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" }).format(value);
+function formatDate(value: Date) {
+  return new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long" }).format(value);
 }
 
 export default async function AppIndexPage() {
@@ -57,11 +50,14 @@ export default async function AppIndexPage() {
 
   switch (membership.role) {
     case "OWNER": {
-      const [dashboard, analytics, user, subscription] = await Promise.all([
+      const [dashboard, nextPayment, quotes] = await Promise.all([
         getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
-        getTenantAnalytics(membership.tenantId, 30),
-        prisma.user.findUnique({ where: { id: session.user.id }, select: { shortcuts: true } }),
-        prisma.tenantSubscription.findUnique({ where: { tenantId: membership.tenantId } }),
+        prisma.clientPayment.findFirst({
+          where: { tenantId: membership.tenantId, paidAt: null, status: { not: "CANCELED" } },
+          orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+          select: { concept: true, totalAmount: true, paidAmount: true, dueAt: true },
+        }),
+        getTenantCustomizationQuoteWorkspace(membership.tenantId),
       ]);
 
       if (!dashboard) {
@@ -84,80 +80,123 @@ export default async function AppIndexPage() {
         );
       }
 
+      const firstName = (session.user.name ?? "").trim().split(/\s+/)[0];
+      const activeModules = dashboard.modules.filter((module) => module.isActive);
+      const pendingQuotes = quotes.metrics.pendingClient;
+
       return (
         <AppShell
-          title="Panel de Vase"
-          subtitle="Resumen del rendimiento real de tu operacion y estado de tus planes activos."
+          title={firstName ? `Hola, ${firstName}` : "Hola"}
+          subtitle="¿A dónde querés ir?"
           tenantLabel={membership.tenant.name}
           modules={dashboard.modules}
           notifications={dashboard.notifications}
-          shortcuts={Array.isArray(user?.shortcuts) ? (user.shortcuts as unknown as Shortcut[]) : []}
           currentUserName={session.user.name ?? membership.tenant.name}
-          projectCreation={dashboard.projectCreation}
         >
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <article className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
-              <p className="text-xs text-[var(--muted)]">Ventas hoy</p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">{formatMoney(analytics.summary.salesToday)}</p>
-            </article>
-            <article className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
-              <p className="text-xs text-[var(--muted)]">Leads hoy</p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">{analytics.summary.leadsToday}</p>
-            </article>
-            <article className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
-              <p className="text-xs text-[var(--muted)]">Dominios conectados (30d)</p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">{analytics.summary.domainsConnectedLast30Days}</p>
-            </article>
-            <article className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-5">
-              <p className="text-xs text-[var(--muted)]">Canales conectados (30d)</p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">{analytics.summary.channelsConnectedLast30Days}</p>
-            </article>
-          </section>
-
-          <section className="grid gap-6 xl:grid-cols-2">
-            <article className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Planes activos</p>
-              <div className="mt-4 grid gap-3 text-sm">
-                <p className="text-[var(--muted)]">
-                  Business: <strong className="text-[var(--foreground)]">{getPlanLabel(subscription?.plan ?? "START")}</strong>
-                </p>
-                <p className="text-[var(--muted)]">
-                  Estado de facturacion: <strong className="text-[var(--foreground)]">{getBillingLabel(subscription?.billingStatus ?? "TRIAL")}</strong>
-                </p>
-                <p className="text-[var(--muted)]">
-                  Caducidad del plan: <strong className="text-[var(--foreground)]">{formatDate(subscription?.currentPeriodEndsAt ?? null)}</strong>
-                </p>
-                <p className="text-[var(--muted)]">
-                  Caducidad de mantenimiento: <strong className="text-[var(--foreground)]">{formatDate(subscription?.maintenanceEndsAt ?? null)}</strong>
-                </p>
-              </div>
-              <Link
-                href={"/app/billing" as Route}
-                className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]"
-              >
-                Ver billing
-              </Link>
-            </article>
-
-            <article className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Resumen de analiticas</p>
-              <div className="mt-4 h-40 rounded-2xl bg-[var(--surface)] p-4">
-                <div className="flex h-full items-end gap-2">
-                  {analytics.series.sales.slice(-12).map((point) => (
-                    <div key={point.date} className="flex flex-1 flex-col items-center justify-end gap-1">
-                      <div className="w-full rounded-t-md bg-[var(--accent-strong)]/80" style={{ height: `${Math.min(100, point.value / 1500)}%` }} />
-                    </div>
-                  ))}
+          <div className="vpa-hm">
+            {nextPayment ? (
+              <div className="vpa-alert" role="status">
+                <span className="ic" aria-hidden="true">
+                  <CreditCard size={20} />
+                </span>
+                <div className="vpa-g1">
+                  <b>
+                    {nextPayment.concept}
+                    {nextPayment.dueAt ? ` vence el ${formatDate(nextPayment.dueAt)}` : ""}
+                  </b>
+                  <span className="t">{formatArs(Number(nextPayment.totalAmount) - Number(nextPayment.paidAmount))}</span>
                 </div>
+                <Link href={"/app/billing" as Route} className="vpa-btn ink">
+                  Ver
+                </Link>
               </div>
-              <Link
-                href={"/app/analytics" as Route}
-                className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-5 text-sm font-semibold text-[var(--foreground)]"
-              >
-                Abrir analiticas completas
-              </Link>
-            </article>
-          </section>
+            ) : null}
+
+            <section aria-label="Tus productos">
+              <div className="vpa-hmh">
+                <h2>Tus productos</h2>
+                <Link href={"/app/products" as Route} className="vpa-lnk">
+                  Ver todos
+                </Link>
+              </div>
+              {activeModules.length === 0 ? (
+                <div className="vpa-empty">Todavía no tenés productos activos.</div>
+              ) : (
+                <div className="vpa-tiles">
+                  {activeModules.map((module) => {
+                    const product = PANEL_PRODUCTS[module.key];
+                    return (
+                      <NavLink
+                        key={module.key}
+                        href={panelProductHref(module.key)}
+                        forceDocumentNavigation={module.key === "management"}
+                        className="vpa-tile"
+                        style={{ background: product.artBg, color: product.artTx }}
+                      >
+                        <span className="vpa-tcopy">
+                          <b>{product.name}</b>
+                          <span className="d">{product.short}</span>
+                          <span className="goin">Entrar</span>
+                        </span>
+                        <span className="vpa-tart" aria-hidden="true">
+                          <ProductArt product={module.key} variant="tile" />
+                        </span>
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <section aria-label="Tu cuenta">
+              <div className="vpa-hmh">
+                <h2>Tu cuenta</h2>
+              </div>
+              <div className="vpa-quick">
+                <Link href={"/app/billing" as Route} className="vpa-qk">
+                  <span className="ic" aria-hidden="true">
+                    <CreditCard size={20} />
+                  </span>
+                  <span>
+                    <b>Plan y pagos</b>
+                    <span className="t">Cuánto pagás y facturas</span>
+                  </span>
+                </Link>
+                <Link href={"/app/owner/customizations" as Route} className="vpa-qk">
+                  {pendingQuotes > 0 ? <span className="pin" aria-hidden="true" /> : null}
+                  <span className="ic" aria-hidden="true">
+                    <ClipboardCheck size={20} />
+                  </span>
+                  <span>
+                    <b>Trabajos a medida</b>
+                    <span className="t">
+                      {pendingQuotes > 0
+                        ? `${pendingQuotes} presupuesto${pendingQuotes === 1 ? "" : "s"} para revisar`
+                        : "Lo que le pediste a Vase"}
+                    </span>
+                  </span>
+                </Link>
+                <Link href={"/app/help" as Route} className="vpa-qk">
+                  <span className="ic" aria-hidden="true">
+                    <CircleHelp size={20} />
+                  </span>
+                  <span>
+                    <b>Ayuda y soporte</b>
+                    <span className="t">Guías y consultas</span>
+                  </span>
+                </Link>
+                <Link href={"/app/settings" as Route} className="vpa-qk">
+                  <span className="ic" aria-hidden="true">
+                    <Settings2 size={20} />
+                  </span>
+                  <span>
+                    <b>Ajustes</b>
+                    <span className="t">Tu perfil y tu negocio</span>
+                  </span>
+                </Link>
+              </div>
+            </section>
+          </div>
         </AppShell>
       );
     }
