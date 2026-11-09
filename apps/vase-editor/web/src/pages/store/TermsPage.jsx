@@ -66,7 +66,7 @@ export function LegalDocument({ kind }) {
 
                 <article className="bg-white dark:bg-[#1a130c] border border-[#e5e1de] dark:border-[#3d2f21] rounded-2xl p-6 md:p-10 shadow-sm">
                     {legalDisplaySections(page).map((section, index) => (
-                        <Section key={index} title={`${index + 1}. ${section.title}`} body={section.body} company={companyName} />
+                        <Section key={index} title={`${index + 1}. ${section.title}`} body={[section.body, section.note].filter(Boolean).join('\n\n')} company={companyName} />
                     ))}
                 </article>
 

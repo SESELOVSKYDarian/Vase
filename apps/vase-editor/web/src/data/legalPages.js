@@ -6,6 +6,11 @@ export const LEGAL_DEFAULTS = {
         tab: 'Términos y condiciones',
         crumb: 'Terminos y condiciones',
         title: 'Terminos y Condiciones de Uso',
+        // Frases sobre Vase que van siempre al final de su sección; si la tienda quita la sección, salen solas.
+        notes: [
+            { key: "datos-personales", title: "Datos personales y privacidad", index: 8, body: "La plataforma Vase.ar actua unicamente como encargado del tratamiento, almacenando los datos en nombre y por cuenta de {empresa}. Para conocer mas detalles consulte la pagina de Privacidad." },
+            { key: "responsabilidad", title: "Limitacion de responsabilidad", index: 10, body: "Vase.ar, en su caracter de proveedor tecnologico, no asume responsabilidad por las operaciones comerciales realizadas entre {empresa} y sus clientes." },
+        ],
         // La cláusula de Vase va siempre, en todas las tiendas: no se guarda con la tienda ni se puede editar.
         fixed: {
             index: 1,
@@ -42,16 +47,18 @@ export const LEGAL_DEFAULTS = {
                 body: "Los productos cuentan con la garantia legal y, cuando aplique, la garantia adicional ofrecida por el fabricante o por {empresa}. La gestion de garantias se realiza directamente con la Empresa."
             },
             {
+                key: "datos-personales",
                 title: "Datos personales y privacidad",
-                body: "{empresa} es responsable del tratamiento de los datos personales que el usuario provee al registrarse o comprar, conforme a la Ley 25.326 de Proteccion de Datos Personales. Los datos se utilizan para procesar pedidos, gestionar la cuenta, brindar soporte y enviar comunicaciones comerciales cuando el usuario lo haya autorizado.\n\nLa plataforma Vase.ar actua unicamente como encargado del tratamiento, almacenando los datos en nombre y por cuenta de {empresa}. Para conocer mas detalles consulte la pagina de Privacidad."
+                body: "{empresa} es responsable del tratamiento de los datos personales que el usuario provee al registrarse o comprar, conforme a la Ley 25.326 de Proteccion de Datos Personales. Los datos se utilizan para procesar pedidos, gestionar la cuenta, brindar soporte y enviar comunicaciones comerciales cuando el usuario lo haya autorizado.",
             },
             {
                 title: "Propiedad intelectual",
                 body: "Todas las marcas, logotipos, textos, fotografias y demas contenidos del sitio son propiedad de {empresa} o de terceros que han autorizado su uso. Queda prohibida su reproduccion total o parcial sin autorizacion escrita."
             },
             {
+                key: "responsabilidad",
                 title: "Limitacion de responsabilidad",
-                body: "{empresa} no sera responsable por interrupciones del servicio, errores temporales en el sitio o demoras de transportistas que escapen a su control razonable. Vase.ar, en su caracter de proveedor tecnologico, no asume responsabilidad por las operaciones comerciales realizadas entre {empresa} y sus clientes."
+                body: "{empresa} no sera responsable por interrupciones del servicio, errores temporales en el sitio o demoras de transportistas que escapen a su control razonable.",
             },
             {
                 title: "Modificacion de los terminos",
@@ -72,10 +79,14 @@ export const LEGAL_DEFAULTS = {
         tab: 'Privacidad y seguridad',
         crumb: 'Privacidad y seguridad',
         title: 'Políticas de Privacidad y Seguridad',
+        notes: [
+            { key: "responsable", title: "Quién es responsable de tus datos", index: 0, body: "El sitio funciona sobre la plataforma **Vase.ar**, que actúa únicamente como encargada del tratamiento: almacena y procesa los datos en nombre y por cuenta de {empresa}." },
+        ],
         sections: [
             {
+                key: "responsable",
                 title: "Quién es responsable de tus datos",
-                body: "**{empresa}** es responsable del tratamiento de los datos personales que se recogen en este sitio, conforme a la Ley 25.326 de Protección de Datos Personales de la República Argentina.\n\nEl sitio funciona sobre la plataforma **Vase.ar**, que actúa únicamente como encargada del tratamiento: almacena y procesa los datos en nombre y por cuenta de {empresa}."
+                body: "**{empresa}** es responsable del tratamiento de los datos personales que se recogen en este sitio, conforme a la Ley 25.326 de Protección de Datos Personales de la República Argentina.",
             },
             {
                 title: "Qué datos recopilamos",
@@ -124,6 +135,12 @@ export const LEGAL_DEFAULTS = {
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const sameTitle = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
+// Una versión guardada no puede repetir ni reemplazar las frases fijas de Vase.
+function withoutNotes(section, notes = []) {
+    const body = notes.reduce((text, note) => text.split(note.body).join(''), String(section?.body || ''));
+    return { ...section, body: body.replace(/\n{3,}/g, '\n\n').trim() };
+}
+
 // Lo que muestra la página: lo que cargó la tienda o, si no tocó nada, el texto de partida.
 export function legalPage(kind, settings = {}) {
     const base = LEGAL_DEFAULTS[kind];
@@ -132,7 +149,10 @@ export function legalPage(kind, settings = {}) {
     return {
         title: String(saved.title || '').trim() || base.title,
         // Las secciones que edita la tienda; una copia guardada de la cláusula fija no cuenta.
-        sections: hasOwn ? saved.sections.filter((section) => !base.fixed || !sameTitle(section?.title, base.fixed.title)) : clone(base.sections),
+        sections: hasOwn
+            ? saved.sections.filter((section) => !base.fixed || !sameTitle(section?.title, base.fixed.title)).map((section) => withoutNotes(section, base.notes))
+            : clone(base.sections),
+        notes: base.notes || [],
         fixed: base.fixed ? { ...base.fixed } : null,
         updated_at: saved.updated_at || null,
         customized: hasOwn,
@@ -140,10 +160,14 @@ export function legalPage(kind, settings = {}) {
     };
 }
 
-// Lo que se lee en la página: las secciones de la tienda con la cláusula fija en su lugar.
+// Lo que se lee en la página: las secciones de la tienda con lo fijo de Vase en su lugar.
 export function legalDisplaySections(page) {
-    const list = page.sections.map((section, sourceIndex) => ({ ...section, sourceIndex }));
-    if (page.fixed) list.splice(Math.min(page.fixed.index, list.length), 0, { title: page.fixed.title, body: page.fixed.body, fixed: true });
+    const noteFor = (section) => page.notes.find((note) => (section.key ? section.key === note.key : sameTitle(section.title, note.title)));
+    const list = page.sections.map((section, sourceIndex) => ({ ...section, sourceIndex, note: noteFor(section)?.body || '' }));
+    const orphans = page.notes.filter((note) => !list.some((section) => section.note === note.body));
+    const place = (item, index) => list.splice(Math.min(index, list.length), 0, { title: item.title, body: item.body, fixed: true });
+    if (page.fixed) place(page.fixed, page.fixed.index);
+    orphans.forEach((note) => place(note, note.index));
     return list;
 }
 

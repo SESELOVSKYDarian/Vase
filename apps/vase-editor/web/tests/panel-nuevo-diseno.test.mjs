@@ -175,10 +175,10 @@ test('la cláusula de Vase va siempre y en cualquier tienda', async () => {
     assert.equal(titles({})[1], 'Plataforma tecnologica');
 
     // Ni borrando todo, ni guardando otra versión con el mismo nombre.
-    assert.deepEqual(titles({ branding: { legal_pages: { terms: { sections: [] } } } }), ['Plataforma tecnologica']);
+    assert.ok(titles({ branding: { legal_pages: { terms: { sections: [] } } } }).includes('Plataforma tecnologica'));
     const tampered = { branding: { design_preset: 'otra', legal_pages: { terms: { sections: [{ title: 'A', body: 'x' }, { title: 'PLATAFORMA TECNOLOGICA', body: 'cambiada' }] } } } };
     const shown = legalDisplaySections(legalPage('terms', tampered));
-    assert.deepEqual(shown.map((section) => section.title), ['A', 'Plataforma tecnologica']);
+    assert.deepEqual(shown.slice(0, 2).map((section) => section.title), ['A', 'Plataforma tecnologica']);
     assert.equal(shown[1].body, LEGAL_DEFAULTS.terms.fixed.body);
     assert.match(shown[1].body, /no procesa pagos/);
 
@@ -195,4 +195,29 @@ test('términos y políticas no dependen de la tienda', async () => {
     assert.match(app, /else if \(route === '\/privacy'/);
     const legal = await read('../src/data/legalPages.js');
     assert.doesNotMatch(legal, /isPiquim|design_preset/);
+});
+
+test('las otras menciones a Vase también quedan fijas', async () => {
+    const { LEGAL_DEFAULTS, legalDisplaySections, legalPage } = await import('../src/data/legalPages.js');
+    const text = (kind, settings) => legalDisplaySections(legalPage(kind, settings)).map((section) => [section.title, section.body, section.note].join(' ')).join(' ');
+
+    // Ninguna sección editable de partida nombra a Vase.
+    Object.values(LEGAL_DEFAULTS).forEach((page) => page.sections.forEach((section) => assert.doesNotMatch(section.body, /Vase/)));
+
+    const terms = text('terms', {});
+    assert.match(terms, /actua unicamente como encargado/);
+    assert.match(terms, /no asume responsabilidad/);
+    assert.match(text('privacy', {}), /encargada del tratamiento/);
+
+    // Sin ninguna sección, igual salen.
+    const empty = { branding: { legal_pages: { terms: { sections: [] }, privacy: { sections: [] } } } };
+    assert.match(text('terms', empty), /no asume responsabilidad/);
+    assert.match(text('privacy', empty), /encargada del tratamiento/);
+
+    // Renombrar la sección no la separa de su texto fijo, y una copia guardada no lo duplica.
+    const note = LEGAL_DEFAULTS.terms.notes[1];
+    const renamed = { branding: { legal_pages: { terms: { sections: [{ key: 'responsabilidad', title: 'Otro nombre', body: `Mio. ${note.body}` }] } } } };
+    const shown = legalDisplaySections(legalPage('terms', renamed)).find((section) => section.title === 'Otro nombre');
+    assert.equal(shown.body, 'Mio.');
+    assert.equal(shown.note, note.body);
 });

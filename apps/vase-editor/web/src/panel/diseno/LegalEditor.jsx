@@ -82,7 +82,7 @@ export default function LegalEditor({ settings, setSettings, theme }) {
                                 <span className="vp-tag"><i />Fija</span>
                             </div>
                             <p>{section.body.replace(/\*\*/g, '')}</p>
-                            <span className="vp-note">Esta cláusula la pone Vase en todas las tiendas y no se puede cambiar ni quitar.</span>
+                            <span className="vp-note">Este texto lo pone Vase en todas las tiendas y no se puede cambiar ni quitar.</span>
                         </div>
                     );
                 }
@@ -105,6 +105,11 @@ export default function LegalEditor({ settings, setSettings, theme }) {
                             <label htmlFor={`legal-b-${index}`}>Texto</label>
                             <textarea id={`legal-b-${index}`} className="vp-inp ta" rows={Math.min(14, Math.max(4, Math.ceil(String(section.body || '').length / 90) + 1))} value={section.body || ''} onChange={(event) => setSection(index, { body: event.target.value })} />
                         </div>
+                        {section.note ? (
+                            <div className="vp-lock">
+                                <b>Texto fijo de Vase, al final de esta sección:</b> {section.note.replace(/\*\*/g, '')}
+                            </div>
+                        ) : null}
                     </div>
                 );
             })}
