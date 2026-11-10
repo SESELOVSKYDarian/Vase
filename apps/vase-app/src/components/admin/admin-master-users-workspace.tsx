@@ -1,7 +1,9 @@
 "use client";
 
 import { useActionState, useCallback, useEffect, useMemo, useState } from "react";
-import { AdminWebLimitField } from "@/components/admin/admin-web-limit-field";
+import { AdminTenantLimitField } from "@/components/admin/admin-web-limit-field";
+import { MAX_BUSINESS_WEB_LIMIT } from "@/lib/business/plans";
+import { MAX_TEAM_MEMBER_LIMIT } from "@/lib/team/team-access";
 import {
   BadgeInfo,
   Banknote,
@@ -68,6 +70,7 @@ type UserRow = {
   moduleIds: string[];
   tenantId: string | null;
   businessProjectLimit: number;
+  teamMemberLimit: number;
   tenantName: string | null;
   tenantSlug: string | null;
   accountName: string | null;
@@ -378,6 +381,7 @@ export function AdminMasterUsersWorkspace({ users, modules, restPricingVersions 
       moduleIds: [],
       tenantId: null,
       businessProjectLimit: 1,
+      teamMemberLimit: 3,
       tenantName: null,
       tenantSlug: null,
       accountName: null,
@@ -967,11 +971,20 @@ export function AdminMasterUsersWorkspace({ users, modules, restPricingVersions 
                   <ClientTeamCommercialAccessNotice tenantName={editingUser.tenantName} />
                 )}
                 {editingUser.clientAccountKind === "OWNER" && editingUser.tenantId ? (
-                  <AdminWebLimitField
-                    key={editingUser.tenantId}
-                    tenantId={editingUser.tenantId}
-                    initialLimit={editingUser.businessProjectLimit}
-                  />
+                  <div key={editingUser.tenantId}>
+                    <AdminTenantLimitField
+                      tenantId={editingUser.tenantId}
+                      kind="webs"
+                      initialLimit={editingUser.businessProjectLimit}
+                      max={MAX_BUSINESS_WEB_LIMIT}
+                    />
+                    <AdminTenantLimitField
+                      tenantId={editingUser.tenantId}
+                      kind="team"
+                      initialLimit={editingUser.teamMemberLimit}
+                      max={MAX_TEAM_MEMBER_LIMIT}
+                    />
+                  </div>
                 ) : null}
               </div>
             ) : null}

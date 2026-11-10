@@ -9,7 +9,6 @@ export const SETTINGS_PAGES = [
     { id: 'dominio', label: 'Dominio', subtitle: 'La dirección de tu tienda' },
     { id: 'correo', label: 'Correo', subtitle: 'Desde dónde salen los avisos' },
     { id: 'gestion', label: 'Sistema de gestión', subtitle: 'Productos, precios y stock automáticos' },
-    { id: 'equipo', label: 'Equipo', subtitle: 'Quién entra al panel' },
 ];
 
 export const MENU = [

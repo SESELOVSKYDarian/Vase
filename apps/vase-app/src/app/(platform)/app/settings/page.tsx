@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { BillingCards } from "@/components/panel/billing-cards";
+import { AvatarUploader } from "@/components/panel/avatar-uploader";
 import { ThemePicker } from "@/components/panel/theme-picker";
 import { DeleteAccountDanger } from "@/components/settings/delete-account-danger";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
@@ -47,6 +48,7 @@ export default async function SettingsPage({
   if (!dashboard) forbidden();
 
   const isOwner = membership.role === "OWNER";
+  const profile = await prisma.user.findUnique({ where: { id: session.user.id }, select: { avatarUrl: true } });
   const tabs = TABS.filter((item) => isOwner || item.id !== "facturacion");
   const tab = resolveTab(query.tab, tabs);
   const paymentsEnabled = isMercadoPagoConfigured();
@@ -95,7 +97,8 @@ export default async function SettingsPage({
                 <p>Tus datos para entrar a Vase.</p>
               </div>
             </div>
-            <form action={updateProfileNameAction}>
+            <AvatarUploader name={session.user.name ?? ""} avatarUrl={profile?.avatarUrl ?? null} />
+            <form action={updateProfileNameAction} style={{ marginTop: 16 }}>
               <div className="vpa-form">
                 <label className="vpa-fld">
                   <span>Nombre</span>

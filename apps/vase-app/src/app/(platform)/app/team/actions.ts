@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
-import { isTeamRole, sanitizeModuleSelection, type TeamRole } from "@/lib/team/team-access";
+import { canAddTeamMember, isTeamRole, sanitizeModuleSelection, teamSeatsUsed, type TeamRole } from "@/lib/team/team-access";
 import { createAuditLog } from "@/server/services/audit-log";
 import { getTenantModulesAccess } from "@/server/queries/modules";
 import { applyUserModuleAccess, createTeamInvitation } from "@/server/services/team-invitations";
@@ -42,6 +42,17 @@ export async function inviteTeamMemberAction(_: TeamActionState, formData: FormD
       limit: 20,
       windowSeconds: 60 * 60,
     });
+
+    const [teamMembers, pendingInvitations, subscription] = await Promise.all([
+      prisma.membership.count({ where: { tenantId: membership.tenantId, role: { not: "OWNER" } } }),
+      prisma.tenantInvitation.count({
+        where: { tenantId: membership.tenantId, status: "PENDING", expiresAt: { gt: new Date() }, email: { not: email.data } },
+      }),
+      prisma.tenantSubscription.findUnique({ where: { tenantId: membership.tenantId }, select: { teamMemberLimit: true } }),
+    ]);
+    if (!canAddTeamMember(teamSeatsUsed({ teamMembers, pendingInvitations }), subscription?.teamMemberLimit ?? 3)) {
+      return { error: "Llegaste al límite de personas de tu cuenta. Pedile más lugares a Vase." };
+    }
 
     const alreadyMember = await prisma.membership.findFirst({
       where: { tenantId: membership.tenantId, user: { email: email.data } },

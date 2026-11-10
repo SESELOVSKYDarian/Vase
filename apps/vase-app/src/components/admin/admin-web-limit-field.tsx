@@ -1,33 +1,48 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateTenantWebLimitAction } from "@/app/(platform)/app/admin/web-limit-actions";
-import { MAX_BUSINESS_WEB_LIMIT } from "@/lib/business/plans";
+import { updateTenantLimitAction, type TenantLimitKind } from "@/app/(platform)/app/admin/web-limit-actions";
 
-export function AdminWebLimitField({ tenantId, initialLimit }: { tenantId: string; initialLimit: number }) {
+const COPY: Record<TenantLimitKind, { label: string; button: string }> = {
+  webs: { label: "Webs que puede crear en Vase Business", button: "Guardar límite de webs" },
+  team: { label: "Personas que puede sumar a su equipo", button: "Guardar límite de equipo" },
+};
+
+export function AdminTenantLimitField({
+  tenantId,
+  kind,
+  initialLimit,
+  max,
+}: {
+  tenantId: string;
+  kind: TenantLimitKind;
+  initialLimit: number;
+  max: number;
+}) {
   const [limit, setLimit] = useState(String(initialLimit));
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const inputId = `admin-limit-${kind}`;
 
   const save = () => {
     setResult(null);
     startTransition(async () => {
-      setResult(await updateTenantWebLimitAction({ tenantId, limit: Number(limit) }));
+      setResult(await updateTenantLimitAction({ tenantId, kind, limit: Number(limit) }));
     });
   };
 
   return (
     <div className="mt-4 grid gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4">
-      <label className="grid gap-1 text-sm" htmlFor="admin-web-limit">
-        <span className="font-semibold text-[var(--foreground)]">Webs que puede crear en Vase Business</span>
+      <label className="grid gap-1 text-sm" htmlFor={inputId}>
+        <span className="font-semibold text-[var(--foreground)]">{COPY[kind].label}</span>
         <span className="text-xs text-[var(--muted)]">Se aplica al momento y se guarda aparte del resto del formulario.</span>
       </label>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <input
-          id="admin-web-limit"
+          id={inputId}
           type="number"
           min={1}
-          max={MAX_BUSINESS_WEB_LIMIT}
+          max={max}
           step={1}
           value={limit}
           onChange={(event) => setLimit(event.target.value)}
@@ -39,7 +54,7 @@ export function AdminWebLimitField({ tenantId, initialLimit }: { tenantId: strin
           onClick={save}
           className="min-h-11 rounded-xl bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-60"
         >
-          {isPending ? "Guardando..." : "Guardar límite"}
+          {isPending ? "Guardando..." : COPY[kind].button}
         </button>
         {result ? (
           <span role="status" className={result.ok ? "text-sm text-[var(--success)]" : "text-sm text-[var(--danger)]"}>

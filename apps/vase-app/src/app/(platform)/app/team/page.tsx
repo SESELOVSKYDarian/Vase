@@ -3,7 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { TeamBoard, type TeamEntry } from "@/components/panel/team-board";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
-import { effectiveModuleIds } from "@/lib/team/team-access";
+import { canAddTeamMember, effectiveModuleIds, teamLimitText, teamSeatsUsed } from "@/lib/team/team-access";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 
 function initialsOf(name: string) {
@@ -20,7 +20,7 @@ export default async function TeamPage() {
     forbidden();
   }
 
-  const [dashboard, members, invitations] = await Promise.all([
+  const [dashboard, members, invitations, subscription] = await Promise.all([
     getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
     prisma.membership.findMany({
       where: { tenantId: membership.tenantId },
@@ -29,7 +29,7 @@ export default async function TeamPage() {
         id: true,
         role: true,
         status: true,
-        user: { select: { name: true, email: true, moduleAccesses: { select: { moduleId: true, isActive: true } } } },
+        user: { select: { name: true, email: true, avatarUrl: true, moduleAccesses: { select: { moduleId: true, isActive: true } } } },
       },
     }),
     prisma.tenantInvitation.findMany({
@@ -37,9 +37,15 @@ export default async function TeamPage() {
       orderBy: { createdAt: "desc" },
       select: { id: true, email: true, role: true, moduleIds: true },
     }),
+    prisma.tenantSubscription.findUnique({ where: { tenantId: membership.tenantId }, select: { teamMemberLimit: true } }),
   ]);
   if (!dashboard) forbidden();
 
+  const teamLimit = subscription?.teamMemberLimit ?? 3;
+  const used = teamSeatsUsed({
+    teamMembers: members.filter((member) => member.role !== "OWNER").length,
+    pendingInvitations: invitations.length,
+  });
   const contracted = dashboard.modules.filter((module) => module.isActive);
   const contractedIds = contracted.map((module) => module.id as string);
 
@@ -48,6 +54,7 @@ export default async function TeamPage() {
       kind: "member" as const,
       id: member.id,
       initials: initialsOf(member.user.name),
+      avatarUrl: member.user.avatarUrl,
       name: member.user.name,
       email: member.user.email,
       role: member.role,
@@ -58,6 +65,7 @@ export default async function TeamPage() {
       kind: "invite" as const,
       id: invitation.id,
       initials: initialsOf(invitation.email),
+      avatarUrl: null,
       name: invitation.email,
       email: "Invitación enviada",
       role: invitation.role,
@@ -77,7 +85,12 @@ export default async function TeamPage() {
       notifications={dashboard.notifications}
       currentUserName={session.user.name ?? membership.tenant.name}
     >
-      <TeamBoard entries={entries} contracted={contracted.map((module) => ({ id: module.id, key: module.key }))} />
+      <TeamBoard
+        entries={entries}
+        contracted={contracted.map((module) => ({ id: module.id, key: module.key }))}
+        limitText={teamLimitText(used, teamLimit)}
+        canInvite={canAddTeamMember(used, teamLimit)}
+      />
     </AppShell>
   );
 }

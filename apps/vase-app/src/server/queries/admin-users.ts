@@ -191,7 +191,7 @@ const adminOwnerTenantSelect = Prisma.validator<Prisma.TenantSelect>()({
   accountName: true,
   industry: true,
   status: true,
-  subscription: { select: { businessProjectLimit: true } },
+  subscription: { select: { businessProjectLimit: true, teamMemberLimit: true } },
   memberships: { select: { userId: true, role: true, status: true } },
   invitations: { where: { status: "PENDING" }, select: { id: true } },
   tenantModules: {
@@ -394,6 +394,7 @@ export async function getAdminUsersWorkspaceData() {
       moduleIds: user.moduleAccesses.filter((entry) => entry.isActive).map((entry) => entry.moduleId),
       tenantId: tenant?.id ?? null,
       businessProjectLimit: tenant?.subscription?.businessProjectLimit ?? 1,
+      teamMemberLimit: tenant?.subscription?.teamMemberLimit ?? 3,
       tenantName: tenant?.name ?? null,
       tenantSlug: tenant?.slug ?? null,
       accountName: tenant?.accountName ?? null,

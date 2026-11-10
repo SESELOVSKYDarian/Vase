@@ -18,6 +18,7 @@ export type TeamEntry = {
   kind: "member" | "invite";
   id: string;
   initials: string;
+  avatarUrl: string | null;
   name: string;
   email: string;
   role: "OWNER" | "MANAGER" | "MEMBER";
@@ -147,7 +148,17 @@ function InviteModal({ contracted, onClose }: { contracted: Contracted[]; onClos
   );
 }
 
-export function TeamBoard({ entries, contracted }: { entries: TeamEntry[]; contracted: Contracted[] }) {
+export function TeamBoard({
+  entries,
+  contracted,
+  limitText,
+  canInvite,
+}: {
+  entries: TeamEntry[];
+  contracted: Contracted[];
+  limitText: string;
+  canInvite: boolean;
+}) {
   const [menu, setMenu] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<TeamEntry | null>(null);
@@ -179,9 +190,15 @@ export function TeamBoard({ entries, contracted }: { entries: TeamEntry[]; contr
         <div className="vpa-sech">
           <div>
             <h3>Personas de tu equipo</h3>
-            <p>Quién puede entrar a tu cuenta, con qué rol y a qué productos.</p>
+            <p>{limitText}</p>
           </div>
-          <button type="button" className="vpa-btn acc" onClick={() => setInviting(true)}>
+          <button
+            type="button"
+            className="vpa-btn acc"
+            disabled={!canInvite}
+            title={canInvite ? undefined : "Llegaste al límite de personas de tu cuenta"}
+            onClick={() => setInviting(true)}
+          >
             Invitar persona
           </button>
         </div>
@@ -210,7 +227,14 @@ export function TeamBoard({ entries, contracted }: { entries: TeamEntry[]; contr
                   <tr key={`${entry.kind}:${entry.id}`}>
                     <td>
                       <div className="vpa-person">
-                        <span className="vpa-ava" aria-hidden="true">{entry.initials}</span>
+                        <span className="vpa-ava" aria-hidden="true">
+                          {entry.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={entry.avatarUrl} alt="" />
+                          ) : (
+                            entry.initials
+                          )}
+                        </span>
                         <div className="vpa-g1">
                           <b>{entry.name}</b>
                           <span>{entry.email}</span>

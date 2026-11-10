@@ -97,9 +97,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, 
                 {accOpen ? (
                     <div className="vp-accmenu" role="menu">
                         <div className="vp-am-h">{account.email || 'Tu cuenta'}</div>
-                        <button type="button" className="vp-am" role="menuitem" onClick={() => { onTheme(theme === 'dark' ? 'light' : 'dark'); }}>
-                            <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={15} />{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-                        </button>
+                        {account.vaseUrl ? <a className="vp-am" role="menuitem" href={`${account.vaseUrl}/app/settings`}>Ajustes</a> : null}
                         {account.vaseUrl ? <a className="vp-am" role="menuitem" href={account.vaseUrl}>← Volver a Vase</a> : null}
                         <a className="vp-am" role="menuitem" href="/admin/anterior">Abrir el panel anterior</a>
                         <button type="button" className="vp-am out" role="menuitem" onClick={account.onLogout}>Cerrar sesión</button>

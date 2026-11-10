@@ -1,5 +1,20 @@
 export type TeamRole = "MANAGER" | "MEMBER";
 
+export const MAX_TEAM_MEMBER_LIMIT = 200;
+
+/** Lugares ocupados: personas del equipo (sin contar al Dueño) e invitaciones pendientes. */
+export function teamSeatsUsed(input: { teamMembers: number; pendingInvitations: number }) {
+  return input.teamMembers + input.pendingInvitations;
+}
+
+export function canAddTeamMember(used: number, limit: number) {
+  return used < Math.max(0, limit);
+}
+
+export function teamLimitText(used: number, limit: number) {
+  return limit === 1 ? `Usás ${used} de 1 lugar de tu cuenta.` : `Usás ${used} de ${limit} lugares de tu cuenta.`;
+}
+
 export const TEAM_ROLE_LABEL = {
   OWNER: "Dueño",
   MANAGER: "Encargado",

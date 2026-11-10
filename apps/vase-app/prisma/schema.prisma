@@ -468,6 +468,7 @@ model User {
   emailVerified DateTime?
   passwordHash  String?
   image         String?
+  avatarUrl     String?      @db.Text
   platformRole  PlatformRole @default(USER)
   locale        String       @default("es")
   passwordChangedAt DateTime?
@@ -1339,6 +1340,7 @@ model TenantSubscription {
   customDomainEnabled  Boolean       @default(false)
   temporaryPagesEnabled Boolean      @default(true)
   businessProjectLimit Int           @default(1)
+  teamMemberLimit      Int           @default(3)
   labsAssistantLimit   Int           @default(1)
   trialStartedAt       DateTime?
   trialEndsAt          DateTime?

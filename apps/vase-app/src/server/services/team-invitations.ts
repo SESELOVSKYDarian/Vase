@@ -97,6 +97,11 @@ async function claimInvitation(tx: Prisma.TransactionClient, invitation: ValidIn
 
 async function joinTenant(tx: Prisma.TransactionClient, invitation: ValidInvitation, userId: string) {
   if (!isTeamRole(invitation.role)) throw new Error("INVITATION_INVALID");
+  const [teamMembers, subscription] = await Promise.all([
+    tx.membership.count({ where: { tenantId: invitation.tenantId, role: { not: "OWNER" } } }),
+    tx.tenantSubscription.findUnique({ where: { tenantId: invitation.tenantId }, select: { teamMemberLimit: true } }),
+  ]);
+  if (teamMembers >= (subscription?.teamMemberLimit ?? 3)) throw new Error("TEAM_FULL");
   const contracted = Array.isArray(invitation.moduleIds) ? (invitation.moduleIds as unknown[]) : [];
   const allowed = contracted.filter((id): id is string => typeof id === "string");
   await tx.membership.create({

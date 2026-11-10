@@ -295,6 +295,10 @@ export function ClientShell({
     document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.style.colorScheme = theme;
     window.localStorage.setItem("vase-panel-theme", theme);
+    // Business vive en otro subdominio: la cookie compartida le dice qué modo eligió la persona.
+    if (window.location.hostname.endsWith("vase.ar")) {
+      document.cookie = `vase_theme=${theme}; domain=.vase.ar; path=/; max-age=31536000; SameSite=Lax; Secure`;
+    }
   }, [theme]);
 
   const unread = notifications.filter((notification) => !notification.isRead).length;

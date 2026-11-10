@@ -41,6 +41,9 @@ export async function acceptInviteNewUserAction(_: InviteActionState, formData: 
     if (!invitation) return { error: INVALID_INVITE };
     await acceptInvitationAsNewUser(invitation, name.data, password.data.password);
   } catch (error) {
+    if (error instanceof Error && error.message === "TEAM_FULL") {
+      return { error: "Este equipo ya no tiene lugares libres. Avisale a quien te invitó." };
+    }
     if (error instanceof Error && error.message === "EMAIL_ALREADY_IN_USE") {
       return { error: "Ese correo ya tiene cuenta. Iniciá sesión para aceptar." };
     }
@@ -67,6 +70,9 @@ export async function acceptInviteExistingUserAction(_: InviteActionState, formD
     }
     await acceptInvitationAsExistingUser(invitation, session.user.id);
   } catch (error) {
+    if (error instanceof Error && error.message === "TEAM_FULL") {
+      return { error: "Este equipo ya no tiene lugares libres. Avisale a quien te invitó." };
+    }
     if (error instanceof Error && error.message === "USER_ALREADY_IN_TENANT") {
       return { error: "Tu usuario ya pertenece a una cuenta de Vase." };
     }

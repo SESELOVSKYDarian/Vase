@@ -17,7 +17,6 @@ import Clientes from './screens/Clientes';
 import AjustesPrecios from './screens/AjustesPrecios';
 import AjustesSucursales from './screens/AjustesSucursales';
 import AjustesPagos from './screens/AjustesPagos';
-import AjustesEquipo from './screens/AjustesEquipo';
 import { AjustesCorreo, AjustesGestion, AjustesSeo } from './screens/AjustesForms';
 import Catalogo from './catalog/Catalogo';
 import Envios from './envios/Envios';
@@ -47,7 +46,19 @@ const writeStorage = (key, value) => {
     }
 };
 
+// El modo claro u oscuro se elige en Ajustes de app.vase.ar y llega en una cookie de .vase.ar.
+const sharedTheme = () => {
+    try {
+        const match = document.cookie.match(/(?:^|;\s*)vase_theme=(light|dark)/);
+        return match ? match[1] : null;
+    } catch {
+        return null;
+    }
+};
+
 const initialTheme = () => {
+    const shared = sharedTheme();
+    if (shared) return shared;
     const saved = readStorage(THEME_KEY);
     if (saved === 'light' || saved === 'dark') return saved;
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -250,8 +261,6 @@ export default function PanelApp() {
         content = <AjustesGestion editor={editor} toast={addToast} />;
     } else if (sub === 'dominio') {
         content = <AjustesDominio user={user} toast={addToast} theme={theme} />;
-    } else if (sub === 'equipo') {
-        content = <AjustesEquipo user={user} toast={addToast} />;
     } else if (settingsPage) {
         content = <ComingSoon title={settingsPage.label} hint={settingsPage.hint} onOpenLegacy={() => openLegacy(settingsPage.legacy)} />;
     } else {
