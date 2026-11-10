@@ -8,11 +8,13 @@ import { sanitizeText } from "@/lib/security/sanitize";
 import { isVaseUploadUrl } from "@/lib/storage/vase-uploads";
 import { socialColumns, socialLinksSchema } from "@/lib/business/social-links";
 import { createAuditLog } from "@/server/services/audit-log";
+import { notifyBusinessProfileChanged } from "@/server/services/business-profile";
 
 export type BusinessActionResult = { ok: boolean; message: string };
 
-function refresh() {
+function refresh(tenantId: string) {
   revalidatePath("/app", "layout");
+  notifyBusinessProfileChanged(tenantId);
 }
 
 async function requireOwner() {
@@ -64,7 +66,7 @@ export async function updateBusinessProfileAction(
       tenantId,
       actorUserId: session.user.id,
     });
-    refresh();
+    refresh(tenantId);
     return { ok: true, message: "Guardado." };
   } catch {
     return { ok: false, message: "No pudimos guardar. Probá de nuevo." };
@@ -80,7 +82,7 @@ export async function saveBusinessLogoAction(url: string | null): Promise<Busine
       update: { logoUrl: url },
       create: { tenantId: membership.tenantId, logoUrl: url },
     });
-    refresh();
+    refresh(membership.tenantId);
     return { ok: true, message: "Logo guardado." };
   } catch {
     return { ok: false, message: "No pudimos guardar el logo." };
@@ -124,7 +126,7 @@ export async function saveBranchAction(input: {
         await tx.tenantBranch.create({ data: { tenantId, ...data, isMain, sortOrder: count } });
       }
     });
-    refresh();
+    refresh(tenantId);
     return { ok: true, message: "Sucursal guardada." };
   } catch (error) {
     if (error instanceof Error && error.message === "TOO_MANY_BRANCHES") {
@@ -147,7 +149,7 @@ export async function deleteBranchAction(id: string): Promise<BusinessActionResu
         if (next) await tx.tenantBranch.update({ where: { id: next.id }, data: { isMain: true } });
       }
     });
-    refresh();
+    refresh(tenantId);
     return { ok: true, message: "Sucursal eliminada." };
   } catch {
     return { ok: false, message: "No pudimos eliminar la sucursal." };

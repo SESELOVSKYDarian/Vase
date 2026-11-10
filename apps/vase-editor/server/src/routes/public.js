@@ -7,6 +7,7 @@ import { pool } from '../db.js';
 import { resolveEffectiveProductPrice, resolvePricingProfile } from '../services/userPricing.js';
 import { loadSpecialPrices } from '../services/specialPrices.js';
 import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
+import { applyVaseBusinessProfile, vaseProfileForTenant } from '../services/vaseBusinessProfile.js';
 import {
   applyOfferDiscount,
   getTenantOffers,
@@ -510,7 +511,8 @@ publicRouter.get('/tenant', async (req, res, next) => {
         price_tier_labels: normalizePriceTierLabels(commerce.price_tier_labels),
       },
     };
-    return res.json({ tenant: req.tenant, settings });
+    const settingsWithProfile = applyVaseBusinessProfile(settings, await vaseProfileForTenant(req.tenant.id));
+    return res.json({ tenant: req.tenant, settings: settingsWithProfile });
   } catch (err) {
     return next(err);
   }

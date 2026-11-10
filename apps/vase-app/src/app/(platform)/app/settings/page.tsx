@@ -6,6 +6,7 @@ import { BillingCards } from "@/components/panel/billing-cards";
 import { AvatarUploader } from "@/components/panel/avatar-uploader";
 import { ThemePicker } from "@/components/panel/theme-picker";
 import { BusinessProfile } from "@/components/panel/business-profile";
+import { importBusinessProfileSeed } from "@/server/services/business-profile";
 import { DEFAULT_CURRENCY, DEFAULT_TIMEZONE } from "@/lib/business/business-profile";
 import { legacySocialLinks, type SocialLink } from "@/lib/business/social-links";
 import { ProfileNameField } from "@/components/panel/profile-name-field";
@@ -50,6 +51,13 @@ export default async function SettingsPage({
   const profile = await prisma.user.findUnique({ where: { id: session.user.id }, select: { avatarUrl: true } });
   const tabs = TABS.filter((item) => isOwner || item.id !== "facturacion");
   const tab = resolveTab(query.tab, tabs);
+  // La primera vez que se abre Mi negocio se trae lo que la tienda de Business ya tenía.
+  if (tab === "negocio" && isOwner) {
+    const alreadyLoaded = await prisma.tenantBusinessInfo.findUnique({ where: { tenantId: membership.tenantId }, select: { id: true } });
+    if (!alreadyLoaded && dashboard.modules.some((module) => module.key === "business" && module.isActive)) {
+      await importBusinessProfileSeed(membership.tenantId).catch(() => false);
+    }
+  }
   const [businessInfo, branches, negocioBilling] =
     tab === "negocio"
       ? await Promise.all([

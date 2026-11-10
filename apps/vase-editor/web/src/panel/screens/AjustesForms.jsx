@@ -157,6 +157,7 @@ export function AjustesSeo({ editor, onSave, storeName, domain }) {
                     </div>
                     <div className="vp-card vp-sec">
                         <h3>Tus redes</h3>
+                        {editor.settings?.vase_profile?.connected ? <p className="vp-note">Las redes que cargues en <a href={editor.settings.vase_profile.edit_url} target="_blank" rel="noreferrer">Mi negocio</a> reemplazan a estas.</p> : null}
                         <p>Aparecen en el pie de la tienda.</p>
                         {[['instagram', 'Instagram', 'https://instagram.com/tu-tienda'], ['facebook', 'Facebook', 'https://facebook.com/tu-tienda'], ['tiktok', 'TikTok', 'https://tiktok.com/@tu-tienda'], ['youtube', 'YouTube', 'https://youtube.com/@tu-tienda']].map(([key, label, placeholder]) => (
                             <div key={key} className="vp-fld">

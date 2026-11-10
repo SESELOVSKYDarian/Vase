@@ -94,6 +94,8 @@
 .vp-status i { width: 8px; height: 8px; border-radius: 50%; background: #f79009; }
 .vp-status i.ok { background: #17b26a; }
 .vp-cloud { position: relative; display: inline-flex; }
+.vp-fromvase { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--accsoft); border-color: transparent; }
+.vp-fromvase > span { flex: 1; min-width: 220px; font-weight: 600; font-size: 13px; line-height: 1.45; }
 .vp-hist { display: flex; flex-direction: column; gap: 8px; }
 .vp-hist-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--soft); flex-wrap: wrap; }
 .vp-hist-txt { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 2px; }

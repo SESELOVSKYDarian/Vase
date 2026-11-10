@@ -16,6 +16,7 @@ import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/pric
 import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
 import { normalizeTenantSettingsWritePayload } from '../services/tenantSettingsPayload.js';
 import { clearEditorDraft, normalizeEditorDraft, readEditorDraft, writeEditorDraft } from '../services/editorDraft.js';
+import { applyVaseBusinessProfile, vaseProfileEditUrl, vaseProfileForTenant } from '../services/vaseBusinessProfile.js';
 import { addEditorHistory, listEditorHistory, normalizeHistoryEntry, readEditorHistoryEntry } from '../services/editorHistory.js';
 import { ensureProductSyncToken } from '../services/productSyncCredentials.js';
 import {
@@ -625,7 +626,11 @@ tenantRouter.get('/settings', async (req, res, next) => {
   try {
     await ensureTenantSettingsSeoColumn();
     const result = await queryTenantSettingsWithSeo(tenantId);
-    const settings = normalizeTenantSettingsPayload(result.rows[0] || { branding: {}, theme: {}, commerce: {} });
+    const stored = normalizeTenantSettingsPayload(result.rows[0] || { branding: {}, theme: {}, commerce: {} });
+    const profile = await vaseProfileForTenant(tenantId);
+    const settings = profile
+      ? { ...applyVaseBusinessProfile(stored, profile), vase_profile: { connected: true, edit_url: vaseProfileEditUrl() } }
+      : stored;
     return res.json({ tenant_id: tenantId, settings });
   } catch (err) {
     return next(err);
