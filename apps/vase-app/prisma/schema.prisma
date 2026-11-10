@@ -2817,6 +2817,11 @@ model TenantBusinessInfo {
   website   String?
   instagram String?
   facebook  String?
+  tiktok    String?
+  youtube   String?
+  hours     String?
+  timezone  String   @default("America/Argentina/Buenos_Aires")
+  currency  String   @default("ARS")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -2845,6 +2850,9 @@ model TenantBillingProfile {
   taxId                 String?
   taxCondition          String?
   fiscalAddress         String?
+  city                  String?
+  province              String?
+  postalCode            String?
   mercadoPagoCustomerId String?
   defaultCardId         String?
   createdAt             DateTime @default(now())

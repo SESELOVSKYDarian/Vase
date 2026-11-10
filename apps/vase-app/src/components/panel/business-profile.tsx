@@ -9,13 +9,22 @@ import {
   saveBusinessLogoAction,
   updateBusinessProfileAction,
 } from "@/app/(platform)/app/settings/business-actions";
-import { PROFILE_USES } from "@/lib/business/business-profile";
+import { CURRENCIES, PROFILE_USES, TIMEZONES, sectionSummary } from "@/lib/business/business-profile";
+import { ChevronDown } from "lucide-react";
 import { MAX_IMAGE_INPUT_BYTES, toSquareWebp, uploadPublicImage } from "@/components/panel/upload-image";
 
 export type ProfileValues = {
   name: string;
   industry: string;
   tagline: string;
+  timezone: string;
+  currency: string;
+  hours: string;
+  tiktok: string;
+  youtube: string;
+  city: string;
+  province: string;
+  postalCode: string;
   phone: string;
   whatsapp: string;
   email: string;
@@ -79,6 +88,68 @@ function Field({
       <span>{label}</span>
       <input className="vpa-inp" name={name} type={type} defaultValue={value} readOnly={readOnly} placeholder={placeholder} />
     </label>
+  );
+}
+
+function Select({
+  label,
+  name,
+  value,
+  readOnly,
+  options,
+}: {
+  label: string;
+  name: keyof ProfileValues;
+  value: string;
+  readOnly: boolean;
+  options: ReadonlyArray<readonly [string, string]>;
+}) {
+  return (
+    <label className="vpa-fld">
+      <span>{label}</span>
+      <select className="vpa-inp" name={name} defaultValue={value} disabled={readOnly}>
+        {options.map(([id, text]) => (
+          <option key={id} value={id}>
+            {text}
+          </option>
+        ))}
+      </select>
+      {readOnly ? <input type="hidden" name={name} value={value} /> : null}
+    </label>
+  );
+}
+
+/** Sección que arranca cerrada: muestra un resumen y se abre al tocarla. Sus campos se envían igual. */
+function Section({
+  title,
+  summary,
+  uses,
+  children,
+  wide = false,
+  action,
+}: {
+  title: string;
+  summary: string;
+  uses: readonly string[];
+  children: React.ReactNode;
+  wide?: boolean;
+  action?: React.ReactNode;
+}) {
+  return (
+    <details className={wide ? "vpa-acc2 vpa-span2" : "vpa-acc2"}>
+      <summary>
+        <span className="vpa-g1">
+          <b>{title}</b>
+          <span>{summary}</span>
+        </span>
+        <Uses list={uses} />
+        <ChevronDown size={18} className="vpa-chev2" aria-hidden="true" />
+      </summary>
+      <div className="vpa-acc2-body">
+        {action ? <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>{action}</div> : null}
+        {children}
+      </div>
+    </details>
   );
 }
 
@@ -231,49 +302,58 @@ export function BusinessProfile({
         <span>{canEdit ? "Si cambiás algo acá, se actualiza en todos lados." : "Solo el Dueño de la cuenta puede cambiar estos datos."}</span>
       </div>
 
-      <form action={formAction} className="vpa-bizgrid">
-        <section className="vpa-card vpa-span2" aria-label="Identidad">
-          <div className="vpa-cardh">
-            <h3>Identidad</h3>
-            <Uses list={PROFILE_USES.identity} />
-          </div>
+      <form action={formAction} className="vpa-bizlist">
+        <Section
+          wide
+          title="Identidad"
+          summary={sectionSummary([values.name, values.industry])}
+          uses={PROFILE_USES.identity}
+        >
           <div className="vpa-idrow">
             <LogoPicker name={values.name} logoUrl={logoUrl} readOnly={readOnly} />
             <div className="vpa-form3">
               <Field label="Nombre del negocio" name="name" value={values.name} readOnly={readOnly} />
               <Field label="Rubro" name="industry" value={values.industry} readOnly={readOnly} />
               <Field label="Tu negocio en una frase" name="tagline" value={values.tagline} readOnly={readOnly} placeholder="Qué hacés, en pocas palabras" />
+              <Select label="Zona horaria" name="timezone" value={values.timezone} readOnly={readOnly} options={TIMEZONES} />
+              <Select label="Moneda" name="currency" value={values.currency} readOnly={readOnly} options={CURRENCIES} />
             </div>
           </div>
-        </section>
+        </Section>
 
-        <section className="vpa-card" aria-label="Contacto">
-          <div className="vpa-cardh">
-            <h3>Contacto</h3>
-            <Uses list={PROFILE_USES.contact} />
-          </div>
+        <Section
+          title="Contacto y redes"
+          summary={sectionSummary([values.phone || values.whatsapp, values.email, values.instagram])}
+          uses={PROFILE_USES.contact}
+        >
           <div className="vpa-form">
             <Field label="Teléfono" name="phone" value={values.phone} readOnly={readOnly} />
             <Field label="WhatsApp" name="whatsapp" value={values.whatsapp} readOnly={readOnly} />
             <Field label="Correo" name="email" type="email" value={values.email} readOnly={readOnly} />
             <Field label="Sitio web" name="website" value={values.website} readOnly={readOnly} />
+            <Field label="Horario de atención" name="hours" value={values.hours} readOnly={readOnly} wide placeholder="Lunes a viernes de 9 a 18" />
             <Field label="Instagram" name="instagram" value={values.instagram} readOnly={readOnly} placeholder="@tu-negocio" />
             <Field label="Facebook" name="facebook" value={values.facebook} readOnly={readOnly} />
+            <Field label="TikTok" name="tiktok" value={values.tiktok} readOnly={readOnly} />
+            <Field label="YouTube" name="youtube" value={values.youtube} readOnly={readOnly} />
           </div>
-        </section>
+        </Section>
 
-        <section className="vpa-card" aria-label="Datos fiscales">
-          <div className="vpa-cardh">
-            <h3>Datos fiscales</h3>
-            <Uses list={PROFILE_USES.fiscal} />
-          </div>
+        <Section
+          title="Datos fiscales"
+          summary={sectionSummary([values.legalName, values.taxId ? `CUIT ${values.taxId}` : null])}
+          uses={PROFILE_USES.fiscal}
+        >
           <div className="vpa-form">
             <Field label="Razón social" name="legalName" value={values.legalName} readOnly={readOnly} />
             <Field label="CUIT" name="taxId" value={values.taxId} readOnly={readOnly} />
             <Field label="Condición frente al IVA" name="taxCondition" value={values.taxCondition} readOnly={readOnly} />
             <Field label="Domicilio fiscal" name="fiscalAddress" value={values.fiscalAddress} readOnly={readOnly} />
+            <Field label="Localidad" name="city" value={values.city} readOnly={readOnly} />
+            <Field label="Provincia" name="province" value={values.province} readOnly={readOnly} />
+            <Field label="Código postal" name="postalCode" value={values.postalCode} readOnly={readOnly} />
           </div>
-        </section>
+        </Section>
 
         {canEdit ? (
           <div className="vpa-savebar vpa-span2">
@@ -282,7 +362,7 @@ export function BusinessProfile({
                 {state.message}
               </span>
             ) : (
-              <span className="vpa-mut">Los cambios se guardan cuando tocás Guardar.</span>
+              <span className="vpa-mut">Abrí una sección, cambiá lo que necesites y tocá Guardar.</span>
             )}
             <button type="submit" className="vpa-btn acc" disabled={pending}>
               {pending ? "Guardando..." : "Guardar cambios"}
@@ -291,19 +371,21 @@ export function BusinessProfile({
         ) : null}
       </form>
 
-      <section className="vpa-card" aria-label="Sucursales">
-        <div className="vpa-cardh">
-          <h3>Sucursales</h3>
-          <Uses list={PROFILE_USES.branches} />
-          <div className="vpa-sp" />
-          {canEdit ? (
+      <Section
+        wide
+        title="Sucursales"
+        summary={branches.length === 0 ? "Sin cargar" : branches.length === 1 ? "1 sucursal" : `${branches.length} sucursales`}
+        uses={PROFILE_USES.branches}
+        action={
+          canEdit ? (
             <button type="button" className="vpa-btn line sm" onClick={() => setEditing("new")}>
               Agregar sucursal
             </button>
-          ) : null}
-        </div>
+          ) : null
+        }
+      >
         {branchError ? <p role="alert" style={{ color: "var(--red)" }}>{branchError}</p> : null}
-        {branches.length === 0 ? <p>Todavía no cargaste sucursales.</p> : null}
+        {branches.length === 0 ? <p className="vpa-mut">Todavía no cargaste sucursales.</p> : null}
         <div className="vpa-branches">
           {branches.map((branch) => (
             <article className="vpa-branch" key={branch.id}>
@@ -333,7 +415,7 @@ export function BusinessProfile({
             </article>
           ))}
         </div>
-      </section>
+      </Section>
 
       {editing ? <BranchDialog branch={editing === "new" ? null : editing} onClose={() => setEditing(null)} /> : null}
       {confirmDelete ? (

@@ -315,6 +315,19 @@
 .vpa-branch .vpa-g1 span { line-height: 1.45; }
 .vpa-branch-acts { display: flex; flex-direction: column; gap: 6px; }
 
+.vpa-bizlist { display: flex; flex-direction: column; gap: 10px; }
+.vpa-acc2 { border: 1px solid var(--line); border-radius: 18px; background: var(--card); }
+.vpa-acc2 > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 16px 18px; cursor: pointer; border-radius: 18px; }
+.vpa-acc2 > summary::-webkit-details-marker { display: none; }
+.vpa-acc2 > summary:hover { background: var(--hover); }
+.vpa-acc2 > summary .vpa-g1 b { font-size: 15px; font-weight: 800; }
+.vpa-acc2 > summary .vpa-g1 span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpa-chev2 { color: var(--mut); flex: none; transition: transform .18s ease; }
+.vpa-acc2[open] > summary .vpa-chev2 { transform: rotate(180deg); }
+.vpa-acc2[open] > summary { border-bottom: 1px solid var(--line); border-radius: 18px 18px 0 0; }
+.vpa-acc2-body { padding: 16px 18px 18px; }
+.vpa-form3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
 /* temas */
 .vpa-themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 560px; }
 .vpa-theme { display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: 18px; border: 1.5px solid var(--line); cursor: pointer; background: none; text-align: left; }
@@ -378,7 +391,7 @@
   .vpa-body { padding: 16px; overflow: visible; }
   .vpa-tw.free { overflow-x: auto; }
   .vpa-totop { position: fixed; }
-  .vpa-bizgrid, .vpa-branches, .vpa-form3,
+  .vpa-bizgrid, .vpa-branches, .vpa-form3, .vpa-acc2 > summary .vpa-uses,
   .vpa-wgrid, .vpa-flow,
   .vpa-tiles, .vpa-pgrid, .vpa-payhero, .vpa-cplans, .vpa-form, .vpa-themes, .vpa-g2, .vpa-two { grid-template-columns: minmax(0, 1fr); }
   .vpa-ov, .vpa-dialog { position: fixed; }

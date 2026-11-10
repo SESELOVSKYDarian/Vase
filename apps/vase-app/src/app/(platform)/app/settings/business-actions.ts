@@ -30,7 +30,7 @@ export async function updateBusinessProfileAction(
       return { ok: false, message: parsed.error.issues[0]?.message ?? "Revisá los datos." };
     }
 
-    const { name, industry, legalName, taxId, taxCondition, fiscalAddress, ...contact } = parsed.data;
+    const { name, industry, legalName, taxId, taxCondition, fiscalAddress, city, province, postalCode, ...contact } = parsed.data;
     const tenantId = membership.tenantId;
     await prisma.$transaction([
       prisma.tenant.update({ where: { id: tenantId }, data: { name, industry } }),
@@ -41,8 +41,8 @@ export async function updateBusinessProfileAction(
       }),
       prisma.tenantBillingProfile.upsert({
         where: { tenantId },
-        update: { legalName, taxId, taxCondition, fiscalAddress },
-        create: { tenantId, legalName, taxId, taxCondition, fiscalAddress },
+        update: { legalName, taxId, taxCondition, fiscalAddress, city, province, postalCode },
+        create: { tenantId, legalName, taxId, taxCondition, fiscalAddress, city, province, postalCode },
       }),
     ]);
     await createAuditLog({

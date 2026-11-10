@@ -6,6 +6,7 @@ import { BillingCards } from "@/components/panel/billing-cards";
 import { AvatarUploader } from "@/components/panel/avatar-uploader";
 import { ThemePicker } from "@/components/panel/theme-picker";
 import { BusinessProfile } from "@/components/panel/business-profile";
+import { DEFAULT_CURRENCY, DEFAULT_TIMEZONE } from "@/lib/business/business-profile";
 import { DeleteAccountDanger } from "@/components/settings/delete-account-danger";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
@@ -151,6 +152,14 @@ export default async function SettingsPage({
             name: membership.tenant.name,
             industry: membership.tenant.industry,
             tagline: businessInfo?.tagline ?? "",
+            timezone: businessInfo?.timezone ?? DEFAULT_TIMEZONE,
+            currency: businessInfo?.currency ?? DEFAULT_CURRENCY,
+            hours: businessInfo?.hours ?? "",
+            tiktok: businessInfo?.tiktok ?? "",
+            youtube: businessInfo?.youtube ?? "",
+            city: negocioBilling?.city ?? "",
+            province: negocioBilling?.province ?? "",
+            postalCode: negocioBilling?.postalCode ?? "",
             phone: businessInfo?.phone ?? "",
             whatsapp: businessInfo?.whatsapp ?? "",
             email: businessInfo?.email ?? "",
