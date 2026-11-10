@@ -5,20 +5,19 @@ import { AppShell } from "@/components/layout/app-shell";
 import { BillingCards } from "@/components/panel/billing-cards";
 import { AvatarUploader } from "@/components/panel/avatar-uploader";
 import { ThemePicker } from "@/components/panel/theme-picker";
+import { BusinessProfile } from "@/components/panel/business-profile";
 import { DeleteAccountDanger } from "@/components/settings/delete-account-danger";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
-import { updateBillingProfileAction } from "@/app/(platform)/app/billing/actions";
 import { prisma } from "@/lib/db/prisma";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 import { isMercadoPagoConfigured, listSavedCards, mercadoPagoPublicKey } from "@/server/services/mercadopago";
 import {
   updateProfileNameAction,
-  updateTenantBusinessDataAction,
 } from "@/app/(platform)/app/settings/actions";
 
 const TABS = [
   { id: "perfil", label: "Mi perfil" },
-  { id: "negocio", label: "Tu negocio" },
+  { id: "negocio", label: "Mi negocio" },
   { id: "facturacion", label: "Facturación" },
 ] as const;
 
@@ -51,6 +50,14 @@ export default async function SettingsPage({
   const profile = await prisma.user.findUnique({ where: { id: session.user.id }, select: { avatarUrl: true } });
   const tabs = TABS.filter((item) => isOwner || item.id !== "facturacion");
   const tab = resolveTab(query.tab, tabs);
+  const [businessInfo, branches, negocioBilling] =
+    tab === "negocio"
+      ? await Promise.all([
+          prisma.tenantBusinessInfo.findUnique({ where: { tenantId: membership.tenantId } }),
+          prisma.tenantBranch.findMany({ where: { tenantId: membership.tenantId }, orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }] }),
+          prisma.tenantBillingProfile.findUnique({ where: { tenantId: membership.tenantId } }),
+        ])
+      : [null, [], null];
   const paymentsEnabled = isMercadoPagoConfigured();
   const billingProfile =
     tab === "facturacion" ? await prisma.tenantBillingProfile.findUnique({ where: { tenantId: membership.tenantId } }) : null;
@@ -136,60 +143,34 @@ export default async function SettingsPage({
         </>
       ) : null}
 
-      {tab === "negocio" && !isOwner ? (
-        <section className="vpa-card">
-          <div className="vpa-sech">
-            <div>
-              <h3>Tu negocio</h3>
-              <p>Solo el Dueño de la cuenta puede cambiar estos datos.</p>
-            </div>
-          </div>
-          <div className="vpa-form">
-            <label className="vpa-fld">
-              <span>Nombre del negocio</span>
-              <input className="vpa-inp" readOnly value={membership.tenant.name} />
-            </label>
-            <label className="vpa-fld">
-              <span>Rubro</span>
-              <input className="vpa-inp" readOnly value={membership.tenant.industry} />
-            </label>
-          </div>
-        </section>
-      ) : null}
-
-      {tab === "negocio" && isOwner ? (
-        <section className="vpa-card">
-          <div className="vpa-sech">
-            <div>
-              <h3>Tu negocio</h3>
-              <p>Los datos con los que Vase te factura y te contacta. Solo el Dueño puede cambiarlos.</p>
-            </div>
-          </div>
-          <form action={updateTenantBusinessDataAction}>
-            <div className="vpa-form">
-              <label className="vpa-fld">
-                <span>Nombre del negocio</span>
-                <input className="vpa-inp" name="name" required defaultValue={membership.tenant.name} />
-              </label>
-              <label className="vpa-fld">
-                <span>Nombre de la cuenta</span>
-                <input className="vpa-inp" name="accountName" required defaultValue={membership.tenant.accountName} />
-              </label>
-              <label className="vpa-fld">
-                <span>Rubro</span>
-                <input className="vpa-inp" name="industry" required defaultValue={membership.tenant.industry} />
-              </label>
-              <label className="vpa-fld">
-                <span>Correo de facturación</span>
-                <input className="vpa-inp" name="billingEmail" type="email" defaultValue={membership.tenant.billingEmail ?? ""} />
-              </label>
-            </div>
-            <input type="hidden" name="locale" value={membership.tenant.locale} />
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-              <button className="vpa-btn acc">Guardar</button>
-            </div>
-          </form>
-        </section>
+      {tab === "negocio" ? (
+        <BusinessProfile
+          canEdit={isOwner}
+          logoUrl={businessInfo?.logoUrl ?? null}
+          values={{
+            name: membership.tenant.name,
+            industry: membership.tenant.industry,
+            tagline: businessInfo?.tagline ?? "",
+            phone: businessInfo?.phone ?? "",
+            whatsapp: businessInfo?.whatsapp ?? "",
+            email: businessInfo?.email ?? "",
+            website: businessInfo?.website ?? "",
+            instagram: businessInfo?.instagram ?? "",
+            facebook: businessInfo?.facebook ?? "",
+            legalName: negocioBilling?.legalName ?? "",
+            taxId: negocioBilling?.taxId ?? "",
+            taxCondition: negocioBilling?.taxCondition ?? "",
+            fiscalAddress: negocioBilling?.fiscalAddress ?? "",
+          }}
+          branches={branches.map((branch) => ({
+            id: branch.id,
+            name: branch.name,
+            address: branch.address,
+            phone: branch.phone ?? "",
+            hours: branch.hours ?? "",
+            isMain: branch.isMain,
+          }))}
+        />
       ) : null}
 
       {tab === "facturacion" ? (
@@ -203,38 +184,15 @@ export default async function SettingsPage({
             </section>
           )}
           <section className="vpa-card">
-            <div className="vpa-sech">
+            <div className="vpa-sech" style={{ marginBottom: 0 }}>
               <div>
                 <h3>Datos de facturación</h3>
-                <p>Lo que sale en tus facturas.</p>
+                <p>Razón social, CUIT y domicilio fiscal están en Mi negocio. Las facturas llegan a {membership.tenant.billingEmail ?? "tu correo"}.</p>
               </div>
-              <Link href={"/app/billing" as Route} className="vpa-btn line sm">
-                Ver comprobantes
+              <Link href={"/app/settings?tab=negocio" as Route} className="vpa-btn line sm">
+                Ir a Mi negocio
               </Link>
             </div>
-            <form action={updateBillingProfileAction}>
-              <div className="vpa-form">
-                <label className="vpa-fld">
-                  <span>Razón social</span>
-                  <input className="vpa-inp" name="legalName" maxLength={191} defaultValue={billingProfile?.legalName ?? ""} />
-                </label>
-                <label className="vpa-fld">
-                  <span>CUIT</span>
-                  <input className="vpa-inp" name="taxId" maxLength={191} defaultValue={billingProfile?.taxId ?? ""} />
-                </label>
-                <label className="vpa-fld">
-                  <span>Condición frente al IVA</span>
-                  <input className="vpa-inp" name="taxCondition" maxLength={191} defaultValue={billingProfile?.taxCondition ?? ""} />
-                </label>
-                <label className="vpa-fld">
-                  <span>Domicilio fiscal</span>
-                  <input className="vpa-inp" name="fiscalAddress" maxLength={191} defaultValue={billingProfile?.fiscalAddress ?? ""} />
-                </label>
-              </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-                <button className="vpa-btn acc">Guardar</button>
-              </div>
-            </form>
           </section>
         </>
       ) : null}

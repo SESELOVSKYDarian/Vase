@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
+import { isVaseUploadUrl } from "@/lib/storage/vase-uploads";
 
 function normalize(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
@@ -56,26 +57,14 @@ export async function updateProfileNameAction(formData: FormData) {
   revalidatePath("/app", "layout");
 }
 
-function uploadsOrigin() {
-  return new URL(process.env.UPLOADS_BASE_URL || "https://uploads.vase.ar").origin;
-}
-
-const MAX_AVATAR_URL_LENGTH = 2048;
-
 /** Solo acepta fotos guardadas en uploads.vase.ar: nunca una dirección cualquiera. */
 export async function saveAvatarAction(url: string): Promise<{ ok: boolean; message: string }> {
   const { session } = await requireTenantRole(tenantRoles.MEMBER);
-  let parsed: URL;
-  try {
-    parsed = new URL(String(url ?? ""));
-  } catch {
-    return { ok: false, message: "No pudimos guardar la foto." };
-  }
-  if (parsed.protocol !== "https:" || parsed.origin !== uploadsOrigin() || parsed.href.length > MAX_AVATAR_URL_LENGTH) {
+  if (!isVaseUploadUrl(url)) {
     return { ok: false, message: "No pudimos guardar la foto." };
   }
 
-  await prisma.user.update({ where: { id: session.user.id }, data: { avatarUrl: parsed.href } });
+  await prisma.user.update({ where: { id: session.user.id }, data: { avatarUrl: url } });
   revalidatePath("/app", "layout");
   return { ok: true, message: "Foto guardada." };
 }

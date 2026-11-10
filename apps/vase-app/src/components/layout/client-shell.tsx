@@ -7,11 +7,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type PropsWithChildren,
 } from "react";
-import { Bell, Check, CircleHelp, ClipboardCheck, CreditCard, Home, LayoutGrid, Users, X } from "lucide-react";
+import { ArrowUp, Bell, Check, CircleHelp, ClipboardCheck, CreditCard, Home, LayoutGrid, Users, X } from "lucide-react";
 import { signOutAction } from "@/app/(auth)/actions";
 import {
   dismissNotificationsAction,
@@ -289,6 +290,26 @@ export function ClientShell({
   const [accountOpen, setAccountOpen] = useState(false);
   const [drawer, setDrawer] = useState<"notas" | "ayuda" | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const bodyRef = useRef<HTMLElement>(null);
+  const [showTop, setShowTop] = useState(false);
+
+  // En pantallas anchas scrollea el contenido; en el celular, la página entera.
+  useEffect(() => {
+    const body = bodyRef.current;
+    const update = () => setShowTop(Math.max(body?.scrollTop ?? 0, window.scrollY) > 400);
+    body?.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("scroll", update, { passive: true });
+    return () => {
+      body?.removeEventListener("scroll", update);
+      window.removeEventListener("scroll", update);
+    };
+  }, []);
+
+  const scrollToTop = () => {
+    const smooth = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    bodyRef.current?.scrollTo({ top: 0, behavior: smooth });
+    window.scrollTo({ top: 0, behavior: smooth });
+  };
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -390,10 +411,16 @@ export function ClientShell({
                 <CircleHelp size={18} aria-hidden="true" />
               </button>
             </header>
-            <main className="vpa-body" id="main-content">
+            <main className="vpa-body" id="main-content" ref={bodyRef}>
               <div className="vpa-wrap">{children}</div>
             </main>
           </div>
+
+          {showTop ? (
+            <button type="button" className="vpa-totop" aria-label="Volver arriba" onClick={scrollToTop}>
+              <ArrowUp size={18} aria-hidden="true" />
+            </button>
+          ) : null}
 
           {drawer === "notas" ? (
             <NotificationsDrawer notifications={notifications} onClose={() => setDrawer(null)} />

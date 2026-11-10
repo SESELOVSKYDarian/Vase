@@ -100,7 +100,7 @@ export const PANEL_HELP: Record<PanelSectionId, PanelHelp> = {
     intro: "Acá cambiás tus datos y los de tu negocio.",
     steps: [
       "En Mi perfil cambiás tu nombre y elegís modo claro u oscuro.",
-      "En Tu negocio cambiás los datos con los que Vase te factura.",
+      "En Mi negocio cargás logo, contacto, sucursales y datos fiscales: los usan todos tus productos.",
       "En Facturación guardás tus tarjetas y los datos de tus facturas.",
     ],
   },
