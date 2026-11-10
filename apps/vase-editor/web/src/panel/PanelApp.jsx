@@ -182,7 +182,7 @@ export default function PanelApp() {
     };
 
     const openNotifications = () => { setNotesOpen(true); notifications.refresh?.(); };
-    const status = { dirty: autosave.unpublished, cloud: autosave.cloud, text: autosave.unpublished ? 'Cambios sin publicar' : 'Todo publicado' };
+    const status = { dirty: autosave.unpublished, cloud: autosave.cloud, history: autosave.history, toast: addToast, theme, text: autosave.unpublished ? 'Cambios sin publicar' : 'Todo publicado' };
     const vaseUrl = String(import.meta.env.VITE_VASE_APP_URL || 'https://app.vase.ar').replace(/\/+$/, '');
 
     // Pantallas que arman su propio diseño (pestañas a todo el ancho y barra lateral derecha).

@@ -16,6 +16,7 @@ import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/pric
 import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
 import { normalizeTenantSettingsWritePayload } from '../services/tenantSettingsPayload.js';
 import { clearEditorDraft, normalizeEditorDraft, readEditorDraft, writeEditorDraft } from '../services/editorDraft.js';
+import { addEditorHistory, listEditorHistory, normalizeHistoryEntry, readEditorHistoryEntry } from '../services/editorHistory.js';
 import { ensureProductSyncToken } from '../services/productSyncCredentials.js';
 import {
   buildTenantDomainsPayload as buildTenantDomainsPayloadService,
@@ -660,6 +661,41 @@ tenantRouter.delete('/editor-draft', async (req, res, next) => {
   try {
     await clearEditorDraft(tenantId);
     return res.json({ ok: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Historial: los últimos puntos para volver atrás en el diseño.
+tenantRouter.get('/editor-history', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    return res.json({ entries: await listEditorHistory(tenantId) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+tenantRouter.post('/editor-history', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    return res.json({ entry: await addEditorHistory(tenantId, normalizeHistoryEntry(req.body)) });
+  } catch (err) {
+    if (err && err.code === '23503') return res.status(404).json({ error: 'tenant_not_found' });
+    return next(err);
+  }
+});
+
+tenantRouter.get('/editor-history/:id', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: 'not_found' });
+  try {
+    const entry = await readEditorHistoryEntry(tenantId, req.params.id);
+    if (!entry) return res.status(404).json({ error: 'not_found' });
+    return res.json({ entry });
   } catch (err) {
     return next(err);
   }

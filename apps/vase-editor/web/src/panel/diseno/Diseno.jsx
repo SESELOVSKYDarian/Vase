@@ -1,3 +1,4 @@
+import HistoryButton from '../components/HistoryButton';
 import CloudStatus from '../components/CloudStatus';
 import React, { useEffect, useMemo, useState } from 'react';
 import ResponsivePreviewFrame from '../../components/admin/evolution/ResponsivePreviewFrame';
@@ -123,7 +124,8 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                         </div>
                     </div>
                 ) : null}
-                <CloudStatus cloud={status.cloud} unpublished={status.dirty} />
+                {status.history ? <HistoryButton history={status.history} theme={status.theme} toast={status.toast} /> : null}
+            <CloudStatus cloud={status.cloud} unpublished={status.dirty} />
                 <button type="button" className="vp-btn acc" onClick={onPublish} disabled={publishing}>{publishing ? 'Publicando…' : 'Publicar'}</button>
                 <button type="button" className="vp-ibtn" onClick={onNotifications} aria-label={`Avisos: ${badges.total || 0}`}>
                     <Icon name="bell" size={17} />

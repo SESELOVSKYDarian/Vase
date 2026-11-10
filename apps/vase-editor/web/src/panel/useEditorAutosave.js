@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAdminTenantHeaders, getApiBase } from '../utils/api';
+import { changedParts, historySummary, shouldCheckpoint } from './history';
 
 const SAVE_DELAY_MS = 1500;
 
@@ -15,7 +16,8 @@ async function authHeaders(user) {
     return { ...tenantHeaders, 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 }
 
-const snapshot = (editor) => JSON.stringify({ settings: editor.settings, pages: editor.pageSections });
+const state = (editor) => ({ settings: editor.settings, pages: { home: editor.pageSections?.home || [], about: editor.pageSections?.about || [] } });
+const snapshot = (editor) => JSON.stringify(state(editor));
 
 /**
  * Guarda solo, en la nube, lo que se edita del diseño: los ajustes van a un borrador y las páginas a
@@ -29,6 +31,44 @@ export function useEditorAutosave(editor, user) {
     const baselineRef = useRef(null);
     const lastSavedRef = useRef(null);
     const timerRef = useRef(null);
+    const savedStateRef = useRef(null);
+    const lastCheckpointRef = useRef(null);
+    const [entries, setEntries] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+
+    const refreshHistory = useCallback(async () => {
+        setHistoryLoading(true);
+        try {
+            const headers = await authHeaders(user);
+            if (!headers) return [];
+            const response = await fetch(`${getApiBase()}/tenant/editor-history`, { headers });
+            const payload = response.ok ? await response.json() : { entries: [] };
+            const list = Array.isArray(payload.entries) ? payload.entries : [];
+            setEntries(list);
+            if (list[0]?.created_at) lastCheckpointRef.current = Math.max(lastCheckpointRef.current || 0, new Date(list[0].created_at).getTime());
+            return list;
+        } catch {
+            return [];
+        } finally {
+            setHistoryLoading(false);
+        }
+    }, [user]);
+
+    const checkpoint = useCallback(async (snapshotState, summary) => {
+        if (!snapshotState) return;
+        lastCheckpointRef.current = Date.now();
+        try {
+            const headers = await authHeaders(user);
+            if (!headers) return;
+            await fetch(`${getApiBase()}/tenant/editor-history`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ ...snapshotState, summary }),
+            });
+        } catch {
+            // el historial es una ayuda: si no se guarda, la edición sigue igual
+        }
+    }, [user]);
 
     // Al entrar por primera vez se recupera el borrador guardado, si quedó uno sin publicar.
     useEffect(() => {
@@ -42,6 +82,7 @@ export function useEditorAutosave(editor, user) {
                 const response = await fetch(`${getApiBase()}/tenant/editor-draft`, { headers });
                 const payload = response.ok ? await response.json() : null;
                 if (cancelled) return;
+                refreshHistory();
                 if (payload?.draft?.settings) {
                     editor.setSettings((prev) => ({ ...prev, ...payload.draft.settings }));
                     setUnpublished(true);
@@ -76,6 +117,7 @@ export function useEditorAutosave(editor, user) {
             })));
             if (!settingsRes.ok || pageResults.some((response) => !response.ok)) throw new Error('save_failed');
             lastSavedRef.current = current;
+            savedStateRef.current = JSON.parse(current);
             setCloud('saved');
         } catch {
             setCloud(typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'error');
@@ -88,10 +130,16 @@ export function useEditorAutosave(editor, user) {
         if (baselineRef.current === null) {
             baselineRef.current = current;
             lastSavedRef.current = current;
+            savedStateRef.current = state(editor);
             return;
         }
         if (current === lastSavedRef.current) return;
         setUnpublished(true);
+        // Primer cambio después de un rato: se guarda cómo estaba, para poder volver.
+        if (shouldCheckpoint(lastCheckpointRef.current)) {
+            const before = savedStateRef.current;
+            checkpoint(before, historySummary(changedParts(before, state(editor))));
+        }
         window.clearTimeout(timerRef.current);
         timerRef.current = window.setTimeout(() => save(current), SAVE_DELAY_MS);
         return () => window.clearTimeout(timerRef.current);
@@ -113,6 +161,8 @@ export function useEditorAutosave(editor, user) {
     const markPublished = useCallback(async () => {
         window.clearTimeout(timerRef.current);
         lastSavedRef.current = snapshot(editor);
+        savedStateRef.current = state(editor);
+        checkpoint(state(editor), 'Versión publicada');
         setUnpublished(false);
         setCloud('saved');
         try {
@@ -121,7 +171,30 @@ export function useEditorAutosave(editor, user) {
         } catch {
             // si falla, el próximo publicar lo vuelve a intentar
         }
-    }, [editor, user]);
+    }, [checkpoint, editor, user]);
 
-    return { cloud, unpublished, markPublished };
+    // Volver a un punto: antes se guarda cómo está ahora, así también se puede deshacer.
+    const restore = useCallback(async (id) => {
+        try {
+            const headers = await authHeaders(user);
+            if (!headers) return false;
+            const response = await fetch(`${getApiBase()}/tenant/editor-history/${encodeURIComponent(id)}`, { headers });
+            if (!response.ok) return false;
+            const { entry } = await response.json();
+            await checkpoint(state(editor), 'Antes de volver atrás');
+            editor.setSettings((prev) => ({ ...prev, ...(entry.settings || {}) }));
+            editor.setPageSections((prev) => ({ ...prev, home: entry.pages?.home || [], about: entry.pages?.about || [] }));
+            refreshHistory();
+            return true;
+        } catch {
+            return false;
+        }
+    }, [checkpoint, editor, refreshHistory, user]);
+
+    return {
+        cloud,
+        unpublished,
+        markPublished,
+        history: { entries, loading: historyLoading, refresh: refreshHistory, restore },
+    };
 }
