@@ -25,6 +25,7 @@ import Icon from './components/Icon';
 import Notifications from './components/Notifications';
 import AjustesDominio from './screens/AjustesDominio';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
+import { useEditorAutosave } from './useEditorAutosave';
 // Último: los ajustes para celular le ganan a los estilos de cada pantalla.
 import './mobile.css';
 
@@ -123,6 +124,7 @@ export default function PanelApp() {
     const { addToast } = useToast();
     const editor = useEditorState(user);
     const notifications = useNotificationsManager();
+    const autosave = useEditorAutosave(editor, user);
 
     const [path, setPath] = useState(window.location.pathname);
     const [theme, setThemeState] = useState(initialTheme);
@@ -172,6 +174,7 @@ export default function PanelApp() {
     const publish = async () => {
         const result = await editor.handleSaveAll();
         if (result?.success) {
+            if (result.published) await autosave.markPublished();
             addToast(result.published ? 'Cambios publicados en la tienda' : 'Guardado como borrador', 'success');
         } else {
             addToast(`No se pudo publicar: ${result?.details || result?.error || 'error desconocido'}`, 'error');
@@ -179,7 +182,7 @@ export default function PanelApp() {
     };
 
     const openNotifications = () => { setNotesOpen(true); notifications.refresh?.(); };
-    const status = editor.canUndo ? { dirty: true, text: 'Cambios sin publicar' } : { dirty: false, text: 'Todo publicado' };
+    const status = { dirty: autosave.unpublished, cloud: autosave.cloud, text: autosave.unpublished ? 'Cambios sin publicar' : 'Todo publicado' };
     const vaseUrl = String(import.meta.env.VITE_VASE_APP_URL || 'https://app.vase.ar').replace(/\/+$/, '');
 
     // Pantallas que arman su propio diseño (pestañas a todo el ancho y barra lateral derecha).

@@ -1,3 +1,4 @@
+import CloudStatus from '../components/CloudStatus';
 import React, { useEffect, useMemo, useState } from 'react';
 import ResponsivePreviewFrame from '../../components/admin/evolution/ResponsivePreviewFrame';
 import CatalogPageEditor from '../../components/admin/evolution/CatalogPageEditor';
@@ -122,7 +123,7 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                         </div>
                     </div>
                 ) : null}
-                <span className="vp-status" role="status"><i className={status.dirty ? '' : 'ok'} />{status.text}</span>
+                <CloudStatus cloud={status.cloud} unpublished={status.dirty} />
                 <button type="button" className="vp-btn acc" onClick={onPublish} disabled={publishing}>{publishing ? 'Publicando…' : 'Publicar'}</button>
                 <button type="button" className="vp-ibtn" onClick={onNotifications} aria-label={`Avisos: ${badges.total || 0}`}>
                     <Icon name="bell" size={17} />

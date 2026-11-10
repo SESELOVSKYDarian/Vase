@@ -15,6 +15,7 @@ import { buildTenantIntegrationManifest, resolveServerBaseUrl } from '../service
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
 import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
 import { normalizeTenantSettingsWritePayload } from '../services/tenantSettingsPayload.js';
+import { clearEditorDraft, normalizeEditorDraft, readEditorDraft, writeEditorDraft } from '../services/editorDraft.js';
 import { ensureProductSyncToken } from '../services/productSyncCredentials.js';
 import {
   buildTenantDomainsPayload as buildTenantDomainsPayloadService,
@@ -625,6 +626,40 @@ tenantRouter.get('/settings', async (req, res, next) => {
     const result = await queryTenantSettingsWithSeo(tenantId);
     const settings = normalizeTenantSettingsPayload(result.rows[0] || { branding: {}, theme: {}, commerce: {} });
     return res.json({ tenant_id: tenantId, settings });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Borrador que guarda solo el panel; la tienda no lo lee hasta Publicar.
+tenantRouter.get('/editor-draft', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    return res.json({ draft: await readEditorDraft(tenantId) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+tenantRouter.put('/editor-draft', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    const saved = await writeEditorDraft(tenantId, normalizeEditorDraft(req.body));
+    return res.json({ ok: true, updated_at: saved?.updated_at || null });
+  } catch (err) {
+    if (err && err.code === '23503') return res.status(404).json({ error: 'tenant_not_found' });
+    return next(err);
+  }
+});
+
+tenantRouter.delete('/editor-draft', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    await clearEditorDraft(tenantId);
+    return res.json({ ok: true });
   } catch (err) {
     return next(err);
   }

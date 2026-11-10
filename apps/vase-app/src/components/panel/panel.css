@@ -328,6 +328,28 @@
 .vpa-acc2-body { padding: 16px 18px 18px; }
 .vpa-form3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
+/* nube y redes */
+.vpa-cloud { position: relative; display: inline-flex; }
+.vpa-cloud.saved .vpa-ib { color: var(--acc-tx); }
+.vpa-cloud.saving .vpa-ib { color: var(--mut); }
+.vpa-cloud.error .vpa-ib, .vpa-cloud.offline .vpa-ib { color: var(--red); }
+.vpa-cloud-tip { display: none; position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; width: 260px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--sh-lg); flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--mut); font-weight: 600; line-height: 1.4; }
+.vpa-cloud-tip b { color: var(--tx); font-weight: 800; font-size: 13px; }
+.vpa-cloud:hover .vpa-cloud-tip, .vpa-cloud:focus-within .vpa-cloud-tip { display: flex; }
+.vpa-saveerr { padding: 10px 14px; border-radius: 12px; background: rgba(240, 68, 56, .1); color: var(--red); font-weight: 700; font-size: 13px; }
+.vpa-socials { display: flex; flex-direction: column; gap: 8px; }
+.vpa-social { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 14px; background: var(--soft); }
+.vpa-social .vpa-g1 b { font-size: 12.5px; font-weight: 800; margin-bottom: 4px; }
+.vpa-social .vpa-inp { height: 34px; }
+.vpa-sicon { width: 36px; height: 36px; border-radius: 11px; display: flex; align-items: center; justify-content: center; color: #fff; flex: none; overflow: hidden; }
+.vpa-sicon.custom { background: var(--active); color: var(--tx); }
+.vpa-sicon img { width: 100%; height: 100%; object-fit: contain; }
+.vpa-addsocial { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; border-radius: 12px; border: 1.5px dashed var(--line2); background: none; font-weight: 800; font-size: 13px; color: var(--mut); cursor: pointer; }
+.vpa-addsocial:hover { border-color: var(--acc); color: var(--acc-tx); background: var(--accsoft); }
+.vpa-netgrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.vpa-netopt { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border-radius: 14px; border: 1.5px solid var(--line); background: none; cursor: pointer; font-size: 12px; font-weight: 700; }
+.vpa-netopt:hover { border-color: var(--acc); background: var(--accsoft); }
+
 /* temas */
 .vpa-themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 560px; }
 .vpa-theme { display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: 18px; border: 1.5px solid var(--line); cursor: pointer; background: none; text-align: left; }
@@ -391,6 +413,7 @@
   .vpa-body { padding: 16px; overflow: visible; }
   .vpa-tw.free { overflow-x: auto; }
   .vpa-totop { position: fixed; }
+  .vpa-netgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .vpa-bizgrid, .vpa-branches, .vpa-form3, .vpa-acc2 > summary .vpa-uses,
   .vpa-wgrid, .vpa-flow,
   .vpa-tiles, .vpa-pgrid, .vpa-payhero, .vpa-cplans, .vpa-form, .vpa-themes, .vpa-g2, .vpa-two { grid-template-columns: minmax(0, 1fr); }

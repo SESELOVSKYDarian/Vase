@@ -2819,6 +2819,7 @@ model TenantBusinessInfo {
   facebook  String?
   tiktok    String?
   youtube   String?
+  socialLinks Json?
   hours     String?
   timezone  String   @default("America/Argentina/Buenos_Aires")
   currency  String   @default("ARS")

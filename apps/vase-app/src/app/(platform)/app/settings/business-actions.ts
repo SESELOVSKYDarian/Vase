@@ -6,6 +6,7 @@ import { BUSINESS_PROFILE_FIELDS, MAX_BRANCHES, branchSchema, businessProfileSch
 import { prisma } from "@/lib/db/prisma";
 import { sanitizeText } from "@/lib/security/sanitize";
 import { isVaseUploadUrl } from "@/lib/storage/vase-uploads";
+import { socialColumns, socialLinksSchema } from "@/lib/business/social-links";
 import { createAuditLog } from "@/server/services/audit-log";
 
 export type BusinessActionResult = { ok: boolean; message: string };
@@ -29,8 +30,19 @@ export async function updateBusinessProfileAction(
     if (!parsed.success) {
       return { ok: false, message: parsed.error.issues[0]?.message ?? "Revisá los datos." };
     }
+    let rawLinks: unknown = [];
+    try {
+      rawLinks = JSON.parse(String(formData.get("socialLinks") ?? "[]"));
+    } catch {
+      return { ok: false, message: "Revisá el link de tus redes." };
+    }
+    const links = socialLinksSchema((value) => isVaseUploadUrl(value)).safeParse(rawLinks);
+    if (!links.success) {
+      return { ok: false, message: links.error.issues[0]?.message ?? "Revisá el link de tus redes." };
+    }
 
-    const { name, industry, legalName, taxId, taxCondition, fiscalAddress, city, province, postalCode, ...contact } = parsed.data;
+    const { name, industry, legalName, taxId, taxCondition, fiscalAddress, city, province, postalCode, ...rest } = parsed.data;
+    const contact = { ...rest, ...socialColumns(links.data), socialLinks: links.data };
     const tenantId = membership.tenantId;
     await prisma.$transaction([
       prisma.tenant.update({ where: { id: tenantId }, data: { name, industry } }),

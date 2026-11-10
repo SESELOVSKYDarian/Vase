@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import {
@@ -11,6 +11,9 @@ import {
 } from "@/app/(platform)/app/settings/business-actions";
 import { CURRENCIES, PROFILE_USES, TIMEZONES, sectionSummary } from "@/lib/business/business-profile";
 import { ChevronDown } from "lucide-react";
+import { useAutosave, useSaveStatus } from "@/components/layout/save-status";
+import { SocialLinksEditor } from "@/components/panel/social-links-editor";
+import type { SocialLink } from "@/lib/business/social-links";
 import { MAX_IMAGE_INPUT_BYTES, toSquareWebp, uploadPublicImage } from "@/components/panel/upload-image";
 
 export type ProfileValues = {
@@ -20,8 +23,6 @@ export type ProfileValues = {
   timezone: string;
   currency: string;
   hours: string;
-  tiktok: string;
-  youtube: string;
   city: string;
   province: string;
   postalCode: string;
@@ -29,8 +30,6 @@ export type ProfileValues = {
   whatsapp: string;
   email: string;
   website: string;
-  instagram: string;
-  facebook: string;
   legalName: string;
   taxId: string;
   taxCondition: string;
@@ -155,6 +154,7 @@ function Section({
 
 function LogoPicker({ name, logoUrl, readOnly }: { name: string; logoUrl: string | null; readOnly: boolean }) {
   const router = useRouter();
+  const { report } = useSaveStatus();
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -169,7 +169,9 @@ function LogoPicker({ name, logoUrl, readOnly }: { name: string; logoUrl: string
     startTransition(async () => {
       try {
         const url = await uploadPublicImage(await toSquareWebp(file, 512, "contain", "logo"));
+        report("saving");
         const result = await saveBusinessLogoAction(url);
+        report(result.ok ? "saved" : "error", result.ok ? null : result.message);
         if (!result.ok) setError(result.message);
         router.refresh();
       } catch {
@@ -280,15 +282,32 @@ function BranchDialog({ branch, onClose }: { branch: ProfileBranch | null; onClo
 export function BusinessProfile({
   values,
   logoUrl,
+  socialLinks,
   branches,
   canEdit,
 }: {
   values: ProfileValues;
   logoUrl: string | null;
+  socialLinks: SocialLink[];
   branches: ProfileBranch[];
   canEdit: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(updateBusinessProfileAction, null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [links, setLinks] = useState<SocialLink[]>(socialLinks);
+  const linksTouched = useRef(false);
+  const { state: cloudState, message: cloudMessage } = useSaveStatus();
+  const save = useCallback(async (data: FormData) => (await updateBusinessProfileAction(null, data)) ?? { ok: false }, []);
+  const schedule = useAutosave(save);
+  const queueSave = useCallback(() => {
+    if (!canEdit || !formRef.current) return;
+    schedule(new FormData(formRef.current));
+  }, [canEdit, schedule]);
+
+  // Las redes no son campos del formulario: al cambiarlas también se guarda solo.
+  useEffect(() => {
+    if (!linksTouched.current) return;
+    queueSave();
+  }, [links, queueSave]);
   const [editing, setEditing] = useState<ProfileBranch | null | "new">(null);
   const [confirmDelete, setConfirmDelete] = useState<ProfileBranch | null>(null);
   const [branchError, setBranchError] = useState<string | null>(null);
@@ -302,7 +321,13 @@ export function BusinessProfile({
         <span>{canEdit ? "Si cambiás algo acá, se actualiza en todos lados." : "Solo el Dueño de la cuenta puede cambiar estos datos."}</span>
       </div>
 
-      <form action={formAction} className="vpa-bizlist">
+      {canEdit && cloudState === "error" && cloudMessage ? (
+        <p role="alert" className="vpa-saveerr">
+          No se guardó: {cloudMessage}
+        </p>
+      ) : null}
+      <form ref={formRef} className="vpa-bizlist" onChange={queueSave} onSubmit={(event) => event.preventDefault()}>
+        <input type="hidden" name="socialLinks" value={JSON.stringify(links)} />
         <Section
           wide
           title="Identidad"
@@ -323,7 +348,7 @@ export function BusinessProfile({
 
         <Section
           title="Contacto y redes"
-          summary={sectionSummary([values.phone || values.whatsapp, values.email, values.instagram])}
+          summary={sectionSummary([values.phone || values.whatsapp, values.email, links.length ? `${links.length} red${links.length === 1 ? "" : "es"}` : null])}
           uses={PROFILE_USES.contact}
         >
           <div className="vpa-form">
@@ -332,10 +357,14 @@ export function BusinessProfile({
             <Field label="Correo" name="email" type="email" value={values.email} readOnly={readOnly} />
             <Field label="Sitio web" name="website" value={values.website} readOnly={readOnly} />
             <Field label="Horario de atención" name="hours" value={values.hours} readOnly={readOnly} wide placeholder="Lunes a viernes de 9 a 18" />
-            <Field label="Instagram" name="instagram" value={values.instagram} readOnly={readOnly} placeholder="@tu-negocio" />
-            <Field label="Facebook" name="facebook" value={values.facebook} readOnly={readOnly} />
-            <Field label="TikTok" name="tiktok" value={values.tiktok} readOnly={readOnly} />
-            <Field label="YouTube" name="youtube" value={values.youtube} readOnly={readOnly} />
+            <SocialLinksEditor
+              links={links}
+              readOnly={readOnly}
+              onChange={(next) => {
+                linksTouched.current = true;
+                setLinks(next);
+              }}
+            />
           </div>
         </Section>
 
@@ -355,20 +384,6 @@ export function BusinessProfile({
           </div>
         </Section>
 
-        {canEdit ? (
-          <div className="vpa-savebar vpa-span2">
-            {state ? (
-              <span role="status" style={{ color: state.ok ? "var(--acc-tx)" : "var(--red)" }}>
-                {state.message}
-              </span>
-            ) : (
-              <span className="vpa-mut">Abrí una sección, cambiá lo que necesites y tocá Guardar.</span>
-            )}
-            <button type="submit" className="vpa-btn acc" disabled={pending}>
-              {pending ? "Guardando..." : "Guardar cambios"}
-            </button>
-          </div>
-        ) : null}
       </form>
 
       <Section

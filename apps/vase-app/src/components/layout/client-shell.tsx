@@ -19,6 +19,7 @@ import {
   markAllNotificationsAsReadAction,
 } from "@/app/(platform)/app/notifications-actions";
 import { NavLink } from "@/components/layout/nav-link";
+import { CloudButton, SaveStatusProvider } from "@/components/layout/save-status";
 import { DashboardSupportWidget } from "@/components/support/dashboard-support-widget";
 import { SupportChatProvider } from "@/components/support/support-chat-context";
 import {
@@ -331,6 +332,7 @@ export function ClientShell({
   return (
     <SupportChatProvider>
       <PanelThemeContext.Provider value={themeValue}>
+        <SaveStatusProvider>
         <div className="vpa">
           <aside className="vpa-side" aria-label="Menú">
             <div className="vpa-logo">
@@ -398,6 +400,7 @@ export function ClientShell({
                 <div className="vpa-sub">{subtitle}</div>
               </div>
               <div className="vpa-sp" />
+              <CloudButton />
               <button type="button" className="vpa-ib" aria-label="Notificaciones" onClick={() => setDrawer("notas")}>
                 <Bell size={18} aria-hidden="true" />
                 {unread > 0 ? <span className="n">{unread}</span> : null}
@@ -446,6 +449,7 @@ export function ClientShell({
             </div>
           ) : null}
         </div>
+        </SaveStatusProvider>
         <DashboardSupportWidget hideLauncher />
       </PanelThemeContext.Provider>
     </SupportChatProvider>

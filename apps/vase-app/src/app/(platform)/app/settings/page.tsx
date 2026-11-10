@@ -7,14 +7,13 @@ import { AvatarUploader } from "@/components/panel/avatar-uploader";
 import { ThemePicker } from "@/components/panel/theme-picker";
 import { BusinessProfile } from "@/components/panel/business-profile";
 import { DEFAULT_CURRENCY, DEFAULT_TIMEZONE } from "@/lib/business/business-profile";
+import { legacySocialLinks, type SocialLink } from "@/lib/business/social-links";
+import { ProfileNameField } from "@/components/panel/profile-name-field";
 import { DeleteAccountDanger } from "@/components/settings/delete-account-danger";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 import { isMercadoPagoConfigured, listSavedCards, mercadoPagoPublicKey } from "@/server/services/mercadopago";
-import {
-  updateProfileNameAction,
-} from "@/app/(platform)/app/settings/actions";
 
 const TABS = [
   { id: "perfil", label: "Mi perfil" },
@@ -106,21 +105,9 @@ export default async function SettingsPage({
               </div>
             </div>
             <AvatarUploader name={session.user.name ?? ""} avatarUrl={profile?.avatarUrl ?? null} />
-            <form action={updateProfileNameAction} style={{ marginTop: 16 }}>
-              <div className="vpa-form">
-                <label className="vpa-fld">
-                  <span>Nombre</span>
-                  <input className="vpa-inp" name="name" required defaultValue={session.user.name ?? ""} />
-                </label>
-                <label className="vpa-fld">
-                  <span>Correo</span>
-                  <input className="vpa-inp" readOnly value={session.user.email ?? ""} />
-                </label>
-              </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-                <button className="vpa-btn acc">Guardar</button>
-              </div>
-            </form>
+            <div style={{ marginTop: 16 }}>
+              <ProfileNameField name={session.user.name ?? ""} email={session.user.email ?? ""} />
+            </div>
             <div className="vpa-hrow" style={{ marginTop: 14 }}>
               <div className="vpa-g1">
                 <b>Contraseña</b>
@@ -148,6 +135,16 @@ export default async function SettingsPage({
         <BusinessProfile
           canEdit={isOwner}
           logoUrl={businessInfo?.logoUrl ?? null}
+          socialLinks={
+            Array.isArray(businessInfo?.socialLinks)
+              ? (businessInfo.socialLinks as unknown as SocialLink[])
+              : legacySocialLinks({
+                  instagram: businessInfo?.instagram,
+                  facebook: businessInfo?.facebook,
+                  tiktok: businessInfo?.tiktok,
+                  youtube: businessInfo?.youtube,
+                })
+          }
           values={{
             name: membership.tenant.name,
             industry: membership.tenant.industry,
@@ -155,8 +152,6 @@ export default async function SettingsPage({
             timezone: businessInfo?.timezone ?? DEFAULT_TIMEZONE,
             currency: businessInfo?.currency ?? DEFAULT_CURRENCY,
             hours: businessInfo?.hours ?? "",
-            tiktok: businessInfo?.tiktok ?? "",
-            youtube: businessInfo?.youtube ?? "",
             city: negocioBilling?.city ?? "",
             province: negocioBilling?.province ?? "",
             postalCode: negocioBilling?.postalCode ?? "",
@@ -164,8 +159,6 @@ export default async function SettingsPage({
             whatsapp: businessInfo?.whatsapp ?? "",
             email: businessInfo?.email ?? "",
             website: businessInfo?.website ?? "",
-            instagram: businessInfo?.instagram ?? "",
-            facebook: businessInfo?.facebook ?? "",
             legalName: negocioBilling?.legalName ?? "",
             taxId: negocioBilling?.taxId ?? "",
             taxCondition: negocioBilling?.taxCondition ?? "",

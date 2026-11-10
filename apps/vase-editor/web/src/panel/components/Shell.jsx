@@ -1,3 +1,4 @@
+import CloudStatus from './CloudStatus';
 import React, { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import { Modal } from './Overlays';
@@ -127,7 +128,7 @@ export function Topbar({ title, subtitle, crumb, onBack, status, onPublish, publ
                 {subtitle ? <div className="vp-sub">{subtitle}</div> : null}
             </div>
             <div className="vp-sp" />
-            <span className="vp-status" role="status"><i className={status.dirty ? '' : 'ok'} />{status.text}</span>
+            <CloudStatus cloud={status.cloud} unpublished={status.dirty} />
             <button type="button" className="vp-btn acc" onClick={onPublish} disabled={publishing}>{publishing ? 'Publicando…' : 'Publicar'}</button>
             <button type="button" className="vp-ibtn" onClick={onNotifications} aria-label={`Avisos: ${badges.total || 0}`}>
                 <Icon name="bell" size={17} />
