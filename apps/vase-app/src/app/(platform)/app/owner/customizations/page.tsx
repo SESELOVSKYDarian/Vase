@@ -102,7 +102,7 @@ export default async function OwnerCustomizationsPage() {
             ...(pendingClient ? { next: "El presupuesto lo revisa el Dueño", state: "Esperando al Dueño" } : {}),
           },
       awaitingOwner: pendingClient && !isOwner,
-      detail: pendingClient && request.quote ? `Entrega estimada en ${request.quote.estimatedDeliveryDays} días` : "",
+      detail: pendingClient && request.quote ? `Entrega estimada en ${request.quote.estimatedDeliveryDays} días` : request.quotedPriceLabel ?? "",
       meetings: request.meetings.map((meeting) => ({
         id: meeting.id,
         type: meeting.type,

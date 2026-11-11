@@ -51,6 +51,7 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
     const pending = clients.filter((client) => client.status === 'pending').length;
     // Sin ajuste cargado se aprueba a mano, como siempre.
     const manualApproval = commerce.manual_approval !== false;
+    const autoWholesale = commerce.auto_approve_wholesale === true;
     const updateCommerce = (patch) => editor.setSettings((prev) => ({ ...prev, commerce: { ...(prev?.commerce || {}), ...patch } }));
     const setDraft = (id, patch) => setDrafts((all) => ({ ...all, [id]: { ...all[id], ...patch } }));
     const dirtyLists = lists.filter((list) => listDirty(list, drafts[list.id]));
@@ -133,10 +134,21 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                             <b>Aprobar clientes nuevos a mano</b>
                             <span>{manualApproval
                                 ? 'Cada cuenta nueva espera que la apruebes antes de poder entrar.'
-                                : 'Los minoristas entran solos apenas verifican su correo. Los mayoristas siempre esperan tu aprobación.'}</span>
+                                : autoWholesale
+                                    ? 'Todos entran solos apenas verifican su correo, también los mayoristas.'
+                                    : 'Los minoristas entran solos apenas verifican su correo. Los mayoristas esperan tu aprobación.'}</span>
                         </div>
                         <button type="button" role="switch" aria-checked={manualApproval} aria-label="Aprobar clientes nuevos a mano" className={`vp-tog ${manualApproval ? '' : 'off'}`} onClick={() => updateCommerce({ manual_approval: !manualApproval })} />
                     </div>
+                    {!manualApproval ? (
+                        <div className="vp-row">
+                            <div className="g">
+                                <b>Los mayoristas también entran solos</b>
+                                <span>Van a ver los precios mayoristas sin que revises su cuenta.</span>
+                            </div>
+                            <button type="button" role="switch" aria-checked={autoWholesale} aria-label="Los mayoristas también entran solos" className={autoWholesale ? 'vp-tog' : 'vp-tog off'} onClick={() => updateCommerce({ auto_approve_wholesale: !autoWholesale })} />
+                        </div>
+                    ) : null}
                     {pending ? (
                         <div className="vp-lock">
                             Hoy hay {pending} {pending === 1 ? 'cuenta esperando' : 'cuentas esperando'} tu aprobación.

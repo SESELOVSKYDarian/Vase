@@ -2,11 +2,14 @@ import { pool } from '../db.js';
 
 // Aprobación de clientes nuevos. Por defecto (sin ajuste cargado) todos esperan aprobación, como siempre.
 // Si la tienda apaga "Aprobar clientes nuevos a mano" (commerce.manual_approval === false), los minoristas
-// entran solos. Los mayoristas siempre esperan: ven otros precios.
+// entran solos. Los mayoristas también, solo si la tienda lo eligió (commerce.auto_approve_wholesale === true),
+// porque ven otros precios. Los administradores siempre esperan.
 export function initialMembershipStatus(commerce, role) {
   const manual = !commerce || typeof commerce !== 'object' || commerce.manual_approval !== false;
   if (manual) return 'pending';
-  return role === 'retail' ? 'active' : 'pending';
+  if (role === 'retail') return 'active';
+  if (role === 'wholesale' && commerce.auto_approve_wholesale === true) return 'active';
+  return 'pending';
 }
 
 export async function resolveInitialMembershipStatus(tenantId, role) {
