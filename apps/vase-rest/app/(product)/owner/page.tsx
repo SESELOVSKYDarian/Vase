@@ -1,3 +1,4 @@
+import { Bike, Building2, FileWarning, MonitorSmartphone, Server, Users } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -21,27 +22,48 @@ export default async function OwnerDashboard({
     now,
   } = await loadOwnerDashboard(query);
 
+  const kpis = [
+    { icon: Building2, label: "Sucursales", value: branches.length, note: `de ${context.entitlement.limits.branches} de tu plan`, tone: "up", href: "/owner/settings/scopes" },
+    { icon: Users, label: "Equipo activo", value: staff, note: `de ${context.entitlement.limits.localEmployees} de tu plan`, tone: "up", href: "/owner/staff" },
+    { icon: MonitorSmartphone, label: "Dispositivos", value: devices, note: `de ${context.entitlement.limits.devices} de tu plan`, tone: "up", href: "/owner/settings/devices" },
+    { icon: Server, label: "Sucursales con alertas", value: unhealthyEdges.length, note: unhealthyEdges.length ? "revisá la lista de abajo" : "todo en orden", tone: unhealthyEdges.length ? "dn" : "up", href: "/owner/settings/devices" },
+    { icon: FileWarning, label: "Facturas por revisar", value: fiscalIssues, note: fiscalIssues ? "pendientes o rechazadas, 24 h" : "nada pendiente", tone: fiscalIssues ? "dn" : "up", href: "/owner/settings/fiscal" },
+    { icon: Bike, label: "Delivery con problemas", value: deliveryIssues, note: deliveryIssues ? "conexiones con error" : "todo conectado", tone: deliveryIssues ? "dn" : "up", href: "/owner/settings/delivery" },
+  ] as const;
+
   return (
-    <main className="product-content">
+    <main className="product-content with-head">
       <p className="eyebrow">Centro operativo</p>
       <h1>{context.tenantName}</h1>
-      <div className="metric-grid">
-        <article><span>Sucursales</span><strong>{branches.length}</strong><small>de {context.entitlement.limits.branches}</small></article>
-        <article><span>Equipo activo</span><strong>{staff}</strong><small>de {context.entitlement.limits.localEmployees}</small></article>
-        <article><span>Dispositivos</span><strong>{devices}</strong><small>de {context.entitlement.limits.devices}</small></article>
-        <article><span>Edge con alertas</span><strong>{unhealthyEdges.length}</strong><small>de {edges.length}</small></article>
-        <article><span>Fiscal pendiente/rechazado</span><strong>{fiscalIssues}</strong><small>últimas 24 h</small></article>
-        <article><span>Delivery degradado</span><strong>{deliveryIssues}</strong><small>conexiones</small></article>
+      <p className="lede">Así están tus sucursales ahora. Tocá cualquier número para ir al detalle.</p>
+
+      <div className="vr-kpis">
+        {kpis.map(({ icon: Icon, label, value, note, tone, href }) => (
+          <a key={label} className="vr-kpi" href={href}>
+            <span className="vr-kic"><Icon size={19} aria-hidden="true" /></span>
+            <span>
+              <small>{label}</small>
+              <b>{value}</b>
+              <span className={`vr-${tone}`}>{note}</span>
+            </span>
+          </a>
+        ))}
       </div>
+
       <section className="ui-card">
-        <h2>Continuidad por sucursal</h2>
+        <div className="vr-ch">
+          <div><h2>Continuidad por sucursal</h2><small>Cada sucursal trabaja con su servidor local y se sincroniza con la nube.</small></div>
+          <div className="vr-sp" />
+          <a className="button sm" href="/owner/settings/devices">Ver dispositivos</a>
+        </div>
         <div className="branch-list">
           {edges.map((edge) => {
             const stale = !edge.lastSeenAt ||
               now - edge.lastSeenAt.getTime() > 60_000;
+            const tone = stale || edge.lastErrorCode ? "r" : edge.pendingEventCount || edge.failedPrintJobCount ? "y" : "g";
             return <article key={edge.id}>
               <strong>{edge.branch.name}</strong>
-              <code>{stale ? "SIN CONEXIÓN" : edge.status}</code>
+              <code className={`vr-tag ${tone}`}><i />{stale ? "SIN CONEXIÓN" : edge.status}</code>
               <span>
                 Último contacto: {edge.lastSeenAt
                   ? edge.lastSeenAt.toLocaleString("es-AR") : "nunca"}
@@ -51,7 +73,13 @@ export default async function OwnerDashboard({
               {edge.lastErrorCode ? <small>{edge.lastErrorCode}</small> : null}
             </article>;
           })}
-          {!edges.length ? <p>Todavía no hay un Edge enrolado.</p> : null}
+          {!edges.length ? (
+            <div className="vr-empty">
+              <b>Todavía no conectaste ninguna sucursal</b>
+              <span>Instalá Vase Rest Edge en la sucursal para que siga trabajando aunque se corte internet.</span>
+              <a className="button button-primary sm" href="/owner/settings/devices">Conectar una sucursal</a>
+            </div>
+          ) : null}
         </div>
       </section>
     </main>

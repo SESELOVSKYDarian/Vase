@@ -146,7 +146,7 @@ export default function OrderPage({
     return <main className="product-content"><p>{error || "Cargando pedido…"}</p></main>;
   }
   return (
-    <main className="product-content">
+    <main className="product-content with-head">
       <p className="eyebrow">
         {order.orderNumber ? `Comanda #${order.orderNumber}` : "Comanda offline pendiente"}
       </p>

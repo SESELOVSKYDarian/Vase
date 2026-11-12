@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { BrandLogo, ThemeButton } from "@/components/brand";
 
 type Branch = {
   id: string;
@@ -52,6 +53,10 @@ export function OnboardingWorkspace(props: {
 
   return (
     <main className="owner-workspace">
+      <div className="owner-workspace-top">
+        <BrandLogo />
+        <ThemeButton withLabel={false} />
+      </div>
       <header>
         <span className="eyebrow">Configuración inicial · {props.tenantName}</span>
         <h1>Diseñá tu red operativa</h1>
@@ -59,8 +64,10 @@ export function OnboardingWorkspace(props: {
       </header>
       <section className="owner-panel">
         <div>
-          <p className="card-label">Paso 01</p>
+          <p className="card-label">Paso 1 de 1</p>
           <h2>Primera sucursal</h2>
+          <p className="vr-note">Después podés sumar más sucursales, agruparlas y elegir qué comparten.</p>
+          {branches.length ? <a className="button button-primary" href="/owner">Ir al panel →</a> : null}
         </div>
         <form onSubmit={submit}>
           <label>Nombre comercial<input name="name" required minLength={2} /></label>
