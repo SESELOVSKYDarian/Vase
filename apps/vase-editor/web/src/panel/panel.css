@@ -1,7 +1,7 @@
 /* Panel nuevo de Vase Business. Todo vive dentro de .vp para no tocar la tienda ni el panel anterior. */
-/* Colores y marca compartidos con app y Labs (copia de packages/ui/src/tokens.css). */
-@import "./vase-tokens.css";
-@import "./shared/components.css";
+/* Colores, marca, selector y nube: los mismos de app y Labs (packages/ui). */
+@import "@vase/ui/tokens.css";
+@import "@vase/ui/components.css";
 
 .vp {
   position: fixed; inset: 0; z-index: 10; display: flex; overflow: hidden;

@@ -54,13 +54,13 @@ test('el panel nuevo vive aislado: todos sus estilos están dentro de .vp y tien
         for (const part of selector.split(',')) assert.match(part.trim(), /^(:where\(\.vp\)|\.vp(\b|-))/, `selector fuera del panel: ${part.trim()}`);
     }
     // Los colores claro y oscuro vienen del archivo compartido con app y Labs.
-    const tokens = await read('../src/panel/vase-tokens.css');
+    const tokens = await read('../../../../packages/ui/src/tokens.css');
     const tokenSelectors = tokens.replace(/\/\*[\s\S]*?\*\//g, '').match(/(^|\})\s*([^{}@]+)\{/g) || [];
     for (const raw of tokenSelectors) {
         const selector = raw.replace(/^\}/, '').replace(/\{$/, '').trim();
         for (const part of selector.split(/,(?![^(]*\))/)) assert.match(part.trim(), /^(:where\(\.vpa, \.vp\)|\.vpa?(\b|-|\[)|:root\[data-theme="dark"\] \.vpa)/, `selector fuera del panel: ${part.trim()}`);
     }
-    assert.match(css, /@import "\.\/vase-tokens\.css";/);
+    assert.match(css, /@import "@vase\/ui\/tokens\.css";/);
     assert.match(tokens, /\.vp\[data-theme="dark"\]/);
     assert.match(tokens, /--page: #000000/);
     assert.match(css, /::-webkit-scrollbar-thumb/);

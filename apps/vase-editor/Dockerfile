@@ -1,3 +1,5 @@
+# Se compila desde la raíz del repo (ruta de compilación "/" en Easypanel, Dockerfile apps/vase-editor/Dockerfile)
+# para leer las piezas compartidas de packages/ui.
 FROM node:20-alpine AS web-build
 
 ARG VITE_API_URL=
@@ -9,10 +11,12 @@ ARG VITE_VASE_APP_LAUNCH_URL=https://app.vase.ar/app/business/launch
 ARG VITE_VASE_APP_LOGIN_URL=https://app.vase.ar/signin
 ARG VITE_VASE_APP_SIGNUP_URL=https://app.vase.ar/register
 
-WORKDIR /app/web
-COPY web/package*.json ./
+COPY tsconfig.base.json /app/tsconfig.base.json
+COPY packages/ui/ /app/packages/ui/
+WORKDIR /app/apps/vase-editor/web
+COPY apps/vase-editor/web/package*.json ./
 RUN npm ci
-COPY web/ ./
+COPY apps/vase-editor/web/ ./
 
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_TENANT_ID=$VITE_TENANT_ID
@@ -31,11 +35,11 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 WORKDIR /app/server
-COPY server/package*.json ./
+COPY apps/vase-editor/server/package*.json ./
 RUN npm ci --omit=dev
-COPY server/ ./
-COPY db/ /app/db/
-COPY --from=web-build /app/web/dist /app/web/dist
+COPY apps/vase-editor/server/ ./
+COPY apps/vase-editor/db/ /app/db/
+COPY --from=web-build /app/apps/vase-editor/web/dist /app/web/dist
 
 EXPOSE 3000
 
