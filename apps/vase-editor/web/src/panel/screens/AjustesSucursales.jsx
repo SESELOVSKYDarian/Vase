@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PlaceSearch from '../envios/PlaceSearch';
 import { branchLocated } from '../envios/model';
-import { PanelTag } from '@vase/ui/panel/pieces';
+import { PanelTag, PanelCard } from '@vase/ui/panel/pieces';
 
 const newBranch = () => ({ id: `branch-${Date.now()}`, name: '', address: '', hours: '', phone: '', pickup_fee: 0, enabled: true, latitude: null, longitude: null });
 
@@ -53,12 +53,18 @@ export default function AjustesSucursales({ editor, toast, goEnvios }) {
             <div className="vp-scol">
                 {fromVase ? <MiNegocioNote editUrl={editUrl}>Nombre, dirección, teléfono y horarios de cada sucursal se cargan en Mi negocio y se usan en todos tus productos. Acá elegís la ubicación en el mapa.</MiNegocioNote> : null}
                 {branches.map((branch, index) => (
-                    <div key={branch.id || index} className="vp-card vp-sec">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <h3 style={{ flex: 1 }}>{branch.name || 'Sucursal nueva'}</h3>
-                            {branchLocated(branch) ? <PanelTag tone="g">En el mapa</PanelTag> : <PanelTag tone="y">Sin ubicar</PanelTag>}
-                            {fromVase ? null : <button type="button" className="vp-btn red sm" onClick={() => update(branches.filter((_, i) => i !== index))}>Quitar</button>}
-                        </div>
+                    <PanelCard
+                        key={branch.id || index}
+                        stack
+                        className="vp-card vp-sec"
+                        title={branch.name || 'Sucursal nueva'}
+                        actions={(
+                            <>
+                                {branchLocated(branch) ? <PanelTag tone="g">En el mapa</PanelTag> : <PanelTag tone="y">Sin ubicar</PanelTag>}
+                                {fromVase ? null : <button type="button" className="vp-btn red sm" onClick={() => update(branches.filter((_, i) => i !== index))}>Quitar</button>}
+                            </>
+                        )}
+                    >
                         <div className="vp-big2">
                             <div className="vp-fld"><label htmlFor={`b-name-${index}`}>Nombre</label><input id={`b-name-${index}`} className="vp-inp" readOnly={fromVase} value={branch.name || ''} onChange={(event) => set(index, { name: event.target.value })} placeholder="Ej.: Mar del Plata" /></div>
                             <div className="vp-fld"><label htmlFor={`b-phone-${index}`}>Teléfono</label><input id={`b-phone-${index}`} className="vp-inp" readOnly={fromVase} value={branch.phone || ''} onChange={(event) => set(index, { phone: event.target.value })} /></div>
@@ -74,7 +80,7 @@ export default function AjustesSucursales({ editor, toast, goEnvios }) {
                         ) : null}
                         <div className="vp-fld"><label htmlFor={`b-hours-${index}`}>Horarios</label><input id={`b-hours-${index}`} className="vp-inp" readOnly={fromVase} value={branch.hours || ''} onChange={(event) => set(index, { hours: event.target.value })} placeholder="Lun a vie 8 a 17 h" /></div>
                         <span className="vp-note">Los clientes pueden retirar acá y la distancia de los envíos se mide desde la sucursal más cercana.</span>
-                    </div>
+                    </PanelCard>
                 ))}
                 {!branches.length ? <div className="vp-empty">Todavía no cargaste sucursales.</div> : null}
                 <div style={{ display: 'flex', gap: 10 }}>

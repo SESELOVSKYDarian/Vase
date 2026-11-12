@@ -44,6 +44,22 @@ describe("colores y marca compartidos entre app, Labs y Business", () => {
     expect(shared).toContain(":is(.vpa-card, .vp-card).stack");
   });
 
+  it("las tarjetas con botones en la cabecera y los números grandes también son compartidos", () => {
+    expect(read("apps/vase-editor/web/src/panel/screens/AjustesDominio.jsx")).not.toContain("vp-sech");
+    expect(read("apps/vase-editor/web/src/panel/screens/AjustesSucursales.jsx")).toContain("<PanelCard");
+    const legal = read("apps/vase-editor/web/src/panel/diseno/LegalEditor.jsx");
+    expect(legal).toContain('<PanelSegmented ariaLabel="Página legal"');
+    expect(legal).not.toContain('role="tablist"');
+    const resumen = read("apps/vase-editor/web/src/panel/screens/Resumen.jsx");
+    expect(resumen).toContain("<PanelKpis");
+    expect(resumen).not.toContain('className="vp-kpi"');
+    expect(read("apps/vase-editor/web/src/panel/panel.css")).not.toMatch(/^\.vp-kpi \{/m);
+    expect(read("packages/ui/src/panel.css")).not.toMatch(/^\.vpa-kpi /m);
+    const shared = read("packages/ui/src/components.css");
+    expect(shared).toContain("button.vpa-kpi:hover");
+    expect(shared).toContain(".vpa-kt > em.dn");
+  });
+
   it("la marca es vase + el producto, con la misma pastilla", () => {
     expect(read("apps/vase-editor/web/src/panel/components/Shell.jsx")).toContain('<span className="vase-pill business">Business</span>');
     expect(read("apps/vase-labs/app/app/owner/labs/labs-shell.tsx")).toContain('<span className="vase-pill">Labs</span>');

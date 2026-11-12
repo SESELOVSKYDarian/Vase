@@ -135,9 +135,12 @@ export default function Envios({ editor, toast, theme, goSettings }) {
                             </div>
                         </div>
 
-                        <div className="vp-card vp-sec">
-                            <h3>Zonas especiales <span className="vp-note">opcional</span></h3>
-                            <p>Un barrio o una localidad con su propio precio. Si el cliente está adentro, se cobra el precio de la zona especial.</p>
+                        <PanelCard
+                            stack
+                            className="vp-card vp-sec"
+                            title={<>Zonas especiales <span className="vp-note">opcional</span></>}
+                            description="Un barrio o una localidad con su propio precio. Si el cliente está adentro, se cobra el precio de la zona especial."
+                        >
                             {specials.map((zone, index) => (
                                 <div key={zone.id || index} className="vp-row">
                                     <div className="g"><input className="vp-inp" aria-label="Nombre de la zona" value={zone.name} onChange={(event) => setSpecial(index, { name: event.target.value })} /></div>
@@ -153,7 +156,7 @@ export default function Envios({ editor, toast, theme, goSettings }) {
                                     touch(() => setSpecials((list) => [...list, { id: `special-${Date.now()}`, name: place.name || place.display_name.split(',')[0], description: place.display_name, type: 'flat', enabled: true, price: 0, polygon }]));
                                 }}
                             />
-                        </div>
+                        </PanelCard>
 
                         {otherZones.length ? (
                             <span className="vp-note">También tenés {otherZones.length} zona(s) de precio fijo sin mapa ({otherZones.map((zone) => zone.name).join(', ')}). Se mantienen como están.</span>

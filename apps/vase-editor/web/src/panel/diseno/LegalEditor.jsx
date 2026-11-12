@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from '../components/Overlays';
 import { LEGAL_DEFAULTS, legalDisplaySections, legalPage } from '../../data/legalPages';
-import { PanelTag } from '@vase/ui/panel/pieces';
+import { PanelTag, PanelCard, PanelSegmented } from '@vase/ui/panel/pieces';
 
 const KINDS = ['terms', 'privacy'];
 
@@ -52,11 +52,7 @@ export default function LegalEditor({ settings, setSettings, theme }) {
         <div className="vp-scol">
             <div className="vp-card vp-sec">
                 <div className="vp-sech">
-                    <div className="vp-inline" role="tablist" aria-label="Página legal">
-                        {KINDS.map((id) => (
-                            <button key={id} type="button" role="tab" aria-selected={kind === id} className={`vp-btn sm ${kind === id ? 'acc' : 'line'}`} onClick={() => setKind(id)}>{LEGAL_DEFAULTS[id].tab}</button>
-                        ))}
-                    </div>
+                    <PanelSegmented ariaLabel="Página legal" value={kind} onChange={setKind} options={KINDS.map((id) => ({ value: id, label: LEGAL_DEFAULTS[id].tab }))} />
                     <a className="vp-link" href={base.path} target="_blank" rel="noopener noreferrer">Ver página publicada ↗</a>
                 </div>
                 <div className="vp-fld">
@@ -77,27 +73,27 @@ export default function LegalEditor({ settings, setSettings, theme }) {
             {legalDisplaySections(page).map((section, position) => {
                 if (section.fixed) {
                     return (
-                        <div key="fixed" className="vp-card vp-sec">
-                            <div className="vp-sech">
-                                <h3>Sección {position + 1} · {section.title}</h3>
-                                <PanelTag>Fija</PanelTag>
-                            </div>
+                        <PanelCard key="fixed" stack className="vp-card vp-sec" title={`Sección ${position + 1} · ${section.title}`} actions={<PanelTag>Fija</PanelTag>}>
                             <p>{section.body.replace(/\*\*/g, '')}</p>
                             <span className="vp-note">Este texto lo pone Vase en todas las tiendas y no se puede cambiar ni quitar.</span>
-                        </div>
+                        </PanelCard>
                     );
                 }
                 const index = section.sourceIndex;
                 return (
-                    <div key={index} className="vp-card vp-sec">
-                        <div className="vp-sech">
-                            <h3>Sección {position + 1}</h3>
-                            <div className="vp-inline">
+                    <PanelCard
+                        key={index}
+                        stack
+                        className="vp-card vp-sec"
+                        title={`Sección ${position + 1}`}
+                        actions={(
+                            <>
                                 <button type="button" className="vp-ibtn sm" aria-label={`Subir sección ${position + 1}`} disabled={index === 0} onClick={() => move(index, index - 1)}>↑</button>
                                 <button type="button" className="vp-ibtn sm" aria-label={`Bajar sección ${position + 1}`} disabled={index === page.sections.length - 1} onClick={() => move(index, index + 1)}>↓</button>
                                 <button type="button" className="vp-ibtn sm del" aria-label={`Quitar sección ${position + 1}`} onClick={() => setSections(page.sections.filter((_, i) => i !== index))}>×</button>
-                            </div>
-                        </div>
+                            </>
+                        )}
+                    >
                         <div className="vp-fld">
                             <label htmlFor={`legal-t-${index}`}>Título</label>
                             <input id={`legal-t-${index}`} className="vp-inp" value={section.title || ''} onChange={(event) => setSection(index, { title: event.target.value })} />
@@ -111,7 +107,7 @@ export default function LegalEditor({ settings, setSettings, theme }) {
                                 <b>Texto fijo de Vase, al final de esta sección:</b> {section.note.replace(/\*\*/g, '')}
                             </div>
                         ) : null}
-                    </div>
+                    </PanelCard>
                 );
             })}
 

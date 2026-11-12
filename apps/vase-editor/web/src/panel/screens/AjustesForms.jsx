@@ -66,12 +66,13 @@ export function AjustesSeo({ editor, onSave, storeName, domain }) {
     return (
         <div className="vp-scol vp-seo">
             <div className="vp-pgrid">
-                <div className="vp-card vp-sec">
-                    <div className="vp-sech">
-                        <h3>En Google</h3>
-                        <PanelSegmented fill style={{ width: 200 }} value={tab} onChange={setTab} options={[{ value: 'basico', label: 'Básico' }, { value: 'avanzado', label: 'Avanzado' }]} />
-                    </div>
-                    <p>Si dejás un campo vacío se usa el texto automático (en gris).</p>
+                <PanelCard
+                    stack
+                    className="vp-card vp-sec"
+                    title="En Google"
+                    description="Si dejás un campo vacío se usa el texto automático (en gris)."
+                    actions={<PanelSegmented fill style={{ width: 200 }} value={tab} onChange={setTab} options={[{ value: 'basico', label: 'Básico' }, { value: 'avanzado', label: 'Avanzado' }]} />}
+                >
                     <div className="vp-gprev" aria-label="Así se ve en Google">
                         <small>{domain || 'tu-tienda.vase.ar'}</small>
                         <b>{title}</b>
@@ -134,7 +135,7 @@ export function AjustesSeo({ editor, onSave, storeName, domain }) {
                             </div>
                         </>
                     )}
-                </div>
+                </PanelCard>
 
                 <div className="vp-scol">
                     <PanelCard stack className="vp-card vp-sec" title="Al compartir el link" description="Lo que se ve en WhatsApp, Instagram o Facebook.">

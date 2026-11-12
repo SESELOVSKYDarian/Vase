@@ -89,17 +89,38 @@ export function PanelSections({ children }: { children: ReactNode }) {
   return <div className="vpa-acclist">{children}</div>;
 }
 
+export type PanelKpi = {
+  label: ReactNode;
+  value: ReactNode;
+  detail?: ReactNode;
+  /** Color del detalle: up (verde, todo bien) o dn (rojo, hay algo para mirar). */
+  tone?: "up" | "dn";
+  icon?: ReactNode;
+  /** Si está, el número se puede tocar (por ejemplo, para ir a la sección). */
+  onClick?: () => void;
+};
+
 /** Fila de números grandes. */
-export function PanelKpis({ items }: { items: Array<{ label: ReactNode; value: ReactNode; detail?: ReactNode }> }) {
+export function PanelKpis({ items, className }: { items: PanelKpi[]; className?: string }) {
   return (
-    <div className="vpa-kpis">
-      {items.map((item, index) => (
-        <div className="vpa-kpi" key={index}>
-          <small>{item.label}</small>
-          <b>{item.value}</b>
-          {item.detail ? <span>{item.detail}</span> : null}
-        </div>
-      ))}
+    <div className={cx("vpa-kpis", className)}>
+      {items.map((item, index) => {
+        const body = (
+          <>
+            {item.icon ? <span className="vpa-kic" aria-hidden="true">{item.icon}</span> : null}
+            <span className="vpa-kt">
+              <small>{item.label}</small>
+              <b>{item.value}</b>
+              {item.detail ? <em className={item.tone}>{item.detail}</em> : null}
+            </span>
+          </>
+        );
+        return item.onClick ? (
+          <button type="button" className="vpa-kpi" key={index} onClick={item.onClick}>{body}</button>
+        ) : (
+          <div className="vpa-kpi" key={index}>{body}</div>
+        );
+      })}
     </div>
   );
 }

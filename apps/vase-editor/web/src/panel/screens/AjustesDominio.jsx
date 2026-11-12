@@ -79,11 +79,12 @@ export default function AjustesDominio({ user, toast, theme }) {
 
     return (
         <div className="vp-scol vp-dominio">
-            <div className="vp-card vp-sec">
-                <div className="vp-sech">
-                    <h3>Tus direcciones</h3>
-                    <button type="button" className="vp-btn line sm" disabled={busy === 'check-all'} onClick={() => run('check-all', '/tenant/domains/check', { body: {}, ok: 'Estado actualizado' })}>{busy === 'check-all' ? 'Comprobando…' : 'Comprobar todas'}</button>
-                </div>
+            <PanelCard
+                stack
+                className="vp-card vp-sec"
+                title="Tus direcciones"
+                actions={<button type="button" className="vp-btn line sm" disabled={busy === 'check-all'} onClick={() => run('check-all', '/tenant/domains/check', { body: {}, ok: 'Estado actualizado' })}>{busy === 'check-all' ? 'Comprobando…' : 'Comprobar todas'}</button>}
+            >
                 {!domains.length ? <div className="vp-note">Todavía no tenés direcciones. Conectá tu dominio abajo.</div> : null}
                 {domains.map((item) => {
                     const status = domainStatus(item);
@@ -105,7 +106,7 @@ export default function AjustesDominio({ user, toast, theme }) {
                         </div>
                     );
                 })}
-            </div>
+            </PanelCard>
 
             <div className="vp-pgrid">
                 <PanelCard stack className="vp-card vp-sec" title="Conectar otro dominio" description="El que compraste en NIC.ar, GoDaddy, Hostinger u otro proveedor.">
@@ -130,12 +131,13 @@ export default function AjustesDominio({ user, toast, theme }) {
             </div>
 
             {current ? (
-                <div className="vp-card vp-sec">
-                    <div className="vp-sech">
-                        <h3>Datos para tu proveedor de dominio</h3>
-                        <button type="button" className="vp-btn acc sm" disabled={busy === `check-${current.domain}`} onClick={() => run(`check-${current.domain}`, '/tenant/domains/check', { body: { domain: current.domain }, ok: `Estado de ${current.domain} actualizado` })}>{busy === `check-${current.domain}` ? 'Comprobando…' : 'Comprobar conexión'}</button>
-                    </div>
-                    <p>Cargá estos datos en la sección DNS de donde compraste <b>{current.domain}</b>. Los cambios pueden tardar unas horas en verse.</p>
+                <PanelCard
+                    stack
+                    className="vp-card vp-sec"
+                    title="Datos para tu proveedor de dominio"
+                    description={<>Cargá estos datos en la sección DNS de donde compraste <b>{current.domain}</b>. Los cambios pueden tardar unas horas en verse.</>}
+                    actions={<button type="button" className="vp-btn acc sm" disabled={busy === `check-${current.domain}`} onClick={() => run(`check-${current.domain}`, '/tenant/domains/check', { body: { domain: current.domain }, ok: `Estado de ${current.domain} actualizado` })}>{busy === `check-${current.domain}` ? 'Comprobando…' : 'Comprobar conexión'}</button>}
+                >
                     {records.length ? (
                         <div className="vp-tblw">
                             <table className="vp-ltbl vp-dnstbl">
@@ -155,7 +157,7 @@ export default function AjustesDominio({ user, toast, theme }) {
                     ) : <div className="vp-note">{current.dns_hint || 'Este dominio no necesita datos extra.'}</div>}
                     {observedText(current) ? <div className={`vp-lock ${domainStatus(current).tone === 'g' ? 'ok' : ''}`}>Hoy {current.domain} apunta a: {observedText(current)}</div> : null}
                     {domainStatus(current).checkedAt ? <span className="vp-note">Comprobado {new Date(domainStatus(current).checkedAt).toLocaleString('es-AR')}</span> : null}
-                </div>
+                </PanelCard>
             ) : null}
 
             <Modal

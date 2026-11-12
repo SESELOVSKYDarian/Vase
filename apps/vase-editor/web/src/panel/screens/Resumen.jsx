@@ -3,7 +3,7 @@ import Icon from '../components/Icon';
 import DataTable from '../components/DataTable';
 import { formatMoney, orderStatus } from '../format';
 import { periodTotals, salesByDay, topProducts } from '../stats';
-import { PanelCard, PanelTag } from '@vase/ui/panel/pieces';
+import { PanelCard, PanelKpis, PanelTag } from '@vase/ui/panel/pieces';
 
 // Resumen con datos reales: productos, pedidos y aprobaciones pendientes.
 export default function Resumen({ products, orders, pendingUsers, paymentApprovals, go, loading }) {
@@ -31,20 +31,19 @@ export default function Resumen({ products, orders, pendingUsers, paymentApprova
 
     return (
         <>
-            <div className="vp-kpis">
-                {kpis.map((kpi) => (
-                    <button key={kpi.label} type="button" className="vp-kpi" onClick={() => go(kpi.to)}>
-                        <span className="vp-kic"><Icon name={kpi.icon} /></span>
-                        <span><small>{kpi.label}</small><b>{loading ? '…' : kpi.value}</b><span className={`vp-${kpi.tone}`}>{kpi.note}</span></span>
-                    </button>
-                ))}
-            </div>
+            <PanelKpis
+                className="vp-kpis"
+                items={kpis.map((kpi) => ({
+                    label: kpi.label,
+                    value: loading ? '…' : kpi.value,
+                    detail: kpi.note,
+                    tone: kpi.tone,
+                    icon: <Icon name={kpi.icon} />,
+                    onClick: () => go(kpi.to),
+                }))}
+            />
             <div className="vp-rsgrid">
-                <div className="vp-card vp-sec">
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                        <h3>Ventas de los últimos 30 días</h3>
-                        <span className="vp-note">{formatMoney(period.total)} en {period.count} pedidos (sin cancelados)</span>
-                    </div>
+                <PanelCard stack className="vp-card vp-sec" title="Ventas de los últimos 30 días" description={`${formatMoney(period.total)} en ${period.count} pedidos (sin cancelados)`}>
                     <div className="vp-bars" role="img" aria-label={`Ventas por día: total ${formatMoney(period.total)}`}>
                         {days.map((day) => (
                             <span key={day.key} title={`${day.date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}: ${formatMoney(day.total)} · ${day.count} pedidos`}>
@@ -53,7 +52,7 @@ export default function Resumen({ products, orders, pendingUsers, paymentApprova
                         ))}
                     </div>
                     <div className="vp-barsx"><span>{days[0]?.date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}</span><span>Hoy</span></div>
-                </div>
+                </PanelCard>
                 <PanelCard stack className="vp-card vp-sec" title="Lo más vendido">
                     {best.length ? best.map((item, index) => (
                         <div key={item.key} className="vp-row">

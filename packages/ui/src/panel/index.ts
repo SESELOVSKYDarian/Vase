@@ -8,6 +8,7 @@ export {
   PanelEmpty,
   PanelFacts,
   PanelKpis,
+  type PanelKpi,
   PanelMeter,
   PanelNotice,
   PanelRow,

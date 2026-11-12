@@ -43,9 +43,11 @@ export function LabsSection({ title, description, actions, className, children, 
 export function LabsMetricCard({ label, value, detail }: { label: string; value: string | number; detail?: string; icon?: ElementType; tone?: Tone }) {
   return (
     <div className="vpa-kpi">
-      <small>{label}</small>
-      <b>{value}</b>
-      {detail ? <span>{detail}</span> : null}
+      <span className="vpa-kt">
+        <small>{label}</small>
+        <b>{value}</b>
+        {detail ? <em>{detail}</em> : null}
+      </span>
     </div>
   );
 }
