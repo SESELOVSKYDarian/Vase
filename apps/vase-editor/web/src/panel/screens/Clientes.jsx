@@ -6,6 +6,7 @@ import Select from '../components/Select';
 import { errorText, panelFetch } from '../api';
 import { formatMoney, orderStatus } from '../format';
 import { CLIENT_FILTERS as FILTERS, ROLE, clientState, isClient } from '../clients';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 export default function Clientes({ user, toast, onChanged }) {
     const [clients, setClients] = useState([]);
@@ -115,7 +116,7 @@ export default function Clientes({ user, toast, onChanged }) {
                         { key: 'name', label: 'Cliente', render: (client) => <span><span className="vp-nm">{client.name || client.email.split('@')[0]}</span><span className="vp-mt">{client.email}</span></span> },
                         { key: 'role', label: 'Tipo', render: (client) => ROLE[client.role] || client.role },
                         { key: 'list', label: 'Lista de precios', render: (client) => client.price_list_name || <span className="vp-note">Según su tipo</span> },
-                        { key: 'state', label: 'Estado', render: (client) => { const s = clientState(client); return <span className={`vp-tag ${s.tone}`}><i />{s.label}</span>; } },
+                        { key: 'state', label: 'Estado', render: (client) => { const s = clientState(client); return <PanelTag tone={s.tone}>{s.label}</PanelTag>; } },
                         {
                             key: 'action',
                             label: '',
@@ -177,7 +178,7 @@ export default function Clientes({ user, toast, onChanged }) {
                             return (
                                 <div key={order.id} className="vp-row">
                                     <div className="g"><b>#{String(order.id).slice(0, 6).toUpperCase()}</b><span>{order.created_at ? new Date(order.created_at).toLocaleDateString('es-AR') : ''}</span></div>
-                                    <span className={`vp-tag ${meta.tone}`}><i />{meta.label}</span><b>{formatMoney(order.total)}</b>
+                                    <PanelTag tone={meta.tone}>{meta.label}</PanelTag><b>{formatMoney(order.total)}</b>
                                 </div>
                             );
                         }) : <span className="vp-note">Todavía no compró.</span>}

@@ -4,6 +4,7 @@ import { Modal, SidePanel } from '../components/Overlays';
 import Icon from '../components/Icon';
 import { errorText, panelFetch } from '../api';
 import { ORDER_STATUS_ORDER, formatMoney, orderStatus } from '../format';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 const customerName = (order) => order.customer?.full_name || order.customer?.name || order.customer?.email || 'Sin nombre';
 const orderCode = (order) => `#${order.number || String(order.id || '').slice(0, 6).toUpperCase()}`;
@@ -125,7 +126,7 @@ export default function Pedidos({ user, theme, toast, onChanged }) {
                         { key: 'date', label: 'Fecha', render: (order) => (order.created_at ? new Date(order.created_at).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—') },
                         { key: 'customer', label: 'Cliente', render: (order) => <span><span className="vp-nm">{customerName(order)}</span><span className="vp-mt">{order.customer?.email}</span></span> },
                         { key: 'delivery', label: 'Entrega', render: deliveryLabel },
-                        { key: 'status', label: 'Estado', render: (order) => { const meta = orderStatus(order.status); return <span className={`vp-tag ${meta.tone}`}><i />{meta.label}</span>; } },
+                        { key: 'status', label: 'Estado', render: (order) => { const meta = orderStatus(order.status); return <PanelTag tone={meta.tone}>{meta.label}</PanelTag>; } },
                         { key: 'total', label: 'Total', align: 'right', render: (order) => <b>{formatMoney(order.total)}</b> },
                     ]}
                 />

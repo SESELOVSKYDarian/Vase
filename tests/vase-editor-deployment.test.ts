@@ -32,12 +32,13 @@ describe("Vase Editor deployment", () => {
     }
   });
 
-  it("builds from the EasyPanel app directory and exposes the editor port", () => {
+  it("builds from the repo root (to read packages/ui) and exposes the editor port", () => {
     const dockerfile = readRequiredFile("Dockerfile");
 
-    expect(dockerfile).toContain("COPY web/package*.json ./");
-    expect(dockerfile).toContain("COPY server/package*.json ./");
-    expect(dockerfile).toContain("COPY db/ /app/db/");
+    expect(dockerfile).toContain("COPY packages/ui/ /app/packages/ui/");
+    expect(dockerfile).toContain("COPY apps/vase-editor/web/package*.json ./");
+    expect(dockerfile).toContain("COPY apps/vase-editor/server/package*.json ./");
+    expect(dockerfile).toContain("COPY apps/vase-editor/db/ /app/db/");
     expect(dockerfile).toContain("EXPOSE 3000");
     expect(dockerfile).toContain('CMD ["node", "src/index.js"]');
   });

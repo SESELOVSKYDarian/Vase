@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import PlaceSearch from '../envios/PlaceSearch';
 import { branchLocated } from '../envios/model';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 const newBranch = () => ({ id: `branch-${Date.now()}`, name: '', address: '', hours: '', phone: '', pickup_fee: 0, enabled: true, latitude: null, longitude: null });
 
@@ -55,7 +56,7 @@ export default function AjustesSucursales({ editor, toast, goEnvios }) {
                     <div key={branch.id || index} className="vp-card vp-sec">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <h3 style={{ flex: 1 }}>{branch.name || 'Sucursal nueva'}</h3>
-                            {branchLocated(branch) ? <span className="vp-tag g"><i />En el mapa</span> : <span className="vp-tag y"><i />Sin ubicar</span>}
+                            {branchLocated(branch) ? <PanelTag tone="g">En el mapa</PanelTag> : <PanelTag tone="y">Sin ubicar</PanelTag>}
                             {fromVase ? null : <button type="button" className="vp-btn red sm" onClick={() => update(branches.filter((_, i) => i !== index))}>Quitar</button>}
                         </div>
                         <div className="vp-big2">

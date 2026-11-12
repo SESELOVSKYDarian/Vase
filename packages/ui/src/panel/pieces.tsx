@@ -1,15 +1,15 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 // Piezas del panel de Vase. Todas usan las clases de panel.css (dentro de .vpa).
 
 const cx = (...names: Array<string | false | null | undefined>) => names.filter(Boolean).join(" ");
 
-export type PanelTone = "g" | "y" | "r" | "b" | "n";
+export type PanelTone = "g" | "y" | "r" | "b" | "p" | "n" | "";
 
-/** Etiqueta de estado con un punto de color: g verde, y amarillo, r rojo, b azul, n gris. */
-export function PanelTag({ tone = "n", children }: { tone?: PanelTone; children: ReactNode }) {
+/** Etiqueta de estado con un punto de color: g verde, y amarillo, r rojo, b azul, p violeta, n gris. */
+export function PanelTag({ tone = "n", style, children }: { tone?: PanelTone; style?: CSSProperties; children: ReactNode }) {
   return (
-    <span className={cx("vpa-tag", tone !== "n" && tone)}>
+    <span className={cx("vpa-tag", tone !== "n" && tone)} style={style}>
       <i aria-hidden="true" />
       {children}
     </span>

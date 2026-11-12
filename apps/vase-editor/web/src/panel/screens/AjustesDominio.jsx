@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { panelFetch } from '../api';
 import { Modal } from '../components/Overlays';
 import { domainError, domainKind, domainStatus, isPlaceholderValue, isValidDomain, normalizeDomainInput, observedText, sortDomains } from '../dominio';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 // Ajustes › Dominio: tus direcciones, conectar un dominio propio y los datos para cargar en tu proveedor.
 export default function AjustesDominio({ user, toast, theme }) {
@@ -93,8 +94,8 @@ export default function AjustesDominio({ user, toast, theme }) {
                                 <a className="vp-dname" href={`https://${item.domain}`} target="_blank" rel="noopener noreferrer">{item.domain} ↗</a>
                                 <span>{domainKind(item)}{status.message ? ` · ${status.message}` : ''}</span>
                             </div>
-                            <span className={`vp-tag ${status.tone}`}><i />{status.label}</span>
-                            {item.is_primary ? <span className="vp-tag g"><i />Principal</span> : (
+                            <PanelTag tone={status.tone}>{status.label}</PanelTag>
+                            {item.is_primary ? <PanelTag tone="g">Principal</PanelTag> : (
                                 <button type="button" className="vp-btn line sm" disabled={Boolean(busy)} onClick={() => run(`primary-${item.domain}`, `/tenant/domains/${encodeURIComponent(item.domain)}/primary`, { method: 'PATCH', ok: `${item.domain} es ahora tu dirección principal.` })}>Hacer principal</button>
                             )}
                             {item.connection_type !== 'platform' ? (

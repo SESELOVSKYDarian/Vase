@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from '../components/Overlays';
 import { LEGAL_DEFAULTS, legalDisplaySections, legalPage } from '../../data/legalPages';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 const KINDS = ['terms', 'privacy'];
 
@@ -79,7 +80,7 @@ export default function LegalEditor({ settings, setSettings, theme }) {
                         <div key="fixed" className="vp-card vp-sec">
                             <div className="vp-sech">
                                 <h3>Sección {position + 1} · {section.title}</h3>
-                                <span className="vp-tag"><i />Fija</span>
+                                <PanelTag>Fija</PanelTag>
                             </div>
                             <p>{section.body.replace(/\*\*/g, '')}</p>
                             <span className="vp-note">Este texto lo pone Vase en todas las tiendas y no se puede cambiar ni quitar.</span>

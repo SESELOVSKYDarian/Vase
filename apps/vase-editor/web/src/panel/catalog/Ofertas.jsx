@@ -13,6 +13,7 @@ import {
     offerToDraft,
 } from './pricing';
 import ProductSearch from './ProductSearch';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 // Pestaña Ofertas del Catálogo: tarjetas y barra lateral para crear o editar.
 export default function Ofertas({ user, products, categories, toast, theme }) {
@@ -116,7 +117,7 @@ export default function Ofertas({ user, products, categories, toast, theme }) {
                             <button key={offer.id} type="button" className={`vp-oc ${active === offer.id ? 'on' : ''}`} onClick={() => open(offer.id)}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span className="v">{offerBadge(offer)}</span>
-                                    <span className={`vp-tag ${state.tone}`}><i />{state.label}</span>
+                                    <PanelTag tone={state.tone}>{state.label}</PanelTag>
                                 </div>
                                 <b>{offer.name}</b>
                                 <span>{offerScope(offer, context)}</span>

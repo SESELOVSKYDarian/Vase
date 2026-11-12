@@ -21,6 +21,7 @@ import {
     productThumb,
     searchProducts,
 } from './model';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 const TABS = [
     ['productos', 'Productos'],
@@ -375,7 +376,7 @@ export default function Catalogo({ editor, user, theme, toast, openLegacy, goSet
                             <div className="vp-lock ok">Es uno de tus rubros. Su foto, título y etiquetas se cambian en Diseño de la tienda › Catálogo.</div>
                         ) : null}
                         {currentCat?.source_name && currentCat.source_name !== catDraft.name ? (
-                            <div className="vp-row"><div className="g"><b>En tu sistema se llama</b><span>{currentCat.source_name}</span></div><span className="vp-tag g"><i />Del sistema</span></div>
+                            <div className="vp-row"><div className="g"><b>En tu sistema se llama</b><span>{currentCat.source_name}</span></div><PanelTag tone="g">Del sistema</PanelTag></div>
                         ) : null}
                         <div className="vp-fld"><label htmlFor="cat-name">Nombre en la tienda</label><input id="cat-name" className="vp-inp" value={catDraft.name} onChange={(event) => setCatDraft((draft) => ({ ...draft, name: event.target.value }))} />
                             {currentCat?.from_sync ? <span className="vp-note">Aunque la renombres, la sincronización la sigue reconociendo y no crea otra.</span> : null}

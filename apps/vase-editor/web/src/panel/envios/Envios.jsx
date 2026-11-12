@@ -11,6 +11,7 @@ import {
     tiersError,
     zonesToTiers,
 } from './model';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 // Envíos: desde dónde salís, cuánto cobrás por distancia y qué pasa si queda lejos.
 export default function Envios({ editor, toast, theme, goSettings }) {
@@ -86,7 +87,7 @@ export default function Envios({ editor, toast, theme, goSettings }) {
                                     <div key={branch.id || index}>
                                         <div className="vp-row">
                                             <div className="g"><b>{branch.name || `Sucursal ${index + 1}`}</b><span>{branch.address || 'Sin dirección'}</span></div>
-                                            {branchLocated(branch) ? <span className="vp-tag g"><i />En el mapa</span> : <span className="vp-tag y"><i />Sin ubicar</span>}
+                                            {branchLocated(branch) ? <PanelTag tone="g">En el mapa</PanelTag> : <PanelTag tone="y">Sin ubicar</PanelTag>}
                                             <button type="button" className="vp-btn line sm" onClick={() => setEditingBranch(editingBranch === index ? null : index)}>{editingBranch === index ? 'Listo' : 'Ubicar'}</button>
                                         </div>
                                         {editingBranch === index ? (

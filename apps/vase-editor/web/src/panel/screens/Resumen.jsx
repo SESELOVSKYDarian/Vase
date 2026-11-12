@@ -3,6 +3,7 @@ import Icon from '../components/Icon';
 import DataTable from '../components/DataTable';
 import { formatMoney, orderStatus } from '../format';
 import { periodTotals, salesByDay, topProducts } from '../stats';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 // Resumen con datos reales: productos, pedidos y aprobaciones pendientes.
 export default function Resumen({ products, orders, pendingUsers, paymentApprovals, go, loading }) {
@@ -81,7 +82,7 @@ export default function Resumen({ products, orders, pendingUsers, paymentApprova
                         label: 'Estado',
                         render: (order) => {
                             const status = orderStatus(order.status);
-                            return <span className={`vp-tag ${status.tone}`}><i />{status.label}</span>;
+                            return <PanelTag tone={status.tone}>{status.label}</PanelTag>;
                         },
                     },
                     { key: 'total', label: 'Total', align: 'right', render: (order) => <b>{formatMoney(order.total)}</b> },

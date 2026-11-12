@@ -67,26 +67,11 @@
 .vpa-wrap { max-width: 1120px; display: flex; flex-direction: column; gap: 18px; }
 
 /* piezas */
-.vpa-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; padding: 0 16px; border: 0; border-radius: 11px; font-weight: 800; font-size: 13px; cursor: pointer; white-space: nowrap; background: none; }
-.vpa-btn.acc { background: var(--acc); color: var(--acc-on); }
-.vpa-btn.ink { background: var(--ink); color: var(--ink-on); }
-.vpa-btn.soft { background: var(--soft); }
-.vpa-btn.line { border: 1px solid var(--line2); }
-.vpa-btn.line:hover, .vpa-btn.soft:hover { background: var(--active); }
-.vpa-btn.sm { height: 32px; padding: 0 12px; font-size: 12.5px; border-radius: 9px; }
-.vpa-btn.lg { height: 46px; padding: 0 24px; border-radius: 14px; font-size: 14px; }
-.vpa-btn.wide { width: 100%; }
-.vpa-btn.danger { color: var(--red); }
-.vpa-btn:disabled { opacity: .55; cursor: default; }
 .vpa-lnk { border: 0; background: none; padding: 0; font-size: 13px; font-weight: 800; color: var(--acc-tx); cursor: pointer; }
 .vpa-lnk:hover { text-decoration: underline; }
-.vpa-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
 .vpa-card h3 { font-size: 15px; font-weight: 800; }
 .vpa-card p { margin-top: 4px; color: var(--mut); font-weight: 600; font-size: 12.5px; line-height: 1.5; }
 .vpa-sech { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-.vpa-tag { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 8px; font-size: 11.5px; font-weight: 700; background: var(--soft); white-space: nowrap; }
-.vpa-tag i { width: 7px; height: 7px; border-radius: 50%; background: #98a2b3; }
-.vpa-tag.g i { background: #17b26a; } .vpa-tag.y i { background: #f79009; } .vpa-tag.r i { background: #f04438; } .vpa-tag.b i { background: #2e90fa; }
 .vpa-g1 { flex: 1; min-width: 0; }
 .vpa-g1 b { display: block; font-weight: 700; }
 .vpa-g1 span { display: block; font-size: 12px; color: var(--mut); font-weight: 600; margin-top: 1px; }
@@ -107,10 +92,6 @@
 .vpa-seg a { height: 32px; line-height: 32px; border-radius: 8px; font-weight: 700; font-size: 12.5px; color: var(--mut); padding: 0 14px; }
 .vpa-seg a.on { background: var(--card); color: var(--tx); box-shadow: var(--sh-sm); }
 .vpa-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.vpa-fld { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.vpa-fld > span { font-size: 11.5px; font-weight: 700; color: var(--mut); }
-.vpa-inp { height: 40px; border-radius: 11px; border: 1px solid var(--line); background: var(--card); color: var(--tx); font: inherit; font-weight: 600; padding: 0 12px; width: 100%; }
-.vpa-inp:read-only { background: var(--soft); color: var(--mut); }
 .vpa-hrow { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: var(--soft); }
 .vpa-guide { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 12px; background: var(--soft); font-weight: 700; }
 .vpa-guide:hover { background: var(--active); }

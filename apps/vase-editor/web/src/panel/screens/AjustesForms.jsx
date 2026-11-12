@@ -5,6 +5,7 @@ import { useIntegrationManager } from '../../hooks/admin/useIntegrationManager';
 import { normalizeSeoSettings } from '../../utils/seo';
 import { Modal } from '../components/Overlays';
 import { erpStats, keywordsAdd, seoLimit } from '../ajustes';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 const Toggle = ({ on, onChange, label }) => (
     <button type="button" role="switch" aria-checked={on} aria-label={label} className={`vp-tog ${on ? '' : 'off'}`} onClick={() => onChange(!on)} />
@@ -107,7 +108,7 @@ export function AjustesSeo({ editor, onSave, storeName, domain }) {
                             </div>
                             <div className="vp-row">
                                 <div className="g"><b>Mapa del sitio para Google</b><span>{domain || 'tu-tienda'}/sitemap.xml · se arma solo</span></div>
-                                <span className="vp-tag g"><i />Activo</span>
+                                <PanelTag tone="g">Activo</PanelTag>
                             </div>
                         </>
                     ) : (
@@ -256,7 +257,7 @@ export function AjustesCorreo({ toast, goPagos }) {
                             <b>{status ? (status.ok ? 'Funciona' : 'Con problemas') : data.smtp_host ? 'Configurado' : 'Sin configurar'}</b>
                             <span>{status ? status.message : data.smtp_host ? 'Probá la conexión para ver que esté todo bien.' : 'Completá el servidor de correo para que salgan los avisos.'}</span>
                         </div>
-                        <span className={`vp-tag ${status ? (status.ok ? 'g' : 'r') : data.smtp_host ? 'b' : 'y'}`}><i />{status ? (status.ok ? 'Bien' : 'Error') : data.smtp_host ? 'Listo' : 'Falta'}</span>
+                        <PanelTag tone={status ? (status.ok ? 'g' : 'r') : data.smtp_host ? 'b' : 'y'}>{status ? (status.ok ? 'Bien' : 'Error') : data.smtp_host ? 'Listo' : 'Falta'}</PanelTag>
                     </div>
                     <button type="button" className="vp-btn line" onClick={() => run('verify', '/verify', { method: 'POST' })} disabled={Boolean(busy)}>{busy === 'verify' ? 'Probando…' : 'Probar conexión'}</button>
                     <div className="vp-fld">
@@ -351,7 +352,7 @@ export function AjustesGestion({ editor, toast }) {
                             <b>{stats.total ? 'Recibiendo productos' : 'Todavía no llegó ningún producto'}</b>
                             <span>{stats.total ? `${stats.total} productos vienen de tu sistema${stats.lastSync ? ` · última vez ${stats.lastSync.toLocaleString('es-AR')}` : ''}${stats.toReview ? ` · ${stats.toReview} para revisar` : ''}` : 'Cuando tu sistema mande productos, los vas a ver acá.'}</span>
                         </div>
-                        <span className={`vp-tag ${stats.total ? (stats.toReview ? 'y' : 'g') : ''}`}><i />{stats.total ? (stats.toReview ? 'Revisar' : 'Al día') : 'Sin datos'}</span>
+                        <PanelTag tone={stats.total ? (stats.toReview ? 'y' : 'g') : ''}>{stats.total ? (stats.toReview ? 'Revisar' : 'Al día') : 'Sin datos'}</PanelTag>
                     </div>
                     {ping ? (
                         <div className={`vp-lock ${ping.ok ? 'ok' : ''}`}>{ping.ok ? 'La conexión responde bien.' : `La conexión no respondió (código ${ping.status}).`} {new Date(ping.tested_at).toLocaleTimeString('es-AR')}</div>
