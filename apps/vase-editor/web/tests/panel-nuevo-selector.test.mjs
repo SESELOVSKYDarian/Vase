@@ -24,8 +24,8 @@ test('el panel nuevo no usa el <select> del navegador', async () => {
 });
 
 test('el selector propio se maneja con teclado y tiene buscador en listas largas', async () => {
-    const source = await readFile(new URL('components/Select.jsx', panelDir), 'utf8');
-    for (const key of ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Home', 'End']) assert.match(source, new RegExp(`'${key}'`));
+    const source = await readFile(new URL('shared/select.tsx', panelDir), 'utf8');
+    for (const key of ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Home', 'End']) assert.match(source, new RegExp(`"${key}"`));
     assert.match(source, /role="listbox"/);
     assert.match(source, /aria-selected=\{selected\}/);
     assert.match(source, /const SEARCH_FROM = 10;/);

@@ -1,5 +1,6 @@
 /* Panel del cliente de app.vase.ar. Todo vive dentro de .vpa para no tocar administración ni la tienda. */
 @import "./tokens.css";
+@import "./components.css";
 
 .vpa {
   position: relative; display: flex; height: 100dvh; overflow: hidden;
@@ -326,13 +327,6 @@
 .vpa-form3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 /* nube y redes */
-.vpa-cloud { position: relative; display: inline-flex; }
-.vpa-cloud.saved .vpa-ib { color: var(--acc-tx); }
-.vpa-cloud.saving .vpa-ib { color: var(--mut); }
-.vpa-cloud.error .vpa-ib, .vpa-cloud.offline .vpa-ib { color: var(--red); }
-.vpa-cloud-tip { display: none; position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; width: 260px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--sh-lg); flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--mut); font-weight: 600; line-height: 1.4; }
-.vpa-cloud-tip b { color: var(--tx); font-weight: 800; font-size: 13px; }
-.vpa-cloud:hover .vpa-cloud-tip, .vpa-cloud:focus-within .vpa-cloud-tip { display: flex; }
 .vpa-saveerr { padding: 10px 14px; border-radius: 12px; background: rgba(240, 68, 56, .1); color: var(--red); font-weight: 700; font-size: 13px; }
 .vpa-socials { display: flex; flex-direction: column; gap: 8px; }
 .vpa-social { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 14px; background: var(--soft); }

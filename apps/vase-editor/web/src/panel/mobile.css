@@ -68,7 +68,7 @@
     .vp .vp-drop { padding: 18px 14px; }
 
     /* ── Catálogo: frase de cambiar precios ── */
-    .vp .vp-sel.slot, .vp .vp-slot { font-size: 15px; height: 40px; }
+    .vp .vase-sel.slot, .vp .vp-slot { font-size: 15px; height: 40px; }
     .vp input.vp-slot { width: 84px; }
     .vp .vp-brands { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }

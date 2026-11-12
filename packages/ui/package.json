@@ -10,7 +10,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./panel": "./src/panel/index.ts",
-    "./panel.css": "./src/panel.css"
+    "./panel.css": "./src/panel.css",
+    "./tokens.css": "./src/tokens.css",
+    "./components.css": "./src/components.css"
   },
   "dependencies": {
     "react": "19.2.4"

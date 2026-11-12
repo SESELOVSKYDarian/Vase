@@ -5,8 +5,21 @@ import { describe, expect, it } from "vitest";
 const read = (file: string) => fs.readFileSync(path.resolve(file), "utf8").replace(/\r\n/g, "\n");
 
 describe("colores y marca compartidos entre app, Labs y Business", () => {
-  it("Business tiene la copia exacta de los tokens de packages/ui (correr scripts/sync-ui-to-business.mjs)", () => {
-    expect(read("apps/vase-editor/web/src/panel/vase-tokens.css")).toBe(read("packages/ui/src/tokens.css"));
+  it("Business tiene la copia exacta de lo compartido en packages/ui (correr scripts/sync-ui-to-business.mjs)", async () => {
+    const { SHARED_FILES } = (await import("../scripts/sync-ui-to-business.mjs")) as { SHARED_FILES: Array<[string, string]> };
+    expect(SHARED_FILES.length).toBeGreaterThanOrEqual(4);
+    for (const [from, to] of SHARED_FILES) expect(read(to), to).toBe(read(from));
+  });
+
+  it("Business usa el selector y la nube compartidos, sin estilos propios repetidos", () => {
+    expect(read("apps/vase-editor/web/src/panel/components/Select.jsx")).toContain("from '../shared/select'");
+    expect(read("apps/vase-editor/web/src/panel/components/CloudStatus.jsx")).toContain("from '../shared/cloud-status'");
+    const business = read("apps/vase-editor/web/src/panel/panel.css");
+    expect(business).toContain('@import "./shared/components.css";');
+    expect(business).not.toMatch(/^\.vp-sel /m);
+    expect(business).not.toMatch(/^\.vp-cloud/m);
+    expect(read("apps/vase-app/src/components/layout/save-status.tsx")).toContain("<CloudStatus");
+    expect(read("packages/ui/src/panel.css")).not.toContain(".vpa-cloud");
   });
 
   it("los tres paneles toman los colores de ese archivo y no los repiten", () => {
