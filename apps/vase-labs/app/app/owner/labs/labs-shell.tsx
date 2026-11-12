@@ -59,7 +59,7 @@ export function LabsShell({
       accountMenu={(close) => (
         <>
           <Link href="/owner/settings" className="vpa-am" onClick={close}>
-            Ajustes de Labs
+            Ajustes
           </Link>
           <a href="https://app.vase.ar/app" className="vpa-am">
             Volver a Vase

@@ -12,9 +12,10 @@ export const CONVERSATION_TABS = [
 ];
 
 export const ASSISTANT_TABS = [
-  { href: "/owner/knowledge", label: "Qué sabe y cómo responde" },
+  { href: "/owner/knowledge", label: "Cómo habla" },
+  { href: "/owner/knowledge/sabe", label: "Qué sabe" },
   { href: "/owner/knowledge/catalog", label: "Catálogo" },
-  { href: "/owner/inbox/trainer", label: "Lo que le enseñaron" },
+  { href: "/owner/inbox/trainer", label: "Entrenar por WhatsApp" },
 ];
 
 export function LabsTabs({ tabs, aside }: { tabs: Array<{ href: string; label: string }>; aside?: ReactNode }) {

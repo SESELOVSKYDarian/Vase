@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Check, ChevronRight, CircleAlert, Clock3, PackageCheck, Truck, X } from "lucide-react";
+import { ChevronRight, CircleAlert, PackageCheck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { PanelEmpty, PanelTag, type PanelTone } from "@vase/ui/panel";
 
 type OrderItem = {
   productId?: string;
@@ -14,7 +15,7 @@ type OrderItem = {
   totalAmount?: number;
 };
 
-type OrderRow = {
+export type OrderRow = {
   id: string;
   orderNumber: string;
   sourceStatus: string;
@@ -35,13 +36,41 @@ type OrderRow = {
   events: Array<{ id: string; toStatus: string; notificationStatus: string | null; createdAt: string }>;
 };
 
-const statusCopy: Record<string, string> = {
-  PROCESSING: "En proceso",
-  PREPARING: "En preparación",
-  READY: "Listo",
-  SHIPPED: "Despachado",
-  CANCELLED: "Cancelado",
+const STATUS: Record<string, { label: string; tone: PanelTone }> = {
+  PROCESSING: { label: "Nuevo", tone: "b" },
+  PREPARING: { label: "Preparando", tone: "y" },
+  READY: { label: "Listo", tone: "g" },
+  SHIPPED: { label: "Despachado", tone: "g" },
+  CANCELLED: { label: "Cancelado", tone: "n" },
 };
+
+const FILTERS = [
+  { id: "todos", label: "Todos" },
+  { id: "activos", label: "Por preparar" },
+  { id: "listos", label: "Listos" },
+  { id: "cancelados", label: "Cancelados" },
+] as const;
+type FilterId = (typeof FILTERS)[number]["id"];
+
+function inFilter(status: string, filter: FilterId) {
+  if (filter === "activos") return status === "PROCESSING" || status === "PREPARING";
+  if (filter === "listos") return status === "READY" || status === "SHIPPED";
+  if (filter === "cancelados") return status === "CANCELLED";
+  return true;
+}
+
+/** Los pasos dependen de si se retira o se envía. */
+function stepsFor(order: OrderRow) {
+  const delivery = order.fulfillment?.type === "DELIVERY";
+  return [
+    { status: "PROCESSING", label: "Nuevo" },
+    { status: "PREPARING", label: "Preparando" },
+    { status: "READY", label: delivery ? "Listo para enviar" : "Listo para retirar" },
+    ...(delivery ? [{ status: "SHIPPED", label: "Despachado" }] : []),
+  ];
+}
+
+const CHANNEL_NAME: Record<string, string> = { WHATSAPP: "WhatsApp", INSTAGRAM: "Instagram", MESSENGER: "Messenger", FACEBOOK: "Messenger" };
 
 function money(value: number, currency: string) {
   return new Intl.NumberFormat("es-AR", { style: "currency", currency }).format(value);
@@ -55,40 +84,46 @@ function publicNumber(value: string) {
   return value.replace(/^LABS-/i, "");
 }
 
-function statusTone(status: string) {
-  if (status === "READY") return "labs-order-status is-ready";
-  if (status === "CANCELLED") return "labs-order-status is-cancelled";
-  if (status === "PREPARING") return "labs-order-status is-preparing";
-  return "labs-order-status";
+function noticeFor(order: OrderRow, status: string) {
+  const number = publicNumber(order.orderNumber);
+  const place = order.fulfillment?.pickupLabel || order.fulfillment?.address;
+  if (status === "PREPARING") return `Estamos preparando tu pedido N.º ${number}.`;
+  if (status === "CANCELLED") return `Tu pedido N.º ${number} fue cancelado.`;
+  if (status === "SHIPPED") return `Tu pedido N.º ${number} ya fue despachado.`;
+  return `¡Tu pedido N.º ${number} ya está listo!${place ? ` Podés retirarlo en ${place}.` : ""}`;
 }
 
 export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
   const router = useRouter();
+  const [filter, setFilter] = useState<FilterId>("todos");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
-  const [notificationPreview, setNotificationPreview] = useState("");
+  const [notice, setNotice] = useState("");
   const [carrier, setCarrier] = useState("");
   const [tracking, setTracking] = useState("");
   const [isPending, startTransition] = useTransition();
   const selected = useMemo(() => orders.find((order) => order.id === selectedId) ?? null, [orders, selectedId]);
+  const visible = orders.filter((order) => inFilter(order.operationalStatus, filter));
 
   useEffect(() => {
     if (!selected) return;
-    const close = (event: KeyboardEvent) => event.key === "Escape" && setSelectedId(null);
+    const close = (event: KeyboardEvent) => event.key === "Escape" && closeDrawer();
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [selected]);
 
-  function previewStatus(status: string) {
+  function closeDrawer() {
+    setSelectedId(null);
+    setPendingStatus(null);
+    setFeedback(null);
+  }
+
+  function askStatus(status: string) {
     if (!selected) return;
-    const number = publicNumber(selected.orderNumber);
-    const place = selected.fulfillment?.pickupLabel || selected.fulfillment?.address;
-    const copy = status === "PREPARING" ? `Estamos preparando tu pedido N.º ${number}.`
-      : status === "CANCELLED" ? `Tu pedido N.º ${number} fue cancelado.`
-      : status === "SHIPPED" ? `Tu pedido N.º ${number} ya fue despachado.`
-      : `¡Tu pedido N.º ${number} ya está listo!${place ? ` Podés retirarlo en ${place}.` : ""}`;
-    setPendingStatus(status); setNotificationPreview(copy);
+    setPendingStatus(status);
+    setNotice(noticeFor(selected, status));
+    setFeedback(null);
   }
 
   async function changeStatus(status: string, retryNotification = false) {
@@ -97,126 +132,182 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
     const response = await fetch(`/api/labs/orders/${selected.id}/status`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status, retryNotification, notificationText: notificationPreview, carrier, trackingUrl: tracking }),
+      body: JSON.stringify({ status, retryNotification, notificationText: notice, carrier, trackingUrl: tracking }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       setFeedback(payload.error || "No se pudo actualizar el pedido.");
       return;
     }
-    setFeedback(payload.order?.notificationStatus === "FAILED"
-      ? "El pedido quedó listo, pero no se pudo enviar el aviso."
-      : status === "READY" ? "Pedido listo y cliente avisado." : "Estado actualizado.");
-    startTransition(() => router.refresh());
+    setFeedback(payload.order?.notificationStatus === "FAILED" ? "Quedó actualizado, pero no se pudo enviar el aviso." : "Listo, le avisamos al cliente.");
     setPendingStatus(null);
+    startTransition(() => router.refresh());
   }
 
   if (orders.length === 0) {
-    return (
-      <div className="labs-orders-empty">
-        <PackageCheck size={28} />
-        <p>Tu primer pedido aparecerá acá</p>
-        <span>La IA lo va a crear cuando el cliente confirme productos, datos y entrega.</span>
-      </div>
-    );
+    return <PanelEmpty>Tu primer pedido va a aparecer acá. Lo crea el asistente cuando el cliente confirma productos, datos y entrega.</PanelEmpty>;
   }
+
+  const steps = selected ? stepsFor(selected) : [];
+  const current = selected ? steps.findIndex((step) => step.status === selected.operationalStatus) : -1;
+  const cancelled = selected?.operationalStatus === "CANCELLED";
 
   return (
     <>
-      <section className="labs-orders-ledger" aria-label="Listado de pedidos">
-        <div className="labs-orders-ledger-head">
-          <span>Pedido y cliente</span><span>Canal</span><span>Estado</span><span>Total</span><span />
-        </div>
-        {orders.map((order) => (
-          <button className="labs-order-row" key={order.id} onClick={() => { setSelectedId(order.id); setFeedback(null); }}>
-            <span className="labs-order-identity">
-              <strong>N.º {publicNumber(order.orderNumber)}</strong>
-              <small>{order.customerName || order.customerPhone || "Cliente sin nombre"} · {date(order.updatedAt)}</small>
-            </span>
-            <span className="labs-order-channel">{order.channel === "MESSENGER" ? "Facebook" : order.channel.toLowerCase()}</span>
-            <span className={statusTone(order.operationalStatus)}>{statusCopy[order.operationalStatus] || order.operationalStatus}</span>
-            <strong className="labs-order-total">{money(order.totalAmount, order.currency)}</strong>
-            <ChevronRight size={17} />
-          </button>
-        ))}
+      <div className="vpa-seg" role="tablist" aria-label="Filtrar pedidos">
+        {FILTERS.map((item) => {
+          const count = orders.filter((order) => inFilter(order.operationalStatus, item.id)).length;
+          return (
+            <button key={item.id} type="button" role="tab" aria-selected={filter === item.id} className={filter === item.id ? "on" : ""} onClick={() => setFilter(item.id)}>
+              {item.label} {count ? <span className="vpa-mut">{count}</span> : null}
+            </button>
+          );
+        })}
+      </div>
+
+      <section className="vpa-card" aria-label="Pedidos">
+        {visible.length ? (
+          visible.map((order) => {
+            const state = STATUS[order.operationalStatus] ?? { label: order.operationalStatus, tone: "n" as PanelTone };
+            const orderSteps = stepsFor(order);
+            const at = orderSteps.findIndex((step) => step.status === order.operationalStatus);
+            return (
+              <button key={order.id} type="button" className="vpa-ordrow" onClick={() => { setSelectedId(order.id); setPendingStatus(null); setFeedback(null); }}>
+                <div className="vpa-g1">
+                  <b>N.º {publicNumber(order.orderNumber)} · {order.customerName || order.customerPhone || "Cliente sin nombre"}</b>
+                  <span>{CHANNEL_NAME[order.channel] ?? order.channel} · {date(order.updatedAt)}</span>
+                </div>
+                {at >= 0 ? (
+                  <span className="vpa-dots" aria-hidden="true">
+                    {orderSteps.map((step, index) => <i key={step.status} className={index <= at ? "on" : ""} />)}
+                  </span>
+                ) : null}
+                <PanelTag tone={state.tone}>{state.label}</PanelTag>
+                <b style={{ minWidth: 96, textAlign: "right" }}>{money(order.totalAmount, order.currency)}</b>
+                <ChevronRight size={17} aria-hidden="true" />
+              </button>
+            );
+          })
+        ) : (
+          <PanelEmpty>No hay pedidos en esta pestaña.</PanelEmpty>
+        )}
       </section>
 
       {selected ? (
-        <div className="labs-order-modal-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setSelectedId(null);
-        }}>
-          <section className="labs-order-modal" role="dialog" aria-modal="true" aria-labelledby="order-modal-title">
-            <header className="labs-order-modal-header">
-              <div>
-                <span className="labs-order-kicker">Pedido · {selected.channel}</span>
-                <h2 id="order-modal-title">N.º {publicNumber(selected.orderNumber)}</h2>
-                <p>{selected.customerName || "Cliente"} · creado {date(selected.updatedAt)}</p>
+        <div className="vpa-ov" style={{ position: "fixed" }} onClick={closeDrawer}>
+          <div className="vpa-dr" role="dialog" aria-modal="true" aria-labelledby="order-title" onClick={(event) => event.stopPropagation()}>
+            <div className="vpa-mh">
+              <div className="vpa-g1">
+                <h3 id="order-title">Pedido N.º {publicNumber(selected.orderNumber)}</h3>
+                <p>{selected.customerName || "Cliente"} · {CHANNEL_NAME[selected.channel] ?? selected.channel} · {date(selected.updatedAt)}</p>
               </div>
-              <div className="labs-order-modal-head-actions">
-                <span className={statusTone(selected.operationalStatus)}>{statusCopy[selected.operationalStatus]}</span>
-                <button className="labs-order-close" onClick={() => setSelectedId(null)} aria-label="Cerrar detalle"><X size={19} /></button>
-              </div>
-            </header>
-
-            <div className="labs-order-modal-body">
-              <div className="labs-order-main">
-                <section className="labs-order-panel">
-                  <div className="labs-order-section-title"><span>Detalle del pedido</span><small>{selected.items.length} productos</small></div>
-                  <div className="labs-order-items">
-                    {selected.items.map((item, index) => (
-                      <div className="labs-order-item" key={`${item.productId}-${index}`}>
-                        <div className="labs-order-item-art">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <PackageCheck size={20} />}</div>
-                        <div><strong>{item.name || item.productId || "Producto"}</strong><small>SKU {item.sku || item.productId || "—"}</small></div>
-                        <span>{item.quantity || 1} × {money(item.unitPrice || 0, selected.currency)}</span>
-                        <strong>{money(item.totalAmount || 0, selected.currency)}</strong>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="labs-order-totals">
-                    <span>Subtotal <strong>{money(selected.subtotalAmount, selected.currency)}</strong></span>
-                    <span>Envío <strong>{selected.shippingAmount ? money(selected.shippingAmount, selected.currency) : "Sin cargo"}</strong></span>
-                    <span className="is-total">Total <strong>{money(selected.totalAmount, selected.currency)}</strong></span>
-                  </div>
-                </section>
-                <section className="labs-order-panel labs-order-timeline">
-                  <div className="labs-order-section-title"><span>Actividad</span><small>Historial operativo</small></div>
-                  {selected.events.length ? selected.events.map((event) => (
-                    <div key={event.id}><Check size={14} /><span><strong>{statusCopy[event.toStatus] || event.toStatus}</strong><small>{date(event.createdAt)}{event.notificationStatus ? ` · Aviso ${event.notificationStatus.toLowerCase()}` : ""}</small></span></div>
-                  )) : <div><Clock3 size={14} /><span><strong>Pedido creado</strong><small>{date(selected.updatedAt)}</small></span></div>}
-                </section>
-              </div>
-
-              <aside className="labs-order-aside">
-                <section>
-                  <span className="labs-order-kicker">Cliente</span>
-                  <strong>{selected.customerName || "Sin nombre"}</strong>
-                  <p>{selected.customerPhone || "Sin teléfono"}<br />{selected.customerEmail || ""}</p>
-                </section>
-                <section>
-                  <span className="labs-order-kicker">{selected.fulfillment?.type === "DELIVERY" ? "Entrega" : "Retiro"}</span>
-                  <strong>{selected.fulfillment?.pickupLabel || selected.fulfillment?.address || "A coordinar"}</strong>
-                  <p>El aviso se enviará por {selected.channel.toLowerCase()}.</p>
-                </section>
-                {selected.notificationStatus === "FAILED" ? (
-                  <div className="labs-order-alert"><CircleAlert size={16} /><span>No se pudo enviar el último aviso.<small>{selected.notificationError}</small></span></div>
-                ) : null}
-                {feedback ? <p className="labs-order-feedback">{feedback}</p> : null}
-                <div className="labs-order-actions">
-                  {selected.operationalStatus === "PROCESSING" ? <button onClick={() => previewStatus("PREPARING")} disabled={isPending}><Truck size={16} /> Empezar preparación</button> : null}
-                  {selected.operationalStatus !== "READY" && selected.operationalStatus !== "CANCELLED" ? <button className="is-primary" onClick={() => previewStatus("READY")} disabled={isPending}><PackageCheck size={16} /> Marcar listo y avisar</button> : null}
-                  {selected.fulfillment?.type === "DELIVERY" && selected.operationalStatus === "READY" ? <button onClick={() => previewStatus("SHIPPED")} disabled={isPending}><Truck size={16} /> Marcar despachado</button> : null}
-                  {selected.operationalStatus === "READY" && selected.notificationStatus === "FAILED" ? <button className="is-primary" onClick={() => changeStatus("READY", true)} disabled={isPending}>Reintentar aviso</button> : null}
-                  {selected.operationalStatus !== "CANCELLED" ? <button className="is-danger" onClick={() => previewStatus("CANCELLED")} disabled={isPending}>Cancelar pedido</button> : null}
-                </div>
-                {pendingStatus ? <section className="labs-order-panel">
-                  <span className="labs-order-kicker">Vista previa del aviso</span>
-                  {pendingStatus === "SHIPPED" ? <><input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Transportista" /><input value={tracking} onChange={(event) => setTracking(event.target.value)} placeholder="Enlace o código de seguimiento" /></> : null}
-                  <textarea value={notificationPreview} onChange={(event) => setNotificationPreview(event.target.value)} rows={4} />
-                  <div className="labs-order-actions"><button onClick={() => setPendingStatus(null)}>Volver</button><button className="is-primary" onClick={() => changeStatus(pendingStatus)} disabled={isPending || !notificationPreview.trim() || (pendingStatus === "SHIPPED" && (!carrier.trim() || !tracking.trim()))}>Confirmar cambio y enviar</button></div>
-                </section> : null}
-              </aside>
+              <button type="button" className="vpa-x" aria-label="Cerrar" onClick={closeDrawer}>
+                <X size={18} />
+              </button>
             </div>
-          </section>
+
+            <div className="vpa-drb">
+              <div>
+                <div className="vpa-lab">Estado</div>
+                {cancelled ? (
+                  <PanelTag tone="n">Cancelado</PanelTag>
+                ) : (
+                  <div className="vpa-stepper">
+                    {steps.map((step, index) => {
+                      const done = index < current;
+                      const now = index === current;
+                      const next = index === current + 1;
+                      return (
+                        <button
+                          key={step.status}
+                          type="button"
+                          className={`vpa-stp${done ? " done" : now ? " now" : ""}${!done && !now && !next ? " off" : ""}`}
+                          disabled={!next || isPending}
+                          onClick={() => askStatus(step.status)}
+                          aria-current={now ? "step" : undefined}
+                        >
+                          <i>{done ? "✓" : index + 1}</i>
+                          <span>{step.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {pendingStatus ? (
+                <div className="vpa-stack" style={{ gap: 10 }}>
+                  <div className="vpa-lab" style={{ marginBottom: 0 }}>Aviso que le llega al cliente por {CHANNEL_NAME[selected.channel] ?? selected.channel}</div>
+                  {pendingStatus === "SHIPPED" ? (
+                    <>
+                      <input className="vpa-inp" value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Transportista" aria-label="Transportista" />
+                      <input className="vpa-inp" value={tracking} onChange={(event) => setTracking(event.target.value)} placeholder="Enlace o código de seguimiento" aria-label="Seguimiento" />
+                    </>
+                  ) : null}
+                  <textarea className="vpa-inp vpa-area" value={notice} onChange={(event) => setNotice(event.target.value)} rows={3} aria-label="Texto del aviso" />
+                  <div className="vpa-acts" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button type="button" className="vpa-btn soft sm" onClick={() => setPendingStatus(null)}>Volver</button>
+                    <button
+                      type="button"
+                      className="vpa-btn acc sm"
+                      disabled={isPending || !notice.trim() || (pendingStatus === "SHIPPED" && (!carrier.trim() || !tracking.trim()))}
+                      onClick={() => changeStatus(pendingStatus)}
+                    >
+                      {pendingStatus === "CANCELLED" ? "Cancelar y avisar" : "Cambiar y avisar"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {selected.notificationStatus === "FAILED" ? (
+                <div className="vpa-alert">
+                  <CircleAlert size={16} aria-hidden="true" />
+                  <span>No se pudo enviar el último aviso.</span>
+                  {selected.operationalStatus === "READY" ? (
+                    <button type="button" className="vpa-btn line sm" disabled={isPending} onClick={() => changeStatus("READY", true)}>Reintentar</button>
+                  ) : null}
+                </div>
+              ) : null}
+              {feedback ? <p className="vpa-mut" role="status">{feedback}</p> : null}
+
+              <div>
+                <div className="vpa-lab">Productos</div>
+                {selected.items.map((item, index) => (
+                  <div className="vpa-row" key={`${item.productId}-${index}`}>
+                    <span className="vpa-tag" aria-hidden="true">{item.quantity || 1}×</span>
+                    <div className="vpa-g1">
+                      <b>{item.name || item.productId || "Producto"}</b>
+                      <span>{money(item.unitPrice || 0, selected.currency)} c/u</span>
+                    </div>
+                    <b>{money(item.totalAmount || 0, selected.currency)}</b>
+                  </div>
+                ))}
+              </div>
+
+              <div className="vpa-ordtot">
+                <div className="vpa-g1">
+                  <b>Total</b>
+                  <span>
+                    {selected.fulfillment?.type === "DELIVERY" ? "Envío" : "Retiro"}: {selected.fulfillment?.pickupLabel || selected.fulfillment?.address || "a coordinar"}
+                    {selected.shippingAmount ? ` · envío ${money(selected.shippingAmount, selected.currency)}` : ""}
+                  </span>
+                </div>
+                <b className="big">{money(selected.totalAmount, selected.currency)}</b>
+              </div>
+
+              <div>
+                <div className="vpa-lab">Cliente</div>
+                <b>{selected.customerName || "Sin nombre"}</b>
+                <p className="vpa-mut" style={{ marginTop: 2 }}>{[selected.customerPhone, selected.customerEmail].filter(Boolean).join(" · ") || "Sin datos de contacto"}</p>
+              </div>
+
+              {!cancelled && !pendingStatus ? (
+                <button type="button" className="vpa-lnk" style={{ color: "var(--red)", alignSelf: "flex-start", background: "none", border: 0, cursor: "pointer", padding: 0 }} onClick={() => askStatus("CANCELLED")}>
+                  Cancelar pedido
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       ) : null}
     </>

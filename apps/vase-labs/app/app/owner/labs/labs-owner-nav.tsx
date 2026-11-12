@@ -1,8 +1,8 @@
-import { Cable, House, MessagesSquare, ShoppingBag, Sparkles } from "lucide-react";
+import { House, MessagesSquare, ShoppingBag, Sparkles } from "lucide-react";
 
-// Menú de Vase Labs: 5 entradas. Cada una junta pantallas que antes estaban separadas.
-// - Conversaciones: la bandeja y el análisis de cada cliente.
-// - Qué sabe y cómo responde: conocimiento, catálogo, instrucciones y lo que le enseñan por WhatsApp.
+// Menú de Vase Labs: 4 entradas. Canales, plan y motor de IA están en Ajustes › Labs (botón de tu usuario).
+// - Conversaciones: la bandeja y quién quiere comprar.
+// - Asistente: cómo habla, qué sabe y lo que le enseñaron por WhatsApp.
 export const labsNavigationGroups = [
   {
     label: "Principal",
@@ -10,13 +10,7 @@ export const labsNavigationGroups = [
       { id: "inicio", href: "/owner", label: "Inicio", icon: House },
       { id: "conversaciones", href: "/owner/inbox", label: "Conversaciones", icon: MessagesSquare },
       { id: "pedidos", href: "/owner/orders", label: "Pedidos", icon: ShoppingBag },
-    ],
-  },
-  {
-    label: "Tu asistente",
-    items: [
-      { id: "asistente", href: "/owner/knowledge", label: "Qué sabe y cómo responde", icon: Sparkles },
-      { id: "canales", href: "/owner/channels", label: "Canales", icon: Cable },
+      { id: "asistente", href: "/owner/knowledge", label: "Asistente", icon: Sparkles },
     ],
   },
 ] as const;
@@ -33,8 +27,7 @@ export function resolveLabsSection(pathname: string): LabsSectionId {
   if (path.startsWith("/owner/inbox/trainer") || path.startsWith("/owner/knowledge")) return "asistente";
   if (path.startsWith("/owner/inbox") || path.startsWith("/owner/activity")) return "conversaciones";
   if (path.startsWith("/owner/orders")) return "pedidos";
-  if (path.startsWith("/owner/channels")) return "canales";
-  if (path.startsWith("/owner/settings")) return "ajustes";
+  if (path.startsWith("/owner/channels") || path.startsWith("/owner/settings")) return "ajustes";
   return "inicio";
 }
 
@@ -47,7 +40,15 @@ export const labsSectionTitles: Record<LabsSectionId, { title: string; subtitle:
   inicio: { title: "Vase Labs", subtitle: "Cómo viene tu asistente" },
   conversaciones: { title: "Conversaciones", subtitle: "Todo lo que llega por WhatsApp, Instagram y Messenger" },
   pedidos: { title: "Pedidos", subtitle: "Lo que tus clientes compraron por chat" },
-  asistente: { title: "Qué sabe y cómo responde", subtitle: "Lo que tu asistente sabe y cómo habla" },
-  canales: { title: "Canales", subtitle: "Por dónde te escriben tus clientes" },
-  ajustes: { title: "Ajustes de Labs", subtitle: "Plan, motor de IA y pedidos" },
+  asistente: { title: "Asistente", subtitle: "Cómo habla, qué sabe y lo que le enseñaste" },
+  ajustes: { title: "Ajustes", subtitle: "Tu perfil, tu negocio, la facturación y Labs" },
 };
+
+/** Ajustes es igual en todos los productos: lo común vive en tu cuenta de Vase y cada producto suma su pestaña. */
+const APP_SETTINGS = "https://app.vase.ar/app/settings";
+export const LABS_SETTINGS_TABS = [
+  { id: "perfil", label: "Mi perfil", href: `${APP_SETTINGS}?tab=perfil` },
+  { id: "negocio", label: "Mi negocio", href: `${APP_SETTINGS}?tab=negocio` },
+  { id: "facturacion", label: "Facturación", href: `${APP_SETTINGS}?tab=facturacion` },
+  { id: "labs", label: "Labs", href: "/owner/settings" },
+] as const;

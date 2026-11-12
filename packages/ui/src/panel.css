@@ -458,3 +458,24 @@
 .vpa-ic { width: 36px; height: 36px; border-radius: 11px; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
 .vpa-pbadge { height: 20px; padding: 0 7px; border-radius: 6px; background: #241a5c; color: #b9a7ff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; letter-spacing: 0; }
 .vpa-side.mini .vpa-pbadge { display: none; }
+
+/* Pasos de estado (pedidos): se tocan para avanzar. */
+.vpa-stepper { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.vpa-stp { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px; border-radius: 14px; cursor: pointer; font-size: 12px; font-weight: 700; color: var(--mut); background: var(--soft); text-align: center; transition: background .15s; }
+.vpa-stp i { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; background: var(--card); border: 1.5px solid var(--line2); color: var(--mut); }
+.vpa-stp:hover:not(:disabled) { background: var(--active); }
+.vpa-stp:disabled { cursor: default; }
+.vpa-stp:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.vpa-stp.done { color: var(--tx); } .vpa-stp.done i { background: var(--acc); border-color: var(--acc); color: var(--acc-on); }
+.vpa-stp.now { background: var(--accsoft); color: var(--acc-tx); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--acc); } .vpa-stp.now i { border-color: var(--acc); color: var(--acc-tx); }
+.vpa-stp.off { opacity: .45; }
+.vpa-dots { display: inline-flex; gap: 3px; } .vpa-dots i { width: 14px; height: 4px; border-radius: 2px; background: var(--line2); } .vpa-dots i.on { background: var(--acc); }
+.vpa-ordrow { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.vpa-ordrow:last-child { border-bottom: 0; }
+.vpa-ordrow:hover { background: var(--hover); border-radius: 10px; }
+.vpa-ordrow:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; border-radius: 10px; }
+.vpa-ordrow .vpa-g1 b, .vpa-ordrow .vpa-g1 span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpa-ordtot { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 14px; background: var(--soft); }
+.vpa-ordtot b.big { font-size: 20px; font-weight: 800; }
+.vpa-mf { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 22px 22px; border-top: 1px solid var(--line); }
+.vpa-area { width: 100%; box-sizing: border-box; }

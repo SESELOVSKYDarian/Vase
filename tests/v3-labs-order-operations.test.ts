@@ -33,8 +33,8 @@ describe("Labs order operations", () => {
 
   it("requires an editable preview before the orders UI sends a status", () => {
     const source = fs.readFileSync("apps/vase-labs/app/app/owner/labs/orders/orders-workspace.tsx", "utf8");
-    expect(source).toContain("notificationPreview");
-    expect(source).toContain("Confirmar cambio y enviar");
+    expect(source).toContain("setNotice(event.target.value)");
+    expect(source).toContain("Cambiar y avisar");
     expect(source).toContain("SHIPPED");
   });
   it("marks an order ready and notifies the linked customer", async () => {

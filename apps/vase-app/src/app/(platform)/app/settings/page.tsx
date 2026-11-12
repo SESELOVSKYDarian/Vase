@@ -48,6 +48,7 @@ export default async function SettingsPage({
   if (!dashboard) forbidden();
 
   const isOwner = membership.role === "OWNER";
+  const labsActive = dashboard.modules.some((module) => module.key === "labs" && module.isActive);
   const profile = await prisma.user.findUnique({ where: { id: session.user.id }, select: { avatarUrl: true } });
   const tabs = TABS.filter((item) => isOwner || item.id !== "facturacion");
   const tab = resolveTab(query.tab, tabs);
@@ -100,6 +101,12 @@ export default async function SettingsPage({
               {item.label}
             </Link>
           ))}
+          {/* Cada producto suma su pestaña de Ajustes; la de Labs vive en labs.vase.ar. */}
+          {labsActive ? (
+            <a role="tab" aria-selected={false} href="https://labs.vase.ar/owner/settings">
+              Labs
+            </a>
+          ) : null}
         </div>
       </div>
 

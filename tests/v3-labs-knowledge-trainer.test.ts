@@ -41,7 +41,7 @@ describe("Labs knowledge trainer", () => {
   });
 
   it("exposes the trainer revision history with an explicit reversal action", () => {
-    const page = readFileSync("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx", "utf8");
+    const page = readFileSync("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx", "utf8");
     const component = readFileSync("apps/vase-labs/app/app/owner/labs/chatbots/trainer-revision-history.tsx", "utf8");
     expect(page).toContain("TrainerRevisionHistory");
     expect(component).toContain("Revertir cambio");
@@ -54,7 +54,7 @@ describe("Labs knowledge trainer", () => {
     expect(nav).toContain('href: "/owner/inbox/trainer"');
     expect(page).toContain("<LabsTabs tabs={ASSISTANT_TABS} />");
     expect(page).toContain("job.error ?");
-    expect(page).toContain("Error:");
+    expect(page).toContain("No se pudo leer");
   });
 
   it("uses the AI instruction interpreter after transcribing trainer audio", () => {

@@ -95,7 +95,7 @@ export default async function LabsHomePage() {
   const setup = [
     { done: hasProfile, label: "Datos del negocio", detail: hasProfile ? "Los toma de Mi negocio" : "Cargalos en Mi negocio", href: MI_NEGOCIO_URL },
     { done: data.knowledgeCount > 0, label: "Lo que sabe", detail: data.knowledgeCount > 0 ? `${data.knowledgeCount} documentos listos` : "Sumá precios, preguntas frecuentes o tu web", href: "/owner/knowledge" },
-    { done: connected > 0, label: "Canales", detail: connected > 0 ? `${connected} conectados` : "Conectá WhatsApp, Instagram o Messenger", href: "/owner/channels" },
+    { done: connected > 0, label: "Canales", detail: connected > 0 ? `${connected} conectados` : "Conectá WhatsApp, Instagram o Messenger", href: "/owner/settings" },
   ];
   const pending = setup.filter((step) => !step.done);
   const oldest = needYou.reduce<Date | null>((min, c) => (c.lastMessageAt && (!min || c.lastMessageAt < min) ? c.lastMessageAt : min), null);
@@ -134,9 +134,9 @@ export default async function LabsHomePage() {
           {analytics.total === 0 ? <PanelEmpty>Cuando te escriban, vas a ver acá cómo vienen.</PanelEmpty> : <LabsConversationTrendChart analytics={analytics} />}
         </PanelCard>
         <div className="vpa-gs">
-          <PanelCard title="Canales" actions={<Link href="/owner/channels" className="vpa-lnk">Ver</Link>}>
+          <PanelCard title="Canales" actions={<Link href="/owner/settings" className="vpa-lnk">Ver</Link>}>
             {data.channels.length === 0 ? (
-              <PanelEmpty action={<Link href="/owner/channels" className="vpa-btn acc sm">Conectar un canal</Link>}>Todavía no conectaste ningún canal.</PanelEmpty>
+              <PanelEmpty action={<Link href="/owner/settings" className="vpa-btn acc sm">Conectar un canal</Link>}>Todavía no conectaste ningún canal.</PanelEmpty>
             ) : (
               data.channels.map((channel) => {
                 const state = CHANNEL_STATE[channel.status] ?? CHANNEL_STATE.DISCONNECTED;

@@ -66,7 +66,8 @@ describe("Vase Labs standalone owner experience", () => {
   });
 
   it("offers the guided five-source knowledge flow without leaking credentials", () => {
-    const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"), "utf8");
+    const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knows-page.tsx"), "utf8");
+    const howPage = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"), "utf8");
     const selectorPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/model-selector.tsx");
     const keyCardPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/openai-key-card.tsx");
     const promptCardPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/assistant-prompt-card.tsx");
@@ -88,7 +89,7 @@ describe("Vase Labs standalone owner experience", () => {
     // El modelo y la clave de OpenAI se movieron a Ajustes de Labs.
     const settingsPage = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"), "utf8");
     expect(settingsPage).toContain("getOpenAiModelProfiles");
-    expect(page).toContain("<AssistantPromptCard initialPrompt={data.assistant.systemPrompt} />");
+    expect(howPage).toContain("<AssistantPromptCard initialPrompt={assistant.systemPrompt} />");
     expect(settingsPage).toContain("<ModelSelector");
     expect(settingsPage).toContain("currentModel={data.currentModel}");
     expect(settingsPage).toContain("<OpenAiKeyCard configured={data.openAiKeyConfigured} />");
@@ -140,13 +141,13 @@ describe("Vase Labs standalone owner experience", () => {
     const styles = fs.readFileSync(path.resolve("apps/vase-labs/app/globals.css"), "utf8");
 
     expect(page).toContain("<PanelSection");
-    expect(page).toContain("Datos del negocio");
+    expect(page).not.toContain("Datos del negocio");
     expect(page).toContain("MI_NEGOCIO_URL");
     expect(page).not.toContain("AssistantTestPanel");
     expect(page).not.toContain("assistant-test-panel");
     expect(fs.existsSync(testPanelPath)).toBe(false);
-    expect(page).toContain("Lo que sabe");
-    expect(page).toContain("Enseñale desde WhatsApp");
+    expect(fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knows-page.tsx"), "utf8")).toContain("Lo que sabe");
+    expect(fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx"), "utf8")).toContain("Quién le enseña");
     expect(styles).not.toContain(".labs-assistant-test");
     expect(styles).not.toContain(".labs-assistant-message");
     expect(keyCard).toContain("aria-label={showKey");
@@ -255,7 +256,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(integrationsPage).not.toContain("{ default, dynamic }");
     expect(labsChannelsPage).toContain('redirect("/owner/channels")');
     expect(appChannelsPage).toContain('new URL("/owner", productOrigins.labs).toString() as Route');
-    expect(oauthCallback).toContain('new URL("/owner/channels", url.origin)');
+    expect(oauthCallback).toContain('new URL("/owner/settings", url.origin)');
   });
 
   it("keeps Inbox operationally distinct from Activity", () => {
