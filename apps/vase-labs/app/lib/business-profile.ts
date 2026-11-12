@@ -11,7 +11,7 @@ export type VaseBusinessProfile = {
   website?: string | null;
   hours?: string | null;
   socialLinks?: Array<{ network?: string; url?: string; label?: string }>;
-  branches?: Array<{ name?: string | null; address?: string | null; phone?: string | null; hours?: string | null; isMain?: boolean }>;
+  branches?: Array<{ id?: string; name?: string | null; address?: string | null; phone?: string | null; hours?: string | null; isMain?: boolean }>;
   fiscal?: { legalName?: string | null } | null;
 };
 
@@ -105,4 +105,36 @@ export function formatBusinessProfileContext(profile: VaseBusinessProfile | null
 
 export async function buildBusinessProfileContext(globalTenantId: string) {
   return formatBusinessProfileContext(await fetchBusinessProfile(globalTenantId));
+}
+
+export type BusinessProfileChange =
+  | { action: "contact"; data: Record<string, string> }
+  | { action: "saveBranch"; data: { id?: string; name: string; address: string; phone: string; hours: string; isMain: boolean } }
+  | { action: "deleteBranch"; data: { id: string } };
+
+/** Guarda un cambio de Mi negocio en app.vase.ar. app decide si la persona puede (solo el Dueño). */
+export async function changeBusinessProfile(
+  globalTenantId: string,
+  actorUserId: string,
+  change: BusinessProfileChange,
+  options: { fetcher?: FetchLike; env?: NodeJS.ProcessEnv } = {},
+): Promise<{ ok: boolean; message: string; status: number }> {
+  const env = options.env ?? process.env;
+  const origin = appOrigin(env.APP_INTERNAL_URL);
+  const token = env.SERVICE_TO_SERVICE_TOKEN?.trim();
+  if (!origin || !token) return { ok: false, message: "Mi negocio no está disponible ahora.", status: 503 };
+  try {
+    const response = await (options.fetcher ?? fetch)(new URL("/api/internal/business/business-profile/manage", origin), {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ globalTenantId, actorUserId, ...change }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    });
+    const body = (await response.json().catch(() => ({}))) as { message?: string };
+    cache.delete(globalTenantId);
+    return { ok: response.ok, message: body.message ?? (response.ok ? "Guardado." : "No pudimos guardar."), status: response.status };
+  } catch {
+    return { ok: false, message: "No pudimos guardar. Probá de nuevo.", status: 502 };
+  }
 }

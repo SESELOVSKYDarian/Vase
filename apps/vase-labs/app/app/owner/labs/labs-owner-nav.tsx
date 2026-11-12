@@ -48,7 +48,7 @@ export const labsSectionTitles: Record<LabsSectionId, { title: string; subtitle:
 const APP_SETTINGS = "https://app.vase.ar/app/settings";
 export const LABS_SETTINGS_TABS = [
   { id: "perfil", label: "Mi perfil", href: `${APP_SETTINGS}?tab=perfil` },
-  { id: "negocio", label: "Mi negocio", href: `${APP_SETTINGS}?tab=negocio` },
+  { id: "negocio", label: "Mi negocio", href: "/owner/settings?tab=negocio" },
   { id: "facturacion", label: "Facturación", href: `${APP_SETTINGS}?tab=facturacion` },
   { id: "labs", label: "Labs", href: "/owner/settings" },
 ] as const;

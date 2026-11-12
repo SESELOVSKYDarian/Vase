@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
-import { BUSINESS_PROFILE_FIELDS, MAX_BRANCHES, branchSchema, businessProfileSchema } from "@/lib/business/business-profile";
+import { BUSINESS_PROFILE_FIELDS, businessProfileSchema } from "@/lib/business/business-profile";
 import { prisma } from "@/lib/db/prisma";
 import { sanitizeText } from "@/lib/security/sanitize";
 import { isVaseUploadUrl } from "@/lib/storage/vase-uploads";
 import { socialColumns, socialLinksSchema } from "@/lib/business/social-links";
 import { createAuditLog } from "@/server/services/audit-log";
 import { notifyBusinessProfileChanged } from "@/server/services/business-profile";
+import { deleteBusinessBranch, saveBusinessBranch, type BranchInput } from "@/server/services/business-profile-edit";
 
 export type BusinessActionResult = { ok: boolean; message: string };
 
@@ -89,49 +90,13 @@ export async function saveBusinessLogoAction(url: string | null): Promise<Busine
   }
 }
 
-export async function saveBranchAction(input: {
-  id?: string;
-  name: string;
-  address: string;
-  phone: string;
-  hours: string;
-  isMain: boolean;
-}): Promise<BusinessActionResult> {
+export async function saveBranchAction(input: BranchInput): Promise<BusinessActionResult> {
   try {
     const { membership } = await requireOwner();
-    const tenantId = membership.tenantId;
-    const parsed = branchSchema.safeParse({
-      ...input,
-      name: sanitizeText(String(input.name ?? "")),
-      address: sanitizeText(String(input.address ?? "")),
-      phone: sanitizeText(String(input.phone ?? "")),
-      hours: sanitizeText(String(input.hours ?? "")),
-      isMain: Boolean(input.isMain),
-    });
-    if (!parsed.success) return { ok: false, message: "Completá nombre y dirección." };
-    const { id, ...data } = parsed.data;
-
-    await prisma.$transaction(async (tx) => {
-      const count = await tx.tenantBranch.count({ where: { tenantId } });
-      const isFirst = count === 0;
-      const isMain = data.isMain || isFirst;
-      if (isMain) {
-        await tx.tenantBranch.updateMany({ where: { tenantId, isMain: true }, data: { isMain: false } });
-      }
-      if (id) {
-        const updated = await tx.tenantBranch.updateMany({ where: { id, tenantId }, data: { ...data, isMain } });
-        if (updated.count !== 1) throw new Error("BRANCH_NOT_FOUND");
-      } else {
-        if (count >= MAX_BRANCHES) throw new Error("TOO_MANY_BRANCHES");
-        await tx.tenantBranch.create({ data: { tenantId, ...data, isMain, sortOrder: count } });
-      }
-    });
-    refresh(tenantId);
-    return { ok: true, message: "Sucursal guardada." };
-  } catch (error) {
-    if (error instanceof Error && error.message === "TOO_MANY_BRANCHES") {
-      return { ok: false, message: `Podés cargar hasta ${MAX_BRANCHES} sucursales.` };
-    }
+    const result = await saveBusinessBranch(membership.tenantId, input);
+    if (result.ok) refresh(membership.tenantId);
+    return result;
+  } catch {
     return { ok: false, message: "No pudimos guardar la sucursal." };
   }
 }
@@ -139,18 +104,9 @@ export async function saveBranchAction(input: {
 export async function deleteBranchAction(id: string): Promise<BusinessActionResult> {
   try {
     const { membership } = await requireOwner();
-    const tenantId = membership.tenantId;
-    await prisma.$transaction(async (tx) => {
-      const branch = await tx.tenantBranch.findFirst({ where: { id, tenantId }, select: { isMain: true } });
-      if (!branch) throw new Error("BRANCH_NOT_FOUND");
-      await tx.tenantBranch.delete({ where: { id } });
-      if (branch.isMain) {
-        const next = await tx.tenantBranch.findFirst({ where: { tenantId }, orderBy: { sortOrder: "asc" }, select: { id: true } });
-        if (next) await tx.tenantBranch.update({ where: { id: next.id }, data: { isMain: true } });
-      }
-    });
-    refresh(tenantId);
-    return { ok: true, message: "Sucursal eliminada." };
+    const result = await deleteBusinessBranch(membership.tenantId, id);
+    if (result.ok) refresh(membership.tenantId);
+    return result.ok ? result : { ok: false, message: "No pudimos eliminar la sucursal." };
   } catch {
     return { ok: false, message: "No pudimos eliminar la sucursal." };
   }

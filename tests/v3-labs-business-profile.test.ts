@@ -78,3 +78,35 @@ describe("Labs lee Mi negocio", () => {
     expect(call[0].context).toBe("Datos del negocio: Piquim\n\nConocimiento");
   });
 });
+
+describe("Labs edita Mi negocio", () => {
+  it("manda el cambio a app.vase.ar con el token, la cuenta y quién lo pide, y olvida lo guardado", async () => {
+    const { changeBusinessProfile } = await import("../apps/vase-labs/app/lib/business-profile");
+    let calls = 0;
+    const reader = vi.fn(async () => Response.json({ profile: { name: `v${++calls}` } }));
+    await fetchBusinessProfile("t1", { fetcher: reader as typeof fetch, env });
+    const writer = vi.fn(async () => Response.json({ ok: true, message: "Sucursal guardada." }));
+    const result = await changeBusinessProfile(
+      "t1",
+      "u1",
+      { action: "saveBranch", data: { name: "Centro", address: "Florida 300", phone: "", hours: "", isMain: false } },
+      { fetcher: writer as typeof fetch, env },
+    );
+    expect(result).toEqual({ ok: true, message: "Sucursal guardada.", status: 200 });
+    const [url, init] = writer.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(String(url)).toBe("http://app-vase:3002/api/internal/business/business-profile/manage");
+    expect(init.method).toBe("POST");
+    expect(init.headers).toEqual({ authorization: "Bearer secret", "content-type": "application/json" });
+    expect(JSON.parse(String(init.body))).toMatchObject({ globalTenantId: "t1", actorUserId: "u1", action: "saveBranch" });
+    const fresh = await fetchBusinessProfile("t1", { fetcher: reader as typeof fetch, env });
+    expect(fresh?.name).toBe("v2");
+  });
+
+  it("devuelve el motivo cuando app no deja (por ejemplo, no es el Dueño)", async () => {
+    const { changeBusinessProfile } = await import("../apps/vase-labs/app/lib/business-profile");
+    const writer = vi.fn(async () => Response.json({ error: "OWNER_REQUIRED", message: "Solo el Dueño puede cambiar Mi negocio." }, { status: 403 }));
+    const result = await changeBusinessProfile("t1", "u2", { action: "deleteBranch", data: { id: "b1" } }, { fetcher: writer as typeof fetch, env });
+    expect(result).toEqual({ ok: false, message: "Solo el Dueño puede cambiar Mi negocio.", status: 403 });
+    expect(await changeBusinessProfile("t1", "u2", { action: "deleteBranch", data: { id: "b1" } }, { fetcher: writer as typeof fetch, env: {} as NodeJS.ProcessEnv })).toMatchObject({ ok: false, status: 503 });
+  });
+});
