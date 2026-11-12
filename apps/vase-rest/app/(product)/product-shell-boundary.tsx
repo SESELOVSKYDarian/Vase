@@ -79,7 +79,7 @@ export function ProductShellBoundary({ children }: { children: ReactNode }) {
   }, [isLogin, ownerRoute, pathname, router, search]);
 
   if (isLogin) return children;
-  if (!identity) return <main className="staff-login"><p>Validando accesoâ€¦</p></main>;
+  if (!identity) return <main className="vr-loading"><span className="vr-spinner" aria-hidden="true" /><p>Validando acceso…</p></main>;
   return (
     <RestShell
       role={identity.role}

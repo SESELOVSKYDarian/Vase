@@ -1,5 +1,12 @@
 # Vase Design System
 
+> **Sistema vigente (nov 2026):** todas las apps siguen el panel nuevo de Vase Business
+> (`apps/vase-editor/web/src/panel/panel.css`): blanco/negro + verde `#006d43` / `#47e098`, Manrope, modo claro y
+> oscuro, menú lateral agrupado y barra superior con título. Vase Rest y help.vase.ar ya lo usan.
+> La guía detallada (tokens, componentes, anatomía, textos y checklist) está en la skill
+> `.claude/skills/vase-design/`. Donde este documento diga otra cosa (IBM Plex Mono, glassmorphism, jade `#3B633D`),
+> manda la skill.
+
 ## Brand Direction
 - Moderna sin frialdad.
 - Premium sin ruido visual.

@@ -6,6 +6,7 @@ import {
   authenticateLocalStaff,
   edgePairingSchema,
 } from "@/lib/edge/local-edge-client";
+import { BrandLogo, ThemeButton } from "@/components/brand";
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -51,16 +52,21 @@ export default function StaffLoginPage() {
 
   return (
     <main className="staff-login">
+      <header className="staff-login-top">
+        <BrandLogo />
+        <ThemeButton withLabel={false} />
+      </header>
       <section>
-        <a className="brand" href="/"><span className="brand-mark"><span /></span>vase <em>rest</em></a>
-        <p className="eyebrow">Acceso rápido de equipo</p>
+        <span className="vr-kick"><i />Acceso rápido de equipo</span>
         <h1>Entrá a tu turno</h1>
+        <p className="lede">Usá el código y el PIN que te dio el encargado. Funciona aunque se corte internet.</p>
         <form onSubmit={submit}>
-          <label>Código de empleado<input name="employeeCode" autoComplete="username" required /></label>
+          <label>Código de empleado<input name="employeeCode" autoComplete="username" autoCapitalize="characters" required /></label>
           <label>PIN individual<input name="pin" type="password" inputMode="numeric" autoComplete="current-password" minLength={4} maxLength={8} required /></label>
-          <button className="button button-primary" disabled={busy}>{busy ? "Ingresando…" : "Ingresar"}</button>
-          {error ? <p role="alert">{error}</p> : null}
+          {error ? <p role="alert" className="vr-alert">{error}</p> : null}
+          <button className="button button-primary lg" disabled={busy}>{busy ? "Ingresando…" : "Ingresar"}</button>
         </form>
+        <p className="staff-login-foot">¿Sos el dueño? <a href="https://app.vase.ar/signin?redirectTo=https%3A%2F%2Frest.vase.ar%2Fowner">Entrá con tu cuenta de Vase</a></p>
       </section>
     </main>
   );
