@@ -1,118 +1,74 @@
 import HistoryButton from './HistoryButton';
 import CloudStatus from './CloudStatus';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { PanelSidebar } from '@vase/ui/panel/sidebar';
 import Icon from './Icon';
 import { Modal } from './Overlays';
 import { HELP, HELP_VIDEOS, MENU, SETTINGS_PAGES } from '../sections';
 
 const LOGO = { light: '/brand/vase-logo-green.png?v=2', dark: '/brand/vase-logo-white.png?v=2' };
 
-export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, badges, store, account, phone = false, mobileOpen = false, onCloseMobile }) {
+export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, store, account, phone = false, mobileOpen = false, onCloseMobile }) {
     const [ajOpen, setAjOpen] = useState(section === 'ajustes');
-    const [accOpen, setAccOpen] = useState(false);
-    const accRef = useRef(null);
 
     useEffect(() => {
         if (section === 'ajustes') setAjOpen(true);
     }, [section]);
 
-    useEffect(() => {
-        if (!accOpen) return undefined;
-        const onDown = (event) => {
-            if (accRef.current && !accRef.current.contains(event.target)) setAccOpen(false);
-        };
-        const onKey = (event) => event.key === 'Escape' && setAccOpen(false);
-        document.addEventListener('mousedown', onDown);
-        document.addEventListener('keydown', onKey);
-        return () => {
-            document.removeEventListener('mousedown', onDown);
-            document.removeEventListener('keydown', onKey);
-        };
-    }, [accOpen]);
-
-    useEffect(() => {
-        if (!phone || !mobileOpen) return undefined;
-        const onKey = (event) => event.key === 'Escape' && onCloseMobile?.();
-        document.addEventListener('keydown', onKey);
-        return () => document.removeEventListener('keydown', onKey);
-    }, [phone, mobileOpen, onCloseMobile]);
-
-    return (
-        <>
-        {phone && mobileOpen ? <div className="vp-mscrim" onClick={onCloseMobile} aria-hidden="true" /> : null}
-        <aside className={`vp-side ${mini ? 'mini' : ''} ${phone ? 'phone' : ''} ${mobileOpen ? 'm-open' : ''}`} aria-label="Menú del panel" aria-hidden={phone && !mobileOpen ? true : undefined}>
-            {phone ? (
-                <button type="button" className="vp-mclose" onClick={onCloseMobile} aria-label="Cerrar el menú">×</button>
-            ) : (
-                <button type="button" className="vp-coll" onClick={onToggleMini} aria-label={mini ? 'Agrandar el menú' : 'Achicar el menú'}><Icon name="chevron" size={14} className={mini ? 'vp-rot-r' : 'vp-rot-l'} /></button>
-            )}
-            <div className="vp-logo vase-brand"><img src={LOGO[theme]} alt="Vase" /><b>vase</b><span className="vase-pill business">Business</span></div>
-            <nav>
-                {MENU.map((group) => (
-                    <div key={group.group}>
-                        <div className="vp-grp">{group.group}</div>
-                        {group.items.map((item) => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                className={`vp-nb ${section === item.id ? 'on' : ''}`}
-                                onClick={() => go(item.id)}
-                                aria-current={section === item.id ? 'page' : undefined}
-                                title={mini ? item.label : undefined}
-                            >
-                                <Icon name={item.icon} />
-                                <span className="vp-lbl">{item.label}</span>
-                                {item.badge && badges[item.badge] ? <span className="vp-badge">{badges[item.badge]}</span> : null}
-                            </button>
-                        ))}
-                    </div>
-                ))}
-                <div className="vp-grp">Cuenta</div>
-                <button
-                    type="button"
-                    className={`vp-nb ${section === 'ajustes' ? 'on' : ''}`}
-                    aria-expanded={ajOpen}
-                    title={mini ? 'Ajustes' : undefined}
-                    onClick={() => {
+    // El menú es el mismo de app y Labs (packages/ui/src/panel/sidebar.tsx).
+    const groups = [
+        ...MENU.map((group) => ({
+            label: group.group,
+            items: group.items.map((item) => ({
+                id: item.id,
+                label: item.label,
+                icon: <Icon name={item.icon} />,
+                badge: item.badge && badges[item.badge] ? badges[item.badge] : undefined,
+                onClick: () => go(item.id),
+            })),
+        })),
+        {
+            label: 'Cuenta',
+            items: [
+                {
+                    id: 'ajustes',
+                    label: 'Ajustes',
+                    icon: <Icon name="sliders" />,
+                    open: ajOpen,
+                    onClick: () => {
                         if (section === 'ajustes' && !sub) setAjOpen((open) => !open);
                         else { setAjOpen(true); go('ajustes'); }
-                    }}
-                >
-                    <Icon name="sliders" />
-                    <span className="vp-lbl">Ajustes</span>
-                    <span className={`vp-chev ${ajOpen ? 'open' : ''}`} aria-hidden="true"><Icon name="chevron" size={14} /></span>
-                </button>
-                {ajOpen ? (
-                    <div className="vp-subnav">
-                        {SETTINGS_PAGES.map((page) => (
-                            <button key={page.id} type="button" className={`vp-sn ${section === 'ajustes' && sub === page.id ? 'on' : ''}`} onClick={() => go('ajustes', page.id)}>
-                                {page.label}
-                            </button>
-                        ))}
-                    </div>
-                ) : null}
-                <button type="button" className="vp-nb" onClick={account.onHelp} title={mini ? 'Ayuda y soporte' : undefined}>
-                    <Icon name="help" /><span className="vp-lbl">Ayuda y soporte</span>
-                </button>
-            </nav>
-            <div className="vp-acc" ref={accRef}>
-                {accOpen ? (
-                    <div className="vp-accmenu" role="menu">
-                        <div className="vp-am-h">{account.email || 'Tu cuenta'}</div>
-                        {account.vaseUrl ? <a className="vp-am" role="menuitem" href={`${account.vaseUrl}/app/settings`}>Ajustes</a> : null}
-                        {account.vaseUrl ? <a className="vp-am" role="menuitem" href={account.vaseUrl}>← Volver a Vase</a> : null}
-                        <a className="vp-am" role="menuitem" href="/admin/anterior">Abrir el panel anterior</a>
-                        <button type="button" className="vp-am out" role="menuitem" onClick={account.onLogout}>Cerrar sesión</button>
-                    </div>
-                ) : null}
-                <button type="button" className="vp-accbtn" onClick={() => setAccOpen((open) => !open)} aria-expanded={accOpen} aria-haspopup="menu">
-                    <span className="vp-acc-ini">{store.logo ? <img src={store.logo} alt="" /> : store.initial}</span>
-                    <span className="vp-acc-text"><b>{store.name}</b><small>{account.name}</small></span>
-                    <span className="vp-chev acc" aria-hidden="true"><Icon name="updown" size={15} /></span>
-                </button>
-            </div>
-        </aside>
-        </>
+                    },
+                    sub: SETTINGS_PAGES.map((page) => ({ id: page.id, label: page.label, onClick: () => go('ajustes', page.id) })),
+                },
+                { id: 'ayuda', label: 'Ayuda y soporte', icon: <Icon name="help" />, onClick: account.onHelp },
+            ],
+        },
+    ];
+
+    return (
+        <PanelSidebar
+            ariaLabel="Menú del panel"
+            brand={<><img src={LOGO[theme]} alt="Vase" /><b>vase</b><span className="vase-pill business">Business</span></>}
+            groups={groups}
+            activeId={section}
+            activeSubId={sub}
+            mini={mini}
+            onToggleMini={onToggleMini}
+            phone={phone}
+            mobileOpen={mobileOpen}
+            onCloseMobile={onCloseMobile}
+            account={{ avatar: store.logo ? <img src={store.logo} alt="" /> : store.initial, name: store.name, detail: account.name }}
+            accountMenu={() => (
+                <>
+                    <div className="vp-am-h">{account.email || 'Tu cuenta'}</div>
+                    {account.vaseUrl ? <a className="vp-am" role="menuitem" href={`${account.vaseUrl}/app/settings`}>Ajustes</a> : null}
+                    {account.vaseUrl ? <a className="vp-am" role="menuitem" href={account.vaseUrl}>← Volver a Vase</a> : null}
+                    <a className="vp-am" role="menuitem" href="/admin/anterior">Abrir el panel anterior</a>
+                    <button type="button" className="vp-am out" role="menuitem" onClick={account.onLogout}>Cerrar sesión</button>
+                </>
+            )}
+        />
     );
 }
 

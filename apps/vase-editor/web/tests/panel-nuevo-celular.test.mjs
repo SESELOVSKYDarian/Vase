@@ -11,7 +11,10 @@ test('en celular el menú se abre con un botón y Diseño muestra una vista a la
     assert.match(app, /mini=\{mini && !isPhone\}/);
     const shell = await read('../src/panel/components/Shell.jsx');
     assert.match(shell, /aria-label="Abrir el menú"/);
-    assert.match(shell, /className="vp-mscrim"/);
+    assert.match(shell, /<PanelSidebar/);
+    assert.match(shell, /mobileOpen=\{mobileOpen\}/);
+    const sidebar = await read('../../../../packages/ui/src/panel/sidebar.tsx');
+    assert.match(sidebar, /className="vase-side-scrim"/);
     const diseno = await read('../src/panel/diseno/Diseno.jsx');
     assert.match(diseno, /className="vp-dzmnav"/);
     assert.match(diseno, /if \(phone\) setPhoneView\('editor'\)/);

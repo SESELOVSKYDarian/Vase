@@ -9,10 +9,13 @@ describe("Shared panel shell (app.vase.ar and Labs)", () => {
     const appShell = fs.readFileSync("apps/vase-app/src/components/layout/client-shell.tsx", "utf8");
 
     expect(shell).toContain("localStorage");
-    expect(shell).toContain("vpa-coll");
-    expect(shell).toContain("Achicar el menú");
-    expect(shell).toContain("aria-expanded");
-    expect(styles).toContain(".vpa-side.mini");
+    expect(shell).toContain("<PanelSidebar");
+    const sidebar = fs.readFileSync("packages/ui/src/panel/sidebar.tsx", "utf8");
+    expect(sidebar).toContain("vase-side-coll");
+    expect(sidebar).toContain("Achicar el menú");
+    expect(sidebar).toContain("aria-expanded");
+    expect(fs.readFileSync("packages/ui/src/components.css", "utf8")).toContain(".vase-side.mini");
+    expect(fs.readFileSync("apps/vase-editor/web/src/panel/components/Shell.jsx", "utf8")).toContain("<PanelSidebar");
     expect(styles).toContain('@import "./tokens.css";');
     expect(fs.readFileSync("packages/ui/src/tokens.css", "utf8")).toContain(":root[data-theme=\"dark\"] .vpa");
     expect(labsShell).toContain("<PanelShell");

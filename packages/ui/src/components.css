@@ -42,6 +42,55 @@
 :is(.vpa-inp, .vp-inp):read-only { background: var(--soft); color: var(--mut); }
 
 
+/* Menú lateral (PanelSidebar): igual en app, Labs y Business. */
+:where(.vpa, .vp) .vase-side { width: 236px; flex: none; height: 100%; min-height: 0; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 20px 14px 14px; position: relative; z-index: 6; }
+:where(.vpa, .vp) .vase-side-coll { position: absolute; right: -14px; top: 19px; width: 28px; height: 28px; padding: 0; border-radius: 50%; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mut); box-shadow: var(--sh-sm); z-index: 5; }
+:where(.vpa, .vp) .vase-side-coll:hover { color: var(--tx); border-color: var(--line2); }
+:where(.vpa, .vp) .vase-side-close { display: none; }
+:where(.vpa, .vp) .vase-side-logo { flex: none; padding: 0 8px 18px; }
+:where(.vpa, .vp) .vase-side-nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; margin: 0 -8px; padding: 0 8px; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+:where(.vpa, .vp) .vase-side-nav:hover { scrollbar-color: var(--sb) transparent; }
+:where(.vpa, .vp) .vase-side-grp { font-size: 11.5px; font-weight: 600; color: var(--mut2); padding: 12px 10px 5px; }
+:where(.vpa, .vp) .vase-side-nb { display: flex; align-items: center; gap: 11px; width: 100%; height: 39px; padding: 0 12px; border: 0; background: none; border-radius: 12px; color: var(--mut); font: inherit; font-weight: 600; cursor: pointer; margin-bottom: 2px; text-align: left; text-decoration: none; }
+:where(.vpa, .vp) .vase-side-nb:hover { color: var(--tx); background: var(--hover); }
+:where(.vpa, .vp) .vase-side-nb.on { background: var(--active); color: var(--tx); font-weight: 800; }
+:where(.vpa, .vp) .vase-side-nb.on > svg { color: var(--acc); }
+:where(.vpa, .vp) .vase-side-lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.vpa, .vp) .vase-side-badge { margin-left: auto; font-style: normal; font-size: 11px; font-weight: 800; min-width: 22px; height: 20px; border-radius: 10px; background: var(--badge); color: var(--badge-tx); display: flex; align-items: center; justify-content: center; padding: 0 6px; }
+:where(.vpa, .vp) .vase-side-chev { margin-left: auto; color: var(--mut); display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 8px; flex: none; transform: rotate(-90deg); transition: transform .18s ease, background .15s, color .15s; }
+:where(.vpa, .vp) .vase-side-chev.open, :where(.vpa, .vp) .vase-side-chev.acc { transform: none; }
+:where(.vpa, .vp) .vase-side-sub { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px 30px; padding-left: 10px; border-left: 1.5px solid var(--line); }
+:where(.vpa, .vp) .vase-side-sn { height: 32px; padding: 0 10px; border: 0; background: none; border-radius: 9px; display: flex; align-items: center; font: inherit; font-weight: 600; font-size: 12.5px; color: var(--mut); cursor: pointer; text-align: left; text-decoration: none; }
+:where(.vpa, .vp) .vase-side-sn:hover { background: var(--hover); color: var(--tx); }
+:where(.vpa, .vp) .vase-side-sn.on { color: var(--acc-tx); font-weight: 800; background: var(--accsoft); }
+:where(.vpa, .vp) .vase-side-acc { flex: none; margin-top: auto; position: relative; padding-top: 10px; }
+:where(.vpa, .vp) .vase-side-accbtn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 14px; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--tx); font: inherit; text-align: left; }
+:where(.vpa, .vp) .vase-side-accbtn:hover { border-color: var(--line2); }
+:where(.vpa, .vp) .vase-side-accbtn:hover .vase-side-chev, :where(.vpa, .vp) .vase-side-accbtn[aria-expanded="true"] .vase-side-chev { background: var(--hover); color: var(--tx); }
+:where(.vpa, .vp) .vase-side-ava { width: 34px; height: 34px; border-radius: 10px; background: #ff4d00; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; flex: none; overflow: hidden; }
+:where(.vpa, .vp) .vase-side-ava img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+:where(.vpa, .vp) .vase-side-ut { min-width: 0; flex: 1; }
+:where(.vpa, .vp) .vase-side-ut b, :where(.vpa, .vp) .vase-side-ut small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.vpa, .vp) .vase-side-ut b { font-weight: 800; font-size: 13px; }
+:where(.vpa, .vp) .vase-side-ut small { color: var(--mut); font-weight: 600; font-size: 11.5px; }
+:where(.vpa, .vp) .vase-side-menu { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--sh-lg); padding: 6px; z-index: 40; min-width: 210px; }
+:where(.vpa, .vp) .vase-side.mini { width: 76px; }
+:where(.vpa, .vp) .vase-side.mini .vase-side-logo { justify-content: center; padding-left: 0; padding-right: 0; }
+:where(.vpa, .vp) .vase-side.mini :is(.vase-side-logo b, .vase-pill, .vase-side-grp, .vase-side-lbl, .vase-side-badge, .vase-side-sub, .vase-side-ut, .vase-side-chev) { display: none; }
+:where(.vpa, .vp) .vase-side.mini .vase-side-nb { justify-content: center; padding: 0; }
+:where(.vpa, .vp) .vase-side.mini .vase-side-accbtn { justify-content: center; }
+:where(.vpa, .vp) .vase-side.mini .vase-side-menu { right: auto; }
+@media (prefers-reduced-motion: reduce) { :where(.vpa, .vp) .vase-side-chev { transition: none; } }
+/* Celular: cajón que se abre desde la barra de arriba (Business). */
+@media (max-width: 900px) {
+  :where(.vpa, .vp) .vase-side.phone { position: fixed; left: 0; top: 0; bottom: 0; width: min(300px, 86vw); z-index: 70; transform: translateX(-105%); transition: transform .22s ease; box-shadow: none; padding-top: 16px; }
+  :where(.vpa, .vp) .vase-side.phone.m-open { transform: none; box-shadow: var(--sh-lg); }
+  :where(.vpa, .vp) .vase-side.phone .vase-side-close { display: flex; position: absolute; right: 10px; top: 12px; width: 36px; height: 36px; border-radius: 10px; border: 0; background: none; color: var(--mut); font-size: 22px; align-items: center; justify-content: center; cursor: pointer; z-index: 2; }
+  :where(.vpa, .vp) .vase-side-scrim { position: fixed; inset: 0; z-index: 65; background: var(--scrim); animation: vase-fade .18s ease-out; }
+}
+@keyframes vase-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { :where(.vpa, .vp) .vase-side.phone, :where(.vpa, .vp) .vase-side-scrim { transition: none; animation: none; } }
+
 /* Selector propio (reemplaza al <select> del navegador). */
 :where(.vpa, .vp) .vase-sel { display: inline-flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; font: inherit; text-align: left; color: var(--tx); transition: border-color .15s, box-shadow .15s, background .15s; }
 :where(.vpa, .vp) .vase-sel .v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

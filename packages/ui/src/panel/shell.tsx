@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { PanelSidebar } from "./sidebar";
 
 // Marco del panel de Vase: menú lateral (se puede achicar), cuenta, barra de arriba y botón para subir.
 // Lo usan app.vase.ar y los productos (Labs, ...) para que todo se vea igual.
@@ -38,14 +39,6 @@ const defaultLink = ({ href, className, title, onClick, children }: PanelLinkPro
   </a>
 );
 
-function Chevron({ right }: { right: boolean }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={right ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} />
-    </svg>
-  );
-}
-
 export function PanelShell({
   brand,
   groups,
@@ -62,10 +55,8 @@ export function PanelShell({
   children,
 }: PanelShellProps) {
   const [mini, setMini] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
   const [showTop, setShowTop] = useState(false);
   const bodyRef = useRef<HTMLElement>(null);
-  const accountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
@@ -87,22 +78,6 @@ export function PanelShell({
     };
   }, []);
 
-  useEffect(() => {
-    if (!accountOpen) return;
-    const onDown = (event: MouseEvent) => {
-      if (!accountRef.current?.contains(event.target as Node)) setAccountOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setAccountOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [accountOpen]);
-
   const toggleMini = () => {
     setMini((current) => {
       try {
@@ -120,62 +95,19 @@ export function PanelShell({
     window.scrollTo({ top: 0, behavior });
   };
 
-  const closeAccount = () => setAccountOpen(false);
-  const collLabel = mini ? "Agrandar el menú" : "Achicar el menú";
 
   return (
     <div className="vpa">
-      <aside className={mini ? "vpa-side mini" : "vpa-side"} aria-label="Menú">
-        <button type="button" className="vpa-coll" onClick={toggleMini} aria-label={collLabel} title={collLabel}>
-          <Chevron right={mini} />
-        </button>
-        <div className="vpa-logo">{brand}</div>
-        <nav className="vpa-nav">
-          {groups.map((group, index) =>
-            group.items.length ? (
-              <Fragment key={group.label ?? index}>
-                {group.label ? <div className="vpa-grp">{group.label}</div> : null}
-                {group.items.map((item) => (
-                  <Fragment key={item.id}>
-                    {renderLink({
-                      href: item.href,
-                      className: item.id === activeId ? "vpa-nb on" : "vpa-nb",
-                      title: mini ? item.label : undefined,
-                      children: (
-                        <>
-                          {item.icon}
-                          <span>{item.label}</span>
-                          {item.badge ? <em className="vpa-nbadge">{item.badge}</em> : null}
-                        </>
-                      ),
-                    })}
-                  </Fragment>
-                ))}
-              </Fragment>
-            ) : null,
-          )}
-        </nav>
-        <div className="vpa-acc" ref={accountRef}>
-          {accountOpen ? (
-            <div className="vpa-menu" role="menu">
-              {accountMenu(closeAccount)}
-            </div>
-          ) : null}
-          <button
-            type="button"
-            className="vpa-accbtn"
-            aria-label={account.label ?? "Tu cuenta"}
-            aria-expanded={accountOpen}
-            onClick={() => setAccountOpen((open) => !open)}
-          >
-            <i aria-hidden="true">{account.initial}</i>
-            <span className="vpa-ut">
-              <b>{account.name}</b>
-              {account.detail ? <span>{account.detail}</span> : null}
-            </span>
-          </button>
-        </div>
-      </aside>
+      <PanelSidebar
+        brand={brand}
+        groups={groups}
+        activeId={activeId}
+        mini={mini}
+        onToggleMini={toggleMini}
+        renderLink={renderLink}
+        account={{ avatar: account.initial, name: account.name, detail: account.detail, label: account.label }}
+        accountMenu={accountMenu}
+      />
 
       <div className="vpa-main">
         <header className="vpa-top">

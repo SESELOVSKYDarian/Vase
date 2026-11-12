@@ -71,5 +71,7 @@ test('las barras laterales y el menú quedan fijos: solo se desplaza el contenid
     assert.match(css, /\.vp-page \{[^}]*overflow: hidden/);
     assert.match(css, /\.vp-body \{[^}]*overflow: auto/);
     assert.match(css, /\.vp-rbar \{[^}]*height: 100%/);
-    assert.match(css, /\.vp-side \{[^}]*height: 100%/);
+    // El menú lateral es el compartido con app y Labs.
+    const shared = await read('../../../../packages/ui/src/components.css');
+    assert.match(shared, /\.vase-side \{[^}]*height: 100%/);
 });
