@@ -1,31 +1,48 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { PanelFacts, PanelMeter, PanelSection, PanelSections, PanelTag, type PanelTone } from "@vase/ui/panel";
 import { labsPrisma } from "../../../../lib/db";
+import { getOpenAiModelProfiles } from "../../../../lib/openai-reply-generator";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
-import { LabsPageHeader, LabsSection, LabsStatusPill } from "../labs-ui";
+import { ModelSelector } from "../chatbots/model-selector";
+import { OpenAiKeyCard } from "../chatbots/openai-key-card";
 import { ConversationInsightSettingsCard } from "./conversation-insight-settings-card";
 import { IntegrationProviderCard } from "./integration-provider-card";
 import {
   calculateAiBudget,
   estimateRemainingAiReplies,
   microsToUsd,
+  type AiBudgetStatus,
 } from "../../../../lib/ai-budget";
 
 export const dynamic = "force-dynamic";
+
+const BUDGET_STATE: Record<AiBudgetStatus, { label: string; tone: PanelTone }> = {
+  NORMAL: { label: "Al día", tone: "g" },
+  WARNING: { label: "Queda menos de un tercio", tone: "y" },
+  CRITICAL: { label: "Casi sin saldo", tone: "r" },
+  EXHAUSTED: { label: "Sin saldo", tone: "r" },
+};
 
 async function getSettingsData() {
   const requestHeaders = await headers();
 
   try {
     const resolved = await resolveLabsRequestContext(requestHeaders.get("cookie"));
-    const entitlement = await labsPrisma.labsEntitlement.findUnique({
-      where: { globalTenantId: resolved.context.globalTenantId },
-    });
-    const usage = await labsPrisma.tokenUsage.aggregate({
-      where: { globalTenantId: resolved.context.globalTenantId },
-      _sum: { costMicros: true },
-      _count: { id: true },
-    });
+    const [entitlement, usage, openAiKey] = await Promise.all([
+      labsPrisma.labsEntitlement.findUnique({
+        where: { globalTenantId: resolved.context.globalTenantId },
+      }),
+      labsPrisma.tokenUsage.aggregate({
+        where: { globalTenantId: resolved.context.globalTenantId },
+        _sum: { costMicros: true },
+        _count: { id: true },
+      }),
+      labsPrisma.assistantSecret.findUnique({
+        where: { assistantId_kind: { assistantId: resolved.assistant.id, kind: "OPENAI_API_KEY" } },
+        select: { id: true },
+      }),
+    ]);
 
     return {
       plan: entitlement?.plan ?? resolved.context.entitlement.plan,
@@ -35,6 +52,7 @@ async function getSettingsData() {
       extraAiBudgetMicros: entitlement?.extraAiBudgetMicros ?? 0,
       usageCount: usage._count.id,
       currentModel: resolved.assistant.model,
+      openAiKeyConfigured: Boolean(openAiKey),
     };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("LABS_SESSION")) {
@@ -47,61 +65,41 @@ async function getSettingsData() {
 export default async function LabsSettingsPage() {
   const data = await getSettingsData();
   const budget = calculateAiBudget(data);
-  const statusTone = budget.status === "NORMAL"
-    ? "success"
-    : budget.status === "WARNING"
-      ? "warning"
-      : "danger";
+  const state = BUDGET_STATE[budget.status];
   const estimatedReplies = estimateRemainingAiReplies({ remainingMicros: budget.remainingMicros });
 
   return (
-    <div className="space-y-6">
-      <LabsPageHeader
-        eyebrow="Control operativo"
-        title="Ajustes"
-        description="ConfiguraciÃ³n operativa de IA, analÃ­ticas e integraciones."
-      />
-
-      <LabsSection
-        title="Presupuesto IA"
-        description="Controla el gasto real estimado de OpenAI por modelo, usando dólares incluidos en el plan."
-      >
-        <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-[var(--foreground)]">
-                  {formatUsd(budget.usedMicros)} / {formatUsd(budget.totalMicros)} usado
-                </p>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Disponible: {formatUsd(budget.remainingMicros)} · {estimatedReplies.toLocaleString("es-AR")} respuestas estimadas
-                </p>
-              </div>
-              <LabsStatusPill label={budget.status} tone={statusTone} />
-            </div>
-            <div className="mt-4 h-3 overflow-hidden rounded-full bg-[var(--background-elevated)]">
-              <div
-                className="h-full rounded-full bg-[var(--accent-strong)]"
-                style={{ width: `${budget.usagePercent}%` }}
-              />
-            </div>
-            <div className="mt-2 flex justify-between text-xs font-semibold text-[var(--muted)]">
-              <span>{budget.usagePercent}% consumido</span>
-              <span>Plan {data.plan}</span>
-            </div>
-          </div>
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted-soft)]">Modelo actual</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">{data.currentModel}</p>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              Cada respuesta descuenta costo estimado según input/output tokens del modelo elegido.
-            </p>
-          </div>
+    <PanelSections>
+      <PanelSection title="Plan y uso" summary={`Plan ${data.plan} · ${budget.usagePercent}% usado`} badge={<PanelTag tone={state.tone}>{state.label}</PanelTag>} defaultOpen>
+        <PanelMeter value={budget.usagePercent} />
+        <PanelFacts
+          items={[
+            { label: "Usado", value: `${formatUsd(budget.usedMicros)} de ${formatUsd(budget.totalMicros)}` },
+            { label: "Te queda", value: formatUsd(budget.remainingMicros) },
+            { label: "Alcanza para", value: `${estimatedReplies.toLocaleString("es-AR")} respuestas aprox.` },
+          ]}
+        />
+        <div className="vpa-from">
+          <span>El plan y los pagos se manejan desde tu cuenta de Vase.</span>
+          <a href="https://app.vase.ar/app/billing" className="vpa-btn line sm">Ir a Plan y pagos</a>
         </div>
-      </LabsSection>
-      <ConversationInsightSettingsCard />
-      <IntegrationProviderCard />
-    </div>
+      </PanelSection>
+
+      <PanelSection title="Motor de IA" summary={`${data.currentModel} · ${data.openAiKeyConfigured ? "con tu clave de OpenAI" : "sin clave de OpenAI"}`}>
+        <div className="vpa-stack" style={{ gap: 16 }}>
+          <ModelSelector profiles={getOpenAiModelProfiles()} currentModel={data.currentModel} />
+          <OpenAiKeyCard configured={data.openAiKeyConfigured} />
+        </div>
+      </PanelSection>
+
+      <PanelSection title="Puntaje de interés" summary="Cómo decide quién quiere comprar">
+        <ConversationInsightSettingsCard />
+      </PanelSection>
+
+      <PanelSection title="Dónde se crean los pedidos" summary="Tu tienda de Vase Business u otro sistema">
+        <IntegrationProviderCard />
+      </PanelSection>
+    </PanelSections>
   );
 }
 

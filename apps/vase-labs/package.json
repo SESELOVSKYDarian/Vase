@@ -21,6 +21,7 @@
     "@vase/auth": "file:../../packages/auth",
     "@vase/contracts": "file:../../packages/contracts",
     "@vase/internal-api": "file:../../packages/internal-api",
+    "@vase/ui": "file:../../packages/ui",
     "clsx": "^2.1.1",
     "lucide-react": "^1.7.0",
     "next": "16.2.12",

@@ -7,6 +7,8 @@ export type OrchestratedAiReply = Omit<AiReplyResult, "imageUrls"> & {
 
 interface AiOrchestratorDeps {
   knowledge: { buildContext(assistantId: string): Promise<string> };
+  /** Datos de Mi negocio (horarios, contacto, sucursales). Opcional. */
+  businessProfile?: { buildContext(globalTenantId: string): Promise<string> };
   catalog?: {
     buildAiResources?(globalTenantId: string): Promise<{
       context: string;
@@ -93,7 +95,8 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         channel: input.channel,
         userText: input.latestUserText,
       });
-      const [knowledgeContext, catalogResources, orderContext, previouslySentImageUrls] = await Promise.all([
+      const [businessContext, knowledgeContext, catalogResources, orderContext, previouslySentImageUrls] = await Promise.all([
+        deps.businessProfile?.buildContext(input.globalTenantId).catch(() => "") ?? Promise.resolve(""),
         deps.knowledge.buildContext(input.assistantId),
         buildCatalogResources(deps.catalog, input.globalTenantId),
         confirmation?.handled
@@ -104,7 +107,7 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
             }) ?? Promise.resolve(""),
         deps.listSentImageUrls?.(input.conversationId) ?? Promise.resolve([]),
       ]);
-      const context = [knowledgeContext, catalogResources.context, orderContext].filter(Boolean).join("\n\n");
+      const context = [businessContext, knowledgeContext, catalogResources.context, orderContext].filter(Boolean).join("\n\n");
       let reply: OrchestratedAiReply = confirmation?.handled
         ? {
             text: confirmation.text,

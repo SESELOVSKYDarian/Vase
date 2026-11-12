@@ -7,12 +7,12 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   useTransition,
   type PropsWithChildren,
 } from "react";
-import { ArrowUp, Bell, Check, CircleHelp, ClipboardCheck, CreditCard, Home, LayoutGrid, Users, X } from "lucide-react";
+import { Bell, Check, CircleHelp, ClipboardCheck, CreditCard, Home, LayoutGrid, Users, X } from "lucide-react";
+import { PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { signOutAction } from "@/app/(auth)/actions";
 import {
   dismissNotificationsAction,
@@ -31,7 +31,7 @@ import {
   type NotificationFilterId,
 } from "@/lib/navigation/panel-sections";
 import type { ShellNotification } from "@/server/services/labs-notifications";
-import "@/components/panel/panel.css";
+import "@vase/ui/panel.css";
 
 type PanelTheme = "light" | "dark";
 
@@ -288,36 +288,15 @@ export function ClientShell({
     if (typeof window === "undefined") return "light";
     return window.localStorage.getItem("vase-panel-theme") === "dark" ? "dark" : "light";
   });
-  const [accountOpen, setAccountOpen] = useState(false);
   const [drawer, setDrawer] = useState<"notas" | "ayuda" | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
-  const bodyRef = useRef<HTMLElement>(null);
-  const [showTop, setShowTop] = useState(false);
-
-  // En pantallas anchas scrollea el contenido; en el celular, la página entera.
-  useEffect(() => {
-    const body = bodyRef.current;
-    const update = () => setShowTop(Math.max(body?.scrollTop ?? 0, window.scrollY) > 400);
-    body?.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("scroll", update, { passive: true });
-    return () => {
-      body?.removeEventListener("scroll", update);
-      window.removeEventListener("scroll", update);
-    };
-  }, []);
-
-  const scrollToTop = () => {
-    const smooth = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-    bodyRef.current?.scrollTo({ top: 0, behavior: smooth });
-    window.scrollTo({ top: 0, behavior: smooth });
-  };
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.style.colorScheme = theme;
     window.localStorage.setItem("vase-panel-theme", theme);
-    // Business vive en otro subdominio: la cookie compartida le dice qué modo eligió la persona.
+    // Business y Labs viven en otro subdominio: la cookie compartida les dice qué modo eligió la persona.
     if (window.location.hostname.endsWith("vase.ar")) {
       document.cookie = `vase_theme=${theme}; domain=.vase.ar; path=/; max-age=31536000; SameSite=Lax; Secure`;
     }
@@ -326,129 +305,99 @@ export function ClientShell({
   const unread = notifications.filter((notification) => !notification.isRead).length;
   const themeValue = useMemo(() => ({ theme, setTheme }), [theme]);
   const accountName = tenantLabel?.trim() || "Tu cuenta";
-  const navClass = (id: string) => (section === id || (id === "productos" && (section === "business" || section === "dominios")) ? "vpa-nb on" : "vpa-nb");
-  const accountNav = NAV_CUENTA.filter((item) => ROLE_WEIGHT[viewerRole] >= ROLE_WEIGHT[item.minRole]);
+  const activeId = section === "business" || section === "dominios" ? "productos" : section;
+  const toItem = ({ id, href, label, icon: Icon }: { id: string; href: string; label: string; icon: typeof Home }) => ({
+    id,
+    href,
+    label,
+    icon: <Icon size={18} aria-hidden="true" />,
+  });
+  const groups: PanelNavGroup[] = [
+    { label: "Principal", items: NAV_PRINCIPAL.filter(({ id }) => id === "inicio" || viewerRole === "OWNER").map(toItem) },
+    { label: "Cuenta", items: NAV_CUENTA.filter((item) => ROLE_WEIGHT[viewerRole] >= ROLE_WEIGHT[item.minRole]).map(toItem) },
+  ];
 
   return (
     <SupportChatProvider>
       <PanelThemeContext.Provider value={themeValue}>
         <SaveStatusProvider>
-        <div className="vpa">
-          <aside className="vpa-side" aria-label="Menú">
-            <div className="vpa-logo">
-              <Image src="/vasecolorlogo.png" alt="Vase" width={26} height={26} />
-              <b>vase</b>
-            </div>
-            <nav className="vpa-nav">
-              <div className="vpa-grp">Principal</div>
-              {NAV_PRINCIPAL.filter(({ id }) => id === "inicio" || viewerRole === "OWNER").map(({ id, href, label, icon: Icon }) => (
-                <NavLink key={id} href={href} className={navClass(id)}>
-                  <Icon size={18} aria-hidden="true" />
-                  <span>{label}</span>
+          <PanelShell
+            brand={
+              <>
+                <Image src="/vasecolorlogo.png" alt="Vase" width={26} height={26} />
+                <b>vase</b>
+              </>
+            }
+            groups={groups}
+            activeId={activeId}
+            title={title}
+            subtitle={subtitle}
+            renderLink={({ href, className, title: hint, onClick, children: content }) => (
+              <NavLink href={href} className={className} title={hint} onClick={onClick}>
+                {content}
+              </NavLink>
+            )}
+            account={{ initial: accountName.slice(0, 1).toUpperCase(), name: accountName, detail: currentUserName }}
+            accountMenu={(close) => (
+              <>
+                <NavLink href="/app/settings" className="vpa-am" onClick={close}>
+                  Ajustes
                 </NavLink>
-              ))}
-              {accountNav.length > 0 ? <div className="vpa-grp">Cuenta</div> : null}
-              {accountNav.map(({ id, href, label, icon: Icon }) => (
-                <NavLink key={id} href={href} className={navClass(id)}>
-                  <Icon size={18} aria-hidden="true" />
-                  <span>{label}</span>
+                <NavLink href="/app/help" className="vpa-am" onClick={close}>
+                  Ayuda y soporte
                 </NavLink>
-              ))}
-            </nav>
-            <div className="vpa-acc">
-              {accountOpen ? (
-                <div className="vpa-menu" role="menu">
-                  <NavLink href="/app/settings" className="vpa-am" onClick={() => setAccountOpen(false)}>
-                    Ajustes
-                  </NavLink>
-                  <NavLink href="/app/help" className="vpa-am" onClick={() => setAccountOpen(false)}>
-                    Ayuda y soporte
-                  </NavLink>
-                  <button
-                    type="button"
-                    className="vpa-am out"
-                    role="menuitem"
-                    onClick={() => {
-                      setAccountOpen(false);
-                      setConfirmSignOut(true);
-                    }}
-                  >
-                    Cerrar sesión
-                  </button>
-                </div>
-              ) : null}
-              <button
-                type="button"
-                className="vpa-accbtn"
-                aria-label="Tu cuenta"
-                aria-expanded={accountOpen}
-                onClick={() => setAccountOpen((open) => !open)}
-              >
-                <i aria-hidden="true">{accountName.slice(0, 1).toUpperCase()}</i>
-                <span className="vpa-ut">
-                  <b>{accountName}</b>
-                  <span>{currentUserName}</span>
-                </span>
-              </button>
-            </div>
-          </aside>
-
-          <div className="vpa-main">
-            <header className="vpa-top">
-              <div>
-                <h1 className="vpa-ttl">{title}</h1>
-                <div className="vpa-sub">{subtitle}</div>
-              </div>
-              <div className="vpa-sp" />
-              <CloudButton />
-              <button type="button" className="vpa-ib" aria-label="Notificaciones" onClick={() => setDrawer("notas")}>
-                <Bell size={18} aria-hidden="true" />
-                {unread > 0 ? <span className="n">{unread}</span> : null}
-              </button>
-              <button
-                type="button"
-                className="vpa-ib"
-                aria-label="Cómo usar esta sección"
-                onClick={() => setDrawer("ayuda")}
-              >
-                <CircleHelp size={18} aria-hidden="true" />
-              </button>
-            </header>
-            <main className="vpa-body" id="main-content" ref={bodyRef}>
-              <div className="vpa-wrap">{children}</div>
-            </main>
-          </div>
-
-          {showTop ? (
-            <button type="button" className="vpa-totop" aria-label="Volver arriba" onClick={scrollToTop}>
-              <ArrowUp size={18} aria-hidden="true" />
-            </button>
-          ) : null}
-
-          {drawer === "notas" ? (
-            <NotificationsDrawer notifications={notifications} onClose={() => setDrawer(null)} />
-          ) : null}
-          {drawer === "ayuda" ? <SectionHelpDrawer pathname={pathname} onClose={() => setDrawer(null)} /> : null}
-
-          {confirmSignOut ? (
-            <div className="vpa-dialog">
-              <div role="dialog" aria-label="Cerrar sesión">
-                <h3>¿Cerrar sesión?</h3>
-                <p>Vas a volver a la pantalla de ingreso.</p>
-                <div className="row">
-                  <button type="button" className="vpa-btn soft" onClick={() => setConfirmSignOut(false)}>
-                    Cancelar
-                  </button>
-                  <form action={signOutAction}>
-                    <button type="submit" className="vpa-btn ink">
-                      Cerrar sesión
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
+                <button
+                  type="button"
+                  className="vpa-am out"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    setConfirmSignOut(true);
+                  }}
+                >
+                  Cerrar sesión
+                </button>
+              </>
+            )}
+            actions={
+              <>
+                <CloudButton />
+                <button type="button" className="vpa-ib" aria-label="Notificaciones" onClick={() => setDrawer("notas")}>
+                  <Bell size={18} aria-hidden="true" />
+                  {unread > 0 ? <span className="n">{unread}</span> : null}
+                </button>
+                <button type="button" className="vpa-ib" aria-label="Cómo usar esta sección" onClick={() => setDrawer("ayuda")}>
+                  <CircleHelp size={18} aria-hidden="true" />
+                </button>
+              </>
+            }
+            overlays={
+              <>
+                {drawer === "notas" ? <NotificationsDrawer notifications={notifications} onClose={() => setDrawer(null)} /> : null}
+                {drawer === "ayuda" ? <SectionHelpDrawer pathname={pathname} onClose={() => setDrawer(null)} /> : null}
+                {confirmSignOut ? (
+                  <div className="vpa-dialog">
+                    <div role="dialog" aria-label="Cerrar sesión">
+                      <h3>¿Cerrar sesión?</h3>
+                      <p>Vas a volver a la pantalla de ingreso.</p>
+                      <div className="row">
+                        <button type="button" className="vpa-btn soft" onClick={() => setConfirmSignOut(false)}>
+                          Cancelar
+                        </button>
+                        <form action={signOutAction}>
+                          <button type="submit" className="vpa-btn ink">
+                            Cerrar sesión
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            }
+          >
+            {children}
+          </PanelShell>
         </SaveStatusProvider>
         <DashboardSupportWidget hideLauncher />
       </PanelThemeContext.Provider>

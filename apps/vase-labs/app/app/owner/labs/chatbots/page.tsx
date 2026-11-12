@@ -1,16 +1,13 @@
-import { Bot, Database, Radio, ShieldCheck } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { PanelFacts, PanelNotice, PanelSection, PanelSections } from "@vase/ui/panel";
+import { fetchBusinessProfile, MI_NEGOCIO_URL, type VaseBusinessProfile } from "../../../../lib/business-profile";
 import { labsPrisma } from "../../../../lib/db";
 import { groupKnowledgeItems } from "../../../../lib/knowledge-source";
-import { getOpenAiModelProfiles } from "../../../../lib/openai-reply-generator";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
-import { LabsPageHeader, LabsSection } from "../labs-ui";
 import { AssistantPromptCard } from "./assistant-prompt-card";
 import { KnowledgeAddModal } from "./knowledge-add-modal";
 import { KnowledgeGroups } from "./knowledge-groups";
-import { ModelSelector } from "./model-selector";
-import { OpenAiKeyCard } from "./openai-key-card";
 import { TrainerPhoneManager } from "./trainer-phone-manager";
 import { TrainerRevisionHistory } from "./trainer-revision-history";
 
@@ -21,24 +18,18 @@ async function getKnowledgeData() {
 
   try {
     const resolved = await resolveLabsRequestContext(requestHeaders.get("cookie"));
-    const [items, openAiKey, connectedChannels, trainerPhones, trainerRevisions] = await Promise.all([
+    const [items, trainerPhones, trainerRevisions, profile] = await Promise.all([
       labsPrisma.knowledgeItem.findMany({
         where: { assistantId: resolved.assistant.id },
         orderBy: { updatedAt: "desc" },
         take: 24,
       }),
-      labsPrisma.assistantSecret.findUnique({
-        where: { assistantId_kind: { assistantId: resolved.assistant.id, kind: "OPENAI_API_KEY" } },
-        select: { id: true },
-      }),
-      labsPrisma.channel.count({
-        where: { assistantId: resolved.assistant.id, status: "CONNECTED" },
-      }),
       labsPrisma.trainerPhone.findMany({ where: { globalTenantId: resolved.context.globalTenantId }, orderBy: { createdAt: "desc" } }),
       labsPrisma.knowledgeRevision.findMany({ where: { globalTenantId: resolved.context.globalTenantId }, orderBy: { revision: "desc" }, take: 20, select: { id: true, revision: true, knowledgeItemId: true, createdAt: true, revertedAt: true } }),
+      fetchBusinessProfile(resolved.context.globalTenantId),
     ]);
 
-    return { assistant: resolved.assistant, items, connectedChannels, trainerPhones, trainerRevisions, openAiKeyConfigured: Boolean(openAiKey) };
+    return { assistant: resolved.assistant, items, trainerPhones, trainerRevisions, profile };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("LABS_SESSION")) {
       redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs%2Fchatbots");
@@ -47,61 +38,76 @@ async function getKnowledgeData() {
   }
 }
 
-export default async function LabsChatbotsPage() {
+function businessFacts(profile: VaseBusinessProfile | null) {
+  if (!profile) return [];
+  const socials = (profile.socialLinks ?? []).map((link) => link.url).filter(Boolean);
+  const branches = (profile.branches ?? []).map((branch) => branch.name).filter(Boolean);
+  return [
+    { label: "Nombre", value: profile.name },
+    { label: "Rubro", value: profile.industry },
+    { label: "Horarios", value: profile.hours },
+    { label: "WhatsApp", value: profile.whatsapp },
+    { label: "Teléfono", value: profile.phone },
+    { label: "Correo", value: profile.email },
+    { label: "Sucursales", value: branches.length ? branches.join(" · ") : null },
+    { label: "Redes", value: socials.length ? `${socials.length} ${socials.length === 1 ? "red" : "redes"}` : null },
+  ].filter((fact): fact is { label: string; value: string } => Boolean(fact.value));
+}
+
+export default async function LabsAssistantPage() {
   const data = await getKnowledgeData();
   const readySources = data.items.filter((item) => item.status === "READY").length;
+  const facts = businessFacts(data.profile);
+  const activeTrainers = data.trainerPhones.filter((phone) => phone.active).length;
 
   return (
-    <div className="labs-knowledge-page space-y-6">
-      <div className="labs-knowledge-heading">
-        <LabsPageHeader
-          eyebrow="Conocimiento / Chatbots"
-          title="Base de conocimiento"
-          description="Configurá cómo responde tu chatbot, conectá OpenAI y administrá la información que usa en cada conversación."
-        />
-        <KnowledgeAddModal />
-      </div>
+    <>
+      <PanelNotice title="Tu asistente responde con lo que cargás acá y con los datos de Mi negocio.">Tocá una sección para abrirla.</PanelNotice>
+      <PanelSections>
+        <PanelSection
+          title="Datos del negocio"
+          summary={facts.length ? facts.slice(0, 3).map((fact) => fact.value).join(" · ") : "Todavía no cargaste horarios, contacto ni sucursales"}
+          badge={<span className="vpa-chip2">De Mi negocio</span>}
+          defaultOpen={!facts.length}
+        >
+          {facts.length ? <PanelFacts items={facts} /> : null}
+          <div className="vpa-from" style={facts.length ? undefined : { marginTop: 0 }}>
+            <span>Se cargan una sola vez en Mi negocio y los usan todos tus productos. No hace falta repetirlos en las instrucciones.</span>
+            <a href={MI_NEGOCIO_URL} className="vpa-btn line sm">
+              {facts.length ? "Editar en Mi negocio" : "Cargar en Mi negocio"}
+            </a>
+          </div>
+        </PanelSection>
 
-      <section className="labs-knowledge-status" aria-label="Estado del chatbot">
-        <div>
-          <span className="labs-knowledge-status-icon"><ShieldCheck aria-hidden="true" /></span>
-          <p>Conexión OpenAI</p>
-          <strong>{data.openAiKeyConfigured ? "Lista para responder" : "Requiere una key"}</strong>
-        </div>
-        <div>
-          <span className="labs-knowledge-status-icon"><Database aria-hidden="true" /></span>
-          <p>Fuentes listas</p>
-          <strong>{readySources} de {data.items.length}</strong>
-        </div>
-        <div>
-          <span className="labs-knowledge-status-icon"><Radio aria-hidden="true" /></span>
-          <p>Canales activos</p>
-          <strong>{data.connectedChannels}</strong>
-        </div>
-        <div>
-          <span className="labs-knowledge-status-icon"><Bot aria-hidden="true" /></span>
-          <p>Modelo actual</p>
-          <strong>{data.assistant.model}</strong>
-        </div>
-      </section>
-
-      <div className="labs-knowledge-workspace">
-        <div className="space-y-4">
+        <PanelSection title="Cómo responde" summary={data.assistant.systemPrompt?.trim() ? data.assistant.systemPrompt.trim().slice(0, 90) : "Todavía sin instrucciones"}>
           <AssistantPromptCard initialPrompt={data.assistant.systemPrompt} />
-          <ModelSelector profiles={getOpenAiModelProfiles()} currentModel={data.assistant.model} />
-          <OpenAiKeyCard configured={data.openAiKeyConfigured} />
-        </div>
-      </div>
-      <TrainerPhoneManager phones={data.trainerPhones} />
-      <TrainerRevisionHistory revisions={data.trainerRevisions} />
+        </PanelSection>
 
-      <div id="knowledge-sources-focus-target" role="region" aria-label="Fuentes de conocimiento" tabIndex={-1} className="labs-knowledge-focus-target">
-        {data.items.length === 0 ? (
-          <div className="labs-empty-state px-6 py-10 text-center"><p className="mx-auto max-w-lg text-sm leading-6 text-[var(--muted)]">Todavía no agregaste conocimiento. Sumá una fuente para que el asistente responda con información de tu negocio.</p><div className="mt-6"><KnowledgeAddModal /></div></div>
-        ) : (
-          <LabsSection title="Fuentes de conocimiento" description={`${readySources} de ${data.items.length} listas para responder`}><KnowledgeGroups groups={groupKnowledgeItems(data.items)} /></LabsSection>
-        )}
-      </div>
-    </div>
+        <PanelSection
+          title="Lo que sabe"
+          summary={data.items.length ? `${readySources} de ${data.items.length} documentos listos para responder` : "Todavía sin documentos"}
+          defaultOpen
+        >
+          <div id="knowledge-sources-focus-target" role="region" aria-label="Fuentes de conocimiento" tabIndex={-1} className="labs-knowledge-focus-target">
+          {data.items.length === 0 ? (
+            <div className="vpa-empty"><p>Todavía no agregaste conocimiento. Sumá precios, preguntas frecuentes o tu web para que responda con información de tu negocio.</p><div style={{ marginTop: 14 }}><KnowledgeAddModal /></div></div>
+          ) : (
+            <>
+              <div className="labs-tabs-row" style={{ marginBottom: 12 }}><span className="vpa-mut">El catálogo de tu tienda se suma solo desde Vase Business.</span><KnowledgeAddModal /></div>
+              <KnowledgeGroups groups={groupKnowledgeItems(data.items)} />
+            </>
+          )}
+          </div>
+        </PanelSection>
+
+        <PanelSection
+          title="Enseñale desde WhatsApp"
+          summary={activeTrainers ? `${activeTrainers} ${activeTrainers === 1 ? "teléfono puede" : "teléfonos pueden"} enseñarle con audios o mensajes` : "Sumá un teléfono para enseñarle con audios o mensajes"}
+        >
+          <TrainerPhoneManager phones={data.trainerPhones} />
+          <TrainerRevisionHistory revisions={data.trainerRevisions} />
+        </PanelSection>
+      </PanelSections>
+    </>
   );
 }

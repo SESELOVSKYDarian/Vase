@@ -85,11 +85,13 @@ describe("Vase Labs standalone owner experience", () => {
     const promptCard = fs.readFileSync(promptCardPath, "utf8");
     const modal = fs.readFileSync(modalPath, "utf8");
     const groups = fs.readFileSync(groupsPath, "utf8");
-    expect(page).toContain("getOpenAiModelProfiles");
+    // El modelo y la clave de OpenAI se movieron a Ajustes de Labs.
+    const settingsPage = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"), "utf8");
+    expect(settingsPage).toContain("getOpenAiModelProfiles");
     expect(page).toContain("<AssistantPromptCard initialPrompt={data.assistant.systemPrompt} />");
-    expect(page).toContain("<ModelSelector");
-    expect(page).toContain("currentModel={data.assistant.model}");
-    expect(page).toContain("<OpenAiKeyCard configured={data.openAiKeyConfigured} />");
+    expect(settingsPage).toContain("<ModelSelector");
+    expect(settingsPage).toContain("currentModel={data.currentModel}");
+    expect(settingsPage).toContain("<OpenAiKeyCard configured={data.openAiKeyConfigured} />");
     expect(page).toContain("data.items.length === 0");
     const emptyBranch = page.split("data.items.length === 0 ? (")[1]?.split(") : (")[0] ?? "";
     expect(emptyBranch).toContain("Todavía no agregaste conocimiento");
@@ -137,12 +139,14 @@ describe("Vase Labs standalone owner experience", () => {
     const testPanelPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/assistant-test-panel.tsx");
     const styles = fs.readFileSync(path.resolve("apps/vase-labs/app/globals.css"), "utf8");
 
-    expect(page).toContain("labs-knowledge-status");
+    expect(page).toContain("<PanelSection");
+    expect(page).toContain("Datos del negocio");
+    expect(page).toContain("MI_NEGOCIO_URL");
     expect(page).not.toContain("AssistantTestPanel");
     expect(page).not.toContain("assistant-test-panel");
     expect(fs.existsSync(testPanelPath)).toBe(false);
-    expect(page).toContain("Fuentes listas");
-    expect(page).toContain("Canales activos");
+    expect(page).toContain("Lo que sabe");
+    expect(page).toContain("Enseñale desde WhatsApp");
     expect(styles).not.toContain(".labs-assistant-test");
     expect(styles).not.toContain(".labs-assistant-message");
     expect(keyCard).toContain("aria-label={showKey");
@@ -185,8 +189,10 @@ describe("Vase Labs standalone owner experience", () => {
     );
 
     expect(root).toContain('redirect("/owner")');
-    expect(rootLayout).toContain('className="light h-full scroll-smooth antialiased"');
-    expect(styles).toContain("--font-manrope: Manrope");
+    expect(rootLayout).toContain("data-theme={theme}");
+    expect(rootLayout).toContain("vase_theme");
+    expect(rootLayout).toContain('import "@vase/ui/panel.css"');
+    expect(rootLayout).toContain("Manrope({");
     expect(styles).toContain("--font-newsreader: Newsreader");
     expect(styles).toContain("--font-ibm-plex-mono");
     expect(root).not.toContain("tenant_demo");
@@ -196,30 +202,21 @@ describe("Vase Labs standalone owner experience", () => {
       path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"),
       "utf8",
     );
-    expect(layout).toContain("LabsSidebarShell");
-    expect(fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/labs-sidebar-shell.tsx"), "utf8")).toContain("labs-sidebar");
-    expect(layout).not.toContain("labs-sidebar-brand");
-    expect(layout).not.toContain("labs-sidebar-tenant");
-    expect(layout).toContain("LabsOwnerMobileNav");
-    expect(page).toContain('eyebrow="Operacion IA"');
-    expect(page).toContain('title="Panel de control"');
-    expect(page).toContain("LabsMetricCard");
+    expect(layout).toContain("<LabsShell");
+    expect(fs.existsSync(path.resolve("apps/vase-labs/app/app/owner/labs/labs-sidebar-shell.tsx"))).toBe(false);
+    expect(page).toContain("<PanelKpis");
     expect(page).toContain("LabsConversationTrendChart");
-    expect(page).toContain("LabsIntentDistributionChart");
-    for (const destination of ["inbox", "activity", "orders", "knowledge", "channels", "settings"]) {
+    expect(page).toContain("fetchBusinessProfile");
+    for (const destination of ["inbox", "orders", "knowledge", "channels"]) {
       expect(nav).toContain(`/owner/${destination}`);
     }
-    expect(nav).toContain("labs-owner-nav-link");
-    expect(nav).toContain("labs-owner-mobile-nav-link");
-    expect(styles).toContain(".labs-shell");
-    expect(styles).toContain(".labs-sidebar");
-    expect(styles).toContain(".labs-sidebar-brand");
-    expect(styles).toContain(".labs-sidebar-tenant");
-    expect(styles).toContain(".labs-owner-nav-link");
+    // Análisis y Ajustes siguen existiendo: uno es pestaña de Conversaciones y el otro va en el menú de la cuenta.
+    expect(nav).toContain('"/owner/activity"');
+    expect(nav).toContain('"/owner/settings"');
     expect(styles).toContain(".labs-panel");
     expect(styles).not.toContain(".labs-rail");
     expect(page).not.toContain("Tu acceso a Labs, canales y tokens en una sola vista.");
-    expect(settings).toContain("Presupuesto IA");
+    expect(settings).toContain("Plan y uso");
     expect(settings).toContain("calculateAiBudget");
     expect(settings).toContain("estimateRemainingAiReplies");
     expect(settings).toContain("currentModel");
@@ -281,7 +278,7 @@ describe("Vase Labs standalone owner experience", () => {
     const workstation = fs.readFileSync(workstationPath, "utf8");
 
     expect(inbox).not.toContain('export { default } from "../activity/page"');
-    expect(inbox).toContain('title="Inbox"');
+    expect(inbox).toContain("<LabsTabs tabs={CONVERSATION_TABS} />");
     expect(inbox).toContain('status: { in: ["OPEN", "ESCALATED"] }');
     expect(inbox).toContain("messages: {");
     expect(inbox).toContain('orderBy: { createdAt: "asc" }');
@@ -310,7 +307,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(workstation).toContain("Chats de Facebook");
     expect(workstation).toContain("No hay conversaciones de este canal");
     expect(workstation).toContain("Sin webhooks recibidos");
-    expect(activity).toContain('title="Inteligencia comercial"');
+    expect(activity).toContain("<LabsTabs tabs={CONVERSATION_TABS} />");
     expect(activity).toContain("<ActivityWorkspace");
     expect(activityWorkspace).toContain("aiReplyError");
     expect(activityWorkspace).toContain("Esperando respuesta IA");
@@ -332,7 +329,8 @@ describe("Vase Labs standalone owner experience", () => {
     );
 
     expect(page).toContain('className="labs-inbox-page');
-    expect(page).toContain("labs-inbox-summary-grid");
+    // El resumen de números vive en Inicio: la bandeja no lo repite.
+    expect(page).not.toContain("labs-inbox-summary-grid");
     expect(workstation).not.toContain("labs-inbox-hero");
     expect(workstation).not.toContain("labs-inbox-stat-card");
     expect(workstation).not.toContain("Centro de conversaciones");

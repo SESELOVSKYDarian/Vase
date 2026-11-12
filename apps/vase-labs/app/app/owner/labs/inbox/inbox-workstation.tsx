@@ -195,16 +195,20 @@ export function InboxWorkstation({
   tenantSlug,
   initialConversations,
   channelStates,
+  initialActiveId,
 }: {
   tenantSlug: string;
   initialConversations: InboxConversationItem[];
   channelStates: InboxChannelState[];
+  /** Conversación que se abre primero (cuando venís desde Inicio). */
+  initialActiveId?: string;
 }) {
+  const initialActive = initialConversations.find((conversation) => conversation.id === initialActiveId) ?? initialConversations[0];
   const [conversations, setConversations] = useState(() => sortConversations(initialConversations));
   const [selectedChannel, setSelectedChannel] = useState<InboxChannel>(
-    () => normalizeInboxChannel(initialConversations[0]?.channel) ?? "WHATSAPP",
+    () => normalizeInboxChannel(initialActive?.channel) ?? "WHATSAPP",
   );
-  const [activeId, setActiveId] = useState(initialConversations[0]?.id ?? "");
+  const [activeId, setActiveId] = useState(initialActive?.id ?? "");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);

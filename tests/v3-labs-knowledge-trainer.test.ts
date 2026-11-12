@@ -49,10 +49,10 @@ describe("Labs knowledge trainer", () => {
   });
 
   it("keeps the personal trainer in a dedicated inbox route", () => {
-    const nav = readFileSync("apps/vase-labs/app/app/owner/labs/labs-owner-nav.tsx", "utf8");
+    const nav = readFileSync("apps/vase-labs/app/app/owner/labs/labs-tabs.tsx", "utf8");
     const page = readFileSync("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx", "utf8");
     expect(nav).toContain('href: "/owner/inbox/trainer"');
-    expect(page).toContain("Entrenador personal");
+    expect(page).toContain("<LabsTabs tabs={ASSISTANT_TABS} />");
     expect(page).toContain("job.error ?");
     expect(page).toContain("Error:");
   });

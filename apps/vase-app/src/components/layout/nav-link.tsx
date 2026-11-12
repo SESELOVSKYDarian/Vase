@@ -24,6 +24,7 @@ export function NavLink({
   href,
   className,
   style,
+  title,
   onClick,
   forceDocumentNavigation = false,
   children,
@@ -31,6 +32,7 @@ export function NavLink({
   href: string;
   className?: string;
   style?: CSSProperties;
+  title?: string;
   onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
   forceDocumentNavigation?: boolean;
   children: ReactNode;
@@ -49,6 +51,7 @@ export function NavLink({
         href={resolvedHref}
         className={className}
         style={style}
+        title={title}
         onClick={(event) => {
           onClick?.(event);
           if (event.defaultPrevented) return;
@@ -64,7 +67,7 @@ export function NavLink({
   }
 
   return (
-    <Link href={resolvedHref as Route} className={className} style={style} onClick={onClick}>
+    <Link href={resolvedHref as Route} className={className} style={style} title={title} onClick={onClick}>
       {children}
     </Link>
   );

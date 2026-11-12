@@ -1,145 +1,82 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Bot, Cable, Database, Flame, MessageSquare, Route, UserRoundCheck } from "lucide-react";
+import { CircleAlert } from "lucide-react";
+import {
+  PanelAlert,
+  PanelCard,
+  PanelEmpty,
+  PanelKpis,
+  PanelMeter,
+  PanelRow,
+  PanelTag,
+  type PanelTone,
+} from "@vase/ui/panel";
 import { labsPrisma } from "../../../lib/db";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
-import {
-  LabsActionLink,
-  LabsEmptyState,
-  LabsMetricCard,
-  LabsPageHeader,
-  LabsSection,
-  LabsStatusPill,
-} from "./labs-ui";
-import { LabsConversationTrendChart, LabsIntentDistributionChart } from "./labs-analytics-charts";
-import { buildLabsConversationAnalytics } from "./labs-analytics";
 import { buildLabsOrderAnalytics } from "../../../lib/order-analytics";
+import { fetchBusinessProfile, MI_NEGOCIO_URL } from "../../../lib/business-profile";
+import { LabsConversationTrendChart } from "./labs-analytics-charts";
+import { buildLabsConversationAnalytics } from "./labs-analytics";
+import { channelIconSrc } from "./channels/channel-icons";
 
 export const dynamic = "force-dynamic";
 
-function trainingTone(status: string): "neutral" | "success" | "warning" | "danger" | "info" {
-  switch (status) {
-    case "READY":
-      return "success";
-    case "FAILED":
-      return "danger";
-    case "PROCESSING":
-    case "QUEUED":
-      return "warning";
-    default:
-      return "neutral";
-  }
+const CHANNEL_NAMES = { WHATSAPP: "WhatsApp", INSTAGRAM: "Instagram", FACEBOOK: "Messenger" } as const;
+const CHANNEL_STATE: Record<string, { label: string; tone: PanelTone }> = {
+  CONNECTED: { label: "Conectado", tone: "g" },
+  PENDING: { label: "Conectando", tone: "y" },
+  QR_READY: { label: "Falta escanear", tone: "y" },
+  ERROR: { label: "Revisar conexión", tone: "r" },
+  DISCONNECTED: { label: "Desconectado", tone: "n" },
+};
+
+const number = new Intl.NumberFormat("es-AR");
+
+function ago(value: Date | null) {
+  if (!value) return "";
+  const minutes = Math.max(1, Math.round((Date.now() - value.getTime()) / 60_000));
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  return new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(value);
 }
 
-function conversationTone(status: string): "neutral" | "success" | "warning" | "danger" | "info" {
-  switch (status) {
-    case "ESCALATED":
-      return "warning";
-    case "CLOSED":
-      return "neutral";
-    default:
-      return "info";
-  }
-}
-
-function formatDate(value: Date | null) {
-  if (!value) return "Sin fecha";
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(value);
-}
-
-async function getOwnerLabsData() {
+async function getHomeData() {
   const requestHeaders = await headers();
   let resolved: Awaited<ReturnType<typeof resolveLabsRequestContext>>;
-
   try {
     resolved = await resolveLabsRequestContext(requestHeaders.get("cookie"));
   } catch (error) {
-    if (error instanceof Error) {
-      const authErrors = [
-        "LABS_SESSION_REQUIRED",
-        "LABS_SESSION_INVALID",
-        "LABS_SESSION_EXPIRED",
-        "LABS_AUTH_SECRET_MISSING",
-      ];
-      if (authErrors.includes(error.message)) {
-        redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs");
-      }
-      if (error.message === "LABS_TENANT_FORBIDDEN") {
-        redirect("https://app.vase.ar/app?labs=required");
-      }
+    if (error instanceof Error && error.message.startsWith("LABS_SESSION")) {
+      redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs");
     }
     redirect("https://app.vase.ar/app");
   }
 
-  const [entitlement, channels, conversations, knowledgeItems, tokenUsage, orders] = await Promise.all([
-    labsPrisma.labsEntitlement.findUnique({
-      where: { globalTenantId: resolved.context.globalTenantId },
-    }),
-    labsPrisma.channel.findMany({
-      where: { assistantId: resolved.assistant.id },
-      orderBy: { updatedAt: "desc" },
-    }),
+  const tenantId = resolved.context.globalTenantId;
+  const [entitlement, channels, conversations, knowledgeCount, orders, profile] = await Promise.all([
+    labsPrisma.labsEntitlement.findUnique({ where: { globalTenantId: tenantId } }),
+    labsPrisma.channel.findMany({ where: { assistantId: resolved.assistant.id }, orderBy: { updatedAt: "desc" } }),
     labsPrisma.conversation.findMany({
       where: { assistantId: resolved.assistant.id },
       orderBy: [{ escalatedToHuman: "desc" }, { lastMessageAt: "desc" }],
-      take: 30,
+      take: 60,
     }),
-    labsPrisma.knowledgeItem.findMany({
-      where: { assistantId: resolved.assistant.id },
-      orderBy: { updatedAt: "desc" },
-      take: 20,
-    }),
-    labsPrisma.tokenUsage.aggregate({
-      where: { globalTenantId: resolved.context.globalTenantId },
-      _sum: { totalTokens: true },
-    }),
+    labsPrisma.knowledgeItem.count({ where: { assistantId: resolved.assistant.id, status: "READY" } }),
     labsPrisma.businessOrderProjection.findMany({
-      where: { globalTenantId: resolved.context.globalTenantId },
+      where: { globalTenantId: tenantId },
       orderBy: { businessUpdatedAt: "desc" },
       take: 200,
     }),
+    fetchBusinessProfile(tenantId),
   ]);
 
-  const openConversations = conversations.filter((c) => c.status === "OPEN").length;
-  const escalatedConversations = conversations.filter(
-    (c) => c.status === "ESCALATED" || c.escalatedToHuman,
-  ).length;
-  const connectedChannels = channels.filter((c) => c.status === "CONNECTED").length;
-  const tokensUsed = entitlement?.tokensUsed ?? tokenUsage._sum.totalTokens ?? 0;
-  const readyKnowledge = knowledgeItems.filter((item) => item.status === "READY").length;
-
-  const criticalConversations = conversations
-    .filter((c) => c.intentLabel === "HOT_LEAD" || c.escalatedToHuman)
-    .slice(0, 5);
-
-  const setupSteps = {
-    hasKnowledge: knowledgeItems.length > 0,
-    hasChannel: connectedChannels > 0,
-    hasEscalation: escalatedConversations > 0 || conversations.length > 0,
-  };
-
-  return {
-    plan: entitlement?.plan ?? resolved.context.entitlement.plan,
-    openConversations,
-    escalatedConversations,
-    connectedChannels,
-    knowledgeItemCount: knowledgeItems.length,
-    readyKnowledge,
-    tokensUsed,
-    conversations,
-    knowledgeItems,
-    criticalConversations,
-    setupSteps,
-    orders,
-  };
+  return { entitlement, channels, conversations, knowledgeCount, orders, profile, plan: entitlement?.plan ?? resolved.context.entitlement.plan };
 }
 
-export default async function LabsDashboardPage() {
-  const data = await getOwnerLabsData();
+export default async function LabsHomePage() {
+  const data = await getHomeData();
   const analytics = buildLabsConversationAnalytics(
     data.conversations.map((c) => ({
       channel: c.channel,
@@ -149,136 +86,113 @@ export default async function LabsDashboardPage() {
     })),
   );
   const orderAnalytics = buildLabsOrderAnalytics(data.orders);
-  const setupCompleted =
-    data.setupSteps.hasKnowledge && data.setupSteps.hasChannel && data.setupSteps.hasEscalation;
+  const open = data.conversations.filter((c) => c.status !== "CLOSED");
+  const needYou = open.filter((c) => c.status === "ESCALATED" || c.escalatedToHuman);
+  const connected = data.channels.filter((c) => c.status === "CONNECTED").length;
+  const totalTokens = (data.entitlement?.tokensIncluded ?? 0) + (data.entitlement?.extraTokens ?? 0);
+  const usedPct = totalTokens > 0 ? ((data.entitlement?.tokensUsed ?? 0) / totalTokens) * 100 : 0;
+  const hasProfile = Boolean(data.profile && (data.profile.phone || data.profile.whatsapp || data.profile.hours || data.profile.branches?.length));
+  const setup = [
+    { done: hasProfile, label: "Datos del negocio", detail: hasProfile ? "Los toma de Mi negocio" : "Cargalos en Mi negocio", href: MI_NEGOCIO_URL },
+    { done: data.knowledgeCount > 0, label: "Lo que sabe", detail: data.knowledgeCount > 0 ? `${data.knowledgeCount} documentos listos` : "Sumá precios, preguntas frecuentes o tu web", href: "/owner/knowledge" },
+    { done: connected > 0, label: "Canales", detail: connected > 0 ? `${connected} conectados` : "Conectá WhatsApp, Instagram o Messenger", href: "/owner/channels" },
+  ];
+  const pending = setup.filter((step) => !step.done);
+  const oldest = needYou.reduce<Date | null>((min, c) => (c.lastMessageAt && (!min || c.lastMessageAt < min) ? c.lastMessageAt : min), null);
 
   return (
-    <div className="space-y-6">
-      <LabsPageHeader
-        eyebrow="Operacion IA"
-        title="Panel de control"
-        description="Estado vivo de conversaciones, conocimiento, canales y derivaciones humanas."
-        actions={
-          <>
-            <LabsActionLink href="/owner/inbox">Abrir inbox</LabsActionLink>
-            <Link href="/owner/activity" className="labs-button labs-button-secondary">
-              Analisis
-            </Link>
-          </>
-        }
+    <>
+      {needYou.length > 0 ? (
+        <PanelAlert
+          icon={<CircleAlert size={20} />}
+          title={needYou.length === 1 ? "1 conversación te necesita" : `${needYou.length} conversaciones te necesitan`}
+          action={<Link href="/owner/inbox" className="vpa-btn ink">Responder</Link>}
+        >
+          La IA las pasó a una persona.{oldest ? ` La más vieja espera ${ago(oldest)}.` : ""}
+        </PanelAlert>
+      ) : pending.length > 0 ? (
+        <PanelAlert
+          icon={<CircleAlert size={20} />}
+          title={`Te falta${pending.length > 1 ? "n" : ""} ${pending.length} paso${pending.length > 1 ? "s" : ""} para que tu asistente responda solo`}
+          action={pending[0].href.startsWith("http") ? <a href={pending[0].href} className="vpa-btn ink">Completar</a> : <Link href={pending[0].href as never} className="vpa-btn ink">Completar</Link>}
+        >
+          {pending.map((step) => step.label).join(" · ")}
+        </PanelAlert>
+      ) : null}
+
+      <PanelKpis
+        items={[
+          { label: "Conversaciones abiertas", value: number.format(open.length), detail: `${number.format(analytics.total)} en las últimas semanas` },
+          { label: "Te necesitan", value: number.format(needYou.length), detail: "Pasaron a una persona" },
+          { label: "Quieren comprar", value: number.format(analytics.hotLeads), detail: "Según lo que escriben" },
+          { label: "Pedidos por chat", value: number.format(orderAnalytics.totalOrders), detail: orderAnalytics.totalsByCurrency[0] ? new Intl.NumberFormat("es-AR", { style: "currency", currency: orderAnalytics.totalsByCurrency[0].currency, maximumFractionDigits: 0 }).format(orderAnalytics.totalsByCurrency[0].total) : "Todavía ninguno" },
+        ]}
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <LabsMetricCard label="Conversaciones abiertas" value={data.openConversations} icon={MessageSquare} tone="info" />
-        <LabsMetricCard label="Derivadas a humano" value={data.escalatedConversations} icon={UserRoundCheck} tone="warning" />
-        <LabsMetricCard label="Hot leads" value={analytics.hotLeads} icon={Flame} tone="success" />
-        <LabsMetricCard label="Canales conectados" value={data.connectedChannels} icon={Cable} tone="info" />
-        <LabsMetricCard label="Conocimiento cargado" value={data.knowledgeItemCount} icon={Database} tone="neutral" />
-        <LabsMetricCard label="Training" value={`${data.readyKnowledge}/${data.knowledgeItemCount}`} detail="Fuentes listas" icon={Bot} tone="neutral" />
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-3">
-        {(["WHATSAPP", "INSTAGRAM", "MESSENGER"] as const).map((channel) => (
-          <LabsMetricCard
-            key={channel}
-            label={`Pedidos ${channel}`}
-            value={orderAnalytics.channels[channel].orders}
-            detail={`${orderAnalytics.channels[channel].conversionRate}% conversion`}
-            icon={MessageSquare}
-            tone="neutral"
-          />
-        ))}
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-        <LabsSection title="Ritmo de conversaciones">
-          <LabsConversationTrendChart analytics={analytics} />
-        </LabsSection>
-        <LabsSection title="Distribucion de intencion">
-          <LabsIntentDistributionChart analytics={analytics} />
-        </LabsSection>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-        <LabsSection title="Salud del setup" description={data.plan}>
-          <div className="grid gap-3">
-            {([
-              ["Conocimiento", data.setupSteps.hasKnowledge],
-              ["Canales", data.setupSteps.hasChannel],
-              ["Escalamiento humano", data.setupSteps.hasEscalation],
-            ] as const).map(([label, ok]) => (
-              <div key={label} className="flex items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-4 py-3">
-                <span className="text-sm font-semibold text-[var(--foreground)]">{label}</span>
-                <LabsStatusPill label={ok ? "Listo" : "Pendiente"} tone={ok ? "success" : "warning"} />
-              </div>
-            ))}
-          </div>
-          {!setupCompleted ? (
-            <Link href="/owner/settings" className="labs-button labs-button-primary mt-4">
-              Completar setup
-              <Route className="size-4" />
-            </Link>
-          ) : null}
-        </LabsSection>
-
-        <LabsSection
-          title="Conversaciones que piden atencion"
-          actions={
-            <Link href="/owner/activity" className="labs-button labs-button-secondary">
-              Ver todo
-            </Link>
-          }
-        >
-          {data.criticalConversations.length === 0 ? (
-            <LabsEmptyState title="Sin conversaciones criticas" description="Los hot leads y derivaciones humanas apareceran aca." />
-          ) : (
-            <div className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-lg border border-[var(--border-subtle)]">
-              {data.criticalConversations.map((conversation) => (
-                <div
-                  key={conversation.id}
-                  className="grid gap-2 bg-[var(--surface)] p-4 transition-colors hover:bg-[var(--surface-strong)] md:grid-cols-[1fr_auto]"
-                >
-                  <div>
-                    <p className="font-semibold text-[var(--foreground)]">
-                      {conversation.customerName ?? conversation.customerContact ?? "Cliente"} - {conversation.channel ?? "LABS"}
-                    </p>
-                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--muted)]">
-                      {conversation.summary ?? "Sin resumen disponible"}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                    <LabsStatusPill
-                      label={conversation.intentLabel ?? conversation.status}
-                      tone={conversation.escalatedToHuman ? "warning" : conversationTone(conversation.status)}
-                    />
-                    <span className="text-xs text-[var(--muted)]">{formatDate(conversation.lastMessageAt)}</span>
-                  </div>
-                </div>
+      <div className="vpa-g2">
+        <PanelCard title="Conversaciones" description="Cuántas atendió tu asistente y cuántas pasaron a una persona.">
+          {analytics.total === 0 ? <PanelEmpty>Cuando te escriban, vas a ver acá cómo vienen.</PanelEmpty> : <LabsConversationTrendChart analytics={analytics} />}
+        </PanelCard>
+        <div className="vpa-gs">
+          <PanelCard title="Canales" actions={<Link href="/owner/channels" className="vpa-lnk">Ver</Link>}>
+            {data.channels.length === 0 ? (
+              <PanelEmpty action={<Link href="/owner/channels" className="vpa-btn acc sm">Conectar un canal</Link>}>Todavía no conectaste ningún canal.</PanelEmpty>
+            ) : (
+              data.channels.map((channel) => {
+                const state = CHANNEL_STATE[channel.status] ?? CHANNEL_STATE.DISCONNECTED;
+                return (
+                  <PanelRow
+                    key={channel.id}
+                    // eslint-disable-next-line @next/next/no-img-element
+                    lead={<img src={channelIconSrc[channel.type]} alt="" width={32} height={32} />}
+                    title={CHANNEL_NAMES[channel.type]}
+                    detail={channel.accountLabel ?? channel.externalHandle ?? "Cuenta sin nombre"}
+                  >
+                    <PanelTag tone={state.tone}>{state.label}</PanelTag>
+                  </PanelRow>
+                );
+              })
+            )}
+          </PanelCard>
+          {pending.length > 0 ? (
+            <PanelCard title="Puesta en marcha" description={`${setup.length - pending.length} de ${setup.length} listos`}>
+              {setup.map((step) => (
+                <PanelRow key={step.label} title={step.label} detail={step.detail}>
+                  {step.done ? (
+                    <PanelTag tone="g">Listo</PanelTag>
+                  ) : step.href.startsWith("http") ? (
+                    <a href={step.href} className="vpa-btn line sm">Completar</a>
+                  ) : (
+                    <Link href={step.href as never} className="vpa-btn line sm">Completar</Link>
+                  )}
+                </PanelRow>
               ))}
-            </div>
+            </PanelCard>
+          ) : (
+            <PanelCard title="Uso del mes" actions={<PanelTag>Plan {data.plan}</PanelTag>}>
+              <PanelMeter value={usedPct} />
+              <p>{Math.round(usedPct)}% usado</p>
+            </PanelCard>
           )}
-        </LabsSection>
-      </section>
+        </div>
+      </div>
 
-      <LabsSection title="Entrenamiento reciente">
-        {data.knowledgeItems.length === 0 ? (
-          <LabsEmptyState title="Sin entrenamientos" description="Cuando actualices conocimiento vas a ver el progreso aca." />
+      <PanelCard title="Te necesitan" description="Conversaciones que la IA pasó a una persona." actions={<Link href="/owner/inbox" className="vpa-lnk">Ir a Conversaciones</Link>}>
+        {needYou.length === 0 ? (
+          <PanelEmpty>Nadie está esperando. Tu asistente viene respondiendo solo.</PanelEmpty>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {data.knowledgeItems.slice(0, 4).map((item) => (
-              <div key={item.id} className="labs-subpanel p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-semibold text-[var(--foreground)]">{item.title}</p>
-                  <LabsStatusPill label={item.status} tone={trainingTone(item.status)} />
-                </div>
-                <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                  {formatDate(item.createdAt)}
-                </p>
-              </div>
-            ))}
-          </div>
+          needYou.slice(0, 5).map((conversation) => (
+            <PanelRow
+              key={conversation.id}
+              title={conversation.customerName ?? conversation.customerContact ?? "Cliente"}
+              detail={conversation.summary ?? "Sin resumen todavía"}
+            >
+              <span className="vpa-mut" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{ago(conversation.lastMessageAt)}</span>
+              <Link href={`/owner/inbox?conversationId=${conversation.id}` as never} className="vpa-btn line sm">Responder</Link>
+            </PanelRow>
+          ))
         )}
-      </LabsSection>
-    </div>
+      </PanelCard>
+    </>
   );
 }

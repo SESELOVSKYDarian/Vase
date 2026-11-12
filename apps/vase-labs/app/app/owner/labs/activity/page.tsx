@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
-import { LabsPageHeader } from "../labs-ui";
+import { CONVERSATION_TABS, LabsTabs } from "../labs-tabs";
 import ActivityWorkspace, {
   ACTIVITY_INTENT_LABELS,
   type ActivityIntentFilter,
@@ -158,11 +158,7 @@ export default async function LabsActivityPage({
 
   return (
     <div className="space-y-6">
-      <LabsPageHeader
-        eyebrow="Actividad"
-        title="Inteligencia comercial"
-        description="Priorizá oportunidades por intención y score, entendé qué necesita cada persona y avanzá con una próxima acción concreta."
-      />
+      <LabsTabs tabs={CONVERSATION_TABS} />
       <ActivityWorkspace
         conversations={data.conversations}
         activeIntent={controls.intent}

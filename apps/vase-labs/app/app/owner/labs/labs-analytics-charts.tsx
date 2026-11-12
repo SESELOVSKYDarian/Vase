@@ -18,21 +18,20 @@ import {
 import type { LabsConversationAnalytics } from "./labs-analytics";
 
 const intentLabels: Record<string, string> = {
-  HOT_LEAD: "Hot lead",
-  RESEARCHING: "Investigando",
-  LOW_INTENT: "Baja intencion",
-  HUMAN_REQUESTED: "Pidio humano",
+  HOT_LEAD: "Quiere comprar",
+  RESEARCHING: "Está mirando",
+  LOW_INTENT: "Poco interés",
+  HUMAN_REQUESTED: "Pidió una persona",
   UNCLASSIFIED: "Sin etiqueta",
 };
 
-const chartColors = ["#0f8f61", "#487aee", "#7d8594", "#e28b45", "#9aa3ad"];
+const chartColors = ["#18c37e", "#2e90fa", "#98a2b3", "#f79009", "#d0d5dd"];
 const chartInitialDimension = { width: 320, height: 256 };
 
 function ChartShell({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] p-4">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted-soft)]">{title}</p>
-      <div className="h-64">{children}</div>
+    <div role="img" aria-label={title} style={{ height: 256 }}>
+      {children}
     </div>
   );
 }
@@ -66,20 +65,20 @@ export function LabsConversationTrendChart({ analytics }: { analytics: LabsConve
         <AreaChart data={analytics.trend} margin={{ left: -20, right: 8, top: 8, bottom: 0 }}>
           <defs>
             <linearGradient id="labsConversations" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="5%" stopColor="#0f8f61" stopOpacity={0.34} />
-              <stop offset="95%" stopColor="#0f8f61" stopOpacity={0} />
+              <stop offset="5%" stopColor="#18c37e" stopOpacity={0.34} />
+              <stop offset="95%" stopColor="#18c37e" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="labsEscalated" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="5%" stopColor="#e28b45" stopOpacity={0.28} />
-              <stop offset="95%" stopColor="#e28b45" stopOpacity={0} />
+              <stop offset="5%" stopColor="#f79009" stopOpacity={0.28} />
+              <stop offset="95%" stopColor="#f79009" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke="var(--border-subtle)" strokeDasharray="4 4" />
           <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
           <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
           <Tooltip />
-          <Area type="monotone" dataKey="conversations" stroke="#0f8f61" fill="url(#labsConversations)" strokeWidth={2} />
-          <Area type="monotone" dataKey="escalated" stroke="#e28b45" fill="url(#labsEscalated)" strokeWidth={2} />
+          <Area type="monotone" name="Conversaciones" dataKey="conversations" stroke="#18c37e" fill="url(#labsConversations)" strokeWidth={2} />
+          <Area type="monotone" name="Pasaron a una persona" dataKey="escalated" stroke="#f79009" fill="url(#labsEscalated)" strokeWidth={2} />
         </AreaChart>
       </ResponsiveContainer>
     </ChartShell>
@@ -95,7 +94,7 @@ export function LabsChannelBarChart({ analytics }: { analytics: LabsConversation
           <XAxis dataKey="channel" tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
           <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
           <Tooltip />
-          <Bar dataKey="count" fill="#487aee" radius={[6, 6, 0, 0]} />
+          <Bar dataKey="count" fill="#2e90fa" radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </ChartShell>

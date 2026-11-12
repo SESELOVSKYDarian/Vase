@@ -2,7 +2,7 @@
 @import "tailwindcss/utilities" layer(utilities);
 
 :root {
-  --font-manrope: Manrope, Satoshi, "General Sans", "Aptos", sans-serif;
+
   --font-newsreader: Newsreader, Georgia, "Times New Roman", serif;
   --font-ibm-plex-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
@@ -2498,3 +2498,40 @@ a:focus-visible {
 .labs-order-actions{margin-top:auto;display:grid;gap:9px}.labs-order-actions button{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:1px solid #cad8ce;border-radius:11px;background:#fff;font-weight:800;cursor:pointer}.labs-order-actions button.is-primary{background:#087b52;color:white;border-color:#087b52;box-shadow:0 10px 24px rgba(8,123,82,.18)}.labs-order-actions button.is-danger{color:#a34137}.labs-order-actions button:disabled{opacity:.55;cursor:wait}
 .labs-order-alert{display:flex;gap:9px;padding:12px;border-radius:12px;background:#fff0ed;color:#a34137;font-size:12px}.labs-order-alert span{display:grid;gap:4px}.labs-order-feedback{padding:10px;border-radius:10px;background:#e1f5e9!important;color:#087b52!important;font-weight:700}
 @media(max-width:800px){.labs-orders-ledger-head{display:none}.labs-order-row{grid-template-columns:1fr auto;gap:9px}.labs-order-row>*:nth-child(2),.labs-order-row>*:nth-child(3){grid-row:2}.labs-order-total{text-align:left}.labs-order-modal-backdrop{padding:8px}.labs-order-modal-body{grid-template-columns:1fr}.labs-order-aside{border-left:0;border-top:1px solid #dfe7e1}.labs-order-modal-header{padding:20px}.labs-order-main{padding:15px}.labs-order-item{grid-template-columns:40px 1fr auto}.labs-order-item>strong:last-child{grid-column:2/4}}
+
+/* ===== Panel nuevo: Labs usa los mismos colores, letra y piezas que app.vase.ar (@vase/ui/panel.css) =====
+   Las pantallas viejas leen estas variables, así que toman la misma estética sin reescribirlas. */
+:root {
+  --background: #ffffff; --background-elevated: #f4f5f7; --background-spot: rgba(24, 195, 126, .08);
+  --foreground: #111418; --foreground-soft: #344054; --carbon: #111418; --mist: #ffffff;
+  --surface: #ffffff; --surface-strong: #f8f9fa; --surface-inverse: #111418;
+  --muted: #667085; --muted-soft: #98a2b3;
+  --border: #eaecef; --border-subtle: #eaecef; --border-strong: #d5d9de;
+  --accent: #006d43; --accent-strong: #006d43; --accent-soft: rgba(24, 195, 126, .10); --accent-contrast: #ffffff;
+  --success: #067647; --success-soft: #ecfdf3; --warning: #93370d; --warning-soft: #fef6e7;
+  --danger: #b42318; --danger-soft: #fef3f2; --info: #175cd3; --info-soft: #eff8ff;
+  --glass-highlight: transparent; --glass-shadow: rgba(16, 24, 40, .08);
+  --radius-sm: 11px; --radius-md: 14px; --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, .05); --shadow-md: 0 1px 3px rgba(16, 24, 40, .08); --shadow-lg: 0 24px 60px rgba(16, 24, 40, .18);
+  --grid-line: transparent;
+}
+[data-theme="dark"] {
+  --background: #000000; --background-elevated: #121212; --background-spot: rgba(71, 224, 152, .08);
+  --foreground: #f2f2f2; --foreground-soft: #d0d0d0; --carbon: #f2f2f2; --mist: #000000;
+  --surface: #0a0a0a; --surface-strong: #121212; --surface-inverse: #f2f2f2;
+  --muted: #9b9b9b; --muted-soft: #6f6f6f;
+  --border: #1e1e1e; --border-subtle: #1e1e1e; --border-strong: #2e2e2e;
+  --accent: #47e098; --accent-strong: #47e098; --accent-soft: rgba(71, 224, 152, .10); --accent-contrast: #00260f;
+  --success: #47e098; --success-soft: rgba(71, 224, 152, .10); --warning: #f5c56b; --warning-soft: rgba(245, 197, 107, .10);
+  --danger: #ff8a80; --danger-soft: rgba(240, 68, 56, .14); --info: #84caff; --info-soft: rgba(46, 144, 250, .12);
+  --glass-shadow: rgba(0, 0, 0, .6);
+  --shadow-sm: 0 0 0 1px #161616; --shadow-md: 0 0 0 1px #161616; --shadow-lg: 0 30px 90px rgba(0, 0, 0, .8);
+}
+html, body, [data-theme="dark"] body { background: var(--background); color: var(--foreground); }
+body { font-family: var(--font-manrope), system-ui, sans-serif; }
+/* Las tarjetas viejas de Labs se ven como las del panel: borde fino, sin vidrio ni sombras grandes. */
+.vpa .labs-panel, .vpa .labs-subpanel { background: var(--surface); border: 1px solid var(--border-subtle); border-radius: 18px; box-shadow: none; backdrop-filter: none; }
+.vpa .labs-button { border-radius: 11px; font-weight: 800; }
+.vpa .labs-button-primary { background: var(--accent-strong); color: var(--accent-contrast); }
+.vpa h1, .vpa h2, .vpa h3 { font-family: var(--font-manrope), system-ui, sans-serif; font-style: normal; }
+.labs-tabs-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

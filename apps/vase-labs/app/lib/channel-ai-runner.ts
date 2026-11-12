@@ -4,6 +4,7 @@ import { createAiOrchestrator, type OrchestratedAiReply } from "./ai-orchestrato
 import type { RunChannelAiReply } from "./channel-webhook-service";
 import { createOfficialChannelSender } from "./official-channel-sender";
 import { PrismaOfficialChannelSenderRepository } from "./official-channel-sender-repository";
+import { buildBusinessProfileContext } from "./business-profile";
 import { labsCatalogService } from "./catalog-repository";
 import { labsEntitlementsService } from "./labs-entitlements-service";
 import { createKnowledgeService } from "./knowledge-service";
@@ -35,6 +36,7 @@ type ChannelAiReplyRunnerDeps = {
   env?: NodeJS.ProcessEnv;
   resolveOpenAiApiKey?(assistantId: string): Promise<string | null>;
   knowledge: { buildContext(assistantId: string): Promise<string> };
+  businessProfile?: { buildContext(globalTenantId: string): Promise<string> };
   catalog?: {
     buildAiResources?(globalTenantId: string): Promise<{
       context: string;
@@ -202,6 +204,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
     });
     const orchestrator = createAiOrchestrator({
       knowledge: deps.knowledge,
+      businessProfile: deps.businessProfile,
       catalog: deps.catalog,
       generateReply: generator.generateReply,
       orders: deps.orders,
@@ -350,6 +353,7 @@ export function createPrismaChannelAiReplyRunner(input: {
       },
     }),
     catalog: labsCatalogService,
+    businessProfile: { buildContext: buildBusinessProfileContext },
     orders,
     async listSentImageUrls(conversationId) {
       const messages = await prisma.message.findMany({

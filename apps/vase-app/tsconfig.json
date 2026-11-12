@@ -23,7 +23,9 @@
       "@/*": ["./src/*"],
       "@vase/auth": ["../../packages/auth/src/index.ts"],
       "@vase/contracts": ["../../packages/contracts/src/index.ts"],
-      "@vase/internal-api": ["../../packages/internal-api/src/index.ts"]
+      "@vase/internal-api": ["../../packages/internal-api/src/index.ts"],
+      "@vase/ui/panel": ["../../packages/ui/src/panel/index.ts"],
+      "@vase/ui/panel.css": ["../../packages/ui/src/panel.css"]
     }
   },
   "include": [

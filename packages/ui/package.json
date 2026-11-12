@@ -8,7 +8,9 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./panel": "./src/panel/index.ts",
+    "./panel.css": "./src/panel.css"
   },
   "dependencies": {
     "react": "19.2.4"

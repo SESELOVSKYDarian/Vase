@@ -2,18 +2,11 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
-import { LabsPageHeader, LabsSection, LabsStatusPill } from "../labs-ui";
+import { LabsSection } from "../labs-ui";
+import { CONVERSATION_TABS, LabsTabs } from "../labs-tabs";
 import { InboxWorkstation, type InboxConversationItem } from "./inbox-workstation";
 
 export const dynamic = "force-dynamic";
-
-function formatDate(value: string | null) {
-  if (!value) return "Sin fecha";
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 async function getInboxData() {
   const requestHeaders = await headers();
@@ -109,115 +102,27 @@ async function getInboxData() {
   }
 }
 
-export default async function LabsInboxPage() {
+export default async function LabsInboxPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const data = await getInboxData();
-  const totalConversations = data.conversations.length;
-  const humanAttentionCount = data.conversations.filter(
-    (conversation) => conversation.escalatedToHuman || conversation.handoffs.length > 0,
-  ).length;
-  const totalMessages = data.conversations.reduce(
-    (total, conversation) => total + conversation.messageCount,
-    0,
-  );
-  const latestActivity = data.conversations[0]?.lastMessageAt ?? null;
+  const requested = (await searchParams)?.conversationId;
+  const initialActiveId = typeof requested === "string" ? requested : undefined;
 
+  // Los números y el resumen ya están en Inicio: acá queda solo la bandeja para responder.
   return (
     <div className="labs-inbox-page space-y-6">
-      <LabsPageHeader
-        eyebrow="Atencion"
-        title="Inbox"
-        description="Conversaciones abiertas y derivaciones que requieren seguimiento del equipo."
-      />
-
-      <section className="labs-inbox-summary-grid" aria-label="Resumen del inbox">
-        <article>
-          <span>Abiertas</span>
-          <strong>{totalConversations}</strong>
-          <small>Conversaciones en seguimiento</small>
-        </article>
-        <article>
-          <span>Humanas</span>
-          <strong>{humanAttentionCount}</strong>
-          <small>Requieren intervencion del equipo</small>
-        </article>
-        <article>
-          <span>Mensajes</span>
-          <strong>{totalMessages}</strong>
-          <small>Ultimos hilos cargados</small>
-        </article>
-        <article>
-          <span>Ultima actividad</span>
-          <strong>{latestActivity ? formatDate(latestActivity) : "Sin fecha"}</strong>
-          <small>Ordenado por prioridad reciente</small>
-        </article>
-      </section>
-
-      <LabsSection
-        title="Pendientes de atencion"
-        description="Ordenados por la actividad mas reciente para que el equipo priorice la respuesta."
-        className="labs-inbox-board-section"
-      >
+      <LabsTabs tabs={CONVERSATION_TABS} />
+      <LabsSection className="labs-inbox-board-section">
         <InboxWorkstation
           tenantSlug={data.tenantSlug}
           initialConversations={data.conversations}
           channelStates={data.channelStates}
+          initialActiveId={initialActiveId}
         />
       </LabsSection>
-
-      {data.conversations.length > 0 ? (
-        <LabsSection title="Resumen rapido" description="Vista compacta para revision y auditoria del equipo.">
-          <div className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-lg border border-[var(--border-subtle)]">
-            {data.conversations.map((conversation) => {
-              const latestMessage = conversation.messages.at(-1);
-              const activeHandoff = conversation.handoffs[0];
-              const messageAuthor = latestMessage?.direction === "OUTBOUND" ? "Equipo" : "Cliente";
-
-              return (
-                <article
-                  key={conversation.id}
-                  className="grid gap-3 bg-[var(--surface)] p-4 lg:grid-cols-[minmax(0,1fr)_auto]"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <p className="font-semibold text-[var(--foreground)]">
-                        {conversation.customerName ?? conversation.customerContact ?? "Cliente"}
-                      </p>
-                      <span className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--muted-soft)]">
-                        {conversation.channel ?? "LABS"}
-                      </span>
-                    </div>
-                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--muted)]">
-                      {latestMessage ? `${messageAuthor}: ${latestMessage.content}` : conversation.summary ?? "Conversacion sin mensajes disponibles."}
-                    </p>
-                    {activeHandoff ? (
-                      <p className="mt-2 text-xs leading-5 text-[var(--muted-soft)]">
-                        Derivacion: {activeHandoff.reason}
-                        {activeHandoff.assignedTo ? ` · Responsable: ${activeHandoff.assignedTo}` : ""}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 lg:max-w-xs lg:justify-end">
-                    <LabsStatusPill
-                      label={conversation.status}
-                      tone={conversation.status === "ESCALATED" ? "warning" : "info"}
-                    />
-                    {activeHandoff ? (
-                      <LabsStatusPill
-                        label={`${activeHandoff.status} · ${activeHandoff.priority}`}
-                        tone="warning"
-                      />
-                    ) : null}
-                    <span className="text-xs text-[var(--muted)]">
-                      {conversation.messageCount} mensajes · {formatDate(conversation.lastMessageAt)}
-                    </span>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </LabsSection>
-      ) : null}
     </div>
   );
 }
