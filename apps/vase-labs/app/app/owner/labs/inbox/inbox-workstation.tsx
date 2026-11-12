@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, Bell, CheckCheck, CircleAlert, Clock3, Loader2, PauseCircle, PlayCircle, RefreshCw, Send, Sparkles, UserRoundCheck } from "lucide-react";
+import { ArrowDown, Bell, CheckCheck, CircleAlert, Clock3, Loader2, PanelRightClose, PanelRightOpen, PauseCircle, PlayCircle, RefreshCw, Send, Sparkles, UserRoundCheck, X } from "lucide-react";
 import { type FormEvent, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LabsStatusPill } from "../labs-ui";
 import {
@@ -191,6 +191,37 @@ const inboxChannelTitles: Record<InboxChannel, string> = {
   FACEBOOK: "Chats de Facebook",
 };
 
+type ChannelFilter = InboxChannel | "ALL";
+type StatusFilter = "todas" | "necesitan" | "ia";
+
+const STATUS_TABS: Array<{ id: StatusFilter; label: string }> = [
+  { id: "todas", label: "Todas" },
+  { id: "necesitan", label: "Te necesitan" },
+  { id: "ia", label: "Atiende la IA" },
+];
+
+function needsPerson(conversation: Pick<InboxConversationItem, "escalatedToHuman" | "handoffs">) {
+  return conversation.escalatedToHuman || conversation.handoffs.length > 0;
+}
+
+function channelOf(conversation: Pick<InboxConversationItem, "channel">): InboxChannel {
+  return normalizeInboxChannel(conversation.channel) ?? "WHATSAPP";
+}
+
+/** Lo que conviene preguntarle y cómo arrancar cuando la atiende una persona. */
+function personSuggestions(name: string) {
+  const first = name.split(/\s+/)[0] || "";
+  return {
+    ask: ["Para cuándo lo necesita", "Si lo retira o se lo enviamos", "Cómo quiere pagar"],
+    replies: [
+      `¡Hola${first && first !== "Cliente" ? ` ${first}` : ""}! Soy del equipo, ya te ayudo.`,
+      "¿Para cuándo lo necesitás?",
+      "¿Lo retirás o te lo enviamos?",
+      "¿Querés que te lo reserve?",
+    ],
+  };
+}
+
 export function InboxWorkstation({
   tenantSlug,
   initialConversations,
@@ -205,9 +236,9 @@ export function InboxWorkstation({
 }) {
   const initialActive = initialConversations.find((conversation) => conversation.id === initialActiveId) ?? initialConversations[0];
   const [conversations, setConversations] = useState(() => sortConversations(initialConversations));
-  const [selectedChannel, setSelectedChannel] = useState<InboxChannel>(
-    () => normalizeInboxChannel(initialActive?.channel) ?? "WHATSAPP",
-  );
+  const [selectedChannel, setSelectedChannel] = useState<ChannelFilter>("ALL");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("todas");
+  const [showInfo, setShowInfo] = useState(true);
   const [activeId, setActiveId] = useState(initialActive?.id ?? "");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -238,10 +269,12 @@ export function InboxWorkstation({
     ),
     [channelStates],
   );
-  const visibleConversations = useMemo(
-    () => filterInboxConversationsByChannel(conversations, selectedChannel),
-    [conversations, selectedChannel],
-  );
+  const visibleConversations = useMemo(() => {
+    const byChannel = selectedChannel === "ALL" ? conversations : filterInboxConversationsByChannel(conversations, selectedChannel);
+    if (statusFilter === "necesitan") return byChannel.filter(needsPerson);
+    if (statusFilter === "ia") return byChannel.filter((conversation) => !needsPerson(conversation));
+    return byChannel;
+  }, [conversations, selectedChannel, statusFilter]);
   const activeConversation = useMemo(
     () => visibleConversations.find((conversation) => conversation.id === activeId)
       ?? visibleConversations[0]
@@ -252,9 +285,10 @@ export function InboxWorkstation({
   const activeContact = activeConversation?.customerContact && activeConversation.customerContact !== activeName
     ? activeConversation.customerContact
     : null;
-  const pendingHumanCount = conversations.filter(
-    (conversation) => conversation.escalatedToHuman || conversation.handoffs.length > 0,
-  ).length;
+  const pendingHumanCount = conversations.filter(needsPerson).length;
+  const activeChannel: InboxChannel = activeConversation ? channelOf(activeConversation) : selectedChannel === "ALL" ? "WHATSAPP" : selectedChannel;
+  const emptyLabel = selectedChannel === "ALL" ? "tus canales" : inboxChannelLabels[selectedChannel];
+  const suggestions = personSuggestions(activeName);
 
   useEffect(() => {
     const nextActiveId = visibleConversations.some((conversation) => conversation.id === activeId)
@@ -531,60 +565,77 @@ export function InboxWorkstation({
 
   return (
     <section className="labs-inbox-shell">
-      <nav className="labs-inbox-channel-tabs" aria-label="Chats por canal">
-        {inboxChannels.map((channel) => {
-          const active = selectedChannel === channel;
-          const channelState = channelStateMap.get(channel);
-          return (
+      <div className="labs-inbox-filters">
+        <nav className="labs-inbox-channel-tabs" aria-label="Chats por canal">
+          <button
+            type="button"
+            className={selectedChannel === "ALL" ? "is-active" : ""}
+            aria-pressed={selectedChannel === "ALL"}
+            onClick={() => { setSelectedChannel("ALL"); setError(""); setNotice(""); }}
+          >
+            Todos <em>{conversations.length}</em>
+          </button>
+          {inboxChannels.map((channel) => {
+            const active = selectedChannel === channel;
+            const connected = channelStateMap.get(channel)?.status === "CONNECTED";
+            return (
+              <button
+                key={channel}
+                type="button"
+                className={active ? "is-active" : ""}
+                aria-pressed={active}
+                title={`${inboxChannelTitles[channel]} · ${connected ? "Conectado" : "No conectado"}`}
+                onClick={() => { setSelectedChannel(channel); setError(""); setNotice(""); }}
+              >
+                <img src={`/icons/channels/${channel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
+                <span className="sr-only">{inboxChannelLabels[channel]}</span>
+                <em>{channelCounts[channel]}</em>
+                {connected ? null : <i className="labs-inbox-off" aria-label="No conectado" />}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="labs-inbox-status-tabs" role="tablist" aria-label="Filtrar por estado">
+          {STATUS_TABS.map((tab) => (
             <button
-              key={channel}
+              key={tab.id}
               type="button"
-              className={active ? "is-active" : ""}
-              aria-pressed={active}
-              onClick={() => {
-                setSelectedChannel(channel);
-                setError("");
-                setNotice("");
-              }}
+              role="tab"
+              aria-selected={statusFilter === tab.id}
+              className={statusFilter === tab.id ? "is-active" : ""}
+              onClick={() => setStatusFilter(tab.id)}
             >
-              <img src={`/icons/channels/${channel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
-              <span>
-                <strong>{inboxChannelTitles[channel]}</strong>
-                <small>
-                  {channelCounts[channel]} conversacion{channelCounts[channel] === 1 ? "" : "es"}
-                  {" · "}
-                  {channelState?.status === "CONNECTED" ? "Conectado" : channelState?.status ?? "No conectado"}
-                </small>
-              </span>
-              <em>{channelCounts[channel]}</em>
+              {tab.label}
+              {tab.id === "necesitan" && pendingHumanCount > 0 ? <em>{pendingHumanCount}</em> : null}
             </button>
-          );
-        })}
-      </nav>
+          ))}
+        </div>
+      </div>
 
-      {pendingHumanCount > 0 ? (
+      {pendingHumanCount > 0 && statusFilter !== "necesitan" ? (
         <div className="labs-inbox-alert" aria-live="polite">
           <Bell aria-hidden="true" />
-          <span>{pendingHumanCount} conversacion{pendingHumanCount === 1 ? "" : "es"} requiere{pendingHumanCount === 1 ? "" : "n"} atencion humana.</span>
+          <span>{pendingHumanCount} {pendingHumanCount === 1 ? "conversación te necesita" : "conversaciones te necesitan"}</span>
+          <button type="button" onClick={() => setStatusFilter("necesitan")}>Ver</button>
         </div>
       ) : null}
 
-      <div className="labs-inbox-workstation">
+      <div className={`labs-inbox-workstation${activeConversation && showInfo ? " has-info" : ""}`}>
       <aside className="labs-inbox-queue" aria-label="Pendientes de atencion">
         <div className="labs-inbox-queue-heading">
-          <span>Chats de {inboxChannelLabels[selectedChannel]}</span>
+          <span>{selectedChannel === "ALL" ? "Conversaciones" : inboxChannelTitles[selectedChannel]}</span>
           <strong>{visibleConversations.length}</strong>
         </div>
         {visibleConversations.length === 0 ? (
           <div className="labs-inbox-channel-empty">
-            <img src={`/icons/channels/${selectedChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
-            <strong>No hay conversaciones de este canal</strong>
-            <span>Los mensajes nuevos de {inboxChannelLabels[selectedChannel]} apareceran aca automaticamente.</span>
+            <img src={`/icons/channels/${activeChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
+            <strong>{statusFilter === "todas" ? "No hay conversaciones de este canal" : "No hay conversaciones acá"}</strong>
+            <span>Los mensajes nuevos de {emptyLabel} aparecen acá solos.</span>
             <small>
-              {channelStateMap.get(selectedChannel)?.lastError
-                ? `Ultimo webhook: ${channelStateMap.get(selectedChannel)?.lastError}`
-                : channelStateMap.get(selectedChannel)?.lastSyncedAt
-                  ? `Ultimo webhook: ${formatDate(channelStateMap.get(selectedChannel)?.lastSyncedAt ?? null)}`
+              {channelStateMap.get(activeChannel)?.lastError
+                ? `Último mensaje recibido con error: ${channelStateMap.get(activeChannel)?.lastError}`
+                : channelStateMap.get(activeChannel)?.lastSyncedAt
+                  ? `Último mensaje recibido: ${formatDate(channelStateMap.get(activeChannel)?.lastSyncedAt ?? null)}`
                   : "Sin webhooks recibidos"}
             </small>
           </div>
@@ -607,7 +658,10 @@ export function InboxWorkstation({
               className={active ? "is-active" : ""}
               aria-current={active ? "true" : undefined}
             >
-              <span className="labs-inbox-avatar" aria-hidden="true">{initials(name)}</span>
+              <span className="labs-inbox-avatar" aria-hidden="true">
+                {initials(name)}
+                <img src={`/icons/channels/${channelOf(conversation).toLowerCase()}.svg`} alt="" />
+              </span>
               <span className="labs-inbox-queue-body">
                 <span className="labs-inbox-queue-title">
                   <strong>{name}</strong>
@@ -615,7 +669,7 @@ export function InboxWorkstation({
                 </span>
                 <span className="labs-inbox-queue-meta">
                   <small>{preview}</small>
-                  {hasHandoff ? <em title="Atendida por el equipo">Humano</em> : null}
+                  {hasHandoff ? <em title="Te necesita">Te necesita</em> : null}
                 </span>
               </span>
             </button>
@@ -631,8 +685,8 @@ export function InboxWorkstation({
             <div>
               <h2>{activeName}</h2>
               <span>
-                <img src={`/icons/channels/${selectedChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
-                {inboxChannelLabels[selectedChannel]}
+                <img src={`/icons/channels/${activeChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
+                {inboxChannelLabels[activeChannel]}
                 {activeContact ? ` · ${activeContact}` : ""}
                 {` · ${activeConversation.messageCount} mensaje${activeConversation.messageCount === 1 ? "" : "s"}`}
               </span>
@@ -640,14 +694,14 @@ export function InboxWorkstation({
           </div>
           <div className="labs-inbox-actions">
             <LabsStatusPill
-              label={activeConversation.escalatedToHuman ? "Humano activo" : conversationStatusLabel(activeConversation.status)}
+              label={activeConversation.escalatedToHuman ? "La atendés vos" : conversationStatusLabel(activeConversation.status)}
               tone={activeConversation.escalatedToHuman || activeConversation.status === "ESCALATED" ? "warning" : "success"}
             />
             <button
               type="button"
               onClick={() => void (activeConversation.escalatedToHuman ? reactivateAi() : requestHandoff())}
               disabled={handoffBusy}
-              aria-label={activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA e intervenir humano"}
+              aria-label={activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA y atender yo"}
               title={activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA"}
             >
               {handoffBusy
@@ -655,10 +709,19 @@ export function InboxWorkstation({
                 : activeConversation.escalatedToHuman
                   ? <PlayCircle aria-hidden="true" />
                   : <PauseCircle aria-hidden="true" />}
-              <span>{activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA"}</span>
+              <span>{activeConversation.escalatedToHuman ? "Devolver a la IA" : "Atender yo"}</span>
             </button>
             <button type="button" onClick={() => void refreshConversation()} aria-label="Actualizar hilo">
               {refreshing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowInfo((value) => !value)}
+              aria-pressed={showInfo}
+              aria-label={showInfo ? "Ocultar datos del cliente" : "Ver datos del cliente"}
+              title={showInfo ? "Ocultar datos del cliente" : "Ver datos del cliente"}
+            >
+              {showInfo ? <PanelRightClose aria-hidden="true" /> : <PanelRightOpen aria-hidden="true" />}
             </button>
           </div>
         </header>
@@ -778,12 +841,54 @@ export function InboxWorkstation({
           ) : null}
         </form>
       </article>
-      ) : (
+      ) : null}
+
+      {activeConversation && showInfo ? (
+        <aside className="labs-inbox-info" aria-label="Datos del cliente">
+          <div className="labs-inbox-info-head">
+            <b>{activeName}</b>
+            <button type="button" className="vpa-x" aria-label="Cerrar datos del cliente" onClick={() => setShowInfo(false)}>
+              <X size={16} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="labs-inbox-info-block">
+            <span className="vpa-lab">Lo que busca</span>
+            <p>{activeConversation.summary?.trim() || "Todavía no hay suficiente charla para resumirlo."}</p>
+          </div>
+          <div className="labs-inbox-info-block">
+            <span className="vpa-lab">Contacto</span>
+            <p>{activeContact ?? activeName}<br />{inboxChannelLabels[activeChannel]} · {activeConversation.messageCount} mensaje{activeConversation.messageCount === 1 ? "" : "s"}</p>
+          </div>
+          {activeConversation.escalatedToHuman ? (
+            <>
+              <div className="labs-inbox-info-block">
+                <span className="vpa-lab">Podés preguntarle</span>
+                <ul>
+                  {suggestions.ask.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              </div>
+              <div className="labs-inbox-info-block">
+                <span className="vpa-lab">Respuestas sugeridas</span>
+                <div className="labs-inbox-suggest">
+                  {suggestions.replies.map((reply) => (
+                    <button key={reply} type="button" onClick={() => { setDraft(reply); draftRef.current?.focus(); }}>
+                      {reply}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="vpa-mut">Si tocás <b>Atender yo</b>, la IA se pausa y te sugerimos qué preguntarle.</p>
+          )}
+        </aside>
+      ) : null}
+
+      {activeConversation ? null : (
         <article className="labs-inbox-thread-empty" aria-live="polite">
-          <img src={`/icons/channels/${selectedChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
-          <p className="vase-kicker">{inboxChannelLabels[selectedChannel]}</p>
+          <img src={`/icons/channels/${activeChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
           <h2>Esperando el primer mensaje</h2>
-          <p>Cuando un cliente escriba por {inboxChannelLabels[selectedChannel]}, el chat se abrira en esta bandeja.</p>
+          <p>Cuando un cliente te escriba por {emptyLabel}, la conversación se abre acá.</p>
           <button type="button" onClick={() => void refreshConversationList()} disabled={refreshing}>
             {refreshing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
             Comprobar mensajes

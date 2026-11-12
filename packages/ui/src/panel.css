@@ -456,7 +456,7 @@
 .vpa-from { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 14px; color: var(--mut); font-weight: 600; font-size: 12.5px; }
 .vpa-chip2 { height: 22px; padding: 0 9px; border-radius: 7px; background: var(--accsoft); color: var(--acc-tx); font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; white-space: nowrap; }
 .vpa-ic { width: 36px; height: 36px; border-radius: 11px; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
-.vpa-pbadge { height: 20px; padding: 0 7px; border-radius: 6px; background: #241a5c; color: #b9a7ff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; letter-spacing: 0; }
+.vpa-pbadge { padding: 1px 8px; border-radius: 7px; background: #241a5c; color: #b9a7ff; font-size: 18px; line-height: 1.2; font-weight: 800; display: inline-flex; align-items: center; letter-spacing: -.03em; }
 .vpa-side.mini .vpa-pbadge { display: none; }
 
 /* Pasos de estado (pedidos): se tocan para avanzar. */
