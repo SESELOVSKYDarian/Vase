@@ -6,7 +6,7 @@ import Select from '../components/Select';
 import { errorText, panelFetch } from '../api';
 import { formatMoney, orderStatus } from '../format';
 import { CLIENT_FILTERS as FILTERS, ROLE, clientState, isClient } from '../clients';
-import { PanelTag } from '@vase/ui/panel/pieces';
+import { PanelTag, PanelSegmented } from '@vase/ui/panel/pieces';
 
 export default function Clientes({ user, toast, onChanged }) {
     const [clients, setClients] = useState([]);
@@ -158,11 +158,12 @@ export default function Clientes({ user, toast, onChanged }) {
                         {current.phone ? <a className="vp-btn line sm" href={`https://wa.me/${String(current.phone).replace(/\D/g, '')}`} target="_blank" rel="noreferrer">WhatsApp</a> : null}
                     </div>
                     <div className="vp-fld"><span className="vp-fl">Tipo de cliente</span>
-                        <div className="vp-seg">
-                            {Object.entries(ROLE).map(([role, label]) => (
-                                <button key={role} type="button" className={current.role === role ? 'on' : ''} disabled={saving || current.role === role} onClick={() => patch(current, { role }, `Ahora es ${label.toLowerCase()}`)}>{label}</button>
-                            ))}
-                        </div>
+                        <PanelSegmented
+                            fill
+                            value={current.role}
+                            onChange={(role) => patch(current, { role }, `Ahora es ${ROLE[role].toLowerCase()}`)}
+                            options={Object.entries(ROLE).map(([role, label]) => ({ value: role, label, disabled: saving || current.role === role }))}
+                        />
                     </div>
                     <div className="vp-fld"><label htmlFor="client-list">Lista de precios</label>
                         <Select id="client-list" value={current.price_list_id || ''} disabled={saving} onChange={(next) => setPriceList(current, next)} options={[{ value: '', label: 'Según su tipo (minorista o mayorista)' }, ...priceLists.map((list) => ({ value: list.id, label: list.name }))]} />

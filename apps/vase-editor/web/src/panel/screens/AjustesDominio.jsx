@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { panelFetch } from '../api';
 import { Modal } from '../components/Overlays';
 import { domainError, domainKind, domainStatus, isPlaceholderValue, isValidDomain, normalizeDomainInput, observedText, sortDomains } from '../dominio';
-import { PanelTag } from '@vase/ui/panel/pieces';
+import { PanelCard, PanelTag } from '@vase/ui/panel/pieces';
 
 // Ajustes › Dominio: tus direcciones, conectar un dominio propio y los datos para cargar en tu proveedor.
 export default function AjustesDominio({ user, toast, theme }) {
@@ -108,20 +108,16 @@ export default function AjustesDominio({ user, toast, theme }) {
             </div>
 
             <div className="vp-pgrid">
-                <div className="vp-card vp-sec">
-                    <h3>Conectar otro dominio</h3>
-                    <p>El que compraste en NIC.ar, GoDaddy, Hostinger u otro proveedor.</p>
+                <PanelCard stack className="vp-card vp-sec" title="Conectar otro dominio" description="El que compraste en NIC.ar, GoDaddy, Hostinger u otro proveedor.">
                     <form className="vp-inline" onSubmit={connect}>
                         <input className="vp-inp" aria-label="Dominio" placeholder="mitienda.com" value={newDomain} onChange={(event) => setNewDomain(event.target.value)} />
                         <button type="submit" className="vp-btn acc" disabled={!draft || busy === 'connect'}>{busy === 'connect' ? 'Conectando…' : 'Conectar'}</button>
                     </form>
                     {newDomain && draft && !isValidDomain(draft) ? <span className="vp-note bad">Escribilo así: mitienda.com (sin https:// ni barras).</span> : null}
-                </div>
+                </PanelCard>
 
                 {platform.enabled ? (
-                    <div className="vp-card vp-sec">
-                        <h3>Dirección de Vase</h3>
-                        <p>Funciona siempre, aunque todavía no tengas dominio propio.</p>
+                    <PanelCard stack className="vp-card vp-sec" title="Dirección de Vase" description="Funciona siempre, aunque todavía no tengas dominio propio.">
                         <div className="vp-inline">
                             <span className="vp-pct" style={{ flex: 1 }}>
                                 <input aria-label="Nombre de tu dirección de Vase" value={subdomain} onChange={(event) => setSubdomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} />
@@ -129,7 +125,7 @@ export default function AjustesDominio({ user, toast, theme }) {
                             </span>
                             <button type="button" className="vp-btn line" disabled={busy === 'platform' || !subdomain} onClick={reservePlatform}>{busy === 'platform' ? 'Guardando…' : platform.assigned_domain ? 'Cambiar' : 'Reservar'}</button>
                         </div>
-                    </div>
+                    </PanelCard>
                 ) : null}
             </div>
 

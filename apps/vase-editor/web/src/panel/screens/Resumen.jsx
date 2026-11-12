@@ -3,7 +3,7 @@ import Icon from '../components/Icon';
 import DataTable from '../components/DataTable';
 import { formatMoney, orderStatus } from '../format';
 import { periodTotals, salesByDay, topProducts } from '../stats';
-import { PanelTag } from '@vase/ui/panel/pieces';
+import { PanelCard, PanelTag } from '@vase/ui/panel/pieces';
 
 // Resumen con datos reales: productos, pedidos y aprobaciones pendientes.
 export default function Resumen({ products, orders, pendingUsers, paymentApprovals, go, loading }) {
@@ -54,15 +54,14 @@ export default function Resumen({ products, orders, pendingUsers, paymentApprova
                     </div>
                     <div className="vp-barsx"><span>{days[0]?.date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}</span><span>Hoy</span></div>
                 </div>
-                <div className="vp-card vp-sec">
-                    <h3>Lo más vendido</h3>
+                <PanelCard stack className="vp-card vp-sec" title="Lo más vendido">
                     {best.length ? best.map((item, index) => (
                         <div key={item.key} className="vp-row">
                             <span className="vp-stepn" style={{ width: 24, height: 24, fontSize: 11 }}>{index + 1}</span>
                             <div className="g"><b style={{ fontSize: 12.5 }}>{item.name}</b><span>{item.qty} unidades · {formatMoney(item.total)}</span></div>
                         </div>
                     )) : <span className="vp-note">{loading ? 'Cargando…' : 'Cuando entren pedidos vas a ver acá lo que más se vende.'}</span>}
-                </div>
+                </PanelCard>
             </div>
             <div className="vp-ch">
                 <div><h2>Últimos pedidos</h2><small>Los más recientes que entraron por la tienda</small></div>

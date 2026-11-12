@@ -17,6 +17,7 @@ import CatalogTextsEditor from './CatalogTextsEditor';
 import LegalEditor from './LegalEditor';
 import BlockInspector from './BlockInspector';
 import './diseno.css';
+import { PanelSegmented } from '@vase/ui/panel/pieces';
 
 const PAGES = [
     ['home', 'Inicio'],
@@ -118,10 +119,16 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                         <button type="button" className={`vp-ibtn sq ${showBlocks ? 'on' : ''}`} onClick={() => setShowBlocks((value) => !value)} aria-pressed={showBlocks} aria-label="Mostrar u ocultar los bloques" title="Bloques"><Icon name="list" size={17} /></button>
                         <button type="button" className={`vp-ibtn sq ${showInspector ? 'on' : ''}`} onClick={() => setShowInspector((value) => !value)} aria-pressed={showInspector} aria-label="Mostrar u ocultar el editor del bloque" title="Editor del bloque"><Icon name="sliders" size={17} /></button>
                         <button type="button" className="vp-btn line sm" onClick={() => { setShowBlocks(big); setShowInspector(big); }}><Icon name="expand" size={14} />{big ? 'Ver paneles' : 'Pantalla grande'}</button>
-                        <div className="vp-seg vp-dev" role="group" aria-label="Vista previa">
-                            <button type="button" className={viewport === 'desktop' ? 'on' : ''} onClick={() => setViewport('desktop')} aria-label="Computadora" title="Computadora"><Icon name="monitor" size={16} /></button>
-                            <button type="button" className={viewport === 'mobile' ? 'on' : ''} onClick={() => setViewport('mobile')} aria-label="Celular" title="Celular"><Icon name="phone" size={16} /></button>
-                        </div>
+                        <PanelSegmented
+                            className="vp-dev"
+                            ariaLabel="Vista previa"
+                            value={viewport}
+                            onChange={setViewport}
+                            options={[
+                                { value: 'desktop', label: <Icon name="monitor" size={16} />, ariaLabel: 'Computadora', title: 'Computadora' },
+                                { value: 'mobile', label: <Icon name="phone" size={16} />, ariaLabel: 'Celular', title: 'Celular' },
+                            ]}
+                        />
                     </div>
                 ) : null}
                 {status.history ? <HistoryButton history={status.history} theme={status.theme} toast={status.toast} /> : null}

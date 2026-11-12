@@ -11,7 +11,7 @@ import {
     tiersError,
     zonesToTiers,
 } from './model';
-import { PanelTag } from '@vase/ui/panel/pieces';
+import { PanelCard, PanelTag } from '@vase/ui/panel/pieces';
 
 // Envíos: desde dónde salís, cuánto cobrás por distancia y qué pasa si queda lejos.
 export default function Envios({ editor, toast, theme, goSettings }) {
@@ -162,14 +162,13 @@ export default function Envios({ editor, toast, theme, goSettings }) {
 
                     <div className="vp-scol vp-envmap">
                         <ShippingMap branches={branches} tiers={tiers.filter((tier) => tier.max_km !== '')} specials={specials} theme={theme} />
-                        <div className="vp-card vp-sec">
-                            <h3>Probá un envío</h3>
+                        <PanelCard stack className="vp-card vp-sec" title="Probá un envío">
                             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                                 <span>Un cliente a</span>
                                 <label className="vp-search" style={{ width: 110 }}><input inputMode="decimal" aria-label="Distancia de prueba" value={simKm} onChange={(event) => setSimKm(event.target.value)} />km</label>
                                 <b>{sim ? (sim.ok ? (sim.price > 0 ? `paga ${formatMoney(sim.price)}` : 'tiene envío gratis') : 'no tiene envío: retira en sucursal') : ''}</b>
                             </div>
-                        </div>
+                        </PanelCard>
                     </div>
                 </div>
 

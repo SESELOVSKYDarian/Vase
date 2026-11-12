@@ -16,13 +16,15 @@ export function PanelTag({ tone = "n", style, children }: { tone?: PanelTone; st
   );
 }
 
-/** Tarjeta con título, bajada y acciones opcionales. */
+/** Tarjeta con título, bajada y acciones opcionales. stack: el contenido va en columna con el mismo espacio entre partes. */
 export function PanelCard({
   title,
   description,
   actions,
   className,
   id,
+  stack = false,
+  style,
   children,
 }: {
   title?: ReactNode;
@@ -30,10 +32,12 @@ export function PanelCard({
   actions?: ReactNode;
   className?: string;
   id?: string;
+  stack?: boolean;
+  style?: CSSProperties;
   children?: ReactNode;
 }) {
   return (
-    <section className={cx("vpa-card", className)} id={id}>
+    <section className={cx("vpa-card", stack && "stack", className)} id={id} style={style}>
       {title || description || actions ? (
         <div className="vpa-sech">
           <div className="vpa-g1">
@@ -190,5 +194,54 @@ export function PanelTabs({
         </span>
       ))}
     </nav>
+  );
+}
+
+export type PanelSegmentedOption<T extends string | number = string> = {
+  value: T;
+  label: ReactNode;
+  disabled?: boolean;
+  title?: string;
+  ariaLabel?: string;
+};
+
+/** Pestañas que cambian algo en la misma pantalla (botones). fill: ocupan todo el ancho, en partes iguales. */
+export function PanelSegmented<T extends string | number = string>({
+  options,
+  value,
+  onChange,
+  ariaLabel,
+  fill = false,
+  className,
+  style,
+}: {
+  options: Array<PanelSegmentedOption<T>>;
+  value: T | null | undefined;
+  onChange: (value: T) => void;
+  ariaLabel?: string;
+  fill?: boolean;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <div className={cx("vpa-seg", fill && "fill", className)} role="group" aria-label={ariaLabel} style={style}>
+      {options.map((option) => {
+        const on = option.value === value;
+        return (
+          <button
+            key={String(option.value)}
+            type="button"
+            className={on ? "on" : undefined}
+            aria-pressed={on}
+            aria-label={option.ariaLabel}
+            title={option.title}
+            disabled={option.disabled}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

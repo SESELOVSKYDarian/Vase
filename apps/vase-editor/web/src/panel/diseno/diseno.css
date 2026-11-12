@@ -118,7 +118,7 @@
 .vp .vp-itabs button.on { background: var(--card); color: var(--tx); box-shadow: var(--sh-sm); }
 .vp .vp-isub { display: flex; flex-direction: column; gap: 12px; padding: 14px; }
 .vp .vp-isub > b { font-size: 13px; font-weight: 800; }
-.vp .vp-isub .vp-seg button { padding: 0 4px; }
+.vp .vp-isub .vpa-seg button { padding: 0 4px; }
 .vp .vp-inspl[data-show="contenido"] [data-tab="estilo"],
 .vp .vp-inspl[data-show="estilo"] [data-tab="contenido"],
 .vp .vp-inspl[data-show="celular"] { display: none; }

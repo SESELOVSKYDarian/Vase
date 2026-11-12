@@ -1,5 +1,6 @@
 import React from 'react';
 import { STORE_TEXT_DEFAULTS } from '../../utils/storeTexts';
+import { PanelCard } from '@vase/ui/panel/pieces';
 
 const FIELDS = [
     ['badge', 'Etiqueta de arriba'],
@@ -29,16 +30,12 @@ export default function CatalogTextsEditor({ settings, setSettings }) {
     );
     return (
         <div className="vp-scol">
-            <div className="vp-card vp-sec">
-                <h3>Encabezado de la página</h3>
-                <p>Lo que se ve arriba de los productos. Si alguien entra a un rubro o una marca, el título pasa a ser ese nombre.</p>
+            <PanelCard stack className="vp-card vp-sec" title="Encabezado de la página" description="Lo que se ve arriba de los productos. Si alguien entra a un rubro o una marca, el título pasa a ser ese nombre.">
                 {FIELDS.map(field)}
-            </div>
-            <div className="vp-card vp-sec">
-                <h3>Cuando no hay resultados</h3>
-                <p>El mensaje que aparece si una búsqueda o un filtro no encuentra productos.</p>
+            </PanelCard>
+            <PanelCard stack className="vp-card vp-sec" title="Cuando no hay resultados" description="El mensaje que aparece si una búsqueda o un filtro no encuentra productos.">
                 {EMPTY_FIELDS.map(field)}
-            </div>
+            </PanelCard>
             <span className="vp-note">Dejá un campo vacío para usar el texto de siempre. Los rubros, las marcas y los productos se cambian en Catálogo.</span>
         </div>
     );

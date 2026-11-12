@@ -35,6 +35,15 @@ describe("colores y marca compartidos entre app, Labs y Business", () => {
     for (const css of [app, business]) expect(css).not.toContain("--page: #ffffff");
   });
 
+  it("tarjetas y pestañas de Business son las piezas compartidas", () => {
+    expect(read("apps/vase-editor/web/src/panel/screens/AjustesPagos.jsx")).toContain("<PanelCard stack");
+    expect(read("apps/vase-editor/web/src/panel/screens/AjustesPagos.jsx")).toContain("<PanelSegmented");
+    expect(read("apps/vase-editor/web/src/panel/screens/screens.css")).not.toContain(".vp-seg");
+    const shared = read("packages/ui/src/components.css");
+    expect(shared).toContain(".vpa-seg.fill");
+    expect(shared).toContain(":is(.vpa-card, .vp-card).stack");
+  });
+
   it("la marca es vase + el producto, con la misma pastilla", () => {
     expect(read("apps/vase-editor/web/src/panel/components/Shell.jsx")).toContain('<span className="vase-pill business">Business</span>');
     expect(read("apps/vase-labs/app/app/owner/labs/labs-shell.tsx")).toContain('<span className="vase-pill">Labs</span>');

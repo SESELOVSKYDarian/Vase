@@ -13,7 +13,7 @@ import {
     offerToDraft,
 } from './pricing';
 import ProductSearch from './ProductSearch';
-import { PanelTag } from '@vase/ui/panel/pieces';
+import { PanelTag, PanelSegmented } from '@vase/ui/panel/pieces';
 
 // Pestaña Ofertas del Catálogo: tarjetas y barra lateral para crear o editar.
 export default function Ofertas({ user, products, categories, toast, theme }) {
@@ -146,11 +146,7 @@ export default function Ofertas({ user, products, categories, toast, theme }) {
                         <input id="offer-name" className="vp-inp" value={draft.name} onChange={(event) => set({ name: event.target.value })} placeholder="Ej.: Semana del helado" />
                     </div>
                     <div className="vp-fld"><span className="vp-fl">Tipo de descuento</span>
-                        <div className="vp-seg">
-                            {Object.entries(OFFER_KIND_LABEL).map(([kind, label]) => (
-                                <button key={kind} type="button" className={draft.kind === kind ? 'on' : ''} onClick={() => set({ kind })}>{label}</button>
-                            ))}
-                        </div>
+                        <PanelSegmented fill value={draft.kind} onChange={(kind) => set({ kind })} options={Object.entries(OFFER_KIND_LABEL).map(([value, label]) => ({ value, label }))} />
                     </div>
                     <div className="vp-fld"><label htmlFor="offer-value">{draft.kind === 'percent' ? 'Porcentaje' : draft.kind === 'amount' ? 'Monto que descuenta' : 'Precio final'}</label>
                         <input id="offer-value" className="vp-inp" inputMode="decimal" value={draft.value} onChange={(event) => set({ value: event.target.value })} placeholder={draft.kind === 'percent' ? '15' : '3.000'} />
@@ -161,11 +157,7 @@ export default function Ofertas({ user, products, categories, toast, theme }) {
                     </div>
 
                     <div className="vp-fld"><span className="vp-fl">¿A qué productos?</span>
-                        <div className="vp-seg">
-                            {[['all', 'Todo'], ['categories', 'Categorías'], ['products', 'Productos']].map(([id, label]) => (
-                                <button key={id} type="button" className={draft.target === id ? 'on' : ''} onClick={() => set({ target: id })}>{label}</button>
-                            ))}
-                        </div>
+                        <PanelSegmented fill value={draft.target} onChange={(target) => set({ target })} options={[{ value: 'all', label: 'Todo' }, { value: 'categories', label: 'Categorías' }, { value: 'products', label: 'Productos' }]} />
                     </div>
                     {draft.target === 'categories' ? (
                         <div className="vp-fld">
@@ -196,11 +188,7 @@ export default function Ofertas({ user, products, categories, toast, theme }) {
                         {(current?.price_list_ids || []).length ? (
                             <div className="vp-lock ok">Este precio especial es para los clientes de una lista de precios. Se mantiene así aunque lo edites acá.</div>
                         ) : null}
-                        <div className="vp-seg">
-                            {[['all', 'Todos los clientes'], ['clients', 'Clientes elegidos']].map(([id, label]) => (
-                                <button key={id} type="button" className={draft.audience === id ? 'on' : ''} onClick={() => set({ audience: id })}>{label}</button>
-                            ))}
-                        </div>
+                        <PanelSegmented fill value={draft.audience} onChange={(audience) => set({ audience })} options={[{ value: 'all', label: 'Todos los clientes' }, { value: 'clients', label: 'Clientes elegidos' }]} />
                     </div>
                     {draft.audience === 'clients' ? (
                         <div className="vp-fld">

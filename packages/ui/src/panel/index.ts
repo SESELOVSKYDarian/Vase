@@ -13,6 +13,8 @@ export {
   PanelRow,
   PanelSection,
   PanelSections,
+  PanelSegmented,
+  type PanelSegmentedOption,
   PanelTabs,
   PanelTag,
   type PanelTone,

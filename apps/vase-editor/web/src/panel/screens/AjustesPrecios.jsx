@@ -5,6 +5,7 @@ import Select from '../components/Select';
 import { PRICE_VISIBILITY, getPriceVisibilityMode } from '../../utils/priceVisibility';
 import { PRICE_TIER_SLOT_COUNT, getDefaultPriceTierLabel, normalizePriceTierLabels } from '../../utils/priceTierLabels';
 import { adjustText, countClientsByList, listDirty, listDraftError, listPayload, listToDraft, newListDraft } from '../precios';
+import { PanelCard } from '@vase/ui/panel/pieces';
 
 const VISIBILITY = [
     [PRICE_VISIBILITY.PUBLIC, 'Todos', 'Cualquier visitante ve los precios.'],
@@ -101,9 +102,7 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
     return (
         <div className="vp-scol vp-precios">
             <div className="vp-pgrid">
-                <div className="vp-card vp-sec">
-                    <h3>¿Quién ve los precios?</h3>
-                    <p>Qué pasa cuando alguien entra sin cuenta.</p>
+                <PanelCard stack className="vp-card vp-sec" title="¿Quién ve los precios?" description="Qué pasa cuando alguien entra sin cuenta.">
                     <div className="vp-three">
                         {VISIBILITY.map(([mode, label, help]) => (
                             <button key={mode} type="button" className={`vp-choice ${visibility === mode ? 'on' : ''}`} onClick={() => updateCommerce({ price_visibility: mode, show_prices: mode !== PRICE_VISIBILITY.HIDDEN })}>
@@ -153,21 +152,17 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                             {goClients ? <> <button type="button" className="vp-link" onClick={goClients}>Ver pendientes</button></> : null}
                         </div>
                     ) : null}
-                </div>
+                </PanelCard>
 
-                <div className="vp-card vp-sec">
-                    <h3>Opiniones de clientes</h3>
-                    <p>Las estrellas y comentarios en cada producto.</p>
+                <PanelCard stack className="vp-card vp-sec" title="Opiniones de clientes" description="Las estrellas y comentarios en cada producto.">
                     <div className="vp-row">
                         <div className="g"><b>Mostrar opiniones en los productos</b><span>Solo pueden opinar clientes con cuenta.</span></div>
                         <button type="button" role="switch" aria-checked={commerce.reviews_enabled !== false} aria-label="Mostrar opiniones" className={`vp-tog ${commerce.reviews_enabled === false ? 'off' : ''}`} onClick={() => updateCommerce({ reviews_enabled: commerce.reviews_enabled === false })} />
                     </div>
-                </div>
+                </PanelCard>
             </div>
 
-            <div className="vp-card vp-sec">
-                <h3>Tus listas de precios</h3>
-                <p>Poneles el nombre que quieras. Cada cliente usa la lista de su tipo, salvo que le asignes otra en Clientes.</p>
+            <PanelCard stack className="vp-card vp-sec" title="Tus listas de precios" description="Poneles el nombre que quieras. Cada cliente usa la lista de su tipo, salvo que le asignes otra en Clientes.">
                 <div className="vp-tblw">
                     <table className="vp-ltbl">
                         <thead><tr><th>Nombre de la lista</th><th>Usa el precio</th><th>Ajuste</th><th>Clientes</th></tr></thead>
@@ -215,11 +210,9 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                     {dirtyLists.length ? <button type="button" className="vp-btn soft" onClick={discard} disabled={savingLists}>Descartar</button> : null}
                     <button type="button" className="vp-btn acc" onClick={saveLists} disabled={!dirtyLists.length || savingLists}>{savingLists ? 'Guardando…' : 'Guardar listas'}</button>
                 </div>
-            </div>
+            </PanelCard>
 
-            <div className="vp-card vp-sec">
-                <h3>Nombres de los precios</h3>
-                <p>Cómo se llama cada precio que llega de tu sistema de gestión. Se ven en el detalle de precios del producto.</p>
+            <PanelCard stack className="vp-card vp-sec" title="Nombres de los precios" description="Cómo se llama cada precio que llega de tu sistema de gestión. Se ven en el detalle de precios del producto.">
                 <div className="vp-tiers">
                     {Array.from({ length: PRICE_TIER_SLOT_COUNT }, (_, index) => index + 1).slice(0, 6).map((slot) => (
                         <div key={slot} className="vp-fld">
@@ -231,7 +224,7 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                 <div className="vp-lock ok">
                     Si un producto viene de tu sistema de gestión, en cada sincronización gana el precio del sistema. Para que no lo pise, abrí el producto y activá “No pisar mis cambios”.
                 </div>
-            </div>
+            </PanelCard>
 
             {editor.canUndo ? (
                 <div className="vp-floatsave" role="status">

@@ -42,6 +42,25 @@
 :is(.vpa-inp, .vp-inp):read-only { background: var(--soft); color: var(--mut); }
 
 
+/* Cabecera de tarjeta (PanelCard): título, bajada y acciones. stack: contenido en columna. */
+.vpa-sech { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.vpa-sech > .vpa-g1 { flex: 1; min-width: 0; }
+.vpa-sech > .vpa-g1 > h3 { margin: 0; font-size: 15px; font-weight: 800; }
+.vpa-sech > .vpa-g1 > p { margin: 4px 0 0; color: var(--mut); font-weight: 600; font-size: 12.5px; line-height: 1.5; }
+.vpa-cacts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+:is(.vpa-card, .vp-card).stack { display: flex; flex-direction: column; gap: 14px; }
+:is(.vpa-card, .vp-card).stack > .vpa-sech { margin-bottom: 0; }
+
+/* Pestañas (PanelTabs con links, PanelSegmented con botones). */
+.vpa-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: var(--soft); border-radius: 10px; padding: 3px; }
+.vpa-seg.fill { display: flex; flex-wrap: nowrap; }
+.vpa-seg.fill > * { flex: 1; }
+.vpa-seg > :is(a, button) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: none; color: var(--mut); font: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.vpa-seg.fill > :is(a, button) { padding: 0 8px; }
+.vpa-seg > :is(a, button):hover:not(.on):not(:disabled) { color: var(--tx); }
+.vpa-seg > :is(a, button).on { background: var(--card); color: var(--tx); box-shadow: var(--sh-sm); }
+.vpa-seg > button:disabled:not(.on) { opacity: .5; cursor: default; }
+
 /* Menú lateral (PanelSidebar): igual en app, Labs y Business. */
 :where(.vpa, .vp) .vase-side { width: 236px; flex: none; height: 100%; min-height: 0; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 20px 14px 14px; position: relative; z-index: 6; }
 :where(.vpa, .vp) .vase-side-coll { position: absolute; right: -14px; top: 19px; width: 28px; height: 28px; padding: 0; border-radius: 50%; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mut); box-shadow: var(--sh-sm); z-index: 5; }

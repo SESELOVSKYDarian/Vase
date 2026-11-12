@@ -5,6 +5,7 @@ import Select from '../components/Select';
 import { isClient } from '../clients';
 import { buildCategoryTree } from './model';
 import { bulkPriceError, bulkPricePayload } from './pricing';
+import { PanelCard } from '@vase/ui/panel/pieces';
 
 const FIELD_LABEL = { price: 'precio minorista', price_wholesale: 'precio mayorista', both: 'precio minorista y mayorista' };
 const TARGETS = [
@@ -123,9 +124,7 @@ export default function Precios({ user, products, categories, brands, toast, onA
     return (
         <div className="vp-page">
             <div className="vp-body">
-                <div className="vp-card vp-sec" style={{ maxWidth: 1120 }}>
-                    <h3>Cambiar precios de muchos productos a la vez</h3>
-                    <p>Armá la frase. Abajo ves cómo quedan; no se cambia nada hasta que toques Aplicar.</p>
+                <PanelCard stack className="vp-card vp-sec" title="Cambiar precios de muchos productos a la vez" description="Armá la frase. Abajo ves cómo quedan; no se cambia nada hasta que toques Aplicar." style={{ maxWidth: 1120 }}>
                     <div className="vp-sentence">
                         <Select variant="slot" ariaLabel="Qué hacer" value={form.mode} onChange={(next) => set({ mode: next })} options={modeOptions} />
                         <span>el</span>
@@ -170,10 +169,9 @@ export default function Precios({ user, products, categories, brands, toast, onA
                             Lo podés quitar cuando quieras en Precios especiales, acá abajo.
                         </div>
                     )}
-                </div>
+                </PanelCard>
 
-                <div className="vp-card vp-sec" style={{ maxWidth: 1120, marginTop: 18 }}>
-                    <h3>Cómo quedan</h3>
+                <PanelCard stack className="vp-card vp-sec" title="Cómo quedan" style={{ maxWidth: 1120, marginTop: 18 }}>
                     {error ? <div className="vp-note">{error}</div> : null}
                     {!error && loading && !preview ? <div className="vp-note">Calculando…</div> : null}
                     {!error && previewError ? <div className="vp-lock">No se pudo calcular: {previewError}</div> : null}
@@ -226,11 +224,9 @@ export default function Precios({ user, products, categories, brands, toast, onA
                             <button type="button" className="vp-btn acc" onClick={() => setConfirm(true)} disabled={Boolean(error) || !preview?.changed || loading}>Aplicar</button>
                         )}
                     </div>
-                </div>
+                </PanelCard>
 
-                <div className="vp-card vp-sec" style={{ maxWidth: 1120, marginTop: 18 }}>
-                    <h3>Precios especiales</h3>
-                    <p>Cada cambio que aplicaste para una lista o para ciertos clientes. Son precios fijos: si lo quitás, vuelven a pagar el precio de siempre.</p>
+                <PanelCard stack className="vp-card vp-sec" title="Precios especiales" description="Cada cambio que aplicaste para una lista o para ciertos clientes. Son precios fijos: si lo quitás, vuelven a pagar el precio de siempre." style={{ maxWidth: 1120, marginTop: 18 }}>
                     {batches === null ? <div className="vp-note">Cargando…</div> : null}
                     {batches && !batches.length ? <div className="vp-note">Todavía no hay precios especiales.</div> : null}
                     {(batches || []).map((batch) => (
@@ -244,7 +240,7 @@ export default function Precios({ user, products, categories, brands, toast, onA
                             </button>
                         </div>
                     ))}
-                </div>
+                </PanelCard>
             </div>
         </div>
     );
