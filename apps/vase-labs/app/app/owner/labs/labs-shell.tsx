@@ -43,7 +43,7 @@ export function LabsShell({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icons/vasecolorlogo.png" alt="Vase" width={26} height={26} />
           <b>vase</b>
-          <span className="vpa-pbadge">Labs</span>
+          <span className="vase-pill">Labs</span>
         </>
       }
       groups={groups}

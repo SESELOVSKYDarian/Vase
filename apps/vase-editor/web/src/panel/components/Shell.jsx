@@ -46,7 +46,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, onTheme, 
             ) : (
                 <button type="button" className="vp-coll" onClick={onToggleMini} aria-label={mini ? 'Agrandar el menú' : 'Achicar el menú'}><Icon name="chevron" size={14} className={mini ? 'vp-rot-r' : 'vp-rot-l'} /></button>
             )}
-            <div className="vp-logo"><img src={LOGO[theme]} alt="Vase" /><b>business</b></div>
+            <div className="vp-logo vase-brand"><img src={LOGO[theme]} alt="Vase" /><b>vase</b><span className="vase-pill business">Business</span></div>
             <nav>
                 {MENU.map((group) => (
                     <div key={group.group}>

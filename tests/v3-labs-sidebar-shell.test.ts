@@ -13,7 +13,8 @@ describe("Shared panel shell (app.vase.ar and Labs)", () => {
     expect(shell).toContain("Achicar el menú");
     expect(shell).toContain("aria-expanded");
     expect(styles).toContain(".vpa-side.mini");
-    expect(styles).toContain(":root[data-theme=\"dark\"] .vpa");
+    expect(styles).toContain('@import "./tokens.css";');
+    expect(fs.readFileSync("packages/ui/src/tokens.css", "utf8")).toContain(":root[data-theme=\"dark\"] .vpa");
     expect(labsShell).toContain("<PanelShell");
     expect(labsShell).toContain('storageKey="vase-labs-mini"');
     expect(labsShell).toContain("/api/labs/signout");

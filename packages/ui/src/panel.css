@@ -1,22 +1,10 @@
 /* Panel del cliente de app.vase.ar. Todo vive dentro de .vpa para no tocar administración ni la tienda. */
+@import "./tokens.css";
 
 .vpa {
-  --page: #ffffff; --side: #f8f9fa; --card: #ffffff; --soft: #f4f5f7; --hover: #f2f4f5; --active: #eceef0;
-  --line: #eaecef; --line2: #d5d9de; --tx: #111418; --mut: #667085; --mut2: #667085; --ink: #111418; --ink-on: #ffffff;
-  --acc: #006d43; --acc-on: #ffffff; --acc-tx: #006d43; --accsoft: rgba(24, 195, 126, .10);
-  --warn: #93370d; --warnsoft: #fef6e7; --badge: #ffd9d4; --badge-tx: #b42318; --red: #d92d20;
-  --scrim: rgba(17, 20, 24, .32); --sb: #d0d5dd; --sbh: #18c37e;
-  --sh-sm: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .06); --sh-lg: 0 24px 60px rgba(16, 24, 40, .18);
   position: relative; display: flex; height: 100dvh; overflow: hidden;
   background: var(--page); color: var(--tx);
   font-family: var(--font-manrope), system-ui, sans-serif; font-size: 13.5px; -webkit-font-smoothing: antialiased;
-}
-:root[data-theme="dark"] .vpa {
-  --page: #000000; --side: #000000; --card: #0a0a0a; --soft: #121212; --hover: #161616; --active: #1a1a1a;
-  --line: #1e1e1e; --line2: #2e2e2e; --tx: #f2f2f2; --mut: #9b9b9b; --mut2: #8a8a8a; --ink: #f2f2f2; --ink-on: #000000;
-  --acc: #47e098; --acc-on: #00260f; --acc-tx: #5ff0a8; --accsoft: rgba(71, 224, 152, .10);
-  --warn: #f5c56b; --warnsoft: rgba(245, 197, 107, .10); --badge: rgba(240, 68, 56, .18); --badge-tx: #ff8a80; --red: #ff6b5e;
-  --scrim: rgba(0, 0, 0, .7); --sb: #2a2a2a; --sbh: #47e098; --sh-sm: 0 0 0 1px #161616; --sh-lg: 0 30px 90px rgba(0, 0, 0, .8);
 }
 .vpa *, .vpa *::before, .vpa *::after { box-sizing: border-box; }
 /* Barra de scroll igual a la de Business */
@@ -456,8 +444,8 @@
 .vpa-from { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 14px; color: var(--mut); font-weight: 600; font-size: 12.5px; }
 .vpa-chip2 { height: 22px; padding: 0 9px; border-radius: 7px; background: var(--accsoft); color: var(--acc-tx); font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; white-space: nowrap; }
 .vpa-ic { width: 36px; height: 36px; border-radius: 11px; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
-.vpa-pbadge { padding: 1px 8px; border-radius: 7px; background: #241a5c; color: #b9a7ff; font-size: 18px; line-height: 1.2; font-weight: 800; display: inline-flex; align-items: center; letter-spacing: -.03em; }
-.vpa-side.mini .vpa-pbadge { display: none; }
+.vpa-pbadge { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 7px; background: var(--brand-pill-bg); color: var(--brand-pill-tx); font-size: 18px; line-height: 1.2; font-weight: 800; letter-spacing: -.03em; }
+.vpa-side.mini .vpa-pbadge, .vpa-side.mini .vase-pill { display: none; }
 
 /* Pasos de estado (pedidos): se tocan para avanzar. */
 .vpa-stepper { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }

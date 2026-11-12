@@ -1,25 +1,13 @@
 /* Panel nuevo de Vase Business. Todo vive dentro de .vp para no tocar la tienda ni el panel anterior. */
+/* Colores y marca compartidos con app y Labs (copia de packages/ui/src/tokens.css). */
+@import "./vase-tokens.css";
 
 .vp {
-  --page: #ffffff; --side: #f8f9fa; --canvas: #ffffff; --card: #ffffff; --soft: #f4f5f7; --hover: #f2f4f5; --active: #eceef0;
-  --line: #eaecef; --line2: #d5d9de; --tx: #111418; --mut: #667085; --mut2: #98a2b3; --ink: #111418; --ink-on: #ffffff;
-  --acc: #006d43; --acc-on: #ffffff; --acc-tx: #006d43; --accsoft: rgba(24, 195, 126, .10);
-  --warn: #93370d; --warnsoft: #fef6e7; --imgbg: #ffffff; --badge: #ffd9d4; --badge-tx: #b42318; --red: #d92d20; --redsoft: #fee4e2;
-  --ok: #079455; --knob: #ffffff; --sb: #d0d5dd; --sbh: #18c37e; --scrim: rgba(17, 20, 24, .32);
-  --sh-sm: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .06); --sh-md: 0 12px 30px rgba(16, 24, 40, .10); --sh-lg: 0 24px 60px rgba(16, 24, 40, .18);
   position: fixed; inset: 0; z-index: 10; display: flex; overflow: hidden;
   background: var(--page); color: var(--tx); font-family: Manrope, Inter, system-ui, sans-serif; font-size: 13.5px;
   -webkit-font-smoothing: antialiased; color-scheme: light;
 }
-.vp[data-theme="dark"] {
-  --page: #000000; --side: #000000; --canvas: #000000; --card: #0a0a0a; --soft: #121212; --hover: #161616; --active: #1a1a1a;
-  --line: #1e1e1e; --line2: #2e2e2e; --tx: #f2f2f2; --mut: #9b9b9b; --mut2: #6e6e6e; --ink: #f2f2f2; --ink-on: #000000;
-  --acc: #47e098; --acc-on: #00260f; --acc-tx: #5ff0a8; --accsoft: rgba(71, 224, 152, .10);
-  --warn: #f5c56b; --warnsoft: rgba(245, 197, 107, .10); --imgbg: #141414; --badge: rgba(240, 68, 56, .18); --badge-tx: #ff8a80;
-  --red: #ff6b5e; --redsoft: rgba(240, 68, 56, .14); --ok: #47e098; --knob: #000000; --sb: #2a2a2a; --sbh: #47e098; --scrim: rgba(0, 0, 0, .7);
-  --sh-sm: 0 0 0 1px #161616; --sh-md: 0 18px 40px rgba(0, 0, 0, .6); --sh-lg: 0 30px 90px rgba(0, 0, 0, .8);
-  color-scheme: dark;
-}
+.vp[data-theme="dark"] { color-scheme: dark; }
 .vp *, .vp *::before, .vp *::after { box-sizing: border-box; }
 .vp * { scrollbar-width: thin; scrollbar-color: var(--sb) transparent; }
 .vp *::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -41,7 +29,7 @@
 .vp-side .vp-logo { flex: none; }
 .vp-side.mini { width: 76px; }
 .vp-side.mini .vp-lbl, .vp-side.mini .vp-grp, .vp-side.mini .vp-badge, .vp-side.mini .vp-logo b, .vp-side.mini .vp-subnav, .vp-side.mini .vp-acc-text, .vp-side.mini .vp-chev { display: none; }
-.vp-side.mini .vp-logo { justify-content: center; padding-left: 0; padding-right: 0; }
+.vp-side.mini .vp-logo { justify-content: center; padding-left: 0; padding-right: 0; } .vp-side.mini .vase-pill { display: none; }
 .vp-coll:hover { color: var(--tx); border-color: var(--line2); }
 .vp-coll { position: absolute; right: -14px; top: 19px; width: 28px; height: 28px; padding: 0; border-radius: 50%; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mut); box-shadow: var(--sh-sm); z-index: 5; }
 .vp-logo { display: flex; align-items: center; gap: 9px; padding: 0 8px 18px; }
