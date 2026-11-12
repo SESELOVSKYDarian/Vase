@@ -131,24 +131,22 @@ export default function AjustesPrecios({ editor, user, toast, onSave, goClients 
                     ) : null}
                     <div className="vp-row">
                         <div className="g">
-                            <b>Aprobar clientes nuevos a mano</b>
+                            <b>Aprobar minoristas a mano</b>
                             <span>{manualApproval
-                                ? 'Cada cuenta nueva espera que la apruebes antes de poder entrar.'
-                                : autoWholesale
-                                    ? 'Todos entran solos apenas verifican su correo, también los mayoristas.'
-                                    : 'Los minoristas entran solos apenas verifican su correo. Los mayoristas esperan tu aprobación.'}</span>
+                                ? 'Cada minorista nuevo espera que lo apruebes antes de poder comprar.'
+                                : 'Los minoristas entran solos apenas verifican su correo.'}</span>
                         </div>
-                        <button type="button" role="switch" aria-checked={manualApproval} aria-label="Aprobar clientes nuevos a mano" className={`vp-tog ${manualApproval ? '' : 'off'}`} onClick={() => updateCommerce({ manual_approval: !manualApproval })} />
+                        <button type="button" role="switch" aria-checked={manualApproval} aria-label="Aprobar minoristas a mano" className={`vp-tog ${manualApproval ? '' : 'off'}`} onClick={() => updateCommerce({ manual_approval: !manualApproval })} />
                     </div>
-                    {!manualApproval ? (
-                        <div className="vp-row">
-                            <div className="g">
-                                <b>Los mayoristas también entran solos</b>
-                                <span>Van a ver los precios mayoristas sin que revises su cuenta.</span>
-                            </div>
-                            <button type="button" role="switch" aria-checked={autoWholesale} aria-label="Los mayoristas también entran solos" className={autoWholesale ? 'vp-tog' : 'vp-tog off'} onClick={() => updateCommerce({ auto_approve_wholesale: !autoWholesale })} />
+                    <div className="vp-row">
+                        <div className="g">
+                            <b>Aprobar mayoristas a mano</b>
+                            <span>{autoWholesale
+                                ? 'Los mayoristas entran solos y ven sus precios sin que revises la cuenta.'
+                                : 'Cada mayorista nuevo espera que lo apruebes antes de ver sus precios.'}</span>
                         </div>
-                    ) : null}
+                        <button type="button" role="switch" aria-checked={!autoWholesale} aria-label="Aprobar mayoristas a mano" className={autoWholesale ? 'vp-tog off' : 'vp-tog'} onClick={() => updateCommerce({ auto_approve_wholesale: !autoWholesale })} />
+                    </div>
                     {pending ? (
                         <div className="vp-lock">
                             Hoy hay {pending} {pending === 1 ? 'cuenta esperando' : 'cuentas esperando'} tu aprobación.

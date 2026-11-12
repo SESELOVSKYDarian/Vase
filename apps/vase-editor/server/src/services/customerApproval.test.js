@@ -19,6 +19,7 @@ test('con aprobación automática: minoristas activos, mayoristas pendientes', (
 test('si la tienda lo elige, los mayoristas también entran solos', () => {
   assert.equal(initialMembershipStatus({ manual_approval: false, auto_approve_wholesale: true }, 'wholesale'), 'active');
   assert.equal(initialMembershipStatus({ manual_approval: false, auto_approve_wholesale: 'true' }, 'wholesale'), 'pending');
-  assert.equal(initialMembershipStatus({ manual_approval: true, auto_approve_wholesale: true }, 'wholesale'), 'pending');
+  assert.equal(initialMembershipStatus({ manual_approval: true, auto_approve_wholesale: true }, 'wholesale'), 'active');
+  assert.equal(initialMembershipStatus({ manual_approval: true, auto_approve_wholesale: true }, 'retail'), 'pending');
   assert.equal(initialMembershipStatus({ manual_approval: false, auto_approve_wholesale: true }, 'tenant_admin'), 'pending');
 });
