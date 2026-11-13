@@ -7,6 +7,7 @@ export {
   PanelCard,
   PanelEmpty,
   PanelFacts,
+  PanelBrandLogo,
   PanelKpis,
   type PanelKpi,
   PanelMeter,

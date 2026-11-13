@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
@@ -12,7 +11,7 @@ import {
   type PropsWithChildren,
 } from "react";
 import { Bell, Check, CircleHelp, ClipboardCheck, CreditCard, Home, LayoutGrid, Users, X } from "lucide-react";
-import { PanelShell, type PanelNavGroup } from "@vase/ui/panel";
+import { PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { signOutAction } from "@/app/(auth)/actions";
 import {
   dismissNotificationsAction,
@@ -326,7 +325,7 @@ export function ClientShell({
           <PanelShell
             brand={
               <>
-                <Image src="/vasecolorlogo.png" alt="Vase" width={26} height={26} />
+                <PanelBrandLogo />
                 <b>vase</b>
               </>
             }

@@ -266,3 +266,15 @@ export function PanelSegmented<T extends string | number = string>({
     </div>
   );
 }
+
+/** Logo de Vase para el menú: verde en modo claro y blanco en modo oscuro (lo decide el CSS de tokens). */
+export function PanelBrandLogo({ base = "/brand" }: { base?: string }) {
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="vase-logo-light" src={`${base}/vase-logo-green.png`} alt="Vase" width={26} height={26} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="vase-logo-dark" src={`${base}/vase-logo-white.png`} alt="" width={26} height={26} aria-hidden="true" />
+    </>
+  );
+}

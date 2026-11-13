@@ -2,11 +2,11 @@ import HistoryButton from './HistoryButton';
 import CloudStatus from './CloudStatus';
 import React, { useEffect, useState } from 'react';
 import { PanelSidebar } from '@vase/ui/panel/sidebar';
+import { PanelBrandLogo } from '@vase/ui/panel/pieces';
 import Icon from './Icon';
 import { Modal } from './Overlays';
 import { HELP, HELP_VIDEOS, MENU, SETTINGS_PAGES } from '../sections';
 
-const LOGO = { light: '/brand/vase-logo-green.png?v=2', dark: '/brand/vase-logo-white.png?v=2' };
 
 export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, store, account, phone = false, mobileOpen = false, onCloseMobile }) {
     const [ajOpen, setAjOpen] = useState(section === 'ajustes');
@@ -49,7 +49,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
     return (
         <PanelSidebar
             ariaLabel="Menú del panel"
-            brand={<><img src={LOGO[theme]} alt="Vase" /><b>vase</b><span className="vase-pill business">Business</span></>}
+            brand={<><PanelBrandLogo /><b>vase</b><span className="vase-pill business">Business</span></>}
             groups={groups}
             activeId={section}
             activeSubId={sub}
@@ -59,10 +59,12 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
             mobileOpen={mobileOpen}
             onCloseMobile={onCloseMobile}
             account={{ avatar: store.logo ? <img src={store.logo} alt="" /> : store.initial, name: store.name, detail: account.name }}
-            accountMenu={() => (
+            accountMenu={(close) => (
                 <>
                     <div className="vp-am-h">{account.email || 'Tu cuenta'}</div>
-                    {account.vaseUrl ? <a className="vp-am" role="menuitem" href={`${account.vaseUrl}/app/settings`}>Ajustes</a> : null}
+                    {/* Igual en todos los productos: Ajustes, Ayuda y soporte, volver a Vase, el panel anterior y salir. */}
+                    <button type="button" className="vp-am" role="menuitem" onClick={() => { close(); go('ajustes'); }}>Ajustes</button>
+                    <button type="button" className="vp-am" role="menuitem" onClick={() => { close(); account.onHelp(); }}>Ayuda y soporte</button>
                     {account.vaseUrl ? <a className="vp-am" role="menuitem" href={account.vaseUrl}>← Volver a Vase</a> : null}
                     <a className="vp-am" role="menuitem" href="/admin/anterior">Abrir el panel anterior</a>
                     <button type="button" className="vp-am out" role="menuitem" onClick={account.onLogout}>Cerrar sesión</button>

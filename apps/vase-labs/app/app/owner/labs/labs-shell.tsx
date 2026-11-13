@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { CircleHelp } from "lucide-react";
-import { PanelShell, type PanelNavGroup } from "@vase/ui/panel";
+import { PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { labsNavigationGroups, labsSectionTitles, resolveLabsSection } from "./labs-owner-nav";
 
 const HELP_URL = "https://help.vase.ar";
@@ -40,8 +40,7 @@ export function LabsShell({
       storageKey="vase-labs-mini"
       brand={
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/vasecolorlogo.png" alt="Vase" width={26} height={26} />
+          <PanelBrandLogo />
           <b>vase</b>
           <span className="vase-pill">Labs</span>
         </>
@@ -58,12 +57,19 @@ export function LabsShell({
       account={{ initial: tenantName.slice(0, 1).toUpperCase() || "V", name: tenantName, detail: `Plan ${plan}` }}
       accountMenu={(close) => (
         <>
+          {/* Igual en todos los productos: Ajustes, Ayuda y soporte, volver a Vase, el panel anterior y salir. */}
           <Link href="/owner/settings" className="vpa-am" onClick={close}>
             Ajustes
           </Link>
-          <a href="https://app.vase.ar/app" className="vpa-am">
-            Volver a Vase
+          <a href={HELP_URL} className="vpa-am" target="_blank" rel="noreferrer" onClick={close}>
+            Ayuda y soporte
           </a>
+          <a href="https://app.vase.ar/app" className="vpa-am">
+            ← Volver a Vase
+          </a>
+          <Link href="/anterior" className="vpa-am" onClick={close}>
+            Abrir el Labs anterior
+          </Link>
           <a href="/api/labs/signout" className="vpa-am out">
             Cerrar sesión
           </a>

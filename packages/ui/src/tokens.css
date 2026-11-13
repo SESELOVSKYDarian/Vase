@@ -24,7 +24,13 @@
 
 /* Marca: "vase" + el producto, con la misma letra y altura. */
 :where(.vpa, .vp) .vase-brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
-:where(.vpa, .vp) .vase-brand img { width: 26px; height: 26px; flex: none; }
+:where(.vpa, .vp) .vase-brand img { width: 26px; height: 26px; flex: none; object-fit: contain; }
+/* Logo de Vase: verde en modo claro, blanco en modo oscuro (PanelBrandLogo pone los dos). */
+:where(.vpa, .vp) .vase-brand img.vase-logo-dark { display: none; }
+[data-theme="dark"] :where(.vpa, .vp) .vase-brand img.vase-logo-light,
+:where(.vpa, .vp)[data-theme="dark"] .vase-brand img.vase-logo-light { display: none; }
+[data-theme="dark"] :where(.vpa, .vp) .vase-brand img.vase-logo-dark,
+:where(.vpa, .vp)[data-theme="dark"] .vase-brand img.vase-logo-dark { display: block; }
 :where(.vpa, .vp) .vase-brand b { font-size: 18px; font-weight: 800; letter-spacing: -.03em; line-height: 1.2; white-space: nowrap; }
 :where(.vpa, .vp) .vase-pill { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 7px; background: var(--brand-pill-bg); color: var(--brand-pill-tx); font-size: 18px; line-height: 1.2; font-weight: 800; letter-spacing: -.03em; white-space: nowrap; }
 :where(.vpa, .vp) .vase-pill.business { --brand-pill-bg: #0f3d2a; --brand-pill-tx: #7ff0b4; }
