@@ -676,7 +676,7 @@ tenantRouter.get('/editor-history', async (req, res, next) => {
   const tenantId = getTenantId(req, res);
   if (!tenantId) return;
   try {
-    return res.json({ entries: await listEditorHistory(tenantId) });
+    return res.json({ entries: await listEditorHistory(tenantId, undefined, { full: req.query?.full === '1' }) });
   } catch (err) {
     return next(err);
   }

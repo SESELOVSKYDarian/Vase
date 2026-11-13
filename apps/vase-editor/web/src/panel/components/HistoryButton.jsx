@@ -12,7 +12,28 @@ function ClockIcon() {
     );
 }
 
-// Historial: los últimos cambios grandes del diseño, para volver atrás si algo quedó mal.
+const MAX_LINES = 5;
+
+// Nombre del punto: si se publicó, si se guardó antes de volver atrás, o un guardado automático.
+function entryTitle(entry) {
+    if (entry.summary === 'Versión publicada') return 'Versión publicada';
+    if (entry.summary === 'Antes de volver atrás') return 'Antes de volver atrás';
+    return 'Guardado automático';
+}
+
+function ChangeList({ lines, empty }) {
+    if (!lines) return null;
+    if (!lines.length) return <span className="vp-hist-none">{empty}</span>;
+    const shown = lines.slice(0, MAX_LINES);
+    return (
+        <ul className="vp-hist-list">
+            {shown.map((line) => <li key={line}>{line}</li>)}
+            {lines.length > MAX_LINES ? <li className="more">y {lines.length - MAX_LINES} cambios más</li> : null}
+        </ul>
+    );
+}
+
+// Historial: los últimos cambios grandes del diseño, qué cambió en cada uno y volver atrás si algo quedó mal.
 export default function HistoryButton({ history, theme, toast }) {
     const [open, setOpen] = useState(false);
     const [confirm, setConfirm] = useState(null);
@@ -48,29 +69,46 @@ export default function HistoryButton({ history, theme, toast }) {
                 side
                 theme={theme}
                 title="Historial de cambios"
-                description="Los últimos cambios grandes del diseño. Volver atrás no cambia la tienda hasta que publiques."
+                description="Qué cambió en cada versión del diseño. Volver atrás no cambia la tienda hasta que publiques."
             >
                 {history.loading ? <p className="vp-mut">Cargando…</p> : null}
                 {!history.loading && history.entries.length === 0 ? (
                     <p className="vp-mut">Todavía no hay cambios guardados en el historial.</p>
                 ) : null}
                 <div className="vp-hist">
-                    {history.entries.map((entry) => (
-                        <div className="vp-hist-row" key={entry.id}>
-                            <div className="vp-hist-txt">
-                                <b>{entry.summary}</b>
-                                <span>{historyWhen(entry.created_at)}</span>
-                            </div>
-                            {confirm?.id === entry.id ? (
-                                <div className="vp-hist-act">
-                                    <button type="button" className="vp-btn line sm" onClick={() => setConfirm(null)} disabled={busy}>Cancelar</button>
-                                    <button type="button" className="vp-btn acc sm" onClick={restore} disabled={busy}>{busy ? 'Volviendo…' : 'Sí, volver'}</button>
+                    {history.entries.map((entry, index) => {
+                        const undo = confirm?.id === entry.id ? history.undoFor?.(entry) : null;
+                        const oldest = index === history.entries.length - 1;
+                        return (
+                            <div className="vp-hist-row" key={entry.id}>
+                                <div className="vp-hist-txt">
+                                    <b>{entryTitle(entry)}</b>
+                                    <span>{historyWhen(entry.created_at)}</span>
                                 </div>
-                            ) : (
-                                <button type="button" className="vp-btn line sm" onClick={() => setConfirm(entry)}>Volver a esta versión</button>
-                            )}
-                        </div>
-                    ))}
+                                {entry.changes ? (
+                                    <ChangeList lines={entry.changes} empty="Sin cambios en el diseño desde la versión anterior." />
+                                ) : (
+                                    <span className="vp-hist-none">{oldest ? 'Es la versión más vieja que se guarda.' : entry.summary}</span>
+                                )}
+                                {confirm?.id === entry.id ? (
+                                    <div className="vp-hist-confirm">
+                                        {undo ? (
+                                            <>
+                                                <b>Si volvés, se deshace:</b>
+                                                <ChangeList lines={undo} empty="Nada: el diseño está igual que en esta versión." />
+                                            </>
+                                        ) : null}
+                                        <div className="vp-hist-act">
+                                            <button type="button" className="vp-btn line sm" onClick={() => setConfirm(null)} disabled={busy}>Cancelar</button>
+                                            <button type="button" className="vp-btn acc sm" onClick={restore} disabled={busy}>{busy ? 'Volviendo…' : 'Sí, volver'}</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button type="button" className="vp-btn line sm" onClick={() => setConfirm(entry)}>Volver a esta versión</button>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </Modal>
         </>

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAdminTenantHeaders, getApiBase } from '../utils/api';
-import { changedParts, historySummary, shouldCheckpoint } from './history';
+import { changedParts, describeChanges, historySummary, shouldCheckpoint } from './history';
+import { blockLabel } from './diseno/model';
+
+const labelFor = (slug, block) => blockLabel(slug, block?.type);
 
 const SAVE_DELAY_MS = 1500;
 
@@ -41,9 +44,16 @@ export function useEditorAutosave(editor, user) {
         try {
             const headers = await authHeaders(user);
             if (!headers) return [];
-            const response = await fetch(`${getApiBase()}/tenant/editor-history`, { headers });
+            // full=1: trae también cómo estaba el diseño en cada punto, para decir qué cambió.
+            const response = await fetch(`${getApiBase()}/tenant/editor-history?full=1`, { headers });
             const payload = response.ok ? await response.json() : { entries: [] };
-            const list = Array.isArray(payload.entries) ? payload.entries : [];
+            const raw = Array.isArray(payload.entries) ? payload.entries : [];
+            const list = raw.map((entry, index) => {
+                const older = raw[index + 1];
+                const hasState = (value) => Boolean(value && (value.settings || value.pages));
+                // Lo que cambió desde el punto anterior hasta este. El más viejo no tiene con qué compararse.
+                return { ...entry, changes: hasState(entry) && hasState(older) ? describeChanges(older, entry, labelFor) : null };
+            });
             setEntries(list);
             if (list[0]?.created_at) lastCheckpointRef.current = Math.max(lastCheckpointRef.current || 0, new Date(list[0].created_at).getTime());
             return list;
@@ -195,6 +205,13 @@ export function useEditorAutosave(editor, user) {
         cloud,
         unpublished,
         markPublished,
-        history: { entries, loading: historyLoading, refresh: refreshHistory, restore },
+        history: {
+            entries,
+            loading: historyLoading,
+            refresh: refreshHistory,
+            restore,
+            // Lo que se deshace si se vuelve a ese punto: de ese punto a cómo está ahora.
+            undoFor: (entry) => (entry && (entry.settings || entry.pages) ? describeChanges(entry, state(editor), labelFor) : null),
+        },
     };
 }

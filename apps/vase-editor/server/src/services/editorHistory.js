@@ -39,10 +39,12 @@ export function normalizeHistoryEntry(body = {}) {
   return { settings: normalizeTenantSettingsWritePayload(source.settings), pages, summary };
 }
 
-export async function listEditorHistory(tenantId, db = pool) {
+// full: también devuelve cómo estaba el diseño en cada punto, para que el panel diga qué cambió.
+export async function listEditorHistory(tenantId, db = pool, { full = false } = {}) {
   await ensureEditorHistoryTable(db);
+  const columns = full ? 'id, summary, created_at, settings, pages' : 'id, summary, created_at';
   const result = await db.query(
-    'select id, summary, created_at from tenant_editor_history where tenant_id = $1 order by created_at desc limit $2',
+    `select ${columns} from tenant_editor_history where tenant_id = $1 order by created_at desc limit $2`,
     [tenantId, MAX_HISTORY_ENTRIES]
   );
   return result.rows;

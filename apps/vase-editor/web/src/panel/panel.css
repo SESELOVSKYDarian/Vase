@@ -46,10 +46,15 @@
 .vp-fromvase { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--accsoft); border-color: transparent; }
 .vp-fromvase > span { flex: 1; min-width: 220px; font-weight: 600; font-size: 13px; line-height: 1.45; }
 .vp-hist { display: flex; flex-direction: column; gap: 8px; }
-.vp-hist-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--soft); flex-wrap: wrap; }
-.vp-hist-txt { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 2px; }
+.vp-hist-row { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; border-radius: 14px; background: var(--soft); }
+.vp-hist-txt { display: flex; flex-direction: column; gap: 2px; }
 .vp-hist-txt b { font-weight: 800; font-size: 13px; }
 .vp-hist-txt span { font-size: 12px; color: var(--mut); font-weight: 600; }
+.vp-hist-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; font-weight: 600; line-height: 1.4; }
+.vp-hist-list .more { color: var(--mut); list-style: none; margin-left: -18px; }
+.vp-hist-none { font-size: 12.5px; color: var(--mut); font-weight: 600; }
+.vp-hist-confirm { align-self: stretch; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--card); }
+.vp-hist-confirm > b { font-size: 12.5px; font-weight: 800; }
 .vp-hist-act { display: flex; gap: 6px; }
 .vp-ibtn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; flex: none; font-weight: 800; }
 .vp-ibtn:hover { border-color: var(--line2); }

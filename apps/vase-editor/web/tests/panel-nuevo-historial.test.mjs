@@ -1,7 +1,39 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { CHECKPOINT_GAP_MS, changedParts, historySummary, historyWhen, shouldCheckpoint } from '../src/panel/history.js';
+import { CHECKPOINT_GAP_MS, changedParts, describeChanges, historySummary, historyWhen, shouldCheckpoint } from '../src/panel/history.js';
+import { blockLabel } from '../src/panel/diseno/model.js';
+
+const labelFor = (slug, block) => blockLabel(slug, block?.type);
+
+test('cada versión dice qué cambió, cosa por cosa', () => {
+    const older = {
+        settings: { theme: { primary: '#000' }, branding: { logo: 'a.png' }, commerce: {} },
+        pages: { home: [{ id: 'h1', type: 'HeroSlider', props: { title: 'Hola' } }, { id: 's1', type: 'Services', props: {} }], about: [] },
+    };
+    const newer = {
+        settings: { theme: { primary: '#fff' }, branding: { logo: 'b.png' }, commerce: { whatsapp_number: '11' } },
+        pages: { home: [{ id: 's1', type: 'Services', props: { title: 'Nuevo' } }, { id: 'f1', type: 'FeaturedProducts', props: {} }], about: [] },
+    };
+    assert.deepEqual(describeChanges(older, newer, labelFor), [
+        'Cambiaste los colores y el estilo',
+        'Cambiaste el logo',
+        'Cambiaste el WhatsApp',
+        'Inicio: editaste “Beneficios”',
+        'Inicio: agregaste “Productos destacados”',
+        'Inicio: quitaste “Portada con fotos”',
+    ]);
+    assert.deepEqual(describeChanges(older, older, labelFor), []);
+});
+
+test('mover bloques y ocultarlos también queda anotado', () => {
+    const a = { settings: {}, pages: { home: [{ id: 1, type: 'Services' }, { id: 2, type: 'HeroSlider' }], about: [] } };
+    const b = { settings: {}, pages: { home: [{ id: 2, type: 'HeroSlider' }, { id: 1, type: 'Services', enabled: false }], about: [] } };
+    assert.deepEqual(describeChanges(a, b, labelFor), [
+        'Inicio: ocultaste “Beneficios”',
+        'Inicio: cambiaste el orden de los bloques',
+    ]);
+});
 
 test('el historial dice qué partes del diseño cambiaron', () => {
     const before = { settings: { theme: { a: 1 }, branding: { b: 1 } }, pages: { home: [1], about: [] } };
