@@ -11,7 +11,17 @@ if (isDevelopment) {
   connectSrc.push("http:", "ws:", "wss:");
 }
 
-const contentSecurityPolicy = [
+// Productos de Vase que pueden mostrar páginas de app adentro suyo (Ajustes compartidos: /app/embed/...).
+const embedAncestors = ["'self'", "https://business.vase.ar", "https://labs.vase.ar"];
+for (const value of [process.env.BUSINESS_PUBLIC_URL, process.env.LABS_PUBLIC_URL]) {
+  try {
+    if (value) embedAncestors.push(new URL(value).origin);
+  } catch {
+    // una URL mal cargada no abre la puerta a otros sitios
+  }
+}
+
+const cspDirectives = [
   "default-src 'self'",
   `script-src ${scriptSrc.join(" ")}`,
   "style-src 'self' 'unsafe-inline'",
@@ -26,7 +36,12 @@ const contentSecurityPolicy = [
   "form-action 'self'",
   "upgrade-insecure-requests",
   "block-all-mixed-content",
-].join("; ");
+];
+const contentSecurityPolicy = cspDirectives.join("; ");
+// Igual, pero dejando que Business y Labs muestren la página. frame-ancestors le gana a X-Frame-Options.
+const embedContentSecurityPolicy = cspDirectives
+  .map((directive) => (directive === "frame-ancestors 'self'" ? `frame-ancestors ${embedAncestors.join(" ")}` : directive))
+  .join("; ");
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -75,6 +90,16 @@ const nextConfig: NextConfig = {
             value: "max-age=31536000; includeSubDomains; preload",
           },
           { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
+        ],
+      },
+      {
+        // Ajustes compartidos: se pueden mostrar adentro de Business y Labs (nada más).
+        // Pisa la CSP de arriba y deja X-Frame-Options en ALLOWALL, que los navegadores ignoran
+        // porque frame-ancestors manda.
+        source: "/app/embed/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: embedContentSecurityPolicy },
+          { key: "X-Frame-Options", value: "ALLOWALL" },
         ],
       },
     ];

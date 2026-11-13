@@ -581,6 +581,7 @@ model Tenant {
   billingProfile    TenantBillingProfile?
   businessInfo      TenantBusinessInfo?
   branches          TenantBranch[]
+  dataSources       TenantDataSource[]
   storefrontPages   StorefrontPage[]
   customPageRequests CustomPageRequest[]
   customProjectMilestones CustomProjectMilestone[]
@@ -2842,6 +2843,35 @@ model TenantBranch {
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, sortOrder])
+}
+
+// Mi negocio › Cómo se conectan tus productos: de dónde sale cada cosa (productos y precios, stock,
+// pedidos, clientes). Sin fila, cada producto usa lo suyo. externalSystem: nombre del sistema de gestión.
+enum DataResource {
+  CATALOG
+  STOCK
+  ORDERS
+  CUSTOMERS
+}
+
+enum DataSourceKind {
+  BUSINESS
+  MANAGEMENT
+  REST
+  EXTERNAL
+}
+
+model TenantDataSource {
+  id             String         @id @default(cuid())
+  tenantId       String
+  resource       DataResource
+  source         DataSourceKind
+  externalSystem String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, resource])
 }
 
 model TenantBillingProfile {

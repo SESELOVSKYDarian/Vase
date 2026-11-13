@@ -8,6 +8,9 @@
   font-family: var(--font-manrope), system-ui, sans-serif; font-size: 13.5px; -webkit-font-smoothing: antialiased;
 }
 .vpa *, .vpa *::before, .vpa *::after { box-sizing: border-box; }
+/* Página de app mostrada adentro de otro producto (Ajustes en Business o Labs): sin menú, crece con su contenido. */
+.vpa.vpa-embed { display: block; height: auto; overflow: visible; background: transparent; padding: 2px; }
+.vpa.vpa-embed > .vpa-wrap { max-width: none; }
 /* Barra de scroll igual a la de Business */
 .vpa * { scrollbar-width: thin; scrollbar-color: var(--sb) transparent; }
 .vpa *::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -272,6 +275,54 @@
 .vpa-acc2[open] > summary { border-bottom: 1px solid var(--line); border-radius: 18px 18px 0 0; }
 .vpa-acc2-body { padding: 16px 18px 18px; }
 .vpa-form3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Mi negocio › Cómo se conectan tus productos */
+.vpa-hub { display: flex; flex-direction: column; gap: 14px; }
+.vpa-hubprods { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.vpa-hp { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; border-radius: 14px; background: var(--soft); text-align: center; }
+.vpa-hp b { font-size: 12px; font-weight: 800; }
+.vpa-hp small { font-size: 11px; color: var(--mut); font-weight: 600; }
+.vpa-hp.off { opacity: .5; }
+.vpa-hp.ext { background: transparent; border: 1.5px dashed var(--line2); }
+.vpa-hpi { width: 34px; height: 34px; border-radius: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.vpa-hubrows { display: flex; flex-direction: column; }
+.vpa-hubrow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, .9fr); align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.vpa-hubrow:last-child { border-bottom: 0; }
+.vpa-hubrow > .vpa-g1 b { display: block; font-weight: 800; }
+.vpa-hubrow > .vpa-g1 span { display: block; font-size: 12px; color: var(--mut); font-weight: 600; margin-top: 2px; }
+.vpa-hubuse small { display: block; font-size: 11px; color: var(--mut); font-weight: 700; margin-bottom: 4px; }
+.vpa-hubsel { position: relative; }
+.vpa-hubselb { display: flex; align-items: center; gap: 8px; width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--line2); border-radius: 11px; background: var(--card); color: var(--tx); font: inherit; font-weight: 700; font-size: 13px; cursor: pointer; text-align: left; }
+.vpa-hubselb .vpa-g1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpa-hubselb.on { border-color: var(--acc); box-shadow: 0 0 0 3px var(--accsoft); }
+.vpa-hubselb:disabled { cursor: default; opacity: .75; }
+.vpa-hubmenu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; display: flex; flex-direction: column; gap: 2px; padding: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--sh-lg); }
+.vpa-hubopt { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 9px; background: none; color: var(--tx); font: inherit; text-align: left; cursor: pointer; }
+.vpa-hubopt:hover:not(:disabled) { background: var(--hover); }
+.vpa-hubopt.on { background: var(--accsoft); }
+.vpa-hubopt:disabled { opacity: .5; cursor: default; }
+.vpa-hubopt b { display: block; font-weight: 800; font-size: 12.5px; }
+.vpa-hubopt span span { display: block; font-size: 11.5px; color: var(--mut); font-weight: 600; }
+.vpa-hubmk { width: 24px; height: 24px; border-radius: 8px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+.vpa-hubext { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; padding-top: 18px; border-top: 1px dashed var(--line2); }
+.vpa-hubexth { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vpa-hubexth .vpa-g1 b { display: block; font-size: 14px; font-weight: 800; }
+.vpa-hubexth .vpa-g1 span { display: block; font-size: 12px; color: var(--mut); font-weight: 600; margin-top: 2px; }
+.vpa-hubsend { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 16px; background: var(--soft); }
+.vpa-hubsend > b { font-weight: 800; font-size: 13.5px; }
+.vpa-hubsendi { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.vpa-hubsendi .vpa-g1 b { display: block; font-weight: 700; }
+.vpa-hubsendi .vpa-g1 span { display: block; font-size: 12px; color: var(--mut); font-weight: 600; }
+.vpa-hubck { width: 18px; height: 18px; border-radius: 6px; background: var(--acc); color: var(--acc-on); display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: 11px; font-weight: 800; }
+.vpa-hubck.off { background: var(--active); color: var(--mut); }
+.vpa-hubconn { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.vpa-hubdot { width: 12px; height: 12px; border-radius: 50%; background: var(--mut); flex: none; }
+.vpa-hubdot.on { background: var(--ok); box-shadow: 0 0 0 5px rgba(7, 148, 85, .15); }
+@media (max-width: 860px) { .vpa-hubconn { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 860px) {
+  .vpa-hubprods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vpa-hubrow { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}
 
 /* nube y redes */
 .vpa-saveerr { padding: 10px 14px; border-radius: 12px; background: rgba(240, 68, 56, .1); color: var(--red); font-weight: 700; font-size: 13px; }

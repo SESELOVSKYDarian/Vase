@@ -1,8 +1,7 @@
 import type { LabsChannel } from "@vase/contracts";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { PanelFacts, PanelMeter, PanelSection, PanelSections, PanelTag, type PanelTone } from "@vase/ui/panel";
-import { fetchBusinessProfile, MI_NEGOCIO_URL } from "../../../../lib/business-profile";
 import { getManualChannelCapacity } from "../../../../lib/channel-capacity";
 import { listManualChannelStates, listRedactedOfficialChannels } from "../../../../lib/channel-queries";
 import { labsPrisma } from "../../../../lib/db";
@@ -14,8 +13,8 @@ import { MetaOAuthResume } from "../channels/meta-oauth-resume";
 import { ModelSelector } from "../chatbots/model-selector";
 import { OpenAiKeyCard } from "../chatbots/openai-key-card";
 import { ConversationInsightSettingsCard } from "./conversation-insight-settings-card";
-import { BusinessEditor } from "./business-editor";
 import { LabsSettingsTabs } from "./settings-tabs";
+import { VaseSettingsFrame } from "./vase-settings-frame";
 import {
   calculateAiBudget,
   estimateRemainingAiReplies,
@@ -82,48 +81,20 @@ async function getSettingsData() {
   };
 }
 
-/** Ajustes › Mi negocio: contacto, horarios y sucursales, guardados en tu cuenta de Vase. */
-async function BusinessTab() {
-  const requestHeaders = await headers();
-  let globalTenantId: string;
-  try {
-    ({ context: { globalTenantId } } = await resolveLabsRequestContext(requestHeaders.get("cookie")));
-  } catch {
-    redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs%2Fsettings");
-  }
-  const profile = await fetchBusinessProfile(globalTenantId);
-  const value = (input: unknown) => (typeof input === "string" ? input : "");
+/** Mi perfil, Mi negocio y Facturación: la pantalla de tu cuenta de Vase, adentro de Labs. */
+async function AccountTab({ tab }: { tab: "perfil" | "negocio" | "facturacion" }) {
+  const theme = (await cookies()).get("vase_theme")?.value === "dark" ? "dark" : "light";
   return (
     <div className="vpa-stack" style={{ gap: 20 }}>
-      <LabsSettingsTabs active="negocio" />
-      <BusinessEditor
-        available={Boolean(profile)}
-        fullProfileUrl={MI_NEGOCIO_URL}
-        contact={{
-          tagline: value(profile?.tagline),
-          phone: value(profile?.phone),
-          whatsapp: value(profile?.whatsapp),
-          email: value(profile?.email),
-          website: value(profile?.website),
-          hours: value(profile?.hours),
-        }}
-        branches={(profile?.branches ?? [])
-          .filter((branch) => typeof branch.id === "string")
-          .map((branch) => ({
-            id: branch.id as string,
-            name: value(branch.name),
-            address: value(branch.address),
-            phone: value(branch.phone),
-            hours: value(branch.hours),
-            isMain: branch.isMain === true,
-          }))}
-      />
+      <LabsSettingsTabs active={tab} />
+      <VaseSettingsFrame tab={tab} theme={theme} />
     </div>
   );
 }
 
 export default async function LabsSettingsPage({ searchParams }: { searchParams: Promise<{ attempt?: string; tab?: string }> }) {
-  if ((await searchParams).tab === "negocio") return <BusinessTab />;
+  const requested = (await searchParams).tab;
+  if (requested === "perfil" || requested === "negocio" || requested === "facturacion") return <AccountTab tab={requested} />;
   const [data, query] = await Promise.all([getSettingsData(), searchParams]);
   const budget = calculateAiBudget(data);
   const state = BUDGET_STATE[budget.status];

@@ -148,6 +148,9 @@
 .vp-soon .ic { width: 56px; height: 56px; border-radius: 16px; background: var(--accsoft); color: var(--acc-tx); display: flex; align-items: center; justify-content: center; }
 .vp-soon h2 { font-size: 20px; font-weight: 800; }
 .vp-alist { max-width: 860px; }
+/* Ajustes de tu cuenta de Vase dentro de Business (página de app.vase.ar). */
+.vp-vaseset { display: flex; flex-direction: column; gap: 10px; max-width: 1120px; }
+.vp-vaseset-frame { width: 100%; border: 0; display: block; background: transparent; color-scheme: normal; }
 .vp-agrp { font-size: 12px; font-weight: 600; color: var(--mut2); margin: 20px 0 8px; }
 .vp-agrp:first-child { margin-top: 0; }
 .vp-arow { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; margin-bottom: 8px; cursor: pointer; text-align: left; }

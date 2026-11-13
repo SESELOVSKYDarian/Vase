@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getAdminTenantHeaders, getApiBase } from '../../utils/api';
 import { uploadPublicFile } from '../../utils/uploadsClient';
-import { useIntegrationManager } from '../../hooks/admin/useIntegrationManager';
 import { normalizeSeoSettings } from '../../utils/seo';
 import { Modal } from '../components/Overlays';
-import { erpStats, keywordsAdd, seoLimit } from '../ajustes';
+import { keywordsAdd, seoLimit } from '../ajustes';
 import { PanelCard, PanelTag, PanelSegmented } from '@vase/ui/panel/pieces';
 
 const Toggle = ({ on, onChange, label }) => (
@@ -301,84 +300,6 @@ export function AjustesCorreo({ toast, goPagos }) {
             </PanelCard>
 
             <SaveBar dirty={dirty} saving={busy === 'save'} onSave={save} label="Guardar correo" />
-        </div>
-    );
-}
-
-// ───────────── Sistema de gestión ─────────────
-export function AjustesGestion({ editor, toast, vaseUrl = 'https://app.vase.ar' }) {
-    const manager = useIntegrationManager();
-    const [showKey, setShowKey] = useState(false);
-    const [confirmRotate, setConfirmRotate] = useState(false);
-    const { loadManifest } = manager;
-
-    useEffect(() => { loadManifest().catch(() => {}); }, [loadManifest]);
-
-    const stats = useMemo(() => erpStats(editor.products || []), [editor.products]);
-    const manifest = manager.manifest || {};
-    const token = manifest.auth?.token || '';
-    const syncUrl = manifest.endpoints?.sync_products_url || '';
-    const pingUrl = manifest.endpoints?.ping_url || '';
-    const provider = manager.providerState?.provider || 'EXTERNAL_API';
-    const ping = manager.lastPingResult;
-
-    return (
-        <div className="vp-scol vp-gestion">
-            {/* De dónde salen los productos se elige una sola vez para todo Vase, en Ajustes › Mi negocio. */}
-            <PanelCard
-                stack
-                className="vp-card vp-sec"
-                title="¿De dónde vienen tus productos?"
-                description={provider === 'VASE_MANAGEMENT' ? 'De Vase Management.' : 'De tu sistema de gestión.'}
-                actions={<a className="vp-btn line sm" href={`${vaseUrl}/app/settings?tab=negocio`}>Cambiar en Mi negocio</a>}
-            >
-                <span className="vp-note">Se elige en Ajustes › Mi negocio de tu cuenta de Vase, porque lo usan todos tus productos.</span>
-            </PanelCard>
-
-            <div className="vp-pgrid">
-                <PanelCard stack className="vp-card vp-sec" title="Conexión">
-                    <div className="vp-row">
-                        <div className="g">
-                            <b>{stats.total ? 'Recibiendo productos' : 'Todavía no llegó ningún producto'}</b>
-                            <span>{stats.total ? `${stats.total} productos vienen de tu sistema${stats.lastSync ? ` · última vez ${stats.lastSync.toLocaleString('es-AR')}` : ''}${stats.toReview ? ` · ${stats.toReview} para revisar` : ''}` : 'Cuando tu sistema mande productos, los vas a ver acá.'}</span>
-                        </div>
-                        <PanelTag tone={stats.total ? (stats.toReview ? 'y' : 'g') : ''}>{stats.total ? (stats.toReview ? 'Revisar' : 'Al día') : 'Sin datos'}</PanelTag>
-                    </div>
-                    {ping ? (
-                        <div className={`vp-lock ${ping.ok ? 'ok' : ''}`}>{ping.ok ? 'La conexión responde bien.' : `La conexión no respondió (código ${ping.status}).`} {new Date(ping.tested_at).toLocaleTimeString('es-AR')}</div>
-                    ) : null}
-                    <button type="button" className="vp-btn line" onClick={() => manager.testConnection().catch(() => {})} disabled={manager.pinging || !pingUrl}>{manager.pinging ? 'Probando…' : 'Probar conexión'}</button>
-                    <div className="vp-lock ok">Si un producto tiene “No pisar mis cambios”, la sincronización no le cambia nombre, descripción, marca ni precio.</div>
-                </PanelCard>
-
-                <PanelCard stack className="vp-card vp-sec" title="Datos para quien programa tu sistema">
-                    <div className="vp-fld">
-                        <span className="vp-fl">Dirección de conexión</span>
-                        <div className="vp-inline"><input className="vp-inp mono" readOnly value={syncUrl || 'Cargando…'} aria-label="Dirección de conexión" /><button type="button" className="vp-btn line" disabled={!syncUrl} onClick={() => copy(syncUrl, toast)}>Copiar</button></div>
-                        <span className="vp-note">Tu sistema manda los productos acá.{pingUrl ? ` Prueba: ${pingUrl.replace(/^https?:\/\//, '')}` : ''}</span>
-                    </div>
-                    <div className="vp-fld">
-                        <span className="vp-fl">Clave para tu sistema</span>
-                        <div className="vp-inline">
-                            <input className="vp-inp mono" readOnly value={token ? (showKey ? token : '••••••••••••••••') : 'Cargando…'} aria-label="Clave para tu sistema" />
-                            <button type="button" className="vp-btn line" disabled={!token} onClick={() => setShowKey((value) => !value)}>{showKey ? 'Ocultar' : 'Mostrar'}</button>
-                            <button type="button" className="vp-btn line" disabled={!token} onClick={() => copy(token, toast)}>Copiar</button>
-                        </div>
-                        <span className="vp-note">Pasásela solo a quien programa tu sistema. <button type="button" className="vp-link" onClick={() => setConfirmRotate(true)}>Cambiar la clave</button></span>
-                    </div>
-                </PanelCard>
-            </div>
-
-            <Modal
-                open={confirmRotate}
-                onClose={() => setConfirmRotate(false)}
-                title="¿Cambiar la clave?"
-                description="La clave actual deja de funcionar al instante. Tu sistema no va a poder mandar productos hasta que le cargues la nueva."
-                footer={<>
-                    <button type="button" className="vp-btn soft" onClick={() => setConfirmRotate(false)}>Cancelar</button>
-                    <button type="button" className="vp-btn red" disabled={manager.rotatingToken} onClick={async () => { await manager.rotateToken().catch(() => {}); setConfirmRotate(false); setShowKey(true); }}>{manager.rotatingToken ? 'Cambiando…' : 'Cambiar la clave'}</button>
-                </>}
-            />
         </div>
     );
 }

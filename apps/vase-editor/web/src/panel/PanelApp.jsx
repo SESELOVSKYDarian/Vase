@@ -18,13 +18,14 @@ import Clientes from './screens/Clientes';
 import AjustesPrecios from './screens/AjustesPrecios';
 import AjustesSucursales from './screens/AjustesSucursales';
 import AjustesPagos from './screens/AjustesPagos';
-import { AjustesCorreo, AjustesGestion, AjustesSeo } from './screens/AjustesForms';
+import { AjustesCorreo, AjustesSeo } from './screens/AjustesForms';
 import Catalogo from './catalog/Catalogo';
 import Envios from './envios/Envios';
 import Diseno from './diseno/Diseno';
 import Icon from './components/Icon';
 import Notifications from './components/Notifications';
 import AjustesDominio from './screens/AjustesDominio';
+import VaseSettingsFrame from './components/VaseSettingsFrame';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
 import { useEditorAutosave } from './useEditorAutosave';
 // Último: los ajustes para celular le ganan a los estilos de cada pantalla.
@@ -242,14 +243,31 @@ export default function PanelApp() {
     } else if (section === 'ajustes' && !sub) {
         content = (
             <div className="vp-alist">
-                <div className="vp-agrp">Tus ajustes</div>
-                {SETTINGS_PAGES.map((page) => (
+                <div className="vp-agrp">Tu cuenta de Vase · lo usan todos tus productos</div>
+                {SETTINGS_PAGES.filter((page) => page.vase).map((page) => (
+                    <button key={page.id} type="button" className="vp-arow" onClick={() => go('ajustes', page.id)}>
+                        <span className="g"><b>{page.label}</b><span>{page.subtitle}</span></span>
+                        <span className="vp-chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>
+                    </button>
+                ))}
+                <div className="vp-agrp">Tu tienda</div>
+                {SETTINGS_PAGES.filter((page) => !page.vase).map((page) => (
                     <button key={page.id} type="button" className="vp-arow" onClick={() => go('ajustes', page.id)}>
                         <span className="g"><b>{page.label}</b><span>{page.subtitle}</span></span>
                         <span className="vp-chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>
                     </button>
                 ))}
             </div>
+        );
+    } else if (sub === 'negocio' || sub === 'cuenta' || sub === 'gestion') {
+        // gestion: links viejos a Sistema de gestión, que ahora está en Mi negocio.
+        content = (
+            <VaseSettingsFrame
+                tab={sub === 'cuenta' ? 'perfil' : 'negocio'}
+                vaseUrl={vaseUrl}
+                tenantSlug={tenant?.external_tenant_slug || tenant?.externalTenantSlug || ''}
+                theme={theme}
+            />
         );
     } else if (sub === 'precios') {
         content = <AjustesPrecios editor={editor} user={user} toast={addToast} onSave={publish} goClients={() => go('clientes')} />;
@@ -261,8 +279,6 @@ export default function PanelApp() {
         content = <AjustesSeo editor={editor} onSave={publish} storeName={storeName} domain={tenant?.domain || tenant?.primary_domain || window.location.host} />;
     } else if (sub === 'correo') {
         content = <AjustesCorreo toast={addToast} goPagos={() => go('ajustes', 'pagos')} />;
-    } else if (sub === 'gestion') {
-        content = <AjustesGestion editor={editor} toast={addToast} vaseUrl={vaseUrl} />;
     } else if (sub === 'dominio') {
         content = <AjustesDominio user={user} toast={addToast} theme={theme} />;
     } else if (settingsPage) {

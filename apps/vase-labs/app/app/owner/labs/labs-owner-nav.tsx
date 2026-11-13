@@ -45,10 +45,10 @@ export const labsSectionTitles: Record<LabsSectionId, { title: string; subtitle:
 };
 
 /** Ajustes es igual en todos los productos: lo común vive en tu cuenta de Vase y cada producto suma su pestaña. */
-const APP_SETTINGS = "https://app.vase.ar/app/settings";
 export const LABS_SETTINGS_TABS = [
-  { id: "perfil", label: "Mi perfil", href: `${APP_SETTINGS}?tab=perfil` },
+  // Mi perfil, Mi negocio y Facturación son de tu cuenta de Vase: se ven acá adentro, iguales que en app.
+  { id: "perfil", label: "Mi perfil", href: "/owner/settings?tab=perfil" },
   { id: "negocio", label: "Mi negocio", href: "/owner/settings?tab=negocio" },
-  { id: "facturacion", label: "Facturación", href: `${APP_SETTINGS}?tab=facturacion` },
+  { id: "facturacion", label: "Facturación", href: "/owner/settings?tab=facturacion" },
   { id: "labs", label: "Labs", href: "/owner/settings" },
 ] as const;
