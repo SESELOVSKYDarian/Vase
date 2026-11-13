@@ -14,7 +14,7 @@ function fakeDb() {
   let seq = 0;
   return {
     async query(sql, params = []) {
-      if (sql.startsWith('CREATE')) return { rows: [] };
+      if (sql.startsWith('CREATE') || sql.startsWith('ALTER')) return { rows: [] };
       if (sql.startsWith('insert')) {
         seq += 1;
         const row = { id: `id-${seq}`, tenant_id: params[0], settings: params[1], pages: params[2], summary: params[3], created_at: seq };

@@ -3,6 +3,37 @@ import test from 'node:test';
 
 import { CHECKPOINT_GAP_MS, changedParts, describeChanges, historySummary, historyWhen, shouldCheckpoint } from '../src/panel/history.js';
 import { blockLabel } from '../src/panel/diseno/model.js';
+import { countChanges, detailChanges } from '../src/panel/historyDetail.js';
+
+test('el detalle muestra el antes y el después de cada cosa', () => {
+    const labelFor = (slug, block) => blockLabel(slug, block?.type);
+    const older = {
+        settings: { theme: { primary: '#ff4d00' }, branding: { logo: 'https://x.vase.ar/a.png', navbar: { links: [{ label: 'Inicio', href: '/' }] } }, seo: { title: 'Piquim' } },
+        pages: { home: [{ id: 'h', type: 'HeroSlider', props: { title: 'Todo para tu obra' } }, { id: 's', type: 'Services', props: {} }], about: [] },
+    };
+    const newer = {
+        settings: { theme: { primary: '#0d3b2a' }, branding: { logo: 'https://x.vase.ar/b.png', navbar: { links: [{ label: 'Inicio', href: '/' }, { label: 'Ofertas', href: '/ofertas' }] } }, seo: { title: 'Piquim · Sanitarios' } },
+        pages: { home: [{ id: 'h', type: 'HeroSlider', props: { title: 'Envíos en el día' } }, { id: 'f', type: 'FeaturedProducts', props: {} }], about: [] },
+    };
+    const groups = detailChanges(older, newer, labelFor);
+    const byTitle = Object.fromEntries(groups.map((group) => [group.title, group.rows]));
+    assert.deepEqual(byTitle['Colores y estilo'], [{ kind: 'color', label: 'Color principal', before: '#ff4d00', after: '#0d3b2a' }]);
+    assert.equal(byTitle['Logo, menú y textos'][0].kind, 'image');
+    assert.deepEqual(byTitle['Logo, menú y textos'][1], { kind: 'note', label: 'Menú de arriba › Links', text: 'Agregaste “Ofertas”' });
+    assert.deepEqual(byTitle['Google y redes'], [{ kind: 'text', label: 'Título', before: 'Piquim', after: 'Piquim · Sanitarios' }]);
+    const home = byTitle['Página de inicio'];
+    assert.deepEqual(home.map((row) => `${row.action}:${row.name}`), ['edit:Portada con fotos', 'add:Productos destacados', 'remove:Beneficios']);
+    assert.deepEqual(home[0].details, [{ kind: 'text', label: 'Título', before: 'Todo para tu obra', after: 'Envíos en el día' }]);
+    assert.equal(countChanges(groups), 7);
+    assert.deepEqual(detailChanges(older, older, labelFor), []);
+});
+
+test('mover un bloque dice de qué lugar a cuál', () => {
+    const a = { settings: {}, pages: { home: [{ id: 1, type: 'Services' }, { id: 2, type: 'HeroSlider' }], about: [] } };
+    const b = { settings: {}, pages: { home: [{ id: 2, type: 'HeroSlider' }, { id: 1, type: 'Services' }], about: [] } };
+    const rows = detailChanges(a, b, (slug, block) => blockLabel(slug, block?.type))[0].rows;
+    assert.deepEqual(rows.map((row) => row.text), ['Del lugar 2 al 1', 'Del lugar 1 al 2']);
+});
 
 const labelFor = (slug, block) => blockLabel(slug, block?.type);
 

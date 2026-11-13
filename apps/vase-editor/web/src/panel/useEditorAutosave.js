@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAdminTenantHeaders, getApiBase } from '../utils/api';
 import { changedParts, describeChanges, historySummary, shouldCheckpoint } from './history';
+import { countChanges, detailChanges } from './historyDetail';
 import { blockLabel } from './diseno/model';
 
 const labelFor = (slug, block) => blockLabel(slug, block?.type);
@@ -52,7 +53,15 @@ export function useEditorAutosave(editor, user) {
                 const older = raw[index + 1];
                 const hasState = (value) => Boolean(value && (value.settings || value.pages));
                 // Lo que cambió desde el punto anterior hasta este. El más viejo no tiene con qué compararse.
-                return { ...entry, changes: hasState(entry) && hasState(older) ? describeChanges(older, entry, labelFor) : null };
+                const comparable = hasState(entry) && hasState(older);
+                const groups = comparable ? detailChanges(older, entry, labelFor) : null;
+                return {
+                    ...entry,
+                    changes: comparable ? describeChanges(older, entry, labelFor) : null,
+                    // Lo que cambió desde la versión anterior, agrupado y con el antes y el después.
+                    groups,
+                    count: groups ? countChanges(groups) : null,
+                };
             });
             setEntries(list);
             if (list[0]?.created_at) lastCheckpointRef.current = Math.max(lastCheckpointRef.current || 0, new Date(list[0].created_at).getTime());
@@ -212,6 +221,8 @@ export function useEditorAutosave(editor, user) {
             restore,
             // Lo que se deshace si se vuelve a ese punto: de ese punto a cómo está ahora.
             undoFor: (entry) => (entry && (entry.settings || entry.pages) ? describeChanges(entry, state(editor), labelFor) : null),
+            // Igual, con el detalle: de esa versión a cómo está el diseño ahora.
+            undoGroupsFor: (entry) => (entry && (entry.settings || entry.pages) ? detailChanges(entry, state(editor), labelFor) : null),
         },
     };
 }

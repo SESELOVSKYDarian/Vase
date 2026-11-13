@@ -4,7 +4,7 @@ import { normalizeTenantSettingsWritePayload } from './tenantSettingsPayload.js'
 // Puntos para volver atrás en el diseño de la tienda. Solo se guardan los últimos cambios
 // importantes, no cada tecla: el panel decide cuándo marcar un punto.
 
-export const MAX_HISTORY_ENTRIES = 10;
+export const MAX_HISTORY_ENTRIES = 30;
 const MAX_SUMMARY_LENGTH = 160;
 const PAGE_SLUGS = ['home', 'about'];
 
@@ -25,6 +25,8 @@ export async function ensureEditorHistoryTable(db = pool) {
     ].join(' ')
   );
   await db.query('CREATE INDEX IF NOT EXISTS tenant_editor_history_tenant_idx ON tenant_editor_history (tenant_id, created_at DESC)');
+  // Quién hizo el cambio (solo se agrega la columna; los puntos viejos quedan sin nombre).
+  await db.query('ALTER TABLE tenant_editor_history ADD COLUMN IF NOT EXISTS author_name text');
   tableReady = true;
 }
 
@@ -36,13 +38,13 @@ export function normalizeHistoryEntry(body = {}) {
     pages[slug] = Array.isArray(pagesSource[slug]) ? pagesSource[slug] : [];
   }
   const summary = String(source.summary ?? '').trim().slice(0, MAX_SUMMARY_LENGTH) || 'Cambios en el diseño';
-  return { settings: normalizeTenantSettingsWritePayload(source.settings), pages, summary };
+  return { settings: normalizeTenantSettingsWritePayload(source.settings), pages, summary, authorName: null };
 }
 
 // full: también devuelve cómo estaba el diseño en cada punto, para que el panel diga qué cambió.
 export async function listEditorHistory(tenantId, db = pool, { full = false } = {}) {
   await ensureEditorHistoryTable(db);
-  const columns = full ? 'id, summary, created_at, settings, pages' : 'id, summary, created_at';
+  const columns = full ? 'id, summary, created_at, author_name, settings, pages' : 'id, summary, created_at, author_name';
   const result = await db.query(
     `select ${columns} from tenant_editor_history where tenant_id = $1 order by created_at desc limit $2`,
     [tenantId, MAX_HISTORY_ENTRIES]
@@ -53,8 +55,8 @@ export async function listEditorHistory(tenantId, db = pool, { full = false } = 
 export async function addEditorHistory(tenantId, entry, db = pool) {
   await ensureEditorHistoryTable(db);
   const inserted = await db.query(
-    'insert into tenant_editor_history (tenant_id, settings, pages, summary) values ($1, $2::jsonb, $3::jsonb, $4) returning id, summary, created_at',
-    [tenantId, entry.settings, entry.pages, entry.summary]
+    'insert into tenant_editor_history (tenant_id, settings, pages, summary, author_name) values ($1, $2::jsonb, $3::jsonb, $4, $5) returning id, summary, created_at, author_name',
+    [tenantId, entry.settings, entry.pages, entry.summary, entry.authorName ? String(entry.authorName).slice(0, 120) : null]
   );
   // Se quedan solo los últimos puntos: el resto se borra.
   await db.query(

@@ -686,7 +686,15 @@ tenantRouter.post('/editor-history', async (req, res, next) => {
   const tenantId = getTenantId(req, res);
   if (!tenantId) return;
   try {
-    return res.json({ entry: await addEditorHistory(tenantId, normalizeHistoryEntry(req.body)) });
+    // El nombre de quien edita sale de su cuenta, no de lo que manda el panel.
+    let authorName = null;
+    try {
+      const author = await pool.query('select display_name, email from users where id = $1', [req.user?.id || null]);
+      authorName = author.rows[0]?.display_name || author.rows[0]?.email?.split('@')[0] || null;
+    } catch {
+      authorName = null;
+    }
+    return res.json({ entry: await addEditorHistory(tenantId, { ...normalizeHistoryEntry(req.body), authorName }) });
   } catch (err) {
     if (err && err.code === '23503') return res.status(404).json({ error: 'tenant_not_found' });
     return next(err);
