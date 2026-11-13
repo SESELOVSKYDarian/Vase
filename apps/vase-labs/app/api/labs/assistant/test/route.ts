@@ -19,7 +19,7 @@ type TestHandlerDependencies = {
   resolveApiKey(assistantId: string): Promise<string | null>;
   buildContext(assistantId: string): Promise<string>;
   buildBusinessContext?(globalTenantId: string): Promise<string>;
-  buildCatalogResources(globalTenantId: string): Promise<{
+  buildCatalogResources(globalTenantId: string, query?: string): Promise<{
     context: string;
     allowedImageUrls: string[];
   }>;
@@ -59,7 +59,7 @@ export function createAssistantTestHandler(dependencies: TestHandlerDependencies
       const [businessContext, knowledgeContext, catalogResources] = await Promise.all([
         dependencies.buildBusinessContext?.(resolved.assistant.globalTenantId).catch(() => "") ?? Promise.resolve(""),
         dependencies.buildContext(resolved.assistant.id),
-        dependencies.buildCatalogResources(resolved.assistant.globalTenantId),
+        dependencies.buildCatalogResources(resolved.assistant.globalTenantId, message),
       ]);
       const context = [businessContext, knowledgeContext, catalogResources.context].filter(Boolean).join("\n\n");
       const reply = await dependencies

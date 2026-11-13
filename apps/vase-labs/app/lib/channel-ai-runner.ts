@@ -38,13 +38,14 @@ type ChannelAiReplyRunnerDeps = {
   knowledge: { buildContext(assistantId: string): Promise<string> };
   businessProfile?: { buildContext(globalTenantId: string): Promise<string> };
   catalog?: {
-    buildAiResources?(globalTenantId: string): Promise<{
+    buildAiResources?(globalTenantId: string, query?: string): Promise<{
       context: string;
       allowedImageUrls: string[];
     }>;
     buildAiContext?(globalTenantId: string): Promise<string>;
   };
   createReplyGenerator(input: { apiKey?: string; model: string }): ReplyGenerator;
+  requestHandoff?(input: { conversationId: string; reason: string }): Promise<void>;
   orders?: NonNullable<Parameters<typeof createAiOrchestrator>[0]["orders"]>;
   listSentImageUrls?(conversationId: string): Promise<string[]>;
   persistAssistantReply(input: {
@@ -223,6 +224,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
         });
       },
       markAssistantReplyDelivery: deps.markAssistantReplyDelivery,
+      requestHandoff: deps.requestHandoff,
     });
 
     return orchestrator.processConversation({
@@ -354,6 +356,31 @@ export function createPrismaChannelAiReplyRunner(input: {
     }),
     catalog: labsCatalogService,
     businessProfile: { buildContext: buildBusinessProfileContext },
+    async requestHandoff({ conversationId, reason }) {
+      await prisma.$transaction(async (tx) => {
+        const open = await tx.handoff.findFirst({
+          where: { conversationId, status: { in: ["PENDING", "ASSIGNED"] } },
+          select: { id: true },
+        });
+        if (!open) {
+          await tx.handoff.create({
+            data: {
+              id: randomUUID(),
+              conversationId,
+              reason,
+              target: "labs",
+              status: "PENDING",
+              priority: "high",
+              notes: JSON.stringify({ source: "ai_assistant" }),
+            },
+          });
+        }
+        await tx.conversation.update({
+          where: { id: conversationId },
+          data: { status: "ESCALATED", escalatedToHuman: true },
+        });
+      });
+    },
     orders,
     async listSentImageUrls(conversationId) {
       const messages = await prisma.message.findMany({

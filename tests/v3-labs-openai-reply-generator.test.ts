@@ -132,7 +132,7 @@ describe("Labs OpenAI reply generator", () => {
           schema: {
             type: "object",
             additionalProperties: false,
-            required: ["text", "imageUrls", "orderAction"],
+            required: ["text", "imageUrls", "orderAction", "handoff"],
             properties: {
               text: { type: "string" },
               imageUrls: {

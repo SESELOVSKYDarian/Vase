@@ -1,5 +1,10 @@
 import { labsCatalogSyncSchema, type LabsCatalogSync } from "@vase/contracts";
 import { normalizePublicHttpsImageUrl } from "./public-image-url";
+import { rankProducts } from "./catalog-match";
+
+// Con catálogos grandes no entra todo en la respuesta: se manda primero lo más parecido a lo que pide.
+const FULL_CATALOG_LIMIT = 60;
+const MATCH_LIMIT = 40;
 
 export interface LabsCatalogRecord {
   globalTenantId: string;
@@ -73,9 +78,15 @@ async function syncCatalogBatch(repository: LabsCatalogOperations, batch: LabsCa
 }
 
 export function createLabsCatalogService(repository: LabsCatalogRepository) {
-  async function buildAiResources(globalTenantId: string): Promise<CatalogAiResources> {
-    const products = (await repository.list(globalTenantId))
+  async function buildAiResources(globalTenantId: string, query = ""): Promise<CatalogAiResources> {
+    const available = (await repository.list(globalTenantId))
       .filter((product) => product.active && product.stock > 0 && product.offeredByChatbot);
+    const searchable = (product: (typeof available)[number]) =>
+      [product.aiAlias, product.name, product.sku, product.aiDescription, product.description].filter(Boolean).join(" ");
+    const matches = query.trim() ? rankProducts(available, query, searchable, MATCH_LIMIT) : [];
+    const products = available.length <= FULL_CATALOG_LIMIT
+      ? [...matches, ...available.filter((product) => !matches.includes(product))]
+      : matches;
     const allowedImageUrls: string[] = [];
     const seenImageUrls = new Set<string>();
     const context = products.map((product) => {
@@ -94,7 +105,17 @@ export function createLabsCatalogService(repository: LabsCatalogRepository) {
       ].filter(Boolean).join("\n");
     }).join("\n\n");
 
-    return { context, allowedImageUrls };
+    const header = available.length === 0
+      ? ""
+      : available.length > FULL_CATALOG_LIMIT
+      ? matches.length
+        ? `Catálogo: ${available.length} productos en total. Estos son los ${matches.length} más parecidos a lo que pide el cliente (pueden no tener el nombre exacto). Si ninguno es lo que pide, decilo y pasá la charla a una persona.`
+        : `Catálogo: ${available.length} productos en total. Ninguno se parece a lo que pide el cliente. Si pide un producto puntual, no inventes: pedile más detalles o pasá la charla a una persona.`
+      : matches.length
+        ? `Catálogo completo (${available.length} productos). Los primeros ${matches.length} son los más parecidos a lo que pide el cliente.`
+        : `Catálogo completo (${available.length} productos).`;
+
+    return { context: [header, context].filter(Boolean).join("\n\n"), allowedImageUrls };
   }
 
   return {
