@@ -3,11 +3,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { CircleHelp } from "lucide-react";
 import { PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { labsNavigationGroups, labsSectionTitles, resolveLabsSection } from "./labs-owner-nav";
 import "./labs-panel.css";
 import { VaseNotificationsBell } from "./vase-notifications-bell";
+import { LabsHelpButton } from "./labs-help";
 
 const HELP_URL = "https://help.vase.ar";
 
@@ -60,7 +60,7 @@ export function LabsShell({
       account={{ initial: tenantName.slice(0, 1).toUpperCase() || "V", name: tenantName, detail: `Plan ${plan}` }}
       accountMenu={(close) => (
         <>
-          {/* Igual en todos los productos: Ajustes, Ayuda y soporte, volver a Vase, el panel anterior y salir. */}
+          {/* Igual en todos los productos: Ajustes, Ayuda y soporte, volver a Vase y salir. */}
           <Link href="/owner/settings" className="vpa-am" onClick={close}>
             Ajustes
           </Link>
@@ -70,9 +70,6 @@ export function LabsShell({
           <a href="https://app.vase.ar/app" className="vpa-am">
             ← Volver a Vase
           </a>
-          <Link href="/anterior" className="vpa-am" onClick={close}>
-            Abrir el Labs anterior
-          </Link>
           <a href="/api/labs/signout" className="vpa-am out">
             Cerrar sesión
           </a>
@@ -81,9 +78,7 @@ export function LabsShell({
       actions={
         <>
           <VaseNotificationsBell />
-          <a className="vpa-ib" href={HELP_URL} target="_blank" rel="noreferrer" aria-label="Ayuda y guías" title="Ayuda y guías">
-            <CircleHelp size={18} aria-hidden="true" />
-          </a>
+          <LabsHelpButton section={section} />
         </>
       }
     >

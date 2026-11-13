@@ -130,11 +130,6 @@
 .vpa .lx-delivery.failed { color: var(--red); }
 .vpa .lx-delivery-error { display: block; margin-top: 4px; color: var(--red); font-size: 11.5px; font-weight: 700; }
 .vpa .lx-jump { position: absolute; right: 18px; bottom: 14px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); box-shadow: var(--sh-md); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--tx); }
-.vpa .lx-sugs { padding: 10px 20px 0; display: flex; flex-direction: column; gap: 6px; }
-.vpa .lx-sugs > small { font-size: 11.5px; font-weight: 700; color: var(--mut); }
-.vpa .lx-sugl { display: flex; gap: 6px; flex-wrap: wrap; }
-.vpa .lx-sug { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line2); background: var(--card); color: var(--tx); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: left; }
-.vpa .lx-sug:hover { border-color: var(--acc); }
 .vpa .lx-icomp { display: flex; flex-direction: column; gap: 6px; padding: 14px 20px 16px; border-top: 1px solid var(--line); background: var(--card); }
 .vpa .lx-icomp-row { display: flex; gap: 8px; align-items: flex-end; padding: 6px 6px 6px 16px; border: 1px solid var(--line2); border-radius: 18px; background: var(--card); transition: border-color .15s, box-shadow .15s; }
 .vpa .lx-icomp-row:focus-within { border-color: var(--acc); box-shadow: 0 0 0 3px var(--accsoft); }
@@ -224,3 +219,27 @@
 .vpa .lx-vnotif { position: fixed; inset: 0; z-index: 70; background: var(--scrim); display: flex; justify-content: flex-end; visibility: hidden; opacity: 0; transition: opacity .15s; }
 .vpa .lx-vnotif.open { visibility: visible; opacity: 1; }
 .vpa .lx-vnotif iframe { width: 480px; max-width: 100%; height: 100%; border: 0; background: var(--card); box-shadow: var(--sh-lg); }
+
+/* Sugerencias arriba de donde se escribe: una fila que se desliza y se puede achicar. */
+.vpa .lx-sugs { padding: 10px 20px 0; display: flex; flex-direction: column; gap: 8px; }
+.vpa .lx-sugs.closed { padding-top: 8px; }
+.vpa .lx-sugs-h { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 4px 10px 4px 8px; border: 0; border-radius: 999px; background: var(--accsoft); color: var(--acc-tx); font: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; }
+.vpa .lx-sugs-h:hover { filter: brightness(1.05); }
+.vpa .lx-sugs-h em { font-style: normal; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--acc); color: var(--acc-on); display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; }
+.vpa .lx-sugl { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
+.vpa .lx-sugl::-webkit-scrollbar { display: none; }
+.vpa .lx-sug { flex: none; max-width: 340px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); color: var(--tx); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: border-color .15s, background .15s; }
+.vpa .lx-sug:hover { border-color: var(--acc); background: var(--card); }
+
+/* Ayuda de Labs */
+.vpa .lx-help { flex: 1; overflow: auto; padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 8px; }
+.vpa .lx-help-grp { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.vpa .lx-help-grp h4 { margin: 0; font-size: 12px; font-weight: 700; color: var(--mut); }
+.vpa .lx-help-note { padding: 12px 14px; border-radius: 12px; background: var(--accsoft); font-size: 12.5px; font-weight: 600; line-height: 1.45; }
+.vpa .lx-hrow { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); color: var(--tx); text-decoration: none; }
+.vpa a.lx-hrow:hover { border-color: var(--acc); }
+.vpa .lx-hrow.off { opacity: .8; }
+.vpa .lx-hrow .vpa-g1 b { display: block; font-weight: 800; font-size: 13px; }
+.vpa .lx-hrow .vpa-g1 span { display: block; font-size: 12px; color: var(--mut); font-weight: 600; margin-top: 2px; }
+.vpa .lx-hic { width: 36px; height: 36px; border-radius: 11px; background: var(--soft); color: var(--acc-tx); display: flex; align-items: center; justify-content: center; flex: none; }
+.vpa .lx-help-ov { position: fixed; z-index: 70; }

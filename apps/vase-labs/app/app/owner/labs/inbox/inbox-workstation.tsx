@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, CheckCheck, CircleAlert, Clock3, Loader2, Maximize2, Minimize2, PanelRightOpen, PauseCircle, PlayCircle, RefreshCw, Send, Sparkles, UserRoundCheck, X } from "lucide-react";
+import { ArrowDown, CheckCheck, ChevronDown, ChevronUp, CircleAlert, Clock3, Loader2, Maximize2, Minimize2, PanelRightOpen, PauseCircle, PlayCircle, RefreshCw, Send, Sparkles, UserRoundCheck, X } from "lucide-react";
 import { type FormEvent, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   countInboxConversationsByChannel,
@@ -254,6 +254,24 @@ export function InboxWorkstation({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todas");
   const [search, setSearch] = useState("");
   const [full, setFull] = useState(false);
+  // Sugerencias arriba de donde se escribe: se pueden achicar y queda recordado en este navegador.
+  const [sugsOpen, setSugsOpen] = useState(() => {
+    try {
+      return typeof window === "undefined" || window.localStorage.getItem("lx-sugs") !== "closed";
+    } catch {
+      return true;
+    }
+  });
+  const toggleSugs = () => {
+    setSugsOpen((open) => {
+      try {
+        window.localStorage.setItem("lx-sugs", open ? "closed" : "open");
+      } catch {
+        // sin almacenamiento: solo por esta vez
+      }
+      return !open;
+    });
+  };
   const [showInfo, setShowInfo] = useState(true);
   const [activeId, setActiveId] = useState(initialActive?.id ?? "");
   const [draft, setDraft] = useState("");
@@ -800,15 +818,22 @@ export function InboxWorkstation({
             </div>
 
             {quickOptions.length ? (
-              <div className="lx-sugs">
-                <small>{activeInsight?.recommendations.length ? "Según lo que busca, podés preguntarle" : "Podés preguntarle"}</small>
-                <div className="lx-sugl">
-                  {quickOptions.map((option) => (
-                    <button key={option} type="button" className="lx-sug" onClick={() => { setDraft(option); draftRef.current?.focus(); }}>
-                      {option}
-                    </button>
-                  ))}
-                </div>
+              <div className={sugsOpen ? "lx-sugs" : "lx-sugs closed"}>
+                <button type="button" className="lx-sugs-h" onClick={toggleSugs} aria-expanded={sugsOpen}>
+                  <Sparkles size={13} aria-hidden="true" />
+                  <span>{activeInsight?.recommendations.length ? "Según lo que busca, podés preguntarle" : "Podés preguntarle"}</span>
+                  {sugsOpen ? null : <em>{quickOptions.length}</em>}
+                  {sugsOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronUp size={14} aria-hidden="true" />}
+                </button>
+                {sugsOpen ? (
+                  <div className="lx-sugl">
+                    {quickOptions.map((option) => (
+                      <button key={option} type="button" className="lx-sug" onClick={() => { setDraft(option); draftRef.current?.focus(); }}>
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
