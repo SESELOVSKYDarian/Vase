@@ -55,10 +55,10 @@
 .vpa-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: var(--soft); border-radius: 10px; padding: 3px; }
 .vpa-seg.fill { display: flex; flex-wrap: nowrap; }
 .vpa-seg.fill > * { flex: 1; }
-.vpa-seg > :is(a, button) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: none; color: var(--mut); font: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; text-decoration: none; white-space: nowrap; }
-.vpa-seg.fill > :is(a, button) { padding: 0 8px; }
-.vpa-seg > :is(a, button):hover:not(.on):not(:disabled) { color: var(--tx); }
-.vpa-seg > :is(a, button).on { background: var(--card); color: var(--tx); box-shadow: var(--sh-sm); }
+.vpa-seg :is(a, button) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: none; color: var(--mut); font: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.vpa-seg.fill :is(a, button) { padding: 0 8px; }
+.vpa-seg :is(a, button):hover:not(.on):not(:disabled) { color: var(--tx); }
+.vpa-seg :is(a, button).on { background: var(--card); color: var(--tx); box-shadow: var(--sh-sm); }
 .vpa-seg > button:disabled:not(.on) { opacity: .5; cursor: default; }
 
 /* Números grandes (PanelKpis): ícono opcional, se pueden tocar. */

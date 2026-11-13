@@ -146,10 +146,24 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setFeedback(payload.error || "No se pudo actualizar el pedido.");
+      const errors: Record<string, string> = {
+        ORDER_TRACKING_REQUIRED: "Para despachar, cargá el transportista y el seguimiento.",
+        ORDER_NOTIFICATION_CONFIRMATION_REQUIRED: "Escribí el aviso para el cliente.",
+        ORDER_NOT_FOUND: "No encontramos el pedido. Recargá la página.",
+      };
+      setFeedback(errors[payload.error] ?? "No se pudo actualizar el pedido. Probá de nuevo.");
       return;
     }
-    setFeedback(payload.order?.notificationStatus === "FAILED" ? "Quedó actualizado, pero no se pudo enviar el aviso." : "Listo, le avisamos al cliente.");
+    const sent = payload.order?.notificationStatus;
+    setFeedback(
+      sent === "SENT"
+        ? "Listo, le avisamos al cliente."
+        : sent === "FAILED"
+          ? "Quedó actualizado, pero no se pudo enviar el aviso."
+          : sent === "UNAVAILABLE"
+            ? "Quedó actualizado. Este pedido no tiene una conversación abierta para avisarle."
+            : "Quedó actualizado.",
+    );
     setPendingStatus(null);
     startTransition(() => router.refresh());
   }
@@ -235,7 +249,7 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
                     {steps.map((step, index) => {
                       const done = index < current;
                       const now = index === current;
-                      const next = index === current + 1;
+                      const next = index > current;
                       return (
                         <button
                           key={step.status}

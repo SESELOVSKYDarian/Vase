@@ -4,6 +4,7 @@
 /* Envoltorio del Labs nuevo: no cambia el armado, solo permite ajustar las piezas viejas que siguen
    en algunas pantallas (Catálogo, Canales, ventanas) para que se vean como el resto. */
 .lx { display: contents; }
+.vpa .vpa-wrap:has(> .lx) { max-width: none; }
 .lx :is(.labs-button, .labs-button-primary, .labs-button-secondary, .labs-button-danger, .labs-modal-actions button) {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; height: auto; padding: 0 16px;
   border-radius: 11px; font: inherit; font-weight: 800; font-size: 13px; line-height: 1.2; cursor: pointer; white-space: nowrap;
@@ -62,21 +63,24 @@
 
 /* canales */
 .vpa .lx-chico { width: 36px; height: 36px; border-radius: 11px; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; overflow: hidden; }
-.vpa .lx-chico img { width: 60%; height: 60%; object-fit: contain; filter: brightness(0) invert(1); }
+/* Los íconos de canal ya son el logo completo (WhatsApp, Instagram, Messenger): se muestran tal cual. */
+.vpa .lx-chico:has(img) { background: none !important; }
+.vpa .lx-chico img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .vpa .lx-chico.sm { width: 32px; height: 32px; border-radius: 10px; font-size: 12.5px; }
 .vpa .lx-chico.lg { width: 46px; height: 46px; border-radius: 14px; font-size: 18px; }
 
 /* Conversaciones: lista | chat | datos del cliente, en una sola tarjeta */
 .vpa .lx-inbox-wrap { display: flex; flex-direction: column; gap: 14px; }
-.vpa .lx-inbox { display: grid; grid-template-columns: 320px minmax(0, 1fr) 280px; height: calc(100dvh - 210px); min-height: 520px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
-.vpa .lx-inbox.noside { grid-template-columns: 320px minmax(0, 1fr); }
+.vpa .lx-inbox { display: grid; grid-template-columns: 340px minmax(0, 1fr) 300px; height: calc(100dvh - 190px); min-height: 600px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.vpa .lx-inbox.noside { grid-template-columns: 340px minmax(0, 1fr); }
 .vpa .lx-ilist { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .vpa .lx-ilh { padding: 14px 14px 0; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line); }
 .vpa .lx-srch { display: flex; align-items: center; gap: 8px; }
 .vpa .lx-srch .vpa-inp { flex: 1; height: 38px; min-width: 0; }
 .vpa .lx-chdots { display: flex; gap: 4px; }
-.vpa .lx-chd { width: 30px; height: 30px; border-radius: 50%; border: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: opacity .15s, transform .15s, box-shadow .15s; }
-.vpa .lx-chd img { width: 15px; height: 15px; filter: brightness(0) invert(1); }
+.vpa .lx-chd { width: 30px; height: 30px; border-radius: 10px; border: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: opacity .15s, transform .15s, box-shadow .15s; }
+.vpa .lx-chd { background: none !important; }
+.vpa .lx-chd img { width: 30px; height: 30px; display: block; border-radius: 9px; }
 .vpa .lx-chd:hover { transform: translateY(-1px); }
 .vpa .lx-chd.off { opacity: .28; }
 .vpa .lx-chd.on { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--acc); }
@@ -110,7 +114,7 @@
 .vpa .lx-imsgs { flex: 1; overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
 .vpa .lx-day { text-align: center; margin: 6px 0; }
 .vpa .lx-day span { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--soft); color: var(--mut); font-size: 11.5px; font-weight: 700; }
-.vpa .lx-msg { max-width: 72%; padding: 10px 14px; border-radius: 16px; font-weight: 600; line-height: 1.45; }
+.vpa .lx-msg { max-width: 68%; padding: 10px 14px; border-radius: 16px; font-weight: 600; line-height: 1.5; font-size: 14px; }
 .vpa .lx-msg p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .vpa .lx-msg > small { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; color: var(--acc-tx); margin-bottom: 3px; }
 .vpa .lx-msg.in { align-self: flex-start; background: var(--soft); border-bottom-left-radius: 6px; }
@@ -129,9 +133,11 @@
 .vpa .lx-sugl { display: flex; gap: 6px; flex-wrap: wrap; }
 .vpa .lx-sug { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line2); background: var(--card); color: var(--tx); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: left; }
 .vpa .lx-sug:hover { border-color: var(--acc); }
-.vpa .lx-icomp { display: flex; flex-direction: column; gap: 6px; padding: 14px 20px; border-top: 1px solid var(--line); }
-.vpa .lx-icomp-row { display: flex; gap: 8px; align-items: flex-end; }
-.vpa .lx-icomp textarea.vpa-inp { flex: 1; min-height: 40px; max-height: 160px; padding: 10px 12px; resize: none; line-height: 1.4; }
+.vpa .lx-icomp { display: flex; flex-direction: column; gap: 6px; padding: 14px 20px 16px; border-top: 1px solid var(--line); background: var(--card); }
+.vpa .lx-icomp-row { display: flex; gap: 8px; align-items: flex-end; padding: 6px 6px 6px 16px; border: 1px solid var(--line2); border-radius: 18px; background: var(--card); transition: border-color .15s, box-shadow .15s; }
+.vpa .lx-icomp-row:focus-within { border-color: var(--acc); box-shadow: 0 0 0 3px var(--accsoft); }
+.vpa .lx-icomp-row .vpa-btn { height: 44px; border-radius: 13px; padding: 0 18px; }
+.vpa .lx-icomp textarea.vpa-inp { flex: 1; min-height: 44px; max-height: 200px; padding: 11px 0; border: 0; background: none; box-shadow: none; outline: none; resize: none; font-size: 14px; line-height: 1.45; }
 .vpa .lx-hint { font-size: 11.5px; color: var(--mut); font-weight: 600; }
 .vpa .lx-err { margin: 0; color: var(--red); font-size: 12.5px; font-weight: 700; }
 .vpa .lx-ok { margin: 0; color: var(--ok); font-size: 12.5px; font-weight: 700; }
