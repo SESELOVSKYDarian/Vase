@@ -8,7 +8,6 @@ import { PanelTabs } from "@vase/ui/panel";
 // Pestañas de las secciones que juntan varias pantallas.
 export const CONVERSATION_TABS = [
   { href: "/owner/inbox", label: "Bandeja" },
-  { href: "/owner/activity", label: "Quién quiere comprar" },
 ];
 
 export const ASSISTANT_TABS = [

@@ -74,7 +74,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
     );
 }
 
-export function Topbar({ title, subtitle, crumb, onBack, status, onPublish, publishing, badges, onNotifications, onHelp, onMenu }) {
+export function Topbar({ title, subtitle, crumb, onBack, status, onPublish, publishing, badges, onNotifications, onHelp, onMenu, bell = null }) {
     return (
         <header className="vp-top">
             {onMenu ? <button type="button" className="vp-ibtn vp-menu" onClick={onMenu} aria-label="Abrir el menú"><Icon name="list" size={18} /></button> : null}
@@ -90,10 +90,12 @@ export function Topbar({ title, subtitle, crumb, onBack, status, onPublish, publ
             {status.history ? <HistoryButton history={status.history} theme={status.theme} toast={status.toast} /> : null}
             <CloudStatus cloud={status.cloud} unpublished={status.dirty} />
             <button type="button" className="vp-btn acc" onClick={onPublish} disabled={publishing}>{publishing ? 'Publicando…' : 'Publicar'}</button>
-            <button type="button" className="vp-ibtn" onClick={onNotifications} aria-label={`Avisos: ${badges.total || 0}`}>
-                <Icon name="bell" size={17} />
-                {badges.total ? <span className="n">{badges.total}</span> : null}
-            </button>
+            {bell || (
+                <button type="button" className="vp-ibtn" onClick={onNotifications} aria-label={`Avisos: ${badges.total || 0}`}>
+                    <Icon name="bell" size={17} />
+                    {badges.total ? <span className="n">{badges.total}</span> : null}
+                </button>
+            )}
             <button type="button" className="vp-ibtn" onClick={onHelp} aria-label="Ayuda de esta sección" title="Ayuda de esta sección">?</button>
         </header>
     );

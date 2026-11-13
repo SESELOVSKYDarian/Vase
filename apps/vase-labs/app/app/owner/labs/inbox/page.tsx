@@ -2,8 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
-import { CONVERSATION_TABS, LabsTabs } from "../labs-tabs";
-import { InboxWorkstation, type InboxConversationItem } from "./inbox-workstation";
+import { InboxWorkstation, type InboxConversationItem, type InboxInsight } from "./inbox-workstation";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +33,9 @@ async function getInboxData() {
             orderBy: { createdAt: "desc" },
             take: 1,
           },
+          insight: {
+            select: { leadScore: true, intentLabel: true, currentNeed: true, productInterests: true, recommendations: true, nextBestAction: true },
+          },
         },
         orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }],
         take: 50,
@@ -52,8 +54,23 @@ async function getInboxData() {
       }),
     ]);
 
+    const strings = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : []);
+    const insights: Record<string, InboxInsight> = {};
+    for (const conversation of conversations) {
+      if (!conversation.insight) continue;
+      insights[conversation.id] = {
+        leadScore: conversation.insight.leadScore,
+        intentLabel: conversation.insight.intentLabel,
+        currentNeed: conversation.insight.currentNeed,
+        productInterests: strings(conversation.insight.productInterests),
+        recommendations: strings(conversation.insight.recommendations),
+        nextBestAction: conversation.insight.nextBestAction,
+      };
+    }
+
     return {
       tenantSlug: resolved.context.tenantSlug,
+      insights,
       channelStates: channels.map((channel) => ({
         channel: channel.type,
         status: channel.status,
@@ -114,15 +131,13 @@ export default async function LabsInboxPage({
 
   // Los números y el resumen ya están en Inicio: acá queda solo la bandeja para responder.
   return (
-    <div className="vpa-stack" style={{ gap: 14 }}>
-      <LabsTabs tabs={CONVERSATION_TABS} />
-      <InboxWorkstation
-        tenantSlug={data.tenantSlug}
-        initialConversations={data.conversations}
-        channelStates={data.channelStates}
-        initialActiveId={initialActiveId}
-        initialChannel={initialChannel}
-      />
-    </div>
+    <InboxWorkstation
+      tenantSlug={data.tenantSlug}
+      initialConversations={data.conversations}
+      channelStates={data.channelStates}
+      insights={data.insights}
+      initialActiveId={initialActiveId}
+      initialChannel={initialChannel}
+    />
   );
 }

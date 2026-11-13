@@ -26,6 +26,7 @@ import Icon from './components/Icon';
 import Notifications from './components/Notifications';
 import AjustesDominio from './screens/AjustesDominio';
 import VaseSettingsFrame from './components/VaseSettingsFrame';
+import VaseNotificationsBell from './components/VaseNotificationsBell';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
 import { useEditorAutosave } from './useEditorAutosave';
 // Último: los ajustes para celular le ganan a los estilos de cada pantalla.
@@ -186,6 +187,8 @@ export default function PanelApp() {
     const openNotifications = () => { setNotesOpen(true); notifications.refresh?.(); };
     const status = { dirty: autosave.unpublished, cloud: autosave.cloud, history: autosave.history, toast: addToast, theme, text: autosave.unpublished ? 'Cambios sin publicar' : 'Todo publicado' };
     const vaseUrl = String(import.meta.env.VITE_VASE_APP_URL || 'https://app.vase.ar').replace(/\/+$/, '');
+    // Las notificaciones son las de tu cuenta de Vase: las mismas en app, Business, Labs y el resto.
+    const vaseBell = <VaseNotificationsBell vaseUrl={vaseUrl} tenantSlug={tenant?.external_tenant_slug || tenant?.externalTenantSlug || ''} theme={theme} />;
 
     // Pantallas que arman su propio diseño (pestañas a todo el ancho y barra lateral derecha).
     let fullScreen = null;
@@ -217,6 +220,7 @@ export default function PanelApp() {
                 publishing={editor.saving}
                 badges={badges}
                 onNotifications={openNotifications}
+                bell={vaseBell}
                 onHelp={() => setHelp('section')}
                 onMenu={isPhone ? () => setNavOpen(true) : undefined}
                 phone={isPhone}
@@ -327,6 +331,7 @@ export default function PanelApp() {
                         publishing={editor.saving}
                         badges={badges}
                         onNotifications={openNotifications}
+                        bell={vaseBell}
                         onHelp={() => setHelp('section')}
                         onMenu={isPhone ? () => setNavOpen(true) : undefined}
                     />

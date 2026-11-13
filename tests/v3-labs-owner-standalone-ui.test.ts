@@ -278,7 +278,9 @@ describe("Vase Labs standalone owner experience", () => {
     const workstation = fs.readFileSync(workstationPath, "utf8");
 
     expect(inbox).not.toContain('export { default } from "../activity/page"');
-    expect(inbox).toContain("<LabsTabs tabs={CONVERSATION_TABS} />");
+    // "Quién quiere comprar" se sacó: la bandeja va sola y el interés se ve en Del cliente.
+    expect(inbox).not.toContain("<LabsTabs");
+    expect(inbox).toContain("insight: {");
     expect(inbox).toContain('status: { in: ["OPEN", "ESCALATED"] }');
     expect(inbox).toContain("messages: {");
     expect(inbox).toContain('orderBy: { createdAt: "asc" }');
@@ -298,7 +300,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(workstation).toContain("Pausar IA");
     expect(workstation).toContain("Reactivar IA");
     expect(workstation).toContain("/reactivate");
-    expect(workstation).toContain("lx-alert");
+    expect(workstation).toContain("lx-take");
     expect(workstation).toContain("lx-inbox");
     expect(workstation).toContain("lx-ilist");
     expect(workstation).toContain("lx-chdots");

@@ -11,6 +11,9 @@
 /* Página de app mostrada adentro de otro producto (Ajustes en Business o Labs): sin menú, crece con su contenido. */
 .vpa.vpa-embed { display: block; height: auto; overflow: visible; background: transparent; padding: 2px; }
 .vpa.vpa-embed > .vpa-wrap { max-width: none; }
+/* Notificaciones adentro de otro producto: ocupan todo el cuadro que les da el producto. */
+.vpa-ov.embedded { position: fixed; background: transparent; }
+.vpa-ov.embedded > .vpa-dr { width: 100%; box-shadow: none; }
 /* Barra de scroll igual a la de Business */
 .vpa * { scrollbar-width: thin; scrollbar-color: var(--sb) transparent; }
 .vpa *::-webkit-scrollbar { width: 10px; height: 10px; }

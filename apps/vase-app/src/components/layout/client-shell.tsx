@@ -84,12 +84,19 @@ function CheckMark() {
   return <Check size={12} strokeWidth={3.5} aria-hidden="true" />;
 }
 
-function NotificationsDrawer({
+/**
+ * Notificaciones de tu cuenta de Vase. Son las mismas en app, Business, Labs y el resto: los productos
+ * muestran esta misma pantalla adentro (embedded), en /app/embed/notifications.
+ */
+export function NotificationsDrawer({
   notifications,
   onClose,
+  embedded = false,
 }: {
   notifications: ShellNotification[];
   onClose: () => void;
+  /** Adentro de otro producto: sin fondo oscuro y los links abren la ventana entera. */
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<NotificationFilterId>("todas");
@@ -109,8 +116,11 @@ function NotificationsDrawer({
     });
   };
 
+  const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.vase.ar").replace(/\/+$/, "");
+  const absolute = (href: string) => (/^https?:\/\//.test(href) ? href : `${appOrigin}${href.startsWith("/") ? "" : "/"}${href}`);
+
   return (
-    <div className="vpa-ov" onClick={onClose}>
+    <div className={embedded ? "vpa-ov embedded" : "vpa-ov"} onClick={onClose}>
       <div className="vpa-dr" role="dialog" aria-label="Notificaciones" onClick={(event) => event.stopPropagation()}>
         <div className="vpa-mh">
           <div>
@@ -219,7 +229,18 @@ function NotificationsDrawer({
                 >
                   <CheckMark />
                 </button>
-                {destination && notification.href ? (
+                {destination && notification.href && embedded ? (
+                  <a
+                    href={absolute(notification.href)}
+                    target="_top"
+                    className={className}
+                    onClick={() => {
+                      if (!notification.isRead) void markAllNotificationsAsReadAction(selectionPayload([notification]));
+                    }}
+                  >
+                    {body}
+                  </a>
+                ) : destination && notification.href ? (
                   <NavLink
                     href={notification.href}
                     className={className}

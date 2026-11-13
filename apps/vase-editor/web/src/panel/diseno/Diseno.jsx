@@ -46,7 +46,7 @@ const previewProduct = (product) => ({
 });
 
 // Diseño de la tienda: bloques a la izquierda, la tienda en el medio (se toca para elegir) y el editor a la derecha.
-export default function Diseno({ editor, isPiquim, theme, toast, status, onPublish, publishing, badges, onNotifications, onHelp, onMenu, phone = false }) {
+export default function Diseno({ editor, isPiquim, theme, toast, status, onPublish, publishing, badges, onNotifications, onHelp, onMenu, phone = false, bell = null }) {
     const [page, setPage] = useState('home');
     const [selectedId, setSelectedId] = useState(null);
     const [viewport, setViewport] = useState('desktop');
@@ -134,10 +134,10 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                 {status.history ? <HistoryButton history={status.history} theme={status.theme} toast={status.toast} /> : null}
             <CloudStatus cloud={status.cloud} unpublished={status.dirty} />
                 <button type="button" className="vp-btn acc" onClick={onPublish} disabled={publishing}>{publishing ? 'Publicando…' : 'Publicar'}</button>
-                <button type="button" className="vp-ibtn" onClick={onNotifications} aria-label={`Avisos: ${badges.total || 0}`}>
+                {bell || (<button type="button" className="vp-ibtn" onClick={onNotifications} aria-label={`Avisos: ${badges.total || 0}`}>
                     <Icon name="bell" size={17} />
                     {badges.total ? <span className="n">{badges.total}</span> : null}
-                </button>
+                </button>)}
                 <button type="button" className="vp-ibtn" onClick={onHelp} aria-label="Ayuda de esta sección" title="Ayuda de esta sección">?</button>
             </div>
 

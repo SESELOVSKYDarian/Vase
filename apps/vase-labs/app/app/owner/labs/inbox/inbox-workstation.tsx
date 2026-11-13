@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, Bell, CheckCheck, CircleAlert, Clock3, Loader2, PanelRightOpen, PauseCircle, PlayCircle, RefreshCw, Send, Sparkles, UserRoundCheck, X } from "lucide-react";
+import { ArrowDown, CheckCheck, CircleAlert, Clock3, Loader2, Maximize2, Minimize2, PanelRightOpen, PauseCircle, PlayCircle, RefreshCw, Send, Sparkles, UserRoundCheck, X } from "lucide-react";
 import { type FormEvent, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   countInboxConversationsByChannel,
@@ -46,6 +46,16 @@ export type InboxConversationItem = {
   summary: string | null;
   messages: InboxMessage[];
   handoffs: InboxHandoff[];
+};
+
+/** Lo que el análisis sabe de cada cliente (Conversaciones › Del cliente). */
+export type InboxInsight = {
+  leadScore: number;
+  intentLabel: string;
+  currentNeed: string;
+  productInterests: string[];
+  recommendations: string[];
+  nextBestAction: string;
 };
 
 type InboxChannelState = {
@@ -227,6 +237,7 @@ export function InboxWorkstation({
   channelStates,
   initialActiveId,
   initialChannel,
+  insights = {},
 }: {
   tenantSlug: string;
   initialConversations: InboxConversationItem[];
@@ -235,12 +246,14 @@ export function InboxWorkstation({
   initialActiveId?: string;
   /** Canal elegido al entrar (cuando venís desde Inicio › Por canal). */
   initialChannel?: string;
+  insights?: Record<string, InboxInsight>;
 }) {
   const initialActive = initialConversations.find((conversation) => conversation.id === initialActiveId) ?? initialConversations[0];
   const [conversations, setConversations] = useState(() => sortConversations(initialConversations));
   const [selectedChannel, setSelectedChannel] = useState<ChannelFilter>(() => normalizeInboxChannel(initialChannel ?? null) ?? "ALL");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todas");
   const [search, setSearch] = useState("");
+  const [full, setFull] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
   const [activeId, setActiveId] = useState(initialActive?.id ?? "");
   const [draft, setDraft] = useState("");
@@ -579,18 +592,18 @@ export function InboxWorkstation({
     </span>
   );
 
+  const activeInsight = activeConversation ? insights[activeConversation.id] : undefined;
+  // Opciones arriba de donde se escribe: lo que conviene preguntarle según lo que busca.
+  const quickOptions = (() => {
+    const fromInsight = (activeInsight?.recommendations ?? []).map((item) => item.trim()).filter((item) => item.length > 0 && item.length <= 120);
+    const asks = suggestions.ask.map((item) => `¿${item.charAt(0).toLowerCase()}${item.slice(1)}?`);
+    const base = activeConversation?.escalatedToHuman ? [...suggestions.replies.slice(0, 1), ...asks] : asks;
+    return [...fromInsight.slice(0, 3), ...base].slice(0, 5);
+  })();
+  const scoreLabel = (score: number) => (score >= 70 ? "Alto" : score >= 40 ? "Medio" : "Bajo");
+
   return (
-    <section className="lx-inbox-wrap">
-      {pendingHumanCount > 0 && statusFilter !== "necesitan" ? (
-        <div className="lx-alert" aria-live="polite">
-          <span className="ic" aria-hidden="true"><Bell size={20} /></span>
-          <div className="vpa-g1">
-            <b>{pendingHumanCount} {pendingHumanCount === 1 ? "conversación te necesita" : "conversaciones te necesitan"}</b>
-            <span className="t">La IA las pasó a una persona.</span>
-          </div>
-          <button type="button" className="vpa-btn ink" onClick={() => setStatusFilter("necesitan")}>Ver</button>
-        </div>
-      ) : null}
+    <section className={full ? "lx-inbox-wrap full" : "lx-inbox-wrap"} onKeyDown={(event) => { if (event.key === "Escape" && full) setFull(false); }}>
 
       <div className={`lx-inbox${activeConversation && showInfo ? "" : " noside"}`}>
         <aside className="lx-ilist" aria-label="Conversaciones">
@@ -706,7 +719,7 @@ export function InboxWorkstation({
               </span>
               <button
                 type="button"
-                className={`vpa-btn sm ${activeConversation.escalatedToHuman ? "line" : "ink"}`}
+                className={activeConversation.escalatedToHuman ? "lx-take back" : "lx-take"}
                 onClick={() => void (activeConversation.escalatedToHuman ? reactivateAi() : requestHandoff())}
                 disabled={handoffBusy}
                 title={activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA"}
@@ -718,15 +731,14 @@ export function InboxWorkstation({
                     : <PauseCircle size={15} aria-hidden="true" />}
                 {activeConversation.escalatedToHuman ? "Devolver a la IA" : "Atender yo"}
               </button>
-              <button type="button" className="vpa-ib" onClick={() => void refreshConversation()} aria-label="Actualizar" title="Actualizar">
-                {refreshing ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <RefreshCw size={16} aria-hidden="true" />}
-              </button>
               {showInfo ? null : (
-                <button type="button" className="vpa-btn soft sm" onClick={() => setShowInfo(true)}>
-                  <PanelRightOpen size={15} aria-hidden="true" />
-                  Ver cliente
+                <button type="button" className="vpa-ib" onClick={() => setShowInfo(true)} aria-label="Ver datos del cliente" title="Ver datos del cliente">
+                  <PanelRightOpen size={16} aria-hidden="true" />
                 </button>
               )}
+              <button type="button" className="vpa-ib" onClick={() => setFull((value) => !value)} aria-pressed={full} aria-label={full ? "Salir de pantalla completa" : "Ver la bandeja en pantalla completa"} title={full ? "Salir de pantalla completa (Esc)" : "Pantalla completa"}>
+                {full ? <Minimize2 size={16} aria-hidden="true" /> : <Maximize2 size={16} aria-hidden="true" />}
+              </button>
             </header>
 
             {activeConversation.handoffs[0] ? (
@@ -787,13 +799,13 @@ export function InboxWorkstation({
               ) : null}
             </div>
 
-            {activeConversation.escalatedToHuman ? (
+            {quickOptions.length ? (
               <div className="lx-sugs">
-                <small>Podrías responder</small>
+                <small>{activeInsight?.recommendations.length ? "Según lo que busca, podés preguntarle" : "Podés preguntarle"}</small>
                 <div className="lx-sugl">
-                  {suggestions.replies.map((reply) => (
-                    <button key={reply} type="button" className="lx-sug" onClick={() => { setDraft(reply); draftRef.current?.focus(); }}>
-                      {reply}
+                  {quickOptions.map((option) => (
+                    <button key={option} type="button" className="lx-sug" onClick={() => { setDraft(option); draftRef.current?.focus(); }}>
+                      {option}
                     </button>
                   ))}
                 </div>
@@ -854,27 +866,41 @@ export function InboxWorkstation({
               </button>
             </div>
             <div className="lx-isec">
-              <h4>Lo que busca</h4>
-              <p>{activeConversation.summary?.trim() || "Todavía no hay suficiente charla para resumirlo."}</p>
+              <h4>Interés en comprar</h4>
+              {activeInsight ? (
+                <div className="lx-score">
+                  <span className="lx-meter"><i style={{ width: `${Math.max(4, Math.min(100, activeInsight.leadScore))}%` }} /></span>
+                  <b>{scoreLabel(activeInsight.leadScore)}</b>
+                </div>
+              ) : (
+                <p className="vpa-mut">Todavía se está analizando la charla.</p>
+              )}
             </div>
+            <div className="lx-isec">
+              <h4>Lo que busca</h4>
+              <p>{activeInsight?.currentNeed?.trim() || activeConversation.summary?.trim() || "Todavía no hay suficiente charla para resumirlo."}</p>
+            </div>
+            <div className="lx-isec">
+              <h4>Productos que le interesan</h4>
+              {activeInsight?.productInterests.length ? (
+                <div className="lx-pchips">
+                  {activeInsight.productInterests.slice(0, 8).map((product) => <span key={product} className="lx-pchip">{product}</span>)}
+                </div>
+              ) : (
+                <p className="vpa-mut">Todavía no nombró ningún producto.</p>
+              )}
+            </div>
+            {activeInsight?.nextBestAction?.trim() ? (
+              <div className="lx-isec">
+                <h4>Qué conviene hacer</h4>
+                <p>{activeInsight.nextBestAction}</p>
+              </div>
+            ) : null}
             <div className="lx-isec">
               <h4>Contacto</h4>
               <p>{activeContact ?? activeName}</p>
               <p className="vpa-mut">{inboxChannelLabels[activeChannel]} · {activeConversation.messageCount} mensaje{activeConversation.messageCount === 1 ? "" : "s"}</p>
             </div>
-            <div className="lx-isec">
-              <h4>Podés preguntarle</h4>
-              <div className="lx-asks">
-                {suggestions.ask.map((item) => (
-                  <button key={item} type="button" className="lx-ask" onClick={() => { setDraft(`¿${item.charAt(0).toLowerCase()}${item.slice(1)}?`); draftRef.current?.focus(); }}>
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {activeConversation.escalatedToHuman ? null : (
-              <p className="vpa-mut lx-isnote">Si tocás <b>Atender yo</b>, la IA se pausa y te sugerimos qué responder.</p>
-            )}
           </aside>
         ) : null}
       </div>

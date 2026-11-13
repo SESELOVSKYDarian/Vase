@@ -7,6 +7,7 @@ import { CircleHelp } from "lucide-react";
 import { PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { labsNavigationGroups, labsSectionTitles, resolveLabsSection } from "./labs-owner-nav";
 import "./labs-panel.css";
+import { VaseNotificationsBell } from "./vase-notifications-bell";
 
 const HELP_URL = "https://help.vase.ar";
 
@@ -48,6 +49,7 @@ export function LabsShell({
       }
       groups={groups}
       activeId={section}
+      flush={section === "conversaciones"}
       title={title}
       subtitle={subtitle}
       renderLink={({ href, className, title: hint, onClick, children: content }) => (
@@ -77,9 +79,12 @@ export function LabsShell({
         </>
       )}
       actions={
-        <a className="vpa-ib" href={HELP_URL} target="_blank" rel="noreferrer" aria-label="Ayuda y guías" title="Ayuda y guías">
-          <CircleHelp size={18} aria-hidden="true" />
-        </a>
+        <>
+          <VaseNotificationsBell />
+          <a className="vpa-ib" href={HELP_URL} target="_blank" rel="noreferrer" aria-label="Ayuda y guías" title="Ayuda y guías">
+            <CircleHelp size={18} aria-hidden="true" />
+          </a>
+        </>
       }
     >
       <div className="lx">{children}</div>

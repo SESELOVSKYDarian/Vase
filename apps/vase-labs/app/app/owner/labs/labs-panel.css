@@ -70,8 +70,10 @@
 .vpa .lx-chico.lg { width: 46px; height: 46px; border-radius: 14px; font-size: 18px; }
 
 /* Conversaciones: lista | chat | datos del cliente, en una sola tarjeta */
-.vpa .lx-inbox-wrap { display: flex; flex-direction: column; gap: 14px; }
-.vpa .lx-inbox { display: grid; grid-template-columns: 340px minmax(0, 1fr) 300px; height: calc(100dvh - 190px); min-height: 600px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+/* Conversaciones va de borde a borde (la página no tiene márgenes) y se puede ver en pantalla completa. */
+.vpa .lx-inbox-wrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.vpa .lx-inbox-wrap.full { position: fixed; inset: 0; z-index: 90; background: var(--page); }
+.vpa .lx-inbox { display: grid; grid-template-columns: 340px minmax(0, 1fr) 320px; flex: 1; height: 100%; min-height: 0; background: var(--card); overflow: hidden; }
 .vpa .lx-inbox.noside { grid-template-columns: 340px minmax(0, 1fr); }
 .vpa .lx-ilist { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .vpa .lx-ilh { padding: 14px 14px 0; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line); }
@@ -202,3 +204,23 @@
 .vpa .vpa-ib.sm { width: 32px; height: 32px; color: var(--tx); }
 .vpa .vpa-ib.danger { color: var(--red); }
 .vpa .lx-fic { width: 38px; height: 38px; border-radius: 10px; background: var(--soft); font-size: 10.5px; font-weight: 800; color: var(--mut); display: flex; align-items: center; justify-content: center; flex: none; text-transform: uppercase; }
+
+
+/* Atender yo / Devolver a la IA */
+.vpa .lx-take { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px 0 12px; border-radius: 999px; border: 0; background: var(--acc); color: var(--acc-on); font: inherit; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: 0 6px 16px rgba(0, 109, 67, .22); transition: filter .15s, transform .15s; }
+.vpa .lx-take:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.vpa .lx-take.back { background: var(--warnsoft); color: var(--warn); box-shadow: none; }
+.vpa .lx-take:disabled { opacity: .6; cursor: default; }
+
+/* Del cliente */
+.vpa .lx-score { display: flex; align-items: center; gap: 10px; }
+.vpa .lx-score b { font-weight: 800; font-size: 13px; }
+.vpa .lx-meter { flex: 1; height: 8px; border-radius: 999px; background: var(--active); overflow: hidden; }
+.vpa .lx-meter i { display: block; height: 100%; border-radius: 999px; background: var(--acc); }
+.vpa .lx-pchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vpa .lx-pchip { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); font-size: 12px; font-weight: 700; }
+
+/* Notificaciones de Vase (pantalla de app.vase.ar) en un panel al costado. */
+.vpa .lx-vnotif { position: fixed; inset: 0; z-index: 70; background: var(--scrim); display: flex; justify-content: flex-end; visibility: hidden; opacity: 0; transition: opacity .15s; }
+.vpa .lx-vnotif.open { visibility: visible; opacity: 1; }
+.vpa .lx-vnotif iframe { width: 480px; max-width: 100%; height: 100%; border: 0; background: var(--card); box-shadow: var(--sh-lg); }
