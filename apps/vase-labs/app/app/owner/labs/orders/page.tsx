@@ -64,9 +64,10 @@ export default async function LabsOrdersPage() {
     <div className="vpa-stack" style={{ gap: 18 }}>
       <PanelKpis
         items={[
-          { label: "Pedidos por chat", value: displayOrders.length },
-          { label: "Por preparar", value: toPrepare },
-          { label: "Vendido", value: new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(sold) },
+          { label: "Pedidos por chat", value: displayOrders.length, detail: "Los arma el asistente" },
+          { label: "Por preparar", value: toPrepare, detail: toPrepare ? "Te están esperando" : "Nada pendiente", tone: toPrepare ? "dn" : "up" },
+          { label: "Listos para entregar", value: displayOrders.filter((order) => order.operationalStatus === "READY").length, detail: "Retiro o envío" },
+          { label: "Vendido", value: new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(sold), detail: "Sin cancelados" },
         ]}
       />
       <OrdersWorkspace

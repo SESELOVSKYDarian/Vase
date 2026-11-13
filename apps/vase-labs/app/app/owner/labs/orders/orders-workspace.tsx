@@ -71,6 +71,16 @@ function stepsFor(order: OrderRow) {
 }
 
 const CHANNEL_NAME: Record<string, string> = { WHATSAPP: "WhatsApp", INSTAGRAM: "Instagram", MESSENGER: "Messenger", FACEBOOK: "Messenger" };
+const CHANNEL_COLOR: Record<string, string> = { WHATSAPP: "#25d366", INSTAGRAM: "linear-gradient(135deg, #f58529, #dd2a7b 55%, #8134af)", MESSENGER: "#1877f2", FACEBOOK: "#1877f2" };
+const CHANNEL_ICON: Record<string, string> = { WHATSAPP: "whatsapp", INSTAGRAM: "instagram", MESSENGER: "facebook", FACEBOOK: "facebook" };
+
+function when(value: string) {
+  const at = new Date(value);
+  const minutes = Math.round((Date.now() - at.getTime()) / 60_000);
+  if (minutes < 60) return `hace ${Math.max(1, minutes)} min`;
+  if (minutes < 60 * 24) return `hace ${Math.round(minutes / 60)} h`;
+  return new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(at);
+}
 
 function money(value: number, currency: string) {
   return new Intl.NumberFormat("es-AR", { style: "currency", currency }).format(value);
@@ -154,18 +164,20 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
 
   return (
     <>
-      <div className="vpa-seg" role="tablist" aria-label="Filtrar pedidos">
-        {FILTERS.map((item) => {
-          const count = orders.filter((order) => inFilter(order.operationalStatus, item.id)).length;
-          return (
-            <button key={item.id} type="button" role="tab" aria-selected={filter === item.id} className={filter === item.id ? "on" : ""} onClick={() => setFilter(item.id)}>
-              {item.label} {count ? <span className="vpa-mut">{count}</span> : null}
-            </button>
-          );
-        })}
-      </div>
-
       <section className="vpa-card" aria-label="Pedidos">
+        <div className="vpa-sech">
+          <div className="vpa-seg" role="tablist" aria-label="Filtrar pedidos">
+            {FILTERS.map((item) => {
+              const count = orders.filter((order) => inFilter(order.operationalStatus, item.id)).length;
+              return (
+                <button key={item.id} type="button" role="tab" aria-selected={filter === item.id} className={filter === item.id ? "on" : ""} onClick={() => setFilter(item.id)}>
+                  {item.label} {count ? <span className="vpa-mut">{count}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+          <span className="vpa-mut" style={{ fontSize: 12.5 }}>Tocá un pedido para ver el detalle y cambiar su estado.</span>
+        </div>
         {visible.length ? (
           visible.map((order) => {
             const state = STATUS[order.operationalStatus] ?? { label: order.operationalStatus, tone: "n" as PanelTone };
@@ -173,9 +185,15 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
             const at = orderSteps.findIndex((step) => step.status === order.operationalStatus);
             return (
               <button key={order.id} type="button" className="vpa-ordrow" onClick={() => { setSelectedId(order.id); setPendingStatus(null); setFeedback(null); }}>
+                <span className="lx-chico sm" style={{ background: CHANNEL_COLOR[order.channel] ?? "var(--soft)" }} aria-hidden="true">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {CHANNEL_ICON[order.channel] ? <img src={`/icons/channels/${CHANNEL_ICON[order.channel]}.svg`} alt="" /> : null}
+                </span>
                 <div className="vpa-g1">
                   <b>N.º {publicNumber(order.orderNumber)} · {order.customerName || order.customerPhone || "Cliente sin nombre"}</b>
-                  <span>{CHANNEL_NAME[order.channel] ?? order.channel} · {date(order.updatedAt)}</span>
+                  <span>
+                    {order.items.map((item) => `${item.quantity || 1}× ${item.name || "Producto"}`).join(", ") || CHANNEL_NAME[order.channel] || order.channel}
+                  </span>
                 </div>
                 {at >= 0 ? (
                   <span className="vpa-dots" aria-hidden="true">
@@ -184,6 +202,7 @@ export default function OrdersWorkspace({ orders }: { orders: OrderRow[] }) {
                 ) : null}
                 <PanelTag tone={state.tone}>{state.label}</PanelTag>
                 <b style={{ minWidth: 96, textAlign: "right" }}>{money(order.totalAmount, order.currency)}</b>
+                <small className="vpa-mut" style={{ minWidth: 72, textAlign: "right", fontSize: 12 }} title={date(order.updatedAt)}>{when(order.updatedAt)}</small>
                 <ChevronRight size={17} aria-hidden="true" />
               </button>
             );

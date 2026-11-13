@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { CircleHelp } from "lucide-react";
 import { PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { labsNavigationGroups, labsSectionTitles, resolveLabsSection } from "./labs-owner-nav";
+import "./labs-panel.css";
 
 const HELP_URL = "https://help.vase.ar";
 
@@ -81,7 +82,7 @@ export function LabsShell({
         </a>
       }
     >
-      {children}
+      <div className="lx">{children}</div>
     </PanelShell>
   );
 }

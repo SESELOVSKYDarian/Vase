@@ -2,7 +2,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
-import { LabsSection } from "../labs-ui";
 import { CONVERSATION_TABS, LabsTabs } from "../labs-tabs";
 import { InboxWorkstation, type InboxConversationItem } from "./inbox-workstation";
 
@@ -110,19 +109,20 @@ export default async function LabsInboxPage({
   const data = await getInboxData();
   const requested = (await searchParams)?.conversationId;
   const initialActiveId = typeof requested === "string" ? requested : undefined;
+  const channelParam = (await searchParams)?.channel;
+  const initialChannel = typeof channelParam === "string" ? channelParam : undefined;
 
   // Los números y el resumen ya están en Inicio: acá queda solo la bandeja para responder.
   return (
-    <div className="labs-inbox-page space-y-6">
+    <div className="vpa-stack" style={{ gap: 14 }}>
       <LabsTabs tabs={CONVERSATION_TABS} />
-      <LabsSection className="labs-inbox-board-section">
-        <InboxWorkstation
-          tenantSlug={data.tenantSlug}
-          initialConversations={data.conversations}
-          channelStates={data.channelStates}
-          initialActiveId={initialActiveId}
-        />
-      </LabsSection>
+      <InboxWorkstation
+        tenantSlug={data.tenantSlug}
+        initialConversations={data.conversations}
+        channelStates={data.channelStates}
+        initialActiveId={initialActiveId}
+        initialChannel={initialChannel}
+      />
     </div>
   );
 }

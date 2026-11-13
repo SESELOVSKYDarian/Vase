@@ -31,6 +31,6 @@ describe("Labs canonical owner routes", () => {
     for (const href of ["/owner/knowledge", "/owner/knowledge/sabe", "/owner/knowledge/catalog", "/owner/inbox/trainer"]) {
       expect(tabs).toContain(`href: "${href}"`);
     }
-    expect(page).toContain('title="Lo que sabe"');
+    expect(page).toContain("<h3>Lo que subiste</h3>");
   });
 });

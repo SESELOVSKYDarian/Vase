@@ -1,8 +1,7 @@
 "use client";
 
-import { ArrowDown, Bell, CheckCheck, CircleAlert, Clock3, Loader2, PanelRightClose, PanelRightOpen, PauseCircle, PlayCircle, RefreshCw, Send, Sparkles, UserRoundCheck, X } from "lucide-react";
+import { ArrowDown, Bell, CheckCheck, CircleAlert, Clock3, Loader2, PanelRightOpen, PauseCircle, PlayCircle, RefreshCw, Send, Sparkles, UserRoundCheck, X } from "lucide-react";
 import { type FormEvent, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { LabsStatusPill } from "../labs-ui";
 import {
   countInboxConversationsByChannel,
   filterInboxConversationsByChannel,
@@ -227,17 +226,21 @@ export function InboxWorkstation({
   initialConversations,
   channelStates,
   initialActiveId,
+  initialChannel,
 }: {
   tenantSlug: string;
   initialConversations: InboxConversationItem[];
   channelStates: InboxChannelState[];
   /** Conversación que se abre primero (cuando venís desde Inicio). */
   initialActiveId?: string;
+  /** Canal elegido al entrar (cuando venís desde Inicio › Por canal). */
+  initialChannel?: string;
 }) {
   const initialActive = initialConversations.find((conversation) => conversation.id === initialActiveId) ?? initialConversations[0];
   const [conversations, setConversations] = useState(() => sortConversations(initialConversations));
-  const [selectedChannel, setSelectedChannel] = useState<ChannelFilter>("ALL");
+  const [selectedChannel, setSelectedChannel] = useState<ChannelFilter>(() => normalizeInboxChannel(initialChannel ?? null) ?? "ALL");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todas");
+  const [search, setSearch] = useState("");
   const [showInfo, setShowInfo] = useState(true);
   const [activeId, setActiveId] = useState(initialActive?.id ?? "");
   const [draft, setDraft] = useState("");
@@ -271,10 +274,16 @@ export function InboxWorkstation({
   );
   const visibleConversations = useMemo(() => {
     const byChannel = selectedChannel === "ALL" ? conversations : filterInboxConversationsByChannel(conversations, selectedChannel);
-    if (statusFilter === "necesitan") return byChannel.filter(needsPerson);
-    if (statusFilter === "ia") return byChannel.filter((conversation) => !needsPerson(conversation));
-    return byChannel;
-  }, [conversations, selectedChannel, statusFilter]);
+    const term = search.trim().toLowerCase();
+    const bySearch = term
+      ? byChannel.filter((conversation) =>
+          [conversation.customerName, conversation.customerContact, conversation.summary, conversation.messages.at(-1)?.content]
+            .some((value) => value?.toLowerCase().includes(term)))
+      : byChannel;
+    if (statusFilter === "necesitan") return bySearch.filter(needsPerson);
+    if (statusFilter === "ia") return bySearch.filter((conversation) => !needsPerson(conversation));
+    return bySearch;
+  }, [conversations, selectedChannel, statusFilter, search]);
   const activeConversation = useMemo(
     () => visibleConversations.find((conversation) => conversation.id === activeId)
       ?? visibleConversations[0]
@@ -563,338 +572,311 @@ export function InboxWorkstation({
     }
   }
 
-  return (
-    <section className="labs-inbox-shell">
-      <div className="labs-inbox-filters">
-        <nav className="labs-inbox-channel-tabs" aria-label="Chats por canal">
-          <button
-            type="button"
-            className={selectedChannel === "ALL" ? "is-active" : ""}
-            aria-pressed={selectedChannel === "ALL"}
-            onClick={() => { setSelectedChannel("ALL"); setError(""); setNotice(""); }}
-          >
-            Todos <em>{conversations.length}</em>
-          </button>
-          {inboxChannels.map((channel) => {
-            const active = selectedChannel === channel;
-            const connected = channelStateMap.get(channel)?.status === "CONNECTED";
-            return (
-              <button
-                key={channel}
-                type="button"
-                className={active ? "is-active" : ""}
-                aria-pressed={active}
-                title={`${inboxChannelTitles[channel]} · ${connected ? "Conectado" : "No conectado"}`}
-                onClick={() => { setSelectedChannel(channel); setError(""); setNotice(""); }}
-              >
-                <img src={`/icons/channels/${channel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
-                <span className="sr-only">{inboxChannelLabels[channel]}</span>
-                <em>{channelCounts[channel]}</em>
-                {connected ? null : <i className="labs-inbox-off" aria-label="No conectado" />}
-              </button>
-            );
-          })}
-        </nav>
-        <div className="labs-inbox-status-tabs" role="tablist" aria-label="Filtrar por estado">
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={statusFilter === tab.id}
-              className={statusFilter === tab.id ? "is-active" : ""}
-              onClick={() => setStatusFilter(tab.id)}
-            >
-              {tab.label}
-              {tab.id === "necesitan" && pendingHumanCount > 0 ? <em>{pendingHumanCount}</em> : null}
-            </button>
-          ))}
-        </div>
-      </div>
+  const channelColor: Record<InboxChannel, string> = { WHATSAPP: "#25d366", INSTAGRAM: "linear-gradient(135deg, #f58529, #dd2a7b 55%, #8134af)", FACEBOOK: "#1877f2" };
+  const channelIcon = (channel: InboxChannel, size: "sm" | "md" = "sm") => (
+    <span className={size === "sm" ? "lx-chico sm" : "lx-chico"} style={{ background: channelColor[channel] }} aria-hidden="true">
+      <img src={`/icons/channels/${channel.toLowerCase()}.svg`} alt="" />
+    </span>
+  );
 
+  return (
+    <section className="lx-inbox-wrap">
       {pendingHumanCount > 0 && statusFilter !== "necesitan" ? (
-        <div className="labs-inbox-alert" aria-live="polite">
-          <Bell aria-hidden="true" />
-          <span>{pendingHumanCount} {pendingHumanCount === 1 ? "conversación te necesita" : "conversaciones te necesitan"}</span>
-          <button type="button" onClick={() => setStatusFilter("necesitan")}>Ver</button>
+        <div className="lx-alert" aria-live="polite">
+          <span className="ic" aria-hidden="true"><Bell size={20} /></span>
+          <div className="vpa-g1">
+            <b>{pendingHumanCount} {pendingHumanCount === 1 ? "conversación te necesita" : "conversaciones te necesitan"}</b>
+            <span className="t">La IA las pasó a una persona.</span>
+          </div>
+          <button type="button" className="vpa-btn ink" onClick={() => setStatusFilter("necesitan")}>Ver</button>
         </div>
       ) : null}
 
-      <div className={`labs-inbox-workstation${activeConversation && showInfo ? " has-info" : ""}`}>
-      <aside className="labs-inbox-queue" aria-label="Pendientes de atencion">
-        <div className="labs-inbox-queue-heading">
-          <span>{selectedChannel === "ALL" ? "Conversaciones" : inboxChannelTitles[selectedChannel]}</span>
-          <strong>{visibleConversations.length}</strong>
-        </div>
-        {visibleConversations.length === 0 ? (
-          <div className="labs-inbox-channel-empty">
-            <img src={`/icons/channels/${activeChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
-            <strong>{statusFilter === "todas" ? "No hay conversaciones de este canal" : "No hay conversaciones acá"}</strong>
-            <span>Los mensajes nuevos de {emptyLabel} aparecen acá solos.</span>
-            <small>
-              {channelStateMap.get(activeChannel)?.lastError
-                ? `Último mensaje recibido con error: ${channelStateMap.get(activeChannel)?.lastError}`
-                : channelStateMap.get(activeChannel)?.lastSyncedAt
-                  ? `Último mensaje recibido: ${formatDate(channelStateMap.get(activeChannel)?.lastSyncedAt ?? null)}`
-                  : "Sin webhooks recibidos"}
-            </small>
-          </div>
-        ) : null}
-        {visibleConversations.map((conversation) => {
-          const latestMessage = conversation.messages.at(-1);
-          const active = conversation.id === activeId;
-          const hasHandoff = conversation.escalatedToHuman || conversation.handoffs.length > 0;
-          const name = conversation.customerName ?? conversation.customerContact ?? "Cliente";
-          const preview = latestMessage
-            ? latestMessage.direction === "OUTBOUND"
-              ? `${messageAuthor(latestMessage)}: ${latestMessage.content}`
-              : latestMessage.content
-            : conversation.summary ?? "Sin mensajes";
-          return (
-            <button
-              type="button"
-              key={conversation.id}
-              onClick={() => setActiveId(conversation.id)}
-              className={active ? "is-active" : ""}
-              aria-current={active ? "true" : undefined}
-            >
-              <span className="labs-inbox-avatar" aria-hidden="true">
-                {initials(name)}
-                <img src={`/icons/channels/${channelOf(conversation).toLowerCase()}.svg`} alt="" />
-              </span>
-              <span className="labs-inbox-queue-body">
-                <span className="labs-inbox-queue-title">
-                  <strong>{name}</strong>
-                  <time dateTime={conversation.lastMessageAt ?? undefined}>{formatQueueTime(conversation.lastMessageAt)}</time>
-                </span>
-                <span className="labs-inbox-queue-meta">
-                  <small>{preview}</small>
-                  {hasHandoff ? <em title="Te necesita">Te necesita</em> : null}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </aside>
-
-      {activeConversation ? (
-      <article className="labs-inbox-thread labs-inbox-thread-card">
-        <header>
-          <div className="labs-inbox-contact">
-            <span className="labs-inbox-avatar is-large" aria-hidden="true">{initials(activeName)}</span>
-            <div>
-              <h2>{activeName}</h2>
-              <span>
-                <img src={`/icons/channels/${activeChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
-                {inboxChannelLabels[activeChannel]}
-                {activeContact ? ` · ${activeContact}` : ""}
-                {` · ${activeConversation.messageCount} mensaje${activeConversation.messageCount === 1 ? "" : "s"}`}
-              </span>
+      <div className={`lx-inbox${activeConversation && showInfo ? "" : " noside"}`}>
+        <aside className="lx-ilist" aria-label="Conversaciones">
+          <div className="lx-ilh">
+            <div className="lx-srch">
+              <input className="vpa-inp" placeholder="Buscar" aria-label="Buscar" value={search} onChange={(event) => setSearch(event.target.value)} />
+              <div className="lx-chdots" role="group" aria-label="Canal">
+                {inboxChannels.map((channel) => {
+                  const active = selectedChannel === channel;
+                  const connected = channelStateMap.get(channel)?.status === "CONNECTED";
+                  return (
+                    <button
+                      key={channel}
+                      type="button"
+                      className={`lx-chd${active ? " on" : selectedChannel === "ALL" ? "" : " off"}`}
+                      style={{ background: channelColor[channel] }}
+                      aria-pressed={active}
+                      title={`${inboxChannelTitles[channel]} · ${channelCounts[channel]} · ${connected ? "Conectado" : "No conectado"}`}
+                      onClick={() => { setSelectedChannel(active ? "ALL" : channel); setError(""); setNotice(""); }}
+                    >
+                      <img src={`/icons/channels/${channel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
+                      <span className="sr-only">{inboxChannelLabels[channel]}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-          <div className="labs-inbox-actions">
-            <LabsStatusPill
-              label={activeConversation.escalatedToHuman ? "La atendés vos" : conversationStatusLabel(activeConversation.status)}
-              tone={activeConversation.escalatedToHuman || activeConversation.status === "ESCALATED" ? "warning" : "success"}
-            />
-            <button
-              type="button"
-              onClick={() => void (activeConversation.escalatedToHuman ? reactivateAi() : requestHandoff())}
-              disabled={handoffBusy}
-              aria-label={activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA y atender yo"}
-              title={activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA"}
-            >
-              {handoffBusy
-                ? <Loader2 className="animate-spin" aria-hidden="true" />
-                : activeConversation.escalatedToHuman
-                  ? <PlayCircle aria-hidden="true" />
-                  : <PauseCircle aria-hidden="true" />}
-              <span>{activeConversation.escalatedToHuman ? "Devolver a la IA" : "Atender yo"}</span>
-            </button>
-            <button type="button" onClick={() => void refreshConversation()} aria-label="Actualizar hilo">
-              {refreshing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowInfo((value) => !value)}
-              aria-pressed={showInfo}
-              aria-label={showInfo ? "Ocultar datos del cliente" : "Ver datos del cliente"}
-              title={showInfo ? "Ocultar datos del cliente" : "Ver datos del cliente"}
-            >
-              {showInfo ? <PanelRightClose aria-hidden="true" /> : <PanelRightOpen aria-hidden="true" />}
-            </button>
-          </div>
-        </header>
-
-        {activeConversation.handoffs[0] ? (
-          <div className="labs-inbox-handoff">
-            <UserRoundCheck aria-hidden="true" />
-            <span>{activeConversation.handoffs[0].reason}</span>
-          </div>
-        ) : null}
-
-        <div className="labs-inbox-message-viewport">
-          <div
-            ref={threadRef}
-            className="labs-inbox-messages"
-            aria-live="polite"
-            onScroll={handleThreadScroll}
-          >
-            {activeConversation.messages.length === 0 ? (
-              <p className="labs-inbox-day"><span>Sin mensajes todavía</span></p>
+            <div className="lx-stabs" role="tablist" aria-label="Estado">
+              {STATUS_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={statusFilter === tab.id}
+                  className={statusFilter === tab.id ? "on" : ""}
+                  onClick={() => setStatusFilter(tab.id)}
+                >
+                  {tab.label}
+                  {tab.id === "necesitan" && pendingHumanCount > 0 ? <em>{pendingHumanCount}</em> : null}
+                </button>
+              ))}
+            </div>
+            {selectedChannel !== "ALL" ? (
+              <div className="lx-chnote">
+                <span>{inboxChannelTitles[selectedChannel]} · {channelCounts[selectedChannel]} conversaciones</span>
+                <button type="button" className="vpa-lnk" onClick={() => setSelectedChannel("ALL")}>Ver todos</button>
+              </div>
             ) : null}
-            {activeConversation.messages.map((message, index) => {
-              const previous = activeConversation.messages[index - 1];
-              const startsDay = !previous || dayKey(previous.createdAt) !== dayKey(message.createdAt);
-              const author = messageAuthor(message);
-              const continuesGroup = Boolean(previous) && !startsDay && messageAuthor(previous) === author;
-              const delivery = message.direction === "OUTBOUND"
-                ? resolveInboxMessageDelivery(message.delivery)
-                : null;
-              const bubbleKind = message.direction !== "OUTBOUND" ? "is-inbound" : author === "IA" ? "is-outbound is-ai" : "is-outbound is-human";
+          </div>
+          <div className="lx-icards">
+            {visibleConversations.length === 0 ? (
+              <div className="lx-iempty">
+                <b>{search.trim() ? "Nada con esa búsqueda" : statusFilter === "todas" ? (selectedChannel === "ALL" ? "Todavía no hay conversaciones acá" : "No hay conversaciones de este canal") : "No hay conversaciones con estos filtros"}</b>
+                <span>Los mensajes nuevos de {emptyLabel} aparecen acá solos.</span>
+                {selectedChannel !== "ALL" ? (
+                  <small>
+                    {channelStateMap.get(activeChannel)?.lastError
+                      ? `Último mensaje recibido con error: ${channelStateMap.get(activeChannel)?.lastError}`
+                      : channelStateMap.get(activeChannel)?.lastSyncedAt
+                        ? `Último mensaje recibido: ${formatDate(channelStateMap.get(activeChannel)?.lastSyncedAt ?? null)}`
+                        : "Todavía no llegó ningún mensaje"}
+                  </small>
+                ) : null}
+              </div>
+            ) : null}
+            {visibleConversations.map((conversation) => {
+              const latestMessage = conversation.messages.at(-1);
+              const active = conversation.id === activeId;
+              const name = conversation.customerName ?? conversation.customerContact ?? "Cliente";
+              const preview = latestMessage
+                ? latestMessage.direction === "OUTBOUND"
+                  ? `${messageAuthor(latestMessage)}: ${latestMessage.content}`
+                  : latestMessage.content
+                : conversation.summary ?? "Sin mensajes";
               return (
-                <Fragment key={message.id}>
-                  {startsDay ? (
-                    <p className="labs-inbox-day"><span>{formatDay(message.createdAt)}</span></p>
-                  ) : null}
-                  <div className={`labs-inbox-bubble ${bubbleKind}${continuesGroup ? " is-grouped" : ""}`}>
-                    {message.direction === "OUTBOUND" && !continuesGroup ? (
-                      <span className="labs-inbox-bubble-author">
-                        {author === "IA" ? <Sparkles aria-hidden="true" /> : <UserRoundCheck aria-hidden="true" />}
-                        {author === "IA" ? "Respuesta IA" : "Equipo"}
-                      </span>
-                    ) : null}
-                    <p>{message.content}</p>
-                    <div className="labs-inbox-bubble-meta">
-                      <time dateTime={message.createdAt} title={formatDate(message.createdAt)}>{formatTime(message.createdAt)}</time>
-                      {delivery ? (
-                        <span
-                          className={`labs-inbox-delivery is-${delivery.tone}`}
-                          title={delivery.detail}
-                          aria-label={delivery.label}
-                        >
-                          {delivery.tone === "sent"
-                            ? <CheckCheck aria-hidden="true" />
-                            : delivery.tone === "failed"
-                              ? <CircleAlert aria-hidden="true" />
-                              : <Clock3 aria-hidden="true" />}
-                          {delivery.tone === "sent" ? null : delivery.label}
-                        </span>
-                      ) : null}
-                    </div>
-                    {delivery?.tone === "failed" ? (
-                      <small className="labs-inbox-delivery-error" role="status">
-                        {formatInboxDeliveryError({
-                          code: message.delivery?.error ?? "META_SEND_FAILED",
-                        })}
-                      </small>
-                    ) : null}
-                  </div>
-                </Fragment>
+                <button
+                  type="button"
+                  key={conversation.id}
+                  onClick={() => setActiveId(conversation.id)}
+                  className={active ? "lx-irow on" : "lx-irow"}
+                  aria-current={active ? "true" : undefined}
+                >
+                  {channelIcon(channelOf(conversation))}
+                  <span className="vpa-g1">
+                    <b>{name}</b>
+                    <span>{preview}</span>
+                  </span>
+                  <span className="lx-irt">
+                    <time dateTime={conversation.lastMessageAt ?? undefined}>{formatQueueTime(conversation.lastMessageAt)}</time>
+                    {needsPerson(conversation) ? <span className="lx-ndot" aria-label="Te necesita" title="Te necesita" /> : null}
+                  </span>
+                </button>
               );
             })}
           </div>
-          {showJumpToLatest ? (
-            <button
-              type="button"
-              className="labs-inbox-jump-latest"
-              onClick={() => scrollToLatest()}
-              aria-label="Ir al último mensaje"
-              title="Ir al último mensaje"
-            >
-              <ArrowDown aria-hidden="true" />
-            </button>
-          ) : null}
-        </div>
+        </aside>
 
-        <form ref={composerRef} onSubmit={sendReply} className="labs-inbox-composer">
-          <label htmlFor="inbox-human-reply" className="sr-only">Respuesta humana</label>
-          <div className="labs-inbox-composer-field">
-            <textarea
-              ref={draftRef}
-              id="inbox-human-reply"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
-                event.preventDefault();
-                composerRef.current?.requestSubmit();
-              }}
-              rows={1}
-              maxLength={2000}
-              placeholder="Escribí un mensaje…"
-              disabled={busy}
-            />
-            <button type="submit" disabled={busy || !draft.trim()} aria-label="Enviar respuesta humana">
-              {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
-            </button>
-          </div>
-          {error ? <p role="alert">{error}</p> : null}
-          {notice ? <p className="is-success" aria-live="polite">{notice}</p> : null}
-          {!error && !notice ? (
-            <small className="labs-inbox-composer-hint">
-              {activeConversation.escalatedToHuman
-                ? "La IA está pausada en esta conversación."
-                : "Al responder, la IA se pausa en esta conversación."}
-              {" "}Enter envía · Shift + Enter agrega una línea.
-            </small>
-          ) : null}
-        </form>
-      </article>
-      ) : null}
-
-      {activeConversation && showInfo ? (
-        <aside className="labs-inbox-info" aria-label="Datos del cliente">
-          <div className="labs-inbox-info-head">
-            <b>{activeName}</b>
-            <button type="button" className="vpa-x" aria-label="Cerrar datos del cliente" onClick={() => setShowInfo(false)}>
-              <X size={16} aria-hidden="true" />
-            </button>
-          </div>
-          <div className="labs-inbox-info-block">
-            <span className="vpa-lab">Lo que busca</span>
-            <p>{activeConversation.summary?.trim() || "Todavía no hay suficiente charla para resumirlo."}</p>
-          </div>
-          <div className="labs-inbox-info-block">
-            <span className="vpa-lab">Contacto</span>
-            <p>{activeContact ?? activeName}<br />{inboxChannelLabels[activeChannel]} · {activeConversation.messageCount} mensaje{activeConversation.messageCount === 1 ? "" : "s"}</p>
-          </div>
-          {activeConversation.escalatedToHuman ? (
-            <>
-              <div className="labs-inbox-info-block">
-                <span className="vpa-lab">Podés preguntarle</span>
-                <ul>
-                  {suggestions.ask.map((item) => <li key={item}>{item}</li>)}
-                </ul>
+        {activeConversation ? (
+          <article className="lx-ichat">
+            <header className="lx-ich">
+              {channelIcon(activeChannel, "md")}
+              <div className="vpa-g1">
+                <b>{activeName}</b>
+                <span>
+                  {inboxChannelLabels[activeChannel]}
+                  {activeContact ? ` · ${activeContact}` : ""}
+                  {` · ${activeConversation.messageCount} mensaje${activeConversation.messageCount === 1 ? "" : "s"}`}
+                </span>
               </div>
-              <div className="labs-inbox-info-block">
-                <span className="vpa-lab">Respuestas sugeridas</span>
-                <div className="labs-inbox-suggest">
+              <span className={`vpa-tag ${activeConversation.escalatedToHuman || activeConversation.status === "ESCALATED" ? "y" : "g"}`}>
+                <i />
+                {activeConversation.escalatedToHuman ? "La atendés vos" : conversationStatusLabel(activeConversation.status)}
+              </span>
+              <button
+                type="button"
+                className={`vpa-btn sm ${activeConversation.escalatedToHuman ? "line" : "ink"}`}
+                onClick={() => void (activeConversation.escalatedToHuman ? reactivateAi() : requestHandoff())}
+                disabled={handoffBusy}
+                title={activeConversation.escalatedToHuman ? "Reactivar IA" : "Pausar IA"}
+              >
+                {handoffBusy
+                  ? <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                  : activeConversation.escalatedToHuman
+                    ? <PlayCircle size={15} aria-hidden="true" />
+                    : <PauseCircle size={15} aria-hidden="true" />}
+                {activeConversation.escalatedToHuman ? "Devolver a la IA" : "Atender yo"}
+              </button>
+              <button type="button" className="vpa-ib" onClick={() => void refreshConversation()} aria-label="Actualizar" title="Actualizar">
+                {refreshing ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <RefreshCw size={16} aria-hidden="true" />}
+              </button>
+              {showInfo ? null : (
+                <button type="button" className="vpa-btn soft sm" onClick={() => setShowInfo(true)}>
+                  <PanelRightOpen size={15} aria-hidden="true" />
+                  Ver cliente
+                </button>
+              )}
+            </header>
+
+            {activeConversation.handoffs[0] ? (
+              <div className="lx-handoff">
+                <UserRoundCheck size={16} aria-hidden="true" />
+                <span>{activeConversation.handoffs[0].reason}</span>
+              </div>
+            ) : null}
+
+            <div className="lx-imsgs-wrap">
+              <div ref={threadRef} className="lx-imsgs" aria-live="polite" onScroll={handleThreadScroll}>
+                {activeConversation.messages.length === 0 ? <p className="lx-day"><span>Sin mensajes todavía</span></p> : null}
+                {activeConversation.messages.map((message, index) => {
+                  const previous = activeConversation.messages[index - 1];
+                  const startsDay = !previous || dayKey(previous.createdAt) !== dayKey(message.createdAt);
+                  const author = messageAuthor(message);
+                  const continuesGroup = Boolean(previous) && !startsDay && messageAuthor(previous) === author;
+                  const delivery = message.direction === "OUTBOUND" ? resolveInboxMessageDelivery(message.delivery) : null;
+                  const kind = message.direction !== "OUTBOUND" ? "in" : author === "IA" ? "out ai" : "out human";
+                  return (
+                    <Fragment key={message.id}>
+                      {startsDay ? <p className="lx-day"><span>{formatDay(message.createdAt)}</span></p> : null}
+                      <div className={`lx-msg ${kind}${continuesGroup ? " grouped" : ""}`}>
+                        {message.direction === "OUTBOUND" && !continuesGroup ? (
+                          <small>
+                            {author === "IA" ? <Sparkles size={12} aria-hidden="true" /> : <UserRoundCheck size={12} aria-hidden="true" />}
+                            {author === "IA" ? "Respuesta IA" : "Equipo"}
+                          </small>
+                        ) : null}
+                        <p>{message.content}</p>
+                        <span className="lx-msg-meta">
+                          <time dateTime={message.createdAt} title={formatDate(message.createdAt)}>{formatTime(message.createdAt)}</time>
+                          {delivery ? (
+                            <span className={`lx-delivery ${delivery.tone}`} title={delivery.detail} aria-label={delivery.label}>
+                              {delivery.tone === "sent"
+                                ? <CheckCheck size={13} aria-hidden="true" />
+                                : delivery.tone === "failed"
+                                  ? <CircleAlert size={13} aria-hidden="true" />
+                                  : <Clock3 size={13} aria-hidden="true" />}
+                              {delivery.tone === "sent" ? null : delivery.label}
+                            </span>
+                          ) : null}
+                        </span>
+                        {delivery?.tone === "failed" ? (
+                          <small className="lx-delivery-error" role="status">
+                            {formatInboxDeliveryError({ code: message.delivery?.error ?? "META_SEND_FAILED" })}
+                          </small>
+                        ) : null}
+                      </div>
+                    </Fragment>
+                  );
+                })}
+              </div>
+              {showJumpToLatest ? (
+                <button type="button" className="lx-jump" onClick={() => scrollToLatest()} aria-label="Ir al último mensaje" title="Ir al último mensaje">
+                  <ArrowDown size={16} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+
+            {activeConversation.escalatedToHuman ? (
+              <div className="lx-sugs">
+                <small>Podrías responder</small>
+                <div className="lx-sugl">
                   {suggestions.replies.map((reply) => (
-                    <button key={reply} type="button" onClick={() => { setDraft(reply); draftRef.current?.focus(); }}>
+                    <button key={reply} type="button" className="lx-sug" onClick={() => { setDraft(reply); draftRef.current?.focus(); }}>
                       {reply}
                     </button>
                   ))}
                 </div>
               </div>
-            </>
-          ) : (
-            <p className="vpa-mut">Si tocás <b>Atender yo</b>, la IA se pausa y te sugerimos qué preguntarle.</p>
-          )}
-        </aside>
-      ) : null}
+            ) : null}
 
-      {activeConversation ? null : (
-        <article className="labs-inbox-thread-empty" aria-live="polite">
-          <img src={`/icons/channels/${activeChannel.toLowerCase()}.svg`} alt="" aria-hidden="true" />
-          <h2>Esperando el primer mensaje</h2>
-          <p>Cuando un cliente te escriba por {emptyLabel}, la conversación se abre acá.</p>
-          <button type="button" onClick={() => void refreshConversationList()} disabled={refreshing}>
-            {refreshing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
-            Comprobar mensajes
-          </button>
-        </article>
-      )}
+            <form ref={composerRef} onSubmit={sendReply} className="lx-icomp">
+              <label htmlFor="inbox-human-reply" className="sr-only">Respuesta humana</label>
+              <div className="lx-icomp-row">
+                <textarea
+                  ref={draftRef}
+                  id="inbox-human-reply"
+                  className="vpa-inp"
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+                    event.preventDefault();
+                    composerRef.current?.requestSubmit();
+                  }}
+                  rows={1}
+                  maxLength={2000}
+                  placeholder={activeConversation.escalatedToHuman ? "Escribile al cliente…" : "Escribí para atender vos (la IA se pausa)…"}
+                  disabled={busy}
+                />
+                <button type="submit" className="vpa-btn acc" disabled={busy || !draft.trim()}>
+                  {busy ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Send size={15} aria-hidden="true" />}
+                  Enviar
+                </button>
+              </div>
+              {error ? <p role="alert" className="lx-err">{error}</p> : null}
+              {notice ? <p className="lx-ok" aria-live="polite">{notice}</p> : null}
+              {!error && !notice ? (
+                <small className="lx-hint">
+                  {activeConversation.escalatedToHuman ? "La IA está pausada en esta conversación." : "Al responder, la IA se pausa en esta conversación."} Enter envía · Shift + Enter agrega una línea.
+                </small>
+              ) : null}
+            </form>
+          </article>
+        ) : (
+          <article className="lx-ichat lx-ichat-empty" aria-live="polite">
+            {channelIcon(activeChannel, "md")}
+            <b>Esperando el primer mensaje</b>
+            <span>Cuando un cliente te escriba por {emptyLabel}, la conversación se abre acá.</span>
+            <button type="button" className="vpa-btn line sm" onClick={() => void refreshConversationList()} disabled={refreshing}>
+              {refreshing ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}
+              Comprobar mensajes
+            </button>
+          </article>
+        )}
+
+        {activeConversation && showInfo ? (
+          <aside className="lx-iside" aria-label="Datos del cliente">
+            <div className="lx-isech">
+              <b>Del cliente</b>
+              <button type="button" className="vpa-x" aria-label="Cerrar datos del cliente" onClick={() => setShowInfo(false)}>
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="lx-isec">
+              <h4>Lo que busca</h4>
+              <p>{activeConversation.summary?.trim() || "Todavía no hay suficiente charla para resumirlo."}</p>
+            </div>
+            <div className="lx-isec">
+              <h4>Contacto</h4>
+              <p>{activeContact ?? activeName}</p>
+              <p className="vpa-mut">{inboxChannelLabels[activeChannel]} · {activeConversation.messageCount} mensaje{activeConversation.messageCount === 1 ? "" : "s"}</p>
+            </div>
+            <div className="lx-isec">
+              <h4>Podés preguntarle</h4>
+              <div className="lx-asks">
+                {suggestions.ask.map((item) => (
+                  <button key={item} type="button" className="lx-ask" onClick={() => { setDraft(`¿${item.charAt(0).toLowerCase()}${item.slice(1)}?`); draftRef.current?.focus(); }}>
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {activeConversation.escalatedToHuman ? null : (
+              <p className="vpa-mut lx-isnote">Si tocás <b>Atender yo</b>, la IA se pausa y te sugerimos qué responder.</p>
+            )}
+          </aside>
+        ) : null}
       </div>
     </section>
   );
