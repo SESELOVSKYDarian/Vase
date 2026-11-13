@@ -306,11 +306,10 @@ export function AjustesCorreo({ toast, goPagos }) {
 }
 
 // ───────────── Sistema de gestión ─────────────
-export function AjustesGestion({ editor, toast }) {
+export function AjustesGestion({ editor, toast, vaseUrl = 'https://app.vase.ar' }) {
     const manager = useIntegrationManager();
     const [showKey, setShowKey] = useState(false);
     const [confirmRotate, setConfirmRotate] = useState(false);
-    const [switchTo, setSwitchTo] = useState(null);
     const { loadManifest } = manager;
 
     useEffect(() => { loadManifest().catch(() => {}); }, [loadManifest]);
@@ -325,17 +324,15 @@ export function AjustesGestion({ editor, toast }) {
 
     return (
         <div className="vp-scol vp-gestion">
-            <PanelCard stack className="vp-card vp-sec" title="¿De dónde vienen tus productos?">
-                <div className="vp-two2">
-                    <button type="button" className={`vp-choice ${provider === 'EXTERNAL_API' ? 'on' : ''}`} onClick={() => provider !== 'EXTERNAL_API' && setSwitchTo('EXTERNAL_API')}>
-                        <b>Tu sistema de gestión</b><span>Tu sistema manda productos, precios y stock a Vase.</span>
-                        {provider === 'EXTERNAL_API' ? <span className="ck">En uso</span> : null}
-                    </button>
-                    <button type="button" className={`vp-choice ${provider === 'VASE_MANAGEMENT' ? 'on' : ''}`} onClick={() => provider !== 'VASE_MANAGEMENT' && setSwitchTo('VASE_MANAGEMENT')}>
-                        <b>Vase Management</b><span>Gestionás todo desde Vase, sin sistema externo.{manager.providerState?.managementAvailable ? '' : ' Requiere contratación.'}</span>
-                        {provider === 'VASE_MANAGEMENT' ? <span className="ck">En uso</span> : null}
-                    </button>
-                </div>
+            {/* De dónde salen los productos se elige una sola vez para todo Vase, en Ajustes › Mi negocio. */}
+            <PanelCard
+                stack
+                className="vp-card vp-sec"
+                title="¿De dónde vienen tus productos?"
+                description={provider === 'VASE_MANAGEMENT' ? 'De Vase Management.' : 'De tu sistema de gestión.'}
+                actions={<a className="vp-btn line sm" href={`${vaseUrl}/app/settings?tab=negocio`}>Cambiar en Mi negocio</a>}
+            >
+                <span className="vp-note">Se elige en Ajustes › Mi negocio de tu cuenta de Vase, porque lo usan todos tus productos.</span>
             </PanelCard>
 
             <div className="vp-pgrid">
@@ -372,16 +369,6 @@ export function AjustesGestion({ editor, toast }) {
                 </PanelCard>
             </div>
 
-            <Modal
-                open={Boolean(switchTo)}
-                onClose={() => setSwitchTo(null)}
-                title={switchTo === 'VASE_MANAGEMENT' ? '¿Pasar a Vase Management?' : '¿Volver a tu sistema de gestión?'}
-                description="Los productos, precios y stock pasan a venir de la nueva fuente. Vase revisa y acomoda los datos, puede tardar unos minutos."
-                footer={<>
-                    <button type="button" className="vp-btn soft" onClick={() => setSwitchTo(null)}>Cancelar</button>
-                    <button type="button" className="vp-btn acc" onClick={async () => { const target = switchTo; setSwitchTo(null); await manager.setIntegrationProvider(target); }}>Cambiar</button>
-                </>}
-            />
             <Modal
                 open={confirmRotate}
                 onClose={() => setConfirmRotate(false)}

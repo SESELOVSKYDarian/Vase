@@ -7,6 +7,7 @@ import { useEditorState } from '../hooks/admin/useEditorState';
 import useNotificationsManager from '../hooks/admin/useNotificationsManager';
 import useEvolutionStore from '../store/useEvolutionStore';
 import { navigate } from '../utils/navigation';
+import { isExternalAuthEnabled, submitCentralLogout } from '../utils/vaseAuth';
 import { isPiquimTenantIdentity, resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
 import { ComingSoon, GeneralHelp, HelpVideo, SectionHelp, Sidebar, Topbar } from './components/Shell';
 import './screens/screens.css';
@@ -261,7 +262,7 @@ export default function PanelApp() {
     } else if (sub === 'correo') {
         content = <AjustesCorreo toast={addToast} goPagos={() => go('ajustes', 'pagos')} />;
     } else if (sub === 'gestion') {
-        content = <AjustesGestion editor={editor} toast={addToast} />;
+        content = <AjustesGestion editor={editor} toast={addToast} vaseUrl={vaseUrl} />;
     } else if (sub === 'dominio') {
         content = <AjustesDominio user={user} toast={addToast} theme={theme} />;
     } else if (settingsPage) {
@@ -287,9 +288,14 @@ export default function PanelApp() {
                 store={store}
                 account={{
                     email: user?.email,
-                    name: user?.name || user?.full_name || user?.email?.split('@')[0] || 'Tu cuenta',
+                    // Igual que en app.vase.ar: el nombre de la persona y, si no tiene, el de la tienda.
+                    name: user?.name || user?.full_name || store.name || user?.email?.split('@')[0] || 'Tu cuenta',
                     vaseUrl,
-                    onLogout: () => { logout(); navigate('/login'); },
+                    onLogout: () => {
+                        logout();
+                        // Si entró desde Vase, se cierra todo Vase; si no, solo este panel.
+                        if (!(isExternalAuthEnabled() && submitCentralLogout())) navigate('/login');
+                    },
                     onHelp: () => setHelp('general'),
                 }}
             />

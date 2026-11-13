@@ -47,6 +47,26 @@ export const getExternalLoginUrl = () =>
 export const getExternalSignupUrl = () =>
     buildConfiguredUrl(import.meta.env.VITE_VASE_APP_SIGNUP_URL, '/register');
 
+// Cierra la sesión de Vase entera (app, Business y Labs), no solo la de este panel.
+// Es un formulario POST a app.vase.ar: así lo pide su ruta de salida, y el navegador termina en el ingreso de Vase.
+export const submitCentralLogout = () => {
+    if (typeof document === 'undefined') return false;
+    const baseUrl = normalizeUrl(import.meta.env.VITE_VASE_APP_URL || 'https://app.vase.ar');
+    let action;
+    try {
+        action = new URL('/api/auth/central-logout', baseUrl).toString();
+    } catch (err) {
+        return false;
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = action;
+    form.style.display = 'none';
+    document.body.appendChild(form);
+    form.submit();
+    return true;
+};
+
 export const isEditorHost = () => {
     if (typeof window === 'undefined') return false;
     const currentHost = normalizeHost(window.location.hostname);

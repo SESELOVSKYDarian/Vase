@@ -19,6 +19,7 @@ import {
   markAllNotificationsAsReadAction,
 } from "@/app/(platform)/app/notifications-actions";
 import { NavLink } from "@/components/layout/nav-link";
+import { useTenantLogo } from "@/components/layout/tenant-logo";
 import { CloudButton, SaveStatusProvider } from "@/components/layout/save-status";
 import { DashboardSupportWidget } from "@/components/support/dashboard-support-widget";
 import { SupportChatProvider } from "@/components/support/support-chat-context";
@@ -305,6 +306,7 @@ export function ClientShell({
   const unread = notifications.filter((notification) => !notification.isRead).length;
   const themeValue = useMemo(() => ({ theme, setTheme }), [theme]);
   const accountName = tenantLabel?.trim() || "Tu cuenta";
+  const tenantLogo = useTenantLogo();
   const activeId = section === "business" || section === "dominios" ? "productos" : section;
   const toItem = ({ id, href, label, icon: Icon }: { id: string; href: string; label: string; icon: typeof Home }) => ({
     id,
@@ -337,7 +339,12 @@ export function ClientShell({
                 {content}
               </NavLink>
             )}
-            account={{ initial: accountName.slice(0, 1).toUpperCase(), name: accountName, detail: currentUserName }}
+            account={{
+              // eslint-disable-next-line @next/next/no-img-element -- logo subido por el cliente, de cualquier origen
+              initial: tenantLogo ? <img src={tenantLogo} alt="" /> : accountName.slice(0, 1).toUpperCase(),
+              name: accountName,
+              detail: currentUserName,
+            }}
             accountMenu={(close) => (
               <>
                 <NavLink href="/app/settings" className="vpa-am" onClick={close}>

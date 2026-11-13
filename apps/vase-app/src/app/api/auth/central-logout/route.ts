@@ -3,6 +3,8 @@ import { signOut } from "@/auth";
 const productionOrigins = new Set([
   "https://app.vase.ar",
   "https://management.vase.ar",
+  // Panel de Vase Business: "Cerrar sesión" ahí cierra también la sesión de Vase.
+  "https://business.vase.ar",
 ]);
 
 function addConfiguredOrigin(origins: Set<string>, value: string | undefined) {

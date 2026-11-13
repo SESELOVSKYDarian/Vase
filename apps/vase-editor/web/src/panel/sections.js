@@ -8,7 +8,7 @@ export const SETTINGS_PAGES = [
     { id: 'seo', label: 'Google, redes y SEO', subtitle: 'Cómo te encuentran y cómo te ven al compartir' },
     { id: 'dominio', label: 'Dominio', subtitle: 'La dirección de tu tienda' },
     { id: 'correo', label: 'Correo', subtitle: 'Desde dónde salen los avisos' },
-    { id: 'gestion', label: 'Sistema de gestión', subtitle: 'Productos, precios y stock automáticos' },
+    { id: 'gestion', label: 'Sistema de gestión', subtitle: 'La conexión y la clave para tu sistema' },
 ];
 
 export const MENU = [

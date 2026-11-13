@@ -6,6 +6,8 @@ import { BillingCards } from "@/components/panel/billing-cards";
 import { AvatarUploader } from "@/components/panel/avatar-uploader";
 import { ThemePicker } from "@/components/panel/theme-picker";
 import { BusinessProfile } from "@/components/panel/business-profile";
+import { ProductSourceCard } from "@/components/panel/product-source";
+import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import { importBusinessProfileSeed } from "@/server/services/business-profile";
 import { DEFAULT_CURRENCY, DEFAULT_TIMEZONE } from "@/lib/business/business-profile";
 import { legacySocialLinks, type SocialLink } from "@/lib/business/social-links";
@@ -67,6 +69,20 @@ export default async function SettingsPage({
           prisma.tenantBillingProfile.findUnique({ where: { tenantId: membership.tenantId } }),
         ])
       : [null, [], null];
+  // Cómo se conectan tus productos: solo si tiene Business o Management, que son los que usan productos.
+  const usesProducts = dashboard.modules.some(
+    (module) => (module.key === "business" || module.key === "management") && module.isActive,
+  );
+  const [managementContract, managementModule] =
+    tab === "negocio" && usesProducts
+      ? await Promise.all([
+          prisma.tenantManagementContract.findUnique({ where: { tenantId: membership.tenantId }, select: { integrationProvider: true } }),
+          prisma.tenantModule.findUnique({
+            where: { tenantId_moduleId: { tenantId: membership.tenantId, moduleId: "vase_management" } },
+            select: { isActive: true },
+          }),
+        ])
+      : [null, null];
   const paymentsEnabled = isMercadoPagoConfigured();
   const billingProfile =
     tab === "facturacion" ? await prisma.tenantBillingProfile.findUnique({ where: { tenantId: membership.tenantId } }) : null;
@@ -187,6 +203,15 @@ export default async function SettingsPage({
             hours: branch.hours ?? "",
             isMain: branch.isMain,
           }))}
+        />
+      ) : null}
+
+      {tab === "negocio" && usesProducts ? (
+        <ProductSourceCard
+          source={managementContract?.integrationProvider ?? "EXTERNAL_API"}
+          managementAvailable={Boolean(managementContract && managementModule?.isActive)}
+          canEdit={isOwner}
+          businessSettingsUrl={BUSINESS_LAUNCH_PATH}
         />
       ) : null}
 
