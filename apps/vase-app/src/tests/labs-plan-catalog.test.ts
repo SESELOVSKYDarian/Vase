@@ -13,9 +13,9 @@ describe("Labs plan catalog selection", () => {
         id: "vase_labs",
         product: "LABS",
         submodules: [
-          { id: "labs-pro", key: "pro", name: "Pro" },
-          { id: "labs-growth", key: "growth", name: "Growth" },
-          { id: "labs-starter", key: "starter", name: "Starter" },
+          { id: "labs-pro", key: "pro" },
+          { id: "labs-growth", key: "growth" },
+          { id: "labs-starter", key: "starter" },
         ],
       },
     ]);

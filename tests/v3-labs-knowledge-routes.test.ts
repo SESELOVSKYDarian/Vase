@@ -8,7 +8,7 @@ import {
 } from "../apps/vase-labs/app/lib/knowledge-repository";
 import { createKnowledgePostHandler } from "../apps/vase-labs/app/api/labs/knowledge/route";
 import { createKnowledgeItemHandlers } from "../apps/vase-labs/app/api/labs/knowledge/[knowledgeId]/route";
-import { createExternalManagementCredentialsGetHandler } from "../apps/vase-labs/app/api/labs/external-management-credentials/route";
+import { createExternalManagementCredentialsGetHandler } from "../apps/vase-labs/app/api/labs/external-management-credentials/handler";
 import { createProductSyncCredentialsHandler } from "../apps/vase-editor/server/src/services/productSyncCredentials.js";
 
 function record(data: KnowledgeItemCreateData): KnowledgeItemRecord {

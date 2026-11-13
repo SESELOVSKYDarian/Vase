@@ -1,33 +1,28 @@
 import { forbidden } from "next/navigation";
-import { AppShell } from "@/components/layout/app-shell";
-import { PanelCard } from "@/components/ui/panel-card";
+import { TeamHome } from "@/components/panel/team-home";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
+import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 
 export default async function MemberPage() {
   let membership;
+  let session;
 
   try {
-    ({ membership } = await requireTenantRole(tenantRoles.MEMBER));
+    ({ membership, session } = await requireTenantRole(tenantRoles.MEMBER));
   } catch {
     forbidden();
   }
 
+  const dashboard = await getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole);
+  if (!dashboard) forbidden();
+
   return (
-    <AppShell
-      title="Member Workspace"
-      subtitle="Una experiencia limpia y enfocada para ejecutar tareas sin exponer controles sensibles."
-      tenantLabel={membership.tenant.name}
-    >
-      <PanelCard
-        title="Workspace esencial"
-        description="Este panel está deliberadamente simplificado para cumplir mínimo privilegio y reducir errores operativos."
-      >
-        <ul className="grid gap-4 text-sm leading-7 text-[var(--muted)] md:grid-cols-3">
-          <li className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5">Acceso a funciones asignadas por el tenant.</li>
-          <li className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5">Ninguna autorización crítica depende del frontend.</li>
-          <li className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5">Preparado para extender tareas, archivos y flujos.</li>
-        </ul>
-      </PanelCard>
-    </AppShell>
+    <TeamHome
+      role="MEMBER"
+      tenantName={membership.tenant.name}
+      userName={session.user.name ?? membership.tenant.name}
+      modules={dashboard.modules}
+      notifications={dashboard.notifications}
+    />
   );
 }

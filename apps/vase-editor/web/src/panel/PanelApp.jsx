@@ -7,6 +7,7 @@ import { useEditorState } from '../hooks/admin/useEditorState';
 import useNotificationsManager from '../hooks/admin/useNotificationsManager';
 import useEvolutionStore from '../store/useEvolutionStore';
 import { navigate } from '../utils/navigation';
+import { isExternalAuthEnabled, submitCentralLogout } from '../utils/vaseAuth';
 import { isPiquimTenantIdentity, resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
 import { ComingSoon, GeneralHelp, HelpVideo, SectionHelp, Sidebar, Topbar } from './components/Shell';
 import './screens/screens.css';
@@ -17,15 +18,17 @@ import Clientes from './screens/Clientes';
 import AjustesPrecios from './screens/AjustesPrecios';
 import AjustesSucursales from './screens/AjustesSucursales';
 import AjustesPagos from './screens/AjustesPagos';
-import AjustesEquipo from './screens/AjustesEquipo';
-import { AjustesCorreo, AjustesGestion, AjustesSeo } from './screens/AjustesForms';
+import { AjustesCorreo, AjustesSeo } from './screens/AjustesForms';
 import Catalogo from './catalog/Catalogo';
 import Envios from './envios/Envios';
 import Diseno from './diseno/Diseno';
 import Icon from './components/Icon';
 import Notifications from './components/Notifications';
 import AjustesDominio from './screens/AjustesDominio';
+import VaseSettingsFrame from './components/VaseSettingsFrame';
+import VaseNotificationsBell from './components/VaseNotificationsBell';
 import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
+import { useEditorAutosave } from './useEditorAutosave';
 // Último: los ajustes para celular le ganan a los estilos de cada pantalla.
 import './mobile.css';
 
@@ -47,7 +50,19 @@ const writeStorage = (key, value) => {
     }
 };
 
+// El modo claro u oscuro se elige en Ajustes de app.vase.ar y llega en una cookie de .vase.ar.
+const sharedTheme = () => {
+    try {
+        const match = document.cookie.match(/(?:^|;\s*)vase_theme=(light|dark)/);
+        return match ? match[1] : null;
+    } catch {
+        return null;
+    }
+};
+
 const initialTheme = () => {
+    const shared = sharedTheme();
+    if (shared) return shared;
     const saved = readStorage(THEME_KEY);
     if (saved === 'light' || saved === 'dark') return saved;
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -112,6 +127,7 @@ export default function PanelApp() {
     const { addToast } = useToast();
     const editor = useEditorState(user);
     const notifications = useNotificationsManager();
+    const autosave = useEditorAutosave(editor, user);
 
     const [path, setPath] = useState(window.location.pathname);
     const [theme, setThemeState] = useState(initialTheme);
@@ -161,6 +177,7 @@ export default function PanelApp() {
     const publish = async () => {
         const result = await editor.handleSaveAll();
         if (result?.success) {
+            if (result.published) await autosave.markPublished();
             addToast(result.published ? 'Cambios publicados en la tienda' : 'Guardado como borrador', 'success');
         } else {
             addToast(`No se pudo publicar: ${result?.details || result?.error || 'error desconocido'}`, 'error');
@@ -168,8 +185,10 @@ export default function PanelApp() {
     };
 
     const openNotifications = () => { setNotesOpen(true); notifications.refresh?.(); };
-    const status = editor.canUndo ? { dirty: true, text: 'Cambios sin publicar' } : { dirty: false, text: 'Todo publicado' };
+    const status = { dirty: autosave.unpublished, cloud: autosave.cloud, history: autosave.history, toast: addToast, theme, text: autosave.unpublished ? 'Cambios sin publicar' : 'Todo publicado' };
     const vaseUrl = String(import.meta.env.VITE_VASE_APP_URL || 'https://app.vase.ar').replace(/\/+$/, '');
+    // Las notificaciones son las de tu cuenta de Vase: las mismas en app, Business, Labs y el resto.
+    const vaseBell = <VaseNotificationsBell vaseUrl={vaseUrl} tenantSlug={tenant?.external_tenant_slug || tenant?.externalTenantSlug || ''} theme={theme} />;
 
     // Pantallas que arman su propio diseño (pestañas a todo el ancho y barra lateral derecha).
     let fullScreen = null;
@@ -201,6 +220,7 @@ export default function PanelApp() {
                 publishing={editor.saving}
                 badges={badges}
                 onNotifications={openNotifications}
+                bell={vaseBell}
                 onHelp={() => setHelp('section')}
                 onMenu={isPhone ? () => setNavOpen(true) : undefined}
                 phone={isPhone}
@@ -227,14 +247,31 @@ export default function PanelApp() {
     } else if (section === 'ajustes' && !sub) {
         content = (
             <div className="vp-alist">
-                <div className="vp-agrp">Tus ajustes</div>
-                {SETTINGS_PAGES.map((page) => (
+                <div className="vp-agrp">Tu cuenta de Vase · lo usan todos tus productos</div>
+                {SETTINGS_PAGES.filter((page) => page.vase).map((page) => (
+                    <button key={page.id} type="button" className="vp-arow" onClick={() => go('ajustes', page.id)}>
+                        <span className="g"><b>{page.label}</b><span>{page.subtitle}</span></span>
+                        <span className="vp-chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>
+                    </button>
+                ))}
+                <div className="vp-agrp">Tu tienda</div>
+                {SETTINGS_PAGES.filter((page) => !page.vase).map((page) => (
                     <button key={page.id} type="button" className="vp-arow" onClick={() => go('ajustes', page.id)}>
                         <span className="g"><b>{page.label}</b><span>{page.subtitle}</span></span>
                         <span className="vp-chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>
                     </button>
                 ))}
             </div>
+        );
+    } else if (sub === 'negocio' || sub === 'cuenta' || sub === 'gestion') {
+        // gestion: links viejos a Sistema de gestión, que ahora está en Mi negocio.
+        content = (
+            <VaseSettingsFrame
+                tab={sub === 'cuenta' ? 'perfil' : 'negocio'}
+                vaseUrl={vaseUrl}
+                tenantSlug={tenant?.external_tenant_slug || tenant?.externalTenantSlug || ''}
+                theme={theme}
+            />
         );
     } else if (sub === 'precios') {
         content = <AjustesPrecios editor={editor} user={user} toast={addToast} onSave={publish} goClients={() => go('clientes')} />;
@@ -246,12 +283,8 @@ export default function PanelApp() {
         content = <AjustesSeo editor={editor} onSave={publish} storeName={storeName} domain={tenant?.domain || tenant?.primary_domain || window.location.host} />;
     } else if (sub === 'correo') {
         content = <AjustesCorreo toast={addToast} goPagos={() => go('ajustes', 'pagos')} />;
-    } else if (sub === 'gestion') {
-        content = <AjustesGestion editor={editor} toast={addToast} />;
     } else if (sub === 'dominio') {
         content = <AjustesDominio user={user} toast={addToast} theme={theme} />;
-    } else if (sub === 'equipo') {
-        content = <AjustesEquipo user={user} toast={addToast} />;
     } else if (settingsPage) {
         content = <ComingSoon title={settingsPage.label} hint={settingsPage.hint} onOpenLegacy={() => openLegacy(settingsPage.legacy)} />;
     } else {
@@ -275,9 +308,14 @@ export default function PanelApp() {
                 store={store}
                 account={{
                     email: user?.email,
-                    name: user?.name || user?.full_name || user?.email?.split('@')[0] || 'Tu cuenta',
+                    // Igual que en app.vase.ar: el nombre de la persona y, si no tiene, el de la tienda.
+                    name: user?.name || user?.full_name || store.name || user?.email?.split('@')[0] || 'Tu cuenta',
                     vaseUrl,
-                    onLogout: () => { logout(); navigate('/login'); },
+                    onLogout: () => {
+                        logout();
+                        // Si entró desde Vase, se cierra todo Vase; si no, solo este panel.
+                        if (!(isExternalAuthEnabled() && submitCentralLogout())) navigate('/login');
+                    },
                     onHelp: () => setHelp('general'),
                 }}
             />
@@ -293,6 +331,7 @@ export default function PanelApp() {
                         publishing={editor.saving}
                         badges={badges}
                         onNotifications={openNotifications}
+                        bell={vaseBell}
                         onHelp={() => setHelp('section')}
                         onMenu={isPhone ? () => setNavOpen(true) : undefined}
                     />

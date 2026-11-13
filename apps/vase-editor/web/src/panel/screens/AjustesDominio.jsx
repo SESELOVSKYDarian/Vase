@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { panelFetch } from '../api';
 import { Modal } from '../components/Overlays';
 import { domainError, domainKind, domainStatus, isPlaceholderValue, isValidDomain, normalizeDomainInput, observedText, sortDomains } from '../dominio';
+import { PanelCard, PanelTag } from '@vase/ui/panel/pieces';
 
 // Ajustes › Dominio: tus direcciones, conectar un dominio propio y los datos para cargar en tu proveedor.
 export default function AjustesDominio({ user, toast, theme }) {
@@ -78,11 +79,12 @@ export default function AjustesDominio({ user, toast, theme }) {
 
     return (
         <div className="vp-scol vp-dominio">
-            <div className="vp-card vp-sec">
-                <div className="vp-sech">
-                    <h3>Tus direcciones</h3>
-                    <button type="button" className="vp-btn line sm" disabled={busy === 'check-all'} onClick={() => run('check-all', '/tenant/domains/check', { body: {}, ok: 'Estado actualizado' })}>{busy === 'check-all' ? 'Comprobando…' : 'Comprobar todas'}</button>
-                </div>
+            <PanelCard
+                stack
+                className="vp-card vp-sec"
+                title="Tus direcciones"
+                actions={<button type="button" className="vp-btn line sm" disabled={busy === 'check-all'} onClick={() => run('check-all', '/tenant/domains/check', { body: {}, ok: 'Estado actualizado' })}>{busy === 'check-all' ? 'Comprobando…' : 'Comprobar todas'}</button>}
+            >
                 {!domains.length ? <div className="vp-note">Todavía no tenés direcciones. Conectá tu dominio abajo.</div> : null}
                 {domains.map((item) => {
                     const status = domainStatus(item);
@@ -93,8 +95,8 @@ export default function AjustesDominio({ user, toast, theme }) {
                                 <a className="vp-dname" href={`https://${item.domain}`} target="_blank" rel="noopener noreferrer">{item.domain} ↗</a>
                                 <span>{domainKind(item)}{status.message ? ` · ${status.message}` : ''}</span>
                             </div>
-                            <span className={`vp-tag ${status.tone}`}><i />{status.label}</span>
-                            {item.is_primary ? <span className="vp-tag g"><i />Principal</span> : (
+                            <PanelTag tone={status.tone}>{status.label}</PanelTag>
+                            {item.is_primary ? <PanelTag tone="g">Principal</PanelTag> : (
                                 <button type="button" className="vp-btn line sm" disabled={Boolean(busy)} onClick={() => run(`primary-${item.domain}`, `/tenant/domains/${encodeURIComponent(item.domain)}/primary`, { method: 'PATCH', ok: `${item.domain} es ahora tu dirección principal.` })}>Hacer principal</button>
                             )}
                             {item.connection_type !== 'platform' ? (
@@ -104,23 +106,19 @@ export default function AjustesDominio({ user, toast, theme }) {
                         </div>
                     );
                 })}
-            </div>
+            </PanelCard>
 
             <div className="vp-pgrid">
-                <div className="vp-card vp-sec">
-                    <h3>Conectar otro dominio</h3>
-                    <p>El que compraste en NIC.ar, GoDaddy, Hostinger u otro proveedor.</p>
+                <PanelCard stack className="vp-card vp-sec" title="Conectar otro dominio" description="El que compraste en NIC.ar, GoDaddy, Hostinger u otro proveedor.">
                     <form className="vp-inline" onSubmit={connect}>
                         <input className="vp-inp" aria-label="Dominio" placeholder="mitienda.com" value={newDomain} onChange={(event) => setNewDomain(event.target.value)} />
                         <button type="submit" className="vp-btn acc" disabled={!draft || busy === 'connect'}>{busy === 'connect' ? 'Conectando…' : 'Conectar'}</button>
                     </form>
                     {newDomain && draft && !isValidDomain(draft) ? <span className="vp-note bad">Escribilo así: mitienda.com (sin https:// ni barras).</span> : null}
-                </div>
+                </PanelCard>
 
                 {platform.enabled ? (
-                    <div className="vp-card vp-sec">
-                        <h3>Dirección de Vase</h3>
-                        <p>Funciona siempre, aunque todavía no tengas dominio propio.</p>
+                    <PanelCard stack className="vp-card vp-sec" title="Dirección de Vase" description="Funciona siempre, aunque todavía no tengas dominio propio.">
                         <div className="vp-inline">
                             <span className="vp-pct" style={{ flex: 1 }}>
                                 <input aria-label="Nombre de tu dirección de Vase" value={subdomain} onChange={(event) => setSubdomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} />
@@ -128,17 +126,18 @@ export default function AjustesDominio({ user, toast, theme }) {
                             </span>
                             <button type="button" className="vp-btn line" disabled={busy === 'platform' || !subdomain} onClick={reservePlatform}>{busy === 'platform' ? 'Guardando…' : platform.assigned_domain ? 'Cambiar' : 'Reservar'}</button>
                         </div>
-                    </div>
+                    </PanelCard>
                 ) : null}
             </div>
 
             {current ? (
-                <div className="vp-card vp-sec">
-                    <div className="vp-sech">
-                        <h3>Datos para tu proveedor de dominio</h3>
-                        <button type="button" className="vp-btn acc sm" disabled={busy === `check-${current.domain}`} onClick={() => run(`check-${current.domain}`, '/tenant/domains/check', { body: { domain: current.domain }, ok: `Estado de ${current.domain} actualizado` })}>{busy === `check-${current.domain}` ? 'Comprobando…' : 'Comprobar conexión'}</button>
-                    </div>
-                    <p>Cargá estos datos en la sección DNS de donde compraste <b>{current.domain}</b>. Los cambios pueden tardar unas horas en verse.</p>
+                <PanelCard
+                    stack
+                    className="vp-card vp-sec"
+                    title="Datos para tu proveedor de dominio"
+                    description={<>Cargá estos datos en la sección DNS de donde compraste <b>{current.domain}</b>. Los cambios pueden tardar unas horas en verse.</>}
+                    actions={<button type="button" className="vp-btn acc sm" disabled={busy === `check-${current.domain}`} onClick={() => run(`check-${current.domain}`, '/tenant/domains/check', { body: { domain: current.domain }, ok: `Estado de ${current.domain} actualizado` })}>{busy === `check-${current.domain}` ? 'Comprobando…' : 'Comprobar conexión'}</button>}
+                >
                     {records.length ? (
                         <div className="vp-tblw">
                             <table className="vp-ltbl vp-dnstbl">
@@ -158,7 +157,7 @@ export default function AjustesDominio({ user, toast, theme }) {
                     ) : <div className="vp-note">{current.dns_hint || 'Este dominio no necesita datos extra.'}</div>}
                     {observedText(current) ? <div className={`vp-lock ${domainStatus(current).tone === 'g' ? 'ok' : ''}`}>Hoy {current.domain} apunta a: {observedText(current)}</div> : null}
                     {domainStatus(current).checkedAt ? <span className="vp-note">Comprobado {new Date(domainStatus(current).checkedAt).toLocaleString('es-AR')}</span> : null}
-                </div>
+                </PanelCard>
             ) : null}
 
             <Modal

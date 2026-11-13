@@ -157,7 +157,8 @@ export default auth((request: NextRequest) => {
       "/register",
       "/forgot-password",
       "/reset-password",
-      "/verify-email"
+      "/verify-email",
+      "/invite"
     ].includes(pathname);
 
   // 3. Lógica de Ruteo Multi-tenant (Wix-style)

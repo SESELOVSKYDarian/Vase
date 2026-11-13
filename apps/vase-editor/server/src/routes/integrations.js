@@ -15,7 +15,17 @@ import { syncIntegrationProducts } from '../services/integration.service.js';
 import { pool } from '../db.js';
 import { enqueueLabsCatalogSync, processLabsCatalogOutbox } from '../services/labsCatalogOutbox.js';
 import { createProductSyncCredentialsHandler } from '../services/productSyncCredentials.js';
-import { createBusinessCatalogSnapshotHandler } from '../services/businessCatalogSnapshot.js';
+import { createBusinessCatalogSnapshotHandler, resolveBusinessCatalogTenant } from '../services/businessCatalogSnapshot.js';
+import { invalidateVaseBusinessProfile, seedFromBusinessSettings } from '../services/vaseBusinessProfile.js';
+import { queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
+import { timingSafeEqual } from 'node:crypto';
+import { readConnectionStatus, rotateConnectionToken } from '../services/connectionStatus.js';
+
+function serviceTokenMatches(req) {
+  const expected = Buffer.from(String(process.env.SERVICE_TO_SERVICE_TOKEN || '').trim());
+  const supplied = Buffer.from(String(req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim());
+  return expected.length > 0 && expected.length === supplied.length && timingSafeEqual(expected, supplied);
+}
 
 export const integrationsRouter = Router();
 
@@ -82,6 +92,25 @@ integrationsRouter.get(
   })(req, res, next)
 );
 
+// Mi negocio (app.vase.ar): primera carga con lo que tenía la tienda y aviso de cambios.
+integrationsRouter.get('/internal/tenant/:tenantId/business-profile-seed', async (req, res, next) => {
+  if (!serviceTokenMatches(req)) return res.status(403).json({ error: 'forbidden' });
+  try {
+    const tenant = await resolveBusinessCatalogTenant(pool, String(req.params.tenantId || ''));
+    if (!tenant) return res.status(404).json({ error: 'BUSINESS_NOT_CONNECTED' });
+    const result = await queryTenantSettingsWithSeo(tenant.businessTenantId);
+    return res.json({ seed: seedFromBusinessSettings(result.rows[0] || {}) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+integrationsRouter.post('/internal/tenant/:tenantId/business-profile/invalidate', (req, res) => {
+  if (!serviceTokenMatches(req)) return res.status(403).json({ error: 'forbidden' });
+  invalidateVaseBusinessProfile(String(req.params.tenantId || ''));
+  return res.json({ ok: true });
+});
+
 integrationsRouter.use(async (req, res, next) => {
   try {
     await ensureProductSyncSchema();
@@ -92,6 +121,31 @@ integrationsRouter.use(async (req, res, next) => {
 });
 
 integrationsRouter.get('/schema/product', getProductSyncSchemaController);
+
+// Mi negocio (app.vase.ar) › Cómo se conectan tus productos: la conexión con el sistema de gestión.
+integrationsRouter.get('/internal/tenant/:tenantId/connection-status', async (req, res, next) => {
+  if (!serviceTokenMatches(req)) return res.status(403).json({ error: 'forbidden' });
+  try {
+    const status = await readConnectionStatus(pool, String(req.params.tenantId || '').trim());
+    if (!status) return res.status(404).json({ error: 'BUSINESS_NOT_CONNECTED' });
+    res.set('Cache-Control', 'no-store');
+    return res.json(status);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+integrationsRouter.post('/internal/tenant/:tenantId/connection-status/rotate-token', async (req, res, next) => {
+  if (!serviceTokenMatches(req)) return res.status(403).json({ error: 'forbidden' });
+  try {
+    const status = await rotateConnectionToken(pool, String(req.params.tenantId || '').trim());
+    if (!status) return res.status(404).json({ error: 'BUSINESS_NOT_CONNECTED' });
+    res.set('Cache-Control', 'no-store');
+    return res.json(status);
+  } catch (err) {
+    return next(err);
+  }
+});
 
 integrationsRouter.post('/management/events', async (req, res, next) => {
   try {

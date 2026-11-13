@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import BlockPropertiesEditor from '../../components/admin/evolution/BlockPropertiesEditor';
 import { INSPECTOR_TABS, SPACING, headingTab, sectionStyleOf, withSectionStyle } from '../../utils/sectionStyle';
+import { PanelSegmented } from '@vase/ui/panel/pieces';
 
 // Bloques que tienen foto o video aparte para celular (se cargan en Contenido).
 const MOBILE_MEDIA = { PiquimHero: 'la foto y el video para celular' };
@@ -13,11 +14,7 @@ function SpacingField({ label, value, onChange }) {
     return (
         <div className="vp-fld">
             <span className="vp-fl">{label}</span>
-            <div className="vp-seg">
-                {SPACING.map(([id, text]) => (
-                    <button key={id} type="button" className={value === id ? 'on' : ''} aria-pressed={value === id} onClick={() => onChange(id)}>{text}</button>
-                ))}
-            </div>
+            <PanelSegmented fill value={value} onChange={onChange} options={SPACING.map(([id, text]) => ({ value: id, label: text }))} />
         </div>
     );
 }

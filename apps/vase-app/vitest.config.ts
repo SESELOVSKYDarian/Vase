@@ -8,6 +8,8 @@ export default defineConfig({
       "@vase/auth": path.resolve(__dirname, "../../packages/auth/src/index.ts"),
       "@vase/contracts": path.resolve(__dirname, "../../packages/contracts/src/index.ts"),
       "@vase/internal-api": path.resolve(__dirname, "../../packages/internal-api/src/index.ts"),
+      "@vase/ui/panel.css": path.resolve(__dirname, "../../packages/ui/src/panel.css"),
+      "@vase/ui/panel": path.resolve(__dirname, "../../packages/ui/src/panel/index.ts"),
     },
   },
   test: {

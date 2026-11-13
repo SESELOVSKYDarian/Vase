@@ -6,6 +6,7 @@ import { panelFetch } from '../api';
 import { uploadPublicFile } from '../../utils/uploadsClient';
 import { formatFileSize } from '../../utils/specSheet';
 import { categoryPath, productThumb, productToDraft, tierUsage, variantMembers } from './model';
+import { PanelTag } from '@vase/ui/panel/pieces';
 
 const MAX_PDF_MB = 15;
 
@@ -245,7 +246,7 @@ export default function ProductInspector({ product, isNew, products, categories,
                     {fromSystem ? (
                         <>
                             <div className="vp-row"><div className="g"><b>No pisar mis cambios</b><span>La sincronización no cambia nombre, SKU, descripción, marca ni precio. El stock se sigue actualizando.</span></div><button type="button" className={`vp-tog ${draft.admin_locked ? '' : 'off'}`} role="switch" aria-checked={draft.admin_locked} aria-label="No pisar mis cambios" onClick={() => set({ admin_locked: !draft.admin_locked })} /></div>
-                            <div className="vp-row"><div className="g"><b>Sincronización</b><span>{product?.last_sync_at ? `Última: ${new Date(product.last_sync_at).toLocaleString('es-AR')}` : 'Sin datos de la última vez'}{product?.external_id ? ` · ID ${product.external_id}` : ''}</span></div><span className={`vp-tag ${product?.sync_status === 'synced' ? 'g' : 'y'}`}><i />{product?.sync_status === 'synced' ? 'Al día' : 'Revisar'}</span></div>
+                            <div className="vp-row"><div className="g"><b>Sincronización</b><span>{product?.last_sync_at ? `Última: ${new Date(product.last_sync_at).toLocaleString('es-AR')}` : 'Sin datos de la última vez'}{product?.external_id ? ` · ID ${product.external_id}` : ''}</span></div><PanelTag tone={product?.sync_status === 'synced' ? 'g' : 'y'}>{product?.sync_status === 'synced' ? 'Al día' : 'Revisar'}</PanelTag></div>
                         </>
                     ) : null}
                 </>
@@ -273,7 +274,7 @@ export default function ProductInspector({ product, isNew, products, categories,
                                 return (
                                     <tr key={tier.key || tier.slot}>
                                         <td data-label="Precio del sistema"><b>{tier.label || `Precio ${tier.slot}`}</b>{tier.label && tier.label !== `Precio ${tier.slot}` ? <span className="vp-note">Precio {tier.slot}</span> : null}</td>
-                                        <td data-label="Lo usa">{!priceLists ? <span className="vp-note">Cargando…</span> : used.length ? used.map((name) => <span key={name} className="vp-tag g" style={{ marginRight: 6 }}><i />{name}</span>) : <span className="vp-tag"><i />Sin usar</span>}</td>
+                                        <td data-label="Lo usa">{!priceLists ? <span className="vp-note">Cargando…</span> : used.length ? used.map((name) => <span key={name} className="vp-tag g" style={{ marginRight: 6 }}><i />{name}</span>) : <PanelTag>Sin usar</PanelTag>}</td>
                                         <td data-label="Valor" className="num"><b>${Math.round(Number(tier.value)).toLocaleString('es-AR')}</b></td>
                                     </tr>
                                 );

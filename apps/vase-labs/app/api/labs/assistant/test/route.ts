@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { decryptChannelSecret } from "../../../../lib/channel-secrets";
+import { buildBusinessProfileContext } from "../../../../lib/business-profile";
 import { labsCatalogService } from "../../../../lib/catalog-repository";
 import { labsPrisma } from "../../../../lib/db";
 import { createKnowledgeService, type KnowledgeRecord } from "../../../../lib/knowledge-service";
@@ -17,7 +18,8 @@ type TestHandlerDependencies = {
   }>;
   resolveApiKey(assistantId: string): Promise<string | null>;
   buildContext(assistantId: string): Promise<string>;
-  buildCatalogResources(globalTenantId: string): Promise<{
+  buildBusinessContext?(globalTenantId: string): Promise<string>;
+  buildCatalogResources(globalTenantId: string, query?: string): Promise<{
     context: string;
     allowedImageUrls: string[];
   }>;
@@ -54,11 +56,12 @@ export function createAssistantTestHandler(dependencies: TestHandlerDependencies
         return NextResponse.json({ error: "OPENAI_API_KEY_MISSING" }, { status: 409 });
       }
 
-      const [knowledgeContext, catalogResources] = await Promise.all([
+      const [businessContext, knowledgeContext, catalogResources] = await Promise.all([
+        dependencies.buildBusinessContext?.(resolved.assistant.globalTenantId).catch(() => "") ?? Promise.resolve(""),
         dependencies.buildContext(resolved.assistant.id),
-        dependencies.buildCatalogResources(resolved.assistant.globalTenantId),
+        dependencies.buildCatalogResources(resolved.assistant.globalTenantId, message),
       ]);
-      const context = [knowledgeContext, catalogResources.context].filter(Boolean).join("\n\n");
+      const context = [businessContext, knowledgeContext, catalogResources.context].filter(Boolean).join("\n\n");
       const reply = await dependencies
         .createReplyGenerator({ apiKey, model: resolved.assistant.model })
         .generateReply({
@@ -111,6 +114,7 @@ export const POST = createAssistantTestHandler({
     return decryptChannelSecret(secret.encryptedValue, encryptionSecret);
   },
   buildContext: knowledge.buildContext,
+  buildBusinessContext: buildBusinessProfileContext,
   buildCatalogResources: labsCatalogService.buildAiResources,
   createReplyGenerator({ apiKey, model }) {
     return createOpenAiReplyGenerator({ apiKey, model });

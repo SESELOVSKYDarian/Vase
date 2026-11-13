@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { channelChoice, paymentMethodsToggle, taxPercent, taxRateFromPercent, whatsappPreview } from '../ajustes';
+import { PanelCard, PanelSegmented } from '@vase/ui/panel/pieces';
 
 const CHANNELS = [
     ['both', 'WhatsApp o correo', 'El cliente elige cómo te manda el pedido.', ['whatsapp', 'email']],
@@ -65,8 +66,7 @@ export default function AjustesPagos({ editor, toast, onSave, storeName }) {
 
     return (
         <div className="vp-scol vp-pagos">
-            <div className="vp-card vp-sec">
-                <h3>¿Cómo te llega el pedido?</h3>
+            <PanelCard stack className="vp-card vp-sec" title="¿Cómo te llega el pedido?">
                 <div className="vp-three">
                     {CHANNELS.map(([id, label, help, channels]) => (
                         <button key={id} type="button" className={`vp-choice ${choice === id ? 'on' : ''}`} onClick={() => set({ order_channels: channels })}>
@@ -75,11 +75,10 @@ export default function AjustesPagos({ editor, toast, onSave, storeName }) {
                         </button>
                     ))}
                 </div>
-            </div>
+            </PanelCard>
 
             <div className="vp-pgrid">
-                <div className="vp-card vp-sec">
-                    <h3>WhatsApp que recibe los pedidos</h3>
+                <PanelCard stack className="vp-card vp-sec" title="WhatsApp que recibe los pedidos">
                     <div className="vp-fld">
                         <label htmlFor="pg-wa">Número con código de área</label>
                         <input id="pg-wa" className="vp-inp" inputMode="tel" placeholder="+54 223 555 1234" value={commerce.whatsapp_number || ''} onChange={(event) => set({ whatsapp_number: event.target.value })} />
@@ -89,10 +88,9 @@ export default function AjustesPagos({ editor, toast, onSave, storeName }) {
                         <span className="vp-fl">Así le llega el mensaje</span>
                         <p>{whatsappPreview(storeName)}</p>
                     </div>
-                </div>
+                </PanelCard>
 
-                <div className="vp-card vp-sec">
-                    <h3>IVA y datos legales</h3>
+                <PanelCard stack className="vp-card vp-sec" title="IVA y datos legales">
                     <div className="vp-fld">
                         <label htmlFor="pg-iva">IVA que se suma al total</label>
                         <span className="vp-pct">
@@ -105,23 +103,20 @@ export default function AjustesPagos({ editor, toast, onSave, storeName }) {
                         <label htmlFor="pg-legal">Razón social (para términos y condiciones)</label>
                         <input id="pg-legal" className="vp-inp" placeholder="Tu empresa S.R.L." value={commerce.legal_company_name || ''} onChange={(event) => set({ legal_company_name: event.target.value })} />
                     </div>
-                </div>
+                </PanelCard>
             </div>
 
-            <div className="vp-card vp-sec">
-                <h3>Formas de pago</h3>
+            <PanelCard stack className="vp-card vp-sec" title="Formas de pago">
                 {METHODS.map(([id, label, help]) => (
                     <div key={id} className="vp-row">
                         <div className="g"><b>{label}</b><span>{help}</span></div>
                         <button type="button" role="switch" aria-checked={methods.includes(id)} aria-label={label} className={`vp-tog ${methods.includes(id) ? '' : 'off'}`} onClick={() => toggleMethod(id)} />
                     </div>
                 ))}
-            </div>
+            </PanelCard>
 
             {methods.includes('transfer') ? (
-                <div className="vp-card vp-sec">
-                    <h3>Transferencia bancaria</h3>
-                    <p>Los datos que ve el cliente al terminar la compra.</p>
+                <PanelCard stack className="vp-card vp-sec" title="Transferencia bancaria" description="Los datos que ve el cliente al terminar la compra.">
                     <div className="vp-two2">
                         <div className="vp-fld"><label htmlFor="pg-bank">Banco</label><input id="pg-bank" className="vp-inp" placeholder="Banco Galicia" value={bank.bank || ''} onChange={(event) => setBank({ bank: event.target.value })} /></div>
                         <div className="vp-fld"><label htmlFor="pg-holder">Titular</label><input id="pg-holder" className="vp-inp" placeholder="Mi Negocio SRL" value={bank.holder || ''} onChange={(event) => setBank({ holder: event.target.value })} /></div>
@@ -130,11 +125,13 @@ export default function AjustesPagos({ editor, toast, onSave, storeName }) {
                     </div>
                     <div className="vp-fld">
                         <span className="vp-fl">Qué se muestra grande</span>
-                        <div className="vp-seg" style={{ maxWidth: 360 }}>
-                            <button type="button" className={highlight === 'alias' ? 'on' : ''} onClick={() => setBank({ highlight: 'alias' })}>Alias</button>
-                            <button type="button" className={highlight === 'cbu' ? 'on' : ''} onClick={() => setBank({ highlight: 'cbu' })}>CBU</button>
-                            <button type="button" className={!highlight ? 'on' : ''} onClick={() => setBank({ highlight: '' })}>Todo igual</button>
-                        </div>
+                        <PanelSegmented
+                            fill
+                            style={{ maxWidth: 360 }}
+                            value={highlight || ''}
+                            onChange={(next) => setBank({ highlight: next })}
+                            options={[{ value: 'alias', label: 'Alias' }, { value: 'cbu', label: 'CBU' }, { value: '', label: 'Todo igual' }]}
+                        />
                     </div>
                     <div className="vp-tprev" aria-label="Así lo ve el cliente">
                         {highlight ? (
@@ -145,12 +142,10 @@ export default function AjustesPagos({ editor, toast, onSave, storeName }) {
                         ) : <small>El cliente ve los cuatro datos del mismo tamaño.</small>}
                         <span>{rest || 'Completá los datos de arriba.'}</span>
                     </div>
-                </div>
+                </PanelCard>
             ) : null}
 
-            <div className="vp-card vp-sec">
-                <h3>Textos de la compra</h3>
-                <p>Si dejás un texto vacío se usa el de siempre (el que se ve en gris).</p>
+            <PanelCard stack className="vp-card vp-sec" title="Textos de la compra" description="Si dejás un texto vacío se usa el de siempre (el que se ve en gris).">
                 <div className="vp-two2">
                     {TEXTS.map(([key, label, placeholder, long]) => (
                         <div key={key} className="vp-fld">
@@ -161,7 +156,7 @@ export default function AjustesPagos({ editor, toast, onSave, storeName }) {
                         </div>
                     ))}
                 </div>
-            </div>
+            </PanelCard>
 
             <div className="vp-floatsave">
                 <span>{editor.canUndo ? 'Tenés cambios sin guardar.' : 'Todo guardado.'}</span>

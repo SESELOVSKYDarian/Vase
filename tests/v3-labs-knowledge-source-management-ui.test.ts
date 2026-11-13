@@ -137,9 +137,9 @@ describe("KnowledgeGroups source management", () => {
   });
 
   it("declares the post-delete focus target outside the empty/list branch", () => {
-    const page = readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"), "utf8");
+    const page = readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knows-page.tsx"), "utf8");
     const targetIndex = page.indexOf('id="knowledge-sources-focus-target"');
-    const branchIndex = page.indexOf("data.items.length === 0 ? (");
+    const branchIndex = page.indexOf("items.length === 0 ? (");
     expect(targetIndex).toBeGreaterThan(-1);
     expect(targetIndex).toBeLessThan(branchIndex);
     expect(page.slice(targetIndex, branchIndex)).toContain('tabIndex={-1}');

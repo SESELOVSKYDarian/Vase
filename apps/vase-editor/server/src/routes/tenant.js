@@ -15,6 +15,9 @@ import { buildTenantIntegrationManifest, resolveServerBaseUrl } from '../service
 import { applyPriceTierLabels, normalizePriceTierLabels } from '../services/priceTierLabels.js';
 import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
 import { normalizeTenantSettingsWritePayload } from '../services/tenantSettingsPayload.js';
+import { clearEditorDraft, normalizeEditorDraft, readEditorDraft, writeEditorDraft } from '../services/editorDraft.js';
+import { applyVaseBusinessProfile, vaseProfileEditUrl, vaseProfileForTenant } from '../services/vaseBusinessProfile.js';
+import { addEditorHistory, listEditorHistory, normalizeHistoryEntry, readEditorHistoryEntry } from '../services/editorHistory.js';
 import { ensureProductSyncToken } from '../services/productSyncCredentials.js';
 import {
   buildTenantDomainsPayload as buildTenantDomainsPayloadService,
@@ -623,8 +626,89 @@ tenantRouter.get('/settings', async (req, res, next) => {
   try {
     await ensureTenantSettingsSeoColumn();
     const result = await queryTenantSettingsWithSeo(tenantId);
-    const settings = normalizeTenantSettingsPayload(result.rows[0] || { branding: {}, theme: {}, commerce: {} });
+    const stored = normalizeTenantSettingsPayload(result.rows[0] || { branding: {}, theme: {}, commerce: {} });
+    const profile = await vaseProfileForTenant(tenantId);
+    const settings = profile
+      ? { ...applyVaseBusinessProfile(stored, profile), vase_profile: { connected: true, edit_url: vaseProfileEditUrl() } }
+      : stored;
     return res.json({ tenant_id: tenantId, settings });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Borrador que guarda solo el panel; la tienda no lo lee hasta Publicar.
+tenantRouter.get('/editor-draft', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    return res.json({ draft: await readEditorDraft(tenantId) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+tenantRouter.put('/editor-draft', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    const saved = await writeEditorDraft(tenantId, normalizeEditorDraft(req.body));
+    return res.json({ ok: true, updated_at: saved?.updated_at || null });
+  } catch (err) {
+    if (err && err.code === '23503') return res.status(404).json({ error: 'tenant_not_found' });
+    return next(err);
+  }
+});
+
+tenantRouter.delete('/editor-draft', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    await clearEditorDraft(tenantId);
+    return res.json({ ok: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Historial: los últimos puntos para volver atrás en el diseño.
+tenantRouter.get('/editor-history', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    return res.json({ entries: await listEditorHistory(tenantId, undefined, { full: req.query?.full === '1' }) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+tenantRouter.post('/editor-history', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  try {
+    // El nombre de quien edita sale de su cuenta, no de lo que manda el panel.
+    let authorName = null;
+    try {
+      const author = await pool.query('select display_name, email from users where id = $1', [req.user?.id || null]);
+      authorName = author.rows[0]?.display_name || author.rows[0]?.email?.split('@')[0] || null;
+    } catch {
+      authorName = null;
+    }
+    return res.json({ entry: await addEditorHistory(tenantId, { ...normalizeHistoryEntry(req.body), authorName }) });
+  } catch (err) {
+    if (err && err.code === '23503') return res.status(404).json({ error: 'tenant_not_found' });
+    return next(err);
+  }
+});
+
+tenantRouter.get('/editor-history/:id', async (req, res, next) => {
+  const tenantId = getTenantId(req, res);
+  if (!tenantId) return;
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: 'not_found' });
+  try {
+    const entry = await readEditorHistoryEntry(tenantId, req.params.id);
+    if (!entry) return res.status(404).json({ error: 'not_found' });
+    return res.json({ entry });
   } catch (err) {
     return next(err);
   }

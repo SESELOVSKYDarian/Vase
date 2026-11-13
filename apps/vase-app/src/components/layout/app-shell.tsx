@@ -9,8 +9,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
-  type MouseEvent,
   type PropsWithChildren,
   type ReactNode,
 } from "react";
@@ -54,6 +52,8 @@ import type { PlatformModuleAccess } from "@/config/modules";
 import type { ShellNotification } from "@/server/services/labs-notifications";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useRouter } from "next/navigation";
+import { ClientShell } from "@/components/layout/client-shell";
+import { NavLink } from "@/components/layout/nav-link";
 import { PricingModal } from "@/components/platform/pricing-modal";
 import { DashboardSupportWidget } from "@/components/support/dashboard-support-widget";
 import { SupportChatProvider } from "@/components/support/support-chat-context";
@@ -88,70 +88,12 @@ type AppShellProps = PropsWithChildren<{
   shortcuts?: Shortcut[];
   notifications?: ShellNotification[];
   currentUserName?: string;
+  viewerRole?: "OWNER" | "MANAGER" | "MEMBER";
   projectCreation?: {
     business: { canCreate: boolean; remaining: number };
     labs: { canCreate: boolean; remaining: number };
   };
 }>;
-
-function subscribeToRuntimeHost() {
-  return () => {};
-}
-
-function getRuntimeHostSnapshot() {
-  return typeof window === "undefined" ? null : window.location.host;
-}
-
-function getServerRuntimeHostSnapshot() {
-  return null;
-}
-
-function NavLink({
-  href,
-  className,
-  onClick,
-  forceDocumentNavigation = false,
-  children,
-}: {
-  href: string;
-  className?: string;
-  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
-  forceDocumentNavigation?: boolean;
-  children: ReactNode;
-}) {
-  const runtimeHost = useSyncExternalStore(
-    subscribeToRuntimeHost,
-    getRuntimeHostSnapshot,
-    getServerRuntimeHostSnapshot,
-  );
-  const resolvedHref = resolveNavigationHrefForHost(href, runtimeHost);
-  const isExternalHref = /^https?:\/\//i.test(resolvedHref);
-
-  if (isExternalHref || forceDocumentNavigation || requiresFullDocumentNavigation(resolvedHref)) {
-    return (
-      <a
-        href={resolvedHref}
-        className={className}
-        onClick={(event) => {
-          onClick?.(event);
-          if (event.defaultPrevented) return;
-          if (forceDocumentNavigation && typeof window !== "undefined") {
-            event.preventDefault();
-            window.location.assign(resolvedHref);
-          }
-        }}
-      >
-        {children}
-      </a>
-    );
-  }
-
-  return (
-    <Link href={resolvedHref as Route} className={className} onClick={onClick}>
-      {children}
-    </Link>
-  );
-}
 
 type NavItem = {
   id: string;
@@ -227,7 +169,29 @@ function notificationSourceClass(sourceLabel?: string) {
   }
 }
 
-export function AppShell({
+export function AppShell(props: AppShellProps) {
+  const pathname = usePathname() ?? "/app";
+  const isAdminShell = pathname.startsWith("/app/admin") || toInternalAdminPath(pathname) !== null;
+
+  if (isAdminShell) {
+    return <AdminShell {...props} />;
+  }
+
+  return (
+    <ClientShell
+      title={props.title}
+      subtitle={props.subtitle}
+      tenantLabel={props.tenantLabel}
+      notifications={props.notifications}
+      currentUserName={props.currentUserName}
+      viewerRole={props.viewerRole}
+    >
+      {props.children}
+    </ClientShell>
+  );
+}
+
+function AdminShell({
   title,
   subtitle,
   tenantLabel,

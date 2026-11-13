@@ -1,28 +1,17 @@
 import type { ComponentPropsWithoutRef, ElementType, PropsWithChildren, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { clsx } from "clsx";
+import { PanelEmpty, PanelTag, type PanelTone } from "@vase/ui/panel";
 
-type LabsPageHeaderProps = {
-  eyebrow?: string;
-  title: string;
-  description?: string;
-  actions?: ReactNode;
-};
+// Piezas de Labs sobre las del panel de Vase (@vase/ui). Las pantallas viejas las siguen usando
+// con los mismos nombres, pero ahora se ven igual que app.vase.ar.
 
-export function LabsPageHeader({ eyebrow, title, description, actions }: LabsPageHeaderProps) {
-  return (
-    <header className="flex flex-col gap-4 border-b border-[var(--border-subtle)] pb-6 lg:flex-row lg:items-end lg:justify-between">
-      <div className="max-w-3xl">
-        {eyebrow ? <p className="vase-kicker">{eyebrow}</p> : null}
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)] md:text-4xl">
-          {title}
-        </h1>
-        {description ? <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--muted)]">{description}</p> : null}
-      </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
-    </header>
-  );
+type Tone = "neutral" | "success" | "warning" | "danger" | "info";
+const toneToPanel: Record<Tone, PanelTone> = { neutral: "n", success: "g", warning: "y", danger: "r", info: "b" };
+
+/** El título de cada sección ya está en la barra de arriba: acá quedan solo las acciones. */
+export function LabsPageHeader({ actions }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode }) {
+  return actions ? <div className="labs-tabs-row"><span /><div className="vpa-cacts">{actions}</div></div> : null;
 }
 
 type LabsSectionProps = PropsWithChildren<{
@@ -32,19 +21,18 @@ type LabsSectionProps = PropsWithChildren<{
   actions?: ReactNode;
   className?: string;
 }> &
-  ComponentPropsWithoutRef<"section">;
+  Omit<ComponentPropsWithoutRef<"section">, "title">;
 
-export function LabsSection({ title, eyebrow, description, actions, className, children, ...sectionProps }: LabsSectionProps) {
+export function LabsSection({ title, description, actions, className, children, eyebrow: _eyebrow, ...sectionProps }: LabsSectionProps) {
   return (
-    <section className={clsx("labs-panel p-5", className)} {...sectionProps}>
-      {(title || eyebrow || description || actions) ? (
-        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            {eyebrow ? <p className="vase-kicker">{eyebrow}</p> : null}
-            {title ? <h2 className="mt-1 text-lg font-semibold tracking-tight text-[var(--foreground)]">{title}</h2> : null}
-            {description ? <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted)]">{description}</p> : null}
+    <section className={clsx("vpa-card", className)} {...sectionProps}>
+      {title || description || actions ? (
+        <div className="vpa-sech">
+          <div className="vpa-g1">
+            {title ? <h3>{title}</h3> : null}
+            {description ? <p>{description}</p> : null}
           </div>
-          {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+          {actions ? <div className="vpa-cacts">{actions}</div> : null}
         </div>
       ) : null}
       {children}
@@ -52,81 +40,35 @@ export function LabsSection({ title, eyebrow, description, actions, className, c
   );
 }
 
-type LabsMetricCardProps = {
-  label: string;
-  value: string | number;
-  detail?: string;
-  icon?: ElementType;
-  tone?: "neutral" | "success" | "warning" | "danger" | "info";
-};
-
-const metricTone = {
-  neutral: "bg-[var(--surface)] text-[var(--foreground)]",
-  success: "bg-[var(--success-soft)] text-[var(--success)]",
-  warning: "bg-[var(--warning-soft)] text-[var(--warning)]",
-  danger: "bg-[var(--danger-soft)] text-[var(--danger)]",
-  info: "bg-[var(--info-soft)] text-[var(--info)]",
-};
-
-export function LabsMetricCard({ label, value, detail, icon: Icon, tone = "neutral" }: LabsMetricCardProps) {
+export function LabsMetricCard({ label, value, detail }: { label: string; value: string | number; detail?: string; icon?: ElementType; tone?: Tone }) {
   return (
-    <article className="labs-panel p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-soft)]">{label}</p>
-          <p className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)]">{value}</p>
-        </div>
-        {Icon ? (
-          <span className={clsx("grid size-10 place-items-center rounded-lg", metricTone[tone])}>
-            <Icon className="size-4" />
-          </span>
-        ) : null}
-      </div>
-      {detail ? <p className="mt-3 text-xs leading-5 text-[var(--muted)]">{detail}</p> : null}
-    </article>
-  );
-}
-
-export function LabsEmptyState({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description?: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="rounded-lg border border-dashed border-[var(--border-strong)] bg-[var(--surface)] p-5 text-sm">
-      <p className="font-semibold text-[var(--foreground)]">{title}</p>
-      {description ? <p className="mt-1 leading-6 text-[var(--muted)]">{description}</p> : null}
-      {action ? <div className="mt-4">{action}</div> : null}
+    <div className="vpa-kpi">
+      <span className="vpa-kt">
+        <small>{label}</small>
+        <b>{value}</b>
+        {detail ? <em>{detail}</em> : null}
+      </span>
     </div>
   );
 }
 
-export function LabsStatusPill({
-  label,
-  tone = "neutral",
-}: {
-  label: string;
-  tone?: "neutral" | "success" | "warning" | "danger" | "info";
-}) {
+export function LabsEmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   return (
-    <span className={clsx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]", metricTone[tone])}>
-      {label}
-    </span>
+    <PanelEmpty action={action}>
+      <b>{title}</b>
+      {description ? <p className="vpa-mut" style={{ marginTop: 4, fontWeight: 600 }}>{description}</p> : null}
+    </PanelEmpty>
   );
+}
+
+export function LabsStatusPill({ label, tone = "neutral" }: { label: string; tone?: Tone }) {
+  return <PanelTag tone={toneToPanel[tone]}>{label}</PanelTag>;
 }
 
 export function LabsActionLink({ href, children }: PropsWithChildren<{ href: string }>) {
   return (
-    <Link
-      href={href as never}
-      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition-colors hover:bg-[color-mix(in_srgb,var(--accent-strong)_88%,black)]"
-    >
+    <Link href={href as never} className="vpa-btn acc">
       {children}
-      <ArrowRight className="size-4" />
     </Link>
   );
 }

@@ -1,15 +1,16 @@
 // Estructura del panel nuevo: menú, títulos, ayuda por sección y a qué módulo del panel anterior
 // lleva cada sección mientras se rehace.
 
+// vase: true = ajustes de tu cuenta de Vase, compartidos con todos tus productos (se ven desde app.vase.ar).
 export const SETTINGS_PAGES = [
+    { id: 'negocio', label: 'Mi negocio', subtitle: 'Tus datos, sucursales y de dónde salen tus productos', vase: true },
+    { id: 'cuenta', label: 'Mi perfil y facturación', subtitle: 'Tu usuario, cómo ves el panel y tus medios de pago', vase: true },
     { id: 'precios', label: 'Precios y listas', subtitle: 'Quién ve precios y qué precio usa cada lista' },
     { id: 'pagos', label: 'Pagos', subtitle: 'Cómo terminan la compra tus clientes' },
     { id: 'sucursales', label: 'Sucursales y retiro', subtitle: 'Dónde están y dónde pueden retirar' },
     { id: 'seo', label: 'Google, redes y SEO', subtitle: 'Cómo te encuentran y cómo te ven al compartir' },
     { id: 'dominio', label: 'Dominio', subtitle: 'La dirección de tu tienda' },
     { id: 'correo', label: 'Correo', subtitle: 'Desde dónde salen los avisos' },
-    { id: 'gestion', label: 'Sistema de gestión', subtitle: 'Productos, precios y stock automáticos' },
-    { id: 'equipo', label: 'Equipo', subtitle: 'Quién entra al panel' },
 ];
 
 export const MENU = [

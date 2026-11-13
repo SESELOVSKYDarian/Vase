@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, RefreshCcw, SlidersHorizontal } from "lucide-react";
+import { CheckCircle2, RefreshCcw } from "lucide-react";
 
 const WEIGHT_FIELDS = [
   {
@@ -164,139 +164,118 @@ export function ConversationInsightSettingsCard() {
     }
   }
 
+  const threshold = settings?.hotLeadThreshold ?? 0;
+  const bands = [
+    { label: "Recién mira", range: `0 a ${Math.max(0, Math.round(threshold / 2) - 1)}` },
+    { label: "Interesado", range: `${Math.round(threshold / 2)} a ${Math.max(0, threshold - 1)}` },
+    { label: "Muy interesado", range: `${threshold} a 100` },
+  ];
+
   return (
-    <section className="labs-panel labs-insight-settings" aria-labelledby="insight-settings-title">
-      <header>
-        <span><SlidersHorizontal aria-hidden="true" /></span>
-        <div>
-          <p className="vase-kicker">Calificación comercial</p>
-          <h2 id="insight-settings-title">Cómo se construye el score</h2>
-          <p>
-            Ajustá el umbral y la importancia relativa de cada señal para priorizar
-            oportunidades según la operación de tu negocio.
-          </p>
-        </div>
-      </header>
+    <section className="labs-insight-settings vpa-stack" style={{ gap: 16 }} aria-labelledby="insight-settings-title">
+      <p id="insight-settings-title" className="vpa-mut">
+        Cada conversación tiene un puntaje de 0 a 100. Sube con lo que suma y baja con lo que resta.
+      </p>
 
       {settings ? (
         <form
+          className="vpa-stack"
+          style={{ gap: 16 }}
           onSubmit={(event) => {
             event.preventDefault();
             void saveSettings();
           }}
         >
-          <label className="labs-insight-threshold" htmlFor="hot-lead-threshold">
-            <span>
-              <strong>Umbral de hot lead</strong>
-              <small>Una conversación se destaca como hot lead al alcanzar este score.</small>
-            </span>
-            <span>
-              <input
-                id="hot-lead-threshold"
-                type="number"
-                min={1}
-                max={100}
-                step={1}
-                required
-                value={settings.hotLeadThreshold}
-                onChange={(event) => {
-                  setSettings({ ...settings, hotLeadThreshold: Number(event.target.value) });
-                  setRequestState("ready");
-                  setMessage("");
-                }}
-              />
-              <em>/ 100</em>
-            </span>
-          </label>
+          <div className="labs-score-bands" aria-label="Franjas del puntaje">
+            {bands.map((band, index) => (
+              <div key={band.label} className={`labs-score-band b${index}`}>
+                <b>{band.label}</b>
+                <span>{band.range}</span>
+              </div>
+            ))}
+          </div>
 
-          <fieldset>
-            <legend>Pesos de señales</legend>
-            <p>
-              Los pesos positivos suman prioridad. El peso negativo resta ante objeciones.
-            </p>
-            <div className="labs-insight-weight-grid">
-              {WEIGHT_FIELDS.map((field) => {
-                const helpId = `weight-${field.key}-help`;
-                return (
-                  <label key={field.key} htmlFor={`weight-${field.key}`}>
-                    <span>
-                      <strong>{field.label}</strong>
-                      <small id={helpId}>{field.help}</small>
-                    </span>
-                    <input
-                      id={`weight-${field.key}`}
-                      aria-describedby={helpId}
-                      type="number"
-                      min={field.min}
-                      max={field.max}
-                      step={1}
-                      required
-                      value={settings.weights[field.key]}
-                      onChange={(event) => updateWeight(field.key, Number(event.target.value))}
-                    />
-                  </label>
-                );
-              })}
+          <div className="vpa-row">
+            <div className="vpa-g1">
+              <b>Muy interesado desde</b>
+              <span>Desde este puntaje te la marcamos para que no se te escape.</span>
             </div>
-          </fieldset>
+            <ScoreStepper
+              id="hot-lead-threshold"
+              label="Umbral de hot lead"
+              value={settings.hotLeadThreshold}
+              min={1}
+              max={100}
+              step={5}
+              onChange={(value) => {
+                setSettings({ ...settings, hotLeadThreshold: value });
+                setRequestState("ready");
+                setMessage("");
+              }}
+            />
+          </div>
 
-          <footer>
-            <p>
-              Los cambios se aplican a los próximos análisis. Las conversaciones existentes
-              conservan su último resultado hasta recibir nueva actividad.
-            </p>
-            <button
-              className="labs-button labs-button-primary"
-              type="submit"
-              disabled={requestState === "saving"}
-            >
-              {requestState === "saving" ? "Guardando…" : "Guardar configuración"}
+          <div>
+            <div className="vpa-lab">Cuánto suma o resta cada cosa</div>
+            {WEIGHT_FIELDS.map((field) => (
+              <div className="vpa-row" key={field.key}>
+                <div className="vpa-g1">
+                  <b>{field.label}</b>
+                  <span id={`weight-${field.key}-help`}>{field.help}</span>
+                </div>
+                <ScoreStepper
+                  id={`weight-${field.key}`}
+                  label={field.label}
+                  value={settings.weights[field.key]}
+                  min={field.min}
+                  max={field.max}
+                  step={5}
+                  signed
+                  onChange={(value) => updateWeight(field.key, value)}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="vpa-from" style={{ marginTop: 0 }}>
+            <span>Los cambios se aplican a los próximos análisis.</span>
+            <button className="vpa-btn acc sm" type="submit" disabled={requestState === "saving"}>
+              {requestState === "saving" ? "Guardando…" : "Guardar"}
             </button>
-          </footer>
+          </div>
         </form>
       ) : (
         <div className="labs-insight-settings-loading" aria-hidden={requestState === "error"}>
-          <span />
           <span />
           <span />
         </div>
       )}
 
       {settings ? (
-        <aside className="labs-insight-recalculation" aria-labelledby="insight-recalculation-title">
-          <div>
-            <h3 id="insight-recalculation-title">Recalcular conversaciones abiertas</h3>
-            <p>
-              Encolá un nuevo análisis para cada conversación abierta o escalada que tenga
-              mensajes entrantes. El procesamiento continúa en segundo plano.
-            </p>
+        <div className="vpa-row" aria-labelledby="insight-recalculation-title">
+          <div className="vpa-g1">
+            <b id="insight-recalculation-title">Recalcular conversaciones abiertas</b>
+            <span>Vuelve a puntuar las conversaciones abiertas con estos valores. Sigue solo en segundo plano.</span>
           </div>
           {recalculationState === "confirming" ? (
-            <div className="labs-insight-recalculation-confirm" role="group" aria-label="Confirmar reanálisis">
-              <strong>¿Recalcular todas las conversaciones abiertas?</strong>
-              <span>
-                <button
-                  className="labs-button labs-button-secondary"
-                  type="button"
-                  onClick={() => {
-                    setRecalculationState("idle");
-                    setRecalculationMessage("");
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  className="labs-button labs-button-primary"
-                  type="button"
-                  onClick={() => void recalculateOpenConversations()}
-                >
-                  Confirmar reanálisis
-                </button>
-              </span>
-            </div>
+            <span role="group" aria-label="¿Recalcular todas las conversaciones abiertas?" style={{ display: "inline-flex", gap: 8 }}>
+              <button
+                className="vpa-btn soft sm"
+                type="button"
+                onClick={() => {
+                  setRecalculationState("idle");
+                  setRecalculationMessage("");
+                }}
+              >
+                Cancelar
+              </button>
+              <button className="vpa-btn acc sm" type="button" onClick={() => void recalculateOpenConversations()}>
+                Confirmar reanálisis
+              </button>
+            </span>
           ) : (
             <button
-              className="labs-button labs-button-secondary"
+              className="vpa-btn line sm"
               type="button"
               disabled={recalculationState === "running"}
               onClick={() => {
@@ -304,20 +283,16 @@ export function ConversationInsightSettingsCard() {
                 setRecalculationMessage("");
               }}
             >
-              <RefreshCcw aria-hidden="true" />
-              {recalculationState === "running"
-                ? "Encolando…"
-                : "Recalcular conversaciones abiertas"}
+              <RefreshCcw size={14} aria-hidden="true" />
+              {recalculationState === "running" ? "Encolando…" : "Recalcular"}
             </button>
           )}
-          <p
-            className={`labs-insight-recalculation-message is-${recalculationState}`}
-            aria-live="polite"
-            role={recalculationState === "error" ? "alert" : "status"}
-          >
-            {recalculationMessage}
-          </p>
-        </aside>
+        </div>
+      ) : null}
+      {recalculationMessage ? (
+        <p className="vpa-mut" aria-live="polite" role={recalculationState === "error" ? "alert" : "status"}>
+          {recalculationMessage}
+        </p>
       ) : null}
 
       <p
@@ -329,5 +304,47 @@ export function ConversationInsightSettingsCard() {
         {message}
       </p>
     </section>
+  );
+}
+
+/** Número con botones − y +; también se puede escribir. */
+function ScoreStepper({
+  id,
+  label,
+  value,
+  min,
+  max,
+  step,
+  signed = false,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  signed?: boolean;
+  onChange: (value: number) => void;
+}) {
+  const clamp = (next: number) => Math.min(max, Math.max(min, Math.round(next)));
+  return (
+    <span className="labs-score-stepper">
+      <button type="button" aria-label={`Bajar ${label}`} disabled={value <= min} onClick={() => onChange(clamp(value - step))}>−</button>
+      <input
+        id={id}
+        aria-label={label}
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        step={1}
+        required
+        value={value}
+        onChange={(event) => onChange(clamp(Number(event.target.value)))}
+        className={signed && value < 0 ? "neg" : signed && value > 0 ? "pos" : ""}
+      />
+      <button type="button" aria-label={`Subir ${label}`} disabled={value >= max} onClick={() => onChange(clamp(value + step))}>+</button>
+    </span>
   );
 }

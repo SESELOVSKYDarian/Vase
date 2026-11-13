@@ -459,6 +459,9 @@ export async function exchangeVaseLaunchToken(rawToken) {
         role: user.role,
         status: user.status,
         tenant_id: tenant.id,
+        // El mismo nombre que la persona tiene en Vase: el panel lo muestra debajo de la tienda.
+        display_name: payload.displayName || null,
+        name: payload.displayName || null,
       },
       tenant: {
         id: tenant.id,

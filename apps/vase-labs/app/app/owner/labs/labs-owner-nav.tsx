@@ -1,106 +1,54 @@
-"use client";
+import { House, MessagesSquare, ShoppingBag, Sparkles } from "lucide-react";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  Activity,
-  Bot,
-  Cable,
-  FlaskConical,
-  MessageSquare,
-  LayoutDashboard,
-  ShoppingBag,
-  Settings2,
-} from "lucide-react";
-
-export const labsNavigationItems = [
-  { href: "/owner", label: "Panel", icon: LayoutDashboard },
-  { href: "/owner/inbox", label: "Inbox", icon: MessageSquare },
-  { href: "/owner/inbox/trainer", label: "Entrenador personal", icon: Bot },
-  { href: "/owner/activity", label: "Actividad", icon: Activity },
-  { href: "/owner/orders", label: "Pedidos", icon: ShoppingBag },
-  { href: "/owner/knowledge", label: "Conocimiento", icon: Bot },
-  { href: "/owner/channels", label: "Canales", icon: Cable },
-  { href: "/owner/settings", label: "Ajustes", icon: Settings2 },
+// Menú de Vase Labs: 4 entradas. Canales, plan y motor de IA están en Ajustes › Labs (botón de tu usuario).
+// - Conversaciones: la bandeja y quién quiere comprar.
+// - Asistente: cómo habla, qué sabe y lo que le enseñaron por WhatsApp.
+export const labsNavigationGroups = [
+  {
+    label: "Principal",
+    items: [
+      { id: "inicio", href: "/owner", label: "Inicio", icon: House },
+      { id: "conversaciones", href: "/owner/inbox", label: "Conversaciones", icon: MessagesSquare },
+      { id: "pedidos", href: "/owner/orders", label: "Pedidos", icon: ShoppingBag },
+      { id: "asistente", href: "/owner/knowledge", label: "Asistente", icon: Sparkles },
+    ],
+  },
 ] as const;
 
+type LabsNavItem = (typeof labsNavigationGroups)[number]["items"][number];
+
+export const labsNavigationItems: LabsNavItem[] = labsNavigationGroups.flatMap((group): LabsNavItem[] => [...group.items]);
+
+export type LabsSectionId = LabsNavItem["id"] | "ajustes";
+
+/** Qué entrada del menú corresponde a cada pantalla. */
+export function resolveLabsSection(pathname: string): LabsSectionId {
+  const path = pathname.replace(/\/+$/, "") || "/owner";
+  if (path.startsWith("/owner/inbox/trainer") || path.startsWith("/owner/knowledge")) return "asistente";
+  if (path.startsWith("/owner/inbox") || path.startsWith("/owner/activity")) return "conversaciones";
+  if (path.startsWith("/owner/orders")) return "pedidos";
+  if (path.startsWith("/owner/channels") || path.startsWith("/owner/settings")) return "ajustes";
+  return "inicio";
+}
+
 export function isLabsNavigationItemActive(pathname: string, href: string) {
-  if (href === "/owner") {
-    return pathname === href;
-  }
-  const claimedByMoreSpecificItem = labsNavigationItems.some((candidate) =>
-    candidate.href !== href
-    && candidate.href.startsWith(`${href}/`)
-    && (pathname === candidate.href || pathname.startsWith(`${candidate.href}/`)),
-  );
-  return !claimedByMoreSpecificItem && (pathname === href || pathname.startsWith(`${href}/`));
+  const item = labsNavigationItems.find((candidate) => candidate.href === href);
+  return Boolean(item && resolveLabsSection(pathname) === item.id);
 }
 
-export function LabsOwnerNav() {
-  const pathname = usePathname();
+export const labsSectionTitles: Record<LabsSectionId, { title: string; subtitle: string }> = {
+  inicio: { title: "Vase Labs", subtitle: "Cómo viene tu asistente" },
+  conversaciones: { title: "Conversaciones", subtitle: "Todo lo que llega por WhatsApp, Instagram y Messenger" },
+  pedidos: { title: "Pedidos", subtitle: "Lo que tus clientes compraron por chat" },
+  asistente: { title: "Asistente", subtitle: "Cómo habla, qué sabe y lo que le enseñaste" },
+  ajustes: { title: "Ajustes", subtitle: "Tu perfil, tu negocio, la facturación y Labs" },
+};
 
-  return (
-    <nav className="flex-1 space-y-1.5">
-      {labsNavigationItems.map((item) => {
-        const Icon = item.icon;
-        const active = isLabsNavigationItemActive(pathname, item.href);
-
-        return (
-          <Link
-            key={item.href}
-            href={item.href as never}
-            title={item.label}
-            aria-label={item.label}
-            className={[
-              "labs-owner-nav-link flex min-h-11 items-center gap-3 rounded-xl px-4 text-sm transition-all duration-200",
-              active
-                ? "is-active font-semibold"
-                : "text-[var(--muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]",
-            ].join(" ")}
-          >
-            <Icon className="labs-sidebar-nav-icon size-5" strokeWidth={1.9} />
-            <span className="font-semibold">{item.label}</span>
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
-
-export function LabsOwnerMobileNav() {
-  const pathname = usePathname();
-
-  return (
-    <div className="mb-6 lg:hidden">
-      <nav className="flex gap-2 overflow-x-auto pb-1 labs-scrollbar">
-        {labsNavigationItems.map((item) => {
-          const Icon = item.icon;
-          const active = isLabsNavigationItemActive(pathname, item.href);
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href as never}
-              className={[
-                "labs-owner-mobile-nav-link inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-bold transition-colors",
-                active ? "is-active" : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]",
-              ].join(" ")}
-            >
-              <Icon className="size-3.5" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="labs-sidebar-brand mt-4 flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3">
-        <div className="labs-sidebar-mark grid h-10 w-10 place-items-center rounded-2xl bg-[var(--accent-strong)] text-[var(--accent-contrast)]">
-          <FlaskConical className="size-4" />
-        </div>
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--muted-soft)]">Vase Labs</p>
-          <p className="font-[family-name:var(--font-newsreader)] text-xl font-semibold italic leading-none text-[var(--foreground)]">Gestion avanzada</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+/** Ajustes es igual en todos los productos: lo común vive en tu cuenta de Vase y cada producto suma su pestaña. */
+export const LABS_SETTINGS_TABS = [
+  // Mi perfil, Mi negocio y Facturación son de tu cuenta de Vase: se ven acá adentro, iguales que en app.
+  { id: "perfil", label: "Mi perfil", href: "/owner/settings?tab=perfil" },
+  { id: "negocio", label: "Mi negocio", href: "/owner/settings?tab=negocio" },
+  { id: "facturacion", label: "Facturación", href: "/owner/settings?tab=facturacion" },
+  { id: "labs", label: "Labs", href: "/owner/settings" },
+] as const;

@@ -1,3 +1,4 @@
+import { buildDismissedNotificationKey } from "@/lib/navigation/panel-sections";
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
 import { deriveStorefrontLifecycle } from "@/lib/business/lifecycle";
@@ -900,7 +901,12 @@ export async function getUnifiedTenantDashboard(
         canCreate: labsRemaining > 0,
       },
     },
-    notifications,
+    notifications: notifications.filter(
+      (notification) =>
+        !systemReadSet.has(
+          buildDismissedNotificationKey(buildNotificationReadKey(notification.notificationType, notification.id)),
+        ),
+    ),
     recommendation,
     recentEvents,
   };

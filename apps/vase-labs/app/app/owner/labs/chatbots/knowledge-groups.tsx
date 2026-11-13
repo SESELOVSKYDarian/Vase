@@ -1,10 +1,9 @@
 "use client";
 
-import { AlertTriangle, FileText, HelpCircle, Link2, Pencil, RefreshCw, Store, Trash2, X } from "lucide-react";
+import { AlertTriangle, Pencil, RefreshCw, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KnowledgeSourceType } from "../../../../lib/knowledge-source";
-import { LabsStatusPill } from "../labs-ui";
 import { KnowledgeFileHistory } from "./knowledge-file-history";
 
 type Item = { id: string; title: string; status: string; updatedAt: Date };
@@ -20,22 +19,6 @@ const labels: Record<KnowledgeGroupType, string> = {
   EXTERNAL_MANAGEMENT: "Sistema de gestión externo",
   OTROS: "Otros",
 };
-
-const icons: Record<KnowledgeGroupType, typeof FileText> = {
-  FILE: FileText,
-  URL: Link2,
-  FAQ: HelpCircle,
-  VASE_MANAGEMENT: Store,
-  EXTERNAL_MANAGEMENT: Store,
-  OTROS: FileText,
-};
-
-function tone(status: string): "neutral" | "success" | "warning" | "danger" {
-  if (status === "READY") return "success";
-  if (status === "FAILED") return "danger";
-  if (status === "QUEUED" || status === "PROCESSING") return "warning";
-  return "neutral";
-}
 
 const dateFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" });
 
@@ -175,84 +158,109 @@ export function KnowledgeGroups({ groups }: { groups: Group[] }) {
     }
   }
 
+  const STATE: Record<string, { label: string; cls: string }> = {
+    READY: { label: "Listo", cls: "g" },
+    FAILED: { label: "Con error", cls: "r" },
+    QUEUED: { label: "En cola", cls: "y" },
+    PROCESSING: { label: "Leyendo…", cls: "y" },
+  };
+  const ext = (item: Item, type: KnowledgeGroupType) => {
+    if (type === "URL") return "web";
+    if (type === "FAQ") return "faq";
+    const match = /\.([a-z0-9]{2,4})$/i.exec(item.title);
+    return match ? match[1] : "doc";
+  };
+
   return <>
-    <div className="labs-knowledge-groups space-y-6">{groups.map((group) => (
-      <section key={group.type} aria-labelledby={`knowledge-${group.type}`}>
-        <div className="mb-3 flex items-baseline justify-between gap-4">
-          <h3 id={`knowledge-${group.type}`} className="text-sm font-semibold text-[var(--foreground)]">{labels[group.type]}</h3>
-          <span className="text-xs text-[var(--muted)]">{group.items.length} {group.items.length === 1 ? "fuente" : "fuentes"}</span>
+    {groups.map((group) => (
+      <section key={group.type} className="vpa-card" aria-labelledby={`knowledge-${group.type}`}>
+        <div className="vpa-sech">
+          <div className="vpa-g1">
+            <h3 id={`knowledge-${group.type}`}>{labels[group.type]}</h3>
+            <p>{group.items.length} {group.items.length === 1 ? "fuente" : "fuentes"} · {group.items.filter((item) => item.status === "READY").length} listas para responder</p>
+          </div>
         </div>
-        <div className="labs-knowledge-source-list">{group.items.map((item) => {
-          const Icon = icons[group.type];
+        {group.items.map((item) => {
+          const state = STATE[item.status] ?? { label: item.status, cls: "" };
           return (
-            <article key={item.id} className="labs-knowledge-source-row">
-              <span><Icon aria-hidden="true" /></span>
-              <div className="labs-knowledge-source-copy">
-                <p>{item.title}</p>
-                <small>Actualizado {dateFormatter.format(item.updatedAt)}</small>
+            <div key={item.id} className="lx-srow">
+              <span className="lx-fic" aria-hidden="true">{ext(item, group.type)}</span>
+              <div className="vpa-g1">
+                <b>{item.title}</b>
+                <span>Actualizado {dateFormatter.format(item.updatedAt)}</span>
               </div>
-              <div className="labs-knowledge-source-status"><LabsStatusPill label={item.status} tone={tone(item.status)} /></div>
-              <div className="labs-knowledge-source-actions" role="group" aria-label={`Acciones para ${item.title}`}>
+              <span className={`vpa-tag ${state.cls}`}><i />{state.label}</span>
+              <div className="lx-srow-acts" role="group" aria-label={`Acciones para ${item.title}`}>
                 {group.type === "FILE" ? <KnowledgeFileHistory itemId={item.id} title={item.title} /> : null}
-                {group.type === "FILE" && item.status === "FAILED" ? <button type="button" onClick={() => void retryFileProcessing(item)} disabled={Boolean(retryingId)} aria-label={`Reintentar procesamiento de ${item.title}`}>
-                  <RefreshCw aria-hidden="true" /><span>{retryingId === item.id ? "Reintentando…" : "Reintentar procesamiento"}</span>
-                </button> : null}
-                <button type="button" onClick={(event) => open("edit", item, group.type, event.currentTarget)} aria-label={`Editar ${item.title}`}>
-                  <Pencil aria-hidden="true" /><span>Editar</span>
+                {group.type === "FILE" && item.status === "FAILED" ? (
+                  <button type="button" className="vpa-btn line sm" onClick={() => void retryFileProcessing(item)} disabled={Boolean(retryingId)} aria-label={`Reintentar procesamiento de ${item.title}`}>
+                    <RefreshCw size={14} aria-hidden="true" />{retryingId === item.id ? "Reintentando…" : "Reintentar"}
+                  </button>
+                ) : null}
+                <button type="button" className="vpa-ib sm" onClick={(event) => open("edit", item, group.type, event.currentTarget)} aria-label={`Editar ${item.title}`} title="Cambiar el nombre">
+                  <Pencil size={15} aria-hidden="true" />
                 </button>
-                <button type="button" className="is-danger" onClick={(event) => open("delete", item, group.type, event.currentTarget)} aria-label={`Eliminar ${item.title}`}>
-                  <Trash2 aria-hidden="true" /><span>Eliminar</span>
+                <button type="button" className="vpa-ib sm danger" onClick={(event) => open("delete", item, group.type, event.currentTarget)} aria-label={`Eliminar ${item.title}`} title="Eliminar">
+                  <Trash2 size={15} aria-hidden="true" />
                 </button>
               </div>
-            </article>
-          );
-        })}</div>
-      </section>
-    ))}</div>
-
-    {error && !selection ? <p className="labs-modal-error" role="alert">{error}</p> : null}
-
-    {selection ? <div className="labs-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
-      <div ref={dialogRef} onKeyDown={trapFocus} role="dialog" aria-modal="true" aria-labelledby="knowledge-source-dialog-title" aria-describedby="knowledge-source-dialog-description" className={`labs-knowledge-modal labs-source-management-modal${selection.action === "delete" ? " is-destructive" : ""}`}>
-        <header className="labs-modal-header">
-          <div>
-            <p className="labs-modal-kicker">Fuente de conocimiento</p>
-            <h2 id="knowledge-source-dialog-title" ref={selection.action === "delete" ? deleteHeadingRef : undefined} tabIndex={selection.action === "delete" ? -1 : undefined}>
-              {selection.action === "edit" ? "Editar fuente" : "¿Eliminar esta fuente?"}
-            </h2>
-          </div>
-          <button type="button" className="labs-icon-button" aria-label="Cerrar" onClick={() => close()} disabled={submitting}><X aria-hidden="true" size={19} /></button>
-        </header>
-
-        {submitting ? <p ref={busyStatusRef} role="status" aria-live="polite" tabIndex={-1} className="labs-source-operation-status">
-          {selection.action === "edit" ? "Guardando cambios…" : "Eliminando fuente…"}
-        </p> : null}
-
-        {selection.action === "edit" ? <form className="labs-source-management-body" onSubmit={rename}>
-          <p id="knowledge-source-dialog-description">Cambiá el nombre con el que identificás esta fuente en Labs.</p>
-          <label htmlFor="knowledge-source-title">Nombre de la fuente</label>
-          <input ref={editInputRef} id="knowledge-source-title" required maxLength={160} value={title} onChange={(event) => { setTitle(event.target.value); setError(""); }} aria-invalid={Boolean(error)} aria-describedby={error ? "knowledge-source-error" : undefined} disabled={submitting} />
-          {error ? <p ref={errorRef} id="knowledge-source-error" className="labs-modal-error" role="alert" tabIndex={-1}>{error}</p> : null}
-          <footer className="labs-modal-actions">
-            <button type="button" className="labs-button-secondary" onClick={() => close()} disabled={submitting}>Cancelar</button>
-            <button type="submit" className="labs-button-primary" disabled={submitting}>{submitting ? "Guardando…" : "Guardar cambios"}</button>
-          </footer>
-        </form> : <div className="labs-source-management-body">
-          <div className="labs-source-delete-summary">
-            <AlertTriangle aria-hidden="true" />
-            <div>
-              <strong>{selection.item.title}</strong>
-              <p id="knowledge-source-dialog-description">Esta acción no se puede deshacer.</p>
             </div>
+          );
+        })}
+      </section>
+    ))}
+
+    {error && !selection ? <p className="lx-err" role="alert">{error}</p> : null}
+
+    {selection ? (
+      <div className="vpa-dialog" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
+        <div ref={dialogRef} onKeyDown={trapFocus} role="dialog" aria-modal="true" aria-labelledby="knowledge-source-dialog-title" aria-describedby="knowledge-source-dialog-description" style={{ width: 480 }}>
+          <div style={{ display: "flex", alignItems: "flex-start" }}>
+            <div>
+              <h3 id="knowledge-source-dialog-title" ref={selection.action === "delete" ? deleteHeadingRef : undefined} tabIndex={selection.action === "delete" ? -1 : undefined}>
+                {selection.action === "edit" ? "Editar fuente" : "¿Eliminar esta fuente?"}
+              </h3>
+              <p id="knowledge-source-dialog-description">
+                {selection.action === "edit" ? "Cambiá el nombre con el que la reconocés en Labs." : "Tu asistente deja de usarla. Esta acción no se puede deshacer."}
+              </p>
+            </div>
+            <button type="button" className="vpa-x" aria-label="Cerrar" onClick={() => close()} disabled={submitting}><X aria-hidden="true" size={18} /></button>
           </div>
-          {selection.groupType === "EXTERNAL_MANAGEMENT" ? <p className="labs-source-delete-warning">Si es la última fuente externa del tenant, también se eliminarán los productos y el historial de sincronización del catálogo en Labs. Tus productos en Vase Business no se modificarán.</p> : null}
-          {error ? <p ref={errorRef} id="knowledge-source-error" className="labs-modal-error" role="alert" tabIndex={-1}>{error}</p> : null}
-          <footer className="labs-modal-actions">
-            <button type="button" className="labs-button-secondary" onClick={() => close()} disabled={submitting}>Cancelar</button>
-            <button type="button" className="labs-button-danger" onClick={() => void remove()} disabled={submitting}>{submitting ? "Eliminando…" : "Sí, eliminar fuente"}</button>
-          </footer>
-        </div>}
+
+          {submitting ? (
+            <p ref={busyStatusRef} role="status" aria-live="polite" tabIndex={-1} className="vpa-mut">
+              {selection.action === "edit" ? "Guardando cambios…" : "Eliminando fuente…"}
+            </p>
+          ) : null}
+
+          {selection.action === "edit" ? (
+            <form onSubmit={rename} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <label className="vpa-fld">
+                <span>Nombre de la fuente</span>
+                <input ref={editInputRef} id="knowledge-source-title" className="vpa-inp" required maxLength={160} value={title} onChange={(event) => { setTitle(event.target.value); setError(""); }} aria-invalid={Boolean(error)} aria-describedby={error ? "knowledge-source-error" : undefined} disabled={submitting} />
+              </label>
+              {error ? <p ref={errorRef} id="knowledge-source-error" className="lx-err" role="alert" tabIndex={-1}>{error}</p> : null}
+              <div className="row">
+                <button type="button" className="vpa-btn soft" onClick={() => close()} disabled={submitting}>Cancelar</button>
+                <button type="submit" className="vpa-btn acc" disabled={submitting}>{submitting ? "Guardando…" : "Guardar cambios"}</button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className="vpa-hrow">
+                <AlertTriangle size={18} aria-hidden="true" style={{ color: "var(--warn)" }} />
+                <div className="vpa-g1"><b>{selection.item.title}</b></div>
+              </div>
+              {selection.groupType === "EXTERNAL_MANAGEMENT" ? <p className="vpa-mut" style={{ fontSize: 12.5 }}>Si es la última fuente externa, también se borran los productos y el historial de sincronización del catálogo en Labs. Tus productos en Vase Business no cambian.</p> : null}
+              {error ? <p ref={errorRef} id="knowledge-source-error" className="lx-err" role="alert" tabIndex={-1}>{error}</p> : null}
+              <div className="row">
+                <button type="button" className="vpa-btn soft" onClick={() => close()} disabled={submitting}>Cancelar</button>
+                <button type="button" className="vpa-btn red" onClick={() => void remove()} disabled={submitting}>{submitting ? "Eliminando…" : "Sí, eliminar fuente"}</button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
-    </div> : null}
+    ) : null}
   </>;
 }

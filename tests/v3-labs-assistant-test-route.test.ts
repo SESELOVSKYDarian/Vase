@@ -42,7 +42,7 @@ describe("POST /api/labs/assistant/test", () => {
     }));
     await vi.waitFor(() => {
       expect(buildContext).toHaveBeenCalledWith("assistant_1");
-      expect(buildCatalogResources).toHaveBeenCalledWith("tenant_1");
+      expect(buildCatalogResources).toHaveBeenCalledWith("tenant_1", "Mostrame el producto");
     });
     resolveKnowledge("Horario: 9 a 18");
     resolveCatalog({

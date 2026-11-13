@@ -1,0 +1,36 @@
+/*
+ * Colores, sombras y marca de todos los paneles de Vase: app y Labs (.vpa) y Business (.vp).
+ * Fuente única. Business recibe una copia exacta (apps/vase-editor/web/src/panel/vase-tokens.css):
+ * después de cambiar este archivo, correr `node scripts/sync-ui-to-business.mjs`. Un test avisa si quedan distintos.
+ */
+
+.vpa, .vp {
+  --page: #ffffff; --side: #f8f9fa; --canvas: #ffffff; --card: #ffffff; --soft: #f4f5f7; --hover: #f2f4f5; --active: #eceef0;
+  --line: #eaecef; --line2: #d5d9de; --tx: #111418; --mut: #667085; --mut2: #667085; --ink: #111418; --ink-on: #ffffff;
+  --acc: #006d43; --acc-on: #ffffff; --acc-tx: #006d43; --accsoft: rgba(24, 195, 126, .10);
+  --warn: #93370d; --warnsoft: #fef6e7; --imgbg: #ffffff; --badge: #ffd9d4; --badge-tx: #b42318; --red: #d92d20; --redsoft: #fee4e2;
+  --ok: #079455; --knob: #ffffff; --sb: #d0d5dd; --sbh: #18c37e; --scrim: rgba(17, 20, 24, .32);
+  --sh-sm: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .06); --sh-md: 0 12px 30px rgba(16, 24, 40, .10); --sh-lg: 0 24px 60px rgba(16, 24, 40, .18);
+  --brand-pill-bg: #241a5c; --brand-pill-tx: #b9a7ff;
+}
+:root[data-theme="dark"] .vpa, .vp[data-theme="dark"] {
+  --page: #000000; --side: #000000; --canvas: #000000; --card: #0a0a0a; --soft: #121212; --hover: #161616; --active: #1a1a1a;
+  --line: #1e1e1e; --line2: #2e2e2e; --tx: #f2f2f2; --mut: #9b9b9b; --mut2: #8a8a8a; --ink: #f2f2f2; --ink-on: #000000;
+  --acc: #47e098; --acc-on: #00260f; --acc-tx: #5ff0a8; --accsoft: rgba(71, 224, 152, .10);
+  --warn: #f5c56b; --warnsoft: rgba(245, 197, 107, .10); --imgbg: #141414; --badge: rgba(240, 68, 56, .18); --badge-tx: #ff8a80;
+  --red: #ff6b5e; --redsoft: rgba(240, 68, 56, .14); --ok: #47e098; --knob: #000000; --sb: #2a2a2a; --sbh: #47e098; --scrim: rgba(0, 0, 0, .7);
+  --sh-sm: 0 0 0 1px #161616; --sh-md: 0 18px 40px rgba(0, 0, 0, .6); --sh-lg: 0 30px 90px rgba(0, 0, 0, .8);
+}
+
+/* Marca: "vase" + el producto, con la misma letra y altura. */
+:where(.vpa, .vp) .vase-brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+:where(.vpa, .vp) .vase-brand img { width: 26px; height: 26px; flex: none; object-fit: contain; }
+/* Logo de Vase: verde en modo claro, blanco en modo oscuro (PanelBrandLogo pone los dos). */
+:where(.vpa, .vp) .vase-brand img.vase-logo-dark { display: none; }
+:root[data-theme="dark"] .vpa .vase-brand img.vase-logo-light,
+.vp[data-theme="dark"] .vase-brand img.vase-logo-light { display: none; }
+:root[data-theme="dark"] .vpa .vase-brand img.vase-logo-dark,
+.vp[data-theme="dark"] .vase-brand img.vase-logo-dark { display: block; }
+:where(.vpa, .vp) .vase-brand b { font-size: 18px; font-weight: 800; letter-spacing: -.03em; line-height: 1.2; white-space: nowrap; }
+:where(.vpa, .vp) .vase-pill { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 7px; background: var(--brand-pill-bg); color: var(--brand-pill-tx); font-size: 18px; line-height: 1.2; font-weight: 800; letter-spacing: -.03em; white-space: nowrap; }
+:where(.vpa, .vp) .vase-pill.business { --brand-pill-bg: #0f3d2a; --brand-pill-tx: #7ff0b4; }

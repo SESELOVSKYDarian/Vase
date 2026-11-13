@@ -13,6 +13,8 @@ export interface AiReplyResult {
   text: string;
   imageUrls: string[];
   orderAction?: AiOrderAction;
+  /** El asistente pide que lo atienda una persona (no encontró lo que buscan, pide algo que no puede resolver...). */
+  handoff?: { needed: boolean; reason: string };
   inputTokens: number;
   outputTokens: number;
   provider?: "openai";
@@ -212,8 +214,17 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
                     },
                     required: ["type", "items", "customer", "fulfillment", "notes"],
                   },
+                  handoff: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      needed: { type: "boolean" },
+                      reason: { type: "string" },
+                    },
+                    required: ["needed", "reason"],
+                  },
                 },
-                required: ["text", "imageUrls", "orderAction"],
+                required: ["text", "imageUrls", "orderAction", "handoff"],
               },
             },
           },
@@ -246,6 +257,7 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
         text: structuredReply.text,
         imageUrls,
         orderAction: structuredReply.orderAction,
+        ...(structuredReply.handoff.needed ? { handoff: structuredReply.handoff } : {}),
         inputTokens: readUsageToken(payload, "input_tokens"),
         outputTokens: readUsageToken(payload, "output_tokens"),
         provider: "openai",
@@ -299,11 +311,13 @@ function buildSystemInstructions(input: { context: string; systemPrompt?: string
     "Selecciona imagenes solo cuando el cliente las pida o cuando sean necesarias para identificar productos.",
     "Para imageUrls usa exclusivamente URLs del catalogo incluidas en el contexto disponible; si no corresponde una imagen, devolve una lista vacia.",
     "Si falta informacion, pedila de forma concreta o deriva a un humano.",
+    "Cuando el cliente pida un producto, buscalo en el catalogo aunque no use el nombre exacto (sinonimos, singular o plural, medidas). Si hay uno o varios parecidos, ofrecelos por su nombre y pregunta si es eso.",
+    "Pasa la charla a una persona con handoff.needed true y una razon corta (por ejemplo: 'Pide tapa de gabinete de gas y no esta en el catalogo') cuando: no encontras en el catalogo nada parecido a lo que pide, pide un presupuesto especial o precio mayorista que no esta en el contexto, tiene un reclamo, o pide hablar con una persona. En ese caso decile que ya le avisaste al equipo y que lo atienden enseguida. En cualquier otro caso devolve handoff.needed false y reason vacio.",
     input.context ? `Contexto disponible:\n${input.context}` : "Contexto disponible: sin informacion cargada.",
   ].filter(Boolean).join("\n\n");
 }
 
-function parseStructuredReply(value: string): { text: string; imageUrls: string[]; orderAction: AiOrderAction } {
+function parseStructuredReply(value: string): { text: string; imageUrls: string[]; orderAction: AiOrderAction; handoff: { needed: boolean; reason: string } } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(value);
@@ -311,7 +325,7 @@ function parseStructuredReply(value: string): { text: string; imageUrls: string[
     throw new Error("OPENAI_RESPONSE_INVALID");
   }
 
-  const candidate = parsed as { text?: unknown; imageUrls?: unknown; orderAction?: unknown } | null;
+  const candidate = parsed as { text?: unknown; imageUrls?: unknown; orderAction?: unknown; handoff?: unknown } | null;
   const text = typeof candidate?.text === "string" ? candidate.text.trim() : "";
   if (!text || !Array.isArray(candidate?.imageUrls) || !candidate.imageUrls.every((url) => typeof url === "string")) {
     throw new Error("OPENAI_RESPONSE_INVALID");
@@ -320,7 +334,15 @@ function parseStructuredReply(value: string): { text: string; imageUrls: string[
     text,
     imageUrls: candidate.imageUrls,
     orderAction: parseOrderAction(candidate.orderAction),
+    handoff: parseHandoff(candidate.handoff),
   };
+}
+
+function parseHandoff(value: unknown): { needed: boolean; reason: string } {
+  const source = value as { needed?: unknown; reason?: unknown } | null;
+  const needed = source?.needed === true;
+  const reason = typeof source?.reason === "string" ? source.reason.trim().slice(0, 300) : "";
+  return { needed, reason: needed ? reason || "El asistente pidió que lo atienda una persona." : "" };
 }
 
 function parseOrderAction(value: unknown): AiOrderAction {

@@ -1,3 +1,5 @@
+import HistoryButton from '../components/HistoryButton';
+import CloudStatus from '../components/CloudStatus';
 import React, { useEffect, useMemo, useState } from 'react';
 import ResponsivePreviewFrame from '../../components/admin/evolution/ResponsivePreviewFrame';
 import CatalogPageEditor from '../../components/admin/evolution/CatalogPageEditor';
@@ -15,6 +17,7 @@ import CatalogTextsEditor from './CatalogTextsEditor';
 import LegalEditor from './LegalEditor';
 import BlockInspector from './BlockInspector';
 import './diseno.css';
+import { PanelSegmented } from '@vase/ui/panel/pieces';
 
 const PAGES = [
     ['home', 'Inicio'],
@@ -43,7 +46,7 @@ const previewProduct = (product) => ({
 });
 
 // Diseño de la tienda: bloques a la izquierda, la tienda en el medio (se toca para elegir) y el editor a la derecha.
-export default function Diseno({ editor, isPiquim, theme, toast, status, onPublish, publishing, badges, onNotifications, onHelp, onMenu, phone = false }) {
+export default function Diseno({ editor, isPiquim, theme, toast, status, onPublish, publishing, badges, onNotifications, onHelp, onMenu, phone = false, bell = null }) {
     const [page, setPage] = useState('home');
     const [selectedId, setSelectedId] = useState(null);
     const [viewport, setViewport] = useState('desktop');
@@ -116,18 +119,25 @@ export default function Diseno({ editor, isPiquim, theme, toast, status, onPubli
                         <button type="button" className={`vp-ibtn sq ${showBlocks ? 'on' : ''}`} onClick={() => setShowBlocks((value) => !value)} aria-pressed={showBlocks} aria-label="Mostrar u ocultar los bloques" title="Bloques"><Icon name="list" size={17} /></button>
                         <button type="button" className={`vp-ibtn sq ${showInspector ? 'on' : ''}`} onClick={() => setShowInspector((value) => !value)} aria-pressed={showInspector} aria-label="Mostrar u ocultar el editor del bloque" title="Editor del bloque"><Icon name="sliders" size={17} /></button>
                         <button type="button" className="vp-btn line sm" onClick={() => { setShowBlocks(big); setShowInspector(big); }}><Icon name="expand" size={14} />{big ? 'Ver paneles' : 'Pantalla grande'}</button>
-                        <div className="vp-seg vp-dev" role="group" aria-label="Vista previa">
-                            <button type="button" className={viewport === 'desktop' ? 'on' : ''} onClick={() => setViewport('desktop')} aria-label="Computadora" title="Computadora"><Icon name="monitor" size={16} /></button>
-                            <button type="button" className={viewport === 'mobile' ? 'on' : ''} onClick={() => setViewport('mobile')} aria-label="Celular" title="Celular"><Icon name="phone" size={16} /></button>
-                        </div>
+                        <PanelSegmented
+                            className="vp-dev"
+                            ariaLabel="Vista previa"
+                            value={viewport}
+                            onChange={setViewport}
+                            options={[
+                                { value: 'desktop', label: <Icon name="monitor" size={16} />, ariaLabel: 'Computadora', title: 'Computadora' },
+                                { value: 'mobile', label: <Icon name="phone" size={16} />, ariaLabel: 'Celular', title: 'Celular' },
+                            ]}
+                        />
                     </div>
                 ) : null}
-                <span className="vp-status" role="status"><i className={status.dirty ? '' : 'ok'} />{status.text}</span>
+                {status.history ? <HistoryButton history={status.history} theme={status.theme} toast={status.toast} /> : null}
+            <CloudStatus cloud={status.cloud} unpublished={status.dirty} />
                 <button type="button" className="vp-btn acc" onClick={onPublish} disabled={publishing}>{publishing ? 'Publicando…' : 'Publicar'}</button>
-                <button type="button" className="vp-ibtn" onClick={onNotifications} aria-label={`Avisos: ${badges.total || 0}`}>
+                {bell || (<button type="button" className="vp-ibtn" onClick={onNotifications} aria-label={`Avisos: ${badges.total || 0}`}>
                     <Icon name="bell" size={17} />
                     {badges.total ? <span className="n">{badges.total}</span> : null}
-                </button>
+                </button>)}
                 <button type="button" className="vp-ibtn" onClick={onHelp} aria-label="Ayuda de esta sección" title="Ayuda de esta sección">?</button>
             </div>
 

@@ -2,12 +2,7 @@
 
 @media (max-width: 900px) {
     /* ── números del Resumen ── */
-    .vp .vp-kpis { gap: 10px; margin-bottom: 14px; }
-    .vp .vp-kpi { padding: 12px; gap: 0; flex-direction: column; align-items: flex-start; }
-    .vp .vp-kpi .vp-kic { display: none; }
-    .vp .vp-kpi small { font-size: 11.5px; }
-    .vp .vp-kpi b { font-size: 20px; display: block; margin: 2px 0 0; }
-    .vp .vp-kpi em, .vp .vp-kpi span:not(.vp-kic) { font-size: 11px; }
+    .vp .vp-kpis { margin-bottom: 14px; }
 
     /* ── filtros y barras de arriba: bajan de línea; el buscador y los textos ocupan todo el ancho ── */
     .vp .vp-fbar { flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
@@ -68,7 +63,7 @@
     .vp .vp-drop { padding: 18px 14px; }
 
     /* ── Catálogo: frase de cambiar precios ── */
-    .vp .vp-sel.slot, .vp .vp-slot { font-size: 15px; height: 40px; }
+    .vp .vase-sel.slot, .vp .vp-slot { font-size: 15px; height: 40px; }
     .vp input.vp-slot { width: 84px; }
     .vp .vp-brands { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }

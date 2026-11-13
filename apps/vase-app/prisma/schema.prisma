@@ -468,6 +468,7 @@ model User {
   emailVerified DateTime?
   passwordHash  String?
   image         String?
+  avatarUrl     String?      @db.Text
   platformRole  PlatformRole @default(USER)
   locale        String       @default("es")
   passwordChangedAt DateTime?
@@ -577,6 +578,10 @@ model Tenant {
   invitations       TenantInvitation[]
   auditLogs         AuditLog[]
   subscription      TenantSubscription?
+  billingProfile    TenantBillingProfile?
+  businessInfo      TenantBusinessInfo?
+  branches          TenantBranch[]
+  dataSources       TenantDataSource[]
   storefrontPages   StorefrontPage[]
   customPageRequests CustomPageRequest[]
   customProjectMilestones CustomProjectMilestone[]
@@ -1338,6 +1343,7 @@ model TenantSubscription {
   customDomainEnabled  Boolean       @default(false)
   temporaryPagesEnabled Boolean      @default(true)
   businessProjectLimit Int           @default(1)
+  teamMemberLimit      Int           @default(3)
   labsAssistantLimit   Int           @default(1)
   trialStartedAt       DateTime?
   trialEndsAt          DateTime?
@@ -2793,11 +2799,109 @@ model ClientPayment {
   module             Module?           @relation(fields: [moduleId], references: [id], onDelete: SetNull)
   submodule          ModuleSubmodule?  @relation(fields: [submoduleId], references: [id], onDelete: SetNull)
   partialItems       PaymentPartialItem[]
+  mercadoPagoRecords MercadoPagoPaymentRecord[]
   allocations        PaymentAllocation[]
 
   @@index([tenantId, status, dueAt])
   @@index([clientAccountId, category, status])
   @@index([moduleId, submoduleId, createdAt])
+}
+
+model TenantBusinessInfo {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique
+  logoUrl   String?  @db.Text
+  tagline   String?
+  phone     String?
+  whatsapp  String?
+  email     String?
+  website   String?
+  instagram String?
+  facebook  String?
+  tiktok    String?
+  youtube   String?
+  socialLinks Json?
+  hours     String?
+  timezone  String   @default("America/Argentina/Buenos_Aires")
+  currency  String   @default("ARS")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model TenantBranch {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  address   String
+  phone     String?
+  hours     String?
+  isMain    Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sortOrder])
+}
+
+// Mi negocio › Cómo se conectan tus productos: de dónde sale cada cosa (productos y precios, stock,
+// pedidos, clientes). Sin fila, cada producto usa lo suyo. externalSystem: nombre del sistema de gestión.
+enum DataResource {
+  CATALOG
+  STOCK
+  ORDERS
+  CUSTOMERS
+}
+
+enum DataSourceKind {
+  BUSINESS
+  MANAGEMENT
+  REST
+  EXTERNAL
+}
+
+model TenantDataSource {
+  id             String         @id @default(cuid())
+  tenantId       String
+  resource       DataResource
+  source         DataSourceKind
+  externalSystem String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, resource])
+}
+
+model TenantBillingProfile {
+  id                    String   @id @default(cuid())
+  tenantId              String   @unique
+  legalName             String?
+  taxId                 String?
+  taxCondition          String?
+  fiscalAddress         String?
+  city                  String?
+  province              String?
+  postalCode            String?
+  mercadoPagoCustomerId String?
+  defaultCardId         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model MercadoPagoPaymentRecord {
+  id                   String        @id @default(cuid())
+  mercadoPagoPaymentId String        @unique
+  clientPaymentId      String
+  tenantId             String
+  amount               Decimal       @db.Decimal(14, 2)
+  createdAt            DateTime      @default(now())
+  clientPayment        ClientPayment @relation(fields: [clientPaymentId], references: [id], onDelete: Cascade)
+
+  @@index([clientPaymentId])
+  @@index([tenantId, createdAt])
 }
 
 model PaymentPartialItem {

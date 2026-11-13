@@ -144,7 +144,7 @@ export function KnowledgeAddModal() {
   }
 
   return <>
-    <button ref={openButton} className="labs-button-primary inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold" onClick={() => setOpen(true)}><Plus size={16} />Agregar conocimiento</button>
+    <button ref={openButton} className="vpa-btn acc" onClick={() => setOpen(true)}><Plus size={16} />Agregar conocimiento</button>
     {open && <div className="labs-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <div ref={dialog} onKeyDown={trapFocus} role="dialog" aria-modal="true" aria-labelledby="knowledge-dialog-title" className="labs-knowledge-modal">
         <header className="labs-modal-header">

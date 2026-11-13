@@ -7,8 +7,10 @@ export type OrchestratedAiReply = Omit<AiReplyResult, "imageUrls"> & {
 
 interface AiOrchestratorDeps {
   knowledge: { buildContext(assistantId: string): Promise<string> };
+  /** Datos de Mi negocio (horarios, contacto, sucursales). Opcional. */
+  businessProfile?: { buildContext(globalTenantId: string): Promise<string> };
   catalog?: {
-    buildAiResources?(globalTenantId: string): Promise<{
+    buildAiResources?(globalTenantId: string, query?: string): Promise<{
       context: string;
       allowedImageUrls: string[];
     }>;
@@ -63,6 +65,8 @@ interface AiOrchestratorDeps {
     imageUrls?: string[];
     conversationId: string;
   }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
+  /** Pasa la charla a una persona (pausa la IA). */
+  requestHandoff?(input: { conversationId: string; reason: string }): Promise<void>;
   markAssistantReplyDelivery?(input: {
     messageId: string;
     status: "SENT" | "FAILED";
@@ -93,9 +97,10 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         channel: input.channel,
         userText: input.latestUserText,
       });
-      const [knowledgeContext, catalogResources, orderContext, previouslySentImageUrls] = await Promise.all([
+      const [businessContext, knowledgeContext, catalogResources, orderContext, previouslySentImageUrls] = await Promise.all([
+        deps.businessProfile?.buildContext(input.globalTenantId).catch(() => "") ?? Promise.resolve(""),
         deps.knowledge.buildContext(input.assistantId),
-        buildCatalogResources(deps.catalog, input.globalTenantId),
+        buildCatalogResources(deps.catalog, input.globalTenantId, input.latestUserText),
         confirmation?.handled
           ? Promise.resolve("")
           : deps.orders?.buildContext({
@@ -104,7 +109,7 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
             }) ?? Promise.resolve(""),
         deps.listSentImageUrls?.(input.conversationId) ?? Promise.resolve([]),
       ]);
-      const context = [knowledgeContext, catalogResources.context, orderContext].filter(Boolean).join("\n\n");
+      const context = [businessContext, knowledgeContext, catalogResources.context, orderContext].filter(Boolean).join("\n\n");
       let reply: OrchestratedAiReply = confirmation?.handled
         ? {
             text: confirmation.text,
@@ -175,7 +180,13 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         throw error;
       }
 
-      return { ok: true, messageId: message.messageId, totalTokens: usage.totalTokens };
+      // El asistente pidió una persona: se pausa la IA en esta charla y aparece en Te necesitan y en las
+      // notificaciones de Vase. Si falla, la respuesta ya salió igual.
+      if (reply.handoff?.needed && deps.requestHandoff) {
+        await deps.requestHandoff({ conversationId: input.conversationId, reason: reply.handoff.reason }).catch(() => undefined);
+      }
+
+      return { ok: true, messageId: message.messageId, totalTokens: usage.totalTokens, ...(reply.handoff?.needed ? { handoff: true } : {}) };
     },
   };
 }
@@ -183,9 +194,10 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
 async function buildCatalogResources(
   catalog: AiOrchestratorDeps["catalog"],
   globalTenantId: string,
+  query = "",
 ): Promise<{ context: string; allowedImageUrls: string[] }> {
   if (catalog?.buildAiResources) {
-    return catalog.buildAiResources(globalTenantId);
+    return catalog.buildAiResources(globalTenantId, query);
   }
   return {
     context: await catalog?.buildAiContext?.(globalTenantId) ?? "",

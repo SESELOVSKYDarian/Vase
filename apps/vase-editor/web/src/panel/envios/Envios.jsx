@@ -11,6 +11,7 @@ import {
     tiersError,
     zonesToTiers,
 } from './model';
+import { PanelCard, PanelTag } from '@vase/ui/panel/pieces';
 
 // Envíos: desde dónde salís, cuánto cobrás por distancia y qué pasa si queda lejos.
 export default function Envios({ editor, toast, theme, goSettings }) {
@@ -86,7 +87,7 @@ export default function Envios({ editor, toast, theme, goSettings }) {
                                     <div key={branch.id || index}>
                                         <div className="vp-row">
                                             <div className="g"><b>{branch.name || `Sucursal ${index + 1}`}</b><span>{branch.address || 'Sin dirección'}</span></div>
-                                            {branchLocated(branch) ? <span className="vp-tag g"><i />En el mapa</span> : <span className="vp-tag y"><i />Sin ubicar</span>}
+                                            {branchLocated(branch) ? <PanelTag tone="g">En el mapa</PanelTag> : <PanelTag tone="y">Sin ubicar</PanelTag>}
                                             <button type="button" className="vp-btn line sm" onClick={() => setEditingBranch(editingBranch === index ? null : index)}>{editingBranch === index ? 'Listo' : 'Ubicar'}</button>
                                         </div>
                                         {editingBranch === index ? (
@@ -134,9 +135,12 @@ export default function Envios({ editor, toast, theme, goSettings }) {
                             </div>
                         </div>
 
-                        <div className="vp-card vp-sec">
-                            <h3>Zonas especiales <span className="vp-note">opcional</span></h3>
-                            <p>Un barrio o una localidad con su propio precio. Si el cliente está adentro, se cobra el precio de la zona especial.</p>
+                        <PanelCard
+                            stack
+                            className="vp-card vp-sec"
+                            title={<>Zonas especiales <span className="vp-note">opcional</span></>}
+                            description="Un barrio o una localidad con su propio precio. Si el cliente está adentro, se cobra el precio de la zona especial."
+                        >
                             {specials.map((zone, index) => (
                                 <div key={zone.id || index} className="vp-row">
                                     <div className="g"><input className="vp-inp" aria-label="Nombre de la zona" value={zone.name} onChange={(event) => setSpecial(index, { name: event.target.value })} /></div>
@@ -152,7 +156,7 @@ export default function Envios({ editor, toast, theme, goSettings }) {
                                     touch(() => setSpecials((list) => [...list, { id: `special-${Date.now()}`, name: place.name || place.display_name.split(',')[0], description: place.display_name, type: 'flat', enabled: true, price: 0, polygon }]));
                                 }}
                             />
-                        </div>
+                        </PanelCard>
 
                         {otherZones.length ? (
                             <span className="vp-note">También tenés {otherZones.length} zona(s) de precio fijo sin mapa ({otherZones.map((zone) => zone.name).join(', ')}). Se mantienen como están.</span>
@@ -161,14 +165,13 @@ export default function Envios({ editor, toast, theme, goSettings }) {
 
                     <div className="vp-scol vp-envmap">
                         <ShippingMap branches={branches} tiers={tiers.filter((tier) => tier.max_km !== '')} specials={specials} theme={theme} />
-                        <div className="vp-card vp-sec">
-                            <h3>Probá un envío</h3>
+                        <PanelCard stack className="vp-card vp-sec" title="Probá un envío">
                             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                                 <span>Un cliente a</span>
                                 <label className="vp-search" style={{ width: 110 }}><input inputMode="decimal" aria-label="Distancia de prueba" value={simKm} onChange={(event) => setSimKm(event.target.value)} />km</label>
                                 <b>{sim ? (sim.ok ? (sim.price > 0 ? `paga ${formatMoney(sim.price)}` : 'tiene envío gratis') : 'no tiene envío: retira en sucursal') : ''}</b>
                             </div>
-                        </div>
+                        </PanelCard>
                     </div>
                 </div>
 

@@ -1,6 +1,7 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminMeetingSlotManager } from "@/components/admin/admin-meeting-slot-manager";
+import { AdminClientChangeForm } from "@/components/admin/admin-client-change-form";
 import { AdminCustomizationQuoteForm } from "@/components/admin/admin-customization-quote-form";
 import { CustomizationPipelineControls } from "@/components/admin/customization-pipeline-controls";
 import { AdminCustomizationReviewForm } from "@/components/business/admin-customization-review-form";
@@ -66,6 +67,8 @@ export default async function AdminCustomizationsPage() {
       </section>
 
       <CustomizationPipelineControls requests={workspace.requests} />
+
+      <AdminClientChangeForm tenants={workspace.tenants} />
 
       <AdminMeetingSlotManager
         tenants={workspace.tenants}

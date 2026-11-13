@@ -1,8 +1,4 @@
 /* Pedidos, clientes y demás pantallas del panel nuevo. Todo dentro de .vp. */
-.vp .vp-seg { display: flex; background: var(--soft); border-radius: 10px; padding: 3px; gap: 2px; }
-.vp .vp-seg button { flex: 1; border: 0; background: none; height: 32px; border-radius: 8px; font-weight: 700; font-size: 12.5px; color: var(--mut); cursor: pointer; padding: 0 8px; white-space: nowrap; }
-.vp .vp-seg button.on { background: var(--card); color: var(--tx); box-shadow: var(--sh-sm); }
-.vp .vp-seg button:disabled:not(.on) { opacity: .5; cursor: default; }
 .vp .vp-ordstate { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--soft); }
 .vp .vp-ordstate .dotb { width: 36px; height: 36px; border-radius: 50%; background: #98a2b3; flex: none; }
 .vp .vp-ordstate.b { background: rgba(46, 144, 250, .10); } .vp .vp-ordstate.b .dotb { background: #2e90fa; }

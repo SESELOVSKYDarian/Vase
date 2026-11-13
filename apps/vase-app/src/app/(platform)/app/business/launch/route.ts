@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guards";
 import { createBusinessLaunchUrl } from "@/lib/business/launch";
 import { getTenantMembership } from "@/lib/tenancy/resolve-tenant";
+import { getTenantModulesAccess } from "@/server/queries/modules";
 
 function buildRedirectToSignIn(request: Request) {
   const url = new URL(request.url);
@@ -20,6 +21,13 @@ export async function GET(request: Request) {
 
     if (!membership) {
       return NextResponse.redirect(new URL("/app?business_access=forbidden", requestUrl.origin));
+    }
+
+    if (membership.role !== "OWNER") {
+      const access = await getTenantModulesAccess(membership.tenantId, session.user.id);
+      if (!access?.modules.some((module) => module.key === "business" && module.isActive)) {
+        return NextResponse.redirect(new URL("/app?business_access=forbidden", requestUrl.origin));
+      }
     }
 
     const launchUrl = await createBusinessLaunchUrl({ session, membership });

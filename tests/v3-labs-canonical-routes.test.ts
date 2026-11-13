@@ -17,18 +17,20 @@ describe("Labs canonical owner routes", () => {
 
   it("uses canonical links in the Labs owner navigation", () => {
     const nav = fs.readFileSync(path.join(labs, "app/app/owner/labs/labs-owner-nav.tsx"), "utf8");
-    expect(nav).toContain('href: "/owner/channels"');
+    expect(nav).not.toContain('href: "/owner/channels"');
     expect(nav).toContain('href: "/owner/knowledge"');
     expect(nav).not.toContain('href: "/app/owner/labs');
   });
 
-  it("places Chatbots inside the Conocimiento section tabs", () => {
+  it("groups knowledge, catalog and trainer under the assistant tabs", () => {
     const layout = fs.readFileSync(path.join(labs, "app/owner/knowledge/layout.tsx"), "utf8");
-    const page = fs.readFileSync(path.join(labs, "app/app/owner/labs/chatbots/page.tsx"), "utf8");
+    const tabs = fs.readFileSync(path.join(labs, "app/app/owner/labs/labs-tabs.tsx"), "utf8");
+    const page = fs.readFileSync(path.join(labs, "app/app/owner/labs/chatbots/knows-page.tsx"), "utf8");
 
-    expect(layout).toContain('<Link href="/owner/knowledge">Chatbots</Link>');
-    expect(layout).toContain('aria-label="Secciones de conocimiento"');
-    expect(page).toContain('eyebrow="Conocimiento / Chatbots"');
-    expect(page).toContain('title="Base de conocimiento"');
+    expect(layout).toContain("<LabsTabs tabs={ASSISTANT_TABS} />");
+    for (const href of ["/owner/knowledge", "/owner/knowledge/sabe", "/owner/knowledge/catalog", "/owner/inbox/trainer"]) {
+      expect(tabs).toContain(`href: "${href}"`);
+    }
+    expect(page).toContain("<h3>Lo que subiste</h3>");
   });
 });

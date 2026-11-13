@@ -136,6 +136,7 @@ export function FooterEditor({ settings, setSettings, pickers, isPiquim }) {
     const setLabel = (key, value) => update({ labels: { ...values.labels, [key]: value } });
     const setColumn = (key, links) => update(key === 'shopLinks' && !isPiquim ? { shopLinks: links, quickLinks: links } : { [key]: links });
     const commerce = settings?.commerce || {};
+    const vaseProfile = settings?.vase_profile;
     const texts = STORE_TEXT_DEFAULTS.footer;
 
     return (
@@ -158,6 +159,7 @@ export function FooterEditor({ settings, setSettings, pickers, isPiquim }) {
             </div>
             <div className="vp-fld">
                 <span className="vp-fl">Contacto</span>
+                {vaseProfile?.connected ? <span className="vp-note">El teléfono, el correo y la dirección que cargues en <a href={vaseProfile.edit_url} target="_blank" rel="noreferrer">Mi negocio</a> reemplazan a estos.</span> : null}
                 <input className="vp-inp" aria-label="Dirección" placeholder={commerce.address || (isPiquim ? 'Dirección' : 'Mar del Plata, Argentina')} value={values.contact.address || ''} onChange={(event) => setContact({ address: event.target.value })} />
                 <input className="vp-inp" aria-label="Teléfono" placeholder={commerce.phone || commerce.whatsapp_number || 'Teléfono'} value={values.contact.phone || ''} onChange={(event) => setContact({ phone: event.target.value })} />
                 <input className="vp-inp" aria-label="Correo" placeholder={commerce.email || 'Correo'} value={values.contact.email || ''} onChange={(event) => setContact({ email: event.target.value })} />

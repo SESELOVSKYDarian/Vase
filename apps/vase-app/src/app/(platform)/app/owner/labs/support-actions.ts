@@ -21,7 +21,7 @@ export async function createClientSupportTicketAction(
   try {
     const requestContext = await getRequestContext();
     const session = await requireVerifiedUser();
-    const { membership } = await requireTenantRole(tenantRoles.OWNER);
+    const { membership } = await requireTenantRole(tenantRoles.MANAGER);
 
     const parsed = createClientSupportTicketSchema.safeParse({
       subject: sanitizeText(String(formData.get("subject") ?? "")),
@@ -68,6 +68,7 @@ export async function createClientSupportTicketAction(
     });
 
     revalidatePath("/app/owner/labs");
+    revalidatePath("/app/help");
     revalidatePath("/app/support");
     revalidatePath("/app/admin");
     return { success: "Ticket enviado al equipo humano de Vase." };

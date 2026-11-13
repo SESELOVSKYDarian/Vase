@@ -1,234 +1,216 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { ClientCustomQuoteResponseForm } from "@/components/business/client-custom-quote-response-form";
-import { CustomProjectMeetingRequestForm } from "@/components/business/custom-project-meeting-request-form";
-import { StatusBadge } from "@/components/business/status-badge";
-import { PanelCard } from "@/components/ui/panel-card";
+import { WorkBoard, type BoardMeeting, type BoardSlot, type WorkItem } from "@/components/panel/work-board";
 import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
+import { formatMoneyFromCents } from "@/lib/business/custom-quotes";
+import { BUSINESS_WORKSPACE_PATH } from "@/lib/business/links";
+import { prisma } from "@/lib/db/prisma";
 import {
-  formatMoneyFromCents,
-  getQuoteStatusLabel,
-  getQuoteStatusTone,
-  getQuoteTemplateLabel,
-} from "@/lib/business/custom-quotes";
+  describeWorkProgress,
+  formatCalendarTile,
+  formatMeetingDayMonth,
+  formatMeetingTime,
+  formatMeetingWhen,
+  formatSlotDay,
+  meetingMinutes,
+  mergeClientMeetings,
+  type ClientMeetingSource,
+} from "@/lib/business/work-board";
 import { getTenantCustomizationQuoteWorkspace } from "@/server/queries/custom-quotes";
+import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 
-function formatDate(value: Date | null | undefined) {
-  if (!value) {
-    return "Sin fecha";
-  }
+const dateLabel = new Intl.DateTimeFormat("es-AR", { dateStyle: "long" });
 
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(value);
-}
+const REQUEST_KIND: Record<string, string> = {
+  TEMPLATE_CUSTOMIZATION: "Personalizar plantilla",
+  FULL_CUSTOMIZATION: "Desarrollo a medida",
+};
+
+const MEETING_LABEL: Record<string, string> = {
+  DEFINITION: "Definición",
+  DESIGN: "Diseño",
+  MID_DEVELOPMENT: "Avance del desarrollo",
+  FINAL_DELIVERY: "Entrega final",
+  FOLLOW_UP: "Seguimiento",
+};
 
 export default async function OwnerCustomizationsPage() {
   let membership;
+  let session;
 
   try {
-    ({ membership } = await requireTenantRole(tenantRoles.OWNER));
+    ({ membership, session } = await requireTenantRole(tenantRoles.MANAGER));
   } catch {
     forbidden();
   }
 
-  const workspace = await getTenantCustomizationQuoteWorkspace(membership.tenantId);
+  const tenantId = membership.tenantId;
+  const [workspace, dashboard, meetingsV2, bookings, slots] = await Promise.all([
+    getTenantCustomizationQuoteWorkspace(tenantId),
+    getUnifiedTenantDashboard(tenantId, session.user.id, session.user.platformRole),
+    prisma.meetingV2.findMany({
+      where: { tenantId, scheduledAt: { not: null } },
+      orderBy: { scheduledAt: "desc" },
+      take: 40,
+      select: { id: true, title: true, meetUrl: true, scheduledAt: true, sourceCustomMeetingId: true },
+    }),
+    prisma.customProjectMeetingBooking.findMany({
+      where: { tenantId },
+      orderBy: { scheduledStart: "desc" },
+      take: 40,
+      select: {
+        id: true,
+        status: true,
+        scheduledStart: true,
+        scheduledEnd: true,
+        meetingUrl: true,
+        customMeetingId: true,
+        customPageRequest: { select: { pageScope: true } },
+        customMeeting: { select: { meetingUrl: true } },
+      },
+    }),
+    prisma.meetingAvailabilitySlot.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        startsAt: { gte: new Date() },
+        reservedCount: { lt: prisma.meetingAvailabilitySlot.fields.capacity },
+      },
+      orderBy: { startsAt: "asc" },
+      take: 8,
+      select: { id: true, startsAt: true },
+    }),
+  ]);
+
+  const isOwner = membership.role === "OWNER";
+  const nowMs = new Date().getTime();
+  const items: WorkItem[] = workspace.requests.map((request) => {
+    const total = request.quote ? formatMoneyFromCents(request.quote.totalAmountCents, request.quote.currency) : null;
+    const pendingClient = request.quote?.status === "PENDING_CLIENT";
+    return {
+      id: request.id,
+      title: request.pageScope,
+      description: request.businessDescription ?? request.businessObjective,
+      product: "Vase Business",
+      kind: REQUEST_KIND[request.requestType] ?? "Otro",
+      createdAt: request.createdAt,
+      createdLabel: dateLabel.format(request.createdAt),
+      progress: isOwner
+        ? describeWorkProgress({ status: request.status, quoteStatus: request.quote?.status, quoteAmount: total })
+        : {
+            ...describeWorkProgress({ status: request.status, quoteStatus: request.quote?.status }),
+            ...(pendingClient ? { next: "El presupuesto lo revisa el Dueño", state: "Esperando al Dueño" } : {}),
+          },
+      awaitingOwner: pendingClient && !isOwner,
+      detail: pendingClient && request.quote ? `Entrega estimada en ${request.quote.estimatedDeliveryDays} días` : request.quotedPriceLabel ?? "",
+      meetings: request.meetings.map((meeting) => ({
+        id: meeting.id,
+        type: meeting.type,
+        typeLabel: MEETING_LABEL[meeting.type] ?? "Reunión",
+        status: meeting.status,
+        isEnabledByAdmin: meeting.isEnabledByAdmin,
+        requestedDate: meeting.requestedDate,
+        confirmedDate: meeting.confirmedDate,
+        when: meeting.confirmedDate ?? meeting.scheduledStart ?? meeting.requestedDate,
+        url: meeting.meetingUrl,
+      })),
+      // El Encargado no ve importes: ni siquiera se le envían al navegador.
+      quote: request.quote && isOwner
+        ? {
+            id: request.quote.id,
+            number: request.quote.quoteNumber,
+            total: total ?? "",
+            summary: request.quote.clientSummary,
+            validUntil: request.quote.validUntil ? dateLabel.format(request.quote.validUntil) : "Sin fecha",
+            pendingClient,
+            lines: request.quote.lineItems.map((line) => ({
+              id: line.id,
+              label: line.label,
+              description: line.description,
+              total: formatMoneyFromCents(line.totalAmountCents, request.quote!.currency),
+            })),
+          }
+        : null,
+    };
+  });
+
+  const now = new Date(nowMs);
+  const sources: ClientMeetingSource[] = [
+    ...bookings
+      .filter((booking) => booking.status !== "CANCELED")
+      .map((booking) => ({
+        id: booking.id,
+        kind: "booking" as const,
+        title: booking.customPageRequest.pageScope,
+        start: booking.scheduledStart,
+        end: booking.scheduledEnd,
+        url: booking.meetingUrl ?? booking.customMeeting?.meetingUrl ?? null,
+        finished: booking.status === "COMPLETED",
+        customMeetingId: booking.customMeetingId,
+      })),
+    ...meetingsV2.map((meeting) => ({
+      id: meeting.id,
+      kind: "v2" as const,
+      title: meeting.title,
+      start: meeting.scheduledAt as Date,
+      end: null,
+      url: meeting.meetUrl,
+      finished: false,
+      customMeetingId: meeting.sourceCustomMeetingId,
+    })),
+    ...workspace.requests.flatMap((request) =>
+      request.meetings.flatMap((meeting) => {
+        const start = meeting.confirmedDate ?? meeting.scheduledStart ?? meeting.requestedDate;
+        if (!start || meeting.status === "CANCELED") return [];
+        return [
+          {
+            id: meeting.id,
+            kind: "request" as const,
+            title: `${MEETING_LABEL[meeting.type] ?? "Reunión"} · ${request.pageScope}`,
+            start,
+            end: meeting.scheduledEnd,
+            url: meeting.meetingUrl,
+            finished: meeting.status === "COMPLETED",
+            customMeetingId: meeting.id,
+          },
+        ];
+      }),
+    ),
+  ];
+  const merged = mergeClientMeetings(sources, now);
+  const toBoard = (meeting: ClientMeetingSource): BoardMeeting => {
+    const minutes = meetingMinutes(meeting.start, meeting.end);
+    const tile = formatCalendarTile(meeting.start);
+    return {
+      id: meeting.id,
+      kind: meeting.kind,
+      title: meeting.title,
+      when: formatMeetingWhen(meeting.start, now),
+      dayLabel: formatMeetingDayMonth(meeting.start),
+      duration: minutes ? `${minutes} minutos` : null,
+      month: tile.month,
+      day: tile.day,
+      url: meeting.url,
+      atMs: meeting.start.getTime(),
+    };
+  };
+  const boardSlots: BoardSlot[] = slots.map((slot) => ({
+    id: slot.id,
+    day: formatSlotDay(slot.startsAt),
+    time: formatMeetingTime(slot.startsAt),
+  }));
 
   return (
     <AppShell
-      title="Presupuestos y personalizaciones"
-      subtitle="Sigue cada pedido premium, revisa el alcance comercial y acepta o rechaza presupuestos desde un flujo claro."
+      title="Trabajos a medida"
+      subtitle="Lo que le pediste a Vase y tus reuniones"
       tenantLabel={membership.tenant.name}
+      modules={dashboard?.modules}
+      notifications={dashboard?.notifications}
+      currentUserName={session.user.name ?? membership.tenant.name}
+      viewerRole={membership.role}
     >
-      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <PanelCard title="Pedidos" description="Solicitudes creadas por tu equipo.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
-            {workspace.metrics.totalRequests}
-          </p>
-        </PanelCard>
-        <PanelCard title="En revisión" description="Aún sin presupuesto final.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
-            {workspace.metrics.pendingReview}
-          </p>
-        </PanelCard>
-        <PanelCard title="Pendiente de tu decisión" description="Presupuestos enviados por Vase.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
-            {workspace.metrics.pendingClient}
-          </p>
-        </PanelCard>
-        <PanelCard title="Aceptados" description="Listos para pasar a producción.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
-            {workspace.metrics.accepted}
-          </p>
-        </PanelCard>
-      </section>
-
-      <PanelCard
-        eyebrow="Flujo comercial"
-        title="Tus pedidos premium"
-        description="Cada pedido mantiene contexto de negocio, presupuesto, extras por categoría, observaciones y registro de cambios."
-      >
-        <div className="grid gap-5">
-          {workspace.requests.length === 0 ? (
-            <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-6 text-sm leading-7 text-[var(--muted)]">
-              Todavía no tienes pedidos premium. Cuando envíes una personalización avanzada desde
-              Vase Business, este espacio mostrará el presupuesto y su evolución.
-            </div>
-          ) : (
-            workspace.requests.map((request) => (
-              <article
-                key={request.id}
-                className="grid gap-5 rounded-[28px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)]/75 p-5"
-              >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-soft)]">
-                    Solicitud premium
-                  </p>
-                  <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
-                    {request.pageScope}
-                  </h2>
-                  <p className="max-w-3xl text-sm leading-7 text-[var(--muted)]">
-                    {request.businessDescription ?? request.businessObjective}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <StatusBadge tone="premium" label={request.status} />
-                  {request.quote ? (
-                    <StatusBadge
-                      tone={getQuoteStatusTone(request.quote.status)}
-                      label={getQuoteStatusLabel(request.quote.status)}
-                    />
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                  <p className="font-semibold text-[var(--foreground)]">Colores deseados</p>
-                  <p>{request.desiredColors ?? "Sin detalle"}</p>
-                </div>
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                  <p className="font-semibold text-[var(--foreground)]">Estilo de marca</p>
-                  <p>{request.brandStyle ?? "Sin detalle"}</p>
-                </div>
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                  <p className="font-semibold text-[var(--foreground)]">Funciones deseadas</p>
-                  <p>{request.desiredFeatures ?? "Sin detalle"}</p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm">
-                  <p className="mb-2 font-semibold text-[var(--foreground)]">Etapas del proyecto</p>
-                  <div className="space-y-2">
-                    {(request.milestones ?? []).map((milestone) => (
-                      <div key={milestone.id} className="rounded-xl border border-[var(--border-subtle)] p-2">
-                        <p className="text-xs font-semibold text-[var(--foreground)]">{milestone.stage}</p>
-                        <p className="text-xs text-[var(--muted)]">Avance: {milestone.progressPercent}%</p>
-                      </div>
-                    ))}
-                    {(request.milestones ?? []).length === 0 ? (
-                      <p className="text-xs text-[var(--muted)]">Sin etapas publicadas aun.</p>
-                    ) : null}
-                  </div>
-                </div>
-                <CustomProjectMeetingRequestForm requestId={request.id} meetings={request.meetings ?? []} />
-              </div>
-
-              {request.quote ? (
-                <div className="grid gap-4 rounded-[24px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-[var(--foreground)]">
-                        {request.quote.quoteNumber} · {getQuoteTemplateLabel(request.quote.templateKey)}
-                      </p>
-                      <p className="text-sm leading-6 text-[var(--muted)]">
-                        {formatMoneyFromCents(
-                          request.quote.totalAmountCents,
-                          request.quote.currency,
-                        )}{" "}
-                        · entrega estimada en {request.quote.estimatedDeliveryDays} días
-                      </p>
-                    </div>
-                    <p className="text-sm text-[var(--muted)]">
-                      Válido hasta {formatDate(request.quote.validUntil)}
-                    </p>
-                  </div>
-
-                  <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] p-4">
-                    <p className="font-semibold text-[var(--foreground)]">Resumen comercial</p>
-                    <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-                      {request.quote.clientSummary}
-                    </p>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full border-separate border-spacing-y-3 text-left text-sm">
-                      <thead>
-                        <tr className="text-[var(--muted-soft)]">
-                          <th className="px-4">Concepto</th>
-                          <th className="px-4">Detalle</th>
-                          <th className="px-4">Monto</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {request.quote.lineItems.map((line) => (
-                          <tr key={line.id} className="bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] text-[var(--foreground)]">
-                            <td className="rounded-l-3xl px-4 py-4 font-semibold">{line.label}</td>
-                            <td className="px-4 py-4 text-[var(--muted)]">
-                              {line.description ?? "Sin detalle adicional"}
-                            </td>
-                            <td className="rounded-r-3xl px-4 py-4">
-                              {formatMoneyFromCents(
-                                line.totalAmountCents,
-                                request.quote!.currency,
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {request.quote.status === "PENDING_CLIENT" ? (
-                    <ClientCustomQuoteResponseForm quoteId={request.quote.id} />
-                  ) : (
-                    <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                      Última respuesta del cliente:{" "}
-                      {request.quote.clientResponseMessage ?? "Sin mensaje adicional"}.
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-5 text-sm leading-7 text-[var(--muted)]">
-                  Tu pedido está siendo revisado por el equipo Vase. Cuando el presupuesto esté
-                  listo, aparecerá aquí con el desglose de extras, tiempos estimados y condiciones.
-                </div>
-              )}
-
-              {request.quote?.revisions.length ? (
-                <div className="grid gap-3">
-                  <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--muted-soft)]">
-                    Historial de cambios
-                  </p>
-                  {request.quote.revisions.map((revision) => (
-                    <div key={revision.id} className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="font-semibold text-[var(--foreground)]">{revision.revisionType}</p>
-                        <p className="text-sm text-[var(--muted)]">{formatDate(revision.createdAt)}</p>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{revision.summary}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-              </article>
-            ))
-          )}
-        </div>
-      </PanelCard>
+      <WorkBoard items={items} nowMs={nowMs} upcomingMeetings={merged.upcoming.map(toBoard)} pastMeetings={merged.past.map(toBoard)} slots={boardSlots} newRequestHref={isOwner ? BUSINESS_WORKSPACE_PATH : null} />
     </AppShell>
   );
 }

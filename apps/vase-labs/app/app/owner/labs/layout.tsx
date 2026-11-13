@@ -1,19 +1,9 @@
 import type { ReactNode } from "react";
-import { FlaskConical } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { labsPrisma } from "../../../lib/db";
 import { resolveLabsRequestContext } from "../../../lib/request-context";
-import { LabsOwnerNav, LabsOwnerMobileNav } from "./labs-owner-nav";
-import { LabsSidebarShell } from "./labs-sidebar-shell";
-
-function tenantInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? "")
-    .join("");
-}
+import { LabsShell } from "./labs-shell";
 
 export default async function LabsOwnerLayout({ children }: { children: ReactNode }) {
   const requestHeaders = await headers();
@@ -39,22 +29,20 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
     redirect("https://app.vase.ar/app");
   }
 
-  const initials = tenantInitials(resolved.context.tenantName);
-  const plan = resolved.context.entitlement.plan;
+  // Conversaciones que la IA pasó a una persona y siguen abiertas: el número rojo del menú.
+  const needCount = await labsPrisma.conversation
+    .count({
+      where: {
+        assistantId: resolved.assistant.id,
+        status: { not: "CLOSED" },
+        OR: [{ status: "ESCALATED" }, { escalatedToHuman: true }],
+      },
+    })
+    .catch(() => 0);
 
   return (
-    <LabsSidebarShell tenantName={resolved.context.tenantName} tenantInitials={initials} plan={plan} mobileNav={<LabsOwnerMobileNav />} sidebar={<>
-        <LabsOwnerNav />
-
-        <div className="mt-auto space-y-4 border-t border-[var(--border-subtle)] px-1 pt-5">
-          <a
-            href="https://app.vase.ar/app"
-            className="labs-sidebar-back flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 text-sm font-semibold text-[var(--foreground)]"
-          >
-            <FlaskConical className="size-4" />
-            Volver a Vase
-          </a>
-        </div>
-      </>}>{children}</LabsSidebarShell>
+    <LabsShell tenantName={resolved.context.tenantName} plan={resolved.context.entitlement.plan} needCount={needCount}>
+      {children}
+    </LabsShell>
   );
 }
