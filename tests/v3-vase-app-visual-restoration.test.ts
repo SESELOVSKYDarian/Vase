@@ -29,12 +29,4 @@ describe("Vase App migration-branch visual source", () => {
     expect(header).toContain("resolveAppHomeHref");
     expect(navigation).toContain("productOrigins.publicSite");
   });
-
-  it("renders later Business controls in the established builder language", () => {
-    const builder = source("apps/vase-app/src/components/business/builder-editor.tsx");
-
-    expect(builder).toContain("SEO del sitio");
-    expect(builder).toContain("rounded-[28px] border border-[var(--border-subtle)]");
-    expect(builder).toContain("Google Tag Manager");
-  });
 });

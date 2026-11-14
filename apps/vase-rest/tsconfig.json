@@ -13,5 +13,5 @@
     "app/**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "noctua", "backend-reservas", "Proyecto-Restaurante"]
+  "exclude": ["node_modules"]
 }
