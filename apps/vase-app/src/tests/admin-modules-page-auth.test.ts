@@ -1,14 +1,15 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const pageSource = readFileSync(
   new URL("../app/(platform)/app/admin/modules/page.tsx", import.meta.url),
   "utf8",
 );
-const actionsSource = readFileSync(
-  new URL("../app/(platform)/app/admin/actions.ts", import.meta.url),
-  "utf8",
-);
+// Las acciones del admin están repartidas por tema en la carpeta actions/: se leen todas juntas.
+const actionsDir = new URL("../app/(platform)/app/admin/actions/", import.meta.url);
+const actionsSource = readdirSync(actionsDir)
+  .map((file) => readFileSync(new URL(file, actionsDir), "utf8"))
+  .join("\n");
 
 describe("admin modules page authorization", () => {
   it("uses the dedicated MODULES permission instead of a SUPER_ADMIN-only guard", () => {

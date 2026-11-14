@@ -1,0 +1,229 @@
+"use server";
+
+// Ajustes de finanzas, socios y planes.
+import { revalidatePath } from "next/cache";
+import { requireVerifiedUser } from "@/lib/auth/guards";
+import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
+import { prisma } from "@/lib/db/prisma";
+import { getRequestContext } from "@/lib/security/request";
+import { sanitizeNullableText } from "@/lib/security/sanitize";
+import { updateBusinessPlanSettingsSchema, updateFinancialSettingsSchema, updateLabsPlanSettingsSchema, updatePartnerConfigSchema, upsertTokenPlanSettingSchema } from "@/lib/validators/admin";
+import { createAuditLog } from "@/server/services/audit-log";
+
+export async function updatePartnerConfigAction(formData: FormData): Promise<void> {
+  await requireAdminPermission(adminPermissions.BILLING);
+  const session = await requireVerifiedUser();
+  const requestContext = await getRequestContext();
+  const parsed = updatePartnerConfigSchema.safeParse({
+    alexisPercent: formData.get("alexisPercent"),
+    darianPercent: formData.get("darianPercent"),
+    dantePercent: formData.get("dantePercent"),
+    companyPercent: formData.get("companyPercent"),
+  });
+  if (!parsed.success) return;
+
+  const total =
+    parsed.data.alexisPercent +
+    parsed.data.darianPercent +
+    parsed.data.dantePercent +
+    parsed.data.companyPercent;
+  if (Math.abs(total - 100) > 0.001) return;
+
+  const existing = await prisma.partnerConfig.findFirst({
+    where: { tenantId: null },
+    orderBy: { updatedAt: "desc" },
+  });
+  const updated = existing
+    ? await prisma.partnerConfig.update({
+        where: { id: existing.id },
+        data: parsed.data,
+      })
+    : await prisma.partnerConfig.create({
+        data: {
+          tenantId: null,
+          ...parsed.data,
+        },
+      });
+
+  await createAuditLog({
+    action: "platform.partner_config_updated",
+    targetType: "partner_config",
+    targetId: updated.id,
+    actorUserId: session.user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+    metadata: parsed.data,
+  });
+  revalidatePath("/app/admin/settings");
+  revalidatePath("/app/admin/finance");
+}
+
+export async function updateFinancialSettingsAction(formData: FormData): Promise<void> {
+  await requireAdminPermission(adminPermissions.BILLING);
+  const session = await requireVerifiedUser();
+  const requestContext = await getRequestContext();
+  const parsed = updateFinancialSettingsSchema.safeParse({
+    hostingMonthlyPrice: formData.get("hostingMonthlyPrice"),
+    hostingYearlyPrice: formData.get("hostingYearlyPrice"),
+    maintenanceMonthlyPrice: formData.get("maintenanceMonthlyPrice"),
+    tokensDefaultToFund: formData.get("tokensDefaultToFund") === "on",
+    maxSupportTickets: formData.get("maxSupportTickets"),
+  });
+  if (!parsed.success) return;
+
+  const existing = await prisma.financialSettings.findFirst({
+    where: { tenantId: null },
+    orderBy: { updatedAt: "desc" },
+  });
+  const updated = existing
+    ? await prisma.financialSettings.update({
+        where: { id: existing.id },
+        data: parsed.data,
+      })
+    : await prisma.financialSettings.create({
+        data: {
+          tenantId: null,
+          ...parsed.data,
+        },
+      });
+
+  await createAuditLog({
+    action: "platform.financial_settings_updated",
+    targetType: "financial_settings",
+    targetId: updated.id,
+    actorUserId: session.user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+    metadata: parsed.data,
+  });
+  revalidatePath("/app/admin/settings");
+}
+
+export async function updateBusinessPlanSettingsAction(formData: FormData): Promise<void> {
+  await requireAdminPermission(adminPermissions.BILLING);
+  const session = await requireVerifiedUser();
+  const requestContext = await getRequestContext();
+  const parsed = updateBusinessPlanSettingsSchema.safeParse({
+    basePlanPrice: formData.get("basePlanPrice"),
+    customPlanPrice: formData.get("customPlanPrice"),
+    includedHostingYearValue: formData.get("includedHostingYearValue"),
+    customInitialPercent: formData.get("customInitialPercent"),
+    customFinalPercent: formData.get("customFinalPercent"),
+    customHostingYearPrice: formData.get("customHostingYearPrice"),
+  });
+  if (!parsed.success) return;
+
+  const existing = await prisma.businessPlanSetting.findFirst({
+    where: { tenantId: null },
+    orderBy: { updatedAt: "desc" },
+  });
+  const updated = existing
+    ? await prisma.businessPlanSetting.update({
+      where: { id: existing.id },
+      data: parsed.data,
+    })
+    : await prisma.businessPlanSetting.create({
+      data: { tenantId: null, ...parsed.data },
+    });
+
+  await createAuditLog({
+    action: "platform.business_plan_settings_updated",
+    targetType: "business_plan_settings",
+    targetId: updated.id,
+    actorUserId: session.user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+    metadata: { before: existing, after: updated },
+  });
+  revalidatePath("/app/admin/settings");
+}
+
+export async function updateLabsPlanSettingsAction(formData: FormData): Promise<void> {
+  await requireAdminPermission(adminPermissions.BILLING);
+  const session = await requireVerifiedUser();
+  const requestContext = await getRequestContext();
+  const parsed = updateLabsPlanSettingsSchema.safeParse({
+    starterPrice: formData.get("starterPrice"),
+    growthPrice: formData.get("growthPrice"),
+    proPrice: formData.get("proPrice"),
+  });
+  if (!parsed.success) return;
+
+  const existing = await prisma.labsPlanSetting.findFirst({
+    where: { tenantId: null },
+    orderBy: { updatedAt: "desc" },
+  });
+  const updated = existing
+    ? await prisma.labsPlanSetting.update({
+      where: { id: existing.id },
+      data: parsed.data,
+    })
+    : await prisma.labsPlanSetting.create({
+      data: { tenantId: null, ...parsed.data },
+    });
+
+  await createAuditLog({
+    action: "platform.labs_plan_settings_updated",
+    targetType: "labs_plan_settings",
+    targetId: updated.id,
+    actorUserId: session.user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+    metadata: { before: existing, after: updated },
+  });
+  revalidatePath("/app/admin/settings");
+}
+
+export async function upsertTokenPlanSettingAction(formData: FormData): Promise<void> {
+  await requireAdminPermission(adminPermissions.BILLING);
+  const session = await requireVerifiedUser();
+  const requestContext = await getRequestContext();
+  const parsed = upsertTokenPlanSettingSchema.safeParse({
+    key: String(formData.get("key") ?? "").toUpperCase(),
+    price: formData.get("price"),
+    tokenAmount: formData.get("tokenAmount"),
+    estimatedMessages: sanitizeNullableText(String(formData.get("estimatedMessages") ?? "")) ?? undefined,
+    isActive: formData.get("isActive") === "on",
+  });
+  if (!parsed.success) return;
+
+  const previous = await prisma.tokenPlanSetting.findFirst({
+    where: {
+      tenantId: null,
+      key: parsed.data.key,
+    },
+  });
+
+  const saved = previous
+    ? await prisma.tokenPlanSetting.update({
+        where: { id: previous.id },
+        data: {
+          price: parsed.data.price,
+          tokenAmount: parsed.data.tokenAmount,
+          estimatedMessages: parsed.data.estimatedMessages || null,
+          isActive: parsed.data.isActive,
+        },
+      })
+    : await prisma.tokenPlanSetting.create({
+        data: {
+          tenantId: null,
+          key: parsed.data.key,
+          price: parsed.data.price,
+          tokenAmount: parsed.data.tokenAmount,
+          estimatedMessages: parsed.data.estimatedMessages || null,
+          isActive: parsed.data.isActive,
+        },
+      });
+
+  await createAuditLog({
+    action: "platform.token_plan_setting_upserted",
+    targetType: "token_plan_setting",
+    targetId: saved.id,
+    actorUserId: session.user.id,
+    ipAddress: requestContext.ipAddress,
+    userAgent: requestContext.userAgent,
+    metadata: { before: previous, after: saved },
+  });
+
+  revalidatePath("/app/admin/settings");
+}
