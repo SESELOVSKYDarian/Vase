@@ -30,7 +30,7 @@ export async function findLatestProductSyncToken(db, tenantId) {
   return result.rows[0] || null;
 }
 
-function createProductSyncTokenValue() {
+export function createProductSyncTokenValue() {
   return `vase_${crypto.randomBytes(24).toString('hex')}`;
 }
 

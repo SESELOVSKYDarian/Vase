@@ -1,3 +1,4 @@
+import { readTenantRoutesSource } from "./helpers/tenant-routes-source";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -12,7 +13,7 @@ const BASE64 = "data:image/png;base64," + "A".repeat(4000);
 
 describe("panel admin: lista de productos liviana", () => {
   it("la lista del panel manda las fotos embebidas como rutas cortas, solo para productos que la ruta publica sirve", () => {
-    const source = readFileSync("apps/vase-editor/server/src/routes/tenant.js", "utf8");
+    const source = readTenantRoutesSource();
     const route = source.slice(source.indexOf("tenantRouter.get('/products'"), source.indexOf("tenantRouter.get('/price-lists'"));
     expect(route).toContain("case when ${PUBLIC_IMAGE_ROUTE_VISIBLE_SQL} then ${PRODUCT_DATA_WITH_IMAGE_ROUTES_SQL} else p.data end as data");
     expect(route).not.toMatch(/p\.brand, p\.data,/);
@@ -51,7 +52,7 @@ describe("panel admin: lista de productos liviana", () => {
   });
 
   it("el guardado del producto recupera las fotos antes de procesarlas", () => {
-    const source = readFileSync("apps/vase-editor/server/src/routes/tenant.js", "utf8");
+    const source = readTenantRoutesSource();
     expect(source).toContain("restoreProductImageRoutes(req.body?.images, existingData.images, productId)");
   });
 });

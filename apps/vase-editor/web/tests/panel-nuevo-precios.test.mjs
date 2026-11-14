@@ -81,6 +81,8 @@ test('cambiar precios: para quién y botones Aplicar / Cancelar', async () => {
     assert.match(screen, />Cancelar</);
     assert.match(screen, />Aplicar</);
     assert.doesNotMatch(screen, /Precios distintos solo para algunos clientes/);
-    const server = await (await import('node:fs/promises')).readFile(new URL('../../server/src/routes/tenant.js', import.meta.url), 'utf8');
+    const fs = await import('node:fs/promises');
+    const routesDir = new URL('../../server/src/routes/tenant/', import.meta.url);
+    const server = (await Promise.all((await fs.readdir(routesDir)).map((file) => fs.readFile(new URL(file, routesDir), 'utf8')))).join('\n');
     assert.doesNotMatch(server, /c\.parent_id = t\.id/);
 });

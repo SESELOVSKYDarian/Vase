@@ -1,7 +1,8 @@
+import { readTenantRoutesSource } from "./helpers/tenant-routes-source";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const source = readFileSync("apps/vase-editor/server/src/routes/tenant.js", "utf8");
+const source = readTenantRoutesSource();
 const route = source.slice(source.indexOf("tenantRouter.put('/categories/:id'"), source.indexOf("tenantRouter.post('/categories'"));
 
 describe("panel admin: editar categorías", () => {
