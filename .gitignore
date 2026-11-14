@@ -34,7 +34,10 @@ uploads/
 
 # local agent/editor/runtime state
 .agents/
-.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/vase-design/
 .data/
 .kiro/
 .playwright-mcp/
