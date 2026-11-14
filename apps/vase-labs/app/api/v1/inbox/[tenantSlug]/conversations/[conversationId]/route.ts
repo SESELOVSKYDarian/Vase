@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { labsPrisma } from "../../../../../../lib/db";
+import { requireTenantAccess } from "../../../../../../lib/tenant-route-guard";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ tenantSlug: string; conversationId: string }> },
 ) {
   const { tenantSlug, conversationId } = await params;
+  const access = await requireTenantAccess(request, tenantSlug);
+  if (!access.ok) return access.response;
   const conversation = await (labsPrisma as any).conversation.findFirst({
     where: {
       id: conversationId,

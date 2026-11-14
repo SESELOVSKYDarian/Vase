@@ -1,4 +1,5 @@
 import { labsPrisma } from "../../../../../lib/db";
+import { requireTenantAccess } from "../../../../../lib/tenant-route-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +11,8 @@ export async function GET(
   { params }: { params: Promise<{ tenantSlug: string }> },
 ) {
   const { tenantSlug } = await params;
+  const access = await requireTenantAccess(request, tenantSlug);
+  if (!access.ok) return access.response;
   let lastSignature = "";
   let timer: ReturnType<typeof setInterval> | undefined;
   let keepAliveTimer: ReturnType<typeof setInterval> | undefined;

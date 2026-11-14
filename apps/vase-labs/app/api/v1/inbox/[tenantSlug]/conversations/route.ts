@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { labsPrisma } from "../../../../../lib/db";
+import { requireTenantAccess } from "../../../../../lib/tenant-route-guard";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ tenantSlug: string }> },
 ) {
   const { tenantSlug } = await params;
+  const access = await requireTenantAccess(request, tenantSlug);
+  if (!access.ok) return access.response;
   const search = new URL(request.url).searchParams;
   const status = search.get("status");
   const assistant = await (labsPrisma as any).assistant.findUnique({

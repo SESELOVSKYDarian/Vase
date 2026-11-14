@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { labsPrisma } from "../../../../../../../lib/db";
+import { requireTenantAccess } from "../../../../../../../lib/tenant-route-guard";
 
 export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ handoffId: string }> },
+  request: Request,
+  { params }: { params: Promise<{ tenantSlug: string; handoffId: string }> },
 ) {
-  const { handoffId } = await params;
+  const { tenantSlug, handoffId } = await params;
+  const access = await requireTenantAccess(request, tenantSlug);
+  if (!access.ok) return access.response;
+  const owned = await (labsPrisma as any).handoff.findFirst({
+    where: { id: handoffId, conversation: { assistant: { globalTenantId: access.globalTenantId } } },
+    select: { id: true },
+  });
+  if (!owned) return NextResponse.json({ error: "HANDOFF_NOT_FOUND" }, { status: 404 });
   const handoff = await (labsPrisma as any).handoff.update({
     where: { id: handoffId },
     data: { status: "RESOLVED", resolvedAt: new Date() },

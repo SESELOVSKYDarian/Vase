@@ -1,20 +1,34 @@
+import { assertServiceToken } from "@vase/internal-api";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { autoAssignSupportTicket } from "@/server/services/support-queue";
 
+// Ruta interna: crea un ticket en la cola de soporte de una cuenta. Solo con el token de servicio,
+// porque antes cualquiera podía crear tickets en cualquier cuenta sin iniciar sesión.
+const bodySchema = z.object({
+  tenantId: z.string().trim().min(1).max(64),
+  subject: z.string().trim().min(1).max(200),
+  customerName: z.string().trim().max(160).optional(),
+  customerContact: z.string().trim().max(160).optional(),
+  summary: z.string().trim().max(4000).optional(),
+});
+
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as {
-      tenantId?: string;
-      subject?: string;
-      customerName?: string;
-      customerContact?: string;
-      summary?: string;
-    };
+    assertServiceToken(request.headers.get("authorization"), process.env.SERVICE_TO_SERVICE_TOKEN);
+  } catch {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
 
-    if (!body.tenantId || !body.subject) {
+  try {
+    const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) {
       return NextResponse.json({ error: "tenantId y subject son requeridos." }, { status: 400 });
     }
+    const body = parsed.data;
+    const tenant = await prisma.tenant.findUnique({ where: { id: body.tenantId }, select: { id: true } });
+    if (!tenant) return NextResponse.json({ error: "TENANT_NOT_FOUND" }, { status: 404 });
 
     const created = await prisma.supportTicket.create({
       data: {

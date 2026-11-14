@@ -1,4 +1,5 @@
 import express from 'express';
+import { createRateLimiter } from './middleware/rateLimit.js';
 import compression from 'compression';
 import cors from 'cors';
 import fs from 'fs';
@@ -39,6 +40,16 @@ import {
 
 const app = express();
 app.set('trust proxy', true);
+// Seguridad básica en todas las respuestas (tienda, panel y API). No se limita el uso en iframes
+// porque la vista previa del diseño y las tiendas con dominio propio lo usan.
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+  next();
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -158,8 +169,17 @@ app.use('/uploads', express.static('uploads'));
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
-app.use('/auth', authRouter);
-app.use('/api/auth', authRouter);
+// Frena probar contraseñas o códigos sin parar: por IP y correo, y un tope general por IP.
+const authEmail = (req) => req.body?.email || req.body?.username || '';
+const authAttempts = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, keyOf: authEmail });
+const authBurst = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 60 });
+const AUTH_LIMITED = /^\/(login|login-with-code|request-login-code|signup|register|verify-email|resend-verification|bootstrap)\/?$/;
+const limitAuth = (req, res, next) => {
+  if (req.method !== 'POST' || !AUTH_LIMITED.test(req.path)) return next();
+  return authBurst(req, res, () => authAttempts(req, res, next));
+};
+app.use('/auth', limitAuth, authRouter);
+app.use('/api/auth', limitAuth, authRouter);
 app.get('/api/me', authenticate, getMeHandler);
 app.use('/api/me', authenticate, meRouter);
 app.use('/api/uploads', authenticate, uploadsRouter);

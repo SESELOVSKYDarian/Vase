@@ -24,8 +24,28 @@ const nextConfig = {
         generateBuildId: async () => deploymentId,
       }
     : {}),
+  poweredByHeader: false,
+  // Next 14 no tiene arreglo para las fallas del optimizador de imágenes (ejecución de código con
+  // AVIF o SVG): se apaga y se cierra su dirección. Las imágenes se sirven tal cual.
   images: {
-    remotePatterns: [{ protocol: "https", hostname: "**" }],
+    unoptimized: true,
+  },
+  async rewrites() {
+    return { beforeFiles: [{ source: "/_next/image", destination: "/_imagen-no-disponible" }] };
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+          { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
+        ],
+      },
+    ];
   },
   eslint: {
     ignoreDuringBuilds: true,

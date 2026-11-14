@@ -1,6 +1,21 @@
+import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+// En producción, sin JWT_SECRET (o con la clave de desarrollo) cualquiera podría fabricar sesiones.
+// En ese caso se usa una clave al azar para este arranque: las sesiones viejas dejan de valer, pero
+// nadie puede falsificarlas. Lo correcto es cargar JWT_SECRET en el servicio.
+function resolveJwtSecret() {
+  const configured = String(process.env.JWT_SECRET || '').trim();
+  const weak = !configured || configured === 'dev-secret';
+  if (configured && configured.length < 32) console.warn('SEGURIDAD: JWT_SECRET es corto. Conviene uno de 32 caracteres o más.');
+  if (process.env.NODE_ENV === 'production' && weak) {
+    console.error('SEGURIDAD: falta JWT_SECRET. Se usa una clave temporal; cargá JWT_SECRET (32+ caracteres).');
+    return crypto.randomBytes(48).toString('hex');
+  }
+  return configured || 'dev-secret';
+}
+
+const JWT_SECRET = resolveJwtSecret();
 
 export function authenticate(req, res, next) {
   const authHeader = req.get('authorization') || '';

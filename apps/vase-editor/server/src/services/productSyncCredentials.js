@@ -78,8 +78,10 @@ export function createProductSyncCredentialsHandler({
   findToken = findLatestProductSyncToken,
 }) {
   return async function productSyncCredentialsHandler(req, res, next) {
-    const expected = String(expectedServiceToken || '').trim();
-    if (!expected || req.get('authorization') !== `Bearer ${expected}`) {
+    const expected = Buffer.from(`Bearer ${String(expectedServiceToken || '').trim()}`);
+    const supplied = Buffer.from(String(req.get('authorization') || ''));
+    // Comparación en tiempo constante: no deja adivinar el token midiendo cuánto tarda la respuesta.
+    if (expected.length <= 'Bearer '.length || expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) {
       return res.status(403).json({ error: 'forbidden' });
     }
 

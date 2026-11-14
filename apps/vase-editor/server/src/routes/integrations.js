@@ -149,9 +149,7 @@ integrationsRouter.post('/internal/tenant/:tenantId/connection-status/rotate-tok
 
 integrationsRouter.post('/management/events', async (req, res, next) => {
   try {
-    const expected = String(process.env.SERVICE_TO_SERVICE_TOKEN || '').trim();
-    const supplied = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
-    if (!expected || supplied !== expected) return res.status(403).json({ error: 'forbidden' });
+    if (!serviceTokenMatches(req)) return res.status(403).json({ error: 'forbidden' });
     const event = req.body || {};
     if (!event.eventId || !event.globalTenantId || event.entity !== 'PRODUCT') return res.status(400).json({ error: 'invalid_management_event' });
     await pool.query(`create table if not exists management_event_receipts (event_id text primary key, tenant_id text not null, version integer not null, processed_at timestamptz not null default now())`);
