@@ -76,3 +76,10 @@ next-env.d.ts
 # isolated implementation worktrees
 .worktrees/
 
+
+# secretos y logs locales: nunca al repo
+.codex-env-values.txt
+.dev-logs/
+.npm-cache/
+*.stderr.log
+*.stdout.log
