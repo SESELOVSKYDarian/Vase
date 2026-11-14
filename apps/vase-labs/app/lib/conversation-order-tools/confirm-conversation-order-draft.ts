@@ -1,0 +1,233 @@
+// Parte de conversation-order-tools.ts: StoredDraft, DraftRepository, BusinessClient, ToolDeps, now, salt y más.
+import { randomBytes } from "node:crypto";
+import { type Prisma } from "../../generated/prisma";
+import { type LabsChannel, type LabsOrderCreateRequest, type LabsOrderQuoteRequest } from "@vase/contracts";
+import { buildConfirmationPhrase, buildDraftIdempotencyKey, createConfirmationCode, createConfirmationCodeHash, normalizeOrderDraftInput, resolveDraftTransition, type ConversationOrderDraftState } from "../conversation-order-draft";
+import { mapLabsChannelToOrderChannel } from "../business-order-client";
+
+export type StoredDraft = {
+  id: string;
+  assistantId?: string | null;
+  state: ConversationOrderDraftState;
+  conversationId: string;
+  globalTenantId: string;
+  channel: LabsChannel | null;
+  items: Array<{ productId: string; quantity: number }>;
+  customer: Record<string, unknown>;
+  fulfillment: {
+    type: "DELIVERY" | "PICKUP";
+    branchId?: string | null;
+    pickupLabel?: string | null;
+    address?: string | null;
+  };
+  quoteHash: string | null;
+  quoteVersion: number | null;
+  confirmationCodeHash: string | null;
+  confirmationSalt: string | null;
+  expiresAt: Date | null;
+  idempotencyKey: string;
+  notes?: string | null;
+};
+
+export type DraftRepository = {
+  saveDraft(input: Omit<StoredDraft, "id"> & { assistantId: string; quoteSnapshot: unknown; revision: number }): Promise<StoredDraft>;
+  findActiveDraft(conversationId: string): Promise<StoredDraft | null>;
+  markConfirmed(input: { draftId: string; businessOrderId?: string | null; businessOrderNumber?: string | null }): Promise<void>;
+  markFailed(input: { draftId: string; reason: string }): Promise<void>;
+};
+
+export type BusinessClient = {
+  quote(input: LabsOrderQuoteRequest): Promise<unknown>;
+  create(input: LabsOrderCreateRequest): Promise<unknown>;
+};
+
+export type ToolDeps = {
+  business: BusinessClient;
+  repository: DraftRepository;
+  projectOrder?(input: {
+    globalTenantId: string;
+    assistantId?: string | null;
+    conversationId?: string | null;
+    order: Record<string, unknown>;
+  }): Promise<unknown>;
+  now?: () => Date;
+  createCode?: () => string;
+  createSalt?: () => string;
+};
+
+export function now(deps: ToolDeps) {
+  return deps.now?.() ?? new Date();
+}
+
+export function salt(deps: ToolDeps) {
+  return deps.createSalt?.() ?? randomBytes(16).toString("hex");
+}
+
+export function readQuote(value: unknown) {
+  const source = value as { valid?: unknown; quoteHash?: unknown; quoteVersion?: unknown } | null;
+  if (!source || source.valid === false || typeof source.quoteHash !== "string" || typeof source.quoteVersion !== "number") {
+    throw new Error("ORDER_QUOTE_INVALID");
+  }
+  return { quoteHash: source.quoteHash, quoteVersion: source.quoteVersion };
+}
+
+export function readBusinessOrder(value: unknown) {
+  const source = value as { order?: { id?: unknown; orderNumber?: unknown } } | null;
+  return {
+    id: typeof source?.order?.id === "string" ? source.order.id : null,
+    orderNumber: typeof source?.order?.orderNumber === "string" ? source.order.orderNumber : null,
+    snapshot: source?.order && typeof source.order === "object"
+      ? source.order as Record<string, unknown>
+      : null,
+  };
+}
+
+export async function prepareConversationOrderDraft(input: {
+  assistantId: string;
+  conversationId: string;
+  globalTenantId: string;
+  channel: LabsChannel;
+  input: Parameters<typeof normalizeOrderDraftInput>[0];
+}, deps: ToolDeps) {
+  const normalized = normalizeOrderDraftInput(input.input);
+  const businessQuoteInput: LabsOrderQuoteRequest = {
+    globalTenantId: input.globalTenantId,
+    channel: mapLabsChannelToOrderChannel(input.channel),
+    items: normalized.items,
+    customer: normalized.customer,
+    fulfillment: normalized.fulfillment,
+  };
+  const quoteSnapshot = await deps.business.quote(businessQuoteInput);
+  const quote = readQuote(quoteSnapshot);
+  const code = deps.createCode?.() ?? createConfirmationCode();
+  const confirmationSalt = salt(deps);
+  const revision = 1;
+  const expiresAt = new Date(now(deps).getTime() + 30 * 60 * 1000);
+  const draft = await deps.repository.saveDraft({
+    assistantId: input.assistantId,
+    conversationId: input.conversationId,
+    globalTenantId: input.globalTenantId,
+    channel: input.channel,
+    state: "AWAITING_CONFIRMATION",
+    revision,
+    items: normalized.items,
+    customer: normalized.customer,
+    fulfillment: normalized.fulfillment,
+    quoteSnapshot,
+    quoteHash: quote.quoteHash,
+    quoteVersion: quote.quoteVersion,
+    confirmationCodeHash: createConfirmationCodeHash(code, confirmationSalt),
+    confirmationSalt,
+    expiresAt,
+    idempotencyKey: buildDraftIdempotencyKey(input.conversationId, revision),
+    notes: normalized.notes,
+  });
+
+  return {
+    draft,
+    quote: quoteSnapshot,
+    confirmationPhrase: buildConfirmationPhrase(code),
+    expiresAt,
+  };
+}
+
+export async function confirmConversationOrderDraft(input: {
+  conversationId: string;
+  userText: string;
+}, deps: ToolDeps) {
+  const draft = await deps.repository.findActiveDraft(input.conversationId);
+  if (!draft) return { ok: false as const, reason: "DRAFT_NOT_FOUND" as const };
+  if (!draft.confirmationCodeHash || !draft.confirmationSalt || !draft.expiresAt) {
+    return { ok: false as const, reason: "CONFIRMATION_REQUIRED" as const };
+  }
+
+  const latestQuote = readQuote(await deps.business.quote({
+    globalTenantId: draft.globalTenantId,
+    channel: mapLabsChannelToOrderChannel(draft.channel),
+    items: draft.items,
+    customer: draft.customer,
+    fulfillment: draft.fulfillment,
+  }));
+  const transition = resolveDraftTransition({
+    state: draft.state,
+    quoteHash: draft.quoteHash,
+    quoteVersion: draft.quoteVersion,
+    latestQuoteHash: latestQuote.quoteHash,
+    latestQuoteVersion: latestQuote.quoteVersion,
+    expiresAt: draft.expiresAt,
+    now: now(deps),
+    userText: input.userText,
+    confirmationCodeHash: draft.confirmationCodeHash,
+    salt: draft.confirmationSalt,
+  });
+  if (!transition.allowed) {
+    await deps.repository.markFailed({ draftId: draft.id, reason: transition.reason });
+    return { ok: false as const, reason: transition.reason };
+  }
+
+  const created = await deps.business.create({
+    globalTenantId: draft.globalTenantId,
+    idempotencyKey: draft.idempotencyKey,
+    channel: mapLabsChannelToOrderChannel(draft.channel),
+    items: draft.items,
+    customer: draft.customer,
+    fulfillment: draft.fulfillment,
+    quoteHash: latestQuote.quoteHash,
+    quoteVersion: latestQuote.quoteVersion,
+    notes: buildOrderNotes(draft),
+  });
+  const order = readBusinessOrder(created);
+  if (order.snapshot) {
+    await deps.projectOrder?.({
+      globalTenantId: draft.globalTenantId,
+      assistantId: draft.assistantId ?? null,
+      conversationId: draft.conversationId,
+      order: order.snapshot,
+    });
+  }
+  await deps.repository.markConfirmed({
+    draftId: draft.id,
+    businessOrderId: order.id,
+    businessOrderNumber: order.orderNumber,
+  });
+  return { ok: true as const, order: created };
+}
+
+export function asJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+export function readJsonObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+export function readJsonItems(value: unknown): Array<{ productId: string; quantity: number }> {
+  return Array.isArray(value)
+    ? value
+        .map((item) => readJsonObject(item))
+        .filter((item) => typeof item.productId === "string")
+        .map((item) => ({ productId: String(item.productId), quantity: Math.max(1, Number(item.quantity ?? 1)) }))
+    : [];
+}
+
+export function readJsonFulfillment(value: unknown): {
+  type: "DELIVERY" | "PICKUP";
+  branchId?: string | null;
+  pickupLabel?: string | null;
+  address?: string | null;
+} {
+  const source = readJsonObject(value);
+  return {
+    type: source.type === "PICKUP" ? "PICKUP" : "DELIVERY",
+    branchId: typeof source.branchId === "string" ? source.branchId : null,
+    pickupLabel: typeof source.pickupLabel === "string" ? source.pickupLabel : null,
+    address: typeof source.address === "string" ? source.address : null,
+  };
+}
+
+export function buildOrderNotes(draft: StoredDraft) {
+  const pickup = draft.fulfillment.type === "PICKUP" && draft.fulfillment.pickupLabel
+    ? `Retiro solicitado: ${draft.fulfillment.pickupLabel}${draft.fulfillment.address ? ` — ${draft.fulfillment.address}` : ""}`
+    : null;
+  return [draft.notes, pickup].filter(Boolean).join("\n") || null;
+}

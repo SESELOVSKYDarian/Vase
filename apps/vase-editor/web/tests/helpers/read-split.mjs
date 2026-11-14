@@ -1,0 +1,24 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+// Marca que deja el índice de un archivo que se repartió en una carpeta: lista sus partes en orden.
+const PARTS = /^\/\/ partes: (.+)$/m;
+
+/**
+ * Lee un archivo de código como texto. Si el archivo es solo un índice (su código se repartió en
+ * una carpeta), devuelve todas las partes juntas, para las pruebas que revisan el código como texto.
+ * Si alguna parte también se repartió, baja un nivel más.
+ */
+export function readSplitSync(file) {
+    const url = file instanceof URL ? file : pathToFileURL(resolve(String(file)));
+    const source = readFileSync(url, 'utf8');
+    const parts = source.match(PARTS);
+    if (!parts) return source;
+    const pieces = parts[1].split(',').map((part) => readSplitSync(new URL(part.trim(), url)));
+    return [source, ...pieces].join('\n');
+}
+
+export async function readSplit(file) {
+    return readSplitSync(file);
+}

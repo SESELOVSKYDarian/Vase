@@ -1,3 +1,4 @@
+import { readSplit } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
 
@@ -207,10 +208,7 @@ describe("Piquim public category tree", () => {
   });
 
   it("renders progressive Piquim loading and retry states", async () => {
-    const source = await readFile(
-      new URL("../apps/vase-editor/web/src/pages/store/CatalogPage.jsx", import.meta.url),
-      "utf8",
-    );
+    const source = await readSplit(new URL("../apps/vase-editor/web/src/pages/store/CatalogPage.jsx", import.meta.url));
 
     expect(source).toContain("Cargando productos...");
     expect(source).toContain("Cargando más productos...");
@@ -219,10 +217,7 @@ describe("Piquim public category tree", () => {
   });
 
   it("paginates the filtered Piquim catalog in the interface", async () => {
-    const source = await readFile(
-      new URL("../apps/vase-editor/web/src/pages/store/CatalogPage.jsx", import.meta.url),
-      "utf8",
-    );
+    const source = await readSplit(new URL("../apps/vase-editor/web/src/pages/store/CatalogPage.jsx", import.meta.url));
 
     expect(source).toContain("const PIQUIM_PAGE_SIZE = 20");
     expect(source).toContain("paginateCatalogItems(filteredProducts, catalogPage, PIQUIM_PAGE_SIZE)");
@@ -237,10 +232,7 @@ describe("Piquim public category tree", () => {
   });
 
   it("resets the Piquim page in all six local filter interactions", async () => {
-    const source = await readFile(
-      new URL("../apps/vase-editor/web/src/pages/store/CatalogPage.jsx", import.meta.url),
-      "utf8",
-    );
+    const source = await readSplit(new URL("../apps/vase-editor/web/src/pages/store/CatalogPage.jsx", import.meta.url));
 
     expect(source).toMatch(/const handleQueryChange = \(value\) => \{\s*setQuery\(value\);\s*setCatalogPage\(1\);\s*\};/);
     expect(source).toMatch(/const handleSuggestionPick = \(value\) => \{\s*handleQueryChange\(value\);\s*\};/);

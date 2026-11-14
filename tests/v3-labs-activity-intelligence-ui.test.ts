@@ -1,3 +1,4 @@
+import { readSplitSync } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import React from "react";
@@ -336,18 +337,9 @@ describe("Labs Activity commercial intelligence", () => {
   });
 
   it("uses promised searchParams, server links, assistant scoping, and standalone styles", () => {
-    const page = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/activity/page.tsx"),
-      "utf8",
-    );
-    const workspace = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/activity/activity-workspace.tsx"),
-      "utf8",
-    );
-    const styles = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/globals.css"),
-      "utf8",
-    );
+    const page = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/activity/page.tsx"));
+    const workspace = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/activity/activity-workspace.tsx"));
+    const styles = readSplitSync(path.resolve("apps/vase-labs/app/globals.css"));
 
     expect(page).toContain("searchParams: Promise<ActivitySearchParams>");
     expect(page).toContain("await searchParams");
@@ -363,17 +355,14 @@ describe("Labs Activity commercial intelligence", () => {
   });
 
   it("provides accessible qualification settings and confirmed durable recalculation", () => {
-    const settingsPage = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"),
-      "utf8",
-    );
+    const settingsPage = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"));
     const settingsCardPath = path.resolve(
       "apps/vase-labs/app/app/owner/labs/settings/conversation-insight-settings-card.tsx",
     );
 
     expect(fs.existsSync(settingsCardPath)).toBe(true);
     if (!fs.existsSync(settingsCardPath)) return;
-    const settingsCard = fs.readFileSync(settingsCardPath, "utf8");
+    const settingsCard = readSplitSync(settingsCardPath);
 
     expect(settingsPage).toContain("<ConversationInsightSettingsCard");
     expect(settingsCard).toContain('"use client"');

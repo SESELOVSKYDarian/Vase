@@ -1,25 +1,26 @@
+import { readSplitSync } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("Vase Labs standalone owner experience", () => {
   it("describes Vase Management as active with background catalog sync", () => {
-    const modal = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-add-modal.tsx"), "utf8");
+    const modal = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-add-modal.tsx"));
     expect(modal).toContain("La conexión con Vase Management queda activa");
     expect(modal).toContain("sincronización del catálogo se gestiona en segundo plano");
     expect(modal).not.toContain("fuente quedará en cola");
   });
 
   it("keeps knowledge-source choices legible in light mode", () => {
-    const styles = fs.readFileSync(path.resolve("apps/vase-labs/app/globals.css"), "utf8");
+    const styles = readSplitSync(path.resolve("apps/vase-labs/app/globals.css"));
     expect(styles).toMatch(/\.labs-source-choice \{[^}]*color: var\(--foreground\)/);
     expect(styles).toMatch(/\.labs-source-choice:hover, \.labs-source-choice:focus-visible \{[^}]*color: var\(--accent-strong\)/);
   });
 
   it("renders only real channel records and uses the hybrid Meta connection flow", () => {
-    const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/page.tsx"), "utf8");
-    const modal = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-connect-modal.tsx"), "utf8");
-    const icons = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-icons.ts"), "utf8");
+    const page = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/page.tsx"));
+    const modal = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-connect-modal.tsx"));
+    const icons = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-icons.ts"));
 
     expect(page).toContain("data.channels.length === 0 ? (");
     const emptyBranch = page.split("data.channels.length === 0 ? (")[1]?.split(") : (")[0] ?? "";
@@ -58,16 +59,13 @@ describe("Vase Labs standalone owner experience", () => {
     expect(modal).toContain("metaAppId");
     expect(modal).toContain("appSecret");
     expect(modal).toContain("META_LONG_LIVED_TOKEN_EXCHANGE_FAILED");
-    const editModal = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-edit-modal.tsx"),
-      "utf8",
-    );
+    const editModal = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/channels/channel-edit-modal.tsx"));
     expect(editModal).toContain("META_LONG_LIVED_TOKEN_EXCHANGE_FAILED");
   });
 
   it("offers the guided five-source knowledge flow without leaking credentials", () => {
-    const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knows-page.tsx"), "utf8");
-    const howPage = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"), "utf8");
+    const page = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knows-page.tsx"));
+    const howPage = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"));
     const selectorPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/model-selector.tsx");
     const keyCardPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/openai-key-card.tsx");
     const promptCardPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/assistant-prompt-card.tsx");
@@ -81,13 +79,13 @@ describe("Vase Labs standalone owner experience", () => {
     expect(fs.existsSync(groupsPath)).toBe(true);
     if (!fs.existsSync(selectorPath) || !fs.existsSync(keyCardPath) || !fs.existsSync(promptCardPath) || !fs.existsSync(modalPath) || !fs.existsSync(groupsPath)) return;
 
-    const selector = fs.readFileSync(selectorPath, "utf8");
-    const keyCard = fs.readFileSync(keyCardPath, "utf8");
-    const promptCard = fs.readFileSync(promptCardPath, "utf8");
-    const modal = fs.readFileSync(modalPath, "utf8");
-    const groups = fs.readFileSync(groupsPath, "utf8");
+    const selector = readSplitSync(selectorPath);
+    const keyCard = readSplitSync(keyCardPath);
+    const promptCard = readSplitSync(promptCardPath);
+    const modal = readSplitSync(modalPath);
+    const groups = readSplitSync(groupsPath);
     // El modelo y la clave de OpenAI se movieron a Ajustes de Labs.
-    const settingsPage = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"), "utf8");
+    const settingsPage = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"));
     expect(settingsPage).toContain("getOpenAiModelProfiles");
     expect(howPage).toContain("<AssistantHow initialPrompt={assistant.systemPrompt ?? null}");
     expect(settingsPage).toContain("<ModelSelector");
@@ -135,18 +133,18 @@ describe("Vase Labs standalone owner experience", () => {
   });
 
   it("presents knowledge as a complete operational workspace", () => {
-    const page = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"), "utf8");
-    const keyCard = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/openai-key-card.tsx"), "utf8");
+    const page = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"));
+    const keyCard = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/openai-key-card.tsx"));
     const testPanelPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/assistant-test-panel.tsx");
-    const styles = fs.readFileSync(path.resolve("apps/vase-labs/app/globals.css"), "utf8");
+    const styles = readSplitSync(path.resolve("apps/vase-labs/app/globals.css"));
 
     expect(page).toContain("<AssistantHow");
-    expect(fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/assistant-how.tsx"), "utf8")).toContain("/owner/settings?tab=negocio");
+    expect(readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/assistant-how.tsx"))).toContain("/owner/settings?tab=negocio");
     expect(page).not.toContain("AssistantTestPanel");
     expect(page).not.toContain("assistant-test-panel");
     expect(fs.existsSync(testPanelPath)).toBe(false);
-    expect(fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knows-page.tsx"), "utf8")).toContain("Lo que subiste");
-    expect(fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx"), "utf8")).toContain("Quién le enseña");
+    expect(readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knows-page.tsx"))).toContain("Lo que subiste");
+    expect(readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx"))).toContain("Quién le enseña");
     expect(styles).not.toContain(".labs-assistant-test");
     expect(styles).not.toContain(".labs-assistant-message");
     expect(keyCard).toContain("aria-label={showKey");
@@ -157,36 +155,18 @@ describe("Vase Labs standalone owner experience", () => {
   });
 
   it("renders Inbox dates with a fixed timezone to avoid hydration text mismatches", () => {
-    const workstation = fs.readFileSync(path.resolve("apps/vase-labs/app/app/owner/labs/inbox/inbox-workstation.tsx"), "utf8");
+    const workstation = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/inbox/inbox-workstation.tsx"));
 
     expect(workstation).toContain('timeZone: "America/Argentina/Buenos_Aires"');
   });
 
   it("serves the authenticated 05c3cb8 owner dashboard from the standalone Labs app", () => {
-    const root = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/page.tsx"),
-      "utf8",
-    );
-    const rootLayout = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/layout.tsx"),
-      "utf8",
-    );
-    const page = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/page.tsx"),
-      "utf8",
-    );
-    const layout = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/layout.tsx"),
-      "utf8",
-    );
-    const styles = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/globals.css"),
-      "utf8",
-    );
-    const nav = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/labs-owner-nav.tsx"),
-      "utf8",
-    );
+    const root = readSplitSync(path.resolve("apps/vase-labs/app/page.tsx"));
+    const rootLayout = readSplitSync(path.resolve("apps/vase-labs/app/layout.tsx"));
+    const page = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/page.tsx"));
+    const layout = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/layout.tsx"));
+    const styles = readSplitSync(path.resolve("apps/vase-labs/app/globals.css"));
+    const nav = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/labs-owner-nav.tsx"));
 
     expect(root).toContain('redirect("/owner")');
     expect(rootLayout).toContain("data-theme={theme}");
@@ -198,10 +178,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(root).not.toContain("tenant_demo");
     expect(page).toContain("resolveLabsRequestContext");
     expect(page).toContain("labsPrisma");
-    const settings = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"),
-      "utf8",
-    );
+    const settings = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"));
     expect(layout).toContain("<LabsShell");
     expect(fs.existsSync(path.resolve("apps/vase-labs/app/app/owner/labs/labs-sidebar-shell.tsx"))).toBe(false);
     expect(page).toContain("<PanelKpis");
@@ -228,26 +205,11 @@ describe("Vase Labs standalone owner experience", () => {
   });
 
   it("keeps old channel entrypoints pointed at the owner Labs dashboard", () => {
-    const inboxPage = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/inbox/page.tsx"),
-      "utf8",
-    );
-    const integrationsPage = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/integrations/page.tsx"),
-      "utf8",
-    );
-    const labsChannelsPage = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/channels/page.tsx"),
-      "utf8",
-    );
-    const appChannelsPage = fs.readFileSync(
-      path.resolve("apps/vase-app/src/app/(platform)/app/channels/page.tsx"),
-      "utf8",
-    );
-    const oauthCallback = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/api/v1/meta/oauth/callback/route.ts"),
-      "utf8",
-    );
+    const inboxPage = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/inbox/page.tsx"));
+    const integrationsPage = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/integrations/page.tsx"));
+    const labsChannelsPage = readSplitSync(path.resolve("apps/vase-labs/app/app/channels/page.tsx"));
+    const appChannelsPage = readSplitSync(path.resolve("apps/vase-app/src/app/(platform)/app/channels/page.tsx"));
+    const oauthCallback = readSplitSync(path.resolve("apps/vase-labs/app/api/v1/meta/oauth/callback/route.ts"));
 
     expect(inboxPage).toContain('export const dynamic = "force-dynamic"');
     expect(integrationsPage).toContain('export const dynamic = "force-dynamic"');
@@ -259,23 +221,14 @@ describe("Vase Labs standalone owner experience", () => {
   });
 
   it("keeps Inbox operationally distinct from Activity", () => {
-    const inbox = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/inbox/page.tsx"),
-      "utf8",
-    );
+    const inbox = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/inbox/page.tsx"));
     const workstationPath = path.resolve("apps/vase-labs/app/app/owner/labs/inbox/inbox-workstation.tsx");
-    const activity = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/activity/page.tsx"),
-      "utf8",
-    );
-    const activityWorkspace = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/activity/activity-workspace.tsx"),
-      "utf8",
-    );
+    const activity = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/activity/page.tsx"));
+    const activityWorkspace = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/activity/activity-workspace.tsx"));
 
     expect(fs.existsSync(workstationPath)).toBe(true);
     if (!fs.existsSync(workstationPath)) return;
-    const workstation = fs.readFileSync(workstationPath, "utf8");
+    const workstation = readSplitSync(workstationPath);
 
     expect(inbox).not.toContain('export { default } from "../activity/page"');
     // "Quién quiere comprar" se sacó: la bandeja va sola y el interés se ve en Del cliente.
@@ -317,18 +270,9 @@ describe("Vase Labs standalone owner experience", () => {
   });
 
   it("ports the main Vase app visual language into the Labs Inbox", () => {
-    const page = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/inbox/page.tsx"),
-      "utf8",
-    );
-    const workstation = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/inbox/inbox-workstation.tsx"),
-      "utf8",
-    );
-    const styles = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/globals.css"),
-      "utf8",
-    );
+    const page = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/inbox/page.tsx"));
+    const workstation = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/inbox/inbox-workstation.tsx"));
+    const styles = readSplitSync(path.resolve("apps/vase-labs/app/globals.css"));
 
     expect(page).toContain("<InboxWorkstation");
     // El resumen de números vive en Inicio: la bandeja no lo repite.
@@ -356,10 +300,7 @@ describe("Vase Labs standalone owner experience", () => {
   });
 
   it("keeps chart containers measurable during their first render", () => {
-    const charts = fs.readFileSync(
-      path.resolve("apps/vase-labs/app/app/owner/labs/labs-analytics-charts.tsx"),
-      "utf8",
-    );
+    const charts = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/labs-analytics-charts.tsx"));
 
     expect(charts).toContain("const chartInitialDimension = { width: 320, height: 256 }");
     expect(charts.match(/initialDimension=\{chartInitialDimension\}/g)).toHaveLength(3);
@@ -373,7 +314,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(fs.existsSync(setupPath)).toBe(true);
     if (!fs.existsSync(setupPath)) return;
 
-    const setup = fs.readFileSync(setupPath, "utf8");
+    const setup = readSplitSync(setupPath);
     expect(setup).toContain("resolveLabsRequestContext");
     expect(setup).toContain('redirect("/owner/knowledge")');
     expect(setup).toContain('redirect("/owner/channels")');

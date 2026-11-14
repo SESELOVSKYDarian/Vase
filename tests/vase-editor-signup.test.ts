@@ -1,3 +1,4 @@
+import { readSplit } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import { readFile } from "node:fs/promises";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -111,10 +112,7 @@ describe("Vase Editor storefront signup", () => {
   });
 
   it("declares a valid variable-axis request for Material Symbols", async () => {
-    const html = await readFile(
-      new URL("../apps/vase-editor/web/index.html", import.meta.url),
-      "utf8",
-    );
+    const html = await readSplit(new URL("../apps/vase-editor/web/index.html", import.meta.url));
 
     expect(html).toContain(
       "family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200",
@@ -122,10 +120,7 @@ describe("Vase Editor storefront signup", () => {
   });
 
   it("keeps the storefront password minimum aligned with the API", async () => {
-    const signupPage = await readFile(
-      new URL("../apps/vase-editor/web/src/pages/store/SignupPage.jsx", import.meta.url),
-      "utf8",
-    );
+    const signupPage = await readSplit(new URL("../apps/vase-editor/web/src/pages/store/SignupPage.jsx", import.meta.url));
 
     expect(signupPage).toContain("formData.password.length < 8");
     expect(signupPage).toContain("La contrasena debe tener al menos 8 caracteres.");

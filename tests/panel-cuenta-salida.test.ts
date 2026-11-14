@@ -1,8 +1,9 @@
+import { readSplitSync } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const read = (file: string) => fs.readFileSync(path.resolve(file), "utf8").replace(/\r\n/g, "\n");
+const read = (file: string) => readSplitSync(path.resolve(file)).replace(/\r\n/g, "\n");
 
 describe("cuenta, salida y sistema de gestión entre app y Business", () => {
   it("cerrar sesión en Business cierra la sesión de Vase", () => {

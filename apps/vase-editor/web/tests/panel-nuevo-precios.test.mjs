@@ -1,3 +1,4 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -13,7 +14,7 @@ import {
     offerToDraft,
 } from '../src/panel/catalog/pricing.js';
 
-const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+const read = (path) => readSplit(new URL(path, import.meta.url));
 
 test('cartel de cada tipo de oferta', () => {
     assert.equal(offerBadge({ kind: 'percent', value: 15 }), '-15%');
@@ -77,12 +78,10 @@ test('cambiar precios: para quién y botones Aplicar / Cancelar', async () => {
     assert.equal(bulkPriceError({ ...base, target: 'lists', listIds: ['l'] }), null);
     assert.deepEqual(bulkPricePayload({ ...base, target: 'lists', listIds: ['l'] }).price_list_ids, ['l']);
     assert.equal(bulkPricePayload(base).target, undefined);
-    const screen = await (await import('node:fs/promises')).readFile(new URL('../src/panel/catalog/Precios.jsx', import.meta.url), 'utf8');
+    const screen = await readSplit(new URL('../src/panel/catalog/Precios.jsx', import.meta.url));
     assert.match(screen, />Cancelar</);
     assert.match(screen, />Aplicar</);
     assert.doesNotMatch(screen, /Precios distintos solo para algunos clientes/);
-    const fs = await import('node:fs/promises');
-    const routesDir = new URL('../../server/src/routes/tenant/', import.meta.url);
-    const server = (await Promise.all((await fs.readdir(routesDir)).map((file) => fs.readFile(new URL(file, routesDir), 'utf8')))).join('\n');
+    const server = await readSplit(new URL('../../server/src/routes/tenant.js', import.meta.url));
     assert.doesNotMatch(server, /c\.parent_id = t\.id/);
 });

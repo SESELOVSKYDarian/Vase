@@ -1,3 +1,4 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -7,8 +8,8 @@ const homePanelUrl = new URL('../src/components/blocks/PiquimCatalog3Panel.jsx',
 
 test('las cards Piquim permiten que títulos editables con barra envuelvan en mobile', async () => {
     const [catalogPage, homePanel] = await Promise.all([
-        readFile(catalogPageUrl, 'utf8'),
-        readFile(homePanelUrl, 'utf8'),
+        readSplit(catalogPageUrl),
+        readSplit(homePanelUrl),
     ]);
     const exactCard = catalogPage.slice(
         catalogPage.indexOf('function PiquimExactCatalogCard'),

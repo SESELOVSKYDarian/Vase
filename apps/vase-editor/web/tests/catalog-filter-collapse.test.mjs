@@ -1,3 +1,4 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -5,7 +6,7 @@ import test from 'node:test';
 const catalogPageUrl = new URL('../src/pages/store/CatalogPage.jsx', import.meta.url);
 
 test('los grupos del filtro Piquim comienzan cerrados', async () => {
-    const source = await readFile(catalogPageUrl, 'utf8');
+    const source = await readSplit(catalogPageUrl);
     const groupedFilterTree = source.slice(
         source.indexOf('function GroupedFilterTree'),
         source.indexOf('function FlavorSelectionModal')

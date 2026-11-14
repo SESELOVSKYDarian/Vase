@@ -1,3 +1,4 @@
+import { readSplitSync } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { buildTrainerProposalReply, confirmTrainerProposal, createTrainerProposal, normalizeTrainerPhone, routeTrainerInbound, rejectTrainerProposal, shouldInterpretTrainerInstruction } from "../apps/vase-labs/app/lib/knowledge-trainer";
@@ -35,22 +36,22 @@ describe("Labs knowledge trainer", () => {
   });
 
   it("gives active document corrections precedence when building AI knowledge context", () => {
-    const source = readFileSync("apps/vase-labs/app/lib/channel-ai-runner.ts", "utf8");
+    const source = readSplitSync("apps/vase-labs/app/lib/channel-ai-runner.ts");
     expect(source).toContain("knowledgeCorrection.findMany");
     expect(source).toContain("correctionByKnowledgeId");
   });
 
   it("exposes the trainer revision history with an explicit reversal action", () => {
-    const page = readFileSync("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx", "utf8");
-    const component = readFileSync("apps/vase-labs/app/app/owner/labs/chatbots/trainer-revision-history.tsx", "utf8");
+    const page = readSplitSync("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx");
+    const component = readSplitSync("apps/vase-labs/app/app/owner/labs/chatbots/trainer-revision-history.tsx");
     expect(page).toContain("TrainerRevisionHistory");
     expect(component).toContain("Revertir cambio");
     expect(component).toContain("/revert");
   });
 
   it("keeps the personal trainer in a dedicated inbox route", () => {
-    const nav = readFileSync("apps/vase-labs/app/app/owner/labs/labs-tabs.tsx", "utf8");
-    const page = readFileSync("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx", "utf8");
+    const nav = readSplitSync("apps/vase-labs/app/app/owner/labs/labs-tabs.tsx");
+    const page = readSplitSync("apps/vase-labs/app/app/owner/labs/inbox/trainer/page.tsx");
     expect(nav).toContain('href: "/owner/inbox/trainer"');
     expect(page).toContain("<LabsTabs tabs={ASSISTANT_TABS} />");
     expect(page).toContain("job.error ?");
@@ -58,7 +59,7 @@ describe("Labs knowledge trainer", () => {
   });
 
   it("uses the AI instruction interpreter after transcribing trainer audio", () => {
-    const worker = readFileSync("apps/vase-labs/scripts/trainer-audio-worker.ts", "utf8");
+    const worker = readSplitSync("apps/vase-labs/scripts/trainer-audio-worker.ts");
     expect(worker).toContain("createTrainerInstructionInterpreter");
     expect(worker).toContain("interpret({");
     expect(worker).toContain('status: { in: ["QUEUED", "FAILED"] }');

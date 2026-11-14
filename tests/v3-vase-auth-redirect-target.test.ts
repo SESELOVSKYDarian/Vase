@@ -1,3 +1,4 @@
+import { readSplitSync } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { authConfig } from "../apps/vase-app/src/auth.config";
@@ -72,8 +73,8 @@ describe("normalizeVaseRedirectTarget", () => {
 
 describe("Vase sign-in redirect wiring", () => {
   it("uses the shared helper in both the sign-in page and server actions", () => {
-    const signInPageSource = readFileSync(signInPagePath, "utf8");
-    const authActionsSource = readFileSync(authActionsPath, "utf8");
+    const signInPageSource = readSplitSync(signInPagePath);
+    const authActionsSource = readSplitSync(authActionsPath);
 
     for (const source of [signInPageSource, authActionsSource]) {
       expect(source).toContain("normalizeVaseRedirectTarget");
@@ -83,7 +84,7 @@ describe("Vase sign-in redirect wiring", () => {
   });
 
   it("wires the shared helper into the Auth.js redirect callback", async () => {
-    const authConfigSource = readFileSync(authConfigPath, "utf8");
+    const authConfigSource = readSplitSync(authConfigPath);
     expect(authConfigSource).toContain("normalizeVaseRedirectTarget");
     expect(authConfigSource).toContain("async redirect({ url, baseUrl })");
 

@@ -1,3 +1,4 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -22,7 +23,7 @@ test('el preset oscuro usa la paleta calida de Piquim', () => {
 });
 
 test('las superficies principales del catalogo Piquim consumen tokens semanticos', async () => {
-    const source = await readFile(catalogPageUrl, 'utf8');
+    const source = await readSplit(catalogPageUrl);
     const page = source.slice(
         source.indexOf('function PiquimSubcatalogPage'),
         source.indexOf('function PiquimCatalogLoadingState')

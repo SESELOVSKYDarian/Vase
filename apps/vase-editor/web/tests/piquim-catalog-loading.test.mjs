@@ -1,3 +1,4 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -15,7 +16,7 @@ import {
     withImageWidth,
 } from '../src/utils/catalogRequest.js';
 
-const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+const read = (path) => readSplit(new URL(path, import.meta.url));
 
 test('el subcatalogo de Piquim no depende de la pagina de la URL; el resto si', () => {
     assert.equal(getProductsRequestPage({ isPiquimSubcatalog: true, page: 7 }), 1);

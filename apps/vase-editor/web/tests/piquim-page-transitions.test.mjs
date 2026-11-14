@@ -1,10 +1,11 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { collectImageUrls, createPageCache, sameSections } from '../src/utils/pageCacheCore.js';
 
-const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+const read = (path) => readSplit(new URL(path, import.meta.url));
 
 test('la cache pide cada pagina una sola vez a la vez y guarda el resultado', async () => {
     let calls = 0;

@@ -1,8 +1,9 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+const read = (path) => readSplit(new URL(path, import.meta.url));
 
 // catalogCards.js importa los valores por defecto con una ruta sin extension: se arma un modulo con ambos archivos.
 async function loadCatalogCards() {
