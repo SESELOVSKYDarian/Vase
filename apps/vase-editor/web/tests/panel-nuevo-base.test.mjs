@@ -39,7 +39,7 @@ test('estados reales de los pedidos con nombre y color', () => {
 test('/admin abre el panel nuevo y el anterior queda en /admin/anterior', async () => {
     const app = await read('../src/App.jsx');
     assert.match(app, /const PanelApp = lazyPage\(\(\) => import\('\.\/panel\/PanelApp'\)\);/);
-    assert.match(app, /else if \(route === '\/admin\/anterior'\) Component = EvolutionAdmin;\s*else Component = PanelApp;/);
+    assert.match(app, /if \(route === '\/admin\/anterior'\) Component = EvolutionAdmin;\s*else Component = PanelApp;/);
     assert.match(app, /isAdminRoute = route === '\/admin' \|\| \(route\.startsWith\('\/admin\/'\) && !isPreviewRoute\)/);
     // el panel no se desmonta al cambiar de sección
     assert.match(app, /key=\{isAdminRoute && !isLegacyAdminRoute \? 'vase-panel' : route\}/);

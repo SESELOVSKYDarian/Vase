@@ -82,7 +82,6 @@ const preloadRoute = (pathname) => {
 };
 
 // Admin pages
-const EditorPage = lazyPage(() => import('./pages/admin/EditorPage'));
 const EvolutionAdmin = lazyPage(() => import('./pages/admin/evolution/EvolutionAdmin'));
 const PanelApp = lazyPage(() => import('./panel/PanelApp'));
 const PreviewPage = lazyPage(() => import('./pages/admin/evolution/PreviewPage'));
@@ -102,7 +101,7 @@ function AppContent() {
     const isPreviewRoute = route === '/admin/preview';
     const isAdminRoute = route === '/admin' || (route.startsWith('/admin/') && !isPreviewRoute);
     // /admin/* es el panel nuevo; el panel anterior queda en /admin/anterior como respaldo.
-    const isLegacyAdminRoute = route === '/admin/anterior' || route === '/admin/legacy';
+    const isLegacyAdminRoute = route === '/admin/anterior';
 
     useEffect(() => {
         const handleLocationChange = () => setRoute(window.location.pathname);
@@ -176,8 +175,7 @@ function AppContent() {
                 </div>
             );
         } else if (isAdmin) {
-            if (route === '/admin/legacy') Component = EditorPage;
-            else if (route === '/admin/anterior') Component = EvolutionAdmin;
+            if (route === '/admin/anterior') Component = EvolutionAdmin;
             else Component = PanelApp;
         } else if (user) {
             Component = ProfilePage;

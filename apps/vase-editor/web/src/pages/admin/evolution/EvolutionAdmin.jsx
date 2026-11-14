@@ -22,7 +22,6 @@ import SeoEditor from '../../../components/admin/evolution/SeoEditor';
 import CatalogPageEditor from '../../../components/admin/evolution/CatalogPageEditor';
 import MediaLibrary from '../../../components/admin/evolution/MediaLibrary';
 import EvolutionInput from '../../../components/admin/evolution/EvolutionInput';
-import LegacyAdminFrame from '../../../components/admin/evolution/LegacyAdminFrame';
 import { useCatalogManager } from '../../../hooks/admin/useCatalogManager';
 import { useUsersManager } from '../../../hooks/admin/useUsersManager';
 import { useOffersManager } from '../../../hooks/admin/useOffersManager';
@@ -644,8 +643,6 @@ const EvolutionAdmin = () => {
                 );
             case 'tenants':
                 return <TenantsEditor manager={tenantsManager} />;
-            case 'legacy':
-                return <LegacyAdminFrame />;
             case 'design_live':
                 return (
                     <DesignEditor
