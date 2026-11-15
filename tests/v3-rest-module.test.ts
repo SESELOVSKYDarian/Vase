@@ -1,3 +1,4 @@
+import { readSplitSync } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -8,10 +9,7 @@ import {
 } from "../apps/vase-app/src/lib/admin/user-access";
 
 describe("Vase Rest module registration", () => {
-  const readRestAdminService = () => fs.readFileSync(
-    path.resolve("apps/vase-app/src/server/services/rest-admin.ts"),
-    "utf8",
-  );
+  const readRestAdminService = () => readSplitSync(path.resolve("apps/vase-app/src/server/services/rest-admin.ts"));
 
   it("registers the automatic Rest launcher in Vase App", () => {
     expect(getPlatformModuleByKey("rest")).toMatchObject({
@@ -24,7 +22,7 @@ describe("Vase Rest module registration", () => {
   });
 
   it("persists REST as a first-class module product", () => {
-    const schema = fs.readFileSync(path.resolve("apps/vase-app/prisma/schema.prisma"), "utf8");
+    const schema = readSplitSync(path.resolve("apps/vase-app/prisma/schema.prisma"));
     expect(schema).toMatch(/enum ModuleProduct\s*\{[^}]*REST/s);
     expect(schema).toContain("model RestPricingVersion");
     expect(schema).toContain("model TenantRestContract");
@@ -57,17 +55,11 @@ describe("Vase Rest module registration", () => {
     expect(service).toContain("memberships");
     expect(service).toContain("restContract");
 
-    const browserRoute = fs.readFileSync(
-      path.resolve("apps/vase-app/src/app/api/admin/rest/plans/route.ts"),
-      "utf8",
-    );
+    const browserRoute = readSplitSync(path.resolve("apps/vase-app/src/app/api/admin/rest/plans/route.ts"));
     expect(browserRoute).toContain('requireVerifiedPlatformRole("SUPER_ADMIN")');
     expect(browserRoute).not.toContain("ADMIN_ACTOR_USER_ID");
 
-    const adminPage = fs.readFileSync(
-      path.resolve("apps/vase-app/src/app/(platform)/app/admin/rest/page.tsx"),
-      "utf8",
-    );
+    const adminPage = readSplitSync(path.resolve("apps/vase-app/src/app/(platform)/app/admin/rest/page.tsx"));
     expect(adminPage).toContain("RestAdminWorkspace");
   });
 });

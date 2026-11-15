@@ -1,3 +1,4 @@
+import { readSplitSync } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { withMysqlTenantLock } from "../apps/vase-labs/app/lib/mysql-tenant-lock";
@@ -45,14 +46,8 @@ describe("Labs MySQL tenant lock", () => {
   });
 
   it("removes PostgreSQL locking SQL and shares the MySQL helper across repositories", () => {
-    const catalogSource = readFileSync(
-      new URL("../apps/vase-labs/app/lib/catalog-repository.ts", import.meta.url),
-      "utf8",
-    );
-    const knowledgeSource = readFileSync(
-      new URL("../apps/vase-labs/app/lib/knowledge-repository.ts", import.meta.url),
-      "utf8",
-    );
+    const catalogSource = readSplitSync(new URL("../apps/vase-labs/app/lib/catalog-repository.ts", import.meta.url));
+    const knowledgeSource = readSplitSync(new URL("../apps/vase-labs/app/lib/knowledge-repository.ts", import.meta.url));
     const combinedSource = `${catalogSource}\n${knowledgeSource}`;
 
     expect(combinedSource).not.toMatch(/pg_advisory|hashtext/i);

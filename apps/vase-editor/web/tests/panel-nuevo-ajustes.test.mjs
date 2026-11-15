@@ -1,3 +1,4 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -5,7 +6,7 @@ import test from 'node:test';
 import { channelChoice } from '../src/panel/ajustes.js';
 import { SETTINGS_PAGES } from '../src/panel/sections.js';
 
-const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+const read = (path) => readSplit(new URL(path, import.meta.url));
 
 test('canal del pedido: sin configurar son los dos', () => {
     assert.equal(channelChoice(undefined), 'both');
