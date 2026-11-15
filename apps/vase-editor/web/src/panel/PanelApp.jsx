@@ -27,7 +27,7 @@ import Notifications from './components/Notifications';
 import AjustesDominio from './screens/AjustesDominio';
 import VaseSettingsFrame from './components/VaseSettingsFrame';
 import VaseNotificationsBell from './components/VaseNotificationsBell';
-import { SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
+import { ACCOUNT_PAGES, SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
 import { useEditorAutosave } from './useEditorAutosave';
 // Último: los ajustes para celular le ganan a los estilos de cada pantalla.
 import './mobile.css';
@@ -162,7 +162,8 @@ export default function PanelApp() {
         total: notifications.badgeCount || 0,
     };
 
-    const settingsPage = SETTINGS_PAGES.find((page) => page.id === sub);
+    const accountPage = ACCOUNT_PAGES.find((page) => page.id === sub);
+    const settingsPage = SETTINGS_PAGES.find((page) => page.id === sub) || accountPage;
     const meta = settingsPage ? { title: settingsPage.label, subtitle: settingsPage.subtitle } : SECTIONS[section];
 
     useEffect(() => {
@@ -247,15 +248,8 @@ export default function PanelApp() {
     } else if (section === 'ajustes' && !sub) {
         content = (
             <div className="vp-alist">
-                <div className="vp-agrp">Tu cuenta de Vase · lo usan todos tus productos</div>
-                {SETTINGS_PAGES.filter((page) => page.vase).map((page) => (
-                    <button key={page.id} type="button" className="vp-arow" onClick={() => go('ajustes', page.id)}>
-                        <span className="g"><b>{page.label}</b><span>{page.subtitle}</span></span>
-                        <span className="vp-chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>
-                    </button>
-                ))}
                 <div className="vp-agrp">Tu tienda</div>
-                {SETTINGS_PAGES.filter((page) => !page.vase).map((page) => (
+                {SETTINGS_PAGES.map((page) => (
                     <button key={page.id} type="button" className="vp-arow" onClick={() => go('ajustes', page.id)}>
                         <span className="g"><b>{page.label}</b><span>{page.subtitle}</span></span>
                         <span className="vp-chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>
@@ -324,7 +318,7 @@ export default function PanelApp() {
                     <Topbar
                         title={meta.title}
                         subtitle={meta.subtitle}
-                        crumb={settingsPage ? 'Ajustes' : null}
+                        crumb={settingsPage && !accountPage ? 'Ajustes' : null}
                         onBack={() => go('ajustes')}
                         status={status}
                         onPublish={publish}

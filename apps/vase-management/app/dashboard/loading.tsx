@@ -2,7 +2,9 @@
 // El menú y la barra de arriba ya están dibujados: acá solo va la forma del contenido en gris.
 export default function DashboardLoading() {
   return (
-    <div className="space-y-6" role="status" aria-live="polite" aria-label="Cargando">
+    // Aparece recién si la sección tarda más de medio segundo: en cargas rápidas no se ve nada.
+    <div className="space-y-6 opacity-0 [animation:dash-sk-in_.2s_ease_.5s_forwards]" role="status" aria-live="polite" aria-label="Cargando">
+      <style>{"@keyframes dash-sk-in { to { opacity: 1; } }"}</style>
       {/* Título de la sección */}
       <div className="h-7 w-56 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
       {/* Fila de números */}

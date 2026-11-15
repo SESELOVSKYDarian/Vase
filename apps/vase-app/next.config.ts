@@ -65,6 +65,9 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     authInterrupts: true,
+    // Una sección ya visitada se muestra al instante si volvés dentro de 30 segundos, sin volver a cargarla.
+    // Cuando guardás algo, la sección se actualiza igual.
+    staleTimes: { dynamic: 30 },
     serverActions: {
       bodySizeLimit: "60mb",
     },

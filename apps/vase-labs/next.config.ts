@@ -12,6 +12,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Una sección ya visitada se muestra al instante si volvés dentro de 30 segundos, sin volver a cargarla.
+  // Cuando guardás algo, la sección se actualiza igual.
+  experimental: { staleTimes: { dynamic: 30 } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

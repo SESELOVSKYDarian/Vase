@@ -1,10 +1,15 @@
 // Estructura del panel nuevo: menú, títulos, ayuda por sección y a qué módulo del panel anterior
 // lleva cada sección mientras se rehace.
 
-// vase: true = ajustes de tu cuenta de Vase, compartidos con todos tus productos (se ven desde app.vase.ar).
+// Ajustes de tu cuenta de Vase (perfil, Mi negocio, facturación): son los mismos en todos tus productos.
+// No van en el menú de la tienda: se abren desde tu usuario, abajo a la izquierda, igual que en app y Labs.
+export const ACCOUNT_PAGES = [
+    { id: 'cuenta', label: 'Ajustes de tu cuenta', subtitle: 'Tu perfil, tu negocio y tu facturación. Valen para todos tus productos' },
+    { id: 'negocio', label: 'Mi negocio', subtitle: 'Tus datos, sucursales y de dónde salen tus productos' },
+];
+
+// Ajustes propios de la tienda: estos sí aparecen en el menú, dentro de Ajustes.
 export const SETTINGS_PAGES = [
-    { id: 'negocio', label: 'Mi negocio', subtitle: 'Tus datos, sucursales y de dónde salen tus productos', vase: true },
-    { id: 'cuenta', label: 'Mi perfil y facturación', subtitle: 'Tu usuario, cómo ves el panel y tus medios de pago', vase: true },
     { id: 'precios', label: 'Precios y listas', subtitle: 'Quién ve precios y qué precio usa cada lista' },
     { id: 'pagos', label: 'Pagos', subtitle: 'Cómo terminan la compra tus clientes' },
     { id: 'sucursales', label: 'Sucursales y retiro', subtitle: 'Dónde están y dónde pueden retirar' },
@@ -69,7 +74,7 @@ export const HELP_SECTIONS = [
 ];
 
 const SECTION_IDS = new Set(Object.keys(SECTIONS));
-const SETTINGS_IDS = new Set(SETTINGS_PAGES.map((page) => page.id));
+const SETTINGS_IDS = new Set([...SETTINGS_PAGES, ...ACCOUNT_PAGES].map((page) => page.id).concat('gestion'));
 
 // /admin → resumen · /admin/catalogo → catalogo · /admin/ajustes/correo → ajustes + correo
 export function parsePanelPath(pathname) {

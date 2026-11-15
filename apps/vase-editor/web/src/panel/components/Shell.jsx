@@ -9,11 +9,13 @@ import { HELP, HELP_VIDEOS, MENU, SETTINGS_PAGES } from '../sections';
 
 
 export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, store, account, phone = false, mobileOpen = false, onCloseMobile }) {
-    const [ajOpen, setAjOpen] = useState(section === 'ajustes');
+    // Los ajustes de la cuenta (perfil, Mi negocio) se abren desde el usuario: no son parte del menú de la tienda.
+    const accountSettings = section === 'ajustes' && ['cuenta', 'negocio', 'gestion'].includes(sub);
+    const [ajOpen, setAjOpen] = useState(section === 'ajustes' && !accountSettings);
 
     useEffect(() => {
-        if (section === 'ajustes') setAjOpen(true);
-    }, [section]);
+        if (section === 'ajustes' && !accountSettings) setAjOpen(true);
+    }, [section, accountSettings]);
 
     // El menú es el mismo de app y Labs (packages/ui/src/panel/sidebar.tsx).
     const groups = [
@@ -51,7 +53,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
             ariaLabel="Menú del panel"
             brand={<><PanelBrandLogo /><b>vase</b><span className="vase-pill business">Business</span></>}
             groups={groups}
-            activeId={section}
+            activeId={accountSettings ? null : section}
             activeSubId={sub}
             mini={mini}
             onToggleMini={onToggleMini}
@@ -63,7 +65,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
                 <>
                     <div className="vp-am-h">{account.email || 'Tu cuenta'}</div>
                     {/* Igual en todos los productos: Ajustes, Ayuda y soporte, volver a Vase, el panel anterior y salir. */}
-                    <button type="button" className="vp-am" role="menuitem" onClick={() => { close(); go('ajustes'); }}>Ajustes</button>
+                    <button type="button" className="vp-am" role="menuitem" onClick={() => { close(); go('ajustes', 'cuenta'); }}>Ajustes</button>
                     <button type="button" className="vp-am" role="menuitem" onClick={() => { close(); account.onHelp(); }}>Ayuda y soporte</button>
                     {account.vaseUrl ? <a className="vp-am" role="menuitem" href={account.vaseUrl}>← Volver a Vase</a> : null}
                     <a className="vp-am" role="menuitem" href="/admin/anterior">Abrir el panel anterior</a>

@@ -16,7 +16,9 @@
 .vpa-ov.embedded > .vpa-dr { width: 100%; box-shadow: none; }
 /* Pantallas de carga: bloques grises con la forma de la página, que laten suave. */
 .vpa-sk { display: block; background: var(--line); animation: vpa-sk-pulse 1.4s ease-in-out infinite; }
-.vpa-sk-wrap { display: flex; flex-direction: column; gap: 18px; padding: 2px; }
+/* Aparece recién si la sección tarda más de medio segundo: en cargas rápidas no se ve nada y la pantalla no parpadea. */
+.vpa-sk-wrap { display: flex; flex-direction: column; gap: 18px; padding: 2px; opacity: 0; animation: vpa-sk-in .2s ease .5s forwards; }
+@keyframes vpa-sk-in { to { opacity: 1; } }
 .vpa-body.flush .vpa-sk-wrap { padding: 24px 28px; }
 .vpa-sk-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
 .vpa-sk-card { display: flex; flex-direction: column; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
