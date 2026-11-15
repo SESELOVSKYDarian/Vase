@@ -28,6 +28,11 @@ type PanelShellProps = {
   overlays?: ReactNode;
   /** Sin márgenes ni scroll propio (pantallas tipo bandeja de mensajes). */
   flush?: boolean;
+  /**
+   * Sin marco: no dibuja menú ni barra, pero deja el contenido en el mismo lugar. Sirve para que una app
+   * ponga este marco una sola vez en su layout y lo esconda en las páginas que no lo llevan.
+   */
+  bare?: boolean;
   /** Dónde se recuerda si el menú está achicado. */
   storageKey?: string;
   children: ReactNode;
@@ -51,12 +56,13 @@ export function PanelShell({
   renderLink = defaultLink,
   overlays,
   flush = false,
+  bare = false,
   storageKey = "vase-panel-mini",
   children,
 }: PanelShellProps) {
   const [mini, setMini] = useState(false);
   const [showTop, setShowTop] = useState(false);
-  const bodyRef = useRef<HTMLElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
@@ -95,41 +101,55 @@ export function PanelShell({
     window.scrollTo({ top: 0, behavior });
   };
 
+  // Sin marco, las cajas que envuelven al contenido siguen ahí pero no ocupan lugar ni cambian el diseño.
+  const gone = bare ? ({ display: "contents" } as const) : undefined;
 
   return (
-    <div className="vpa">
-      <PanelSidebar
-        brand={brand}
-        groups={groups}
-        activeId={activeId}
-        mini={mini}
-        onToggleMini={toggleMini}
-        renderLink={renderLink}
-        account={{ avatar: account.initial, name: account.name, detail: account.detail, label: account.label }}
-        accountMenu={accountMenu}
-      />
+    <div className={bare ? undefined : "vpa"} style={gone}>
+      {bare ? null : (
+        <PanelSidebar
+          brand={brand}
+          groups={groups}
+          activeId={activeId}
+          mini={mini}
+          onToggleMini={toggleMini}
+          renderLink={renderLink}
+          account={{ avatar: account.initial, name: account.name, detail: account.detail, label: account.label }}
+          accountMenu={accountMenu}
+        />
+      )}
 
-      <div className="vpa-main">
-        <header className="vpa-top">
-          <div className="vpa-g1">
-            <h1 className="vpa-ttl">{title}</h1>
-            {subtitle ? <div className="vpa-sub">{subtitle}</div> : null}
+      <div className={bare ? undefined : "vpa-main"} style={gone}>
+        {bare ? null : (
+          <header className="vpa-top">
+            <div className="vpa-g1">
+              <h1 className="vpa-ttl">{title}</h1>
+              {subtitle ? <div className="vpa-sub">{subtitle}</div> : null}
+            </div>
+            {actions}
+          </header>
+        )}
+        <div
+          role={bare ? undefined : "main"}
+          className={bare ? undefined : flush ? "vpa-body flush" : "vpa-body"}
+          id={bare ? undefined : "main-content"}
+          style={gone}
+          ref={bodyRef}
+        >
+          <div className={bare ? undefined : "vpa-wrap"} style={gone}>
+            {children}
           </div>
-          {actions}
-        </header>
-        <main className={flush ? "vpa-body flush" : "vpa-body"} id="main-content" ref={bodyRef}>
-          <div className="vpa-wrap">{children}</div>
-        </main>
+        </div>
       </div>
 
-      {showTop && !flush ? (
+      {showTop && !flush && !bare ? (
         <button type="button" className="vpa-totop" aria-label="Volver arriba" onClick={scrollToTop}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 19V5M5 12l7-7 7 7" />
           </svg>
         </button>
       ) : null}
-      {overlays}
+      {bare ? null : overlays}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-// Parte de client-shell.tsx: SectionHelpDrawer, ClientShell.
+// Marco del panel del cliente: menú lateral, barra de arriba, notificaciones, ayuda y cierre de sesión.
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Bell, CircleHelp, Home, X } from "lucide-react";
 import { PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { signOutAction } from "@/app/(auth)/actions";
@@ -13,6 +13,7 @@ import { DashboardSupportWidget } from "@/components/support/dashboard-support-w
 import { SupportChatProvider } from "@/components/support/support-chat-context";
 import { PANEL_HELP, resolvePanelSection } from "@/lib/navigation/panel-sections";
 import { ClientShellProps, NAV_CUENTA, NAV_PRINCIPAL, NotificationsDrawer, PanelTheme, PanelThemeContext, ROLE_WEIGHT } from "./NotificationsDrawer";
+import { RegisteredPanelPage, usePanelFrame } from "./panel-frame";
 
 export function SectionHelpDrawer({ pathname, onClose }: { pathname: string; onClose: () => void }) {
   const help = PANEL_HELP[resolvePanelSection(pathname)];
@@ -45,15 +46,20 @@ export function SectionHelpDrawer({ pathname, onClose }: { pathname: string; onC
   );
 }
 
-export function ClientShell({
+/**
+ * El marco en sí. Con `bare` no dibuja nada alrededor (ni menú ni barra) pero deja el contenido en el
+ * mismo lugar del árbol: así, al pasar de una página con marco a una sin marco, el contenido no se reinicia.
+ */
+export function PanelChrome({
   title,
   subtitle,
   tenantLabel,
   notifications = [],
   currentUserName,
   viewerRole = "OWNER",
+  bare = false,
   children,
-}: ClientShellProps) {
+}: ClientShellProps & { bare?: boolean; children: ReactNode }) {
   const pathname = usePathname() ?? "/app";
   const section = resolvePanelSection(pathname);
   const [theme, setTheme] = useState<PanelTheme>(() => {
@@ -64,6 +70,8 @@ export function ClientShell({
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   useEffect(() => {
+    // Sin marco (administración, páginas embebidas) no se toca el modo claro/oscuro de la página.
+    if (bare) return;
     document.documentElement.dataset.theme = theme;
     document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.style.colorScheme = theme;
@@ -72,7 +80,7 @@ export function ClientShell({
     if (window.location.hostname.endsWith("vase.ar")) {
       document.cookie = `vase_theme=${theme}; domain=.vase.ar; path=/; max-age=31536000; SameSite=Lax; Secure`;
     }
-  }, [theme]);
+  }, [theme, bare]);
 
   const unread = notifications.filter((notification) => !notification.isRead).length;
   const themeValue = useMemo(() => ({ theme, setTheme }), [theme]);
@@ -95,6 +103,7 @@ export function ClientShell({
       <PanelThemeContext.Provider value={themeValue}>
         <SaveStatusProvider>
           <PanelShell
+            bare={bare}
             brand={
               <>
                 <PanelBrandLogo />
@@ -177,8 +186,19 @@ export function ClientShell({
             {children}
           </PanelShell>
         </SaveStatusProvider>
-        <DashboardSupportWidget hideLauncher />
+        {bare ? null : <DashboardSupportWidget hideLauncher />}
       </PanelThemeContext.Provider>
     </SupportChatProvider>
   );
+}
+
+/**
+ * Lo que usa cada página del panel. Si el marco ya está puesto por el layout (lo normal), la página solo
+ * le avisa su título y sus datos, y el menú no se vuelve a dibujar al cambiar de sección.
+ * Si no hay marco arriba, lo dibuja ella misma, como antes.
+ */
+export function ClientShell(props: ClientShellProps) {
+  const frame = usePanelFrame();
+  if (frame) return <RegisteredPanelPage {...props} />;
+  return <PanelChrome {...props}>{props.children}</PanelChrome>;
 }
