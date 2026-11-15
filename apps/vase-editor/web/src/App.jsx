@@ -11,6 +11,7 @@ import { isPiquimTenantIdentity, resolveTenantBrandName } from './utils/tenantBr
 import { prefetchPublicPage } from './utils/publicPageCache';
 import { getApiBase, getAuthHeaders, getTenantHeaders } from './utils/api';
 import { buildSubcatalogProductsUrl, prefetchCatalogUrl } from './utils/catalogRequest';
+import { preloadBlocks } from './components/blockLoaders';
 
 const PIQUIM_CATALOG_SLUGS = ['heladeria', 'panaderia'];
 
@@ -122,6 +123,11 @@ function AppContent() {
         if (route !== '/') return;
         navigate('/admin');
     }, [isEditorHost, route]);
+
+    // Piquim arma su inicio con bloques propios que se descargan aparte: se piden apenas se sabe que es su tienda.
+    useEffect(() => {
+        if (isPiquimStore) preloadBlocks('Piquim');
+    }, [isPiquimStore]);
 
     useEffect(() => {
         if (isEditorHost || isLocalHost) return undefined;

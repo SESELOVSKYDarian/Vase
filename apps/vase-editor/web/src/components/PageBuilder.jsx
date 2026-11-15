@@ -3,6 +3,7 @@ import HeroSlider from './blocks/HeroSlider';
 import BrandMarquee from './blocks/BrandMarquee';
 import FeaturedProducts from './blocks/FeaturedProducts';
 import Services from './blocks/Services';
+import { BLOCK_LOADERS } from './blockLoaders';
 import { useTenant } from '../context/TenantContext';
 import { deviceClass, spacingStyle } from '../utils/sectionStyle';
 
@@ -14,20 +15,7 @@ const COMPONENT_MAP = {
     BrandMarquee,
     FeaturedProducts,
     Services,
-    AboutHero: lazy(() => import('./blocks/AboutHero')),
-    AboutMission: lazy(() => import('./blocks/AboutMission')),
-    AboutStats: lazy(() => import('./blocks/AboutStats')),
-    AboutValues: lazy(() => import('./blocks/AboutValues')),
-    AboutTeam: lazy(() => import('./blocks/AboutTeam')),
-    AboutCTA: lazy(() => import('./blocks/AboutCTA')),
-    FeaturesBento: lazy(() => import('./blocks/FeaturesBento')),
-    FeaturesBentoGrid: lazy(() => import('./blocks/FeaturesBentoGrid')),
-    PiquimHero: lazy(() => import('./blocks/PiquimHero')),
-    PiquimAnnounceBar: lazy(() => import('./blocks/PiquimAnnounceBar')),
-    PiquimTresMundos: lazy(() => import('./blocks/PiquimTresMundos')),
-    PiquimCatalog3Panel: lazy(() => import('./blocks/PiquimCatalog3Panel')),
-    PiquimFeaturedProducts: lazy(() => import('./blocks/PiquimFeaturedProducts')),
-    PiquimCTABanner: lazy(() => import('./blocks/PiquimCTABanner')),
+    ...Object.fromEntries(Object.entries(BLOCK_LOADERS).map(([name, load]) => [name, lazy(load)])),
 };
 
 const ANCHOR_MAP = {
