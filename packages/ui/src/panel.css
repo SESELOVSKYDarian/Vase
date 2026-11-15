@@ -14,6 +14,17 @@
 /* Notificaciones adentro de otro producto: ocupan todo el cuadro que les da el producto. */
 .vpa-ov.embedded { position: fixed; background: transparent; }
 .vpa-ov.embedded > .vpa-dr { width: 100%; box-shadow: none; }
+/* Pantallas de carga: bloques grises con la forma de la página, que laten suave. */
+.vpa-sk { display: block; background: var(--line); animation: vpa-sk-pulse 1.4s ease-in-out infinite; }
+.vpa-sk-wrap { display: flex; flex-direction: column; gap: 18px; padding: 2px; }
+.vpa-body.flush .vpa-sk-wrap { padding: 24px 28px; }
+.vpa-sk-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+.vpa-sk-card { display: flex; flex-direction: column; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
+.vpa-sk-side { width: 236px; flex: none; display: flex; flex-direction: column; gap: 26px; padding: 22px 14px; background: var(--side); border-right: 1px solid var(--line); }
+.vpa-sk-nav { display: flex; flex-direction: column; gap: 8px; }
+@keyframes vpa-sk-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (max-width: 900px) { .vpa-sk-side { display: none; } }
+@media (prefers-reduced-motion: reduce) { .vpa-sk { animation: none; } }
 /* Barra de scroll igual a la de Business */
 .vpa * { scrollbar-width: thin; scrollbar-color: var(--sb) transparent; }
 .vpa *::-webkit-scrollbar { width: 10px; height: 10px; }

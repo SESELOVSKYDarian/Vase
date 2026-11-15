@@ -1,44 +1,33 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import HeroSlider from './blocks/HeroSlider';
 import BrandMarquee from './blocks/BrandMarquee';
 import FeaturedProducts from './blocks/FeaturedProducts';
 import Services from './blocks/Services';
-import AboutHero from './blocks/AboutHero';
-import AboutMission from './blocks/AboutMission';
-import AboutStats from './blocks/AboutStats';
-import AboutValues from './blocks/AboutValues';
-import AboutTeam from './blocks/AboutTeam';
-import AboutCTA from './blocks/AboutCTA';
-import FeaturesBento from './blocks/FeaturesBento';
-import FeaturesBentoGrid from './blocks/FeaturesBentoGrid';
-import PiquimHero from './blocks/PiquimHero';
-import PiquimAnnounceBar from './blocks/PiquimAnnounceBar';
-import PiquimTresMundos from './blocks/PiquimTresMundos';
-import PiquimCatalog3Panel from './blocks/PiquimCatalog3Panel';
-import PiquimFeaturedProducts from './blocks/PiquimFeaturedProducts';
-import PiquimCTABanner from './blocks/PiquimCTABanner';
 import { useTenant } from '../context/TenantContext';
 import { deviceClass, spacingStyle } from '../utils/sectionStyle';
 
+// Los bloques que usa casi toda tienda en el inicio van incluidos, así aparecen sin esperar.
+// El resto (Sobre nosotros, grillas y los de Piquim) se descarga solo si la página lo usa:
+// una tienda común ya no baja código de bloques que no muestra.
 const COMPONENT_MAP = {
     HeroSlider,
     BrandMarquee,
     FeaturedProducts,
     Services,
-    AboutHero,
-    AboutMission,
-    AboutStats,
-    AboutValues,
-    AboutTeam,
-    AboutCTA,
-    FeaturesBento,
-    FeaturesBentoGrid,
-    PiquimHero,
-    PiquimAnnounceBar,
-    PiquimTresMundos,
-    PiquimCatalog3Panel,
-    PiquimFeaturedProducts,
-    PiquimCTABanner,
+    AboutHero: lazy(() => import('./blocks/AboutHero')),
+    AboutMission: lazy(() => import('./blocks/AboutMission')),
+    AboutStats: lazy(() => import('./blocks/AboutStats')),
+    AboutValues: lazy(() => import('./blocks/AboutValues')),
+    AboutTeam: lazy(() => import('./blocks/AboutTeam')),
+    AboutCTA: lazy(() => import('./blocks/AboutCTA')),
+    FeaturesBento: lazy(() => import('./blocks/FeaturesBento')),
+    FeaturesBentoGrid: lazy(() => import('./blocks/FeaturesBentoGrid')),
+    PiquimHero: lazy(() => import('./blocks/PiquimHero')),
+    PiquimAnnounceBar: lazy(() => import('./blocks/PiquimAnnounceBar')),
+    PiquimTresMundos: lazy(() => import('./blocks/PiquimTresMundos')),
+    PiquimCatalog3Panel: lazy(() => import('./blocks/PiquimCatalog3Panel')),
+    PiquimFeaturedProducts: lazy(() => import('./blocks/PiquimFeaturedProducts')),
+    PiquimCTABanner: lazy(() => import('./blocks/PiquimCTABanner')),
 };
 
 const ANCHOR_MAP = {
@@ -46,6 +35,20 @@ const ANCHOR_MAP = {
     BrandMarquee: 'marcas',
     Services: 'sobre-nosotros',
 };
+
+// Altura que se reserva mientras llega un bloque, para que la página no salte cuando aparece.
+const PLACEHOLDER_HEIGHT = { PiquimAnnounceBar: 40, PiquimHero: 520, AboutHero: 420 };
+
+// Lo que se ve mientras se descarga un bloque: un rectángulo suave del tamaño aproximado.
+function BlockSkeleton({ type }) {
+    return (
+        <div
+            aria-hidden="true"
+            className="w-full animate-pulse bg-black/5"
+            style={{ minHeight: PLACEHOLDER_HEIGHT[type] || 280 }}
+        />
+    );
+}
 
 // ignoreDevice: en la vista previa del editor los bloques ocultos en un dispositivo se muestran atenuados en vez de desaparecer.
 export default function PageBuilder({ sections = [], ignoreDevice = false }) {
@@ -92,7 +95,9 @@ export default function PageBuilder({ sections = [], ignoreDevice = false }) {
                         className={ignoreDevice ? undefined : deviceClass(section.props)}
                         style={spacingStyle(section.props)}
                     >
-                        <Component {...section.props} {...(section.type === 'PiquimCatalog3Panel' && catalogCards ? { cards: catalogCards } : {})} />
+                        <Suspense fallback={<BlockSkeleton type={section.type} />}>
+                            <Component {...section.props} {...(section.type === 'PiquimCatalog3Panel' && catalogCards ? { cards: catalogCards } : {})} />
+                        </Suspense>
                     </section>
                 );
             })}
