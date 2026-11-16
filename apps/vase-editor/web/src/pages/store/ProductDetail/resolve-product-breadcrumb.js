@@ -1,5 +1,6 @@
 // Parte de ProductDetail.jsx: FALLBACK_IMAGE, getProductId, normalizeBreadcrumbText, toTitleLabel, getSearchParam, resolveCatalogSlugFromText y más.
 import { createPlaceholderImage } from "../../../utils/productImage";
+import { PIQUIM_SUBCATALOGS } from "../../../data/piquimSubcatalogs";
 
 export const FALLBACK_IMAGE = createPlaceholderImage({ label: "Producto", width: 900, height: 900 });
 

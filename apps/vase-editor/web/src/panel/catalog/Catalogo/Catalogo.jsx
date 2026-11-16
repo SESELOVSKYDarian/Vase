@@ -1,5 +1,6 @@
 // Parte de Catalogo.jsx: Catalogo.
 import { useEffect, useMemo, useState } from 'react';
+import DataTable from '../../components/DataTable';
 import { Modal, SidePanel } from '../../components/Overlays';
 import Icon from '../../components/Icon';
 import Select from '../../components/Select';
