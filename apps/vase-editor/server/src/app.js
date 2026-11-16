@@ -17,6 +17,7 @@ import { ordersRouter, adminOrdersRouter } from './routes/orders.js';
 import { webhooksRouter } from './routes/webhooks.js';
 import { integrationsRouter } from './routes/integrations.js';
 import { uploadsRouter } from './routes/uploads.js';
+import { internalStorageRouter } from './routes/internalStorage.js';
 import { authenticate, optionalAuthenticate, requireRole } from './middleware/auth.js';
 import { pool } from './db.js';
 import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from './services/seo.js';
@@ -189,6 +190,7 @@ app.use('/public', optionalAuthenticate, publicRouter);
 app.use('/checkout', optionalAuthenticate, checkoutRouter);
 app.use('/webhooks', webhooksRouter);
 app.use('/api/v1/integrations', integrationsRouter);
+app.use('/api/internal/storage', internalStorageRouter);
 
 if (disableAuth) {
   console.warn('AUTH DISABLED: /tenant and /api/platform/admin routes are open without token.');

@@ -582,6 +582,7 @@ model Tenant {
   businessInfo      TenantBusinessInfo?
   branches          TenantBranch[]
   dataSources       TenantDataSource[]
+  businessStorage   BusinessStorageUsage?
   storefrontPages   StorefrontPage[]
   customPageRequests CustomPageRequest[]
   customProjectMilestones CustomProjectMilestone[]
@@ -2872,6 +2873,22 @@ model TenantDataSource {
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, resource])
+}
+
+// Cuánto ocupa la web de la cuenta. Lo informa Vase Business cada pocas horas.
+model BusinessStorageUsage {
+  id              String    @id @default(cuid())
+  tenantId        String    @unique
+  imageCount      Int       @default(0)
+  totalBytes      BigInt    @default(0)
+  breakdown       Json?
+  lastBackupAt    DateTime?
+  lastBackupBytes BigInt    @default(0)
+  alertedPercent  Int       @default(0)
+  reportedAt      DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 model TenantBillingProfile {

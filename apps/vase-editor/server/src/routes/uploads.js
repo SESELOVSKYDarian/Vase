@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db.js';
+import { isStorageBlocked } from '../services/storage/scheduler.js';
 
 export const uploadsRouter = Router();
 
@@ -39,6 +40,10 @@ async function resolveUploadUser(req) {
 
 uploadsRouter.get('/token', async (req, res, next) => {
   try {
+    // Con el plan lleno no se entregan permisos para subir más archivos.
+    if (req.user?.tenantId && isStorageBlocked(req.user.tenantId)) {
+      return res.status(403).json({ error: 'storage_limit_reached' });
+    }
     const secret = process.env.UPLOADS_JWT_SECRET || '';
     if (!secret) {
       return res.status(500).json({ error: 'uploads_jwt_secret_missing' });

@@ -46,7 +46,7 @@ export default function Imagenes({ editor, toast }) {
             setGroup('subidas');
             toast(list.length > 1 ? `${list.length} imágenes subidas` : 'Imagen subida. Copiá el link para usarla.', 'success');
         } catch (err) {
-            toast(`No se pudo subir: ${err.message || 'error'}`, 'error');
+            toast(err.message === 'storage_limit_reached' ? 'Llegaste al tope de tu plan. Borrá imágenes o mejorá el plan desde Vase.' : `No se pudo subir: ${err.message || 'error'}`, 'error');
         } finally {
             setUploading(false);
         }

@@ -150,6 +150,9 @@ export function BusinessWebs({
                           Conectar dominio
                         </button>
                       )}
+                      <NavLink href={`/app/owner/pages/${web.id}/plan`} className="vpa-fopt">
+                        Tu plan y espacio
+                      </NavLink>
                       {/* La conexión con el sistema de gestión es de la cuenta, no de una web: vive en Mi negocio. */}
                       <NavLink href="/app/settings?tab=negocio" className="vpa-fopt">
                         Conectar con tu sistema

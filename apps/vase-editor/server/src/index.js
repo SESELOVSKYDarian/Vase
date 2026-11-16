@@ -1,3 +1,4 @@
+import { startStorageJobs } from './services/storage/scheduler.js';
 import dotenv from 'dotenv';
 dotenv.config();
 import http from 'http';
@@ -600,6 +601,7 @@ async function startServer() {
   server.listen(port);
   const outboxTimer = setInterval(() => void processLabsCatalogOutbox().catch((error) => console.error('labs_catalog_outbox_failed', error?.message || error)), 30_000);
   outboxTimer.unref();
+  startStorageJobs();
 }
 
 startServer().catch((err) => {
