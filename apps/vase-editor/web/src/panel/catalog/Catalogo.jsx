@@ -44,7 +44,7 @@ const lastSyncLabel = (products) => {
     return new Date(last).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 };
 
-export default function Catalogo({ editor, user, theme, toast, openLegacy, goSettings, storeHost }) {
+export default function Catalogo({ editor, user, theme, toast, goSettings, storeHost }) {
     const [tab, setTab] = useState('productos');
     const products = editor.products || [];
     const setProducts = editor.setProducts;

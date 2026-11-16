@@ -5,7 +5,6 @@ import { useTenant } from '../context/TenantContext';
 import { useToast } from '../context/ToastContext';
 import { useEditorState } from '../hooks/admin/useEditorState';
 import useNotificationsManager from '../hooks/admin/useNotificationsManager';
-import useEvolutionStore from '../store/useEvolutionStore';
 import { navigate } from '../utils/navigation';
 import { isExternalAuthEnabled, submitCentralLogout } from '../utils/vaseAuth';
 import { isPiquimTenantIdentity, resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
@@ -170,11 +169,6 @@ export default function PanelApp() {
         document.title = `${meta.title} · ${storeName} | Vase Business`;
     }, [meta.title, storeName]);
 
-    const openLegacy = (module) => {
-        if (module) useEvolutionStore.getState().setActiveModule(module);
-        navigate('/admin/anterior');
-    };
-
     const publish = async () => {
         const result = await editor.handleSaveAll();
         if (result?.success) {
@@ -200,7 +194,6 @@ export default function PanelApp() {
                 user={user}
                 theme={theme}
                 toast={addToast}
-                openLegacy={openLegacy}
                 goSettings={(page) => go('ajustes', page)}
                 storeHost={window.location.host}
             />
@@ -280,9 +273,9 @@ export default function PanelApp() {
     } else if (sub === 'dominio') {
         content = <AjustesDominio user={user} toast={addToast} theme={theme} />;
     } else if (settingsPage) {
-        content = <ComingSoon title={settingsPage.label} hint={settingsPage.hint} onOpenLegacy={() => openLegacy(settingsPage.legacy)} />;
+        content = <ComingSoon title={settingsPage.label} hint={settingsPage.hint} />;
     } else {
-        content = <ComingSoon title={meta.title} hint={meta.hint} onOpenLegacy={() => openLegacy(meta.legacy)} />;
+        content = <ComingSoon title={meta.title} hint={meta.hint} />;
     }
 
     return (

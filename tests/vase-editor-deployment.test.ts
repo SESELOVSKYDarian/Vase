@@ -56,7 +56,6 @@ describe("Vase Editor deployment", () => {
       "apps/vase-editor/README.md",
       "apps/vase-editor/server/.env.example",
       "apps/vase-editor/web/.env.example",
-      "apps/vase-editor/web/src/components/admin/evolution/IntegrationsEditor.jsx",
       "docs/deployment/business-editor-bridge.md",
       "docs/v3/easypanel.md",
     ].map((relativePath) => fs.readFileSync(path.join(rootDir, relativePath), "utf8"));

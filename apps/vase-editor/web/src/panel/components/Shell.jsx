@@ -67,8 +67,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
                     {/* Igual en todos los productos: Ajustes, Ayuda y soporte, volver a Vase, el panel anterior y salir. */}
                     <button type="button" className="vp-am" role="menuitem" onClick={() => { close(); go('ajustes', 'cuenta'); }}>Ajustes</button>
                     <button type="button" className="vp-am" role="menuitem" onClick={() => { close(); account.onHelp(); }}>Ayuda y soporte</button>
-                    {account.vaseUrl ? <a className="vp-am" role="menuitem" href={account.vaseUrl}>← Volver a Vase</a> : null}
-                    <a className="vp-am" role="menuitem" href="/admin/anterior">Abrir el panel anterior</a>
+                    {account.vaseUrl ? <a className="vp-am" role="menuitem" href={`${account.vaseUrl}/app`}>← Volver a Vase</a> : null}
                     <button type="button" className="vp-am out" role="menuitem" onClick={account.onLogout}>Cerrar sesión</button>
                 </>
             )}
@@ -207,14 +206,13 @@ export function GeneralHelp({ open, onClose, onPlay, theme }) {
     );
 }
 
-// Sección que todavía se está rehaciendo: dice en qué fase llega y la abre en el panel anterior.
-export function ComingSoon({ title, hint, onOpenLegacy }) {
+// Sección que todavía se está armando.
+export function ComingSoon({ title, hint }) {
     return (
         <div className="vp-soon">
             <span className="ic"><Icon name="tool" size={26} /></span>
-            <h2>{title} todavía está en el panel anterior</h2>
-            <p className="vp-note" style={{ fontSize: 13 }}>{hint || 'La podés usar ahí con todos tus datos. Pronto la vas a tener acá.'}</p>
-            <button type="button" className="vp-btn ink" onClick={onOpenLegacy}>Abrir en el panel anterior</button>
+            <h2>{title} está en proceso</h2>
+            <p className="vp-note" style={{ fontSize: 13 }}>{hint || 'Pronto la vas a tener acá.'}</p>
         </div>
     );
 }

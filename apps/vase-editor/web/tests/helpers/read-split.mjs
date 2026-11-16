@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -15,7 +15,12 @@ export function readSplitSync(file) {
     const source = readFileSync(url, 'utf8');
     const parts = source.match(PARTS);
     if (!parts) return source;
-    const pieces = parts[1].split(',').map((part) => readSplitSync(new URL(part.trim(), url)));
+    // Una parte puede haberse borrado después por no usarse: se saltea.
+    const pieces = parts[1]
+        .split(',')
+        .map((part) => new URL(part.trim(), url))
+        .filter((part) => existsSync(part))
+        .map((part) => readSplitSync(part));
     return [source, ...pieces].join('\n');
 }
 

@@ -36,13 +36,14 @@ test('estados reales de los pedidos con nombre y color', () => {
     assert.equal(formatMoney(1245300.4), `$${(1245300).toLocaleString('es-AR')}`);
 });
 
-test('/admin abre el panel nuevo y el anterior queda en /admin/anterior', async () => {
+test('/admin abre el panel nuevo y ya no existe el panel anterior', async () => {
     const app = await read('../src/App.jsx');
     assert.match(app, /const PanelApp = lazyPage\(\(\) => import\('\.\/panel\/PanelApp'\)\);/);
-    assert.match(app, /if \(route === '\/admin\/anterior'\) Component = EvolutionAdmin;\s*else Component = PanelApp;/);
+    assert.match(app, /Component = PanelApp;/);
+    assert.doesNotMatch(app, /EvolutionAdmin|admin\/anterior/);
     assert.match(app, /isAdminRoute = route === '\/admin' \|\| \(route\.startsWith\('\/admin\/'\) && !isPreviewRoute\)/);
     // el panel no se desmonta al cambiar de sección
-    assert.match(app, /key=\{isAdminRoute && !isLegacyAdminRoute \? 'vase-panel' : route\}/);
+    assert.match(app, /key=\{isAdminRoute \? 'vase-panel' : route\}/);
 });
 
 test('el panel nuevo vive aislado: todos sus estilos están dentro de .vp y tiene modo claro y oscuro', async () => {

@@ -83,12 +83,27 @@ const preloadRoute = (pathname) => {
 };
 
 // Admin pages
-const EvolutionAdmin = lazyPage(() => import('./pages/admin/evolution/EvolutionAdmin'));
 const PanelApp = lazyPage(() => import('./panel/PanelApp'));
 const PreviewPage = lazyPage(() => import('./pages/admin/evolution/PreviewPage'));
 
 function PageFallback() {
     return <div className="min-h-screen" aria-busy="true" />;
+}
+
+// Fondo del panel mientras arranca: el mismo color que va a tener (claro u oscuro, según lo elegido en Vase),
+// así no se ve un pantallazo de otro color antes de que aparezca.
+const panelBootColor = () => {
+    try {
+        const shared = document.cookie.match(/(?:^|;\s*)vase_theme=(light|dark)/)?.[1];
+        const theme = shared || localStorage.getItem('vase_panel_theme');
+        return theme === 'dark' ? '#000000' : '#ffffff';
+    } catch {
+        return '#ffffff';
+    }
+};
+
+function PanelBoot() {
+    return <div className="min-h-screen" style={{ background: panelBootColor() }} aria-busy="true" />;
 }
 
 function AppContent() {
@@ -100,9 +115,8 @@ function AppContent() {
     const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     const allowLocalAdmin = isEditorHost || isLocalHost || import.meta.env.VITE_ALLOW_LOCAL_ADMIN === 'true';
     const isPreviewRoute = route === '/admin/preview';
-    const isAdminRoute = route === '/admin' || (route.startsWith('/admin/') && !isPreviewRoute);
-    // /admin/* es el panel nuevo; el panel anterior queda en /admin/anterior como respaldo.
-    const isLegacyAdminRoute = route === '/admin/anterior';
+    // En business.vase.ar la raíz también es el panel: se muestra directo, sin pasar antes por la tienda.
+    const isAdminRoute = route === '/admin' || (route.startsWith('/admin/') && !isPreviewRoute) || (isEditorHost && route === '/');
 
     useEffect(() => {
         const handleLocationChange = () => setRoute(window.location.pathname);
@@ -162,10 +176,10 @@ function AppContent() {
 
     useEffect(() => {
         const brandName = resolveTenantBrandName({ tenant, settings });
-        if (isLegacyAdminRoute || isPreviewRoute) {
+        if (isPreviewRoute) {
             document.title = `${brandName} | Editor`;
         }
-    }, [isLegacyAdminRoute, isPreviewRoute, settings, tenant]);
+    }, [isPreviewRoute, settings, tenant]);
 
     let Component = HomePage;
 
@@ -175,14 +189,9 @@ function AppContent() {
         Component = PreviewPage;
     } else if (isAdminRoute) {
         if (authLoading) {
-            Component = () => (
-                <div className="min-h-screen flex items-center justify-center text-sm text-[#8a7560]">
-                    Cargando...
-                </div>
-            );
+            Component = PanelBoot;
         } else if (isAdmin) {
-            if (route === '/admin/anterior') Component = EvolutionAdmin;
-            else Component = PanelApp;
+            Component = PanelApp;
         } else if (user) {
             Component = ProfilePage;
         } else {
@@ -202,10 +211,13 @@ function AppContent() {
     else if (route === '/signup' || route === '/register') Component = SignupPage;
 
     return (
-        <div className="w-full min-h-screen bg-gray-50 text-[#181411] transition-colors duration-200 dark:bg-[#090b0f] dark:text-[#e6edf7]">
+        <div
+            className={isAdminRoute ? 'w-full min-h-screen' : 'w-full min-h-screen bg-gray-50 text-[#181411] transition-colors duration-200 dark:bg-[#090b0f] dark:text-[#e6edf7]'}
+            style={isAdminRoute ? { background: panelBootColor() } : undefined}
+        >
             {/* El panel no se reinicia al cambiar de sección: mantiene datos y estado entre pantallas. */}
-            <div key={isAdminRoute && !isLegacyAdminRoute ? 'vase-panel' : route}>
-                <Suspense fallback={<PageFallback />}>
+            <div key={isAdminRoute ? 'vase-panel' : route}>
+                <Suspense fallback={isAdminRoute ? <PanelBoot /> : <PageFallback />}>
                     <Component />
                 </Suspense>
             </div>

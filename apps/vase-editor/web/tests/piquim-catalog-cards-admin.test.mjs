@@ -55,13 +55,7 @@ test('una tarjeta oculta sale de la portada pero conserva su contenido; un titul
     assert.equal(getVisibleCatalogCards(saved.map((card) => ({ ...card, hidden: true }))).length, 0);
 });
 
-test('el panel tiene la seccion Pagina catalogo solo para Piquim y la portada respeta las tarjetas ocultas', async () => {
-    const sidebar = await read('../src/components/admin/evolution/EvolutionSidebar.jsx');
-    assert.match(sidebar, /showCatalogPage\s*\n?\s*\?\s*\[\{ id: 'catalog_page'/);
-    const admin = await read('../src/pages/admin/evolution/EvolutionAdmin.jsx');
-    assert.match(admin, /case 'catalog_page':[\s\S]*<CatalogPageEditor/);
-    assert.match(admin, /showCatalogPage=\{isPiquimStore\}/);
-
+test('la portada del catalogo respeta las tarjetas ocultas', async () => {
     const page = await read('../src/pages/store/CatalogPage.jsx');
     assert.match(page, /getVisibleCatalogCards\(settings\?\.branding\?\.catalog_cards\)/);
     assert.match(page, /isPiquimTenant && isCatalogLanding && catalogCards\.length > 0/);

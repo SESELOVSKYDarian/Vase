@@ -66,13 +66,4 @@ describe("Vase Editor catalog stability", () => {
     expect(setProductsBlock).not.toContain("pushHistorySnapshot()");
   });
 
-  it("wires the catalog image picker to public uploads without FileReader", async () => {
-    const source = await readFile(
-      new URL("../apps/vase-editor/web/src/hooks/admin/useCatalogManager.js", import.meta.url),
-      "utf8",
-    );
-
-    expect(source).toContain("uploadPublicFile(file)");
-    expect(source).not.toContain("readAsDataURL");
-  });
 });
