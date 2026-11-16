@@ -20,4 +20,7 @@ ENV HOSTNAME=$HOSTNAME
 ENV PORT=$PORT
 
 EXPOSE 3000
-CMD ["sh", "-c", "node apps/vase-labs/scripts/validate-runtime-env.js && node apps/vase-labs/scripts/repair-assistant-secret-migration.js && cd apps/vase-labs && npx prisma migrate deploy && npx next start -H \"${HOSTNAME:-0.0.0.0}\" -p \"${PORT:-3000}\""]
+# NEXT_DEPLOYMENT_ID llega recién al arrancar (no al armar la imagen). Si Next lo ve solo al arrancar,
+# pide los archivos de la página con un sufijo que el armado no conoce y la página queda sin responder
+# a los clics. Por eso se arranca sin esa variable.
+CMD ["sh", "-c", "node apps/vase-labs/scripts/validate-runtime-env.js && node apps/vase-labs/scripts/repair-assistant-secret-migration.js && cd apps/vase-labs && npx prisma migrate deploy && env -u NEXT_DEPLOYMENT_ID npx next start -H \"${HOSTNAME:-0.0.0.0}\" -p \"${PORT:-3000}\""]
