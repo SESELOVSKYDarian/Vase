@@ -71,6 +71,9 @@ function GuideRow({ guide }: { guide: Guide }) {
   );
 }
 
+/** Aviso para abrir "Ayuda y soporte" desde otro lado del panel (el menú de la cuenta). */
+export const LABS_OPEN_HELP_EVENT = "vase-labs:open-help";
+
 export function LabsHelpButton({ section }: { section: string }) {
   const [open, setOpen] = useState<"seccion" | "todo" | null>(null);
   const current = LABS_HELP[section] ?? LABS_HELP.inicio;
@@ -81,6 +84,13 @@ export function LabsHelpButton({ section }: { section: string }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // "Ayuda y soporte" del menú de la cuenta abre este mismo panel, con toda la ayuda.
+  useEffect(() => {
+    const openAll = () => setOpen("todo");
+    window.addEventListener(LABS_OPEN_HELP_EVENT, openAll);
+    return () => window.removeEventListener(LABS_OPEN_HELP_EVENT, openAll);
+  }, []);
 
   const all = Object.values(LABS_HELP);
 

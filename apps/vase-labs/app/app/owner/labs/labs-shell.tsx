@@ -7,9 +7,7 @@ import { PanelAccountMenu, PanelBrandLogo, PanelShell, type PanelNavGroup } from
 import { labsNavigationGroups, labsSectionTitles, resolveLabsSection } from "./labs-owner-nav";
 import "./labs-panel.css";
 import { VaseNotificationsBell } from "./vase-notifications-bell";
-import { LabsHelpButton } from "./labs-help";
-
-const HELP_URL = "https://help.vase.ar";
+import { LABS_OPEN_HELP_EVENT, LabsHelpButton } from "./labs-help";
 
 /** Marco de Vase Labs: el mismo menú, barra y piezas que el panel de Vase. */
 export function LabsShell({
@@ -64,7 +62,7 @@ export function LabsShell({
           close={close}
           heading={tenantName}
           settings={{ href: "/owner/settings" }}
-          help={{ href: HELP_URL, newTab: true }}
+          help={{ onClick: () => window.dispatchEvent(new Event(LABS_OPEN_HELP_EVENT)) }}
           backToVase={{ href: "https://app.vase.ar/app" }}
           signOut={{ onClick: () => window.location.assign("/api/labs/signout") }}
           renderLink={({ href, className, onClick, children: content }) => (

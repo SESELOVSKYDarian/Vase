@@ -264,3 +264,14 @@
     .vp .vp-legacy select option::checkmark { color: var(--acc); }
 }
 .vp .vp-legacy select option { background: var(--card); color: var(--tx); }
+
+/* ===== Pantallas grandes: más aire y un ancho máximo, para que las tablas y tarjetas no queden estiradas ===== */
+@media (min-width: 1600px) {
+  .vp-top { padding-left: 40px; padding-right: 40px; }
+  .vp-body { padding: 28px 40px; }
+}
+@media (min-width: 2100px) {
+  .vp-top { padding-left: 56px; padding-right: 56px; }
+  .vp-body { padding: 32px 56px; }
+  .vp-body > * { max-width: 1760px; }
+}

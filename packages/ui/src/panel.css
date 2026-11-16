@@ -520,3 +520,16 @@
 .vpa-tp-box .vpa-sech > .vpa-g1 { flex: 1 1 220px; }
 .vpa-tp-note { font-size: 12.5px; color: var(--mut); font-weight: 600; line-height: 1.5; }
 @media (max-width: 860px) { .vpa-tp-box { padding: 16px; } .vpa-tp-plan { padding: 16px; } .vpa-tp-mv b { font-size: 24px; } }
+
+/* ===== Pantallas grandes: más aire y contenido más ancho, sin estirar las líneas de texto de más ===== */
+@media (min-width: 1600px) {
+  .vpa-top { padding-left: 40px; padding-right: 40px; }
+  .vpa-body { padding: 28px 40px; }
+  .vpa-wrap { max-width: 1320px; }
+  .vpa-tp-stack { max-width: 1240px; }
+}
+@media (min-width: 2100px) {
+  .vpa-top { padding-left: 56px; padding-right: 56px; }
+  .vpa-body { padding: 32px 56px; }
+  .vpa-wrap { max-width: 1520px; }
+}
