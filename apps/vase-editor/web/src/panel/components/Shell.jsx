@@ -75,6 +75,33 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
     );
 }
 
+// Celular: barra fija abajo con lo que más se usa. "Más" abre el menú completo.
+const MOBILE_TABS = [
+    { id: 'resumen', label: 'Resumen', icon: 'grid' },
+    { id: 'pedidos', label: 'Pedidos', icon: 'bag', badge: 'payments' },
+    { id: 'catalogo', label: 'Catálogo', icon: 'box' },
+    { id: 'diseno', label: 'Diseño', icon: 'layout' },
+];
+
+export function MobileNav({ section, go, badges, onMore }) {
+    const inTabs = MOBILE_TABS.some((tab) => tab.id === section);
+    return (
+        <nav className="vp-mnav" aria-label="Secciones">
+            {MOBILE_TABS.map((tab) => (
+                <button key={tab.id} type="button" className={section === tab.id ? 'on' : ''} aria-current={section === tab.id ? 'page' : undefined} onClick={() => go(tab.id)}>
+                    <span className="ic"><Icon name={tab.icon} size={18} /></span>
+                    {tab.label}
+                    {tab.badge && badges[tab.badge] ? <em>{badges[tab.badge]}</em> : null}
+                </button>
+            ))}
+            <button type="button" className={inTabs ? '' : 'on'} onClick={onMore} aria-haspopup="dialog">
+                <span className="ic"><Icon name="list" size={18} /></span>
+                Más
+            </button>
+        </nav>
+    );
+}
+
 export function Topbar({ title, subtitle, crumb, onBack, status, onPublish, publishing, badges, onNotifications, onHelp, onMenu, bell = null }) {
     return (
         <header className="vp-top">

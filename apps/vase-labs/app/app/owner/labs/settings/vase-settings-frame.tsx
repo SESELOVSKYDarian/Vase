@@ -12,7 +12,7 @@ export function VaseSettingsFrame({ tab, theme }: { tab: "perfil" | "negocio" | 
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(640);
   const [loaded, setLoaded] = useState(false);
-  const src = useMemo(() => `${APP_URL}/app/embed/settings?${new URLSearchParams({ tab, theme }).toString()}`, [tab, theme]);
+  const src = useMemo(() => `${APP_URL}/app/embed/settings?${new URLSearchParams({ tab, theme, tabs: "0" }).toString()}`, [tab, theme]);
   const origin = useMemo(() => new URL(APP_URL).origin, []);
 
   useEffect(() => {

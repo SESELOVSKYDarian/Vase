@@ -131,6 +131,23 @@ export async function getBusinessStorage(tenantId: string) {
   }
 }
 
+export type StoreImage = { productId: string; productName: string; index: number; url: string | null; bytes: number };
+
+/** Fotos de productos de la web, de la más pesada a la más liviana. Si Business no contesta, lista vacía. */
+export async function getBusinessImages(tenantId: string): Promise<StoreImage[]> {
+  try {
+    const payload = await callBusiness<{ images: StoreImage[] }>(`${encodeURIComponent(tenantId)}/images`);
+    return payload.images ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Dirección de la miniatura: la foto propia de la tienda la sirve Business ya achicada. */
+export function storeImageThumb(image: StoreImage) {
+  return image.url ?? `${BUSINESS_EDITOR_ORIGIN}/public/products/${image.productId}/images/${image.index}?w=320`;
+}
+
 /** Hace una copia ahora (reemplaza a la última). Puede tardar en webs pesadas. */
 export function createBusinessBackup(tenantId: string) {
   return callBusiness<{ backup: StorageBackup }>(`${encodeURIComponent(tenantId)}/backup`, { method: "POST", timeoutMs: 120_000 });

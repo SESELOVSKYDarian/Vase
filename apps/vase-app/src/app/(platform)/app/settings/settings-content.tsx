@@ -114,11 +114,12 @@ const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.vase.ar").rep
  * Pestañas y contenido de Ajustes. Lo usan la página de app y la versión que se ve adentro de otros
  * productos (embed): ahí los links que salen de Ajustes abren la ventana entera.
  */
-export function SettingsBody({ ctx, tabHref, embed = false }: { ctx: SettingsContext; tabHref: (tab: TabId) => string; embed?: boolean }) {
+export function SettingsBody({ ctx, tabHref, embed = false, hideTabs = false }: { ctx: SettingsContext; tabHref: (tab: TabId) => string; embed?: boolean; hideTabs?: boolean }) {
   const { membership, session, isOwner, labsActive, profile, tabs, tab, businessInfo, branches, negocioBilling, usesProducts, activeProducts, sources, externalSystem, connection, paymentsEnabled, cards } = ctx;
   return (
     <>
-      <div>
+      {/* Si el producto que lo muestra ya tiene sus propias pestañas (Labs), acá no se repiten. */}
+      <div hidden={hideTabs}>
         <div className="vpa-seg" role="tablist" aria-label="Ajustes">
           {tabs.map((item) => (
             <Link

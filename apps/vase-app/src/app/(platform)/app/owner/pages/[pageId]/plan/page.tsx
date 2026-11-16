@@ -5,11 +5,12 @@ import { forbidden, notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { BackupPanel, type BackupView } from "@/components/panel/web-plan/BackupPanel";
 import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
+import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import { getPlanLabel } from "@/lib/business/plans";
 import { STORAGE_ALERT_PERCENT, formatBytes, formatCount, percentOf } from "@/lib/business/storage";
 import { getStorefrontBuilderData } from "@/server/queries/builder";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
-import { getBusinessStorage } from "@/server/services/business-storage";
+import { getBusinessImages, getBusinessStorage, storeImageThumb } from "@/server/services/business-storage";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -48,7 +49,20 @@ function Meter({ label, used, total, percent, hint }: { label: string; used: str
   );
 }
 
-export default async function WebPlanPage({ params }: { params: Promise<{ pageId: string }> }) {
+const TABS = [
+  { id: "resumen", label: "Resumen" },
+  { id: "imagenes", label: "Imágenes" },
+  { id: "copia", label: "Copia de seguridad" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
+
+export default async function WebPlanPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ pageId: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
+}) {
   let membership;
   let session;
   try {
@@ -58,10 +72,13 @@ export default async function WebPlanPage({ params }: { params: Promise<{ pageId
   }
 
   const { pageId } = await params;
-  const [builder, dashboard, storage] = await Promise.all([
+  const requested = (await searchParams).tab;
+  const tab: TabId = TABS.find((item) => item.id === requested)?.id ?? "resumen";
+  const [builder, dashboard, storage, images] = await Promise.all([
     getStorefrontBuilderData(membership.tenantId, pageId),
     getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
     getBusinessStorage(membership.tenantId),
+    tab === "imagenes" ? getBusinessImages(membership.tenantId) : Promise.resolve([]),
   ]);
   if (!builder) notFound();
 
@@ -110,10 +127,28 @@ export default async function WebPlanPage({ params }: { params: Promise<{ pageId
           </Link>
         </div>
 
+        <div>
+          <div className="vpa-seg" role="tablist" aria-label="Tu plan">
+            {TABS.map((item) => (
+              <Link
+                key={item.id}
+                role="tab"
+                aria-selected={tab === item.id}
+                href={`/app/owner/pages/${pageId}/plan?tab=${item.id}` as Route}
+                className={tab === item.id ? "on" : ""}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
         {storage.state === "offline" ? (
           <p className="vpa-tp-note">No pudimos actualizar los datos ahora. Te mostramos lo último que teníamos guardado.</p>
         ) : null}
 
+        {tab === "resumen" ? (
+          <>
         <div className="vpa-tp-ms">
           <Meter
             label="Imágenes"
@@ -166,7 +201,48 @@ export default async function WebPlanPage({ params }: { params: Promise<{ pageId
           </div>
         ) : null}
 
-        <BackupPanel pageId={pageId} backup={backupView} nextLabel={nextLabel} canRestore={storage.restoreEnabled} />
+          </>
+        ) : null}
+
+        {tab === "imagenes" ? (
+          <section className="vpa-tp-box" aria-label="Imágenes de la web">
+            <div className="vpa-sech" style={{ margin: 0 }}>
+              <div className="vpa-g1">
+                <h3>Imágenes de tus productos</h3>
+                <p>
+                  {formatCount(usage.imageCount)} de {formatCount(limits.maxImages)} · {formatBytes(usage.breakdown.images)}. Primero las que más pesan.
+                </p>
+              </div>
+              <a className="vpa-btn acc sm" href={BUSINESS_LAUNCH_PATH}>
+                Subir o cambiar imágenes
+              </a>
+            </div>
+            {images.length === 0 ? (
+              <div className="vpa-empty">Todavía no hay imágenes de productos para mostrar.</div>
+            ) : (
+              <div className="vpa-tp-grid">
+                {images.map((image) => (
+                  <figure className="vpa-tp-img" key={`${image.productId}-${image.index}`}>
+                    {/* La miniatura la sirve Business, fuera de las imágenes que optimiza Next. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={storeImageThumb(image)} alt="" loading="lazy" decoding="async" />
+                    <figcaption>
+                      <b title={image.productName}>{image.productName}</b>
+                      <span>{image.bytes > 0 ? formatBytes(image.bytes) : "Guardada afuera de la web"}</span>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
+            <p className="vpa-tp-note">
+              Se muestran hasta 240. Para subir, cambiar o borrar imágenes entrá a tu web y abrí Imágenes o el producto.
+            </p>
+          </section>
+        ) : null}
+
+        {tab === "copia" ? (
+          <BackupPanel pageId={pageId} backup={backupView} nextLabel={nextLabel} canRestore={storage.restoreEnabled} />
+        ) : null}
       </div>
     </AppShell>
   );

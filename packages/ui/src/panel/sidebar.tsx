@@ -3,6 +3,7 @@
 // Menú lateral de todos los paneles de Vase (app, Labs y Business): marca, secciones, subpáginas,
 // cuenta con su menú, achicar el menú y, en el celular, cajón que se abre y se cierra.
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { useProductJump } from "./product-jump";
 
 export type SidebarLinkProps = { href: string; className: string; title?: string; onClick?: () => void; children: ReactNode };
 export type SidebarSubItem = { id: string; label: ReactNode; href?: string; onClick?: () => void };
@@ -66,6 +67,7 @@ export function PanelSidebar({
   ariaLabel = "Menú",
 }: PanelSidebarProps) {
   const [accountOpen, setAccountOpen] = useState(false);
+  useProductJump();
   const accountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

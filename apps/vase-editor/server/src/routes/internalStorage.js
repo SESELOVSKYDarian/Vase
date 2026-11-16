@@ -4,7 +4,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { createTenantBackup, isRestoreEnabled, listTenantBackups, restoreTenantBackup } from '../services/storage/backups.js';
 import { reportTenantUsage } from '../services/storage/scheduler.js';
 import { findTenantByVaseId } from '../services/storage/tables.js';
-import { measureTenantUsage } from '../services/storage/usage.js';
+import { listTenantProductImages, measureTenantUsage } from '../services/storage/usage.js';
 
 export const internalStorageRouter = Router();
 
@@ -33,6 +33,14 @@ internalStorageRouter.get('/:vaseTenantId', loadTenant, async (req, res, next) =
   try {
     const [usage, backups] = await Promise.all([measureTenantUsage(req.storeTenant.id), listTenantBackups(req.storeTenant.id)]);
     return res.json({ usage, backups, restoreEnabled: isRestoreEnabled() });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+internalStorageRouter.get('/:vaseTenantId/images', loadTenant, async (req, res, next) => {
+  try {
+    return res.json({ images: await listTenantProductImages(req.storeTenant.id) });
   } catch (error) {
     return next(error);
   }

@@ -22,6 +22,29 @@ const PRODUCT_IMAGES_SQL = [
 const designImagesSql = (table) =>
   `select coalesce(sum((length(t::text) - length(replace(t::text, 'data:image/', ''))) / 11), 0)::bigint as count from ${table.name} t where ${table.where}`;
 
+// Fotos de productos de la tienda, de la más pesada a la más liviana (para saber cuáles conviene achicar).
+const PRODUCT_IMAGE_LIST_SQL = [
+  'select p.id, p.name, (t.ord - 1)::int as idx,',
+  "case when left(s.src, 5) = 'data:' then null else s.src end as url,",
+  "case when left(s.src, 5) = 'data:' then octet_length(s.src) else 0 end as bytes",
+  'from product_cache p,',
+  "jsonb_array_elements(case when jsonb_typeof(p.data->'images') = 'array' then p.data->'images' else '[]'::jsonb end) with ordinality as t(im, ord),",
+  "lateral (select case when jsonb_typeof(t.im) = 'string' then t.im #>> '{}' else coalesce(t.im->>'url', t.im->>'src', '') end as src) s",
+  "where p.tenant_id = $1 and s.src <> ''",
+  'order by bytes desc, p.name asc limit $2',
+].join(' ');
+
+export async function listTenantProductImages(tenantId, limit = 240, db = pool) {
+  const result = await db.query(PRODUCT_IMAGE_LIST_SQL, [tenantId, limit]);
+  return result.rows.map((row) => ({
+    productId: row.id,
+    productName: row.name || 'Producto',
+    index: Number(row.idx),
+    url: row.url && /^https?:\/\//i.test(row.url) ? row.url : null,
+    bytes: Number(row.bytes || 0),
+  }));
+}
+
 export function invalidateTenantUsage(tenantId) {
   cache.delete(String(tenantId));
 }

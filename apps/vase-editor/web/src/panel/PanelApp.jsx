@@ -8,7 +8,7 @@ import useNotificationsManager from '../hooks/admin/useNotificationsManager';
 import { navigate } from '../utils/navigation';
 import { isExternalAuthEnabled, submitCentralLogout } from '../utils/vaseAuth';
 import { isPiquimTenantIdentity, resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
-import { ComingSoon, GeneralHelp, HelpVideo, SectionHelp, Sidebar, Topbar } from './components/Shell';
+import { ComingSoon, GeneralHelp, HelpVideo, SectionHelp, Sidebar, Topbar, MobileNav } from './components/Shell';
 import './screens/screens.css';
 import Resumen from './screens/Resumen';
 import Imagenes from './screens/Imagenes';
@@ -333,6 +333,7 @@ export default function PanelApp() {
                     </div>
                 )}
             </main>
+            {isPhone ? <MobileNav section={section} go={go} badges={badges} onMore={() => setNavOpen(true)} /> : null}
             <Notifications open={notesOpen} onClose={() => setNotesOpen(false)} theme={theme} notifications={notifications} go={go} />
             <SectionHelp
                 open={help === 'section'}
