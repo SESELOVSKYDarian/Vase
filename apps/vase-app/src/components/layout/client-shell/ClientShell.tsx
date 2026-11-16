@@ -4,7 +4,7 @@
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Bell, CircleHelp, Home, X } from "lucide-react";
-import { PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
+import { PanelBrandLogo, PanelShell, type PanelNavGroup, PanelAccountMenu } from "@vase/ui/panel";
 import { signOutAction } from "@/app/(auth)/actions";
 import { NavLink } from "@/components/layout/nav-link";
 import { useTenantLogo } from "@/components/layout/tenant-logo";
@@ -126,25 +126,19 @@ export function PanelChrome({
               detail: currentUserName,
             }}
             accountMenu={(close) => (
-              <>
-                <NavLink href="/app/settings" className="vpa-am" onClick={close}>
-                  Ajustes
-                </NavLink>
-                <NavLink href="/app/help" className="vpa-am" onClick={close}>
-                  Ayuda y soporte
-                </NavLink>
-                <button
-                  type="button"
-                  className="vpa-am out"
-                  role="menuitem"
-                  onClick={() => {
-                    close();
-                    setConfirmSignOut(true);
-                  }}
-                >
-                  Cerrar sesión
-                </button>
-              </>
+              // Mismo menú que en Business y Labs; acá no va "Volver a Vase" porque ya estás en Vase.
+              <PanelAccountMenu
+                close={close}
+                heading={currentUserName}
+                settings={{ href: "/app/settings" }}
+                help={{ href: "/app/help" }}
+                signOut={{ onClick: () => setConfirmSignOut(true) }}
+                renderLink={({ href, className, onClick, children: content }) => (
+                  <NavLink href={href} className={className} onClick={onClick}>
+                    {content}
+                  </NavLink>
+                )}
+              />
             )}
             actions={
               <>

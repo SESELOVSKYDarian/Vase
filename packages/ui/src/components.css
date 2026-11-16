@@ -185,3 +185,9 @@ html[data-vase-leaving] :is(.vpa-body, .vp-body, .vpa-top .vpa-g1, .vp-top .vp-t
 html[data-vase-leaving] :is(.vpa-main, .vp-main) { position: relative; overflow: hidden; }
 html[data-vase-leaving] :is(.vpa-main, .vp-main)::before { content: ""; position: absolute; left: 0; top: 0; z-index: 80; width: 34%; height: 2px; border-radius: 2px; background: var(--acc); animation: vase-loadbar 1s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .vpa-body, .vp-body, .vpa-top .vpa-g1, .vp-top .vp-ttl { animation: none; } }
+
+/* ===== Menú de la cuenta: igual en todos los productos ===== */
+:where(.vpa, .vp) .vase-am-h { font-size: 11px; color: var(--mut); font-weight: 600; padding: 6px 10px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.vpa, .vp) .vase-am { width: 100%; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: 0; background: none; border-radius: 9px; font: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; text-align: left; text-decoration: none; color: var(--tx); }
+:where(.vpa, .vp) .vase-am:hover { background: var(--hover); }
+:where(.vpa, .vp) .vase-am.out { color: var(--red); }

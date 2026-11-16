@@ -3,6 +3,7 @@ import CloudStatus from './CloudStatus';
 import React, { useEffect, useState } from 'react';
 import { PanelSidebar } from '@vase/ui/panel/sidebar';
 import { PanelBrandLogo } from '@vase/ui/panel/pieces';
+import { PanelAccountMenu } from '@vase/ui/panel/account-menu';
 import Icon from './Icon';
 import { Modal } from './Overlays';
 import { HELP, HELP_VIDEOS, MENU, SETTINGS_PAGES } from '../sections';
@@ -62,14 +63,15 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
             onCloseMobile={onCloseMobile}
             account={{ avatar: store.logo ? <img src={store.logo} alt="" /> : store.initial, name: store.name, detail: account.name }}
             accountMenu={(close) => (
-                <>
-                    <div className="vp-am-h">{account.email || 'Tu cuenta'}</div>
-                    {/* Igual en todos los productos: Ajustes, Ayuda y soporte, volver a Vase, el panel anterior y salir. */}
-                    <button type="button" className="vp-am" role="menuitem" onClick={() => { close(); go('ajustes', 'cuenta'); }}>Ajustes</button>
-                    <button type="button" className="vp-am" role="menuitem" onClick={() => { close(); account.onHelp(); }}>Ayuda y soporte</button>
-                    {account.vaseUrl ? <a className="vp-am" role="menuitem" href={`${account.vaseUrl}/app`}>← Volver a Vase</a> : null}
-                    <button type="button" className="vp-am out" role="menuitem" onClick={account.onLogout}>Cerrar sesión</button>
-                </>
+                // Igual en todos los productos (packages/ui/src/panel/account-menu.tsx).
+                <PanelAccountMenu
+                    close={close}
+                    heading={account.email || 'Tu cuenta'}
+                    settings={{ onClick: () => go('ajustes', 'cuenta') }}
+                    help={{ onClick: account.onHelp }}
+                    backToVase={account.vaseUrl ? { href: `${account.vaseUrl}/app` } : undefined}
+                    signOut={{ onClick: account.onLogout }}
+                />
             )}
         />
     );

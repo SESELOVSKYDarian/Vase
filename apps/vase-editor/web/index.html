@@ -12,6 +12,25 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" />
 
     <title>Vase</title>
+    <!-- Panel de Vase Business: pinta el fondo claro u oscuro antes de que cargue la app, para que no
+         se vea un pantallazo blanco. Solo en el panel; la tienda del cliente no se toca. -->
+    <script>
+      (function () {
+        try {
+          var panel = /^business\./.test(location.hostname) || /^\/admin(\/|$)/.test(location.pathname);
+          if (!panel) return;
+          var shared = (document.cookie.match(/(?:^|;\s*)vase_theme=(light|dark)/) || [])[1];
+          var theme = shared || localStorage.getItem('vase_panel_theme');
+          var dark = theme === 'dark';
+          document.documentElement.setAttribute('data-panel-boot', dark ? 'dark' : 'light');
+        } catch (error) {}
+      })();
+    </script>
+    <style>
+      /* Gana al fondo claro de la tienda (index.css), que también pinta html y body. */
+      html[data-panel-boot='dark'], html[data-panel-boot='dark'] body { background-color: #000000; color-scheme: dark; }
+      html[data-panel-boot='light'], html[data-panel-boot='light'] body { background-color: #ffffff; color-scheme: light; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

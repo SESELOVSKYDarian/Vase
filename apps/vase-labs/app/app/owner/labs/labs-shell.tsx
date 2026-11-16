@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
+import { PanelAccountMenu, PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { labsNavigationGroups, labsSectionTitles, resolveLabsSection } from "./labs-owner-nav";
 import "./labs-panel.css";
 import { VaseNotificationsBell } from "./vase-notifications-bell";
@@ -59,21 +59,20 @@ export function LabsShell({
       )}
       account={{ initial: tenantName.slice(0, 1).toUpperCase() || "V", name: tenantName, detail: `Plan ${plan}` }}
       accountMenu={(close) => (
-        <>
-          {/* Igual en todos los productos: Ajustes, Ayuda y soporte, volver a Vase y salir. */}
-          <Link href="/owner/settings" className="vpa-am" onClick={close}>
-            Ajustes
-          </Link>
-          <a href={HELP_URL} className="vpa-am" target="_blank" rel="noreferrer" onClick={close}>
-            Ayuda y soporte
-          </a>
-          <a href="https://app.vase.ar/app" className="vpa-am">
-            ← Volver a Vase
-          </a>
-          <a href="/api/labs/signout" className="vpa-am out">
-            Cerrar sesión
-          </a>
-        </>
+        // Igual en todos los productos: Ajustes, Ayuda y soporte, volver a Vase y salir.
+        <PanelAccountMenu
+          close={close}
+          heading={tenantName}
+          settings={{ href: "/owner/settings" }}
+          help={{ href: HELP_URL, newTab: true }}
+          backToVase={{ href: "https://app.vase.ar/app" }}
+          signOut={{ onClick: () => window.location.assign("/api/labs/signout") }}
+          renderLink={({ href, className, onClick, children: content }) => (
+            <Link href={href as never} className={className} onClick={onClick}>
+              {content}
+            </Link>
+          )}
+        />
       )}
       actions={
         <>
