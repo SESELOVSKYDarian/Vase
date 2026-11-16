@@ -1,10 +1,11 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { adaptiveColor } from '../src/utils/adaptiveColor.js';
 
-const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+const read = (path) => readSplit(new URL(path, import.meta.url));
 
 test('los colores claros por defecto de los bloques pasan a variables del tema oscuro', () => {
     assert.equal(adaptiveColor('#ffffff', 'background'), 'var(--adaptive-background, #ffffff)');

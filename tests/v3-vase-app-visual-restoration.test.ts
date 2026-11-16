@@ -1,9 +1,10 @@
+import { readSplitSync } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 function source(relativePath: string) {
-  return fs.readFileSync(path.resolve(relativePath), "utf8");
+  return readSplitSync(path.resolve(relativePath));
 }
 
 describe("Vase App migration-branch visual source", () => {

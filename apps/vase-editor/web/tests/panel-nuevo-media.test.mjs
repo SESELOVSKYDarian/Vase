@@ -1,3 +1,4 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -29,7 +30,7 @@ test('dice a dónde lleva un link', () => {
 });
 
 test('el editor de bloques usa el campo nuevo de foto, video y link', async () => {
-    const editor = await readFile(new URL('../src/components/admin/evolution/BlockPropertiesEditor.jsx', import.meta.url), 'utf8');
+    const editor = await readSplit(new URL('../src/components/admin/evolution/BlockPropertiesEditor.jsx', import.meta.url));
     assert.match(editor, /<MediaField[\s\S]*kind="image"/);
     assert.match(editor, /<MediaField[\s\S]*kind="video"/);
     assert.ok((editor.match(/<LinkInput/g) || []).length >= 10);
@@ -41,12 +42,12 @@ test('colores, logos, catálogo y pie usan los campos nuevos', async () => {
     assert.equal(normalizeHex('#FF6A00'), '#ff6a00');
     assert.equal(normalizeHex('f60'), '#ff6600');
     assert.equal(normalizeHex('rojo'), '');
-    const appearance = await readFile(new URL('../src/components/admin/evolution/AppearanceEditor.jsx', import.meta.url), 'utf8');
+    const appearance = await readSplit(new URL('../src/components/admin/evolution/AppearanceEditor.jsx', import.meta.url));
     assert.match(appearance, /label="Logo de la tienda"/);
     assert.match(appearance, /uploadMedia\(file\)/);
     assert.doesNotMatch(appearance, /readImageAsDataUrl/);
     assert.ok((appearance.match(/<LinkInput/g) || []).length >= 4);
-    const catalog = await readFile(new URL('../src/components/admin/evolution/CatalogPageEditor.jsx', import.meta.url), 'utf8');
+    const catalog = await readSplit(new URL('../src/components/admin/evolution/CatalogPageEditor.jsx', import.meta.url));
     assert.match(catalog, /label="Foto de la tarjeta"/);
     const { socialError } = await import('../src/panel/diseno/chrome.js');
     assert.equal(socialError(''), '');

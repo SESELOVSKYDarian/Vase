@@ -1,10 +1,11 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { erpStats, keywordsAdd, paymentMethodsToggle, seoLimit, taxPercent, taxRateFromPercent } from '../src/panel/ajustes.js';
 
-const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+const read = (path) => readSplit(new URL(path, import.meta.url));
 
 test('formas de pago: nunca queda ninguna', () => {
     assert.deepEqual(paymentMethodsToggle(['transfer', 'cash_on_pickup'], 'transfer'), ['cash_on_pickup']);

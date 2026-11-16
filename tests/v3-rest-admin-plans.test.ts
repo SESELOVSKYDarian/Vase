@@ -1,3 +1,4 @@
+import { readSplitSync } from "../apps/vase-editor/web/tests/helpers/read-split.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -45,7 +46,7 @@ describe("Vase Admin Rest plans", () => {
   });
 
   it("renders editable prices, all four limits, effective date, and explicit publishing", () => {
-    const source = fs.readFileSync(path.resolve("apps/vase-admin/app/rest-admin-workspace.tsx"), "utf8");
+    const source = readSplitSync(path.resolve("apps/vase-admin/app/rest-admin-workspace.tsx"));
     for (const field of ["monthlyPrice", "branches", "localEmployees", "devices", "edgeInstallations", "effectiveAt"]) {
       expect(source).toContain(field);
     }

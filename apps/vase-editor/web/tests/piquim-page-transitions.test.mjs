@@ -72,7 +72,7 @@ test('Nosotros ya no muestra esqueletos ni pasa por contenido de relleno', async
 
 test('el panel y la tienda usan la misma normalizacion de Nosotros', async () => {
     const editor = await read('../src/hooks/admin/useEditorState.js');
-    assert.match(editor, /import \{ normalizeAboutSectionsForBrand \} from '\.\.\/\.\.\/utils\/aboutSections'/);
+    assert.match(editor, /import \{ normalizeAboutSectionsForBrand \} from '(?:\.\.\/)+utils\/aboutSections'/);
     assert.doesNotMatch(editor, /const normalizeAboutSectionsForBrand =/);
 });
 

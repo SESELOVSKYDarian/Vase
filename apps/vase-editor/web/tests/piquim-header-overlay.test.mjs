@@ -1,3 +1,4 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -5,7 +6,7 @@ import test from 'node:test';
 const headerUrl = new URL('../src/components/layout/Header.jsx', import.meta.url);
 
 test('el header Piquim solo superpone el contenido cuando recibe overlay', async () => {
-    const source = await readFile(headerUrl, 'utf8');
+    const source = await readSplit(headerUrl);
     const piquim = source.slice(source.indexOf('if (isPiquimPreset)'), source.indexOf('if (isPiquimPreset)') + 12000);
 
     assert.match(piquim, /overlay \? '-mt-\[6px\] -mb-\[116px\] max-md:-mb-\[96px\]' : ''/);

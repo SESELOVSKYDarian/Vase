@@ -1,3 +1,4 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -16,7 +17,7 @@ import {
 } from '../src/panel/catalog/model.js';
 import { pageWindow } from '../src/panel/paging.js';
 
-const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+const read = (path) => readSplit(new URL(path, import.meta.url));
 
 const categories = [
     { id: 'h', name: 'Heladería', parent_id: null },

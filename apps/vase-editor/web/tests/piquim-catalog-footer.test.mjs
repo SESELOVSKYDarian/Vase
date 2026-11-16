@@ -1,10 +1,11 @@
+import { readSplit } from './helpers/read-split.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { getStorefrontThemeColorTokens, getStorefrontThemePreset } from '../src/utils/storefrontTheme.js';
 
-const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
+const read = (path) => readSplit(new URL(path, import.meta.url));
 
 test('el fondo del catalogo sigue el modo: beige en claro y oscuro en oscuro', () => {
     const light = getStorefrontThemePreset('light').catalog;
