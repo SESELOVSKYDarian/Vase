@@ -599,7 +599,7 @@ export default function CheckoutPage() {
     if (authLoading) {
         return (
             <StoreLayout>
-                <main className="max-w-[960px] mx-auto w-full px-4 md:px-10 py-16 text-center">
+                <main className="store-checkout max-w-[960px] mx-auto w-full px-4 md:px-10 py-16 text-center">
                     <h1 className="text-3xl font-black mb-4">Cargando checkout</h1>
                     <p className="text-[#8a7560] mb-8">
                         Estamos verificando tu sesion.
@@ -612,7 +612,7 @@ export default function CheckoutPage() {
     if (!user) {
         return (
             <StoreLayout>
-                <main className="max-w-[960px] mx-auto w-full px-4 md:px-10 py-16 text-center">
+                <main className="store-checkout max-w-[960px] mx-auto w-full px-4 md:px-10 py-16 text-center">
                     <h1 className="text-3xl font-black mb-4">Debes iniciar sesion para continuar</h1>
                     <p className="text-[#8a7560] mb-8">
                         Puedes usar el carrito sin problema, pero para finalizar la compra necesitas una cuenta activa.
@@ -648,7 +648,7 @@ export default function CheckoutPage() {
     if (!items.length) {
         return (
             <StoreLayout>
-                <main className="max-w-[960px] mx-auto w-full px-4 md:px-10 py-16 text-center">
+                <main className="store-checkout max-w-[960px] mx-auto w-full px-4 md:px-10 py-16 text-center">
                     <h1 className="text-3xl font-black mb-4">No hay productos para pagar</h1>
                     <p className="text-[#8a7560] mb-8">
                         Suma productos al carrito para continuar.

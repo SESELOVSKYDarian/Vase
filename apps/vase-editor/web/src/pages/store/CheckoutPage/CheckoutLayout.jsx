@@ -9,7 +9,7 @@ import { StepProgress } from './Accordion.jsx';
 export default function CheckoutLayout({ bankTransfer, billingInfo, checkoutError, creating, customerInfo, deliveryLocation, deliveryMethod, deliveryQuoteError, displayCurrency, distanceQuote, handleCompletePurchase, handleDeliveryGroupChange, handleShippingCityInputChange, handleShippingCountryInputChange, handleShippingProvinceInputChange, highlightedTransfer, isArgentinaShippingCountry, items, iva, locale, openStep, orderChannel, orderChannelOptions, orderSuccess, paymentLabel, paymentMethod, paymentOptions, paymentSummary, pickupDeliveryOptions, selectedDeliveryGroup, selectedDeliveryOption, setBillingInfo, setCustomerInfo, setDeliveryLocation, setDeliveryMethod, setDeliveryQuoteError, setOpenStep, setOrderChannel, setPaymentMethod, setShippingInfo, setTaxesAcknowledged, shipping, shippingCitiesLoading, shippingCityOptions, shippingCitySuggestionsEnabled, shippingCountriesLoading, shippingCountryInput, shippingCountryOptions, shippingDeliveryOptions, shippingInfo, shippingProvinceLoading, shippingProvinceOptions, shippingProvinceSuggestionsEnabled, subtotal, summaryItems, taxesAcknowledged, total, validationError, whatsappNumber }) {
     return (
         <StoreLayout>
-            <main className="mx-auto w-full max-w-[1400px] px-4 py-6 text-gray-900 md:px-8 md:py-10">
+            <main className="store-checkout mx-auto w-full max-w-[1400px] px-4 py-6 text-gray-900 md:px-8 md:py-10">
                 {/* Breadcrumbs */}
                 <div className="mb-6 flex items-center gap-2 text-xs text-gray-500">
                     <button

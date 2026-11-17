@@ -757,3 +757,18 @@ body {
     background: #0d0b0a;
   }
 }
+
+/* ===== Checkout en modo oscuro =====
+   El checkout se diseñó con colores claros fijos (bg-white, text-gray-900...). En modo oscuro esos mismos
+   colores pasan a los de la tienda, así se lee bien sin cambiar nada en modo claro. */
+html.dark .store-checkout { color: var(--store-text); }
+html.dark .store-checkout :is(.bg-white) { background-color: var(--store-card-bg); }
+html.dark .store-checkout :is(.bg-gray-50, .bg-gray-100) { background-color: var(--store-surface-soft); }
+html.dark .store-checkout .bg-gray-200 { background-color: var(--store-border); }
+html.dark .store-checkout :is(.text-gray-900, .text-gray-800, .text-\[\#181411\]) { color: var(--store-text); }
+html.dark .store-checkout :is(.text-gray-700, .text-gray-600, .text-gray-500, .text-\[\#8a7560\]) { color: var(--store-muted-text); }
+html.dark .store-checkout :is(.text-gray-400, .text-gray-300) { color: color-mix(in srgb, var(--store-muted-text) 75%, transparent); }
+html.dark .store-checkout :is(.border-gray-200, .border-gray-300, .border-\[\#d9d1ca\]) { border-color: var(--store-border); }
+html.dark .store-checkout :is(.shadow-slate-200\/80, .shadow-slate-200\/60) { --tw-shadow-color: rgb(0 0 0 / .45); }
+html.dark .store-checkout :is(input, select, textarea) { background-color: var(--store-input-bg); color: var(--store-text); border-color: var(--store-border); }
+html.dark .store-checkout :is(input, textarea)::placeholder { color: var(--store-muted-text); }
