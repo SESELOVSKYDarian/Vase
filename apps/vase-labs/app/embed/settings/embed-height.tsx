@@ -25,6 +25,8 @@ export function EmbedHeight({ children }: { children: ReactNode }) {
       const open = Boolean(document.querySelector(MODAL));
       if (open === modalOpen) return;
       modalOpen = open;
+      // Al cerrarse, el contenido vuelve a ocupar el recuadro normal.
+      if (!open) Object.assign(node.style, { marginLeft: "", width: "" });
       window.parent.postMessage({ type: "vase-embed-modal", open }, "*");
     });
     watch.observe(document.body, { childList: true, subtree: true });
@@ -32,8 +34,11 @@ export function EmbedHeight({ children }: { children: ReactNode }) {
     // La página de afuera dice dónde estaba mirando la persona, para que el contenido no salte.
     const onMessage = (event: MessageEvent) => {
       if (event.source !== window.parent) return;
-      const data = event.data as { type?: string; y?: number } | null;
-      if (data?.type === "vase-embed-scroll" && Number.isFinite(data.y)) window.scrollTo(0, Math.max(0, Number(data.y)));
+      const data = event.data as { type?: string; y?: number; left?: number; width?: number } | null;
+      if (data?.type !== "vase-embed-scroll" || !Number.isFinite(data.y)) return;
+      // A pantalla completa, el contenido se queda en el mismo lugar y del mismo ancho que antes.
+      if (Number(data.width) > 0) Object.assign(node.style, { marginLeft: `${Number(data.left) || 0}px`, width: `${Number(data.width)}px` });
+      window.scrollTo(0, Math.max(0, Number(data.y)));
     };
     window.addEventListener("message", onMessage);
     return () => {

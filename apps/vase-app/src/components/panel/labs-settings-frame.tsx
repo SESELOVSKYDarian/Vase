@@ -14,7 +14,7 @@ export function LabsSettingsFrame() {
   const [height, setHeight] = useState(720);
   const [loaded, setLoaded] = useState(false);
   const [modal, setModal] = useState(false);
-  const lookingAt = useRef(0);
+  const lookingAt = useRef({ y: 0, left: 0, width: 0 });
   const origin = useMemo(() => new URL(LABS_URL).origin, []);
 
   useEffect(() => {
@@ -28,7 +28,10 @@ export function LabsSettingsFrame() {
       }
       if (data?.type === "vase-embed-modal") {
         // Lo que la persona estaba mirando adentro del recuadro, para que al agrandarlo no salte.
-        if (data.open) lookingAt.current = -frame.getBoundingClientRect().top;
+        if (data.open) {
+          const box = frame.getBoundingClientRect();
+          lookingAt.current = { y: -box.top, left: box.left, width: box.width };
+        }
         setModal(Boolean(data.open));
       }
     };
@@ -39,7 +42,7 @@ export function LabsSettingsFrame() {
   // Ya a pantalla completa, el recuadro vuelve a mostrar lo que la persona estaba mirando.
   useEffect(() => {
     if (!modal) return;
-    const id = window.requestAnimationFrame(() => frameRef.current?.contentWindow?.postMessage({ type: "vase-embed-scroll", y: lookingAt.current }, origin));
+    const id = window.requestAnimationFrame(() => frameRef.current?.contentWindow?.postMessage({ type: "vase-embed-scroll", ...lookingAt.current }, origin));
     return () => window.cancelAnimationFrame(id);
   }, [modal, origin]);
 
