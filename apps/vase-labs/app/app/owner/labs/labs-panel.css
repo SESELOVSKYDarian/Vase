@@ -273,12 +273,12 @@
 .vpa .lx-sx { border-top: 1px solid var(--line); padding: 10px 20px 4px; display: flex; flex-direction: column; gap: 10px; background: var(--card); }
 .vpa .lx-sx.closed { padding-bottom: 0; }
 .vpa .lx-sx-h { display: flex; align-items: center; gap: 10px; min-height: 28px; }
-.vpa .lx-sx-t { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border: 0; border-radius: 999px; background: var(--accsoft); color: var(--acc-tx); font: inherit; font-size: 12px; cursor: pointer; }
+.vpa .lx-sx-t { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border: 0; border-radius: 999px; background: var(--accsoft); color: var(--acc-tx); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; flex: none; }
 .vpa .lx-sx-t b { font-weight: 800; }
 .vpa .lx-sx-sub { font-size: 11.5px; color: var(--mut); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vpa .lx-sx-more { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--tx); font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; flex: none; }
 .vpa .lx-sx-more:hover { border-color: var(--acc); }
-.vpa .lx-sx-g { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.vpa .lx-sx-g { display: grid; grid-template-columns: repeat(3, minmax(210px, 1fr)); gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
 .vpa .lx-sx-c { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); text-align: left; font: inherit; color: var(--tx); cursor: pointer; transition: border-color .15s, background .15s; }
 .vpa .lx-sx-c:hover, .vpa .lx-sx-c.on { border-color: var(--acc); background: var(--accsoft); }
 .vpa .lx-sx-c p { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
