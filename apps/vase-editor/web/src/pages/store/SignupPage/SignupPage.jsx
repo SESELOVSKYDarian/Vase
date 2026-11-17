@@ -1,4 +1,5 @@
 // Parte de SignupPage.jsx: SignupPage.
+// partes: ./submit.js, ./persist-profile-address.js, ./verify-email.js, ./parse-backend-field-errors.js
 import { useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTenant } from '../../../context/TenantContext';
@@ -12,6 +13,10 @@ import AuthShell, { AuthAlert, StepProgress, authPrimaryButtonClass, authSeconda
 import { Step1, Step2, Step3 } from './Step1.jsx';
 import { Step4, getVerificationDeliveryNotice, mapSignupError, mapVerificationError } from './Step4.jsx';
 
+import { makeSubmit } from './submit.js';
+import { makePersistProfileAddress } from './persist-profile-address.js';
+import { makeHandleVerifyEmail } from './verify-email.js';
+import { makeParseBackendFieldErrors } from './parse-backend-field-errors.js';
 export default function SignupPage() {
     const { signup, verifyEmailCode, resendVerificationCode } = useAuth();
     const { tenant, settings } = useTenant();
@@ -57,31 +62,7 @@ export default function SignupPage() {
         });
     };
 
-    const parseBackendFieldErrors = (codes = []) => {
-        const mapping = {
-            email_invalid: ['email', 'Ingresa un email valido.'],
-            password_invalid_length: ['password', 'La contrasena debe tener entre 8 y 72 caracteres.'],
-            password_invalid_format: ['password', 'La contrasena debe incluir al menos una letra y un numero.'],
-            name_invalid: ['name', 'Nombre invalido.'],
-            phone_invalid: ['phone', 'Telefono invalido.'],
-            business_name_invalid: ['company', 'Razon social/negocio invalido.'],
-            business_activity_invalid: ['businessActivity', 'Actividad invalida.'],
-            cuil_invalid: ['cuit', 'CUIL invalido.'],
-            address_invalid: ['address', 'Domicilio invalido.'],
-            city_invalid: ['city', 'Localidad invalida.'],
-            province_invalid: ['province', 'Provincia invalida.'],
-            country_invalid: ['country', 'Pais invalido.'],
-            postal_code_invalid: ['postalCode', 'Codigo postal invalido.'],
-        };
-        const next = {};
-        codes.forEach((code) => {
-            const entry = mapping[code];
-            if (!entry) return;
-            const [field, message] = entry;
-            if (!next[field]) next[field] = message;
-        });
-        return next;
-    };
+    const parseBackendFieldErrors = makeParseBackendFieldErrors({  });
     const {
         countryInput,
         countryOptions,
@@ -113,44 +94,7 @@ export default function SignupPage() {
         },
     });
 
-    const persistProfileAddress = (email) => {
-        const normalizedEmail = String(email || '').trim().toLowerCase();
-        if (!normalizedEmail) return;
-
-        const countryLabel = getCountryLabelByCode(formData.country, countryOptions);
-        const addressLine = formData.address.trim();
-        const city = formData.city.trim();
-        const postalCode = formData.postalCode.trim();
-        const province = formData.province.trim();
-
-        const payload = {
-            fullName: formData.name.trim(),
-            line1: addressLine,
-            fullAddress: addressLine,
-            address: addressLine,
-            city,
-            locality: city,
-            postal: postalCode,
-            postalCode,
-            province,
-            provinceId: formData.provinceId,
-            region: province,
-            country: countryLabel,
-            countryCode: formData.country,
-            cityId: formData.cityId,
-            phone: formData.phone.trim(),
-            phoneCountry: formData.country || 'AR',
-            phoneNumber: formData.phone.trim(),
-            company: formData.company.trim(),
-            cuit: formData.cuit.trim(),
-        };
-
-        try {
-            localStorage.setItem(`teflon_profile_address_${normalizedEmail}`, JSON.stringify(payload));
-        } catch (err) {
-            console.warn('No se pudo guardar la direccion inicial del perfil', err);
-        }
-    };
+    const persistProfileAddress = makePersistProfileAddress({ countryOptions, formData });
 
     const validateStep1 = () => {
         if (!formData.name.trim()) return 'Completa tu nombre.';
@@ -195,114 +139,9 @@ export default function SignupPage() {
         setStep(3);
     };
 
-    const submit = async () => {
-        const step1Error = validateStep1();
-        if (step1Error) {
-            setError(step1Error);
-            setStep(1);
-            return;
-        }
+    const submit = makeSubmit({ countryOptions, formData, parseBackendFieldErrors, persistProfileAddress, roleForApi, setDeliveryNotice, setError, setFieldErrors, setLoading, setStep, setVerificationCode, setVerificationEmail, signup, validateStep1, validateStep2 });
 
-        const step2Error = validateStep2();
-        if (step2Error) {
-            setError(step2Error);
-            setStep(2);
-            return;
-        }
-
-        if (!formData.company.trim() || !formData.businessActivity.trim()) {
-            setError('Completa razon social y actividad para continuar.');
-            setStep(3);
-            return;
-        }
-        if (!formData.address.trim()) {
-            setError('Completa el domicilio comercial.');
-            setStep(1);
-            return;
-        }
-
-        setError('');
-        setFieldErrors({});
-        setLoading(true);
-        try {
-            const data = await signup({
-                email: formData.email.trim(),
-                password: formData.password,
-                role: roleForApi,
-                name: formData.name.trim(),
-                phone: formData.phone,
-                address: formData.address,
-                address_extra: '',
-                country_code: formData.country ?? '',
-                country_label: getCountryLabelByCode(formData.country, countryOptions) ?? '',
-                province: formData.province,
-                city: formData.city,
-                postal_code: formData.postalCode ?? '',
-                business_name: formData.company,
-                business_activity: formData.businessActivity,
-                cuil: formData.cuit,
-            });
-            const normalizedEmail = formData.email.trim().toLowerCase();
-            const requiresVerification = data?.requires_email_verification !== false;
-            persistProfileAddress(normalizedEmail);
-            if (requiresVerification) {
-                setVerificationEmail(normalizedEmail);
-                setVerificationCode('');
-                setDeliveryNotice(getVerificationDeliveryNotice(data?.verification, normalizedEmail));
-                setStep(4);
-                return;
-            }
-
-            sessionStorage.setItem('teflon_auth_notice', 'Cuenta creada correctamente. Ya podes iniciar sesion.');
-            navigate('/login');
-        } catch (err) {
-            const errorCode = String(err?.message || '');
-            const payload = err?.payload || null;
-            if (payload?.error === 'invalid_fields' && Array.isArray(payload?.fields)) {
-                setFieldErrors(parseBackendFieldErrors(payload.fields));
-            }
-            if (payload?.requires_email_verification && errorCode === 'verification_pending') {
-                const normalizedEmail = formData.email.trim().toLowerCase();
-                setVerificationEmail(normalizedEmail);
-                setVerificationCode('');
-                setDeliveryNotice(getVerificationDeliveryNotice(payload?.verification, normalizedEmail));
-                setError(mapSignupError(errorCode));
-                setStep(4);
-                return;
-            }
-            setError(mapSignupError(errorCode));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleVerifyEmail = async () => {
-        if (!verificationEmail) {
-            setError('No encontramos el email para verificar.');
-            return;
-        }
-        if (!verificationCode.trim()) {
-            setError('Ingresa el codigo de verificacion.');
-            return;
-        }
-
-        setError('');
-        setVerificationLoading(true);
-        try {
-            const result = await verifyEmailCode(verificationEmail, verificationCode.trim());
-            sessionStorage.setItem(
-                'teflon_auth_notice',
-                result?.pending_approval === false
-                    ? 'Email verificado. Ya podes ingresar con tu cuenta.'
-                    : 'Email verificado. Tu cuenta quedo pendiente de aprobacion del administrador.',
-            );
-            navigate('/login');
-        } catch (err) {
-            setError(mapVerificationError(String(err?.message || '')));
-        } finally {
-            setVerificationLoading(false);
-        }
-    };
+    const handleVerifyEmail = makeHandleVerifyEmail({ setError, setVerificationLoading, verificationCode, verificationEmail, verifyEmailCode });
 
     const handleResendVerification = async () => {
         if (!verificationEmail) {

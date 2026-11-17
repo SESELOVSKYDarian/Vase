@@ -1,5 +1,5 @@
 // Parte de CheckoutPage.jsx: CheckoutPage.
-// partes: ./CheckoutSummary.jsx, ./CheckoutPaymentStep.jsx, ./CheckoutDeliveryStep.jsx, ./CheckoutShippingStep.jsx, ./complete-purchase.js, ./persist-profile-checkout.js, ./whatsapp-message.js, ./profile-address.js, ./delivery-group-change.js
+// partes: ./CheckoutSummary.jsx, ./CheckoutPaymentStep.jsx, ./CheckoutDeliveryStep.jsx, ./CheckoutShippingStep.jsx, ./complete-purchase.js, ./persist-profile-checkout.js, ./whatsapp-message.js, ./profile-address.js, ./delivery-group-change.js, ./CheckoutPageFinalizarCompra.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import StoreLayout from "../../../components/layout/StoreLayout";
 import DeliveryLocationSelector from "../../../components/store/DeliveryLocationSelector";
@@ -25,6 +25,7 @@ import { makePersistProfileCheckoutData } from './persist-profile-checkout.js';
 import { makeBuildWhatsappMessage } from './whatsapp-message.js';
 import { makeGetProfileAddress } from './profile-address.js';
 import { makeHandleDeliveryGroupChange } from './delivery-group-change.js';
+import CheckoutPageFinalizarCompra from './CheckoutPageFinalizarCompra.jsx';
 export default function CheckoutPage() {
     const { cartItems, clearCart } = useStore();
     const { settings } = useTenant();
@@ -665,71 +666,7 @@ export default function CheckoutPage() {
     }
 
     return (
-        <StoreLayout>
-            <main className="mx-auto w-full max-w-[1400px] px-4 py-6 text-gray-900 md:px-8 md:py-10">
-                {/* Breadcrumbs */}
-                <div className="mb-6 flex items-center gap-2 text-xs text-gray-500">
-                    <button
-                        className="transition-colors hover:text-gray-700"
-                        onClick={() => (window.location.hash = '#')}
-                        type="button"
-                    >
-                        Inicio
-                    </button>
-                    <span className="text-gray-300">/</span>
-                    <button
-                        className="transition-colors hover:text-gray-700"
-                        onClick={() => (window.location.hash = '#cart')}
-                        type="button"
-                    >
-                        Carrito
-                    </button>
-                    <span className="text-gray-300">/</span>
-                    <span className="text-gray-900">Finalizar compra</span>
-                </div>
-
-                {/* Heading */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-black tracking-tight leading-tight text-gray-900">
-                        Finalizar compra
-                    </h1>
-                </div>
-
-                <div className="flex flex-col gap-8 xl:flex-row">
-                    {/* Left column */}
-                    <div className="flex-1 flex flex-col gap-6">
-                        {/* Step Progress */}
-                        <StepProgress openStep={openStep} />
-
-                        {/* Steps */}
-                        <div className="flex flex-col gap-4">
-                            {/* 1 Shipping */}
-                            <CheckoutShippingStep billingInfo={billingInfo} customerInfo={customerInfo} handleShippingCityInputChange={handleShippingCityInputChange} handleShippingCountryInputChange={handleShippingCountryInputChange} handleShippingProvinceInputChange={handleShippingProvinceInputChange} isArgentinaShippingCountry={isArgentinaShippingCountry} openStep={openStep} setBillingInfo={setBillingInfo} setCustomerInfo={setCustomerInfo} setOpenStep={setOpenStep} setShippingInfo={setShippingInfo} shippingCitiesLoading={shippingCitiesLoading} shippingCityOptions={shippingCityOptions} shippingCitySuggestionsEnabled={shippingCitySuggestionsEnabled} shippingCountriesLoading={shippingCountriesLoading} shippingCountryInput={shippingCountryInput} shippingCountryOptions={shippingCountryOptions} shippingInfo={shippingInfo} shippingProvinceLoading={shippingProvinceLoading} shippingProvinceOptions={shippingProvinceOptions} shippingProvinceSuggestionsEnabled={shippingProvinceSuggestionsEnabled} />
-
-                            {/* 2 Delivery */}
-                            <CheckoutDeliveryStep deliveryLocation={deliveryLocation} deliveryMethod={deliveryMethod} deliveryQuoteError={deliveryQuoteError} displayCurrency={displayCurrency} distanceQuote={distanceQuote} handleDeliveryGroupChange={handleDeliveryGroupChange} locale={locale} openStep={openStep} pickupDeliveryOptions={pickupDeliveryOptions} selectedDeliveryGroup={selectedDeliveryGroup} setDeliveryLocation={setDeliveryLocation} setDeliveryMethod={setDeliveryMethod} setDeliveryQuoteError={setDeliveryQuoteError} setOpenStep={setOpenStep} setShippingInfo={setShippingInfo} shippingDeliveryOptions={shippingDeliveryOptions} />
-
-                            {/* 3 Payment */}
-                            <CheckoutPaymentStep bankTransfer={bankTransfer} highlightedTransfer={highlightedTransfer} openStep={openStep} orderChannel={orderChannel} orderChannelOptions={orderChannelOptions} orderSuccess={orderSuccess} paymentLabel={paymentLabel} paymentMethod={paymentMethod} paymentOptions={paymentOptions} paymentSummary={paymentSummary} setOpenStep={setOpenStep} setOrderChannel={setOrderChannel} setPaymentMethod={setPaymentMethod} whatsappNumber={whatsappNumber} />
-                        </div>
-
-                        {validationError ? (
-                            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                                {validationError}
-                            </div>
-                        ) : null}
-                        {checkoutError ? (
-                            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                                {checkoutError}
-                            </div>
-                        ) : null}
-                    </div>
-
-                    {/* Right column */}
-                    <CheckoutSummary creating={creating} deliveryMethod={deliveryMethod} displayCurrency={displayCurrency} distanceQuote={distanceQuote} handleCompletePurchase={handleCompletePurchase} items={items} iva={iva} locale={locale} selectedDeliveryOption={selectedDeliveryOption} setTaxesAcknowledged={setTaxesAcknowledged} shipping={shipping} subtotal={subtotal} summaryItems={summaryItems} taxesAcknowledged={taxesAcknowledged} total={total} validationError={validationError} />
-                </div>
-            </main>
-        </StoreLayout>
+        <CheckoutPageFinalizarCompra bankTransfer={bankTransfer} billingInfo={billingInfo} checkoutError={checkoutError} creating={creating} customerInfo={customerInfo} deliveryLocation={deliveryLocation} deliveryMethod={deliveryMethod} deliveryQuoteError={deliveryQuoteError} displayCurrency={displayCurrency} distanceQuote={distanceQuote} handleCompletePurchase={handleCompletePurchase} handleDeliveryGroupChange={handleDeliveryGroupChange} handleShippingCityInputChange={handleShippingCityInputChange} handleShippingCountryInputChange={handleShippingCountryInputChange} handleShippingProvinceInputChange={handleShippingProvinceInputChange} highlightedTransfer={highlightedTransfer} isArgentinaShippingCountry={isArgentinaShippingCountry} items={items} iva={iva} locale={locale} openStep={openStep} orderChannel={orderChannel} orderChannelOptions={orderChannelOptions} orderSuccess={orderSuccess} paymentLabel={paymentLabel} paymentMethod={paymentMethod} paymentOptions={paymentOptions} paymentSummary={paymentSummary} pickupDeliveryOptions={pickupDeliveryOptions} selectedDeliveryGroup={selectedDeliveryGroup} selectedDeliveryOption={selectedDeliveryOption} setBillingInfo={setBillingInfo} setCustomerInfo={setCustomerInfo} setDeliveryLocation={setDeliveryLocation} setDeliveryMethod={setDeliveryMethod} setDeliveryQuoteError={setDeliveryQuoteError} setOpenStep={setOpenStep} setOrderChannel={setOrderChannel} setPaymentMethod={setPaymentMethod} setShippingInfo={setShippingInfo} setTaxesAcknowledged={setTaxesAcknowledged} shipping={shipping} shippingCitiesLoading={shippingCitiesLoading} shippingCityOptions={shippingCityOptions} shippingCitySuggestionsEnabled={shippingCitySuggestionsEnabled} shippingCountriesLoading={shippingCountriesLoading} shippingCountryInput={shippingCountryInput} shippingCountryOptions={shippingCountryOptions} shippingDeliveryOptions={shippingDeliveryOptions} shippingInfo={shippingInfo} shippingProvinceLoading={shippingProvinceLoading} shippingProvinceOptions={shippingProvinceOptions} shippingProvinceSuggestionsEnabled={shippingProvinceSuggestionsEnabled} subtotal={subtotal} summaryItems={summaryItems} taxesAcknowledged={taxesAcknowledged} total={total} validationError={validationError} whatsappNumber={whatsappNumber} />
     );
 }
 

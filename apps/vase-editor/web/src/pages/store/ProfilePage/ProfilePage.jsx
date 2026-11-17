@@ -1,5 +1,5 @@
 // Íconos y ayudantes de ProfilePage.jsx: ProfilePage.
-// partes: ./ProfileSecurity.jsx, ./ProfileFavorites.jsx, ./ProfileAddresses.jsx, ./ProfileOrders.jsx, ./ProfileHeader.jsx, ./ProfileSidebar.jsx
+// partes: ./ProfileSecurity.jsx, ./ProfileFavorites.jsx, ./ProfileAddresses.jsx, ./ProfileOrders.jsx, ./ProfileHeader.jsx, ./ProfileSidebar.jsx, ./save-address.js, ./profile-photo-change.js, ./update-order-status.js, ./ProfilePageParte.jsx
 import { useEffect, useMemo, useState } from 'react';
 import StoreLayout from '../../../components/layout/StoreLayout';
 import { useAuth } from '../../../context/AuthContext';
@@ -20,6 +20,10 @@ import ProfileAddresses from './ProfileAddresses.jsx';
 import ProfileOrders from './ProfileOrders.jsx';
 import ProfileHeader from './ProfileHeader.jsx';
 import ProfileSidebar from './ProfileSidebar.jsx';
+import { makeSaveAddress } from './save-address.js';
+import { makeHandleProfilePhotoChange } from './profile-photo-change.js';
+import { makeUpdateOrderStatus } from './update-order-status.js';
+import ProfilePageParte from './ProfilePageParte.jsx';
 export default function ProfilePage() {
     const { user, logout, loading, isAdmin, uploadProfilePhoto, updateProfile } = useAuth();
     const { favorites, removeFavorite, addToCart } = useStore();
@@ -322,32 +326,7 @@ export default function ProfilePage() {
         navigate(`/order-details?id=${order.id}`);
     };
 
-    const updateOrderStatus = (orderId, nextStatus) => {
-        if (!orderId) return;
-        const historyKey = `teflon_orders_${user?.id || user?.email || "guest"}`;
-        setOrders((prev) => {
-            const next = prev.map((order) =>
-                order.id === orderId ? { ...order, status: nextStatus } : order
-            );
-            try {
-                localStorage.setItem(historyKey, JSON.stringify(next));
-            } catch (err) {
-                console.warn('No se pudo actualizar el pedido', err);
-            }
-            try {
-                const raw = localStorage.getItem("teflon_last_order");
-                if (raw) {
-                    const last = JSON.parse(raw);
-                    if (last?.id === orderId) {
-                        localStorage.setItem("teflon_last_order", JSON.stringify({ ...last, status: nextStatus }));
-                    }
-                }
-            } catch (err) {
-                console.warn('No se pudo actualizar el pedido reciente', err);
-            }
-            return next;
-        });
-    };
+    const updateOrderStatus = makeUpdateOrderStatus({ setOrders, user });
 
     const handleLogout = () => {
         logout();
@@ -359,44 +338,7 @@ export default function ProfilePage() {
         window.open(wholesaleQuoteUrl, '_blank', 'noopener,noreferrer');
     };
 
-    const saveAddress = async () => {
-        if (!user) return;
-        const next = normalizeProfileAddress(addressDraft, defaultAddress);
-        setAddress(next);
-        try {
-            addressStorageKeys.forEach((key) => {
-                localStorage.setItem(key, JSON.stringify(next));
-            });
-        } catch (err) {
-            console.warn('No se pudo guardar la direccion en cache', err);
-        }
-        try {
-            const billingInfo = {
-                document_type: next.document_type,
-                document_number: next.document_number,
-                vat_condition: next.vat_condition,
-                business_name: next.business_name,
-                cuit: next.cuit,
-                company: next.company,
-            };
-            await updateProfile({
-                name: next.fullName,
-                phone: next.phoneNumber || next.phone,
-                address: next.line1,
-                country_code: next.countryCode,
-                country_label: next.country,
-                province: next.region,
-                city: next.city,
-                postal_code: next.postal,
-                billing_info: billingInfo,
-            });
-        } catch (err) {
-            console.error('No se pudo guardar el perfil en el servidor', err);
-            window.alert('No se pudo guardar el perfil. Intenta nuevamente.');
-            return;
-        }
-        setIsEditingAddress(false);
-    };
+    const saveAddress = makeSaveAddress({ addressDraft, addressStorageKeys, defaultAddress, setAddress, setIsEditingAddress, updateProfile, user });
 
     const resetAddress = () => {
         if (!user) return;
@@ -419,43 +361,7 @@ export default function ProfilePage() {
         setIsEditingAddress(false);
     };
 
-    const handleProfilePhotoChange = async (event) => {
-        const file = event.target.files?.[0];
-        if (!file || !user) return;
-        event.target.value = '';
-
-        let previewUrl = '';
-        try {
-            previewUrl = URL.createObjectURL(file);
-            setProfilePhoto(previewUrl);
-            const photoUrl = await uploadProfilePhoto(file);
-            if (photoUrl) {
-                const finalUrl = photoUrl.startsWith('http')
-                    ? photoUrl
-                    : `${getApiBase()}${photoUrl}`;
-                setProfilePhoto(finalUrl);
-                try {
-                    const key = `teflon_profile_photo_${user.id || user.email}`;
-                    localStorage.removeItem(key);
-                } catch {}
-            }
-        } catch (err) {
-            console.error('Photo upload failed', err);
-            const message = typeof err?.message === 'string' ? err.message : 'No se pudo subir la foto';
-            window.alert(message);
-            if (user.photo_url) {
-                setProfilePhoto(user.photo_url.startsWith('http')
-                    ? user.photo_url
-                    : `${getApiBase()}${user.photo_url}`);
-            } else {
-                setProfilePhoto('');
-            }
-        } finally {
-            if (previewUrl) {
-                setTimeout(() => URL.revokeObjectURL(previewUrl), 1000);
-            }
-        }
-    };
+    const handleProfilePhotoChange = makeHandleProfilePhotoChange({ setProfilePhoto, uploadProfilePhoto, user });
 
     const handleRemovePhoto = async () => {
         if (!user) return;
@@ -472,44 +378,6 @@ export default function ProfilePage() {
     };
 
     return (
-        <StoreLayout>
-            <div className="mx-auto w-full max-w-[1400px] px-4 md:px-10 py-8">
-                <div className="flex flex-col lg:flex-row gap-8">
-                    <ProfileSidebar activeSection={activeSection} favorites={favorites} handleLogout={handleLogout} profileName={profileName} profilePhoto={profilePhoto} roleLabel={roleLabel} setActiveSection={setActiveSection} />
-
-                    <main className="flex-1 bg-[#f8f7f5] dark:bg-[#1a140d] rounded-2xl p-6 md:p-8">
-                        <div className="flex items-center gap-2 text-xs text-[#8a7560] mb-6 uppercase tracking-wider font-semibold">
-                            <button className="hover:text-primary transition-colors" onClick={() => navigate('/')}>
-                                Inicio
-                            </button>
-                            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                            <span className="text-primary">{sectionLabels[activeSection]}</span>
-                        </div>
-
-                        {activeSection === 'account' ? (
-                            <ProfileHeader handleProfilePhotoChange={handleProfilePhotoChange} handleRemovePhoto={handleRemovePhoto} profileName={profileName} profilePhoto={profilePhoto} roleLabel={roleLabel} />
-                        ) : null}
-
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                            {showOrders ? (
-                                <ProfileOrders currency={currency} formatOrderDate={formatOrderDate} handleViewOrder={handleViewOrder} locale={locale} ordersSpanClass={ordersSpanClass} setActiveSection={setActiveSection} updateOrderStatus={updateOrderStatus} visibleOrders={visibleOrders} />
-                            ) : null}
-
-                            {showAddresses ? (
-                                <ProfileAddresses address={address} addressDraft={addressDraft} addressesSpanClass={addressesSpanClass} billingDetails={billingDetails} citiesLoading={citiesLoading} cityOptions={cityOptions} citySuggestionsEnabled={citySuggestionsEnabled} countriesLoading={countriesLoading} countryInput={countryInput} countryOptions={countryOptions} handleCityInputChange={handleCityInputChange} handleCountryInputChange={handleCountryInputChange} handleProvinceInputChange={handleProvinceInputChange} handleWholesaleQuote={handleWholesaleQuote} hasProfileBillingInfo={hasProfileBillingInfo} isArgentinaCountry={isArgentinaCountry} isEditingAddress={isEditingAddress} isWholesaleUser={isWholesaleUser} profileName={profileName} provinceLoading={provinceLoading} provinceOptions={provinceOptions} provinceSuggestionsEnabled={provinceSuggestionsEnabled} resetAddress={resetAddress} roleLabel={roleLabel} saveAddress={saveAddress} setAddressDraft={setAddressDraft} setIsEditingAddress={setIsEditingAddress} wholesaleQuoteUrl={wholesaleQuoteUrl} />
-                            ) : null}
-
-                            {activeSection === 'favorites' ? (
-                                <ProfileFavorites addToCart={addToCart} currency={currency} favorites={favorites} locale={locale} removeFavorite={removeFavorite} showPrices={showPrices} />
-                            ) : null}
-
-                            {activeSection === 'security' ? (
-                                <ProfileSecurity />
-                            ) : null}
-                        </div>
-                    </main>
-                </div>
-            </div>
-        </StoreLayout>
+        <ProfilePageParte activeSection={activeSection} addToCart={addToCart} address={address} addressDraft={addressDraft} addressesSpanClass={addressesSpanClass} billingDetails={billingDetails} citiesLoading={citiesLoading} cityOptions={cityOptions} citySuggestionsEnabled={citySuggestionsEnabled} countriesLoading={countriesLoading} countryInput={countryInput} countryOptions={countryOptions} currency={currency} favorites={favorites} formatOrderDate={formatOrderDate} handleCityInputChange={handleCityInputChange} handleCountryInputChange={handleCountryInputChange} handleLogout={handleLogout} handleProfilePhotoChange={handleProfilePhotoChange} handleProvinceInputChange={handleProvinceInputChange} handleRemovePhoto={handleRemovePhoto} handleViewOrder={handleViewOrder} handleWholesaleQuote={handleWholesaleQuote} hasProfileBillingInfo={hasProfileBillingInfo} isArgentinaCountry={isArgentinaCountry} isEditingAddress={isEditingAddress} isWholesaleUser={isWholesaleUser} locale={locale} ordersSpanClass={ordersSpanClass} profileName={profileName} profilePhoto={profilePhoto} provinceLoading={provinceLoading} provinceOptions={provinceOptions} provinceSuggestionsEnabled={provinceSuggestionsEnabled} removeFavorite={removeFavorite} resetAddress={resetAddress} roleLabel={roleLabel} saveAddress={saveAddress} sectionLabels={sectionLabels} setActiveSection={setActiveSection} setAddressDraft={setAddressDraft} setIsEditingAddress={setIsEditingAddress} showAddresses={showAddresses} showOrders={showOrders} showPrices={showPrices} updateOrderStatus={updateOrderStatus} visibleOrders={visibleOrders} wholesaleQuoteUrl={wholesaleQuoteUrl} />
     );
 }
