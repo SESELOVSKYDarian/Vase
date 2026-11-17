@@ -1,0 +1,1019 @@
+<!doctype html><html lang="es" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Maquetas etapa 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>/*
+ * Colores, sombras y marca de todos los paneles de Vase: app y Labs (.vpa) y Business (.vp).
+ * Fuente única. Business recibe una copia exacta (apps/vase-editor/web/src/panel/vase-tokens.css):
+ * después de cambiar este archivo, correr `node scripts/sync-ui-to-business.mjs`. Un test avisa si quedan distintos.
+ */
+
+.vpa, .vp {
+  --page: #ffffff; --side: #f8f9fa; --canvas: #ffffff; --card: #ffffff; --soft: #f4f5f7; --hover: #f2f4f5; --active: #eceef0;
+  --line: #eaecef; --line2: #d5d9de; --tx: #111418; --mut: #667085; --mut2: #667085; --ink: #111418; --ink-on: #ffffff;
+  --acc: #006d43; --acc-on: #ffffff; --acc-tx: #006d43; --accsoft: rgba(24, 195, 126, .10);
+  --warn: #93370d; --warnsoft: #fef6e7; --imgbg: #ffffff; --badge: #ffd9d4; --badge-tx: #b42318; --red: #d92d20; --redsoft: #fee4e2;
+  --ok: #079455; --knob: #ffffff; --sb: #d0d5dd; --sbh: #18c37e; --scrim: rgba(17, 20, 24, .32);
+  --sh-sm: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .06); --sh-md: 0 12px 30px rgba(16, 24, 40, .10); --sh-lg: 0 24px 60px rgba(16, 24, 40, .18);
+  --brand-pill-bg: #241a5c; --brand-pill-tx: #b9a7ff;
+}
+:root[data-theme="dark"] .vpa, .vp[data-theme="dark"] {
+  --page: #000000; --side: #000000; --canvas: #000000; --card: #0a0a0a; --soft: #121212; --hover: #161616; --active: #1a1a1a;
+  --line: #1e1e1e; --line2: #2e2e2e; --tx: #f2f2f2; --mut: #9b9b9b; --mut2: #8a8a8a; --ink: #f2f2f2; --ink-on: #000000;
+  --acc: #47e098; --acc-on: #00260f; --acc-tx: #5ff0a8; --accsoft: rgba(71, 224, 152, .10);
+  --warn: #f5c56b; --warnsoft: rgba(245, 197, 107, .10); --imgbg: #141414; --badge: rgba(240, 68, 56, .18); --badge-tx: #ff8a80;
+  --red: #ff6b5e; --redsoft: rgba(240, 68, 56, .14); --ok: #47e098; --knob: #000000; --sb: #2a2a2a; --sbh: #47e098; --scrim: rgba(0, 0, 0, .7);
+  --sh-sm: 0 0 0 1px #161616; --sh-md: 0 18px 40px rgba(0, 0, 0, .6); --sh-lg: 0 30px 90px rgba(0, 0, 0, .8);
+}
+
+/* Marca: "vase" + el producto, con la misma letra y altura. */
+:where(.vpa, .vp) .vase-brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+:where(.vpa, .vp) .vase-brand img { width: 26px; height: 26px; flex: none; object-fit: contain; }
+/* Logo de Vase: verde en modo claro, blanco en modo oscuro (PanelBrandLogo pone los dos). */
+:where(.vpa, .vp) .vase-brand img.vase-logo-dark { display: none; }
+:root[data-theme="dark"] .vpa .vase-brand img.vase-logo-light,
+.vp[data-theme="dark"] .vase-brand img.vase-logo-light { display: none; }
+:root[data-theme="dark"] .vpa .vase-brand img.vase-logo-dark,
+.vp[data-theme="dark"] .vase-brand img.vase-logo-dark { display: block; }
+:where(.vpa, .vp) .vase-brand b { font-size: 18px; font-weight: 800; letter-spacing: -.03em; line-height: 1.2; white-space: nowrap; }
+:where(.vpa, .vp) .vase-pill { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 7px; background: var(--brand-pill-bg); color: var(--brand-pill-tx); font-size: 18px; line-height: 1.2; font-weight: 800; letter-spacing: -.03em; white-space: nowrap; }
+:where(.vpa, .vp) .vase-pill.business { --brand-pill-bg: #0f3d2a; --brand-pill-tx: #7ff0b4; }
+
+/*
+ * Piezas compartidas de todos los paneles de Vase (app, Labs y Business): piezas básicas, selector y nube de guardado.
+ * Fuente única. Business recibe una copia exacta (scripts/sync-ui-to-business.mjs). Un test avisa si quedan distintos.
+ */
+
+/*
+ * Piezas básicas de todos los paneles: botón, tarjeta, etiqueta, interruptor, campo y casilla de texto.
+ * app y Labs usan las clases vpa-*, Business las vp-*: las dos se ven igual porque salen de acá.
+ */
+:is(.vpa-btn, .vp-btn) { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; padding: 0 16px; border: 0; border-radius: 11px; font-weight: 800; font-size: 13px; cursor: pointer; white-space: nowrap; background: none; text-decoration: none; }
+:is(.vpa-btn, .vp-btn).acc { background: var(--acc); color: var(--acc-on); }
+:is(.vpa-btn, .vp-btn).ink { background: var(--ink); color: var(--ink-on); }
+:is(.vpa-btn, .vp-btn).soft { background: var(--soft); color: var(--tx); }
+:is(.vpa-btn, .vp-btn).line { border: 1px solid var(--line); background: var(--card); color: var(--tx); }
+:is(.vpa-btn, .vp-btn).line:hover:not(:disabled), :is(.vpa-btn, .vp-btn).soft:hover:not(:disabled) { background: var(--active); }
+:is(.vpa-btn, .vp-btn).red { background: var(--redsoft); color: var(--red); }
+:is(.vpa-btn, .vp-btn).danger { color: var(--red); }
+:is(.vpa-btn, .vp-btn).sm { height: 32px; padding: 0 12px; font-size: 12px; border-radius: 9px; }
+:is(.vpa-btn, .vp-btn).lg { height: 46px; padding: 0 24px; border-radius: 14px; font-size: 14px; }
+:is(.vpa-btn, .vp-btn).wide { width: 100%; }
+:is(.vpa-btn, .vp-btn):disabled { opacity: .55; cursor: default; }
+
+:is(.vpa-card, .vp-card) { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+
+:is(.vpa-tag, .vp-tag) { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 8px; font-size: 11.5px; font-weight: 700; background: var(--soft); white-space: nowrap; }
+:is(.vpa-tag, .vp-tag) i { width: 7px; height: 7px; border-radius: 50%; background: #98a2b3; }
+:is(.vpa-tag, .vp-tag).g i { background: #17b26a; }
+:is(.vpa-tag, .vp-tag).y i { background: #f79009; }
+:is(.vpa-tag, .vp-tag).r i { background: #f04438; }
+:is(.vpa-tag, .vp-tag).b i { background: #2e90fa; }
+:is(.vpa-tag, .vp-tag).p i { background: #7a5af8; }
+
+:is(.vpa-tog, .vp-tog) { width: 38px; height: 22px; border-radius: 999px; background: var(--acc); position: relative; display: inline-block; flex: none; border: 0; cursor: pointer; padding: 0; }
+:is(.vpa-tog, .vp-tog)::after { content: ""; position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--knob); }
+:is(.vpa-tog, .vp-tog).off { background: var(--line2); }
+:is(.vpa-tog, .vp-tog).off::after { right: auto; left: 3px; }
+
+:is(.vpa-fld, .vp-fld) { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vpa-fld > span, .vp-fld label, .vp-fl { font-size: 11.5px; font-weight: 700; color: var(--mut); }
+:is(.vpa-inp, .vp-inp) { height: 40px; border-radius: 11px; border: 1px solid var(--line); background: var(--card); color: var(--tx); font: inherit; font-weight: 600; padding: 0 12px; width: 100%; }
+:is(.vpa-inp, .vp-inp):focus { outline: 2px solid var(--acc); outline-offset: -1px; }
+:is(.vpa-inp, .vp-inp):read-only { background: var(--soft); color: var(--mut); }
+
+
+/* Cabecera de tarjeta (PanelCard): título, bajada y acciones. stack: contenido en columna. */
+.vpa-sech { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.vpa-sech > .vpa-g1 { flex: 1; min-width: 0; }
+.vpa-sech > .vpa-g1 > h3 { margin: 0; font-size: 15px; font-weight: 800; }
+.vpa-sech > .vpa-g1 > p { margin: 4px 0 0; color: var(--mut); font-weight: 600; font-size: 12.5px; line-height: 1.5; }
+.vpa-cacts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+:is(.vpa-card, .vp-card).stack { display: flex; flex-direction: column; gap: 14px; }
+:is(.vpa-card, .vp-card).stack > .vpa-sech { margin-bottom: 0; }
+
+/* Pestañas (PanelTabs con links, PanelSegmented con botones). */
+.vpa-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: var(--soft); border-radius: 10px; padding: 3px; }
+.vpa-seg.fill { display: flex; flex-wrap: nowrap; }
+.vpa-seg.fill > * { flex: 1; }
+.vpa-seg :is(a, button) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: none; color: var(--mut); font: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.vpa-seg.fill :is(a, button) { padding: 0 8px; }
+.vpa-seg :is(a, button):hover:not(.on):not(:disabled) { color: var(--tx); }
+.vpa-seg :is(a, button).on { background: var(--card); color: var(--tx); box-shadow: var(--sh-sm); }
+.vpa-seg > button:disabled:not(.on) { opacity: .5; cursor: default; }
+
+/* Números grandes (PanelKpis): ícono opcional, se pueden tocar. */
+.vpa-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.vpa-kpi { display: flex; align-items: center; gap: 12px; padding: 16px; border: 0; border-radius: 16px; background: var(--soft); color: inherit; font: inherit; text-align: left; min-width: 0; }
+button.vpa-kpi { width: 100%; cursor: pointer; }
+button.vpa-kpi:hover { outline: 1.5px solid var(--line2); }
+.vpa-kic { width: 42px; height: 42px; border-radius: 50%; background: var(--card); display: flex; align-items: center; justify-content: center; flex: none; }
+.vpa-kt { display: block; min-width: 0; }
+.vpa-kt > small { display: block; color: var(--mut); font-weight: 600; font-size: 12.5px; }
+.vpa-kt > b { display: block; font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin-top: 4px; }
+.vpa-kt > em { display: block; font-style: normal; font-size: 12px; color: var(--mut); font-weight: 600; margin-top: 2px; }
+.vpa-kt > em.up { color: var(--ok); font-weight: 700; }
+.vpa-kt > em.dn { color: var(--red); font-weight: 700; }
+@media (max-width: 900px) {
+  .vpa-kpis { gap: 10px; }
+  .vpa-kpi { padding: 12px; }
+  .vpa-kic { display: none; }
+  .vpa-kt > small { font-size: 11.5px; }
+  .vpa-kt > b { font-size: 20px; margin-top: 2px; }
+  .vpa-kt > em { font-size: 11px; }
+}
+
+/* Menú lateral (PanelSidebar): igual en app, Labs y Business. */
+:where(.vpa, .vp) .vase-side { width: 236px; flex: none; height: 100%; min-height: 0; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 20px 14px 14px; position: relative; z-index: 6; }
+:where(.vpa, .vp) .vase-side-coll { position: absolute; right: -14px; top: 19px; width: 28px; height: 28px; padding: 0; border-radius: 50%; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mut); box-shadow: var(--sh-sm); z-index: 5; }
+:where(.vpa, .vp) .vase-side-coll:hover { color: var(--tx); border-color: var(--line2); }
+:where(.vpa, .vp) .vase-side-close { display: none; }
+:where(.vpa, .vp) .vase-side-logo { flex: none; padding: 0 8px 18px; }
+:where(.vpa, .vp) .vase-side-nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; margin: 0 -8px; padding: 0 8px; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+:where(.vpa, .vp) .vase-side-nav:hover { scrollbar-color: var(--sb) transparent; }
+:where(.vpa, .vp) .vase-side-grp { font-size: 11.5px; font-weight: 600; color: var(--mut2); padding: 12px 10px 5px; }
+:where(.vpa, .vp) .vase-side-nb { display: flex; align-items: center; gap: 11px; width: 100%; height: 39px; padding: 0 12px; border: 0; background: none; border-radius: 12px; color: var(--mut); font: inherit; font-weight: 600; cursor: pointer; margin-bottom: 2px; text-align: left; text-decoration: none; }
+:where(.vpa, .vp) .vase-side-nb:hover { color: var(--tx); background: var(--hover); }
+:where(.vpa, .vp) .vase-side-nb.on { background: var(--active); color: var(--tx); font-weight: 800; }
+:where(.vpa, .vp) .vase-side-nb.on > svg { color: var(--acc); }
+:where(.vpa, .vp) .vase-side-lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.vpa, .vp) .vase-side-badge { margin-left: auto; font-style: normal; font-size: 11px; font-weight: 800; min-width: 22px; height: 20px; border-radius: 10px; background: var(--badge); color: var(--badge-tx); display: flex; align-items: center; justify-content: center; padding: 0 6px; }
+:where(.vpa, .vp) .vase-side-chev { margin-left: auto; color: var(--mut); display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 8px; flex: none; transform: rotate(-90deg); transition: transform .18s ease, background .15s, color .15s; }
+:where(.vpa, .vp) .vase-side-chev.open, :where(.vpa, .vp) .vase-side-chev.acc { transform: none; }
+:where(.vpa, .vp) .vase-side-sub { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px 30px; padding-left: 10px; border-left: 1.5px solid var(--line); }
+:where(.vpa, .vp) .vase-side-sn { height: 32px; padding: 0 10px; border: 0; background: none; border-radius: 9px; display: flex; align-items: center; font: inherit; font-weight: 600; font-size: 12.5px; color: var(--mut); cursor: pointer; text-align: left; text-decoration: none; }
+:where(.vpa, .vp) .vase-side-sn:hover { background: var(--hover); color: var(--tx); }
+:where(.vpa, .vp) .vase-side-sn.on { color: var(--acc-tx); font-weight: 800; background: var(--accsoft); }
+:where(.vpa, .vp) .vase-side-acc { flex: none; margin-top: auto; position: relative; padding-top: 10px; }
+:where(.vpa, .vp) .vase-side-accbtn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 14px; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--tx); font: inherit; text-align: left; }
+:where(.vpa, .vp) .vase-side-accbtn:hover { border-color: var(--line2); }
+:where(.vpa, .vp) .vase-side-accbtn:hover .vase-side-chev, :where(.vpa, .vp) .vase-side-accbtn[aria-expanded="true"] .vase-side-chev { background: var(--hover); color: var(--tx); }
+:where(.vpa, .vp) .vase-side-ava { width: 34px; height: 34px; border-radius: 10px; background: #ff4d00; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; flex: none; overflow: hidden; }
+:where(.vpa, .vp) .vase-side-ava img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+:where(.vpa, .vp) .vase-side-ut { min-width: 0; flex: 1; }
+:where(.vpa, .vp) .vase-side-ut b, :where(.vpa, .vp) .vase-side-ut small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.vpa, .vp) .vase-side-ut b { font-weight: 800; font-size: 13px; }
+:where(.vpa, .vp) .vase-side-ut small { color: var(--mut); font-weight: 600; font-size: 11.5px; }
+:where(.vpa, .vp) .vase-side-menu { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--sh-lg); padding: 6px; z-index: 40; min-width: 210px; }
+:where(.vpa, .vp) .vase-side.mini { width: 76px; }
+:where(.vpa, .vp) .vase-side.mini .vase-side-logo { justify-content: center; padding-left: 0; padding-right: 0; }
+:where(.vpa, .vp) .vase-side.mini :is(.vase-side-logo b, .vase-pill, .vase-side-grp, .vase-side-lbl, .vase-side-badge, .vase-side-sub, .vase-side-ut, .vase-side-chev) { display: none; }
+:where(.vpa, .vp) .vase-side.mini .vase-side-nb { justify-content: center; padding: 0; }
+:where(.vpa, .vp) .vase-side.mini .vase-side-accbtn { justify-content: center; }
+:where(.vpa, .vp) .vase-side.mini .vase-side-menu { right: auto; }
+@media (prefers-reduced-motion: reduce) { :where(.vpa, .vp) .vase-side-chev { transition: none; } }
+/* Celular: cajón que se abre desde la barra de arriba (Business). */
+@media (max-width: 900px) {
+  :where(.vpa, .vp) .vase-side.phone { position: fixed; left: 0; top: 0; bottom: 0; width: min(300px, 86vw); z-index: 70; transform: translateX(-105%); transition: transform .22s ease; box-shadow: none; padding-top: 16px; }
+  :where(.vpa, .vp) .vase-side.phone.m-open { transform: none; box-shadow: var(--sh-lg); }
+  :where(.vpa, .vp) .vase-side.phone .vase-side-close { display: flex; position: absolute; right: 10px; top: 12px; width: 36px; height: 36px; border-radius: 10px; border: 0; background: none; color: var(--mut); font-size: 22px; align-items: center; justify-content: center; cursor: pointer; z-index: 2; }
+  :where(.vpa, .vp) .vase-side-scrim { position: fixed; inset: 0; z-index: 65; background: var(--scrim); animation: vase-fade .18s ease-out; }
+}
+@keyframes vase-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { :where(.vpa, .vp) .vase-side.phone, :where(.vpa, .vp) .vase-side-scrim { transition: none; animation: none; } }
+
+/* Selector propio (reemplaza al <select> del navegador). */
+:where(.vpa, .vp) .vase-sel { display: inline-flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; font: inherit; text-align: left; color: var(--tx); transition: border-color .15s, box-shadow .15s, background .15s; }
+:where(.vpa, .vp) .vase-sel .v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.vpa, .vp) .vase-sel .v.ph { color: var(--mut); }
+:where(.vpa, .vp) .vase-sel .ch { flex: none; color: var(--mut); transition: transform .18s ease; }
+:where(.vpa, .vp) .vase-sel.open .ch { transform: rotate(180deg); }
+:where(.vpa, .vp) .vase-sel:disabled { opacity: .55; cursor: default; }
+:where(.vpa, .vp) .vase-sel.inp { width: 100%; height: 40px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--line); background: var(--card); font-weight: 600; }
+:where(.vpa, .vp) .vase-sel.inp:hover:not(:disabled) { border-color: var(--line2); }
+:where(.vpa, .vp) .vase-sel.inp.open, :where(.vpa, .vp) .vase-sel.inp:focus-visible { border-color: var(--acc); box-shadow: 0 0 0 3px var(--accsoft); outline: 0; }
+:where(.vpa, .vp) .vase-sel.slot { height: 44px; padding: 0 12px 0 14px; border-radius: 12px; background: var(--accsoft); color: var(--acc-tx); font-weight: 800; font-size: 17px; border: 1.5px solid transparent; }
+:where(.vpa, .vp) .vase-sel.slot .ch { color: currentColor; }
+:where(.vpa, .vp) .vase-sel.slot:hover, :where(.vpa, .vp) .vase-sel.slot.open { border-color: var(--acc); }
+:where(.vpa, .vp) .vase-sel.fp { height: 34px; padding: 0 10px 0 13px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-weight: 700; font-size: 12.5px; color: var(--mut); }
+:where(.vpa, .vp) .vase-sel.fp:hover, :where(.vpa, .vp) .vase-sel.fp.open { color: var(--tx); border-color: var(--line2); }
+:where(.vpa, .vp) .vase-selpop { position: fixed; z-index: 90; display: flex; flex-direction: column; background: var(--card); color: var(--tx); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--sh-lg); padding: 6px; font-family: inherit; font-size: 13.5px; animation: vase-selin .12s ease-out; overflow: hidden; }
+:where(.vpa, .vp) .vase-selpop.up { animation-name: vase-selup; }
+@keyframes vase-selin { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes vase-selup { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { :where(.vpa, .vp) .vase-selpop { animation: none; } }
+:where(.vpa, .vp) .vase-selsearch { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; margin-bottom: 6px; border-radius: 10px; background: var(--soft); color: var(--mut); flex: none; }
+:where(.vpa, .vp) .vase-selsearch input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--tx); font: inherit; font-weight: 600; font-size: 13px; }
+:where(.vpa, .vp) .vase-selpop ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; overflow-x: hidden; min-height: 0; scrollbar-width: thin; }
+:where(.vpa, .vp) .vase-selpop li { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 8px 12px; border-radius: 9px; cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--tx); }
+:where(.vpa, .vp) .vase-selpop li .l { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+:where(.vpa, .vp) .vase-selpop li .l em { display: block; font-style: normal; font-size: 11.5px; color: var(--mut); font-weight: 600; }
+:where(.vpa, .vp) .vase-selpop li.act { background: var(--hover); }
+:where(.vpa, .vp) .vase-selpop li.sel { color: var(--acc-tx); font-weight: 800; }
+:where(.vpa, .vp) .vase-selpop li.sel.act { background: var(--accsoft); }
+:where(.vpa, .vp) .vase-selpop li.dis { opacity: .45; cursor: default; }
+:where(.vpa, .vp) .vase-selpop li.none { color: var(--mut); cursor: default; justify-content: center; }
+:where(.vpa, .vp) .vase-selpop li .ck { flex: none; color: var(--acc); }
+
+/* Nube de guardado: ícono con una pastilla oscura al pasar el mouse. */
+:where(.vpa, .vp) .vase-cloud { position: relative; display: inline-flex; }
+:where(.vpa, .vp) .vase-cloud-btn { position: relative; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); display: flex; align-items: center; justify-content: center; cursor: default; flex: none; color: var(--mut); }
+:where(.vpa, .vp) .vase-cloud.saved .vase-cloud-btn { color: var(--ok); }
+:where(.vpa, .vp) .vase-cloud.error .vase-cloud-btn, :where(.vpa, .vp) .vase-cloud.offline .vase-cloud-btn { color: var(--red); }
+:where(.vpa, .vp) .vase-cloud .dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: #f79009; border: 2px solid var(--card); }
+:where(.vpa, .vp) .vase-cloud-tip { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; padding: 7px 12px; border-radius: 999px; background: #111418; color: #ffffff; font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: var(--sh-md); opacity: 0; transform: translateY(-3px); pointer-events: none; transition: opacity .12s ease, transform .12s ease; }
+:where(.vpa, .vp)[data-theme="dark"] .vase-cloud-tip, :root[data-theme="dark"] .vpa .vase-cloud-tip { background: #f2f2f2; color: #000000; }
+:where(.vpa, .vp) .vase-cloud:hover .vase-cloud-tip, :where(.vpa, .vp) .vase-cloud:focus-within .vase-cloud-tip { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { :where(.vpa, .vp) .vase-cloud-tip { transition: none; } }
+
+/* ===== Paso de un producto a otro: el marco se queda y solo el contenido entra y sale ===== */
+@keyframes vase-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes vase-loadbar { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+/* Al abrir un panel, el contenido entra suave. Corre una sola vez por carga de página. */
+/* "backwards" y no "both": si el transform queda puesto al terminar, los modales (position: fixed) quedan atados al
+   contenido en vez de a la pantalla. */
+.vpa-body, .vp-body, .vpa-top .vpa-g1, .vp-top .vp-ttl { animation: vase-enter .34s cubic-bezier(.2, .7, .2, 1) backwards; }
+/* Al salir hacia otro producto, el contenido se va y una línea fina avisa que está cargando. */
+html[data-vase-leaving] :is(.vpa-body, .vp-body, .vpa-top .vpa-g1, .vp-top .vp-ttl, .vp-top .vp-sub) { opacity: 0; transform: translateY(-6px); transition: opacity .17s ease, transform .17s ease; animation: none; }
+html[data-vase-leaving] :is(.vpa-main, .vp-main) { position: relative; overflow: hidden; }
+html[data-vase-leaving] :is(.vpa-main, .vp-main)::before { content: ""; position: absolute; left: 0; top: 0; z-index: 80; width: 34%; height: 2px; border-radius: 2px; background: var(--acc); animation: vase-loadbar 1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .vpa-body, .vp-body, .vpa-top .vpa-g1, .vp-top .vp-ttl { animation: none; } }
+
+/* ===== Menú de la cuenta: igual en todos los productos ===== */
+:where(.vpa, .vp) .vase-am-h { font-size: 11px; color: var(--mut); font-weight: 600; padding: 6px 10px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.vpa, .vp) .vase-am { width: 100%; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: 0; background: none; border-radius: 9px; font: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; text-align: left; text-decoration: none; color: var(--tx); }
+:where(.vpa, .vp) .vase-am:hover { background: var(--hover); }
+:where(.vpa, .vp) .vase-am.out { color: var(--red); }
+
+/* ===== Pestañas de Ajustes: tarjetas con ícono, nombre y qué hay adentro ===== */
+:where(.vpa, .vp) .vpa-stabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+:where(.vpa, .vp) .vpa-stab { position: relative; display: flex; border: 1px solid var(--line); border-radius: 16px; background: var(--card); transition: border-color .15s, background .15s, box-shadow .15s; }
+:where(.vpa, .vp) .vpa-stab:hover { border-color: var(--line2); box-shadow: var(--sh-sm); }
+:where(.vpa, .vp) .vpa-stab.on { border-color: var(--acc); background: var(--accsoft); }
+:where(.vpa, .vp) .vpa-stab-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 14px 16px; color: var(--tx); text-decoration: none; border-radius: 16px; }
+:where(.vpa, .vp) .vpa-stab-ic { width: 38px; height: 38px; flex: none; border-radius: 12px; background: var(--soft); color: var(--mut); display: flex; align-items: center; justify-content: center; transition: background .15s, color .15s; }
+:where(.vpa, .vp) .vpa-stab.on .vpa-stab-ic { background: var(--acc); color: var(--acc-on); }
+:where(.vpa, .vp) .vpa-stab-tx { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+:where(.vpa, .vp) .vpa-stab-tx b { font-size: 14px; font-weight: 800; letter-spacing: -.01em; }
+:where(.vpa, .vp) .vpa-stab-tx small { font-size: 12px; font-weight: 600; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(.vpa, .vp) .vpa-stab-info { position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line2); background: var(--card); color: var(--mut); font: inherit; font-size: 11px; font-weight: 800; font-style: italic; cursor: help; display: flex; align-items: center; justify-content: center; padding: 0; }
+:where(.vpa, .vp) .vpa-stab-info:hover, :where(.vpa, .vp) .vpa-stab-info:focus-visible { color: var(--tx); border-color: var(--tx); }
+:where(.vpa, .vp) .vpa-stab-info > span { position: absolute; z-index: 30; top: calc(100% + 8px); right: -8px; width: 250px; padding: 10px 12px; border-radius: 12px; background: var(--tx); color: var(--page); font-size: 12px; font-weight: 600; font-style: normal; line-height: 1.45; text-align: left; box-shadow: var(--sh-md); opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .15s, transform .15s, visibility .15s; pointer-events: none; }
+:where(.vpa, .vp) .vpa-stab-info:hover > span, :where(.vpa, .vp) .vpa-stab-info:focus > span { opacity: 1; visibility: visible; transform: none; }
+@media (max-width: 860px) {
+  :where(.vpa, .vp) .vpa-stabs { display: flex; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
+  /* Con la especificidad de .vpa: el panel pinta barras de desplazamiento propias en todos los elementos. */
+  .vpa .vpa-stabs, .vp .vpa-stabs { scrollbar-width: none; }
+  .vpa .vpa-stabs::-webkit-scrollbar, .vp .vpa-stabs::-webkit-scrollbar { display: none; }
+  :where(.vpa, .vp) .vpa-stab { flex: 0 0 auto; }
+  :where(.vpa, .vp) .vpa-stab-link { padding: 10px 14px 10px 10px; gap: 10px; }
+  :where(.vpa, .vp) .vpa-stab-ic { width: 32px; height: 32px; border-radius: 10px; }
+  :where(.vpa, .vp) .vpa-stab-tx small { display: none; }
+  :where(.vpa, .vp) .vpa-stab-info { position: static; align-self: center; margin-right: 10px; }
+  :where(.vpa, .vp) .vpa-stab-info > span { right: 0; }
+}
+@media (prefers-reduced-motion: reduce) { :where(.vpa, .vp) .vpa-stab, :where(.vpa, .vp) .vpa-stab-info > span { transition: none; } }
+
+/* ===== Con un modal abierto, lo de atrás no se mueve ===== */
+html:has(:is(.labs-modal-backdrop, .vpa-dialog, .vpa-ov, .vp-scrim, .lx-vnotif.open)) { overflow: hidden; }
+html:has(:is(.labs-modal-backdrop, .vpa-dialog, .vpa-ov, .vp-scrim, .lx-vnotif.open)) :is(.vpa-body, .vp-body) { overflow: hidden; }
+
+/* Panel del cliente de app.vase.ar. Todo vive dentro de .vpa para no tocar administración ni la tienda. */
+
+
+
+.vpa {
+  position: relative; display: flex; height: 100dvh; overflow: hidden;
+  background: var(--page); color: var(--tx);
+  font-family: var(--font-manrope), system-ui, sans-serif; font-size: 13.5px; -webkit-font-smoothing: antialiased;
+}
+.vpa *, .vpa *::before, .vpa *::after { box-sizing: border-box; }
+/* Página de app mostrada adentro de otro producto (Ajustes en Business o Labs): sin menú, crece con su contenido. */
+.vpa.vpa-embed { display: block; height: auto; overflow: visible; background: transparent; padding: 2px; }
+.vpa.vpa-embed > .vpa-wrap { max-width: none; }
+/* Notificaciones adentro de otro producto: ocupan todo el cuadro que les da el producto. */
+.vpa-ov.embedded { position: fixed; background: transparent; }
+.vpa-ov.embedded > .vpa-dr { width: 100%; box-shadow: none; }
+/* Pantallas de carga: bloques grises con la forma de la página, que laten suave. */
+.vpa-sk { display: block; background: var(--line); animation: vpa-sk-pulse 1.4s ease-in-out infinite; }
+/* Aparece recién si la sección tarda más de medio segundo: en cargas rápidas no se ve nada y la pantalla no parpadea. */
+.vpa-sk-wrap { display: flex; flex-direction: column; gap: 18px; padding: 2px; opacity: 0; animation: vpa-sk-in .2s ease .5s forwards; }
+@keyframes vpa-sk-in { to { opacity: 1; } }
+.vpa-body.flush .vpa-sk-wrap { padding: 24px 28px; }
+.vpa-sk-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+.vpa-sk-card { display: flex; flex-direction: column; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
+.vpa-sk-side { width: 236px; flex: none; display: flex; flex-direction: column; gap: 26px; padding: 22px 14px; background: var(--side); border-right: 1px solid var(--line); }
+.vpa-sk-nav { display: flex; flex-direction: column; gap: 8px; }
+@keyframes vpa-sk-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (max-width: 900px) { .vpa-sk-side { display: none; } }
+@media (prefers-reduced-motion: reduce) { .vpa-sk { animation: none; } }
+/* Barra de scroll igual a la de Business */
+.vpa * { scrollbar-width: thin; scrollbar-color: var(--sb) transparent; }
+.vpa *::-webkit-scrollbar { width: 10px; height: 10px; }
+.vpa *::-webkit-scrollbar-track { background: transparent; }
+.vpa *::-webkit-scrollbar-thumb { background: var(--sb); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+.vpa *::-webkit-scrollbar-thumb:hover { background: var(--sbh); border: 3px solid transparent; background-clip: padding-box; }
+.vpa-totop { position: absolute; right: 24px; bottom: 24px; z-index: 44; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--tx); box-shadow: var(--sh-lg); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.vpa-totop:hover { border-color: var(--acc); color: var(--acc-tx); }
+.vpa :focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.vpa h1, .vpa h2, .vpa h3, .vpa p { margin: 0; }
+.vpa h1, .vpa h2, .vpa h3, .vpa h4, .vpa button, .vpa input, .vpa select, .vpa textarea { font-family: var(--font-manrope), system-ui, sans-serif; }
+.vpa a { color: inherit; text-decoration: none; }
+.vpa button { font: inherit; color: inherit; }
+
+.vpa-am { display: flex; align-items: center; width: 100%; height: 36px; padding: 0 10px; border: 0; background: none; border-radius: 9px; font-weight: 700; font-size: 12.5px; cursor: pointer; text-align: left; }
+.vpa-am:hover { background: var(--hover); }
+.vpa-am.out { color: var(--red); }
+
+/* zona principal */
+.vpa-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.vpa-top { display: flex; align-items: center; gap: 12px; padding: 16px 28px; border-bottom: 1px solid var(--line); background: var(--card); min-height: 76px; flex: none; }
+.vpa-ttl { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.vpa-sub { color: var(--mut); font-weight: 600; font-size: 12.5px; margin-top: 2px; }
+.vpa-sp { flex: 1; }
+.vpa-ib { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; flex: none; }
+.vpa-ib:hover { border-color: var(--line2); }
+.vpa-ib .n { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--red); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; border: 2px solid var(--card); }
+.vpa-body { flex: 1; min-height: 0; overflow: auto; padding: 24px 28px; }
+.vpa-wrap { max-width: 1120px; display: flex; flex-direction: column; gap: 18px; }
+
+/* piezas */
+.vpa-lnk { border: 0; background: none; padding: 0; font-size: 13px; font-weight: 800; color: var(--acc-tx); cursor: pointer; }
+.vpa-lnk:hover { text-decoration: underline; }
+.vpa-card h3 { font-size: 15px; font-weight: 800; }
+.vpa-card p { margin-top: 4px; color: var(--mut); font-weight: 600; font-size: 12.5px; line-height: 1.5; }
+.vpa-g1 { flex: 1; min-width: 0; }
+.vpa-g1 b { display: block; font-weight: 700; }
+.vpa-g1 span { display: block; font-size: 12px; color: var(--mut); font-weight: 600; margin-top: 1px; }
+.vpa-mut { color: var(--mut); font-weight: 600; }
+.vpa-lab { font-size: 12px; font-weight: 600; color: var(--mut); margin-bottom: 6px; }
+.vpa-mono { border-radius: 14px; display: flex; align-items: center; justify-content: center; font-weight: 800; letter-spacing: -.03em; flex: none; }
+.vpa-ck { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.vpa-ck li { display: flex; gap: 8px; font-weight: 600; font-size: 12.5px; line-height: 1.4; }
+.vpa-ck svg { color: var(--acc-tx); flex: none; margin-top: 1px; }
+.vpa-tw { overflow-x: auto; }
+.vpa-tbl { width: 100%; border-collapse: collapse; }
+.vpa-tbl th { text-align: left; font-size: 12px; font-weight: 600; color: var(--mut); padding: 10px; background: var(--soft); white-space: nowrap; }
+.vpa-tbl th:first-child { border-radius: 10px 0 0 10px; } .vpa-tbl th:last-child { border-radius: 0 10px 10px 0; }
+.vpa-tbl td { padding: 16px 10px; border-bottom: 1px solid var(--line); font-weight: 600; vertical-align: middle; white-space: nowrap; }
+.vpa-tbl tr:last-child td { border-bottom: 0; }
+.vpa-empty { padding: 40px 20px; border-radius: 20px; border: 1px dashed var(--line2); text-align: center; color: var(--mut); font-weight: 700; }
+.vpa-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.vpa-hrow { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: var(--soft); }
+.vpa-guide { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 12px; background: var(--soft); font-weight: 700; }
+.vpa-guide:hover { background: var(--active); }
+.vpa-g2 { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.vpa-gs { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+/* inicio */
+.vpa-hm { display: flex; flex-direction: column; gap: 36px; }
+.vpa-hmh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.vpa-hmh h2 { font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+.vpa-alert { display: flex; align-items: center; gap: 16px; padding: 16px 20px; border-radius: 20px; background: var(--warnsoft); }
+.vpa-alert .ic { width: 44px; height: 44px; border-radius: 14px; background: var(--card); color: var(--warn); display: flex; align-items: center; justify-content: center; flex: none; }
+.vpa-alert b { display: block; font-size: 15px; font-weight: 800; }
+.vpa-alert span.t { display: block; font-size: 13px; color: var(--mut); font-weight: 600; margin-top: 2px; }
+.vpa-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.vpa-tile { position: relative; display: block; height: 264px; border-radius: 28px; overflow: hidden; box-shadow: var(--sh-sm); transition: transform .16s ease, box-shadow .16s ease; }
+.vpa-tile:hover { transform: translateY(-3px); box-shadow: var(--sh-lg); }
+.vpa-tcopy { position: absolute; left: 32px; top: 32px; bottom: 32px; width: 220px; display: flex; flex-direction: column; z-index: 1; }
+.vpa-tcopy b { display: block; font-size: 28px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+.vpa-tcopy .d { display: block; font-size: 14px; font-weight: 600; line-height: 1.45; margin-top: 8px; opacity: .82; }
+.vpa-tcopy .goin { display: inline-flex; align-items: center; align-self: flex-start; height: 44px; padding: 0 20px; border-radius: 14px; background: #ffffff; color: #111418; font-size: 14px; font-weight: 800; margin-top: auto; }
+.vpa-tart { position: absolute; right: 0; top: 0; bottom: 0; width: 310px; }
+.vpa-tart svg { width: 100%; height: 100%; display: block; }
+.vpa-quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.vpa-qk { display: flex; flex-direction: column; gap: 16px; padding: 20px; border-radius: 20px; border: 1px solid var(--line); background: var(--card); position: relative; transition: border-color .16s ease; }
+.vpa-qk:hover { border-color: var(--line2); }
+.vpa-qk .ic { width: 44px; height: 44px; border-radius: 14px; background: var(--soft); display: flex; align-items: center; justify-content: center; }
+.vpa-qk b { display: block; font-size: 15px; font-weight: 800; }
+.vpa-qk span.t { display: block; font-size: 13px; color: var(--mut); font-weight: 600; margin-top: 3px; }
+.vpa-qk .pin { position: absolute; top: 20px; right: 20px; width: 9px; height: 9px; border-radius: 50%; background: #f79009; }
+
+/* mis productos */
+.vpa-pgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.vpa-pcard { border: 1px solid var(--line); border-radius: 24px; overflow: hidden; background: var(--card); display: flex; flex-direction: column; }
+.vpa-art { height: 196px; position: relative; overflow: hidden; }
+.vpa-art svg { width: 100%; height: 100%; display: block; }
+.vpa-art .vpa-tag { position: absolute; top: 14px; right: 14px; background: #ffffff; color: #111418; }
+.vpa-pbody { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.vpa-pbody h3 { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.vpa-pbody p { margin-top: 3px; color: var(--mut); font-weight: 600; font-size: 13px; line-height: 1.45; }
+.vpa-pfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; flex-wrap: wrap; }
+.vpa-pfoot small { font-size: 12.5px; color: var(--mut); font-weight: 600; }
+
+/* plan y pagos */
+.vpa-stack { display: flex; flex-direction: column; gap: 28px; }
+.vpa-payhero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 32px; padding: 32px; border-radius: 28px; border: 1px solid var(--line); background: var(--card); }
+.vpa-huge { font-size: 52px; font-weight: 800; letter-spacing: -.04em; line-height: 1.05; margin-top: 4px; }
+.vpa-payline { margin-top: 16px; }
+.vpa-payline b { display: block; font-size: 16px; font-weight: 800; }
+.vpa-payline span { display: block; font-size: 13.5px; color: var(--mut); font-weight: 600; margin-top: 3px; }
+.vpa-acts { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+.vpa-paysum { padding: 24px; border-radius: 20px; background: var(--soft); display: flex; flex-direction: column; gap: 16px; }
+.vpa-psr { display: flex; align-items: center; gap: 12px; }
+.vpa-psr strong { font-size: 14px; font-weight: 800; white-space: nowrap; }
+.vpa-secth { margin-bottom: 16px; }
+.vpa-secth h2 { font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+.vpa-secth p { margin-top: 4px; color: var(--mut); font-weight: 600; font-size: 13px; }
+.vpa-cplans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.vpa-cplan { display: flex; flex-direction: column; gap: 20px; padding: 24px; border-radius: 24px; border: 1px solid var(--line); background: var(--card); }
+.vpa-cph { display: flex; align-items: center; gap: 14px; }
+.vpa-cph b { display: block; font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+.vpa-cph span.t { display: block; font-size: 13px; color: var(--mut); font-weight: 600; margin-top: 2px; }
+.vpa-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 20px; border-top: 1px solid var(--line); }
+.vpa-facts .vpa-lab { margin-bottom: 3px; }
+.vpa-facts b { font-size: 14px; font-weight: 800; }
+
+/* filtros, menús, trabajos y equipo */
+.vpa-fbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vpa-fwrap { position: relative; display: inline-flex; }
+.vpa-fbtn { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 13px; border-radius: 11px; border: 1px solid var(--line); background: var(--card); font-size: 13px; font-weight: 700; color: var(--mut); cursor: pointer; white-space: nowrap; }
+.vpa-fbtn b { color: var(--tx); font-weight: 800; }
+.vpa-fbtn:hover { border-color: var(--line2); }
+.vpa-fbtn.on { border-color: var(--acc); background: var(--accsoft); }
+.vpa-fmenu { position: absolute; top: calc(100% + 6px); left: 0; min-width: 210px; padding: 6px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--sh-lg); z-index: 30; display: flex; flex-direction: column; gap: 2px; }
+.vpa-fmenu.wide { width: 300px; white-space: normal; }
+.vpa-fopt { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 8px 10px; border: 0; background: none; border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%; text-align: left; }
+.vpa-fopt:hover { background: var(--hover); }
+.vpa-fopt.on { background: var(--accsoft); color: var(--acc-tx); font-weight: 800; }
+.vpa-fopt:disabled { opacity: .55; cursor: default; }
+.vpa-fopt .vpa-g1 b { font-size: 13px; }
+.vpa-fopt .vpa-g1 span { font-size: 12px; line-height: 1.35; white-space: normal; }
+.vpa-fnote { padding: 6px 10px; font-size: 12px; font-weight: 600; line-height: 1.4; color: var(--mut); white-space: normal; }
+.vpa-menuscrim { position: absolute; inset: 0; z-index: 20; }
+.vpa-job { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.vpa-job h3 { font-size: 16px; font-weight: 800; }
+.vpa-meta { font-size: 12.5px; font-weight: 600; color: var(--mut); margin-top: 3px; }
+.vpa-prog { display: flex; gap: 5px; }
+.vpa-prog i { flex: 1; height: 6px; border-radius: 3px; background: var(--line); }
+.vpa-prog i.d { background: var(--acc); }
+.vpa-prog i.n { background: #f79009; }
+.vpa-stepl { font-size: 12px; font-weight: 700; color: var(--mut); margin-top: 6px; }
+.vpa-nextb { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vpa-nextb .vpa-g1 b { font-weight: 800; font-size: 15px; }
+.vpa-meet { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.vpa-cal { width: 76px; height: 80px; border-radius: 18px; background: var(--accsoft); color: var(--acc-tx); display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; }
+.vpa-cal small { font-size: 11.5px; font-weight: 800; }
+.vpa-cal b { font-size: 30px; font-weight: 800; line-height: 1.05; }
+.vpa-tw.free { overflow: visible; }
+.vpa-person { display: flex; align-items: center; gap: 10px; }
+.vpa-ava { width: 36px; height: 36px; border-radius: 50%; background: var(--accsoft); color: var(--acc-tx); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; flex: none; }
+.vpa-rolebtn { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--line2); background: none; font-weight: 700; font-size: 12.5px; cursor: pointer; }
+.vpa-rolebtn:hover { background: var(--hover); }
+.vpa-pchip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 11.5px; font-weight: 800; }
+.vpa-th-i { display: inline-flex; align-items: center; gap: 6px; position: relative; }
+.vpa-info { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: var(--active); font-size: 11px; font-weight: 800; font-style: italic; font-family: Georgia, serif; display: flex; align-items: center; justify-content: center; cursor: help; }
+.vpa-tip { display: none; position: absolute; top: calc(100% + 8px); left: -8px; width: 310px; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--sh-lg); z-index: 35; white-space: normal; flex-direction: column; gap: 10px; color: var(--tx); }
+.vpa-th-i:hover .vpa-tip, .vpa-info:focus + .vpa-tip { display: flex; }
+.vpa-tip > span > b { display: block; font-size: 13px; font-weight: 800; }
+.vpa-tip > span > small { display: block; font-size: 12.5px; font-weight: 600; color: var(--mut); line-height: 1.4; margin-top: 1px; }
+.vpa-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.vpa-choice { display: flex; flex-direction: column; gap: 3px; padding: 12px; border: 1.5px solid var(--line); border-radius: 14px; background: none; cursor: pointer; text-align: left; }
+.vpa-choice.on { border-color: var(--acc); background: var(--accsoft); }
+.vpa-choice:disabled { opacity: .55; cursor: default; }
+.vpa-choice b { font-weight: 800; }
+.vpa-choice span { font-size: 12px; color: var(--mut); font-weight: 600; line-height: 1.4; }
+
+/* cobro */
+.vpa-payopts { display: flex; flex-direction: column; gap: 10px; }
+.vpa-payopt { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 14px; border: 1.5px solid var(--line); background: none; cursor: pointer; text-align: left; }
+.vpa-payopt:hover { border-color: var(--line2); }
+.vpa-payopt.on { border-color: var(--acc); background: var(--accsoft); }
+.vpa-payopt .vpa-g1 b { font-weight: 800; }
+.vpa-rad { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line2); flex: none; background: var(--card); }
+.vpa-payopt.on .vpa-rad { border: 5px solid var(--acc); }
+.vpa-mpf { padding: 10px 12px; }
+.vpa-mpf iframe { height: 20px !important; }
+.vpa-cardrow { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.vpa-cardrow:last-child { border-bottom: 0; padding-bottom: 0; }
+.vpa-notice { padding: 14px 18px; border-radius: 14px; background: var(--accsoft); color: var(--acc-tx); font-weight: 700; }
+
+.vpa-todo { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.vpa-todo:last-child { border-bottom: 0; padding-bottom: 0; }
+.vpa-todo:first-child { padding-top: 0; }
+.vpa-area { height: 96px; padding: 10px 12px; resize: vertical; }
+.vpa-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+/* vase business: tus webs */
+.vpa-backl { align-self: flex-start; font-size: 13px; font-weight: 800; color: var(--mut); }
+.vpa-backl:hover { color: var(--tx); }
+.vpa-wgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.vpa-wcard { border: 1px solid var(--line); border-radius: 24px; background: var(--card); display: flex; flex-direction: column; }
+.vpa-wthumb { height: 208px; border-radius: 23px 23px 0 0; position: relative; overflow: hidden; padding: 28px 36px 0; }
+.vpa-wbrow { height: 100%; background: #ffffff; border-radius: 14px 14px 0 0; box-shadow: 0 12px 32px rgba(16, 24, 40, .16); overflow: hidden; }
+.vpa-wbar { height: 30px; display: flex; align-items: center; gap: 5px; padding: 0 12px; background: #f4f5f7; }
+.vpa-wbar i { width: 8px; height: 8px; border-radius: 50%; background: #d5d9de; }
+.vpa-wbar span { margin-left: 8px; font-size: 11px; font-weight: 700; color: #667085; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpa-whero { height: 74px; margin: 10px 12px 0; border-radius: 9px; }
+.vpa-wtiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 12px 0; }
+.vpa-wtiles i { height: 60px; border-radius: 8px; background: #eceef0; }
+.vpa-wthumb > .vpa-tag { position: absolute; top: 14px; right: 14px; background: #ffffff; color: #111418; }
+.vpa-wbody { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.vpa-wbody h3 { font-size: 19px; font-weight: 800; letter-spacing: -.02em; }
+.vpa-wbody p { margin-top: 3px; color: var(--mut); font-weight: 600; font-size: 13px; }
+.vpa-wacts { display: flex; align-items: center; gap: 8px; margin-top: auto; }
+.vpa-fmenu.right { left: auto; right: 0; }
+.vpa-wadd { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 340px; border: 1.5px dashed var(--line2); border-radius: 24px; background: none; cursor: pointer; text-align: center; }
+.vpa-wadd:hover:not(:disabled) { border-color: var(--acc); background: var(--accsoft); }
+.vpa-wadd:disabled { cursor: default; opacity: .6; }
+.vpa-wadd .pl { width: 52px; height: 52px; border-radius: 50%; background: var(--soft); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 600; margin-bottom: 6px; }
+.vpa-wadd b { font-size: 16px; font-weight: 800; }
+.vpa-wadd small { font-size: 13px; color: var(--mut); font-weight: 600; }
+.vpa-flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.vpa-flowc { display: flex; flex-direction: column; gap: 6px; padding: 22px; border: 1.5px solid var(--line); border-radius: 18px; background: none; cursor: pointer; text-align: left; }
+.vpa-flowc:hover { border-color: var(--acc); background: var(--accsoft); }
+.vpa-flowc b { font-size: 16px; font-weight: 800; }
+.vpa-flowc span { font-size: 13px; color: var(--mut); font-weight: 600; line-height: 1.45; }
+.vpa-dialog > form { width: 420px; max-width: 100%; background: var(--card); border-radius: 22px; box-shadow: var(--sh-lg); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+.vpa-avrow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px; border-radius: 14px; background: var(--soft); }
+.vpa-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--accsoft); color: var(--acc-tx); display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; overflow: hidden; flex: none; }
+.vpa-avatar img, .vpa-ava img { width: 100%; height: 100%; object-fit: cover; }
+.vpa-ava { overflow: hidden; }
+
+/* mi negocio */
+.vpa-notice2 { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-radius: 14px; background: var(--accsoft); }
+.vpa-notice2 b { font-weight: 800; }
+.vpa-notice2 span { color: var(--mut); font-weight: 600; font-size: 12.5px; }
+.vpa-bizgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.vpa-span2 { grid-column: 1 / -1; }
+.vpa-cardh { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.vpa-cardh h3 { font-size: 15px; font-weight: 800; }
+.vpa-uses { display: flex; gap: 4px; flex-wrap: wrap; }
+.vpa-usec { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 10.5px; font-weight: 800; }
+.vpa-idrow { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.vpa-form3 { flex: 1; min-width: 260px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; }
+.vpa-logoup-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.vpa-logoup-wrap small { color: var(--red); font-size: 11px; font-weight: 700; }
+.vpa-logoup { width: 96px; height: 96px; border-radius: 20px; border: 1.5px dashed var(--line2); background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; overflow: hidden; padding: 6px; }
+.vpa-logoup:hover:not(:disabled) { border-color: var(--acc); background: var(--accsoft); }
+.vpa-logoup:disabled { cursor: default; }
+.vpa-logoup img { width: 100%; height: 60px; object-fit: contain; }
+.vpa-logoup b { width: 48px; height: 48px; border-radius: 14px; background: #ff4d00; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; }
+.vpa-logoup span { font-size: 11px; font-weight: 700; color: var(--mut); }
+.vpa-savebar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--sh-lg); font-weight: 700; font-size: 13px; }
+.vpa-branches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.vpa-branch { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 14px; background: var(--soft); }
+.vpa-branch .vpa-g1 b { display: flex; align-items: center; flex-wrap: wrap; font-weight: 800; }
+.vpa-branch .vpa-g1 span { line-height: 1.45; }
+.vpa-branch-acts { display: flex; flex-direction: column; gap: 6px; }
+
+.vpa-bizlist { display: flex; flex-direction: column; gap: 10px; }
+.vpa-acc2 { border: 1px solid var(--line); border-radius: 18px; background: var(--card); }
+.vpa-acc2 > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 16px 18px; cursor: pointer; border-radius: 18px; }
+.vpa-acc2 > summary::-webkit-details-marker { display: none; }
+.vpa-acc2 > summary:hover { background: var(--hover); }
+.vpa-acc2 > summary .vpa-g1 b { font-size: 15px; font-weight: 800; }
+.vpa-acc2 > summary .vpa-g1 span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpa-chev2 { color: var(--mut); flex: none; transition: transform .18s ease; }
+.vpa-acc2[open] > summary .vpa-chev2 { transform: rotate(180deg); }
+.vpa-acc2[open] > summary { border-bottom: 1px solid var(--line); border-radius: 18px 18px 0 0; }
+.vpa-acc2-body { padding: 16px 18px 18px; }
+.vpa-form3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Mi negocio › Cómo se conectan tus productos */
+.vpa-hub { display: flex; flex-direction: column; gap: 14px; }
+.vpa-hubprods { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.vpa-hp { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; border-radius: 14px; background: var(--soft); text-align: center; }
+.vpa-hp b { font-size: 12px; font-weight: 800; }
+.vpa-hp small { font-size: 11px; color: var(--mut); font-weight: 600; }
+.vpa-hp.off { opacity: .5; }
+.vpa-hp.ext { background: transparent; border: 1.5px dashed var(--line2); }
+.vpa-hpi { width: 34px; height: 34px; border-radius: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.vpa-hubrows { display: flex; flex-direction: column; }
+.vpa-hubrow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, .9fr); align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.vpa-hubrow:last-child { border-bottom: 0; }
+.vpa-hubrow > .vpa-g1 b { display: block; font-weight: 800; }
+.vpa-hubrow > .vpa-g1 span { display: block; font-size: 12px; color: var(--mut); font-weight: 600; margin-top: 2px; }
+.vpa-hubuse small { display: block; font-size: 11px; color: var(--mut); font-weight: 700; margin-bottom: 4px; }
+.vpa-hubsel { position: relative; }
+.vpa-hubselb { display: flex; align-items: center; gap: 8px; width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--line2); border-radius: 11px; background: var(--card); color: var(--tx); font: inherit; font-weight: 700; font-size: 13px; cursor: pointer; text-align: left; }
+.vpa-hubselb .vpa-g1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpa-hubselb.on { border-color: var(--acc); box-shadow: 0 0 0 3px var(--accsoft); }
+.vpa-hubselb:disabled { cursor: default; opacity: .75; }
+.vpa-hubmenu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; display: flex; flex-direction: column; gap: 2px; padding: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--sh-lg); }
+.vpa-hubopt { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 9px; background: none; color: var(--tx); font: inherit; text-align: left; cursor: pointer; }
+.vpa-hubopt:hover:not(:disabled) { background: var(--hover); }
+.vpa-hubopt.on { background: var(--accsoft); }
+.vpa-hubopt:disabled { opacity: .5; cursor: default; }
+.vpa-hubopt b { display: block; font-weight: 800; font-size: 12.5px; }
+.vpa-hubopt span span { display: block; font-size: 11.5px; color: var(--mut); font-weight: 600; }
+.vpa-hubmk { width: 24px; height: 24px; border-radius: 8px; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+.vpa-hubext { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; padding-top: 18px; border-top: 1px dashed var(--line2); }
+.vpa-hubexth { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vpa-hubexth .vpa-g1 b { display: block; font-size: 14px; font-weight: 800; }
+.vpa-hubexth .vpa-g1 span { display: block; font-size: 12px; color: var(--mut); font-weight: 600; margin-top: 2px; }
+.vpa-hubsend { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 16px; background: var(--soft); }
+.vpa-hubsend > b { font-weight: 800; font-size: 13.5px; }
+.vpa-hubsendi { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.vpa-hubsendi .vpa-g1 b { display: block; font-weight: 700; }
+.vpa-hubsendi .vpa-g1 span { display: block; font-size: 12px; color: var(--mut); font-weight: 600; }
+.vpa-hubck { width: 18px; height: 18px; border-radius: 6px; background: var(--acc); color: var(--acc-on); display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: 11px; font-weight: 800; }
+.vpa-hubck.off { background: var(--active); color: var(--mut); }
+.vpa-hubconn { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.vpa-hubdot { width: 12px; height: 12px; border-radius: 50%; background: var(--mut); flex: none; }
+.vpa-hubdot.on { background: var(--ok); box-shadow: 0 0 0 5px rgba(7, 148, 85, .15); }
+@media (max-width: 860px) { .vpa-hubconn { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 860px) {
+  .vpa-hubprods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vpa-hubrow { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}
+
+/* nube y redes */
+.vpa-saveerr { padding: 10px 14px; border-radius: 12px; background: rgba(240, 68, 56, .1); color: var(--red); font-weight: 700; font-size: 13px; }
+.vpa-socials { display: flex; flex-direction: column; gap: 8px; }
+.vpa-social { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 14px; background: var(--soft); }
+.vpa-social .vpa-g1 b { font-size: 12.5px; font-weight: 800; margin-bottom: 4px; }
+.vpa-social .vpa-inp { height: 34px; }
+.vpa-sicon { width: 36px; height: 36px; border-radius: 11px; display: flex; align-items: center; justify-content: center; color: #fff; flex: none; overflow: hidden; }
+.vpa-sicon.custom { background: var(--active); color: var(--tx); }
+.vpa-sicon img { width: 100%; height: 100%; object-fit: contain; }
+.vpa-addsocial { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; border-radius: 12px; border: 1.5px dashed var(--line2); background: none; font-weight: 800; font-size: 13px; color: var(--mut); cursor: pointer; }
+.vpa-addsocial:hover { border-color: var(--acc); color: var(--acc-tx); background: var(--accsoft); }
+.vpa-netgrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.vpa-netopt { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border-radius: 14px; border: 1.5px solid var(--line); background: none; cursor: pointer; font-size: 12px; font-weight: 700; }
+.vpa-netopt:hover { border-color: var(--acc); background: var(--accsoft); }
+
+/* temas */
+.vpa-themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 560px; }
+.vpa-theme { display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: 18px; border: 1.5px solid var(--line); cursor: pointer; background: none; text-align: left; }
+.vpa-theme.on { border-color: var(--acc); background: var(--accsoft); }
+.vpa-theme b { font-weight: 800; padding: 0 4px 4px; }
+.vpa-tprev { height: 104px; border-radius: 12px; padding: 12px; display: flex; gap: 8px; border: 1px solid var(--line); }
+.vpa-tprev i { display: block; border-radius: 6px; }
+
+/* paneles a la derecha */
+.vpa-ov { position: absolute; inset: 0; background: var(--scrim); display: flex; justify-content: flex-end; z-index: 50; }
+.vpa-dr { width: 480px; max-width: 100%; height: 100%; background: var(--card); box-shadow: var(--sh-lg); display: flex; flex-direction: column; overflow: hidden; }
+.vpa-mh { display: flex; align-items: flex-start; gap: 12px; padding: 22px 22px 8px; }
+.vpa-mh h3 { font-size: 18px; font-weight: 800; }
+.vpa-mh p { margin-top: 4px; color: var(--mut); font-weight: 600; font-size: 12.5px; }
+.vpa-x { width: 32px; height: 32px; border: 0; background: none; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mut); flex: none; margin-left: auto; }
+.vpa-x:hover { background: var(--hover); }
+.vpa-drb { flex: 1; overflow: auto; padding: 14px 22px 22px; display: flex; flex-direction: column; gap: 16px; }
+.vpa-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; counter-reset: paso; }
+.vpa-steps li { counter-increment: paso; display: flex; gap: 12px; font-weight: 600; line-height: 1.45; }
+.vpa-steps li::before { content: counter(paso); width: 24px; height: 24px; border-radius: 50%; background: var(--accsoft); color: var(--acc-tx); font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+.vpa-nthead { padding: 0 22px 12px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--line); }
+.vpa-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.vpa-chip { height: 30px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--soft); font-size: 12.5px; font-weight: 700; color: var(--mut); cursor: pointer; }
+.vpa-chip.on { background: var(--ink); color: var(--ink-on); font-weight: 800; }
+.vpa-nbar { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.vpa-nall { display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 0; font-size: 13px; font-weight: 700; cursor: pointer; }
+.vpa-cbx { width: 18px; height: 18px; padding: 0; border-radius: 6px; border: 1.5px solid var(--line2); display: flex; align-items: center; justify-content: center; color: transparent; flex: none; background: var(--card); cursor: pointer; }
+.vpa-cbx.on { background: var(--acc); border-color: var(--acc); color: var(--acc-on); }
+.vpa-nlist { flex: 1; overflow: auto; padding: 4px 14px 18px; }
+.vpa-nit { display: flex; align-items: flex-start; gap: 10px; padding: 0 8px; border-radius: 14px; }
+.vpa-nit:hover { background: var(--hover); }
+.vpa-nit > .vpa-cbx { margin-top: 13px; }
+.vpa-nrow { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; }
+.vpa-nrow .vpa-g1 b { font-weight: 600; line-height: 1.35; }
+.vpa-nrow.unread .vpa-g1 b { font-weight: 800; }
+.vpa-ndest { display: inline-block; margin-top: 5px; font-size: 12.5px; font-weight: 800; color: var(--acc-tx); }
+.vpa-udot { width: 8px; height: 8px; border-radius: 50%; background: var(--acc); flex: none; margin-top: 6px; }
+.vpa-dialog { position: absolute; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 60; }
+.vpa-dialog > div { width: 420px; max-width: 100%; background: var(--card); border-radius: 22px; box-shadow: var(--sh-lg); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.vpa-dialog h3 { font-size: 18px; font-weight: 800; }
+.vpa-dialog p { color: var(--mut); font-weight: 600; line-height: 1.5; }
+.vpa-dialog .row { display: flex; justify-content: flex-end; gap: 10px; }
+
+@media (max-width: 1180px) {
+  .vpa-tart { display: none; }
+  .vpa-tcopy { width: auto; right: 32px; }
+  .vpa-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  /* Celular: como una app. El menú es una barra fija abajo, con el ícono arriba y el nombre chico debajo. */
+  .vpa { flex-direction: column; height: auto; min-height: 100dvh; overflow: visible; padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+  .vpa .vase-side { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 60; width: 100%; height: auto; flex-direction: row; align-items: stretch; gap: 2px; padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); border-right: 0; border-top: 1px solid var(--line); background: var(--card); }
+  .vpa .vase-side.mini { width: 100%; }
+  .vpa .vase-side :is(.vase-side-logo, .vase-pill, .vase-side-grp, .vase-side-coll, .vase-side-ut, .vase-side-chev, .vase-side-sub) { display: none; }
+  .vpa .vase-side-nav { display: flex; flex: 1 1 auto; gap: 2px; min-width: 0; margin: 0; padding: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .vpa .vase-side-nav::-webkit-scrollbar { display: none; }
+  .vpa .vase-side-nb, .vpa .vase-side.mini .vase-side-nb { position: relative; flex: 1 1 0; min-width: 52px; flex-direction: column; justify-content: center; gap: 3px; width: auto; height: 56px; margin: 0; padding: 4px 4px 2px; border-radius: 14px; font-size: 10.5px; line-height: 1.1; text-align: center; }
+  .vpa .vase-side-nb:hover { background: none; }
+  .vpa .vase-side-nb.on { background: none; }
+  /* El ícono de la sección abierta va adentro de una pastilla oscura. */
+  .vpa .vase-side-nb > svg { box-sizing: border-box; width: 46px; height: 30px; padding: 6px 14px; border-radius: 12px; flex: none; }
+  .vpa .vase-side-nb.on > svg { background: var(--tx); color: var(--page); }
+  .vpa .vase-side-lbl, .vpa .vase-side.mini .vase-side-lbl { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vpa .vase-side-badge, .vpa .vase-side.mini .vase-side-badge { display: flex; position: absolute; top: 2px; left: calc(50% + 8px); margin: 0; min-width: 18px; height: 18px; font-size: 10px; padding: 0 5px; }
+  /* La cuenta es la última pestaña de la barra. */
+  .vpa .vase-side-acc { flex: none; margin: 0; padding: 0; position: static; display: flex; }
+  .vpa .vase-side-accbtn { width: 54px; height: 56px; padding: 0; border: 0; background: none; justify-content: center; }
+  .vpa .vase-side-ava { width: 30px; height: 30px; border-radius: 10px; }
+  .vpa .vase-side-menu, .vpa .vase-side.mini .vase-side-menu { position: fixed; left: auto; right: 10px; top: auto; bottom: calc(74px + env(safe-area-inset-bottom, 0px)); width: 220px; }
+  .vpa-top { padding: 12px 16px; flex-wrap: wrap; }
+  .vpa-body { padding: 16px; overflow: visible; }
+  .vpa-tw.free { overflow-x: auto; }
+  .vpa-totop { position: fixed; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); right: 16px; }
+  .vpa-netgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .vpa-bizgrid, .vpa-branches, .vpa-form3, .vpa-acc2 > summary .vpa-uses,
+  .vpa-wgrid, .vpa-flow,
+  .vpa-tiles, .vpa-pgrid, .vpa-payhero, .vpa-cplans, .vpa-form, .vpa-themes, .vpa-g2, .vpa-two { grid-template-columns: minmax(0, 1fr); }
+  .vpa-ov, .vpa-dialog { position: fixed; }
+}
+
+/* ===== Piezas compartidas (@vase/ui): las usan app.vase.ar y los productos ===== */
+.vpa-body.flush { padding: 0; overflow: hidden; }
+.vpa-body.flush > .vpa-wrap { max-width: none; height: 100%; gap: 0; }
+.vpa-acclist { display: flex; flex-direction: column; gap: 10px; }
+.vpa-facts2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.vpa-facts2 > div { padding: 12px 14px; border-radius: 12px; background: var(--soft); min-width: 0; }
+.vpa-facts2 small { display: block; font-size: 11.5px; color: var(--mut); font-weight: 700; }
+.vpa-facts2 b { display: block; font-weight: 800; margin-top: 3px; overflow-wrap: anywhere; }
+.vpa-meter { height: 8px; border-radius: 99px; background: var(--soft); overflow: hidden; margin: 12px 0 8px; }
+.vpa-meter i { display: block; height: 100%; border-radius: 99px; background: var(--acc); }
+.vpa-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.vpa-row:last-child { border-bottom: 0; }
+.vpa-from { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 14px; color: var(--mut); font-weight: 600; font-size: 12.5px; }
+.vpa-chip2 { height: 22px; padding: 0 9px; border-radius: 7px; background: var(--accsoft); color: var(--acc-tx); font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; white-space: nowrap; }
+.vpa-ic { width: 36px; height: 36px; border-radius: 11px; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+.vpa-pbadge { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 7px; background: var(--brand-pill-bg); color: var(--brand-pill-tx); font-size: 18px; line-height: 1.2; font-weight: 800; letter-spacing: -.03em; }
+
+/* Pasos de estado (pedidos): se tocan para avanzar. */
+.vpa-stepper { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.vpa-stp { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px; border-radius: 14px; cursor: pointer; font-size: 12px; font-weight: 700; color: var(--mut); background: var(--soft); text-align: center; transition: background .15s; }
+.vpa-stp i { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; background: var(--card); border: 1.5px solid var(--line2); color: var(--mut); }
+.vpa-stp:hover:not(:disabled) { background: var(--active); }
+.vpa-stp:disabled { cursor: default; }
+.vpa-stp:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.vpa-stp.done { color: var(--tx); } .vpa-stp.done i { background: var(--acc); border-color: var(--acc); color: var(--acc-on); }
+.vpa-stp.now { background: var(--accsoft); color: var(--acc-tx); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--acc); } .vpa-stp.now i { border-color: var(--acc); color: var(--acc-tx); }
+.vpa-stp.off { opacity: .45; }
+.vpa-dots { display: inline-flex; gap: 3px; } .vpa-dots i { width: 14px; height: 4px; border-radius: 2px; background: var(--line2); } .vpa-dots i.on { background: var(--acc); }
+.vpa-ordrow { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.vpa-ordrow:last-child { border-bottom: 0; }
+.vpa-ordrow:hover { background: var(--hover); border-radius: 10px; }
+.vpa-ordrow:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; border-radius: 10px; }
+.vpa-ordrow .vpa-g1 b, .vpa-ordrow .vpa-g1 span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpa-ordtot { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 14px; background: var(--soft); }
+.vpa-ordtot b.big { font-size: 20px; font-weight: 800; }
+.vpa-mf { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 22px 22px; border-top: 1px solid var(--line); }
+.vpa-area { width: 100%; box-sizing: border-box; }
+
+/* "Tu plan" de una web: medidores de espacio, reparto y copia de seguridad. */
+.vpa-tp-stack { display: flex; flex-direction: column; gap: 24px; max-width: 1080px; }
+.vpa-tp-plan { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 20px 24px; border-radius: 20px; background: var(--soft); }
+.vpa-tp-plan .g { flex: 1; min-width: 220px; }
+.vpa-tp-plan small, .vpa-tp-facts small { display: block; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mut); }
+.vpa-tp-plan b { display: block; margin-top: 4px; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.vpa-tp-plan span { display: block; margin-top: 4px; color: var(--mut); font-weight: 600; font-size: 13px; }
+.vpa-tp-ms { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.vpa-tp-m { padding: 20px; border: 1px solid var(--line); border-radius: 20px; background: var(--card); display: flex; flex-direction: column; gap: 12px; }
+.vpa-tp-mh { display: flex; align-items: center; gap: 8px; }
+.vpa-tp-ml { flex: 1; font-size: 13px; font-weight: 800; color: var(--mut); }
+.vpa-tp-mp { font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 8px; background: var(--accsoft); color: var(--acc-tx); }
+.vpa-tp-mp.warn { background: var(--warnsoft); color: var(--warn); }
+.vpa-tp-mv { display: flex; align-items: baseline; gap: 8px; }
+.vpa-tp-mv b { font-size: 28px; font-weight: 800; letter-spacing: -.03em; }
+.vpa-tp-mv span { color: var(--mut); font-weight: 700; font-size: 13px; }
+.vpa-tp-bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; display: flex; }
+.vpa-tp-bar i { display: block; height: 100%; background: var(--acc); border-radius: 4px; }
+.vpa-tp-bar i.warn { background: #f79009; }
+.vpa-tp-m small { color: var(--mut); font-weight: 600; font-size: 12px; line-height: 1.5; }
+.vpa-tp-box { padding: 24px; border: 1px solid var(--line); border-radius: 20px; background: var(--card); display: flex; flex-direction: column; gap: 16px; }
+.vpa-tp-box h3 { font-size: 15px; font-weight: 800; }
+.vpa-tp-box .sub { margin-top: 4px; color: var(--mut); font-weight: 600; font-size: 12.5px; line-height: 1.5; }
+.vpa-tp-split { height: 12px; border-radius: 6px; background: var(--line); overflow: hidden; display: flex; gap: 2px; }
+.vpa-tp-split i { display: block; height: 100%; }
+.vpa-tp-leg { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 16px; }
+.vpa-tp-leg div { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; }
+.vpa-tp-leg i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.vpa-tp-leg span { color: var(--mut); margin-left: auto; font-weight: 600; }
+.vpa-tp-bk { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-radius: 16px; background: var(--soft); }
+.vpa-tp-bk .g { flex: 1; min-width: 200px; }
+.vpa-tp-bk b { display: block; font-size: 15px; font-weight: 800; }
+.vpa-tp-bk b::first-letter { text-transform: uppercase; }
+.vpa-tp-bk span { display: block; margin-top: 2px; color: var(--mut); font-weight: 600; font-size: 12.5px; }
+.vpa-tp-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.vpa-tp-facts div { padding: 12px 16px; border-radius: 14px; border: 1px solid var(--line); }
+.vpa-tp-facts b { display: block; margin-top: 4px; font-size: 14px; font-weight: 800; }
+.vpa-tp-facts b::first-letter { text-transform: uppercase; }
+.vpa-tp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.vpa-tp-img { margin: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); min-width: 0; }
+.vpa-tp-img img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--soft); }
+.vpa-tp-img figcaption { padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vpa-tp-img b { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpa-tp-img span { font-size: 11px; color: var(--mut); font-weight: 600; }
+.vpa-tp-box .vpa-sech > .vpa-g1 { flex: 1 1 220px; }
+.vpa-tp-note { font-size: 12.5px; color: var(--mut); font-weight: 600; line-height: 1.5; }
+@media (max-width: 860px) { .vpa-tp-box { padding: 16px; } .vpa-tp-plan { padding: 16px; } .vpa-tp-mv b { font-size: 24px; } }
+
+/* ===== Pantallas grandes: más aire y contenido más ancho, sin estirar las líneas de texto de más ===== */
+@media (min-width: 1600px) {
+  .vpa-top { padding-left: 40px; padding-right: 40px; }
+  .vpa-body { padding: 28px 40px; }
+  .vpa-wrap { max-width: 1320px; }
+  .vpa-tp-stack { max-width: 1240px; }
+}
+@media (min-width: 2100px) {
+  .vpa-top { padding-left: 56px; padding-right: 56px; }
+  .vpa-body { padding: 32px 56px; }
+  .vpa-wrap { max-width: 1520px; }
+}
+
+
+body{margin:0;background:var(--page);font-family:Manrope,Inter,system-ui,sans-serif}
+.m-shell{display:flex;flex-direction:column;height:100vh}
+.m-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--card);color:var(--tx);flex-wrap:wrap}
+.m-bar b{font-weight:800}.m-bar .sp{flex:1}
+.m-bar select,.m-bar button{font:inherit;font-size:13px;font-weight:700;border:1px solid var(--line);background:var(--soft);color:var(--tx);border-radius:10px;padding:7px 10px;cursor:pointer}
+.m-bar{background:#fff;color:#111418;border-color:#eaecef}.m-bar select,.m-bar button{background:#f4f5f7;color:#111418;border-color:#eaecef}
+[data-theme=dark] .m-bar{background:#0a0a0a;color:#f2f2f2;border-color:#1e1e1e}[data-theme=dark] .m-bar select,[data-theme=dark] .m-bar button{background:#121212;color:#f2f2f2;border-color:#1e1e1e}
+.m-note{background:rgba(24,195,126,.10);color:#111418}[data-theme=dark] .m-note{background:rgba(71,224,152,.10);color:#f2f2f2}
+.m-note{padding:10px 16px;background:var(--accsoft);color:var(--tx);font-size:13px;font-weight:600;border-bottom:1px solid var(--line)}
+.m-note b{font-weight:800}
+.m-stage{flex:1;min-height:0;position:relative}
+.m-screen{display:none;height:100%}.m-screen.on{display:block}
+.m-screen .vpa{height:100%}
+.m-mut{color:var(--mut);font-weight:600;font-size:12.5px}
+.m-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.m-kpi{padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--card);display:flex;flex-direction:column;gap:6px}
+.m-kpi span{font-size:12.5px;font-weight:700;color:var(--mut)}.m-kpi b{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.m-kpi em{font-style:normal;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px}
+.m-kpi em.g{color:var(--acc-tx)}.m-kpi em.y{color:var(--warn)}.m-kpi em.r{color:var(--red)}
+.m-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.m-card{padding:20px;border:1px solid var(--line);border-radius:20px;background:var(--card);display:flex;flex-direction:column;gap:14px;min-width:0}
+.m-pad0{padding:0;overflow:hidden}
+.m-ch{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}.m-ch h3{font-size:15px;font-weight:800}
+.m-bars{display:flex;align-items:flex-end;gap:8px;height:150px;padding-top:8px}.m-bars i{flex:1;border-radius:8px 8px 3px 3px;background:var(--acc);opacity:.85}
+.m-legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12.5px;font-weight:700}.m-legend span{display:flex;align-items:center;gap:6px}.m-legend i{width:10px;height:10px;border-radius:3px}
+.m-legend.col{flex-direction:column}.m-legend.col span b{margin-left:auto;font-weight:800}
+.m-split2{display:flex;gap:2px;height:12px;border-radius:6px;overflow:hidden}.m-split2 i{display:block;height:100%}
+.m-list{display:flex;flex-direction:column}
+.m-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.m-row:last-child{border-bottom:0}
+.m-row>div.g{flex:1;min-width:0}.m-row b{display:block;font-size:13.5px;font-weight:800}.m-row span{display:block;color:var(--mut);font-size:12.5px;font-weight:600;margin-top:2px}
+.m-dot{width:10px;height:10px;border-radius:50%;flex:none}.m-dot.r{background:var(--red)}.m-dot.y{background:#f79009}.m-dot.b{background:#7a5af8}.m-dot.g{background:var(--acc)}
+.m-icon{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.m-icon.y{background:var(--warnsoft);color:var(--warn)}.m-icon.g{background:var(--accsoft);color:var(--acc-tx)}.m-icon.b{background:rgba(122,90,248,.12);color:#7a5af8}
+.m-tbl{width:100%;border-collapse:collapse;font-size:13px}.m-tbl th{text-align:left;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:12px 16px;border-bottom:1px solid var(--line)}
+.m-tbl td{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600;vertical-align:middle}.m-tbl tr:last-child td{border-bottom:0}
+.m-tbl td b{display:block;font-weight:800}.m-tbl td span{display:block;color:var(--mut);font-size:12px}.m-tbl .r{text-align:right}
+.m-tbl tr.on td{background:var(--accsoft)}.m-tbl.tight td{padding:8px 0}
+.m-filters{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.m-search{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--mut)}
+.m-search input{border:0;background:none;font:inherit;color:var(--tx);flex:1;outline:0}
+.m-split{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:16px;align-items:start}
+.m-side h4{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.m-sidehead{display:flex;gap:12px;align-items:center}.m-ava{width:44px;height:44px;border-radius:14px;background:#ff4d00;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+.m-facts{display:grid;grid-template-columns:1fr 1fr;gap:10px}.m-facts div{padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.m-facts small{display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}.m-facts b{display:block;margin-top:4px;font-weight:800}
+.m-chips{display:flex;flex-wrap:wrap;gap:8px}.m-chips span{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;background:var(--soft);font-size:12.5px;font-weight:700}
+.m-actions{display:flex;gap:8px;flex-wrap:wrap}.m-actions.end{justify-content:flex-end}
+.m-ai{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:rgba(122,90,248,.12);color:#7a5af8;font-size:11.5px;font-weight:800}
+[data-theme=dark] .m-ai{color:#b9a7ff}
+.m-inbox{display:grid;grid-template-columns:260px minmax(0,1fr) 300px;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:var(--card);min-height:560px}
+.m-ilist{border-right:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:4px;background:var(--side)}
+.m-iitem{padding:12px;border-radius:12px;position:relative}.m-iitem.on{background:var(--card);box-shadow:var(--sh-sm)}
+.m-iitem b{display:block;font-size:13.5px;font-weight:800}.m-iitem span{display:block;font-size:12.5px;color:var(--mut);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-angry{position:absolute;top:10px;right:10px;font-style:normal;font-size:10.5px;font-weight:800;color:var(--red);background:var(--redsoft);padding:2px 7px;border-radius:999px}
+.m-ithread{display:flex;flex-direction:column;min-width:0}.m-ihead{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline}
+.m-msgs{flex:1;padding:18px;display:flex;flex-direction:column;gap:10px;background:var(--soft)}
+.m-msg{max-width:78%;padding:10px 14px;border-radius:16px;font-size:13.5px;font-weight:600;line-height:1.45;background:var(--card);border:1px solid var(--line)}
+.m-msg.out{align-self:flex-end;background:var(--accsoft);border-color:transparent}.m-msg.ai::before{content:"IA · ";font-size:11px;font-weight:800;color:#7a5af8}
+.m-msg.pdfm p{margin-top:8px}.m-pdf{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.m-pdf b{display:block;font-size:13px;font-weight:800}.m-pdf span{display:block;font-size:12px;color:var(--mut)}
+.m-reply{border-top:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:10px}
+.m-input{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--line);border-radius:14px;color:var(--mut);font-size:13px;font-weight:600}
+.m-sugg{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.m-sugg button{font:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--soft);color:var(--tx);cursor:pointer}
+.m-iside{border-left:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--side)}
+.m-handoff{margin:6px 0;padding:14px;border-radius:16px;border:1px solid rgba(122,90,248,.35);background:var(--card);display:flex;flex-direction:column;gap:10px}
+.m-handoff b{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:13.5px}.m-handoff ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600}
+.m-iside .m-handoff{margin:0}
+.m-alert{display:flex;gap:10px;align-items:flex-start;padding:14px;border-radius:16px;background:var(--redsoft);color:var(--red)}
+.m-alert b{display:block;font-weight:800}.m-alert span{display:block;margin-top:2px;font-size:12.5px;font-weight:600;color:var(--tx)}
+.m-photos{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.m-ph{aspect-ratio:1;border-radius:14px;position:relative;overflow:hidden}
+.m-ph.before{background:linear-gradient(135deg,#a1887f,#6d4c41)}.m-ph.before::after{content:"";position:absolute;inset:22% 30%;border-radius:12px;background:linear-gradient(160deg,#cfd8dc,#78909c);transform:rotate(-8deg)}
+.m-ph.after{background:#fff;border:1px solid var(--line)}.m-ph.after::after{content:"";position:absolute;inset:18% 28%;border-radius:12px;background:linear-gradient(160deg,#eceff1,#90a4ae)}
+.m-ph span{position:absolute;left:10px;top:10px;z-index:1;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff}
+.m-gen{padding:14px;border-radius:14px;background:var(--soft);font-size:13.5px;font-weight:600;line-height:1.55}.m-gen ul{margin:8px 0 0;padding-left:18px}
+.m-big{font-size:15px;font-weight:600;line-height:1.6}.m-big b{font-weight:800}
+.m-drop{display:flex;gap:12px;align-items:center;padding:16px 18px;border:1px dashed var(--line2);border-radius:18px;background:var(--card);flex-wrap:wrap}
+.m-drop .g{flex:1;min-width:200px}.m-drop b{display:block;font-weight:800}.m-drop span{display:block;color:var(--mut);font-size:12.5px;font-weight:600}
+.m-about{padding:14px 16px;border-radius:16px;background:var(--soft);font-size:13px;font-weight:600;color:var(--tx);display:flex;gap:10px;align-items:flex-start}
+.m-about b{font-weight:800}
+@media(max-width:1100px){.m-inbox{grid-template-columns:1fr}.m-ilist,.m-iside{border:0;border-bottom:1px solid var(--line)}.m-split{grid-template-columns:1fr}}
+</style></head><body><div class="m-shell">
+<div class="m-bar"><b>Vase · Maquetas etapa 3</b><select id="pick"><option value="a-panel">Admin · Panel</option><option value="a-clientes">Admin · Clientes</option><option value="a-finanzas">Admin · Finanzas</option><option value="ia-1">IA · Presupuesto por chat en PDF</option><option value="ia-2">IA · Resumen al pasar a una persona</option><option value="ia-3">IA · Respuestas sugeridas que aprenden de vos</option><option value="ia-4">IA · Descripciones y fotos de producto</option><option value="ia-5">IA · Alertas de oportunidades</option><option value="ia-6">IA · Historial explicado en palabras</option><option value="ia-7">IA · Importar catálogo desde foto, PDF o Excel</option><option value="ia-8">IA · Detecta clientes enojados</option></select><button id="prev">‹ Anterior</button><button id="next">Siguiente ›</button><span class="sp"></span><button id="theme">Modo oscuro</button></div>
+<div class="m-note" id="note"></div><div class="m-stage"><section class="m-screen" id="s-a-panel" data-desc="Vista ejecutiva: plata, clientes, tickets y lo que necesita tu ok."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b><span class="vase-pill admin">Admin</span></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb on" data-go="a-panel"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="vase-side-lbl">Panel</span></a><a href="#" class="vase-side-nb" data-go="a-clientes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3 3-5 6-5s6 2 6 5M17 11a3 3 0 1 0 0-6M22 20c0-2.5-2-4.3-4.5-4.8"/></svg><span class="vase-side-lbl">Clientes</span></a><a href="#" class="vase-side-nb" data-go="a-tickets"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 0 0 4v5h18v-5a2 2 0 0 0 0-4V3H3zM9 3v18"/></svg><span class="vase-side-lbl">Soporte</span><em class="vase-side-badge">7</em></a><div class="vase-side-grp">Productos</div><a href="#" class="vase-side-nb" data-go="a-modulos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="vase-side-lbl">Planes y módulos</span></a><a href="#" class="vase-side-nb" data-go="a-labs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg><span class="vase-side-lbl">Labs</span></a><div class="vase-side-grp">Plata</div><a href="#" class="vase-side-nb" data-go="a-finanzas"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3zM3 10h18M7 15h3"/></svg><span class="vase-side-lbl">Finanzas</span></a><a href="#" class="vase-side-nb" data-go="a-presupuestos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l3 3v13H7zM10 10h7M10 14h7M10 18h4"/></svg><span class="vase-side-lbl">Presupuestos</span><em class="vase-side-badge">3</em></a><a href="#" class="vase-side-nb" data-go="a-gastos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/></svg><span class="vase-side-lbl">Gastos</span></a><div class="vase-side-grp">Equipo</div><a href="#" class="vase-side-nb" data-go="a-agenda"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v16H4zM4 9h16M8 3v4M16 3v4"/></svg><span class="vase-side-lbl">Reuniones</span></a><a href="#" class="vase-side-nb" data-go="a-delivery"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l4 4-8 8H6v-4zM16 4l4 4"/></svg><span class="vase-side-lbl">Trabajos</span></a><a href="#" class="vase-side-nb" data-go="a-wiki"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3"/></svg><span class="vase-side-lbl">Ayuda y wiki</span></a><div class="vase-side-grp">Sistema</div><a href="#" class="vase-side-nb" data-go="a-ajustes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4"/></svg><span class="vase-side-lbl">Ajustes</span></a><a href="#" class="vase-side-nb" data-go="a-auditoria"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9zM6 6h12v14H6zM9 12h6M9 16h4"/></svg><span class="vase-side-lbl">Auditoría</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Vase</b><small>Administración</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Hola, Darian</h1><div class="vpa-sub">Así está Vase hoy</div></div><a class="vpa-btn acc">Nuevo cliente</a><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap">
+<div class="m-kpis"><div class="m-kpi"><span>Ingreso del mes</span><b>$ 4.820.000</b><em class="g"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>+12% vs octubre</em></div><div class="m-kpi"><span>Clientes activos</span><b>128</b><em class="g"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>+9 este mes</em></div><div class="m-kpi"><span>Cobros pendientes</span><b>$ 610.000</b><em class="y"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>6 clientes</em></div><div class="m-kpi"><span>Tickets abiertos</span><b>7</b><em class="r"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>2 urgentes</em></div></div>
+<div class="m-two">
+  <section class="m-card"><div class="m-ch"><h3>Ingresos por mes</h3><span class="m-mut">Últimos 12 meses</span></div><div class="m-bars"><i style="height:38%"></i><i style="height:44%"></i><i style="height:41%"></i><i style="height:52%"></i><i style="height:58%"></i><i style="height:55%"></i><i style="height:63%"></i><i style="height:66%"></i><i style="height:71%"></i><i style="height:69%"></i><i style="height:78%"></i><i style="height:84%"></i></div>
+    <div class="m-legend"><span><i style="background:var(--acc)"></i>Business 52%</span><span><i style="background:#7a5af8"></i>Labs 31%</span><span><i style="background:#f79009"></i>Management 11%</span><span><i style="background:var(--mut)"></i>Rest 6%</span></div></section>
+  <section class="m-card"><div class="m-ch"><h3>Para hacer hoy</h3><span class="m-mut">Lo que necesita tu ok</span></div>
+    <div class="m-list">
+      <div class="m-row"><span class="m-dot r"></span><div class="g"><b>2 tickets urgentes sin responder</b><span>Piquim · Sanitarios El Teflon</span></div><a class="vpa-btn line sm">Ver</a></div>
+      <div class="m-row"><span class="m-dot y"></span><div class="g"><b>6 cobros vencidos</b><span>$ 610.000 en total · el más viejo hace 12 días</span></div><a class="vpa-btn line sm">Cobrar</a></div>
+      <div class="m-row"><span class="m-dot b"></span><div class="g"><b>3 presupuestos esperando respuesta</b><span>Tienda a medida · integración con Tango</span></div><a class="vpa-btn line sm">Abrir</a></div>
+      <div class="m-row"><span class="m-dot g"></span><div class="g"><b>Reunión 16:00 con Heladería Norte</b><span>Demo de Vase Labs</span></div><a class="vpa-btn line sm">Unirme</a></div>
+    </div></section>
+</div>
+<section class="m-card"><div class="m-ch"><h3>Últimos clientes</h3><a class="vpa-btn soft sm">Ver todos</a></div>
+<table class="m-tbl"><thead><tr><th>Cliente</th><th>Productos</th><th>Plan</th><th>Estado</th><th class="r">Por mes</th></tr></thead><tbody>
+<tr><td><b>Piquim</b><span>Heladería y panadería</span></td><td>Business · Labs</td><td>Premium</td><td><span class="vpa-tag g"><i></i>Al día</span></td><td class="r">$ 185.000</td></tr>
+<tr><td><b>Sanitarios El Teflon</b><span>Sanitarios</span></td><td>Business · Labs · Management</td><td>Growth</td><td><span class="vpa-tag g"><i></i>Al día</span></td><td class="r">$ 240.000</td></tr>
+<tr><td><b>Café Lunar</b><span>Cafetería</span></td><td>Rest</td><td>Start</td><td><span class="vpa-tag y"><i></i>Prueba · 5 días</span></td><td class="r">—</td></tr>
+<tr><td><b>Ferretería Lomas</b><span>Ferretería</span></td><td>Business</td><td>Start</td><td><span class="vpa-tag r"><i></i>Vencido</span></td><td class="r">$ 95.000</td></tr>
+</tbody></table></section></div></div></div></div></section><section class="m-screen" id="s-a-clientes" data-desc="Todas las cuentas con su estado, y al costado la ficha del cliente con productos, cobros y movimientos."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b><span class="vase-pill admin">Admin</span></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb" data-go="a-panel"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="vase-side-lbl">Panel</span></a><a href="#" class="vase-side-nb on" data-go="a-clientes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3 3-5 6-5s6 2 6 5M17 11a3 3 0 1 0 0-6M22 20c0-2.5-2-4.3-4.5-4.8"/></svg><span class="vase-side-lbl">Clientes</span></a><a href="#" class="vase-side-nb" data-go="a-tickets"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 0 0 4v5h18v-5a2 2 0 0 0 0-4V3H3zM9 3v18"/></svg><span class="vase-side-lbl">Soporte</span><em class="vase-side-badge">7</em></a><div class="vase-side-grp">Productos</div><a href="#" class="vase-side-nb" data-go="a-modulos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="vase-side-lbl">Planes y módulos</span></a><a href="#" class="vase-side-nb" data-go="a-labs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg><span class="vase-side-lbl">Labs</span></a><div class="vase-side-grp">Plata</div><a href="#" class="vase-side-nb" data-go="a-finanzas"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3zM3 10h18M7 15h3"/></svg><span class="vase-side-lbl">Finanzas</span></a><a href="#" class="vase-side-nb" data-go="a-presupuestos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l3 3v13H7zM10 10h7M10 14h7M10 18h4"/></svg><span class="vase-side-lbl">Presupuestos</span><em class="vase-side-badge">3</em></a><a href="#" class="vase-side-nb" data-go="a-gastos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/></svg><span class="vase-side-lbl">Gastos</span></a><div class="vase-side-grp">Equipo</div><a href="#" class="vase-side-nb" data-go="a-agenda"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v16H4zM4 9h16M8 3v4M16 3v4"/></svg><span class="vase-side-lbl">Reuniones</span></a><a href="#" class="vase-side-nb" data-go="a-delivery"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l4 4-8 8H6v-4zM16 4l4 4"/></svg><span class="vase-side-lbl">Trabajos</span></a><a href="#" class="vase-side-nb" data-go="a-wiki"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3"/></svg><span class="vase-side-lbl">Ayuda y wiki</span></a><div class="vase-side-grp">Sistema</div><a href="#" class="vase-side-nb" data-go="a-ajustes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4"/></svg><span class="vase-side-lbl">Ajustes</span></a><a href="#" class="vase-side-nb" data-go="a-auditoria"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9zM6 6h12v14H6zM9 12h6M9 16h4"/></svg><span class="vase-side-lbl">Auditoría</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Vase</b><small>Administración</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Clientes</h1><div class="vpa-sub">128 cuentas · 9 nuevas este mes</div></div><a class="vpa-btn acc">Nuevo cliente</a><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap">
+<div class="m-filters"><label class="m-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3 3-5 6-5s6 2 6 5M17 11a3 3 0 1 0 0-6M22 20c0-2.5-2-4.3-4.5-4.8"/></svg><input placeholder="Buscar por nombre, dominio o correo"></label>
+<div class="vpa-seg"><button class="on">Todos</button><button>Al día</button><button>En prueba</button><button>Vencidos 6</button></div></div>
+<div class="m-split"><section class="m-card m-pad0"><table class="m-tbl"><thead><tr><th>Cliente</th><th>Productos</th><th>Plan</th><th>Estado</th><th>Último uso</th></tr></thead><tbody><tr class=""><td><b>Piquim</b><span>piquim.ar</span></td><td>Business · Labs</td><td>Premium</td><td><span class="vpa-tag g"><i></i>Al día</span></td><td>Hace 2 h</td></tr><tr class="on"><td><b>Sanitarios El Teflon</b><span>sanitarioelteflon.com</span></td><td>Business · Labs · Management</td><td>Growth</td><td><span class="vpa-tag g"><i></i>Al día</span></td><td>Hace 10 min</td></tr><tr class=""><td><b>Café Lunar</b><span>sin web</span></td><td>Rest</td><td>Start</td><td><span class="vpa-tag y"><i></i>Prueba</span></td><td>Ayer</td></tr><tr class=""><td><b>Ferretería Lomas</b><span>ferrelomas.com.ar</span></td><td>Business</td><td>Start</td><td><span class="vpa-tag r"><i></i>Vencido</span></td><td>Hace 6 días</td></tr><tr class=""><td><b>Heladería Norte</b><span>sin web</span></td><td>Labs</td><td>Start</td><td><span class="vpa-tag g"><i></i>Al día</span></td><td>Hace 3 h</td></tr></tbody></table></section>
+<aside class="m-card m-side"><div class="m-sidehead"><span class="m-ava">S</span><div><h3>Sanitarios El Teflon</h3><span class="m-mut">Dueño: Darian · darian@…</span></div></div>
+<div class="m-facts"><div><small>Plan</small><b>Growth</b></div><div><small>Por mes</small><b>$ 240.000</b></div><div><small>Próximo cobro</small><b>2 de diciembre</b></div><div><small>Cliente desde</small><b>marzo 2026</b></div></div>
+<h4>Productos</h4><div class="m-chips"><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg> Business · 1 web</span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg> Labs · 3 canales</span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg> Management</span></div>
+<h4>Movimientos</h4><div class="m-list"><div class="m-row"><span class="m-dot g"></span><div class="g"><b>Pagó noviembre</b><span>Transferencia · 2 nov</span></div></div><div class="m-row"><span class="m-dot b"></span><div class="g"><b>Abrió un ticket</b><span>"No llegan los pedidos al correo" · resuelto</span></div></div></div>
+<div class="m-actions"><a class="vpa-btn acc sm">Entrar como el cliente</a><a class="vpa-btn line sm">Cambiar plan</a><a class="vpa-btn soft sm">Cobrar</a></div></aside></div></div></div></div></div></section><section class="m-screen" id="s-a-finanzas" data-desc="Cobrado, por cobrar, gastos y lo que queda; recordatorios de cobro en un toque."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b><span class="vase-pill admin">Admin</span></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb" data-go="a-panel"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="vase-side-lbl">Panel</span></a><a href="#" class="vase-side-nb" data-go="a-clientes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3 3-5 6-5s6 2 6 5M17 11a3 3 0 1 0 0-6M22 20c0-2.5-2-4.3-4.5-4.8"/></svg><span class="vase-side-lbl">Clientes</span></a><a href="#" class="vase-side-nb" data-go="a-tickets"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 0 0 4v5h18v-5a2 2 0 0 0 0-4V3H3zM9 3v18"/></svg><span class="vase-side-lbl">Soporte</span><em class="vase-side-badge">7</em></a><div class="vase-side-grp">Productos</div><a href="#" class="vase-side-nb" data-go="a-modulos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="vase-side-lbl">Planes y módulos</span></a><a href="#" class="vase-side-nb" data-go="a-labs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg><span class="vase-side-lbl">Labs</span></a><div class="vase-side-grp">Plata</div><a href="#" class="vase-side-nb on" data-go="a-finanzas"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3zM3 10h18M7 15h3"/></svg><span class="vase-side-lbl">Finanzas</span></a><a href="#" class="vase-side-nb" data-go="a-presupuestos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l3 3v13H7zM10 10h7M10 14h7M10 18h4"/></svg><span class="vase-side-lbl">Presupuestos</span><em class="vase-side-badge">3</em></a><a href="#" class="vase-side-nb" data-go="a-gastos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/></svg><span class="vase-side-lbl">Gastos</span></a><div class="vase-side-grp">Equipo</div><a href="#" class="vase-side-nb" data-go="a-agenda"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v16H4zM4 9h16M8 3v4M16 3v4"/></svg><span class="vase-side-lbl">Reuniones</span></a><a href="#" class="vase-side-nb" data-go="a-delivery"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l4 4-8 8H6v-4zM16 4l4 4"/></svg><span class="vase-side-lbl">Trabajos</span></a><a href="#" class="vase-side-nb" data-go="a-wiki"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3"/></svg><span class="vase-side-lbl">Ayuda y wiki</span></a><div class="vase-side-grp">Sistema</div><a href="#" class="vase-side-nb" data-go="a-ajustes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4"/></svg><span class="vase-side-lbl">Ajustes</span></a><a href="#" class="vase-side-nb" data-go="a-auditoria"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9zM6 6h12v14H6zM9 12h6M9 16h4"/></svg><span class="vase-side-lbl">Auditoría</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Vase</b><small>Administración</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Finanzas</h1><div class="vpa-sub">Noviembre 2026</div></div><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap">
+<div class="m-kpis"><div class="m-kpi"><span>Cobrado</span><b>$ 4.210.000</b><em class="g"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>87% de lo esperado</em></div><div class="m-kpi"><span>Por cobrar</span><b>$ 610.000</b><em class="y"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>6 clientes</em></div><div class="m-kpi"><span>Gastos</span><b>$ 1.340.000</b><em class="g"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>−4% vs octubre</em></div><div class="m-kpi"><span>Queda</span><b>$ 2.870.000</b><em class="g"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>+18% vs octubre</em></div></div>
+<div class="m-two"><section class="m-card"><div class="m-ch"><h3>Cobros por vencer</h3><span class="m-mut">Próximos 15 días</span></div>
+<table class="m-tbl"><thead><tr><th>Cliente</th><th>Vence</th><th class="r">Monto</th><th></th></tr></thead><tbody>
+<tr><td><b>Sanitarios El Teflon</b></td><td>2 dic</td><td class="r">$ 240.000</td><td class="r"><a class="vpa-btn soft sm">Recordar</a></td></tr>
+<tr><td><b>Piquim</b></td><td>5 dic</td><td class="r">$ 185.000</td><td class="r"><a class="vpa-btn soft sm">Recordar</a></td></tr>
+<tr><td><b>Heladería Norte</b></td><td>9 dic</td><td class="r">$ 60.000</td><td class="r"><a class="vpa-btn soft sm">Recordar</a></td></tr></tbody></table></section>
+<section class="m-card"><div class="m-ch"><h3>En qué se va la plata</h3><span class="m-mut">Gastos del mes</span></div>
+<div class="m-split2"><i style="width:46%;background:var(--acc)"></i><i style="width:22%;background:#7a5af8"></i><i style="width:18%;background:#f79009"></i><i style="width:14%;background:var(--mut)"></i></div>
+<div class="m-legend col"><span><i style="background:var(--acc)"></i>Servidores y servicios<b>$ 616.000</b></span><span><i style="background:#7a5af8"></i>IA (OpenAI)<b>$ 295.000</b></span><span><i style="background:#f79009"></i>Equipo externo<b>$ 241.000</b></span><span><i style="background:var(--mut)"></i>Otros<b>$ 188.000</b></span></div></section></div></div></div></div></div></section><section class="m-screen" id="s-ia-1" data-desc="Labs arma el presupuesto con precios de tu catálogo y lo manda en PDF por WhatsApp."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b><span class="vase-pill labs">Labs</span></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb" data-go="l-inicio"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="vase-side-lbl">Inicio</span></a><a href="#" class="vase-side-nb on" data-go="l-conv"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg><span class="vase-side-lbl">Conversaciones</span><em class="vase-side-badge">3</em></a><a href="#" class="vase-side-nb" data-go="l-ped"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="vase-side-lbl">Pedidos</span></a><a href="#" class="vase-side-nb" data-go="l-asis"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg><span class="vase-side-lbl">Asistente</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Sanitarios El Teflon</b><small>Plan GROWTH</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Conversaciones</h1><div class="vpa-sub">Te escriben por WhatsApp, Instagram y Messenger</div></div><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap"><div class="m-inbox"><div class="m-ilist">
+<div class="m-iitem on"><b>Martín Gómez</b><span>Pasame precio de las 3…</span></div>
+<div class="m-iitem"><b>Lucía Fernández</b><span>¿Hacen envíos a Mar del Plata?</span></div>
+<div class="m-iitem"><b>Obra Altos del Sur</b><span>Gracias, ahí transfiero</span></div></div>
+<div class="m-ithread"><div class="m-ihead"><b>Martín Gómez</b><span class="m-mut">WhatsApp · +54 223 …</span></div><div class="m-msgs"><div class="m-msg in">Hola, ¿tienen grifería monocomando para baño? Necesito 3 para una obra.</div>
+<div class="m-msg out ai">Sí, tenemos la FV Arizona y la Peirano Allegro. ¿Para qué tipo de bacha es? Te paso precios.</div>
+<div class="m-msg in">Para bacha de apoyo. Pasame precio de las 3 de FV y si me hacen factura A.</div><div class="m-msg out ai pdfm"><div class="m-pdf"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6zM14 2v6h6"/></svg><div class="g"><b>Presupuesto 0142 · Martín Gómez.pdf</b><span>3 × Grifería FV Arizona · Factura A · válido 7 días</span></div></div>
+<p>Te armé el presupuesto con las 3 griferías y factura A. Total $ 486.900 con IVA.</p></div></div>
+<div class="m-reply"><div class="m-input"><span>Escribí una respuesta…</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div></div></div>
+<div class="m-iside"><div class="m-card"><div class="m-ch"><h3>Presupuesto 0142</h3><span class="m-ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>Armado por IA</span></div>
+<table class="m-tbl tight"><tr><td>3 × FV Arizona 0181</td><td class="r">$ 402.400</td></tr><tr><td>IVA 21%</td><td class="r">$ 84.500</td></tr><tr><td><b>Total</b></td><td class="r"><b>$ 486.900</b></td></tr></table>
+<p class="m-mut">Precios de tu lista mayorista · stock confirmado</p><div class="m-actions"><a class="vpa-btn line sm">Editar</a><a class="vpa-btn acc sm">Ver PDF</a></div></div></div></div></div></div></div></div></section><section class="m-screen" id="s-ia-2" data-desc="Cuando la IA deriva, te deja en 3 líneas qué quiere el cliente y qué ya se habló."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b><span class="vase-pill labs">Labs</span></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb" data-go="l-inicio"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="vase-side-lbl">Inicio</span></a><a href="#" class="vase-side-nb on" data-go="l-conv"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg><span class="vase-side-lbl">Conversaciones</span><em class="vase-side-badge">3</em></a><a href="#" class="vase-side-nb" data-go="l-ped"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="vase-side-lbl">Pedidos</span></a><a href="#" class="vase-side-nb" data-go="l-asis"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg><span class="vase-side-lbl">Asistente</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Sanitarios El Teflon</b><small>Plan GROWTH</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Conversaciones</h1><div class="vpa-sub">Te escriben por WhatsApp, Instagram y Messenger</div></div><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap"><div class="m-inbox"><div class="m-ilist">
+<div class="m-iitem on"><b>Martín Gómez</b><span>Pasame precio de las 3…</span></div>
+<div class="m-iitem"><b>Lucía Fernández</b><span>¿Hacen envíos a Mar del Plata?</span></div>
+<div class="m-iitem"><b>Obra Altos del Sur</b><span>Gracias, ahí transfiero</span></div></div>
+<div class="m-ithread"><div class="m-ihead"><b>Martín Gómez</b><span class="m-mut">WhatsApp · +54 223 …</span></div><div class="m-msgs"><div class="m-msg in">Hola, ¿tienen grifería monocomando para baño? Necesito 3 para una obra.</div>
+<div class="m-msg out ai">Sí, tenemos la FV Arizona y la Peirano Allegro. ¿Para qué tipo de bacha es? Te paso precios.</div>
+<div class="m-msg in">Para bacha de apoyo. Pasame precio de las 3 de FV y si me hacen factura A.</div></div>
+<div class="m-reply"><div class="m-input"><span>Escribí una respuesta…</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div></div></div>
+<div class="m-iside"><div class="m-handoff"><div class="m-ch"><b><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg> Te pasaron esta conversación</b><span class="m-mut">hace 2 min</span></div>
+<ul><li>Quiere <b>3 griferías FV Arizona</b> para una obra, con <b>factura A</b>.</li><li>Ya le pasamos el presupuesto ($ 486.900). Pregunta si hay <b>descuento por cantidad</b>.</li><li>Está apurado: necesita retirar <b>el viernes</b>.</li></ul>
+<div class="m-actions"><a class="vpa-btn acc sm">Tomar la conversación</a><a class="vpa-btn soft sm">Devolver a la IA</a></div></div></div></div></div></div></div></div></section><section class="m-screen" id="s-ia-3" data-desc="Mira cómo contestás vos y te propone respuestas con tu tono. Tocás una y se escribe."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b><span class="vase-pill labs">Labs</span></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb" data-go="l-inicio"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="vase-side-lbl">Inicio</span></a><a href="#" class="vase-side-nb on" data-go="l-conv"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg><span class="vase-side-lbl">Conversaciones</span><em class="vase-side-badge">3</em></a><a href="#" class="vase-side-nb" data-go="l-ped"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="vase-side-lbl">Pedidos</span></a><a href="#" class="vase-side-nb" data-go="l-asis"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg><span class="vase-side-lbl">Asistente</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Sanitarios El Teflon</b><small>Plan GROWTH</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Conversaciones</h1><div class="vpa-sub">Te escriben por WhatsApp, Instagram y Messenger</div></div><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap"><div class="m-inbox"><div class="m-ilist">
+<div class="m-iitem on"><b>Martín Gómez</b><span>Pasame precio de las 3…</span></div>
+<div class="m-iitem"><b>Lucía Fernández</b><span>¿Hacen envíos a Mar del Plata?</span></div>
+<div class="m-iitem"><b>Obra Altos del Sur</b><span>Gracias, ahí transfiero</span></div></div>
+<div class="m-ithread"><div class="m-ihead"><b>Martín Gómez</b><span class="m-mut">WhatsApp · +54 223 …</span></div><div class="m-msgs"><div class="m-msg in">Hola, ¿tienen grifería monocomando para baño? Necesito 3 para una obra.</div>
+<div class="m-msg out ai">Sí, tenemos la FV Arizona y la Peirano Allegro. ¿Para qué tipo de bacha es? Te paso precios.</div>
+<div class="m-msg in">Para bacha de apoyo. Pasame precio de las 3 de FV y si me hacen factura A.</div></div>
+<div class="m-reply"><div class="m-sugg"><span class="m-ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>Como respondés vos</span><button>Por 3 o más te hago 5% de descuento 👌</button><button>El viernes lo tenés listo para retirar en Av. Colón</button><button>¿Te mando el CBU para la seña?</button></div><div class="m-input"><span>Escribí una respuesta…</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div></div></div>
+<div class="m-iside"></div></div></div></div></div></div></section><section class="m-screen" id="s-ia-4" data-desc="En Business, un toque escribe la descripción y deja la foto con fondo blanco."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b><span class="vase-pill business">Business</span></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb" data-go="b-res"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="vase-side-lbl">Resumen</span></a><a href="#" class="vase-side-nb" data-go="b-ped"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="vase-side-lbl">Pedidos</span><em class="vase-side-badge">2</em></a><div class="vase-side-grp">Tu tienda</div><a href="#" class="vase-side-nb on" data-go="b-cat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg><span class="vase-side-lbl">Catálogo</span></a><a href="#" class="vase-side-nb" data-go="b-img"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M9 9h.01"/></svg><span class="vase-side-lbl">Imágenes</span></a><a href="#" class="vase-side-nb" data-go="b-dis"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="vase-side-lbl">Diseño de la tienda</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Sanitarios El Teflon</b><small>Plan GROWTH</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Catálogo</h1><div class="vpa-sub">610 productos publicados</div></div><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap">
+<div class="m-two"><section class="m-card"><div class="m-ch"><h3>Grifería monocomando FV Arizona 0181</h3><span class="vpa-tag g"><i></i>Publicado</span></div>
+<div class="m-photos"><div class="m-ph before"><span>Antes</span></div><div class="m-ph after"><span>Con IA</span></div></div>
+<div class="m-actions"><a class="vpa-btn line sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M9 9h.01"/></svg> Fondo blanco</a><a class="vpa-btn line sm">Recortar y centrar</a></div></section>
+<section class="m-card"><div class="m-ch"><h3>Descripción</h3><span class="m-ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>Con IA</span></div>
+<div class="m-gen"><p><b>Grifería monocomando para bacha de apoyo FV Arizona.</b> Cuerpo de bronce cromado, cartucho cerámico de 35 mm y aireador ahorrador. Ideal para baños de obra nueva o remodelación.</p>
+<ul><li>Altura: 30 cm · pico fijo</li><li>Garantía de fábrica: 5 años</li><li>Incluye flexibles y fijación</li></ul></div>
+<div class="m-actions"><a class="vpa-btn soft sm">Otra versión</a><a class="vpa-btn soft sm">Más corta</a><a class="vpa-btn acc sm">Usar esta</a></div></section></div></div></div></div></div></section><section class="m-screen" id="s-ia-5" data-desc="Te avisa lo que se está perdiendo: productos que piden y no tenés, picos de consultas, clientes que no volvieron."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb on" data-go="p-inicio"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="vase-side-lbl">Inicio</span></a><a href="#" class="vase-side-nb" data-go="p-prod"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="vase-side-lbl">Mis productos</span></a><a href="#" class="vase-side-nb" data-go="p-plan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3zM3 10h18M7 15h3"/></svg><span class="vase-side-lbl">Plan y pagos</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Sanitarios El Teflon</b><small>Plan GROWTH</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Hola, Darian</h1><div class="vpa-sub">¿A dónde querés ir?</div></div><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap">
+<section class="m-card"><div class="m-ch"><h3>Lo que vio la IA esta semana</h3><span class="m-ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>Con IA</span></div><div class="m-list">
+<div class="m-row"><span class="m-icon y"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg></span><div class="g"><b>5 personas preguntaron por "termotanque eléctrico 50 L" y no lo tenés</b><span>WhatsApp e Instagram · la última hace 3 horas</span></div><a class="vpa-btn line sm">Sumar al catálogo</a></div>
+<div class="m-row"><span class="m-icon g"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span><div class="g"><b>Las consultas por griferías subieron 40%</b><span>Comparado con la semana pasada</span></div><a class="vpa-btn line sm">Ver conversaciones</a></div>
+<div class="m-row"><span class="m-icon b"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3 3-5 6-5s6 2 6 5M17 11a3 3 0 1 0 0-6M22 20c0-2.5-2-4.3-4.5-4.8"/></svg></span><div class="g"><b>12 clientes que compraban todos los meses no volvieron</b><span>Podés mandarles una oferta por WhatsApp</span></div><a class="vpa-btn line sm">Armar mensaje</a></div></div></section></div></div></div></div></section><section class="m-screen" id="s-ia-6" data-desc="En vez de una lista de cambios técnicos, te cuenta qué cambió en la tienda y quién lo hizo."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b><span class="vase-pill business">Business</span></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb" data-go="b-res"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="vase-side-lbl">Resumen</span></a><a href="#" class="vase-side-nb" data-go="b-ped"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="vase-side-lbl">Pedidos</span><em class="vase-side-badge">2</em></a><div class="vase-side-grp">Tu tienda</div><a href="#" class="vase-side-nb" data-go="b-cat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg><span class="vase-side-lbl">Catálogo</span></a><a href="#" class="vase-side-nb" data-go="b-img"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M9 9h.01"/></svg><span class="vase-side-lbl">Imágenes</span></a><a href="#" class="vase-side-nb on" data-go="b-dis"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="vase-side-lbl">Diseño de la tienda</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Sanitarios El Teflon</b><small>Plan GROWTH</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Historial de cambios</h1><div class="vpa-sub">Lo que se cambió en la tienda</div></div><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap">
+<section class="m-card"><div class="m-ch"><h3>Esta semana</h3><span class="m-ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>Resumido por IA</span></div>
+<p class="m-big">Esta semana <b>cambiaste la portada</b> por la promo de invierno, <b>subiste 24 productos nuevos</b> de la línea FV y <b>bajaste 10% los termotanques</b>. Lucía del equipo corrigió el horario del local.</p>
+<div class="m-list"><div class="m-row"><span class="m-dot g"></span><div class="g"><b>Portada con fotos: nueva imagen "Promo invierno"</b><span>Vos · martes 11:20</span></div><a class="vpa-btn soft sm">Volver a esta versión</a></div>
+<div class="m-row"><span class="m-dot b"></span><div class="g"><b>24 productos nuevos de FV</b><span>Sincronizados desde tu sistema · miércoles</span></div></div>
+<div class="m-row"><span class="m-dot y"></span><div class="g"><b>Termotanques: precio −10%</b><span>Vos · jueves 09:05</span></div><a class="vpa-btn soft sm">Deshacer</a></div></div></section></div></div></div></div></section><section class="m-screen" id="s-ia-7" data-desc="Subís la lista de precios como venga y la IA arma los productos para revisar antes de publicar."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b><span class="vase-pill business">Business</span></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb" data-go="b-res"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="vase-side-lbl">Resumen</span></a><a href="#" class="vase-side-nb" data-go="b-ped"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="vase-side-lbl">Pedidos</span><em class="vase-side-badge">2</em></a><div class="vase-side-grp">Tu tienda</div><a href="#" class="vase-side-nb on" data-go="b-cat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg><span class="vase-side-lbl">Catálogo</span></a><a href="#" class="vase-side-nb" data-go="b-img"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M9 9h.01"/></svg><span class="vase-side-lbl">Imágenes</span></a><a href="#" class="vase-side-nb" data-go="b-dis"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="vase-side-lbl">Diseño de la tienda</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Sanitarios El Teflon</b><small>Plan GROWTH</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Importar productos</h1><div class="vpa-sub">Paso 2 de 3 · revisá lo que encontramos</div></div><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap">
+<div class="m-drop"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6zM14 2v6h6"/></svg><div class="g"><b>lista-precios-FV-noviembre.pdf</b><span>12 páginas · leído completo</span></div><span class="vpa-tag g"><i></i>86 productos encontrados</span></div>
+<section class="m-card m-pad0"><table class="m-tbl"><thead><tr><th></th><th>Producto</th><th>Código</th><th>Categoría</th><th class="r">Precio</th><th>Estado</th></tr></thead><tbody>
+<tr><td>☑</td><td><b>Grifería monocomando Arizona</b></td><td>0181</td><td>Griferías › Baño</td><td class="r">$ 134.130</td><td><span class="vpa-tag g"><i></i>Nuevo</span></td></tr>
+<tr><td>☑</td><td><b>Grifería cocina Allegro</b></td><td>0411</td><td>Griferías › Cocina</td><td class="r">$ 98.700</td><td><span class="vpa-tag y"><i></i>Cambia precio</span></td></tr>
+<tr><td>☐</td><td><b>Flexible 40 cm (ilegible)</b></td><td>¿?</td><td>—</td><td class="r">$ 4.?00</td><td><span class="vpa-tag r"><i></i>Revisar</span></td></tr>
+</tbody></table></section><div class="m-actions end"><a class="vpa-btn soft">Atrás</a><a class="vpa-btn acc">Publicar 85 productos</a></div></div></div></div></div></section><section class="m-screen" id="s-ia-8" data-desc="Si alguien está molesto, la IA deja de responder, lo marca y te avisa para que lo atiendas vos."><div class="vpa"><aside class="vase-side"><div class="vase-side-logo vase-brand"><b>vase</b><span class="vase-pill labs">Labs</span></div><nav class="vase-side-nav"><div class="vase-side-grp">Principal</div><a href="#" class="vase-side-nb" data-go="l-inicio"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="vase-side-lbl">Inicio</span></a><a href="#" class="vase-side-nb on" data-go="l-conv"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg><span class="vase-side-lbl">Conversaciones</span><em class="vase-side-badge">3</em></a><a href="#" class="vase-side-nb" data-go="l-ped"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="vase-side-lbl">Pedidos</span></a><a href="#" class="vase-side-nb" data-go="l-asis"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg><span class="vase-side-lbl">Asistente</span></a></nav>
+<div class="vase-side-acc"><button class="vase-side-accbtn"><span class="vase-side-ava">S</span><span class="vase-side-ut"><b>Sanitarios El Teflon</b><small>Plan GROWTH</small></span></button></div></aside><div class="vpa-main"><header class="vpa-top"><div class="vpa-g1"><h1 class="vpa-ttl">Conversaciones</h1><div class="vpa-sub">Te escriben por WhatsApp, Instagram y Messenger</div></div><button class="vpa-ib"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></svg></button></header>
+<div class="vpa-body"><div class="vpa-wrap"><div class="m-inbox"><div class="m-ilist">
+<div class="m-iitem on"><b>Martín Gómez</b><span>Pasame precio de las 3…</span><em class="m-angry">Molesto</em></div>
+<div class="m-iitem"><b>Lucía Fernández</b><span>¿Hacen envíos a Mar del Plata?</span></div>
+<div class="m-iitem"><b>Obra Altos del Sur</b><span>Gracias, ahí transfiero</span></div></div>
+<div class="m-ithread"><div class="m-ihead"><b>Martín Gómez</b><span class="m-mut">WhatsApp · +54 223 …</span></div><div class="m-msgs"><div class="m-msg in">Hola, ¿tienen grifería monocomando para baño? Necesito 3 para una obra.</div>
+<div class="m-msg out ai">Sí, tenemos la FV Arizona y la Peirano Allegro. ¿Para qué tipo de bacha es? Te paso precios.</div>
+<div class="m-msg in">Para bacha de apoyo. Pasame precio de las 3 de FV y si me hacen factura A.</div></div>
+<div class="m-reply"><div class="m-input"><span>Escribí una respuesta…</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div></div></div>
+<div class="m-iside"><div class="m-alert"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 16s1.5-2 4-2 4 2 4 2M8 9l2 1M16 9l-2 1"/></svg><div class="g"><b>Este cliente está molesto</b><span>"Hace 3 días que espero y nadie me responde" · la IA dejó de contestar y te avisó</span></div></div>
+<div class="m-card"><div class="m-ch"><h3>Qué le pasó</h3><span class="m-ai"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>Con IA</span></div><p class="m-mut">Pagó una seña el lunes y todavía no le confirmaron la fecha de entrega.</p>
+<div class="m-actions"><a class="vpa-btn acc sm">Responder yo</a><a class="vpa-btn soft sm">Ver el pedido</a></div></div></div></div></div></div></div></div></section></div></div>
+<script>
+const keys=[...document.querySelectorAll('.m-screen')].map(s=>s.id.slice(2));
+const pick=document.getElementById('pick'),note=document.getElementById('note');
+function show(k){document.querySelectorAll('.m-screen').forEach(s=>s.classList.toggle('on',s.id==='s-'+k));pick.value=k;const s=document.getElementById('s-'+k);note.innerHTML='<b>'+pick.selectedOptions[0].text+'</b> — '+s.dataset.desc;history.replaceState(null,'','#'+k)}
+pick.onchange=()=>show(pick.value);
+document.getElementById('prev').onclick=()=>show(keys[(keys.indexOf(pick.value)-1+keys.length)%keys.length]);
+document.getElementById('next').onclick=()=>show(keys[(keys.indexOf(pick.value)+1)%keys.length]);
+document.querySelectorAll('[data-go]').forEach(a=>a.onclick=e=>{e.preventDefault();if(keys.includes(a.dataset.go))show(a.dataset.go)});
+const t=document.getElementById('theme');t.onclick=()=>{const d=document.documentElement;const dark=d.dataset.theme!=='dark';d.dataset.theme=dark?'dark':'light';t.textContent=dark?'Modo claro':'Modo oscuro'};
+show(keys.includes(location.hash.slice(1))?location.hash.slice(1):keys[0]);
+</script></body></html>
