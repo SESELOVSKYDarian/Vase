@@ -13,7 +13,7 @@ const securityHeaders = [
 const appOrigin = (process.env.NEXT_PUBLIC_VASE_APP_URL ?? "https://app.vase.ar").replace(/\/+$/, "");
 const frameHeaders = [
   { source: "/", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
-  { source: "/:first((?!embed$)[^/]+)/:rest*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
+  { source: "/:first((?!embed(?:/|$))[^/]+)/:rest*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
   { source: "/embed/:path*", headers: [{ key: "Content-Security-Policy", value: `frame-ancestors 'self' ${appOrigin}` }] },
 ];
 

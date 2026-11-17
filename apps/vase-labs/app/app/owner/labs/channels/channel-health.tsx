@@ -37,5 +37,6 @@ export function ChannelStatusSummary({ status, health, lastCheckedAt }: { status
 
 export function formatChannelDate(value: string | null | undefined) {
   if (!value) return "Nunca comprobado";
-  return new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  // Con zona fija: el servidor está en UTC y el navegador en Argentina; si no, la hora sale distinta en cada lado.
+  return new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date(value));
 }
