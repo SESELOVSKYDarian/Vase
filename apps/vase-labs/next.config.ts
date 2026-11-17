@@ -4,10 +4,17 @@ import type { NextConfig } from "next";
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
   { key: "Permissions-Policy", value: "camera=(), geolocation=()" },
+];
+
+// Nadie puede mostrar Labs adentro de otra página, salvo /embed/* adentro de app.vase.ar.
+const appOrigin = (process.env.NEXT_PUBLIC_VASE_APP_URL ?? "https://app.vase.ar").replace(/\/+$/, "");
+const frameHeaders = [
+  { source: "/", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
+  { source: "/:first((?!embed$)[^/]+)/:rest*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
+  { source: "/embed/:path*", headers: [{ key: "Content-Security-Policy", value: `frame-ancestors 'self' ${appOrigin}` }] },
 ];
 
 const nextConfig: NextConfig = {
@@ -16,7 +23,7 @@ const nextConfig: NextConfig = {
   // Cuando guardás algo, la sección se actualiza igual.
   experimental: { staleTimes: { dynamic: 30 } },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [{ source: "/:path*", headers: securityHeaders }, ...frameHeaders];
   },
   async redirects() {
     return [

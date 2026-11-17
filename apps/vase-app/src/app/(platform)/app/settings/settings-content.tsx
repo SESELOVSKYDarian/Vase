@@ -1,6 +1,9 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { forbidden } from "next/navigation";
+import { CreditCard, Sparkles, Store, UserRound } from "lucide-react";
+import { PanelSettingsTabs, type SettingsTabItem } from "@vase/ui/panel";
+import { LabsSettingsFrame } from "@/components/panel/labs-settings-frame";
 import { BillingCards } from "@/components/panel/billing-cards";
 import { AvatarUploader } from "@/components/panel/avatar-uploader";
 import { ThemePicker } from "@/components/panel/theme-picker";
@@ -23,7 +26,20 @@ const TABS = [
   { id: "perfil", label: "Mi perfil" },
   { id: "negocio", label: "Mi negocio" },
   { id: "facturacion", label: "Facturación" },
+  { id: "labs", label: "Labs" },
 ] as const;
+
+// Lo que se ve en cada pestaña: ícono y una línea de qué hay adentro.
+const TAB_DETAILS: Record<string, Pick<SettingsTabItem, "hint" | "icon" | "info">> = {
+  perfil: { hint: "Tus datos y apariencia", icon: <UserRound size={18} /> },
+  negocio: {
+    hint: "Datos, sucursales y conexiones",
+    icon: <Store size={18} />,
+    info: "Lo cargás una vez y lo usan todos tus productos. Si cambiás algo acá, se actualiza en todos lados.",
+  },
+  facturacion: { hint: "Medios de pago y facturas", icon: <CreditCard size={18} /> },
+  labs: { hint: "Plan de uso, canales e IA", icon: <Sparkles size={18} /> },
+};
 
 type TabId = (typeof TABS)[number]["id"];
 
@@ -50,7 +66,8 @@ export async function loadSettingsContext(rawTab: string | string[] | undefined,
   const isOwner = membership.role === "OWNER";
   const labsActive = dashboard.modules.some((module) => module.key === "labs" && module.isActive);
   const profile = await prisma.user.findUnique({ where: { id: session.user.id }, select: { avatarUrl: true } });
-  const tabs = TABS.filter((item) => isOwner || item.id !== "facturacion");
+  // Facturación y Labs son del Dueño; Labs aparece solo si la cuenta tiene Labs.
+  const tabs = TABS.filter((item) => (isOwner || (item.id !== "facturacion" && item.id !== "labs")) && (item.id !== "labs" || labsActive));
   const tab = resolveTab(rawTab, tabs);
   // La primera vez que se abre Mi negocio se trae lo que la tienda de Business ya tenía.
   if (tab === "negocio" && isOwner) {
@@ -120,26 +137,19 @@ export function SettingsBody({ ctx, tabHref, embed = false, hideTabs = false }: 
     <>
       {/* Si el producto que lo muestra ya tiene sus propias pestañas (Labs), acá no se repiten. */}
       <div hidden={hideTabs}>
-        <div className="vpa-seg" role="tablist" aria-label="Ajustes">
-          {tabs.map((item) => (
-            <Link
-              key={item.id}
-              role="tab"
-              aria-selected={tab === item.id}
-              href={tabHref(item.id) as Route}
-              className={tab === item.id ? "on" : ""}
-            >
-              {item.label}
+        <PanelSettingsTabs
+          // Adentro de otro producto no se muestra la pestaña Labs: sería Labs adentro de Labs.
+          items={tabs.filter((item) => !embed || item.id !== "labs").map((item) => ({ id: item.id, label: item.label, href: tabHref(item.id), ...TAB_DETAILS[item.id] }))}
+          active={tab}
+          renderLink={({ href, className, children, ariaCurrent }) => (
+            <Link href={href as Route} className={className} aria-current={ariaCurrent}>
+              {children}
             </Link>
-          ))}
-          {/* Cada producto suma su pestaña de Ajustes; la de Labs vive en labs.vase.ar. */}
-          {labsActive && !embed ? (
-            <a role="tab" aria-selected={false} href="https://labs.vase.ar/owner/settings">
-              Labs
-            </a>
-          ) : null}
-        </div>
+          )}
+        />
       </div>
+
+      {tab === "labs" && !embed ? <LabsSettingsFrame /> : null}
 
       {tab === "perfil" ? (
         <>

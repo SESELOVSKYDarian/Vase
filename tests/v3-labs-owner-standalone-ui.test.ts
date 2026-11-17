@@ -85,7 +85,7 @@ describe("Vase Labs standalone owner experience", () => {
     const modal = readSplitSync(modalPath);
     const groups = readSplitSync(groupsPath);
     // El modelo y la clave de OpenAI se movieron a Ajustes de Labs.
-    const settingsPage = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"));
+    const settingsPage = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/labs-settings-sections.tsx"));
     expect(settingsPage).toContain("getOpenAiModelProfiles");
     expect(howPage).toContain("<AssistantHow initialPrompt={assistant.systemPrompt ?? null}");
     expect(settingsPage).toContain("<ModelSelector");
@@ -178,7 +178,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(root).not.toContain("tenant_demo");
     expect(page).toContain("resolveLabsRequestContext");
     expect(page).toContain("labsPrisma");
-    const settings = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"));
+    const settings = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/labs-settings-sections.tsx"));
     expect(layout).toContain("<LabsShell");
     expect(fs.existsSync(path.resolve("apps/vase-labs/app/app/owner/labs/labs-sidebar-shell.tsx"))).toBe(false);
     expect(page).toContain("<PanelKpis");
@@ -193,7 +193,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(styles).toContain(".labs-panel");
     expect(styles).not.toContain(".labs-rail");
     expect(page).not.toContain("Tu acceso a Labs, canales y tokens en una sola vista.");
-    expect(settings).toContain("Plan y uso");
+    expect(settings).toContain("Plan de uso");
     expect(settings).toContain("calculateAiBudget");
     expect(settings).toContain("estimateRemainingAiReplies");
     expect(settings).toContain("currentModel");

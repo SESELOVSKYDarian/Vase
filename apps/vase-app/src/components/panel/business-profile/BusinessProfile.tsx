@@ -47,10 +47,12 @@ export function BusinessProfile({
 
   return (
     <>
-      <div className="vpa-notice2">
-        <b>Lo cargás una vez y lo usan todos tus productos.</b>
-        <span>{canEdit ? "Si cambiás algo acá, se actualiza en todos lados." : "Solo el Dueño de la cuenta puede cambiar estos datos."}</span>
-      </div>
+      {/* Que vale para todos los productos lo dice la "i" de la pestaña Mi negocio. */}
+      {canEdit ? null : (
+        <div className="vpa-notice2">
+          <span>Solo el Dueño de la cuenta puede cambiar estos datos.</span>
+        </div>
+      )}
 
       {canEdit && cloudState === "error" && cloudMessage ? (
         <p role="alert" className="vpa-saveerr">

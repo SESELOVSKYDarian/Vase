@@ -355,7 +355,7 @@ describe("Labs Activity commercial intelligence", () => {
   });
 
   it("provides accessible qualification settings and confirmed durable recalculation", () => {
-    const settingsPage = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/page.tsx"));
+    const settingsPage = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/settings/labs-settings-sections.tsx"));
     const settingsCardPath = path.resolve(
       "apps/vase-labs/app/app/owner/labs/settings/conversation-insight-settings-card.tsx",
     );

@@ -191,3 +191,30 @@ html[data-vase-leaving] :is(.vpa-main, .vp-main)::before { content: ""; position
 :where(.vpa, .vp) .vase-am { width: 100%; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: 0; background: none; border-radius: 9px; font: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; text-align: left; text-decoration: none; color: var(--tx); }
 :where(.vpa, .vp) .vase-am:hover { background: var(--hover); }
 :where(.vpa, .vp) .vase-am.out { color: var(--red); }
+
+/* ===== Pestañas de Ajustes: tarjetas con ícono, nombre y qué hay adentro ===== */
+:where(.vpa, .vp) .vpa-stabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+:where(.vpa, .vp) .vpa-stab { position: relative; display: flex; border: 1px solid var(--line); border-radius: 16px; background: var(--card); transition: border-color .15s, background .15s, box-shadow .15s; }
+:where(.vpa, .vp) .vpa-stab:hover { border-color: var(--line2); box-shadow: var(--sh-sm); }
+:where(.vpa, .vp) .vpa-stab.on { border-color: var(--acc); background: var(--accsoft); }
+:where(.vpa, .vp) .vpa-stab-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 14px 16px; color: var(--tx); text-decoration: none; border-radius: 16px; }
+:where(.vpa, .vp) .vpa-stab-ic { width: 38px; height: 38px; flex: none; border-radius: 12px; background: var(--soft); color: var(--mut); display: flex; align-items: center; justify-content: center; transition: background .15s, color .15s; }
+:where(.vpa, .vp) .vpa-stab.on .vpa-stab-ic { background: var(--acc); color: var(--acc-on); }
+:where(.vpa, .vp) .vpa-stab-tx { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+:where(.vpa, .vp) .vpa-stab-tx b { font-size: 14px; font-weight: 800; letter-spacing: -.01em; }
+:where(.vpa, .vp) .vpa-stab-tx small { font-size: 12px; font-weight: 600; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(.vpa, .vp) .vpa-stab-info { position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line2); background: var(--card); color: var(--mut); font: inherit; font-size: 11px; font-weight: 800; font-style: italic; cursor: help; display: flex; align-items: center; justify-content: center; padding: 0; }
+:where(.vpa, .vp) .vpa-stab-info:hover, :where(.vpa, .vp) .vpa-stab-info:focus-visible { color: var(--tx); border-color: var(--tx); }
+:where(.vpa, .vp) .vpa-stab-info > span { position: absolute; z-index: 30; top: calc(100% + 8px); right: -8px; width: 250px; padding: 10px 12px; border-radius: 12px; background: var(--tx); color: var(--page); font-size: 12px; font-weight: 600; font-style: normal; line-height: 1.45; text-align: left; box-shadow: var(--sh-md); opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .15s, transform .15s, visibility .15s; pointer-events: none; }
+:where(.vpa, .vp) .vpa-stab-info:hover > span, :where(.vpa, .vp) .vpa-stab-info:focus > span { opacity: 1; visibility: visible; transform: none; }
+@media (max-width: 860px) {
+  :where(.vpa, .vp) .vpa-stabs { display: flex; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
+  :where(.vpa, .vp) .vpa-stabs::-webkit-scrollbar { display: none; }
+  :where(.vpa, .vp) .vpa-stab { flex: 0 0 auto; }
+  :where(.vpa, .vp) .vpa-stab-link { padding: 10px 14px 10px 10px; gap: 10px; }
+  :where(.vpa, .vp) .vpa-stab-ic { width: 32px; height: 32px; border-radius: 10px; }
+  :where(.vpa, .vp) .vpa-stab-tx small { display: none; }
+  :where(.vpa, .vp) .vpa-stab-info { position: static; align-self: center; margin-right: 10px; }
+  :where(.vpa, .vp) .vpa-stab-info > span { right: 0; }
+}
+@media (prefers-reduced-motion: reduce) { :where(.vpa, .vp) .vpa-stab, :where(.vpa, .vp) .vpa-stab-info > span { transition: none; } }
