@@ -1,10 +1,10 @@
-// partes: ./upload-proof.js, ./OrderSuccessPageParte.jsx
+// partes: ./upload-proof.js, ./OrderSuccessView.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import StoreLayout from "../../components/layout/StoreLayout";
 import { navigate } from "../../utils/navigation";
 import { getApiBase, getTenantHeaders } from "../../utils/api";
 import { makeHandleUploadProof } from './upload-proof.js';
-import OrderSuccessPageParte from './OrderSuccessPageParte.jsx';
+import OrderSuccessView from './OrderSuccessView.jsx';
 import {
     getBillingDocumentLabel,
     getBillingVatLabel,
@@ -156,6 +156,6 @@ export default function OrderSuccessPage() {
     const handleUploadProof = makeHandleUploadProof({ order, proofFile, setOrder, setProofError, setProofFile, setProofUploading, setProofUrl });
 
     return (
-        <OrderSuccessPageParte alias={alias} bank={bank} billingInfo={billingInfo} cbu={cbu} contactChannelLabel={contactChannelLabel} copiedField={copiedField} copyText={copyText} emailSent={emailSent} emailTarget={emailTarget} formatOrderTotal={formatOrderTotal} handleUploadProof={handleUploadProof} holder={holder} items={items} order={order} proofError={proofError} proofFile={proofFile} proofUploading={proofUploading} proofUrl={proofUrl} setProofFile={setProofFile} shouldShowProof={shouldShowProof} showBillingInfo={showBillingInfo} showTransferData={showTransferData} showWhatsappAction={showWhatsappAction} subtitle={subtitle} title={title} />
+        <OrderSuccessView alias={alias} bank={bank} billingInfo={billingInfo} cbu={cbu} contactChannelLabel={contactChannelLabel} copiedField={copiedField} copyText={copyText} emailSent={emailSent} emailTarget={emailTarget} formatOrderTotal={formatOrderTotal} handleUploadProof={handleUploadProof} holder={holder} items={items} order={order} proofError={proofError} proofFile={proofFile} proofUploading={proofUploading} proofUrl={proofUrl} setProofFile={setProofFile} shouldShowProof={shouldShowProof} showBillingInfo={showBillingInfo} showTransferData={showTransferData} showWhatsappAction={showWhatsappAction} subtitle={subtitle} title={title} />
     );
 }

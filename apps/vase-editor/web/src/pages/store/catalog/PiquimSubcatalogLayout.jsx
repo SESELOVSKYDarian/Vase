@@ -1,11 +1,11 @@
-// Parte de PiquimSubcatalogPage.
+// Subcatálogo de Piquim: la página (filtros y productos).
 import { ChevronDownSmallIcon } from './icons.jsx';
 import { PaginationButton } from './CatalogProductCard.jsx';
 import { PiquimProductsLoadingState } from './PiquimSidebar.jsx';
 import { PiquimSubcatalogProductCard } from './PiquimProductCard.jsx';
 import { PiquimSubcatalogSidebar } from './PiquimSidebar.jsx';
 
-export default function PiquimSubcatalogPageParte({ availableFormats, availableTypes, catalog, catalogTopRef, currency, expandedSections, flavorFilters, formatFilters, handleCatalogPageChange, handleQueryChange, handleSearchCommit, handleStockChange, handleSuggestionPick, labels, loadError, loading, locale, normalizedProducts, onProductClick, onRetry, paginatedProducts, paginationItems, productSuggestions, query, resolvedCatalog, sections, setExpandedSections, setFlavorFilters, setFormatFilters, setTypeFilters, stockOnly, toggleFilter, trendingSuggestions, typeFilters, usesConfiguredGroups, visibleRangeEnd, visibleRangeStart }) {
+export default function PiquimSubcatalogLayout({ availableFormats, availableTypes, catalog, catalogTopRef, currency, expandedSections, flavorFilters, formatFilters, handleCatalogPageChange, handleQueryChange, handleSearchCommit, handleStockChange, handleSuggestionPick, labels, loadError, loading, locale, normalizedProducts, onProductClick, onRetry, paginatedProducts, paginationItems, productSuggestions, query, resolvedCatalog, sections, setExpandedSections, setFlavorFilters, setFormatFilters, setTypeFilters, stockOnly, toggleFilter, trendingSuggestions, typeFilters, usesConfiguredGroups, visibleRangeEnd, visibleRangeStart }) {
     return (
         <div className="min-h-screen bg-[var(--store-background)] font-[Inter] text-[var(--store-text)] transition-colors duration-300">
             <main className="flex w-full items-start justify-center gap-0 bg-[var(--store-background)] px-[60px] pb-10 pt-8 max-lg:flex-col max-lg:px-5 max-lg:pt-3 max-md:pb-8">

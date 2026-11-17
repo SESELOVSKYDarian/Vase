@@ -1,10 +1,10 @@
-// Parte de OrderSuccessPage.
+// Pedido confirmado: resumen, datos para transferir y subida del comprobante.
 import StoreLayout from '../../components/layout/StoreLayout';
 import { getBillingDocumentLabel } from '../../utils/billing';
 import { getBillingVatLabel } from '../../utils/billing';
 import { navigate } from '../../utils/navigation';
 
-export default function OrderSuccessPageParte({ alias, bank, billingInfo, cbu, contactChannelLabel, copiedField, copyText, emailSent, emailTarget, formatOrderTotal, handleUploadProof, holder, items, order, proofError, proofFile, proofUploading, proofUrl, setProofFile, shouldShowProof, showBillingInfo, showTransferData, showWhatsappAction, subtitle, title }) {
+export default function OrderSuccessView({ alias, bank, billingInfo, cbu, contactChannelLabel, copiedField, copyText, emailSent, emailTarget, formatOrderTotal, handleUploadProof, holder, items, order, proofError, proofFile, proofUploading, proofUrl, setProofFile, shouldShowProof, showBillingInfo, showTransferData, showWhatsappAction, subtitle, title }) {
     return (
         <StoreLayout>
             <main className="max-w-[960px] mx-auto w-full px-4 md:px-10 py-16">

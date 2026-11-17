@@ -1,12 +1,12 @@
 // Panel de filtros del catálogo.
-// partes: ./CatalogFiltersCategorias.jsx
+// partes: ./CatalogFiltersPanel.jsx
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { DEFAULT_SORT, SORT_OPTIONS, normalizePriceFilterValue, normalizeSortValue } from "./filters.js";
 import { CATALOG_STYLES } from "./catalog-data.js";
 import { ChevronRightIcon, CloseIcon, ResetIcon } from "./icons.jsx";
 
-import CatalogFiltersCategorias from './CatalogFiltersCategorias.jsx';
+import CatalogFiltersPanel from './CatalogFiltersPanel.jsx';
 export function CatalogFilters({
     categoryTree,
     brands,
@@ -106,7 +106,7 @@ export function CatalogFilters({
                 <ResetIcon className="size-4" />
             </button>
 
-            <CatalogFiltersCategorias brands={brands} categoryTree={categoryTree} draftInStockOnly={draftInStockOnly} draftMaxPrice={draftMaxPrice} draftMinPrice={draftMinPrice} draftSort={draftSort} expandedCategories={expandedCategories} hasMoreBrands={hasMoreBrands} hasMoreCategories={hasMoreCategories} onApplyAdvanced={onApplyAdvanced} onReset={onReset} onSelectBrand={onSelectBrand} onSelectCategory={onSelectCategory} selectedBrand={selectedBrand} selectedCategory={selectedCategory} setDraftInStockOnly={setDraftInStockOnly} setDraftMaxPrice={setDraftMaxPrice} setDraftMinPrice={setDraftMinPrice} setDraftSort={setDraftSort} setExpandedCategories={setExpandedCategories} setShowAllBrandsModal={setShowAllBrandsModal} setShowAllCategoriesModal={setShowAllCategoriesModal} visibleBrands={visibleBrands} visibleCategories={visibleCategories} />
+            <CatalogFiltersPanel brands={brands} categoryTree={categoryTree} draftInStockOnly={draftInStockOnly} draftMaxPrice={draftMaxPrice} draftMinPrice={draftMinPrice} draftSort={draftSort} expandedCategories={expandedCategories} hasMoreBrands={hasMoreBrands} hasMoreCategories={hasMoreCategories} onApplyAdvanced={onApplyAdvanced} onReset={onReset} onSelectBrand={onSelectBrand} onSelectCategory={onSelectCategory} selectedBrand={selectedBrand} selectedCategory={selectedCategory} setDraftInStockOnly={setDraftInStockOnly} setDraftMaxPrice={setDraftMaxPrice} setDraftMinPrice={setDraftMinPrice} setDraftSort={setDraftSort} setExpandedCategories={setExpandedCategories} setShowAllBrandsModal={setShowAllBrandsModal} setShowAllCategoriesModal={setShowAllCategoriesModal} visibleBrands={visibleBrands} visibleCategories={visibleCategories} />
 
             {showAllCategoriesModal ? createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">

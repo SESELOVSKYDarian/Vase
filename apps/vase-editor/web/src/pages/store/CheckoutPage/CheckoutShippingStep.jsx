@@ -1,5 +1,5 @@
 // Checkout, paso 1: datos del cliente y dirección de entrega.
-// partes: ./CheckoutShippingStepRazonSocial.jsx
+// partes: ./CheckoutBillingFields.jsx
 import { Accordion } from './Accordion.jsx';
 import { BILLING_DOCUMENT_OPTIONS } from '../../../utils/billing';
 import { BILLING_VAT_OPTIONS } from '../../../utils/billing';
@@ -7,7 +7,7 @@ import { checkoutFieldClass } from './map-distance-quote-error.js';
 import { checkoutNoteClass } from './map-distance-quote-error.js';
 import { checkoutPrimaryButtonClass } from './map-distance-quote-error.js';
 
-import CheckoutShippingStepRazonSocial from './CheckoutShippingStepRazonSocial.jsx';
+import CheckoutBillingFields from './CheckoutBillingFields.jsx';
 export default function CheckoutShippingStep({ billingInfo, customerInfo, handleShippingCityInputChange, handleShippingCountryInputChange, handleShippingProvinceInputChange, isArgentinaShippingCountry, openStep, setBillingInfo, setCustomerInfo, setOpenStep, setShippingInfo, shippingCitiesLoading, shippingCityOptions, shippingCitySuggestionsEnabled, shippingCountriesLoading, shippingCountryInput, shippingCountryOptions, shippingInfo, shippingProvinceLoading, shippingProvinceOptions, shippingProvinceSuggestionsEnabled }) {
     return (
         <Accordion
@@ -197,7 +197,7 @@ export default function CheckoutShippingStep({ billingInfo, customerInfo, handle
                             autoComplete="postal-code"
                         />
                     </div>
-                    <CheckoutShippingStepRazonSocial billingInfo={billingInfo} setBillingInfo={setBillingInfo} />
+                    <CheckoutBillingFields billingInfo={billingInfo} setBillingInfo={setBillingInfo} />
                 </div>
 
                 <div className="flex justify-end">

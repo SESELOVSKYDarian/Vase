@@ -1,8 +1,8 @@
-// Parte de Footer.
+// Pie de la tienda: columnas de links, contacto y redes.
 import { Globe } from 'lucide-react';
 import { navigate } from '../../utils/navigation';
 
-export default function FooterParte({ FooterColumn, LegalText, SOCIAL_ICON_MAP, accountLinks, brandName, displayBrandName, email, emailId, footerDescription, handleNewsletterSubmit, helpLinks, legalLinks, legalText, logoSrc, newsletter, setEmail, setSubmitted, shopLinks, socialLinks, submitted, whatsappRaw }) {
+export default function FooterColumns({ FooterColumn, LegalText, SOCIAL_ICON_MAP, accountLinks, brandName, displayBrandName, email, emailId, footerDescription, handleNewsletterSubmit, helpLinks, legalLinks, legalText, logoSrc, newsletter, setEmail, setSubmitted, shopLinks, socialLinks, submitted, whatsappRaw }) {
     return (
         <footer className="mt-0 w-full bg-[#1a1614] text-[#fffaf6]">
             <div className="mx-auto max-w-[1440px] px-5 py-14 md:px-10 md:py-20 xl:px-[120px]">

@@ -1,9 +1,9 @@
-// Parte de CheckoutShippingStep: Razon social.
+// Checkout, paso 1: datos de facturación (razón social, documento e IVA).
 import { BILLING_DOCUMENT_OPTIONS } from '../../../utils/billing';
 import { BILLING_VAT_OPTIONS } from '../../../utils/billing';
 import { checkoutFieldClass } from './map-distance-quote-error.js';
 
-export default function CheckoutShippingStepRazonSocial({ billingInfo, setBillingInfo }) {
+export default function CheckoutBillingFields({ billingInfo, setBillingInfo }) {
     return (
         <div className="col-span-2 mt-2 border-t border-gray-200 pt-5">
             <div className="mb-4">

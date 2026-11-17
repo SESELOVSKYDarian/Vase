@@ -1,4 +1,4 @@
-// Parte de CheckoutPage: Finalizar compra.
+// Checkout: la página (título, pasos a la izquierda y resumen a la derecha).
 import CheckoutDeliveryStep from './CheckoutDeliveryStep.jsx';
 import CheckoutPaymentStep from './CheckoutPaymentStep.jsx';
 import CheckoutShippingStep from './CheckoutShippingStep.jsx';
@@ -6,7 +6,7 @@ import CheckoutSummary from './CheckoutSummary.jsx';
 import StoreLayout from '../../../components/layout/StoreLayout';
 import { StepProgress } from './Accordion.jsx';
 
-export default function CheckoutPageFinalizarCompra({ bankTransfer, billingInfo, checkoutError, creating, customerInfo, deliveryLocation, deliveryMethod, deliveryQuoteError, displayCurrency, distanceQuote, handleCompletePurchase, handleDeliveryGroupChange, handleShippingCityInputChange, handleShippingCountryInputChange, handleShippingProvinceInputChange, highlightedTransfer, isArgentinaShippingCountry, items, iva, locale, openStep, orderChannel, orderChannelOptions, orderSuccess, paymentLabel, paymentMethod, paymentOptions, paymentSummary, pickupDeliveryOptions, selectedDeliveryGroup, selectedDeliveryOption, setBillingInfo, setCustomerInfo, setDeliveryLocation, setDeliveryMethod, setDeliveryQuoteError, setOpenStep, setOrderChannel, setPaymentMethod, setShippingInfo, setTaxesAcknowledged, shipping, shippingCitiesLoading, shippingCityOptions, shippingCitySuggestionsEnabled, shippingCountriesLoading, shippingCountryInput, shippingCountryOptions, shippingDeliveryOptions, shippingInfo, shippingProvinceLoading, shippingProvinceOptions, shippingProvinceSuggestionsEnabled, subtotal, summaryItems, taxesAcknowledged, total, validationError, whatsappNumber }) {
+export default function CheckoutLayout({ bankTransfer, billingInfo, checkoutError, creating, customerInfo, deliveryLocation, deliveryMethod, deliveryQuoteError, displayCurrency, distanceQuote, handleCompletePurchase, handleDeliveryGroupChange, handleShippingCityInputChange, handleShippingCountryInputChange, handleShippingProvinceInputChange, highlightedTransfer, isArgentinaShippingCountry, items, iva, locale, openStep, orderChannel, orderChannelOptions, orderSuccess, paymentLabel, paymentMethod, paymentOptions, paymentSummary, pickupDeliveryOptions, selectedDeliveryGroup, selectedDeliveryOption, setBillingInfo, setCustomerInfo, setDeliveryLocation, setDeliveryMethod, setDeliveryQuoteError, setOpenStep, setOrderChannel, setPaymentMethod, setShippingInfo, setTaxesAcknowledged, shipping, shippingCitiesLoading, shippingCityOptions, shippingCitySuggestionsEnabled, shippingCountriesLoading, shippingCountryInput, shippingCountryOptions, shippingDeliveryOptions, shippingInfo, shippingProvinceLoading, shippingProvinceOptions, shippingProvinceSuggestionsEnabled, subtotal, summaryItems, taxesAcknowledged, total, validationError, whatsappNumber }) {
     return (
         <StoreLayout>
             <main className="mx-auto w-full max-w-[1400px] px-4 py-6 text-gray-900 md:px-8 md:py-10">

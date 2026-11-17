@@ -1,5 +1,5 @@
 // Página del catálogo de la tienda.
-// partes: ./CatalogPageParte.jsx
+// partes: ./CatalogLayout.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import StoreLayout from "../../../components/layout/StoreLayout";
 import { getApiBase, getAuthHeaders, getTenantHeaders } from "../../../utils/api";
@@ -24,7 +24,7 @@ import { CloseIcon, FilterIcon, ResetIcon } from "./icons.jsx";
 import { CatalogFilters } from "./CatalogFilters.jsx";
 import { CatalogProductCard, PaginationButton } from "./CatalogProductCard.jsx";
 
-import CatalogPageParte from './CatalogPageParte.jsx';
+import CatalogLayout from './CatalogLayout.jsx';
 export default function CatalogPage() {
     const { search, showToast } = useStore();
     const { tenant, settings } = useTenant();
@@ -536,6 +536,6 @@ export default function CatalogPage() {
     }
 
     return (
-        <CatalogPageParte activeFilterCount={activeFilterCount} applyFilters={applyFilters} authLoading={authLoading} brands={brands} canViewPrices={canViewPrices} catalogProducts={catalogProducts} catalogText={catalogText} categoryTree={categoryTree} chips={chips} currency={currency} handleFavoriteChange={handleFavoriteChange} handlePageChange={handlePageChange} inStockOnly={inStockOnly} loading={loading} locale={locale} lowStockThreshold={lowStockThreshold} mobileFiltersOpen={mobileFiltersOpen} page={page} resetFilters={resetFilters} resultsSummary={resultsSummary} selectedBrand={selectedBrand} selectedBrandEntry={selectedBrandEntry} selectedCategory={selectedCategory} selectedCategoryEntry={selectedCategoryEntry} selectedMaxPrice={selectedMaxPrice} selectedMinPrice={selectedMinPrice} setMobileFiltersOpen={setMobileFiltersOpen} showPricesEnabled={showPricesEnabled} showStock={showStock} sort={sort} totalItems={totalItems} totalPages={totalPages} />
+        <CatalogLayout activeFilterCount={activeFilterCount} applyFilters={applyFilters} authLoading={authLoading} brands={brands} canViewPrices={canViewPrices} catalogProducts={catalogProducts} catalogText={catalogText} categoryTree={categoryTree} chips={chips} currency={currency} handleFavoriteChange={handleFavoriteChange} handlePageChange={handlePageChange} inStockOnly={inStockOnly} loading={loading} locale={locale} lowStockThreshold={lowStockThreshold} mobileFiltersOpen={mobileFiltersOpen} page={page} resetFilters={resetFilters} resultsSummary={resultsSummary} selectedBrand={selectedBrand} selectedBrandEntry={selectedBrandEntry} selectedCategory={selectedCategory} selectedCategoryEntry={selectedCategoryEntry} selectedMaxPrice={selectedMaxPrice} selectedMinPrice={selectedMinPrice} setMobileFiltersOpen={setMobileFiltersOpen} showPricesEnabled={showPricesEnabled} showStock={showStock} sort={sort} totalItems={totalItems} totalPages={totalPages} />
     );
 }

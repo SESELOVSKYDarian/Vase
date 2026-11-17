@@ -1,4 +1,4 @@
-// partes: ./FooterParte.jsx
+// partes: ./FooterColumns.jsx
 import React, { useId, useMemo, useState } from "react";
 import { Instagram, Facebook, Youtube, Music2, MessageCircle, Linkedin, Globe, MapPin, Phone, Mail } from "lucide-react";
 import { useTenant } from "../../context/TenantContext";
@@ -8,7 +8,7 @@ import { withPrivacyLink } from "../../data/legalPages";
 import { PIQUIM_FOOTER_DEFAULTS } from "../../data/piquimBranding";
 import { isPiquimTenantIdentity, resolveBrandLogo } from "../../utils/tenantBranding";
 
-import FooterParte from './FooterParte.jsx';
+import FooterColumns from './FooterColumns.jsx';
 const toArray = (value, fallback = []) => (Array.isArray(value) ? value : fallback);
 const SOCIAL_ICON_MAP = {
     instagram: Instagram,
@@ -239,7 +239,7 @@ export default function Footer() {
     }
 
     return (
-        <FooterParte FooterColumn={FooterColumn} LegalText={LegalText} SOCIAL_ICON_MAP={SOCIAL_ICON_MAP} accountLinks={accountLinks} brandName={brandName} displayBrandName={displayBrandName} email={email} emailId={emailId} footerDescription={footerDescription} handleNewsletterSubmit={handleNewsletterSubmit} helpLinks={helpLinks} legalLinks={legalLinks} legalText={legalText} logoSrc={logoSrc} newsletter={newsletter} setEmail={setEmail} setSubmitted={setSubmitted} shopLinks={shopLinks} socialLinks={socialLinks} submitted={submitted} whatsappRaw={whatsappRaw} />
+        <FooterColumns FooterColumn={FooterColumn} LegalText={LegalText} SOCIAL_ICON_MAP={SOCIAL_ICON_MAP} accountLinks={accountLinks} brandName={brandName} displayBrandName={displayBrandName} email={email} emailId={emailId} footerDescription={footerDescription} handleNewsletterSubmit={handleNewsletterSubmit} helpLinks={helpLinks} legalLinks={legalLinks} legalText={legalText} logoSrc={logoSrc} newsletter={newsletter} setEmail={setEmail} setSubmitted={setSubmitted} shopLinks={shopLinks} socialLinks={socialLinks} submitted={submitted} whatsappRaw={whatsappRaw} />
     );
 }
 

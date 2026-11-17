@@ -1,4 +1,4 @@
-// Parte de CatalogPage.
+// Catálogo: la página (migas, filtros y grilla de productos).
 import StoreLayout from '../../../components/layout/StoreLayout';
 import StoreSkeleton from '../../../components/StoreSkeleton';
 import { CATALOG_STYLES } from './catalog-data.js';
@@ -10,7 +10,7 @@ import { PaginationButton } from './CatalogProductCard.jsx';
 import { ResetIcon } from './icons.jsx';
 import { navigate } from '../../../utils/navigation';
 
-export default function CatalogPageParte({ activeFilterCount, applyFilters, authLoading, brands, canViewPrices, catalogProducts, catalogText, categoryTree, chips, currency, handleFavoriteChange, handlePageChange, inStockOnly, loading, locale, lowStockThreshold, mobileFiltersOpen, page, resetFilters, resultsSummary, selectedBrand, selectedBrandEntry, selectedCategory, selectedCategoryEntry, selectedMaxPrice, selectedMinPrice, setMobileFiltersOpen, showPricesEnabled, showStock, sort, totalItems, totalPages }) {
+export default function CatalogLayout({ activeFilterCount, applyFilters, authLoading, brands, canViewPrices, catalogProducts, catalogText, categoryTree, chips, currency, handleFavoriteChange, handlePageChange, inStockOnly, loading, locale, lowStockThreshold, mobileFiltersOpen, page, resetFilters, resultsSummary, selectedBrand, selectedBrandEntry, selectedCategory, selectedCategoryEntry, selectedMaxPrice, selectedMinPrice, setMobileFiltersOpen, showPricesEnabled, showStock, sort, totalItems, totalPages }) {
     return (
         <StoreLayout>
             <div className="mx-auto w-full max-w-[1440px] px-4 pb-16 pt-6 md:px-6 lg:pt-8 xl:px-10" style={CATALOG_STYLES.shell}>

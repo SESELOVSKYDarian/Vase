@@ -1,5 +1,5 @@
 // Página de un subcatálogo de Piquim.
-// partes: ./PiquimSubcatalogPageParte.jsx
+// partes: ./PiquimSubcatalogLayout.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { navigate } from "../../../utils/navigation";
 import { buildCatalogPaginationModel, buildPiquimCategoryGroups, paginateCatalogItems, resolvePiquimProductGroups, selectCanonicalCatalogMemberships, synchronizeCatalogPageRequest } from "../../../utils/piquimCatalogCategories";
@@ -12,7 +12,7 @@ import { PiquimSubcatalogProductCard } from "./PiquimProductCard.jsx";
 import { ChevronDownSmallIcon } from "./icons.jsx";
 import { PaginationButton } from "./CatalogProductCard.jsx";
 
-import PiquimSubcatalogPageParte from './PiquimSubcatalogPageParte.jsx';
+import PiquimSubcatalogLayout from './PiquimSubcatalogLayout.jsx';
 export function PiquimSubcatalogPage({ catalog, categories, initialGroup = "", products, loading, loadError, onRetry, currency, locale, onProductClick, labels }) {
     const [query, setQuery] = useState("");
     // `group` en la URL (ej. una categoria sugerida del buscador) preselecciona la subcategoria.
@@ -302,6 +302,6 @@ export function PiquimSubcatalogPage({ catalog, categories, initialGroup = "", p
     };
 
     return (
-        <PiquimSubcatalogPageParte availableFormats={availableFormats} availableTypes={availableTypes} catalog={catalog} catalogTopRef={catalogTopRef} currency={currency} expandedSections={expandedSections} flavorFilters={flavorFilters} formatFilters={formatFilters} handleCatalogPageChange={handleCatalogPageChange} handleQueryChange={handleQueryChange} handleSearchCommit={handleSearchCommit} handleStockChange={handleStockChange} handleSuggestionPick={handleSuggestionPick} labels={labels} loadError={loadError} loading={loading} locale={locale} normalizedProducts={normalizedProducts} onProductClick={onProductClick} onRetry={onRetry} paginatedProducts={paginatedProducts} paginationItems={paginationItems} productSuggestions={productSuggestions} query={query} resolvedCatalog={resolvedCatalog} sections={sections} setExpandedSections={setExpandedSections} setFlavorFilters={setFlavorFilters} setFormatFilters={setFormatFilters} setTypeFilters={setTypeFilters} stockOnly={stockOnly} toggleFilter={toggleFilter} trendingSuggestions={trendingSuggestions} typeFilters={typeFilters} usesConfiguredGroups={usesConfiguredGroups} visibleRangeEnd={visibleRangeEnd} visibleRangeStart={visibleRangeStart} />
+        <PiquimSubcatalogLayout availableFormats={availableFormats} availableTypes={availableTypes} catalog={catalog} catalogTopRef={catalogTopRef} currency={currency} expandedSections={expandedSections} flavorFilters={flavorFilters} formatFilters={formatFilters} handleCatalogPageChange={handleCatalogPageChange} handleQueryChange={handleQueryChange} handleSearchCommit={handleSearchCommit} handleStockChange={handleStockChange} handleSuggestionPick={handleSuggestionPick} labels={labels} loadError={loadError} loading={loading} locale={locale} normalizedProducts={normalizedProducts} onProductClick={onProductClick} onRetry={onRetry} paginatedProducts={paginatedProducts} paginationItems={paginationItems} productSuggestions={productSuggestions} query={query} resolvedCatalog={resolvedCatalog} sections={sections} setExpandedSections={setExpandedSections} setFlavorFilters={setFlavorFilters} setFormatFilters={setFormatFilters} setTypeFilters={setTypeFilters} stockOnly={stockOnly} toggleFilter={toggleFilter} trendingSuggestions={trendingSuggestions} typeFilters={typeFilters} usesConfiguredGroups={usesConfiguredGroups} visibleRangeEnd={visibleRangeEnd} visibleRangeStart={visibleRangeStart} />
     );
 }

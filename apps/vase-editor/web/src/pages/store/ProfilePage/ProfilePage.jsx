@@ -1,5 +1,5 @@
 // Íconos y ayudantes de ProfilePage.jsx: ProfilePage.
-// partes: ./ProfileSecurity.jsx, ./ProfileFavorites.jsx, ./ProfileAddresses.jsx, ./ProfileOrders.jsx, ./ProfileHeader.jsx, ./ProfileSidebar.jsx, ./save-address.js, ./profile-photo-change.js, ./update-order-status.js, ./ProfilePageParte.jsx
+// partes: ./ProfileSecurity.jsx, ./ProfileFavorites.jsx, ./ProfileAddresses.jsx, ./ProfileOrders.jsx, ./ProfileHeader.jsx, ./ProfileSidebar.jsx, ./save-address.js, ./profile-photo-change.js, ./update-order-status.js, ./ProfileLayout.jsx
 import { useEffect, useMemo, useState } from 'react';
 import StoreLayout from '../../../components/layout/StoreLayout';
 import { useAuth } from '../../../context/AuthContext';
@@ -23,7 +23,7 @@ import ProfileSidebar from './ProfileSidebar.jsx';
 import { makeSaveAddress } from './save-address.js';
 import { makeHandleProfilePhotoChange } from './profile-photo-change.js';
 import { makeUpdateOrderStatus } from './update-order-status.js';
-import ProfilePageParte from './ProfilePageParte.jsx';
+import ProfileLayout from './ProfileLayout.jsx';
 export default function ProfilePage() {
     const { user, logout, loading, isAdmin, uploadProfilePhoto, updateProfile } = useAuth();
     const { favorites, removeFavorite, addToCart } = useStore();
@@ -378,6 +378,6 @@ export default function ProfilePage() {
     };
 
     return (
-        <ProfilePageParte activeSection={activeSection} addToCart={addToCart} address={address} addressDraft={addressDraft} addressesSpanClass={addressesSpanClass} billingDetails={billingDetails} citiesLoading={citiesLoading} cityOptions={cityOptions} citySuggestionsEnabled={citySuggestionsEnabled} countriesLoading={countriesLoading} countryInput={countryInput} countryOptions={countryOptions} currency={currency} favorites={favorites} formatOrderDate={formatOrderDate} handleCityInputChange={handleCityInputChange} handleCountryInputChange={handleCountryInputChange} handleLogout={handleLogout} handleProfilePhotoChange={handleProfilePhotoChange} handleProvinceInputChange={handleProvinceInputChange} handleRemovePhoto={handleRemovePhoto} handleViewOrder={handleViewOrder} handleWholesaleQuote={handleWholesaleQuote} hasProfileBillingInfo={hasProfileBillingInfo} isArgentinaCountry={isArgentinaCountry} isEditingAddress={isEditingAddress} isWholesaleUser={isWholesaleUser} locale={locale} ordersSpanClass={ordersSpanClass} profileName={profileName} profilePhoto={profilePhoto} provinceLoading={provinceLoading} provinceOptions={provinceOptions} provinceSuggestionsEnabled={provinceSuggestionsEnabled} removeFavorite={removeFavorite} resetAddress={resetAddress} roleLabel={roleLabel} saveAddress={saveAddress} sectionLabels={sectionLabels} setActiveSection={setActiveSection} setAddressDraft={setAddressDraft} setIsEditingAddress={setIsEditingAddress} showAddresses={showAddresses} showOrders={showOrders} showPrices={showPrices} updateOrderStatus={updateOrderStatus} visibleOrders={visibleOrders} wholesaleQuoteUrl={wholesaleQuoteUrl} />
+        <ProfileLayout activeSection={activeSection} addToCart={addToCart} address={address} addressDraft={addressDraft} addressesSpanClass={addressesSpanClass} billingDetails={billingDetails} citiesLoading={citiesLoading} cityOptions={cityOptions} citySuggestionsEnabled={citySuggestionsEnabled} countriesLoading={countriesLoading} countryInput={countryInput} countryOptions={countryOptions} currency={currency} favorites={favorites} formatOrderDate={formatOrderDate} handleCityInputChange={handleCityInputChange} handleCountryInputChange={handleCountryInputChange} handleLogout={handleLogout} handleProfilePhotoChange={handleProfilePhotoChange} handleProvinceInputChange={handleProvinceInputChange} handleRemovePhoto={handleRemovePhoto} handleViewOrder={handleViewOrder} handleWholesaleQuote={handleWholesaleQuote} hasProfileBillingInfo={hasProfileBillingInfo} isArgentinaCountry={isArgentinaCountry} isEditingAddress={isEditingAddress} isWholesaleUser={isWholesaleUser} locale={locale} ordersSpanClass={ordersSpanClass} profileName={profileName} profilePhoto={profilePhoto} provinceLoading={provinceLoading} provinceOptions={provinceOptions} provinceSuggestionsEnabled={provinceSuggestionsEnabled} removeFavorite={removeFavorite} resetAddress={resetAddress} roleLabel={roleLabel} saveAddress={saveAddress} sectionLabels={sectionLabels} setActiveSection={setActiveSection} setAddressDraft={setAddressDraft} setIsEditingAddress={setIsEditingAddress} showAddresses={showAddresses} showOrders={showOrders} showPrices={showPrices} updateOrderStatus={updateOrderStatus} visibleOrders={visibleOrders} wholesaleQuoteUrl={wholesaleQuoteUrl} />
     );
 }

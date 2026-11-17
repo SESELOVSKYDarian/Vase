@@ -1,4 +1,4 @@
-// Parte de CatalogFilters: Categorias.
+// Catálogo: filtros de categorías, precio y disponibilidad.
 import { CATALOG_STYLES } from './catalog-data.js';
 import { ChevronRightIcon } from './icons.jsx';
 import { DEFAULT_SORT } from './filters.js';
@@ -6,7 +6,7 @@ import { SORT_OPTIONS } from './filters.js';
 import { normalizePriceFilterValue } from './filters.js';
 import { normalizeSortValue } from './filters.js';
 
-export default function CatalogFiltersCategorias({ brands, categoryTree, draftInStockOnly, draftMaxPrice, draftMinPrice, draftSort, expandedCategories, hasMoreBrands, hasMoreCategories, onApplyAdvanced, onReset, onSelectBrand, onSelectCategory, selectedBrand, selectedCategory, setDraftInStockOnly, setDraftMaxPrice, setDraftMinPrice, setDraftSort, setExpandedCategories, setShowAllBrandsModal, setShowAllCategoriesModal, visibleBrands, visibleCategories }) {
+export default function CatalogFiltersPanel({ brands, categoryTree, draftInStockOnly, draftMaxPrice, draftMinPrice, draftSort, expandedCategories, hasMoreBrands, hasMoreCategories, onApplyAdvanced, onReset, onSelectBrand, onSelectCategory, selectedBrand, selectedCategory, setDraftInStockOnly, setDraftMaxPrice, setDraftMinPrice, setDraftSort, setExpandedCategories, setShowAllBrandsModal, setShowAllCategoriesModal, visibleBrands, visibleCategories }) {
     return (
         <div className="mt-6 space-y-6">
             <section>

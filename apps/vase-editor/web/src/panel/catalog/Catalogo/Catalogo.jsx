@@ -1,5 +1,5 @@
 // Parte de Catalogo.jsx: Catalogo.
-// partes: ./CatalogoNombreEnLaTienda.jsx
+// partes: ./CatalogoProductos.jsx
 import { useEffect, useMemo, useState } from 'react';
 import DataTable from '../../components/DataTable';
 import { Modal, SidePanel } from '../../components/Overlays';
@@ -15,7 +15,7 @@ import { buildCategoryTree, buildFilters, categoryPath, countByCategory, descend
 import { PanelTag } from '@vase/ui/panel/pieces';
 import { TABS, lastSyncLabel } from './last-sync-label.js';
 
-import CatalogoNombreEnLaTienda from './CatalogoNombreEnLaTienda.jsx';
+import CatalogoProductos from './CatalogoProductos.jsx';
 export default function Catalogo({ editor, user, theme, toast, goSettings, storeHost }) {
     const [tab, setTab] = useState('productos');
     const products = editor.products || [];
@@ -196,7 +196,7 @@ export default function Catalogo({ editor, user, theme, toast, goSettings, store
                    
                 />
             ) : null}
-            <CatalogoNombreEnLaTienda active={active} activeBrand={activeBrand} activeCat={activeCat} activeProduct={activeProduct} brandCounts={brandCounts} brandName={brandName} brands={brands} bulk={bulk} catDraft={catDraft} catProducts={catProducts} categories={categories} changeStock={changeStock} counts={counts} createBrand={createBrand} currentCat={currentCat} filter={filter} filters={filters} goSettings={goSettings} products={products} query={query} rows={rows} saveCategory={saveCategory} saveProduct={saveProduct} saving={saving} selected={selected} setActive={setActive} setActiveBrand={setActiveBrand} setActiveCat={setActiveCat} setBrandName={setBrandName} setCatDraft={setCatDraft} setConfirm={setConfirm} setFilter={setFilter} setMoveOpen={setMoveOpen} setPricesOf={setPricesOf} setProductCategory={setProductCategory} setQuery={setQuery} setSelected={setSelected} storeHost={storeHost} tab={tab} theme={theme} toast={toast} tree={tree} updateFields={updateFields} user={user} />
+            <CatalogoProductos active={active} activeBrand={activeBrand} activeCat={activeCat} activeProduct={activeProduct} brandCounts={brandCounts} brandName={brandName} brands={brands} bulk={bulk} catDraft={catDraft} catProducts={catProducts} categories={categories} changeStock={changeStock} counts={counts} createBrand={createBrand} currentCat={currentCat} filter={filter} filters={filters} goSettings={goSettings} products={products} query={query} rows={rows} saveCategory={saveCategory} saveProduct={saveProduct} saving={saving} selected={selected} setActive={setActive} setActiveBrand={setActiveBrand} setActiveCat={setActiveCat} setBrandName={setBrandName} setCatDraft={setCatDraft} setConfirm={setConfirm} setFilter={setFilter} setMoveOpen={setMoveOpen} setPricesOf={setPricesOf} setProductCategory={setProductCategory} setQuery={setQuery} setSelected={setSelected} storeHost={storeHost} tab={tab} theme={theme} toast={toast} tree={tree} updateFields={updateFields} user={user} />
 
             <Modal
                 open={Boolean(pricesOf)}

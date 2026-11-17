@@ -1,4 +1,4 @@
-// Parte de Catalogo: Nombre en la tienda.
+// Panel, Catálogo: la lista de productos con filtros y acciones en grupo.
 import DataTable from '../../components/DataTable';
 import Icon from '../../components/Icon';
 import ProductInspector from '../ProductInspector';
@@ -12,7 +12,7 @@ import { formatMoney } from '../../format';
 import { mainCategory } from '../model';
 import { productThumb } from '../model';
 
-export default function CatalogoNombreEnLaTienda({ active, activeBrand, activeCat, activeProduct, brandCounts, brandName, brands, bulk, catDraft, catProducts, categories, changeStock, counts, createBrand, currentCat, filter, filters, goSettings, products, query, rows, saveCategory, saveProduct, saving, selected, setActive, setActiveBrand, setActiveCat, setBrandName, setCatDraft, setConfirm, setFilter, setMoveOpen, setPricesOf, setProductCategory, setQuery, setSelected, storeHost, tab, theme, toast, tree, updateFields, user }) {
+export default function CatalogoProductos({ active, activeBrand, activeCat, activeProduct, brandCounts, brandName, brands, bulk, catDraft, catProducts, categories, changeStock, counts, createBrand, currentCat, filter, filters, goSettings, products, query, rows, saveCategory, saveProduct, saving, selected, setActive, setActiveBrand, setActiveCat, setBrandName, setCatDraft, setConfirm, setFilter, setMoveOpen, setPricesOf, setProductCategory, setQuery, setSelected, storeHost, tab, theme, toast, tree, updateFields, user }) {
     return (
         <div className="vp-page" style={tab === 'ofertas' || tab === 'precios' ? { display: 'none' } : undefined}>
             <div className="vp-body">

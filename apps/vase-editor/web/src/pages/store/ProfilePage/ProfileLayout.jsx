@@ -1,4 +1,4 @@
-// Parte de ProfilePage.
+// Mi cuenta en la tienda: la página (menú a la izquierda y la sección elegida).
 import ProfileAddresses from './ProfileAddresses.jsx';
 import ProfileFavorites from './ProfileFavorites.jsx';
 import ProfileHeader from './ProfileHeader.jsx';
@@ -9,7 +9,7 @@ import StoreLayout from '../../../components/layout/StoreLayout';
 import { ChevronRight } from './profile-helpers.jsx';
 import { navigate } from '../../../utils/navigation';
 
-export default function ProfilePageParte({ activeSection, addToCart, address, addressDraft, addressesSpanClass, billingDetails, citiesLoading, cityOptions, citySuggestionsEnabled, countriesLoading, countryInput, countryOptions, currency, favorites, formatOrderDate, handleCityInputChange, handleCountryInputChange, handleLogout, handleProfilePhotoChange, handleProvinceInputChange, handleRemovePhoto, handleViewOrder, handleWholesaleQuote, hasProfileBillingInfo, isArgentinaCountry, isEditingAddress, isWholesaleUser, locale, ordersSpanClass, profileName, profilePhoto, provinceLoading, provinceOptions, provinceSuggestionsEnabled, removeFavorite, resetAddress, roleLabel, saveAddress, sectionLabels, setActiveSection, setAddressDraft, setIsEditingAddress, showAddresses, showOrders, showPrices, updateOrderStatus, visibleOrders, wholesaleQuoteUrl }) {
+export default function ProfileLayout({ activeSection, addToCart, address, addressDraft, addressesSpanClass, billingDetails, citiesLoading, cityOptions, citySuggestionsEnabled, countriesLoading, countryInput, countryOptions, currency, favorites, formatOrderDate, handleCityInputChange, handleCountryInputChange, handleLogout, handleProfilePhotoChange, handleProvinceInputChange, handleRemovePhoto, handleViewOrder, handleWholesaleQuote, hasProfileBillingInfo, isArgentinaCountry, isEditingAddress, isWholesaleUser, locale, ordersSpanClass, profileName, profilePhoto, provinceLoading, provinceOptions, provinceSuggestionsEnabled, removeFavorite, resetAddress, roleLabel, saveAddress, sectionLabels, setActiveSection, setAddressDraft, setIsEditingAddress, showAddresses, showOrders, showPrices, updateOrderStatus, visibleOrders, wholesaleQuoteUrl }) {
     return (
         <StoreLayout>
             <div className="mx-auto w-full max-w-[1400px] px-4 md:px-10 py-8">
