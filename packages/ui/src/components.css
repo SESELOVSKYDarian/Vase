@@ -209,7 +209,9 @@ html[data-vase-leaving] :is(.vpa-main, .vp-main)::before { content: ""; position
 :where(.vpa, .vp) .vpa-stab-info:hover > span, :where(.vpa, .vp) .vpa-stab-info:focus > span { opacity: 1; visibility: visible; transform: none; }
 @media (max-width: 860px) {
   :where(.vpa, .vp) .vpa-stabs { display: flex; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
-  :where(.vpa, .vp) .vpa-stabs::-webkit-scrollbar { display: none; }
+  /* Con la especificidad de .vpa: el panel pinta barras de desplazamiento propias en todos los elementos. */
+  .vpa .vpa-stabs, .vp .vpa-stabs { scrollbar-width: none; }
+  .vpa .vpa-stabs::-webkit-scrollbar, .vp .vpa-stabs::-webkit-scrollbar { display: none; }
   :where(.vpa, .vp) .vpa-stab { flex: 0 0 auto; }
   :where(.vpa, .vp) .vpa-stab-link { padding: 10px 14px 10px 10px; gap: 10px; }
   :where(.vpa, .vp) .vpa-stab-ic { width: 32px; height: 32px; border-radius: 10px; }
