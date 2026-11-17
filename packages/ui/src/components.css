@@ -179,7 +179,9 @@ button.vpa-kpi:hover { outline: 1.5px solid var(--line2); }
 @keyframes vase-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes vase-loadbar { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 /* Al abrir un panel, el contenido entra suave. Corre una sola vez por carga de página. */
-.vpa-body, .vp-body, .vpa-top .vpa-g1, .vp-top .vp-ttl { animation: vase-enter .34s cubic-bezier(.2, .7, .2, 1) both; }
+/* "backwards" y no "both": si el transform queda puesto al terminar, los modales (position: fixed) quedan atados al
+   contenido en vez de a la pantalla. */
+.vpa-body, .vp-body, .vpa-top .vpa-g1, .vp-top .vp-ttl { animation: vase-enter .34s cubic-bezier(.2, .7, .2, 1) backwards; }
 /* Al salir hacia otro producto, el contenido se va y una línea fina avisa que está cargando. */
 html[data-vase-leaving] :is(.vpa-body, .vp-body, .vpa-top .vpa-g1, .vp-top .vp-ttl, .vp-top .vp-sub) { opacity: 0; transform: translateY(-6px); transition: opacity .17s ease, transform .17s ease; animation: none; }
 html[data-vase-leaving] :is(.vpa-main, .vp-main) { position: relative; overflow: hidden; }
@@ -220,3 +222,7 @@ html[data-vase-leaving] :is(.vpa-main, .vp-main)::before { content: ""; position
   :where(.vpa, .vp) .vpa-stab-info > span { right: 0; }
 }
 @media (prefers-reduced-motion: reduce) { :where(.vpa, .vp) .vpa-stab, :where(.vpa, .vp) .vpa-stab-info > span { transition: none; } }
+
+/* ===== Con un modal abierto, lo de atrás no se mueve ===== */
+html:has(:is(.labs-modal-backdrop, .vpa-dialog, .vpa-ov, .vp-scrim, .lx-vnotif.open)) { overflow: hidden; }
+html:has(:is(.labs-modal-backdrop, .vpa-dialog, .vpa-ov, .vp-scrim, .lx-vnotif.open)) :is(.vpa-body, .vp-body) { overflow: hidden; }
