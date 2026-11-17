@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { labsPrisma } from "../../../../lib/db";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
+import { toInboxMessageView } from "../../../../lib/inbox-message-view";
 import { InboxWorkstation, type InboxConversationItem, type InboxInsight } from "./inbox-workstation";
 
 export const dynamic = "force-dynamic";
@@ -87,20 +88,24 @@ async function getInboxData() {
         lastMessageAt: conversation.lastMessageAt?.toISOString() ?? null,
         escalatedToHuman: conversation.escalatedToHuman,
         summary: conversation.summary,
-        messages: conversation.messages.map((message) => ({
-          id: message.id,
-          role: message.role,
-          direction: message.direction,
-          content: message.content,
-          createdAt: message.createdAt.toISOString(),
-          delivery: message.deliveries[0]
-            ? {
-                status: message.deliveries[0].status,
-                providerMessageId: message.deliveries[0].providerMessageId,
-                error: message.deliveries[0].error,
-              }
-            : null,
-        })),
+        messages: conversation.messages.map((message) => {
+          const quote = toInboxMessageView(message).quote;
+          return {
+            id: message.id,
+            role: message.role,
+            direction: message.direction,
+            content: message.content,
+            createdAt: message.createdAt.toISOString(),
+            delivery: message.deliveries[0]
+              ? {
+                  status: message.deliveries[0].status,
+                  providerMessageId: message.deliveries[0].providerMessageId,
+                  error: message.deliveries[0].error,
+                }
+              : null,
+            ...(quote ? { quote } : {}),
+          };
+        }),
         handoffs: conversation.handoffs.map((handoff) => ({
           id: handoff.id,
           status: handoff.status,

@@ -15,6 +15,7 @@ import { createConversationOrderOrchestrator } from "../conversation-order-orche
 import { confirmConversationOrderDraft, prepareConversationOrderDraft, prismaConversationOrderDraftRepository } from "../conversation-order-tools";
 import { upsertBusinessOrderProjection } from "../order-projection";
 import { enrichLocalOrderSnapshot } from "../local-order-snapshot";
+import { createConversationQuote } from "../conversation-quote-service";
 import { createChannelAiReplyRunner, markPrismaAssistantReplyDelivery, persistPrismaAssistantReply } from "./channel-ai-reply-runner-deps";
 
 export function createPrismaChannelAiReplyRunner(input: {
@@ -158,7 +159,12 @@ export function createPrismaChannelAiReplyRunner(input: {
         });
       });
     },
-    orders,
+    orders: {
+      ...orders,
+      quote(quoteInput) {
+        return createConversationQuote(prisma, quoteInput, env);
+      },
+    },
     async listSentImageUrls(conversationId) {
       const messages = await prisma.message.findMany({
         where: {
@@ -215,6 +221,7 @@ export function createPrismaChannelAiReplyRunner(input: {
         recipientId: reply.recipientId,
         text: reply.text,
         imageUrls: reply.imageUrls,
+        document: reply.document,
       });
     },
   });

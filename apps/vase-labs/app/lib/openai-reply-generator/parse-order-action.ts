@@ -11,7 +11,7 @@ export function parseOrderAction(value: unknown): AiOrderAction {
     notes?: unknown;
   };
   if (source.type === "NONE") return { type: "NONE" };
-  if (source.type !== "PREPARE" || !Array.isArray(source.items)) {
+  if ((source.type !== "PREPARE" && source.type !== "QUOTE") || !Array.isArray(source.items)) {
     throw new Error("OPENAI_RESPONSE_INVALID");
   }
   const items = source.items.map((item) => {
@@ -27,6 +27,16 @@ export function parseOrderAction(value: unknown): AiOrderAction {
     return { productId: candidate.productId.trim(), quantity: Number(candidate.quantity) };
   });
   const customer = source.customer as { name?: unknown; phone?: unknown; email?: unknown } | null;
+  if (source.type === "QUOTE") {
+    // Un presupuesto no necesita datos de entrega: si no hay productos, no se arma y la charla sigue igual.
+    if (items.length === 0) return { type: "NONE" };
+    return {
+      type: "QUOTE",
+      items: items.slice(0, 30),
+      ...(typeof customer?.name === "string" && customer.name.trim() ? { customerName: customer.name.trim().slice(0, 120) } : {}),
+      ...(typeof source.notes === "string" && source.notes.trim() ? { notes: source.notes.trim().slice(0, 500) } : {}),
+    };
+  }
   const fulfillment = source.fulfillment as {
     type?: unknown;
     branchId?: unknown;

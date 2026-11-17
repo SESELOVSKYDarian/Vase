@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { labsPrisma } from "../../../../../../lib/db";
 import { requireTenantAccess } from "../../../../../../lib/tenant-route-guard";
+import { toInboxMessageView } from "../../../../../../lib/inbox-message-view";
 
 export async function GET(
   request: Request,
@@ -38,19 +39,8 @@ export async function GET(
   return NextResponse.json({
     conversation: conversation ?? null,
     messages: messages.map((message: any) => ({
-      id: message.id,
-      role: message.role,
-      direction: message.direction,
-      content: message.content,
+      ...toInboxMessageView(message),
       providerMessageId: message.providerMessageId,
-      createdAt: message.createdAt,
-      delivery: message.deliveries[0]
-        ? {
-            status: message.deliveries[0].status,
-            providerMessageId: message.deliveries[0].providerMessageId,
-            error: message.deliveries[0].error,
-          }
-        : null,
     })),
   });
 }

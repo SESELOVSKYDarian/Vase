@@ -35,6 +35,13 @@ export type AiOrderAction =
         address?: string;
       };
       notes?: string;
+    }
+  | {
+      /** El cliente pidió precio de uno o varios productos: el servidor arma el presupuesto en PDF. */
+      type: "QUOTE";
+      items: Array<{ productId: string; quantity: number }>;
+      customerName?: string;
+      notes?: string;
     };
 
 export type FetchLike = typeof fetch;

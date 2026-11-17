@@ -11,7 +11,42 @@ export type InboxMessage = {
   content: string;
   createdAt: string;
   delivery: InboxMessageDelivery | null;
+  /** Presupuesto en PDF que la IA mandó con este mensaje. */
+  quote?: InboxQuote;
 };
+
+export type InboxQuote = {
+  id: string;
+  number: number;
+  currency: string;
+  total: number;
+  validUntil: string;
+  url: string;
+  lines: Array<{ name: string; quantity: number; total: number }>;
+};
+
+export function readInboxQuote(value: unknown): InboxQuote | undefined {
+  const quote = value as Partial<InboxQuote> | null | undefined;
+  if (!quote || typeof quote.id !== "string" || typeof quote.number !== "number" || typeof quote.url !== "string") return undefined;
+  if (!quote.url.startsWith("https://")) return undefined;
+  return {
+    id: quote.id,
+    number: quote.number,
+    currency: typeof quote.currency === "string" ? quote.currency : "ARS",
+    total: typeof quote.total === "number" ? quote.total : 0,
+    validUntil: typeof quote.validUntil === "string" ? quote.validUntil : "",
+    url: quote.url,
+    lines: Array.isArray(quote.lines) ? quote.lines.filter((line) => line && typeof line.name === "string") : [],
+  };
+}
+
+export function formatQuoteNumber(number: number) {
+  return String(number).padStart(4, "0");
+}
+
+export function formatMoney(value: number, currency = "ARS") {
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
+}
 
 export type InboxHandoff = {
   id: string;
@@ -148,7 +183,9 @@ export function normalizeConversation(raw: RawInboxConversation): InboxConversat
       const rawDelivery = message.delivery && typeof message.delivery === "object"
         ? message.delivery as Partial<Record<keyof InboxMessageDelivery, unknown>>
         : null;
+      const quote = readInboxQuote(message.quote);
       return {
+        ...(quote ? { quote } : {}),
         id: stringify(message.id),
         role: stringify(message.role, "customer"),
         direction: message.direction === "INBOUND" || message.direction === "OUTBOUND" ? message.direction : null,

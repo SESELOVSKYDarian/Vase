@@ -71,6 +71,8 @@ export function createOfficialChannelSender(input: {
       recipientId: string;
       text: string;
       imageUrls?: string[];
+      /** PDF que va después del texto (WhatsApp y Messenger). Instagram no recibe archivos: el link va en el texto. */
+      document?: { url: string; filename: string };
       messageTag?: "HUMAN_AGENT";
     }) {
       const context = await input.repository.findDeliveryContext({
@@ -205,6 +207,24 @@ export function createOfficialChannelSender(input: {
                 },
               },
         );
+      }
+
+      const documentUrl = params.document?.url.startsWith("https://") ? params.document.url : null;
+      if (documentUrl && params.document && params.channelType !== "INSTAGRAM") {
+        // El texto ya salió con el total: si el PDF falla, el mensaje no se marca como fallido.
+        await sendGraphPayload(
+          params.channelType === "WHATSAPP"
+            ? {
+                messaging_product: "whatsapp",
+                to: params.recipientId,
+                type: "document",
+                document: { link: documentUrl, filename: params.document.filename.slice(0, 120) },
+              }
+            : {
+                ...metaEnvelope,
+                message: { attachment: { type: "file", payload: { url: documentUrl, is_reusable: false } } },
+              },
+        ).catch(() => undefined);
       }
 
       return {

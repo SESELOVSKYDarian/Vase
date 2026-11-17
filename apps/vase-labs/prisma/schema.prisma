@@ -419,6 +419,7 @@ model Conversation {
   insight           ConversationInsight?
   analysisJob       ConversationAnalysisJob?
   orderDrafts       ConversationOrderDraft[]
+  quotes            ConversationQuote[]
   audioTranscriptionJobs AudioTranscriptionJob[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -482,6 +483,27 @@ model ConversationOrderDraft {
   @@index([assistantId, state, updatedAt])
   @@index([globalTenantId, state, updatedAt])
   @@index([conversationId, state, updatedAt])
+}
+
+/// Presupuesto que arma la IA en una conversación con los precios del catálogo. Se manda en PDF por el chat.
+model ConversationQuote {
+  id             String       @id @default(cuid())
+  conversationId String
+  assistantId    String
+  globalTenantId String
+  number         Int
+  currency       String       @default("ARS")
+  items          Json
+  subtotal       Decimal      @db.Decimal(14, 2)
+  total          Decimal      @db.Decimal(14, 2)
+  customerName   String?
+  notes          String?      @db.Text
+  validUntil     DateTime
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([globalTenantId, number])
+  @@index([conversationId, createdAt])
 }
 
 model BusinessOrderProjection {
