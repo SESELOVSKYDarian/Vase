@@ -80,6 +80,16 @@ export function resolveCheckoutMethod(settings = {}, requested = '') {
   return enabledMethods[0] || 'transfer';
 }
 
+/**
+ * La tienda vende "Solo por WhatsApp" (y tiene número): el pedido llega por WhatsApp y el pago se coordina
+ * en el chat. No hay transferencia ni comprobante, y el cliente no necesita cuenta.
+ */
+export function isWhatsappOnly(settings = {}) {
+  const channels = Array.isArray(settings?.order_channels) ? settings.order_channels : [];
+  const onlyWhatsapp = channels.length > 0 && channels.every((channel) => normalizeOrderChannel(channel) === 'whatsapp');
+  return onlyWhatsapp && Boolean(String(settings?.whatsapp_number || '').replace(/\D/g, ''));
+}
+
 export function resolveOrderChannel(settings = {}, requested = '') {
   const normalizedRequested = normalizeOrderChannel(requested);
   if (normalizedRequested) {

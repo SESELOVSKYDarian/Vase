@@ -8,7 +8,7 @@ import { checkoutNoteClass } from './map-distance-quote-error.js';
 import { checkoutPrimaryButtonClass } from './map-distance-quote-error.js';
 
 import CheckoutBillingFields from './CheckoutBillingFields.jsx';
-export default function CheckoutShippingStep({ billingInfo, customerInfo, handleShippingCityInputChange, handleShippingCountryInputChange, handleShippingProvinceInputChange, isArgentinaShippingCountry, openStep, setBillingInfo, setCustomerInfo, setOpenStep, setShippingInfo, shippingCitiesLoading, shippingCityOptions, shippingCitySuggestionsEnabled, shippingCountriesLoading, shippingCountryInput, shippingCountryOptions, shippingInfo, shippingProvinceLoading, shippingProvinceOptions, shippingProvinceSuggestionsEnabled }) {
+export default function CheckoutShippingStep({ billingInfo, customerInfo, handleShippingCityInputChange, handleShippingCountryInputChange, handleShippingProvinceInputChange, isArgentinaShippingCountry, openStep, setBillingInfo, setCustomerInfo, setOpenStep, setShippingInfo, shippingCitiesLoading, shippingCityOptions, shippingCitySuggestionsEnabled, shippingCountriesLoading, shippingCountryInput, shippingCountryOptions, shippingInfo, shippingProvinceLoading, shippingProvinceOptions, shippingProvinceSuggestionsEnabled, whatsappOnly }) {
     return (
         <Accordion
             step={1}
@@ -54,7 +54,7 @@ export default function CheckoutShippingStep({ billingInfo, customerInfo, handle
                     </div>
                     <div className="col-span-2">
                         <label className="block text-sm font-medium mb-1">
-                            Email
+                            {whatsappOnly ? "Email (opcional)" : "Email"}
                         </label>
                         <input
                             className={checkoutFieldClass}
@@ -69,7 +69,7 @@ export default function CheckoutShippingStep({ billingInfo, customerInfo, handle
                             }
                         />
                         <p className="mt-1 text-xs text-gray-500">
-                            Aca te enviamos la confirmacion del pedido.
+                            {whatsappOnly ? "Si lo dejás, te mandamos una copia del pedido." : "Aca te enviamos la confirmacion del pedido."}
                         </p>
                     </div>
                     <div className="col-span-2">

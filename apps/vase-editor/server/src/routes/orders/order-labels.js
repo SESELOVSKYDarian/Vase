@@ -60,6 +60,7 @@ export function formatCheckoutModeLabel(mode = '') {
   if (normalized === 'transfer') return 'Transferencia bancaria';
   if (normalized === 'stripe') return 'Pago online';
   if (normalized === 'cash_on_pickup') return 'Pago en local';
+  if (normalized === 'whatsapp') return 'A coordinar por WhatsApp';
   return normalized || 'Manual';
 }
 

@@ -26,6 +26,7 @@ import { makeBuildWhatsappMessage } from './whatsapp-message.js';
 import { makeGetProfileAddress } from './profile-address.js';
 import { makeHandleDeliveryGroupChange } from './delivery-group-change.js';
 import CheckoutLayout from './CheckoutLayout.jsx';
+import { isWhatsappOnlyStore } from '../../../utils/orderChannels';
 export default function CheckoutPage() {
     const { cartItems, clearCart } = useStore();
     const { settings } = useTenant();
@@ -338,6 +339,7 @@ export default function CheckoutPage() {
                     enabled_methods: uniquePaymentMethods(data.enabled_methods || []),
                     whatsapp_number: data.whatsapp_number || "",
                     whatsapp_template: data.whatsapp_template || "",
+                    order_channels: Array.isArray(data.order_channels) ? data.order_channels : undefined,
                     bank_transfer: data.bank_transfer || {},
                     tax_rate: Number(data.tax_rate ?? commerce.tax_rate ?? 0),
                     shipping_zones: Array.isArray(data.shipping_zones) ? data.shipping_zones : [],
@@ -582,6 +584,9 @@ export default function CheckoutPage() {
     const normalizedBilling = useMemo(() => normalizeBillingInfo(billingInfo), [billingInfo]);
     const hasOrderBillingInfo = useMemo(() => hasBillingInfo(normalizedBilling), [normalizedBilling]);
 
+    // Tienda "Solo por WhatsApp": no hace falta cuenta y el pago se coordina en el chat.
+    const whatsappOnly = isWhatsappOnlyStore({ ...commerce, order_channels: checkoutSettings?.order_channels || commerce.order_channels, whatsapp_number: whatsappNumber });
+
     const getProfileAddress = makeGetProfileAddress({ user });
 
     const buildWhatsappMessage = makeBuildWhatsappMessage({ customerInfo, deliveryMethod, displayCurrency, getProfileAddress, hasOrderBillingInfo, locale, normalizedBilling, paymentMethod, selectedDeliveryOption, shippingInfo, summaryItems, total, user });
@@ -595,7 +600,7 @@ export default function CheckoutPage() {
 
     const persistProfileCheckoutData = makePersistProfileCheckoutData({ user });
 
-    const handleCompletePurchase = makeHandleCompletePurchase({ bankTransfer, buildWhatsappUrl, clearCart, customerInfo, deliveryLocation, deliveryMethod, displayCurrency, distanceQuote, goToAuthForCheckout, hasOrderBillingInfo, isShippingDelivery, items, locale, normalizedBilling, orderChannel, paymentLabel, paymentMethod, persistProfileCheckoutData, selectedDeliveryOption, setCheckoutError, setCreating, setOpenStep, setOrderSuccess, shippingCitySuggestionsEnabled, shippingInfo, shippingProvinceSuggestionsEnabled, taxesAcknowledged, total, user, whatsappNumber });
+    const handleCompletePurchase = makeHandleCompletePurchase({ bankTransfer, buildWhatsappUrl, clearCart, customerInfo, deliveryLocation, deliveryMethod, displayCurrency, distanceQuote, goToAuthForCheckout, hasOrderBillingInfo, isShippingDelivery, items, locale, normalizedBilling, orderChannel, paymentLabel, paymentMethod, persistProfileCheckoutData, selectedDeliveryOption, setCheckoutError, setCreating, setOpenStep, setOrderSuccess, shippingCitySuggestionsEnabled, shippingInfo, shippingProvinceSuggestionsEnabled, taxesAcknowledged, total, user, whatsappNumber, whatsappOnly });
     if (authLoading) {
         return (
             <StoreLayout>
@@ -609,7 +614,7 @@ export default function CheckoutPage() {
         );
     }
 
-    if (!user) {
+    if (!user && !whatsappOnly) {
         return (
             <StoreLayout>
                 <main className="store-checkout max-w-[960px] mx-auto w-full px-4 md:px-10 py-16 text-center">
@@ -666,7 +671,7 @@ export default function CheckoutPage() {
     }
 
     return (
-        <CheckoutLayout bankTransfer={bankTransfer} billingInfo={billingInfo} checkoutError={checkoutError} creating={creating} customerInfo={customerInfo} deliveryLocation={deliveryLocation} deliveryMethod={deliveryMethod} deliveryQuoteError={deliveryQuoteError} displayCurrency={displayCurrency} distanceQuote={distanceQuote} handleCompletePurchase={handleCompletePurchase} handleDeliveryGroupChange={handleDeliveryGroupChange} handleShippingCityInputChange={handleShippingCityInputChange} handleShippingCountryInputChange={handleShippingCountryInputChange} handleShippingProvinceInputChange={handleShippingProvinceInputChange} highlightedTransfer={highlightedTransfer} isArgentinaShippingCountry={isArgentinaShippingCountry} items={items} iva={iva} locale={locale} openStep={openStep} orderChannel={orderChannel} orderChannelOptions={orderChannelOptions} orderSuccess={orderSuccess} paymentLabel={paymentLabel} paymentMethod={paymentMethod} paymentOptions={paymentOptions} paymentSummary={paymentSummary} pickupDeliveryOptions={pickupDeliveryOptions} selectedDeliveryGroup={selectedDeliveryGroup} selectedDeliveryOption={selectedDeliveryOption} setBillingInfo={setBillingInfo} setCustomerInfo={setCustomerInfo} setDeliveryLocation={setDeliveryLocation} setDeliveryMethod={setDeliveryMethod} setDeliveryQuoteError={setDeliveryQuoteError} setOpenStep={setOpenStep} setOrderChannel={setOrderChannel} setPaymentMethod={setPaymentMethod} setShippingInfo={setShippingInfo} setTaxesAcknowledged={setTaxesAcknowledged} shipping={shipping} shippingCitiesLoading={shippingCitiesLoading} shippingCityOptions={shippingCityOptions} shippingCitySuggestionsEnabled={shippingCitySuggestionsEnabled} shippingCountriesLoading={shippingCountriesLoading} shippingCountryInput={shippingCountryInput} shippingCountryOptions={shippingCountryOptions} shippingDeliveryOptions={shippingDeliveryOptions} shippingInfo={shippingInfo} shippingProvinceLoading={shippingProvinceLoading} shippingProvinceOptions={shippingProvinceOptions} shippingProvinceSuggestionsEnabled={shippingProvinceSuggestionsEnabled} subtotal={subtotal} summaryItems={summaryItems} taxesAcknowledged={taxesAcknowledged} total={total} validationError={validationError} whatsappNumber={whatsappNumber} />
+        <CheckoutLayout bankTransfer={bankTransfer} billingInfo={billingInfo} checkoutError={checkoutError} creating={creating} customerInfo={customerInfo} deliveryLocation={deliveryLocation} deliveryMethod={deliveryMethod} deliveryQuoteError={deliveryQuoteError} displayCurrency={displayCurrency} distanceQuote={distanceQuote} handleCompletePurchase={handleCompletePurchase} handleDeliveryGroupChange={handleDeliveryGroupChange} handleShippingCityInputChange={handleShippingCityInputChange} handleShippingCountryInputChange={handleShippingCountryInputChange} handleShippingProvinceInputChange={handleShippingProvinceInputChange} highlightedTransfer={highlightedTransfer} isArgentinaShippingCountry={isArgentinaShippingCountry} items={items} iva={iva} locale={locale} openStep={openStep} orderChannel={orderChannel} orderChannelOptions={orderChannelOptions} orderSuccess={orderSuccess} paymentLabel={paymentLabel} paymentMethod={paymentMethod} paymentOptions={paymentOptions} paymentSummary={paymentSummary} pickupDeliveryOptions={pickupDeliveryOptions} selectedDeliveryGroup={selectedDeliveryGroup} selectedDeliveryOption={selectedDeliveryOption} setBillingInfo={setBillingInfo} setCustomerInfo={setCustomerInfo} setDeliveryLocation={setDeliveryLocation} setDeliveryMethod={setDeliveryMethod} setDeliveryQuoteError={setDeliveryQuoteError} setOpenStep={setOpenStep} setOrderChannel={setOrderChannel} setPaymentMethod={setPaymentMethod} setShippingInfo={setShippingInfo} setTaxesAcknowledged={setTaxesAcknowledged} shipping={shipping} shippingCitiesLoading={shippingCitiesLoading} shippingCityOptions={shippingCityOptions} shippingCitySuggestionsEnabled={shippingCitySuggestionsEnabled} shippingCountriesLoading={shippingCountriesLoading} shippingCountryInput={shippingCountryInput} shippingCountryOptions={shippingCountryOptions} shippingDeliveryOptions={shippingDeliveryOptions} shippingInfo={shippingInfo} shippingProvinceLoading={shippingProvinceLoading} shippingProvinceOptions={shippingProvinceOptions} shippingProvinceSuggestionsEnabled={shippingProvinceSuggestionsEnabled} subtotal={subtotal} summaryItems={summaryItems} taxesAcknowledged={taxesAcknowledged} total={total} validationError={validationError} whatsappNumber={whatsappNumber} whatsappOnly={whatsappOnly} />
     );
 }
 

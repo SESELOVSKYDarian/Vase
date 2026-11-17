@@ -2,7 +2,7 @@
 import { Accordion } from './Accordion.jsx';
 import { PayOption } from './Accordion.jsx';
 
-export default function CheckoutPaymentStep({ bankTransfer, highlightedTransfer, openStep, orderChannel, orderChannelOptions, orderSuccess, paymentLabel, paymentMethod, paymentOptions, paymentSummary, setOpenStep, setOrderChannel, setPaymentMethod, whatsappNumber }) {
+export default function CheckoutPaymentStep({ bankTransfer, highlightedTransfer, openStep, orderChannel, orderChannelOptions, orderSuccess, paymentLabel, paymentMethod, paymentOptions, paymentSummary, setOpenStep, setOrderChannel, setPaymentMethod, whatsappNumber, whatsappOnly }) {
     return (
         <Accordion
             step={3}
@@ -10,6 +10,15 @@ export default function CheckoutPaymentStep({ bankTransfer, highlightedTransfer,
             openStep={openStep}
             onOpen={() => setOpenStep(3)}
         >
+            {whatsappOnly ? (
+                // Solo por WhatsApp: no se paga por la web; el pago se arregla en el chat.
+                <div className="pt-4 pb-2">
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm leading-relaxed text-gray-700">
+                        <p className="font-semibold text-gray-900">El pago lo coordinás por WhatsApp</p>
+                        <p className="mt-1 text-gray-500">Al confirmar se abre WhatsApp con tu pedido ya escrito. Ahí la tienda te pasa cómo pagar y cuándo te llega.</p>
+                    </div>
+                </div>
+            ) : (
             <div className="pt-4 pb-2 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {paymentOptions.map((opt) => (
@@ -144,6 +153,7 @@ export default function CheckoutPaymentStep({ bankTransfer, highlightedTransfer,
                     </div>
                 ) : null}
             </div>
+            )}
         </Accordion>
     );
 }

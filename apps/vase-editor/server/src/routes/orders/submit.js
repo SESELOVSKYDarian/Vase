@@ -7,7 +7,7 @@ import { getTenantOffers } from '../../services/offers.js';
 import { getEmailCompanyName, normalizeEmailInput } from '../../services/mailer.js';
 import { resolveShippingAmount, toNumber } from '../../services/shipping.js';
 import { ordersRouter } from './router.js';
-import { resolveCheckoutMethod, resolveOrderChannel } from './checkout-options.js';
+import { isWhatsappOnly, resolveCheckoutMethod, resolveOrderChannel } from './checkout-options.js';
 import { validateItems } from './validate-items.js';
 import { buildWhatsAppUrl } from './order-labels.js';
 import { appendOrderNotificationEntries, buildOrderNotificationEntry } from './order-templates.js';
@@ -66,11 +66,13 @@ ordersRouter.post('/submit', async (req, res, next) => {
     const requestedMode = String(
       req.body.checkout_mode || req.body.payment_method || req.body?.customer?.payment_method || ''
     ).toLowerCase();
-    const checkoutMode = resolveCheckoutMethod(commerce, requestedMode);
+    // Tienda "Solo por WhatsApp": el pago se coordina en el chat (el panel lo muestra como "Por WhatsApp").
+    const whatsappOnly = isWhatsappOnly(commerce);
+    const checkoutMode = whatsappOnly ? 'whatsapp' : resolveCheckoutMethod(commerce, requestedMode);
     const requestedChannel = String(
       req.body.order_channel || req.body.contact_channel || req.body?.customer?.contact_channel || ''
     ).toLowerCase();
-    const contactChannel = resolveOrderChannel(commerce, requestedChannel);
+    const contactChannel = whatsappOnly ? 'whatsapp' : resolveOrderChannel(commerce, requestedChannel);
 
     const taxRate = Number(commerce.tax_rate || 0);
     const customer = req.body.customer || {};

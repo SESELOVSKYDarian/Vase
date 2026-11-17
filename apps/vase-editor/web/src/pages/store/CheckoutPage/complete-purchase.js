@@ -8,10 +8,11 @@ import { navigate } from '../../../utils/navigation';
 import { normalizeOrderChannel } from './map-distance-quote-error.js';
 
 /** Arma handleCompletePurchase con lo que necesita del componente. */
-export function makeHandleCompletePurchase({ bankTransfer, buildWhatsappUrl, clearCart, customerInfo, deliveryLocation, deliveryMethod, displayCurrency, distanceQuote, goToAuthForCheckout, hasOrderBillingInfo, isShippingDelivery, items, locale, normalizedBilling, orderChannel, paymentLabel, paymentMethod, persistProfileCheckoutData, selectedDeliveryOption, setCheckoutError, setCreating, setOpenStep, setOrderSuccess, shippingCitySuggestionsEnabled, shippingInfo, shippingProvinceSuggestionsEnabled, taxesAcknowledged, total, user, whatsappNumber }) {
+export function makeHandleCompletePurchase({ bankTransfer, buildWhatsappUrl, clearCart, customerInfo, deliveryLocation, deliveryMethod, displayCurrency, distanceQuote, goToAuthForCheckout, hasOrderBillingInfo, isShippingDelivery, items, locale, normalizedBilling, orderChannel, paymentLabel, paymentMethod, persistProfileCheckoutData, selectedDeliveryOption, setCheckoutError, setCreating, setOpenStep, setOrderSuccess, shippingCitySuggestionsEnabled, shippingInfo, shippingProvinceSuggestionsEnabled, taxesAcknowledged, total, user, whatsappNumber, whatsappOnly }) {
     return async () => {
         if (!items.length) return;
-        if (!user) {
+        // En una tienda "Solo por WhatsApp" se puede pedir sin cuenta.
+        if (!user && !whatsappOnly) {
             setCheckoutError("Inicia sesion para continuar con el pago.");
             goToAuthForCheckout("/login");
             return;
@@ -24,7 +25,8 @@ export function makeHandleCompletePurchase({ bankTransfer, buildWhatsappUrl, cle
             setCheckoutError("Completa tu nombre para generar el pedido.");
             return;
         }
-        if (!normalizedEmail || !EMAIL_PATTERN.test(normalizedEmail)) {
+        // Por WhatsApp el correo es opcional; si lo escribe, tiene que ser válido.
+        if ((!whatsappOnly && !normalizedEmail) || (normalizedEmail && !EMAIL_PATTERN.test(normalizedEmail))) {
             setCheckoutError("Completa un email valido para recibir la confirmacion.");
             return;
         }
@@ -212,6 +214,8 @@ export function makeHandleCompletePurchase({ bankTransfer, buildWhatsappUrl, cle
             setOrderSuccess(orderInfo);
             setOpenStep(3);
             navigate("/order-success");
+            // Solo por WhatsApp: se abre el chat con el pedido ya escrito.
+            if (whatsappOnly && whatsappUrl) window.location.assign(whatsappUrl);
         } catch (err) {
             console.error("Error al crear la orden", err);
             setCheckoutError(err?.message || "No se pudo iniciar el pago. Proba nuevamente.");

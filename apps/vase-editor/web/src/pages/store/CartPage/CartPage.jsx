@@ -11,6 +11,7 @@ import PriceAccessPrompt from "../../../components/PriceAccessPrompt";
 import { getPriceAccessState } from "../../../utils/priceVisibility";
 import { createPlaceholderImage } from "../../../utils/productImage";
 import { isPiquimTenantIdentity } from "../../../utils/tenantBranding";
+import { useWhatsappOnly } from "../../../hooks/useWhatsappOnly";
 import { CartItem, InfoBadge, Row, UpsellCard } from "./CartItem.jsx";
 
 export default function CartPage() {
@@ -21,6 +22,8 @@ export default function CartPage() {
     const currency = settings?.commerce?.currency || "ARS";
     const locale = settings?.commerce?.locale || "es-AR";
     const { showPricesEnabled, canViewPrices } = getPriceAccessState(settings, user);
+    // Tienda que vende solo por WhatsApp: el pedido se manda sin crear cuenta.
+    const whatsappOnly = useWhatsappOnly(settings?.commerce);
     const [suggestedProducts, setSuggestedProducts] = useState([]);
     const [loadingSuggested, setLoadingSuggested] = useState(false);
 
@@ -222,12 +225,12 @@ export default function CartPage() {
                                     </div>
                                 )}
 
-                                {user ? (
+                                {user || whatsappOnly ? (
                                     <button
                                         onClick={() => navigate("/checkout")}
                                         className="w-full bg-primary hover:bg-orange-600 text-white font-bold py-4 px-8 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 mb-4 shadow-lg shadow-orange-500/20"
                                     >
-                                        Ir al Checkout
+                                        {whatsappOnly ? "Enviar pedido por WhatsApp" : "Ir al Checkout"}
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                                     </button>
                                 ) : (
