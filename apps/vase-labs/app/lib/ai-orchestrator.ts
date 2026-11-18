@@ -1,5 +1,9 @@
 import type { LabsChannel } from "@vase/contracts";
 import type { AiReplyResult } from "./openai-reply-generator";
+import type { QuoteMessageMeta } from "./conversation-quote";
+
+/** Archivo que acompaña la respuesta (el PDF del presupuesto). */
+export type QuoteDocument = { url: string; filename: string };
 
 export type OrchestratedAiReply = Omit<AiReplyResult, "imageUrls"> & {
   imageUrls?: string[];
@@ -39,6 +43,20 @@ interface AiOrchestratorDeps {
       channel: LabsChannel;
       action: Extract<NonNullable<AiReplyResult["orderAction"]>, { type: "PREPARE" }>;
     }): Promise<{ text: string }>;
+    /** Arma el presupuesto en PDF con los precios del catálogo (orderAction QUOTE). */
+    quote?(input: {
+      assistantId: string;
+      conversationId: string;
+      globalTenantId: string;
+      channel: LabsChannel;
+      action: Extract<NonNullable<AiReplyResult["orderAction"]>, { type: "QUOTE" }>;
+    }): Promise<{
+      text: string;
+      document?: QuoteDocument;
+      quote?: QuoteMessageMeta;
+      /** Faltan precios: lo tiene que completar una persona. */
+      handoffReason?: string;
+    }>;
   };
   persistAssistantReply(input: {
     assistantId: string;
@@ -46,6 +64,7 @@ interface AiOrchestratorDeps {
     channel: LabsChannel;
     text: string;
     imageUrls: string[];
+    quote?: QuoteMessageMeta;
   }): Promise<{ messageId: string }>;
   registerTokenUsage(input: {
     globalTenantId: string;
@@ -63,6 +82,7 @@ interface AiOrchestratorDeps {
     channel: LabsChannel;
     text: string;
     imageUrls?: string[];
+    document?: QuoteDocument;
     conversationId: string;
   }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
   /** Pasa la charla a una persona (pausa la IA). */
@@ -134,6 +154,24 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         });
         reply = { ...reply, text: prepared.text };
       }
+      let document: QuoteDocument | undefined;
+      let quote: QuoteMessageMeta | undefined;
+      if (!confirmation?.handled && reply.orderAction?.type === "QUOTE" && deps.orders?.quote) {
+        const quoted = await deps.orders.quote({
+          assistantId: input.assistantId,
+          conversationId: input.conversationId,
+          globalTenantId: input.globalTenantId,
+          channel: input.channel,
+          action: reply.orderAction,
+        });
+        document = quoted.document;
+        quote = quoted.quote;
+        reply = {
+          ...reply,
+          text: quoted.text,
+          ...(quoted.handoffReason && !reply.handoff?.needed ? { handoff: { needed: true, reason: quoted.handoffReason } } : {}),
+        };
+      }
       const sentImageUrls = new Set(previouslySentImageUrls);
       reply = {
         ...reply,
@@ -145,6 +183,7 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
         channel: input.channel,
         text: reply.text,
         imageUrls: reply.imageUrls ?? [],
+        ...(quote ? { quote } : {}),
       });
       const usage = await deps.registerTokenUsage({
         globalTenantId: input.globalTenantId,
@@ -163,6 +202,7 @@ export function createAiOrchestrator(deps: AiOrchestratorDeps) {
           channel: input.channel,
           text: reply.text,
           imageUrls: reply.imageUrls ?? [],
+          ...(document ? { document } : {}),
           conversationId: input.conversationId,
         });
         if (!delivery.ok) throw new Error("CHANNEL_DELIVERY_FAILED");

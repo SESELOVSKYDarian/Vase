@@ -1,7 +1,8 @@
 // Parte de channel-ai-runner.ts: RunnerInput, ReplyGenerator, ChannelAiReplyRunnerDeps, PrismaTransactionLike, metadataAfterSuccessfulAiReply, persistPrismaAssistantReply y más.
 import { randomUUID } from "node:crypto";
 import { type LabsChannel } from "@vase/contracts";
-import { createAiOrchestrator, type OrchestratedAiReply } from "../ai-orchestrator";
+import { createAiOrchestrator, type OrchestratedAiReply, type QuoteDocument } from "../ai-orchestrator";
+import type { QuoteMessageMeta } from "../conversation-quote";
 import { type RunChannelAiReply } from "../channel-webhook-service";
 import { resolveApprovedOpenAiModel } from "../openai-reply-generator";
 
@@ -38,6 +39,7 @@ export type ChannelAiReplyRunnerDeps = {
     channel: LabsChannel;
     text: string;
     imageUrls: string[];
+    quote?: QuoteMessageMeta;
   }): Promise<{ messageId: string }>;
   registerTokenUsage(input: {
     globalTenantId: string;
@@ -59,6 +61,7 @@ export type ChannelAiReplyRunnerDeps = {
     recipientId: string;
     text: string;
     imageUrls?: string[];
+    document?: QuoteDocument;
   }): Promise<{ ok: boolean; providerMessageId?: string | null }>;
   markAssistantReplyDelivery?(input: {
     messageId: string;
@@ -109,6 +112,7 @@ export async function persistPrismaAssistantReply(
     channel: LabsChannel;
     text: string;
     imageUrls?: string[];
+    quote?: QuoteMessageMeta;
   },
 ): Promise<{ messageId: string }> {
   return prisma.$transaction(async (transaction) => {
@@ -133,7 +137,7 @@ export async function persistPrismaAssistantReply(
         role: "assistant",
         direction: "OUTBOUND",
         content: reply.text,
-        metadata: { imageUrls: reply.imageUrls ?? [] },
+        metadata: { imageUrls: reply.imageUrls ?? [], ...(reply.quote ? { quote: reply.quote } : {}) },
         deliveries: { create: { channel: reply.channel, status: "PENDING" } },
       },
       select: { id: true },
@@ -205,6 +209,7 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
           recipientId,
           text: reply.text,
           imageUrls: reply.imageUrls,
+          document: reply.document,
         });
       },
       markAssistantReplyDelivery: deps.markAssistantReplyDelivery,

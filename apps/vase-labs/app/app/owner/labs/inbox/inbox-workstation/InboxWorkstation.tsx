@@ -1,14 +1,15 @@
 "use client";
 
 // Parte de inbox-workstation.tsx: InboxWorkstation.
-import { ArrowDown, CheckCheck, ChevronDown, ChevronUp, CircleAlert, Clock3, Loader2, Maximize2, Minimize2, PanelRightOpen, PauseCircle, PlayCircle, RefreshCw, Send, Sparkles, UserRoundCheck, X } from "lucide-react";
+import { ArrowDown, CheckCheck, ChevronDown, ChevronUp, CircleAlert, Clock3, ExternalLink, FileText, Loader2, Maximize2, Minimize2, PanelRightOpen, PauseCircle, PlayCircle, RefreshCw, RotateCw, Send, Sparkles, TriangleAlert, UserRoundCheck, X } from "lucide-react";
 import { Fragment, type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { countInboxConversationsByChannel, filterInboxConversationsByChannel, inboxChannels, normalizeInboxChannel, type InboxChannel } from "../inbox-channels";
 import { formatInboxDeliveryError, parseInboxReplyResponse } from "../inbox-delivery-errors";
 import { resolveInboxMessageDelivery } from "../inbox-message-delivery";
 import { isInboxNearBottom, restoreInboxScrollOffset, shouldAutoScrollInbox } from "../inbox-scroll-policy";
 import { mergeInboxConversationSummaries, reconcileInboxMessages } from "../inbox-conversation-merge";
-import { ChannelFilter, InboxChannelState, InboxConversationItem, InboxInsight, STATUS_TABS, StatusFilter, channelOf, conversationStatusLabel, dayKey, formatDate, formatDay, formatQueueTime, formatTime, inboxChannelLabels, inboxChannelTitles, messageAuthor, needsPerson, normalizeConversation, personSuggestions, resizeDraft, sortConversations } from "./normalize-conversation";
+import { ChannelFilter, InboxChannelState, InboxConversationItem, InboxInsight, STATUS_TABS, StatusFilter, channelOf, conversationStatusLabel, dayKey, formatDate, formatDay, formatMoney, formatQueueTime, formatQuoteNumber, formatTime, inboxChannelLabels, inboxChannelTitles, messageAuthor, needsPerson, normalizeConversation, personSuggestions, resizeDraft, sortConversations } from "./normalize-conversation";
+import { isUpsetHandoff, upsetHandoffReason, useInboxAssist } from "./use-inbox-assist";
 
 export function InboxWorkstation({
   tenantSlug,
@@ -52,6 +53,8 @@ export function InboxWorkstation({
     });
   };
   const [showInfo, setShowInfo] = useState(true);
+  // Resumen al tomar la charla: se puede cerrar y no vuelve hasta que la pasen de nuevo.
+  const [closedBriefs, setClosedBriefs] = useState<Record<string, string>>({});
   const [activeId, setActiveId] = useState(initialActive?.id ?? "");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -214,7 +217,7 @@ export function InboxWorkstation({
               lastMessageAt: payload.conversation.lastMessageAt,
               handoffs: payload.conversation.handoffs ?? conversation.handoffs,
               messages: Array.isArray(payload.messages)
-                ? reconcileInboxMessages(conversation.messages, payload.messages)
+                ? reconcileInboxMessages(conversation.messages, normalizeConversation({ messages: payload.messages }).messages)
                 : conversation.messages,
             }
           : conversation,
@@ -399,6 +402,33 @@ export function InboxWorkstation({
   })();
   const scoreLabel = (score: number) => (score >= 70 ? "Alto" : score >= 40 ? "Medio" : "Bajo");
 
+  // IA para quien atiende: resumen, cliente molesto y respuestas con tu estilo.
+  const { assist, loading: assistLoading, error: assistError, refresh: refreshAssist } = useInboxAssist(tenantSlug, activeConversation, sugsOpen);
+  const activeHandoff = activeConversation?.handoffs[0];
+  const upsetFromHandoff = isUpsetHandoff(activeHandoff?.reason);
+  const upset = assist?.mood === "upset" || upsetFromHandoff;
+  const upsetReason = assist?.mood === "upset" && assist.moodReason
+    ? assist.moodReason
+    : upsetFromHandoff && activeHandoff ? upsetHandoffReason(activeHandoff.reason) : "";
+  const briefLines = assist?.brief.length
+    ? assist.brief
+    : [
+        activeHandoff && !upsetFromHandoff ? activeHandoff.reason : "",
+        activeInsight?.currentNeed ?? "",
+        activeInsight?.nextBestAction ?? "",
+      ].map((line) => line.trim()).filter((line, index, all) => line && all.indexOf(line) === index).slice(0, 3);
+  const briefKey = activeHandoff?.id ?? (activeConversation?.escalatedToHuman ? "manual" : "");
+  const showBrief = Boolean(activeConversation && needsPerson(activeConversation) && briefLines.length && closedBriefs[activeConversation.id] !== briefKey);
+  const replyCards = assist?.replies ?? [];
+  const latestQuote = activeConversation ? [...activeConversation.messages].reverse().find((message) => message.quote)?.quote : undefined;
+  const applyReply = (text: string) => {
+    setDraft(text);
+    window.requestAnimationFrame(() => {
+      draftRef.current?.focus();
+      draftRef.current?.setSelectionRange(text.length, text.length);
+    });
+  };
+
   return (
     <section className={full ? "lx-inbox-wrap full" : "lx-inbox-wrap"} onKeyDown={(event) => { if (event.key === "Escape" && full) setFull(false); }}>
 
@@ -538,10 +568,34 @@ export function InboxWorkstation({
               </button>
             </header>
 
-            {activeConversation.handoffs[0] ? (
-              <div className="lx-handoff">
-                <UserRoundCheck size={16} aria-hidden="true" />
-                <span>{activeConversation.handoffs[0].reason}</span>
+            {upset ? (
+              <div className="lx-angry" role="status">
+                <TriangleAlert size={18} aria-hidden="true" />
+                <div>
+                  <b>Este cliente está molesto{activeConversation.escalatedToHuman ? " · la IA dejó de responder" : ""}</b>
+                  <span>{upsetReason ? `${upsetReason} ` : ""}Conviene que lo atiendas vos{activeConversation.escalatedToHuman ? "" : ": tocá Atender yo"}.</span>
+                </div>
+              </div>
+            ) : null}
+
+            {showBrief ? (
+              <div className="lx-brief">
+                <div className="lx-brief-h">
+                  <UserRoundCheck size={16} aria-hidden="true" />
+                  <b>{activeHandoff ? "Te pasaron esta conversación" : "Lo que tenés que saber"}</b>
+                  {assist?.brief.length ? <span className="lx-aitag"><Sparkles size={11} aria-hidden="true" />Con IA</span> : null}
+                  <button
+                    type="button"
+                    className="vpa-x"
+                    aria-label="Cerrar el resumen"
+                    onClick={() => setClosedBriefs((current) => ({ ...current, [activeConversation.id]: briefKey }))}
+                  >
+                    <X size={15} aria-hidden="true" />
+                  </button>
+                </div>
+                <ul>
+                  {briefLines.map((line) => <li key={line}>{line}</li>)}
+                </ul>
               </div>
             ) : null}
 
@@ -566,6 +620,19 @@ export function InboxWorkstation({
                           </small>
                         ) : null}
                         <p>{message.content}</p>
+                        {message.quote ? (
+                          <a className="lx-pdf" href={message.quote.url} target="_blank" rel="noreferrer">
+                            <span className="lx-pdf-ic" aria-hidden="true">PDF</span>
+                            <span className="vpa-g1">
+                              <b>Presupuesto {formatQuoteNumber(message.quote.number)}</b>
+                              <span>
+                                {message.quote.lines.length} producto{message.quote.lines.length === 1 ? "" : "s"} · {formatMoney(message.quote.total, message.quote.currency)}
+                                {message.quote.validUntil ? ` · vence ${formatQueueTime(message.quote.validUntil)}` : ""}
+                              </span>
+                            </span>
+                            <ExternalLink size={14} aria-hidden="true" />
+                          </a>
+                        ) : null}
                         <span className="lx-msg-meta">
                           <time dateTime={message.createdAt} title={formatDate(message.createdAt)}>{formatTime(message.createdAt)}</time>
                           {delivery ? (
@@ -596,25 +663,52 @@ export function InboxWorkstation({
               ) : null}
             </div>
 
-            {quickOptions.length ? (
-              <div className={sugsOpen ? "lx-sugs" : "lx-sugs closed"}>
-                <button type="button" className="lx-sugs-h" onClick={toggleSugs} aria-expanded={sugsOpen}>
+            <div className={sugsOpen ? "lx-sx" : "lx-sx closed"}>
+              <div className="lx-sx-h">
+                <button type="button" className="lx-sx-t" onClick={toggleSugs} aria-expanded={sugsOpen}>
                   <Sparkles size={13} aria-hidden="true" />
-                  <span>{activeInsight?.recommendations.length ? "Según lo que busca, podés preguntarle" : "Podés preguntarle"}</span>
-                  {sugsOpen ? null : <em>{quickOptions.length}</em>}
+                  <b>{upset ? "Para calmarlo" : replyCards.length ? "Respuestas con tu estilo" : "Podés preguntarle"}</b>
                   {sugsOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronUp size={14} aria-hidden="true" />}
                 </button>
                 {sugsOpen ? (
+                  <span className="lx-sx-sub">
+                    {assistLoading
+                      ? "Pensando respuestas…"
+                      : replyCards.length
+                        ? upset ? "Sugerido según el caso" : "Aprendidas de cómo contestás vos"
+                        : assistError || "Según lo que busca"}
+                  </span>
+                ) : null}
+                {sugsOpen && !assistLoading ? (
+                  <button type="button" className="lx-sx-more" onClick={refreshAssist} title={replyCards.length ? "Pensar otras respuestas" : "Sugerir respuestas con IA"}>
+                    {replyCards.length ? <RotateCw size={13} aria-hidden="true" /> : <Sparkles size={13} aria-hidden="true" />}
+                    {replyCards.length ? "Otras" : "Sugerir con IA"}
+                  </button>
+                ) : null}
+              </div>
+              {sugsOpen ? (
+                replyCards.length || assistLoading ? (
+                  <div className={`lx-sx-g${assistLoading && !replyCards.length ? " loading" : ""}`}>
+                    {replyCards.length
+                      ? replyCards.map((reply, index) => (
+                          <button key={reply} type="button" className={index === 0 ? "lx-sx-c on" : "lx-sx-c"} onClick={() => applyReply(reply)}>
+                            <p>{reply}</p>
+                            <small><kbd>{index === 0 ? "Tab" : `Alt ${index + 1}`}</kbd>Usar</small>
+                          </button>
+                        ))
+                      : [0, 1, 2].map((index) => <span key={index} className="lx-sx-c skel" aria-hidden="true"><i /><i /></span>)}
+                  </div>
+                ) : quickOptions.length ? (
                   <div className="lx-sugl">
                     {quickOptions.map((option) => (
-                      <button key={option} type="button" className="lx-sug" onClick={() => { setDraft(option); draftRef.current?.focus(); }}>
+                      <button key={option} type="button" className="lx-sug" onClick={() => applyReply(option)}>
                         {option}
                       </button>
                     ))}
                   </div>
-                ) : null}
-              </div>
-            ) : null}
+                ) : null
+              ) : null}
+            </div>
 
             <form ref={composerRef} onSubmit={sendReply} className="lx-icomp">
               <label htmlFor="inbox-human-reply" className="sr-only">Respuesta humana</label>
@@ -626,6 +720,17 @@ export function InboxWorkstation({
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
+                    // Tab usa la primera respuesta sugerida (solo con el cuadro vacío); Alt + 2 / Alt + 3, las otras.
+                    if (event.key === "Tab" && !event.shiftKey && !draft.trim() && replyCards[0] && sugsOpen) {
+                      event.preventDefault();
+                      applyReply(replyCards[0]);
+                      return;
+                    }
+                    if (event.altKey && /^[1-3]$/.test(event.key) && replyCards[Number(event.key) - 1] && sugsOpen) {
+                      event.preventDefault();
+                      applyReply(replyCards[Number(event.key) - 1]);
+                      return;
+                    }
                     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
                     event.preventDefault();
                     composerRef.current?.requestSubmit();
@@ -669,6 +774,35 @@ export function InboxWorkstation({
                 <X size={16} aria-hidden="true" />
               </button>
             </div>
+            {latestQuote ? (
+              <div className="lx-isec">
+                <h4 className="lx-isec-row">
+                  Presupuesto {formatQuoteNumber(latestQuote.number)}
+                  <span className="lx-aitag"><Sparkles size={11} aria-hidden="true" />Armado por IA</span>
+                </h4>
+                <div className="lx-quote">
+                  <table>
+                    <tbody>
+                      {latestQuote.lines.map((line) => (
+                        <tr key={`${line.name}-${line.quantity}`}>
+                          <td>{line.quantity} × {line.name}</td>
+                          <td className="r">{formatMoney(line.total, latestQuote.currency)}</td>
+                        </tr>
+                      ))}
+                      <tr className="t">
+                        <td>Total</td>
+                        <td className="r">{formatMoney(latestQuote.total, latestQuote.currency)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <span className="vpa-mut">Precios del catálogo{latestQuote.validUntil ? ` · vence ${formatQueueTime(latestQuote.validUntil)}` : ""}</span>
+                  <a className="vpa-btn line sm" href={latestQuote.url} target="_blank" rel="noreferrer">
+                    <FileText size={14} aria-hidden="true" />
+                    Ver PDF
+                  </a>
+                </div>
+              </div>
+            ) : null}
             <div className="lx-isec">
               <h4>Interés en comprar</h4>
               {activeInsight ? (

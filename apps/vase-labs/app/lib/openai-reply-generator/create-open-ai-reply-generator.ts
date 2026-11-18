@@ -57,7 +57,7 @@ export function createOpenAiReplyGenerator(input: CreateOpenAiReplyGeneratorInpu
                     type: "object",
                     additionalProperties: false,
                     properties: {
-                      type: { type: "string", enum: ["NONE", "PREPARE"] },
+                      type: { type: "string", enum: ["NONE", "PREPARE", "QUOTE"] },
                       items: {
                         type: "array",
                         items: {
@@ -188,12 +188,14 @@ export function buildSystemInstructions(input: { context: string; systemPrompt?:
     "Si Business informa que no hay sucursales sincronizadas pero el negocio definio sucursales en sus instrucciones, usa branchId vacio y completa pickupLabel y address con esos datos. Esto no impide preparar el pedido.",
     "Cuando el cliente ya dio todos los datos que le pediste para comprar, no pidas otra confirmacion: devolve orderAction PREPARE para que el servidor cree el pedido.",
     "No digas que un pedido fue creado, reservado o confirmado si el contexto no incluye una confirmacion del servidor.",
+    "Cuando el cliente pida precio o presupuesto de uno o varios productos del catalogo con cantidades (por ejemplo 'pasame precio de las 3'), devolve orderAction QUOTE con esos productos y cantidades usando IDs del contexto; customer.name con su nombre si lo sabes y el resto de customer y fulfillment vacios. El servidor arma el presupuesto en PDF con los precios del catalogo y se lo manda: no calcules totales vos, solo deci en text que le pasas el presupuesto. Si no sabes la cantidad, preguntala antes. Para un pedido con datos de entrega segui usando PREPARE.",
     "Usa solamente el contexto disponible cuando menciones politicas, horarios, precios, stock o datos del negocio.",
     "Selecciona imagenes solo cuando el cliente las pida o cuando sean necesarias para identificar productos.",
     "Para imageUrls usa exclusivamente URLs del catalogo incluidas en el contexto disponible; si no corresponde una imagen, devolve una lista vacia.",
     "Si falta informacion, pedila de forma concreta o deriva a un humano.",
     "Cuando el cliente pida un producto, buscalo en el catalogo aunque no use el nombre exacto (sinonimos, singular o plural, medidas). Si hay uno o varios parecidos, ofrecelos por su nombre y pregunta si es eso.",
     "Pasa la charla a una persona con handoff.needed true y una razon corta (por ejemplo: 'Pide tapa de gabinete de gas y no esta en el catalogo') cuando: no encontras en el catalogo nada parecido a lo que pide, pide un presupuesto especial o precio mayorista que no esta en el contexto, tiene un reclamo, o pide hablar con una persona. En ese caso decile que ya le avisaste al equipo y que lo atienden enseguida. En cualquier otro caso devolve handoff.needed false y reason vacio.",
+    "Si el cliente esta molesto o enojado (se queja, reclama una demora, dice que nadie le responde, insulta o amenaza con irse), no discutas ni sigas vendiendo: pedile disculpas en una frase corta, decile que una persona del equipo lo atiende ya mismo y devolve handoff.needed true con reason que empiece exactamente con 'Cliente molesto: ' seguido de por que esta molesto en pocas palabras.",
     input.context ? `Contexto disponible:\n${input.context}` : "Contexto disponible: sin informacion cargada.",
   ].filter(Boolean).join("\n\n");
 }
