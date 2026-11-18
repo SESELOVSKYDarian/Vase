@@ -61,7 +61,7 @@ export function LabsShell({
         <PanelAccountMenu
           close={close}
           heading={tenantName}
-          settings={{ href: "/owner/settings" }}
+          settings={{ href: "/owner/settings?tab=perfil" }}
           help={{ onClick: () => window.dispatchEvent(new Event(LABS_OPEN_HELP_EVENT)) }}
           backToVase={{ href: "https://app.vase.ar/app" }}
           signOut={{ onClick: () => window.location.assign("/api/labs/signout") }}

@@ -108,7 +108,7 @@ export default async function LabsHomePage() {
   const setup = [
     { done: hasProfile, label: "Datos del negocio", detail: hasProfile ? "Los toma de Mi negocio" : "Cargalos en Mi negocio", href: MI_NEGOCIO_URL },
     { done: data.knowledgeCount > 0, label: "Lo que sabe", detail: data.knowledgeCount > 0 ? `${data.knowledgeCount} documentos listos` : "Sumá precios, preguntas frecuentes o tu web", href: "/owner/knowledge" },
-    { done: connected > 0, label: "Canales", detail: connected > 0 ? `${connected} conectados` : "Conectá WhatsApp, Instagram o Messenger", href: "/owner/settings" },
+    { done: connected > 0, label: "Canales", detail: connected > 0 ? `${connected} conectados` : "Conectá WhatsApp, Instagram o Messenger", href: "/owner/configuraciones" },
   ];
   const pending = setup.filter((step) => !step.done);
   const week = lastSevenDays(data.conversations);
@@ -172,9 +172,9 @@ export default async function LabsHomePage() {
           )}
         </PanelCard>
         <div className="vpa-gs">
-          <PanelCard title="Por canal" description="Últimas semanas" actions={<Link href="/owner/settings" className="vpa-lnk">Canales</Link>}>
+          <PanelCard title="Por canal" description="Últimas semanas" actions={<Link href="/owner/configuraciones" className="vpa-lnk">Canales</Link>}>
             {data.channels.length === 0 ? (
-              <PanelEmpty action={<Link href="/owner/settings" className="vpa-btn acc sm">Conectar un canal</Link>}>Todavía no conectaste ningún canal.</PanelEmpty>
+              <PanelEmpty action={<Link href="/owner/configuraciones" className="vpa-btn acc sm">Conectar un canal</Link>}>Todavía no conectaste ningún canal.</PanelEmpty>
             ) : (
               data.channels.map((channel) => {
                 const state = CHANNEL_STATE[channel.status] ?? CHANNEL_STATE.DISCONNECTED;

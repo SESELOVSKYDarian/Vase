@@ -19,6 +19,8 @@ const modelPricingDefaults = {
   "gpt-5-mini": { inputUsdPerMillion: 0.25, outputUsdPerMillion: 2 },
   "gpt-4.1": { inputUsdPerMillion: 2, outputUsdPerMillion: 8 },
   "gpt-5.6-sol": { inputUsdPerMillion: 2.5, outputUsdPerMillion: 15 },
+  // Imágenes de Marketing: la salida son los tokens de la imagen (una cuadrada media ronda los 1.000).
+  "gpt-image-1": { inputUsdPerMillion: 5, outputUsdPerMillion: 40 },
 } as const satisfies Record<string, AiModelPricing>;
 
 export function usdToMicros(value: number): number {

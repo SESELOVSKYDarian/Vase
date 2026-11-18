@@ -39,7 +39,7 @@ async function resolveSetupDestination() {
   if (connectedChannels === 0) {
     return "/owner/channels";
   }
-  return "/owner/settings";
+  return "/owner/configuraciones";
 }
 
 export default async function LabsSetupPage() {
@@ -51,8 +51,8 @@ export default async function LabsSetupPage() {
   if (destination === "/owner/channels") {
     redirect("/owner/channels");
   }
-  if (destination === "/owner/settings") {
-    redirect("/owner/settings");
+  if (destination === "/owner/configuraciones") {
+    redirect("/owner/configuraciones");
   }
   redirect(destination);
 }

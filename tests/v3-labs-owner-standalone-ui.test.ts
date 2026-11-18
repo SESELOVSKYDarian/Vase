@@ -217,7 +217,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(integrationsPage).not.toContain("{ default, dynamic }");
     expect(labsChannelsPage).toContain('redirect("/owner/channels")');
     expect(appChannelsPage).toContain('new URL("/owner", productOrigins.labs).toString() as Route');
-    expect(oauthCallback).toContain('new URL("/owner/settings", url.origin)');
+    expect(oauthCallback).toContain('new URL("/owner/configuraciones", url.origin)');
   });
 
   it("keeps Inbox operationally distinct from Activity", () => {
@@ -318,7 +318,7 @@ describe("Vase Labs standalone owner experience", () => {
     expect(setup).toContain("resolveLabsRequestContext");
     expect(setup).toContain('redirect("/owner/knowledge")');
     expect(setup).toContain('redirect("/owner/channels")');
-    expect(setup).toContain('redirect("/owner/settings")');
+    expect(setup).toContain('redirect("/owner/configuraciones")');
   });
 
   it("registers an application icon instead of requesting a missing favicon", () => {

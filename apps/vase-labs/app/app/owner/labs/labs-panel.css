@@ -295,3 +295,55 @@
   .vpa .lx-sx-c p { -webkit-line-clamp: 3; }
   .vpa .lx-sx-sub { display: none; }
 }
+
+/* ===== Marketing: imágenes con IA, como un chat ===== */
+.lx-mk { display: flex; flex-direction: column; gap: 16px; max-width: 920px; margin: 0 auto; min-height: calc(100dvh - 180px); }
+.lx-mk-thread { flex: 1; display: flex; flex-direction: column; gap: 28px; }
+.lx-mk-hello { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 48px 16px 24px; }
+.lx-mk-hello .ic { width: 60px; height: 60px; border-radius: 20px; background: linear-gradient(135deg, #7a5af8, #18c37e); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: var(--sh-md); }
+.lx-mk-hello h2 { font-size: 28px; font-weight: 800; letter-spacing: -.03em; }
+.lx-mk-hello p { max-width: 560px; color: var(--mut); font-weight: 600; font-size: 14.5px; line-height: 1.55; }
+.lx-mk-ideas { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; max-width: 720px; }
+.lx-mk-ideas button { height: 36px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--tx); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.lx-mk-ideas button:hover { border-color: var(--line2); background: var(--hover); }
+.lx-mk-turn { display: flex; flex-direction: column; gap: 12px; }
+.lx-mk-ask { align-self: flex-end; max-width: min(560px, 85%); padding: 12px 16px; border-radius: 18px 18px 6px 18px; background: var(--ink); color: var(--ink-on); }
+.lx-mk-ask p { font-weight: 600; font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lx-mk-ask span { display: block; margin-top: 6px; font-size: 12px; font-weight: 700; opacity: .7; }
+.lx-mk-out { align-self: flex-start; display: flex; flex-direction: column; gap: 10px; max-width: 100%; }
+.lx-mk-frame { margin: 0; border-radius: 18px; overflow: hidden; background: var(--soft); box-shadow: var(--sh-md); }
+.lx-mk-frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.lx-mk-frame.post { width: min(420px, 82vw); aspect-ratio: 1 / 1; }
+.lx-mk-frame.story { width: min(300px, 70vw); aspect-ratio: 2 / 3; }
+.lx-mk-frame.banner { width: min(620px, 86vw); aspect-ratio: 3 / 2; }
+.lx-mk-frame.loading { display: flex; align-items: flex-end; justify-content: center; padding: 18px; background: linear-gradient(110deg, var(--soft) 30%, var(--hover) 50%, var(--soft) 70%); background-size: 200% 100%; animation: lx-mk-shine 1.6s linear infinite; box-shadow: none; }
+.lx-mk-frame.loading span { font-size: 12.5px; font-weight: 700; color: var(--mut); text-align: center; }
+@keyframes lx-mk-shine { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .lx-mk-frame.loading { animation: none; } }
+.lx-mk-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.lx-mk-acts .vpa-btn { display: inline-flex; align-items: center; gap: 6px; }
+.lx-mk-err { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px; background: var(--redsoft); color: var(--red); font-weight: 700; font-size: 13.5px; max-width: 560px; }
+.lx-mk-box { position: sticky; bottom: 12px; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 22px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--sh-md); }
+.lx-mk-opts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lx-mk-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 10px; border-radius: 10px; background: var(--accsoft); color: var(--acc-tx); font-size: 12.5px; font-weight: 700; max-width: 100%; }
+.lx-mk-chip button { width: 22px; height: 22px; border: 0; border-radius: 7px; background: none; color: inherit; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.lx-mk-chip button:hover { background: var(--card); }
+.lx-mk-add { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 10px; border: 1px dashed var(--line2); background: none; color: var(--mut); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.lx-mk-add:hover { color: var(--tx); border-color: var(--mut); }
+.lx-mk-write { display: flex; align-items: flex-end; gap: 10px; }
+.lx-mk-write textarea { flex: 1; min-height: 48px; max-height: 180px; resize: vertical; border: 0; background: var(--soft); border-radius: 14px; padding: 12px 14px; color: var(--tx); font: inherit; font-weight: 600; font-size: 14px; line-height: 1.45; }
+.lx-mk-write textarea:focus { outline: 2px solid var(--acc); outline-offset: -1px; }
+.lx-mk-send { width: 44px; height: 44px; border-radius: 14px; border: 0; background: var(--acc); color: var(--acc-on); display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none; }
+.lx-mk-send:disabled { opacity: .4; cursor: default; }
+.lx-mk-hint { font-size: 11.5px; color: var(--mut); font-weight: 600; }
+.lx-mk-pick { width: 480px !important; max-height: min(640px, 85dvh); }
+.lx-mk-search { position: relative; display: block; }
+.lx-mk-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--mut); }
+.lx-mk-search .vpa-inp { padding-left: 34px; }
+.lx-mk-list { display: flex; flex-direction: column; gap: 4px; overflow: auto; min-height: 120px; }
+.lx-mk-list button { display: flex; align-items: center; gap: 12px; padding: 8px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.lx-mk-list button:hover { background: var(--hover); }
+.lx-mk-list img, .lx-mk-list .ph { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; background: var(--soft); flex: none; display: flex; align-items: center; justify-content: center; color: var(--mut); }
+.lx-mk-list b { font-size: 13.5px; font-weight: 700; }
+.lx-mk-list .vpa-g1 span { font-size: 12px; color: var(--mut); font-weight: 600; }
+@media (max-width: 640px) { .lx-mk-hello { padding-top: 24px; } .lx-mk-hello h2 { font-size: 22px; } .lx-mk-box { bottom: 6px; padding: 10px; } }
