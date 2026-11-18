@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import type { AuthActionState } from "@/app/(auth)/actions";
 import { resetPasswordAction } from "@/app/(auth)/actions";
 import { AuthNotice } from "@/components/auth/auth-notice";
+import { authHint, authInput, authLabel, authPrimaryButton } from "@/components/auth/auth-ui";
 import { FieldError } from "@/components/auth/field-error";
 import { SubmitButton } from "@/components/auth/submit-button";
 
@@ -18,38 +19,38 @@ export function ResetPasswordForm({ token, redirectTo = "/signin?reset=success" 
       <input type="hidden" name="redirectTo" value={redirectTo} />
       <AuthNotice kind="error" message={state.error} />
       <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="password">
-          Nueva contrasena
+        <label className={authLabel} htmlFor="password">
+          Nueva contraseña
         </label>
         <input
           id="password"
           name="password"
           type="password"
+          autoComplete="new-password"
           required
           minLength={10}
-          className="min-h-12 w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+          className={authInput}
         />
         <FieldError message={state.fieldErrors?.password?.[0]} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="confirmPassword">
-          Confirmar contrasena
+        <label className={authLabel} htmlFor="confirmPassword">
+          Repetila
         </label>
         <input
           id="confirmPassword"
           name="confirmPassword"
           type="password"
+          autoComplete="new-password"
           required
           minLength={10}
-          className="min-h-12 w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+          className={authInput}
         />
         <FieldError message={state.fieldErrors?.confirmPassword?.[0]} />
       </div>
-      <SubmitButton
-        pendingLabel="Actualizando..."
-        className="min-h-12 w-full rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-60"
-      >
-        Actualizar contrasena
+      <p className={authHint}>Usá una que no uses en otro lado.</p>
+      <SubmitButton pendingLabel="Guardando..." className={authPrimaryButton}>
+        Guardar contraseña
       </SubmitButton>
     </form>
   );

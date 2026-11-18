@@ -1,11 +1,13 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Check, Eye, EyeOff, Mic, Sparkles, Square } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import type { AuthActionState } from "@/app/(auth)/actions";
 import { registerAction } from "@/app/(auth)/actions";
 import { AuthNotice } from "@/components/auth/auth-notice";
+import { authChoice, authHint, authInput, authLabel, authLink, authPanel, authSecondaryButton, authTextarea } from "@/components/auth/auth-ui";
 import { FieldError } from "@/components/auth/field-error";
 import Stepper, { Step } from "@/components/ui/stepper";
 import {
@@ -119,17 +121,17 @@ const productOptions: Array<{
   {
     value: "BUSINESS",
     title: "Vase Business",
-    description: "Base comercial con storefront, presencia digital y crecimiento modular.",
+    description: "Tu tienda online, con catálogo, pedidos y clientes.",
   },
   {
     value: "LABS",
     title: "Vase Labs",
-    description: "Chatbots, automatizaciones, n8n e IA aplicada a conversaciones.",
+    description: "Un asistente que responde a tus clientes por WhatsApp, Instagram y tu web.",
   },
   {
     value: "BOTH",
-    title: "Vase Business + Vase Labs",
-    description: "Combina negocio, integraciones y automatizacion en una sola cuenta.",
+    title: "Los dos",
+    description: "Tienda y asistente juntos, con los mismos productos y clientes.",
   },
 ];
 
@@ -140,23 +142,23 @@ const channelOptions: Array<{
 }> = [
   {
     value: "webchat",
-    title: "Webchat",
-    description: "Chat embebido dentro del sitio.",
+    title: "Tu web",
+    description: "Un chat en tu página.",
   },
   {
     value: "whatsapp",
     title: "WhatsApp",
-    description: "Atencion comercial o soporte directo.",
+    description: "Consultas y ventas.",
   },
   {
     value: "instagram",
     title: "Instagram",
-    description: "DMs y consultas sociales.",
+    description: "Mensajes directos.",
   },
   {
     value: "facebook",
     title: "Facebook",
-    description: "Canal contemplado para futuras automatizaciones Meta.",
+    description: "Messenger.",
   },
 ];
 
@@ -473,8 +475,11 @@ export function RegisterForm() {
             : undefined;
   const activeStep = errorStep ?? currentStep;
 
+  const micUnavailable = microphonePermission === "unsupported" || microphonePermission === "insecure";
+  const stepLabels = ["Producto", "Tu negocio", "Propuesta", "Tus datos"];
+
   return (
-    <form action={formAction} className="mt-8 space-y-5" aria-label="Formulario de registro">
+    <form action={formAction} className="space-y-5" aria-label="Formulario de registro">
       <input type="hidden" name="productSelection" value={derivedProductSelection} />
       <input type="hidden" name="businessGoal" value={businessGoal} />
       <input type="hidden" name="industry" value={industry} />
@@ -485,17 +490,13 @@ export function RegisterForm() {
       <input type="hidden" name="setupEstimate" value={String(pricing.setupTotal)} />
 
       <AuthNotice kind="error" message={state.error} />
-      <AuthNotice
-        kind="info"
-        message="Vase Business se configura por base y extras. Vase Labs se define por planes. Primero eliges la base, luego cuentas tu necesidad y al final ajustas la propuesta."
-      />
 
       <Stepper
         initialStep={1}
         currentStep={activeStep}
         onStepChange={setCurrentStep}
-        backButtonText="Anterior"
-        nextButtonText="Siguiente"
+        backButtonText="Atrás"
+        nextButtonText="Seguir"
         completeButtonText="Crear cuenta"
         isNextDisabled={
           (activeStep === 1 && !isStepOneValid) ||
@@ -507,36 +508,38 @@ export function RegisterForm() {
         nextButtonProps={{
           formNoValidate: activeStep !== 4,
         }}
-        stepCircleContainerClassName="rounded-[2rem] border border-[#dbe7dd] bg-[#fcfdfc] p-4 shadow-[0_20px_45px_rgba(25,28,27,0.06)]"
-        stepContainerClassName="mb-8"
-        contentClassName="min-h-[31rem] md:min-h-[28rem]"
+        stepCircleContainerClassName="rounded-3xl border border-[#e3e9e5] bg-white p-5 shadow-[0_1px_2px_rgba(25,28,27,0.04),0_24px_48px_-24px_rgba(25,28,27,0.12)] sm:p-7"
+        stepContainerClassName="mb-7"
         renderStepIndicator={({ step, currentStep: stepCurrent, onStepClick }) => (
           <button
             type="button"
             onClick={() => onStepClick(step)}
-            className={`grid h-10 w-10 place-items-center rounded-full border text-sm font-semibold transition ${
-              stepCurrent === step
-                ? "border-[#18c37e] bg-[#18c37e] text-white"
-                : stepCurrent > step
-                  ? "border-[#006d43] bg-[#006d43] text-white"
-                  : "border-[#d6e0d8] bg-white text-[#6c7b70]"
-            }`}
+            aria-current={stepCurrent === step ? "step" : undefined}
+            aria-label={`Paso ${step}: ${stepLabels[step - 1]}`}
+            className="flex shrink-0 items-center gap-2 rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#3B633D]/15"
           >
-            {step}
+            <span
+              className={`grid h-8 w-8 place-items-center rounded-full text-[13px] font-semibold transition ${
+                stepCurrent === step
+                  ? "bg-[#3B633D] text-white shadow-[0_0_0_4px_rgba(59,99,61,0.14)]"
+                  : stepCurrent > step
+                    ? "bg-[#dbe9dc] text-[#2f5a35]"
+                    : "border border-[#dfe6e1] bg-white text-[#8a958e]"
+              }`}
+            >
+              {stepCurrent > step ? <Check size={15} strokeWidth={2.5} aria-hidden="true" /> : step}
+            </span>
+            <span
+              className={`hidden text-[13px] font-medium md:inline ${stepCurrent === step ? "text-[#191c1b]" : "text-[#8a958e]"}`}
+            >
+              {stepLabels[step - 1]}
+            </span>
           </button>
         )}
       >
         <Step>
-          <div className="space-y-6 px-2">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-[#6c7b70]">Paso 1</p>
-              <h3 className="mt-2 font-[family-name:var(--font-newsreader)] text-3xl font-semibold tracking-[-0.04em] text-[#191c1b]">
-                Elegi la base y los canales
-              </h3>
-              <p className="mt-2 text-sm leading-7 text-[#3c4a40]">
-                Primero definimos si arrancas con Business, Labs o ambos, y por que canales vas a conversar o vender.
-              </p>
-            </div>
+          <div className="space-y-6">
+            <StepTitle step={1} title="¿Con qué querés empezar?" description="Podés sumar el otro producto cuando quieras." />
 
             <div className="grid gap-3">
               {productOptions.map((option) => (
@@ -544,22 +547,24 @@ export function RegisterForm() {
                   key={option.value}
                   type="button"
                   onClick={() => setProductSelection(option.value)}
-                  className={`rounded-3xl border p-4 text-left transition ${
-                    productSelection === option.value
-                      ? "border-[#18c37e]/40 bg-[#18c37e]/10"
-                      : "border-[#dbe7dd] bg-white"
-                  }`}
+                  aria-pressed={productSelection === option.value}
+                  className={authChoice(productSelection === option.value)}
                 >
-                  <p className="font-semibold text-[#191c1b]">{option.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-[#3c4a40]">{option.description}</p>
+                  <span className="flex items-start gap-3">
+                    <ChoiceDot active={productSelection === option.value} />
+                    <span>
+                      <b className="block font-semibold text-[#191c1b]">{option.title}</b>
+                      <span className="mt-1 block text-sm leading-6 text-[#5b6660]">{option.description}</span>
+                    </span>
+                  </span>
                 </button>
               ))}
             </div>
             <FieldError message={getFieldError(state, "productSelection")} />
 
             <div className="space-y-3">
-              <p className="text-sm font-medium text-[#191c1b]">Canales que quieres activar</p>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <p className={authLabel}>¿Por dónde te escriben tus clientes?</p>
+              <div className="grid grid-cols-2 gap-2.5">
                 {channelOptions.map((channel) => {
                   const active = selectedChannels.includes(channel.value);
 
@@ -568,12 +573,14 @@ export function RegisterForm() {
                       key={channel.value}
                       type="button"
                       onClick={() => toggleChannel(channel.value)}
-                      className={`rounded-3xl border p-4 text-left transition ${
-                        active ? "border-[#18c37e]/40 bg-[#18c37e]/10" : "border-[#dbe7dd] bg-white"
-                      }`}
+                      aria-pressed={active}
+                      className={`${authChoice(active)} !p-3.5`}
                     >
-                      <p className="font-semibold text-[#191c1b]">{channel.title}</p>
-                      <p className="mt-1 text-sm leading-6 text-[#3c4a40]">{channel.description}</p>
+                      <span className="flex items-center justify-between gap-2">
+                        <b className="text-sm font-semibold text-[#191c1b]">{channel.title}</b>
+                        <ChoiceCheck active={active} />
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-[#66736b]">{channel.description}</span>
                     </button>
                   );
                 })}
@@ -584,112 +591,72 @@ export function RegisterForm() {
         </Step>
 
         <Step>
-          <div className="space-y-6 px-2">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-[#6c7b70]">Paso 2</p>
-              <h3 className="mt-2 font-[family-name:var(--font-newsreader)] text-3xl font-semibold tracking-[-0.04em] text-[#191c1b]">
-                Contanos lo que necesitas
-              </h3>
-              <p className="mt-2 text-sm leading-7 text-[#3c4a40]">
-                Describe si quieres una web, ecommerce, integrar tu sistema de gestion, agregar chatbot web, WhatsApp u otras automatizaciones. Puedes escribir o grabar audio.
-              </p>
-            </div>
+          <div className="space-y-6">
+            <StepTitle
+              step={2}
+              title="Contanos de tu negocio"
+              description="Qué vendés y qué te gustaría resolver. Con eso te armamos una propuesta."
+            />
 
             <div className="space-y-2">
-              <label className="ml-1 block text-xs uppercase tracking-[0.18em] text-[#6c7b70]" htmlFor="businessGoal">
-                Objetivo del sistema
-              </label>
+              <div className="flex items-center justify-between gap-3">
+                <label className={authLabel} htmlFor="businessGoal">
+                  ¿Qué necesitás?
+                </label>
+                <button
+                  type="button"
+                  onClick={isRecordingAudio ? stopAudioRecording : startAudioRecording}
+                  disabled={micUnavailable}
+                  title={micUnavailable ? "Tu navegador no permite dictar en este formulario" : undefined}
+                  className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    isRecordingAudio
+                      ? "bg-[#8b1e3f] text-white hover:bg-[#751735]"
+                      : "border border-[#d9e1db] bg-white text-[#2b322e] hover:bg-[#f7f9f7]"
+                  }`}
+                >
+                  {isRecordingAudio ? <Square size={13} aria-hidden="true" /> : <Mic size={14} aria-hidden="true" />}
+                  {isRecordingAudio ? "Detener" : "Dictar"}
+                </button>
+              </div>
               <textarea
                 id="businessGoal"
                 value={businessGoal}
                 onChange={(event) => setBusinessGoal(event.target.value)}
-                rows={6}
-                placeholder="Ejemplo: quiero tener una web con ecommerce, conectar mi sistema de gestion, sumar un chatbot en la pagina y responder por WhatsApp."
-                className="min-h-40 w-full rounded-3xl border border-[#dbe7dd] bg-white px-5 py-4 text-[#191c1b] outline-none transition focus:ring-2 focus:ring-[#18c37e]/25"
+                rows={5}
+                placeholder="Ej: quiero vender online, conectar mi sistema de gestión y responder por WhatsApp."
+                className={authTextarea}
               />
+              {isTranscribingAudio ? (
+                <p className="flex items-center gap-2 text-sm text-[#2f5a35]">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#8b1e3f]" aria-hidden="true" />
+                  Te escuchamos… hablá tranquilo, el texto aparece arriba.
+                </p>
+              ) : (
+                <p className={authHint}>
+                  {micUnavailable
+                    ? "Escribilo con tus palabras, no hace falta que sea perfecto."
+                    : `Podés escribirlo o tocar Dictar y contarlo en voz alta (funciona mejor en Chrome o Edge; estás en ${browserVoiceLabel}).`}
+                </p>
+              )}
+              {microphonePermission === "denied" ? (
+                <p className="text-sm leading-6 text-[#8b1e3f]">
+                  El micrófono está bloqueado. Habilitalo desde el candado de la barra de direcciones y probá de nuevo.
+                </p>
+              ) : null}
+              {audioError && microphonePermission !== "denied" ? <p className="text-sm leading-6 text-[#8b1e3f]">{audioError}</p> : null}
               <FieldError message={getFieldError(state, "businessGoal")} />
             </div>
 
-            <div className="rounded-[1.6rem] border border-[#e6efe8] bg-[linear-gradient(180deg,#f6fbf7_0%,#eef7f1_100%)] p-5">
-              <div className="flex flex-wrap items-center gap-3">
-                {microphonePermission !== "granted" ? (
-                  <button
-                    type="button"
-                    onClick={requestMicrophonePermission}
-                    disabled={isRecordingAudio || isTranscribingAudio}
-                    className="rounded-full border border-[#006d43] bg-white px-4 py-2 text-sm font-semibold text-[#006d43] transition hover:bg-[#eef7f1] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Solicitar permiso del micrófono
-                  </button>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={isRecordingAudio ? stopAudioRecording : startAudioRecording}
-                  disabled={
-                    isTranscribingAudio ||
-                    microphonePermission === "unsupported" ||
-                    microphonePermission === "insecure"
-                  }
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    isRecordingAudio
-                      ? "bg-[#8b1e3f] text-white hover:bg-[#751735]"
-                      : "border border-[#006d43] text-[#006d43] hover:bg-[#eef7f1]"
-                  } ${!isRecordingAudio ? "bg-white" : ""}`}
-                >
-                  {isRecordingAudio ? "Detener grabacion" : "Grabar audio"}
-                </button>
-
-                {isTranscribingAudio ? (
-                  <span className="text-sm text-[#3c4a40]">Transcribiendo audio...</span>
-                ) : null}
-              </div>
-
-              <p className="mt-3 text-sm leading-7 text-[#3c4a40]">
-                Puedes tocar grabar, contar tu idea en voz alta y el navegador la transcribe gratis dentro del campo de objetivo.
-              </p>
-
-              <p className="mt-2 text-sm text-[#3c4a40]">
-                Esta transcripción gratis depende del reconocimiento de voz del navegador. Navegador detectado: {browserVoiceLabel}. Funciona mejor en Chrome o Edge.
-              </p>
-
-              {microphonePermission === "prompt" || microphonePermission === "unknown" ? (
-                <p className="mt-2 text-sm text-[#3c4a40]">
-                  Toca <strong>Solicitar permiso del micrófono</strong> y el navegador debería mostrar el pedido de acceso.
-                </p>
-              ) : null}
-
-              {microphonePermission === "denied" ? (
-                <p className="mt-2 text-sm text-[#8b1e3f]">
-                  El permiso ya quedó bloqueado por el navegador. Cuando eso pasa, la web no puede volver a forzar el popup: hay que habilitarlo desde el icono del sitio en la barra de direcciones y luego volver a intentar.
-                </p>
-              ) : null}
-
-              {microphonePermission === "insecure" ? (
-                <p className="mt-2 text-sm text-[#8b1e3f]">
-                  El micrófono solo funciona en HTTPS o localhost.
-                </p>
-              ) : null}
-
-              {microphonePermission === "unsupported" ? (
-                <p className="mt-2 text-sm text-[#8b1e3f]">
-                  Este navegador no soporta transcripción por voz en este formulario.
-                </p>
-              ) : null}
-
-              {audioError ? <p className="mt-3 text-sm text-[#8b1e3f]">{audioError}</p> : null}
-            </div>
-
             <div className="space-y-2">
-              <label className="ml-1 block text-xs uppercase tracking-[0.18em] text-[#6c7b70]" htmlFor="industry">
-                Rubro o industria
+              <label className={authLabel} htmlFor="industry">
+                Rubro
               </label>
               <input
                 id="industry"
                 value={industry}
                 onChange={(event) => setIndustry(event.target.value)}
-                className="min-h-14 w-full rounded-xl border border-[#dbe7dd] bg-white px-4 text-[#191c1b] outline-none transition focus:ring-2 focus:ring-[#18c37e]/25"
-                placeholder="Moda, gastronomia, salud, retail, servicios..."
+                className={authInput}
+                placeholder="Ferretería, ropa, gastronomía, salud…"
               />
               <FieldError message={getFieldError(state, "industry")} />
             </div>
@@ -697,42 +664,34 @@ export function RegisterForm() {
         </Step>
 
         <Step>
-          <div className="space-y-6 px-2">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-[#6c7b70]">Paso 3</p>
-              <h3 className="mt-2 font-[family-name:var(--font-newsreader)] text-3xl font-semibold tracking-[-0.04em] text-[#191c1b]">
-                Propuesta sugerida para arrancar
-              </h3>
-              <p className="mt-2 text-sm leading-7 text-[#3c4a40]">
-                En base a la base elegida, los canales y lo que describiste, te mostramos la configuracion de Business y el plan de Labs que mas sentido tienen para empezar.
-              </p>
-            </div>
+          <div className="space-y-6">
+            <StepTitle step={3} title="Tu propuesta para arrancar" description="La armamos con lo que nos contaste. Podés cambiar lo que quieras." />
 
-            <div className="rounded-[1.6rem] border border-[#e6efe8] bg-[linear-gradient(180deg,#f6fbf7_0%,#eef7f1_100%)] p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-[#006d43]">Sugerencia actual</p>
-              <p className="mt-3 text-sm leading-7 text-[#3c4a40]">{recommendation.summary}</p>
+            <div className="rounded-2xl border border-[#cfe2d1] bg-[#f3faf4] p-4 sm:p-5">
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#2f5a35]">
+                <Sparkles size={14} aria-hidden="true" />
+                Te sugerimos
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#2b322e]">{recommendation.summary}</p>
               {recommendation.reasons.length > 0 ? (
-                <div className="mt-4 space-y-2">
-                {recommendation.reasons.map((reason) => (
-                    <p key={reason} className="rounded-2xl bg-white/80 px-4 py-3 text-sm text-[#3c4a40]">
+                <ul className="mt-3 space-y-1.5">
+                  {recommendation.reasons.map((reason) => (
+                    <li key={reason} className="flex gap-2 text-sm leading-6 text-[#4f5c55]">
+                      <Check size={15} className="mt-1 shrink-0 text-[#3B633D]" aria-hidden="true" />
                       {reason}
-                    </p>
+                    </li>
                   ))}
-                </div>
+                </ul>
               ) : null}
-              <button
-                type="button"
-                onClick={applySuggestedModules}
-                className="mt-4 rounded-full border border-[#006d43] bg-white px-4 py-2 text-sm font-semibold text-[#006d43] transition hover:bg-[#eef7f1]"
-              >
-                Aplicar sugerencia
+              <button type="button" onClick={applySuggestedModules} className={`${authSecondaryButton} mt-4 min-h-10`}>
+                Usar esta sugerencia
               </button>
             </div>
 
             {showsBusinessConfiguration ? (
               <div className="space-y-3">
-                <p className="text-sm font-medium text-[#191c1b]">Configuracion de Vase Business</p>
-                <div className="grid gap-3">
+                <p className={authLabel}>Vase Business</p>
+                <div className="grid gap-2.5">
                   {onboardingModules.map((module) => {
                     const selected = selectedModuleSet.has(module.id);
                     const recommended = suggestedModuleSet.has(module.id);
@@ -742,33 +701,23 @@ export function RegisterForm() {
                         key={module.id}
                         type="button"
                         onClick={() => toggleModule(module.id)}
-                        className={`rounded-3xl border p-4 text-left transition ${
-                          selected ? "border-[#18c37e]/40 bg-[#18c37e]/10" : "border-[#dbe7dd] bg-white"
-                        }`}
+                        aria-pressed={selected}
+                        className={authChoice(selected)}
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-[#191c1b]">{module.title}</p>
-                            <p className="mt-1 text-sm leading-6 text-[#3c4a40]">{module.description}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-[#191c1b]">ARS {module.setupPrice.toLocaleString("es-AR")}</p>
-                            <p className="text-xs uppercase tracking-[0.18em] text-[#6c7b70]">
-                              Implementacion
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="rounded-full bg-[#f2f4f2] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6c7b70]">
-                            {module.requires === "ANY" ? "Compatible con cualquier base" : `Requiere ${module.requires}`}
-                          </span>
-                          {recommended ? (
-                            <span className="rounded-full bg-[#006d43] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
-                              Recomendado
+                        <span className="flex items-start gap-3">
+                          <ChoiceCheck active={selected} />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <b className="font-semibold text-[#191c1b]">{module.title}</b>
+                              {recommended ? <Badge>Recomendado</Badge> : null}
                             </span>
-                          ) : null}
-                        </div>
+                            <span className="mt-1 block text-sm leading-6 text-[#5b6660]">{module.description}</span>
+                            <span className="mt-2 block text-[13px] text-[#66736b]">
+                              Implementación <b className="font-semibold text-[#191c1b]">ARS {module.setupPrice.toLocaleString("es-AR")}</b>
+                              {module.requires === "ANY" ? null : ` · requiere ${module.requires}`}
+                            </span>
+                          </span>
+                        </span>
                       </button>
                     );
                   })}
@@ -779,8 +728,8 @@ export function RegisterForm() {
 
             {showsLabsPlan ? (
               <div className="space-y-3">
-                <p className="text-sm font-medium text-[#191c1b]">Plan recomendado de Vase Labs</p>
-                <div className="grid gap-3 md:grid-cols-3">
+                <p className={authLabel}>Plan de Vase Labs</p>
+                <div className="grid gap-2.5">
                   {labsPlans.map((plan) => {
                     const active = effectiveSelectedLabsPlan === plan.id;
                     const recommended = suggestedLabsPlan === plan.id;
@@ -793,27 +742,23 @@ export function RegisterForm() {
                           setHasCustomizedModules(true);
                           setSelectedLabsPlan(plan.id);
                         }}
-                        className={`rounded-3xl border p-4 text-left transition ${
-                          active ? "border-[#18c37e]/40 bg-[#18c37e]/10" : "border-[#dbe7dd] bg-white"
-                        }`}
+                        aria-pressed={active}
+                        className={authChoice(active)}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-[#191c1b]">{plan.title}</p>
-                            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#006d43]">
-                              {plan.optionLabel}
-                            </p>
-                            <p className="mt-1 text-sm leading-6 text-[#3c4a40]">{plan.description}</p>
-                          </div>
-                          {recommended ? (
-                            <span className="rounded-full bg-[#006d43] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
-                              Sugerido
+                        <span className="flex items-start gap-3">
+                          <ChoiceDot active={active} />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <b className="font-semibold text-[#191c1b]">{plan.title}</b>
+                              {recommended ? <Badge>Sugerido</Badge> : null}
                             </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-4 text-lg font-semibold text-[#191c1b]">
-                          ARS {plan.monthlyPrice.toLocaleString("es-AR")} / mes
-                        </p>
+                            <span className="mt-1 block text-sm leading-6 text-[#5b6660]">{plan.description}</span>
+                          </span>
+                          <span className="shrink-0 text-right">
+                            <b className="block text-[15px] font-semibold text-[#191c1b]">ARS {plan.monthlyPrice.toLocaleString("es-AR")}</b>
+                            <span className="text-xs text-[#66736b]">por mes</span>
+                          </span>
+                        </span>
                       </button>
                     );
                   })}
@@ -822,107 +767,42 @@ export function RegisterForm() {
             ) : null}
 
             {derivedProductSelection !== productSelection ? (
-              <AuthNotice
-                kind="info"
-                message={`Por la configuracion elegida, la cuenta se configurara como ${derivedProductSelection}.`}
-              />
+              <AuthNotice kind="info" message={`Con lo que elegiste, tu cuenta arranca con ${productLabel(derivedProductSelection)}.`} />
             ) : null}
 
-            <div className="grid gap-4 rounded-[1.6rem] border border-[#dbe7dd] bg-[#f7faf8] p-5 md:grid-cols-2">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-[#6c7b70]">Resumen de compra</p>
-                <p className="mt-2 text-sm leading-7 text-[#3c4a40]">
-                  Base final: {derivedProductSelection}. Configuracion Business: {effectiveSelectedModules.length}. Plan Labs: {currentLabsPlan?.title ?? "Sin plan de Labs"}.
-                </p>
-              </div>
-              <div className="rounded-[1.4rem] bg-white p-4">
-                <p className="text-xs uppercase tracking-[0.22em] text-[#6c7b70]">Estimado inicial</p>
-                <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#191c1b]">
-                  ARS {pricing.monthlyTotal.toLocaleString("es-AR")}
-                  <span className="ml-2 text-base font-medium text-[#6c7b70]">/ mes Labs</span>
-                </p>
-                <p className="mt-2 text-sm text-[#3c4a40]">Implementacion Business: ARS {pricing.setupTotal.toLocaleString("es-AR")}</p>
-              </div>
-            </div>
+            <Summary
+              rows={[
+                ["Productos", productLabel(derivedProductSelection)],
+                ["Plan de Labs", currentLabsPlan?.title ?? "Sin Labs por ahora"],
+                ["Implementación Business", `ARS ${pricing.setupTotal.toLocaleString("es-AR")}`],
+              ]}
+              total={`ARS ${pricing.monthlyTotal.toLocaleString("es-AR")}`}
+            />
           </div>
         </Step>
 
         <Step>
-          <div className="space-y-6 px-2">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-[#6c7b70]">Paso 4</p>
-              <h3 className="mt-2 font-[family-name:var(--font-newsreader)] text-3xl font-semibold tracking-[-0.04em] text-[#191c1b]">
-                Creamos tu cuenta
-              </h3>
-              <p className="mt-2 text-sm leading-7 text-[#3c4a40]">
-                Confirma tus datos y dejamos listo tu tenant con los modulos elegidos.
-              </p>
-            </div>
+          <div className="space-y-6">
+            <StepTitle step={4} title="Último paso: tus datos" description="Con esto creamos tu cuenta y te mandamos un correo para confirmarla." />
 
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="ml-1 block text-xs uppercase tracking-[0.18em] text-[#6c7b70]" htmlFor="businessName">
-                  Nombre del negocio
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field id="businessName" label="Nombre del negocio" error={getFieldError(state, "businessName")}>
+                <input id="businessName" name="businessName" type="text" required autoComplete="organization" className={authInput} />
+              </Field>
+              <Field id="accountName" label="Nombre de la cuenta" error={getFieldError(state, "accountName")}>
+                <input id="accountName" name="accountName" type="text" required className={authInput} />
+              </Field>
+              <Field id="name" label="Tu nombre" error={getFieldError(state, "name")}>
+                <input id="name" name="name" type="text" required autoComplete="name" className={authInput} />
+              </Field>
+              <Field id="email" label="Correo" error={getFieldError(state, "email")}>
+                <input id="email" name="email" type="email" inputMode="email" autoComplete="email" required className={authInput} />
+              </Field>
+
+              <div className="space-y-2 sm:col-span-2">
+                <label className={authLabel} htmlFor="password">
+                  Contraseña
                 </label>
-                <input
-                  id="businessName"
-                  name="businessName"
-                  type="text"
-                  required
-                  className="min-h-14 w-full rounded-xl border border-[#dbe7dd] bg-white px-4 text-[#191c1b] outline-none transition focus:ring-2 focus:ring-[#18c37e]/25"
-                />
-                <FieldError message={getFieldError(state, "businessName")} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="ml-1 block text-xs uppercase tracking-[0.18em] text-[#6c7b70]" htmlFor="accountName">
-                  Nombre de cuenta
-                </label>
-                <input
-                  id="accountName"
-                  name="accountName"
-                  type="text"
-                  required
-                  className="min-h-14 w-full rounded-xl border border-[#dbe7dd] bg-white px-4 text-[#191c1b] outline-none transition focus:ring-2 focus:ring-[#18c37e]/25"
-                />
-                <FieldError message={getFieldError(state, "accountName")} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="ml-1 block text-xs uppercase tracking-[0.18em] text-[#6c7b70]" htmlFor="name">
-                  Tu nombre
-                </label>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  required
-                  className="min-h-14 w-full rounded-xl border border-[#dbe7dd] bg-white px-4 text-[#191c1b] outline-none transition focus:ring-2 focus:ring-[#18c37e]/25"
-                />
-                <FieldError message={getFieldError(state, "name")} />
-              </div>
-
-              <div className="space-y-2">
-                <label className="ml-1 block text-xs uppercase tracking-[0.18em] text-[#6c7b70]" htmlFor="email">
-                  Email de trabajo
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="min-h-14 w-full rounded-xl border border-[#dbe7dd] bg-white px-4 text-[#191c1b] outline-none transition focus:ring-2 focus:ring-[#18c37e]/25"
-                />
-                <FieldError message={getFieldError(state, "email")} />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <div className="flex items-center justify-between gap-4">
-                  <label className="ml-1 block text-xs uppercase tracking-[0.18em] text-[#6c7b70]" htmlFor="password">
-                    Contrasena
-                  </label>
-                </div>
                 <div className="relative">
                   <input
                     id="password"
@@ -931,65 +811,142 @@ export function RegisterForm() {
                     autoComplete="new-password"
                     required
                     minLength={12}
-                    className="min-h-14 w-full rounded-xl border border-[#dbe7dd] bg-white px-4 pr-14 text-[#191c1b] outline-none transition focus:ring-2 focus:ring-[#18c37e]/25"
+                    aria-describedby="password-hint"
+                    className={`${authInput} pr-12`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((current) => !current)}
                     aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                     aria-pressed={showPassword}
-                    className="absolute right-4 top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-full p-1 text-[#006d43] transition hover:bg-[#eef7f1] hover:text-[#004a2c]"
+                    className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-[#66736b] transition hover:bg-[#f1f4f2] hover:text-[#191c1b]"
                   >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                   </button>
                 </div>
-                <p className="text-sm text-[#6c7b70]">
-                  Usa al menos 12 caracteres con mayuscula, minuscula, numero y simbolo.
+                <p id="password-hint" className={authHint}>
+                  Mínimo 12 caracteres, con mayúscula, minúscula, número y símbolo.
                 </p>
                 <FieldError message={getFieldError(state, "password")} />
               </div>
             </div>
 
-            <div className="rounded-[1.6rem] border border-[#e6efe8] bg-[#f7faf8] p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-[#6c7b70]">Lo que se va a crear</p>
-              <div className="mt-3 grid gap-2 text-sm text-[#3c4a40]">
-                <p>Base elegida: <strong>{derivedProductSelection}</strong></p>
-                <p>Configuracion Business: <strong>{effectiveSelectedModules.length}</strong></p>
-                <p>Plan Labs: <strong>{currentLabsPlan?.title ?? "Sin plan de Labs"}</strong></p>
-                <p>Canales: <strong>{selectedChannels.length === 0 ? "Sin canales por ahora" : selectedChannels.join(", ")}</strong></p>
-                <p>Estimado mensual Labs: <strong>ARS {pricing.monthlyTotal.toLocaleString("es-AR")}</strong></p>
-              </div>
-            </div>
+            <Summary
+              rows={[
+                ["Productos", productLabel(derivedProductSelection)],
+                ["Plan de Labs", currentLabsPlan?.title ?? "Sin Labs por ahora"],
+                ["Canales", selectedChannels.length === 0 ? "Ninguno por ahora" : selectedChannels.map(channelLabel).join(", ")],
+              ]}
+              total={`ARS ${pricing.monthlyTotal.toLocaleString("es-AR")}`}
+            />
 
-            <div className="flex items-start gap-3 rounded-xl border border-[#dbe7dd] bg-white p-4 transition-colors hover:border-[#18c37e]/40">
+            <label htmlFor="acceptTerms" className="flex cursor-pointer items-start gap-3">
               <input
                 id="acceptTerms"
                 name="acceptTerms"
                 type="checkbox"
                 required
-                className="mt-1 h-5 w-5 rounded border-[#dbe7dd] text-[#18c37e] focus:ring-[#18c37e]/25"
+                className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-[#c3cec6] accent-[#3B633D]"
               />
-              <label htmlFor="acceptTerms" className="text-sm leading-6 text-[#3c4a40]">
-                He leído y acepto los{" "}
-                <Link href={"/terminos-y-condiciones" as any} className="font-bold text-[#006d43] hover:underline" target="_blank">
+              <span className="text-sm leading-6 text-[#4f5c55]">
+                Acepto los{" "}
+                <Link href={"/terminos-y-condiciones" as Route} className={authLink} target="_blank">
                   términos y condiciones
                 </Link>{" "}
-                y las{" "}
-                <Link href={"/politica-de-privacidad" as any} className="font-bold text-[#006d43] hover:underline" target="_blank">
-                  políticas de seguridad
+                y la{" "}
+                <Link href={"/politica-de-privacidad" as Route} className={authLink} target="_blank">
+                  política de privacidad
                 </Link>
                 .
-              </label>
-            </div>
+              </span>
+            </label>
             <FieldError message={getFieldError(state, "acceptTerms")} />
-
-            <AuthNotice
-              kind="info"
-              message="Al crear la cuenta se genera tu tenant, se asigna el rol owner y se envia un email de verificacion."
-            />
           </div>
         </Step>
       </Stepper>
     </form>
+  );
+}
+
+function productLabel(product: ProductSelection) {
+  return product === "BOTH" ? "Business + Labs" : product === "LABS" ? "Vase Labs" : "Vase Business";
+}
+
+function channelLabel(channel: OnboardingChannelId) {
+  return channelOptions.find((option) => option.value === channel)?.title ?? channel;
+}
+
+function StepTitle({ step, title, description }: { step: number; title: string; description: string }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#3B633D]">Paso {step} de 4</p>
+      <h2 className="mt-1.5 font-[family-name:var(--font-newsreader)] text-[1.65rem] font-medium leading-tight tracking-[-0.025em] text-[#191c1b] sm:text-3xl">
+        {title}
+      </h2>
+      <p className="mt-1.5 text-sm leading-6 text-[#5b6660]">{description}</p>
+    </div>
+  );
+}
+
+function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <label className={authLabel} htmlFor={id}>
+        {label}
+      </label>
+      {children}
+      <FieldError message={error} />
+    </div>
+  );
+}
+
+function Badge({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-full bg-[#3B633D] px-2 py-0.5 text-[11px] font-semibold text-white">{children}</span>
+  );
+}
+
+function ChoiceDot({ active }: { active: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border transition ${
+        active ? "border-[#3B633D] bg-[#3B633D]" : "border-[#c3cec6] bg-white"
+      }`}
+    >
+      {active ? <span className="h-2 w-2 rounded-full bg-white" /> : null}
+    </span>
+  );
+}
+
+function ChoiceCheck({ active }: { active: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border transition ${
+        active ? "border-[#3B633D] bg-[#3B633D] text-white" : "border-[#c3cec6] bg-white text-transparent"
+      }`}
+    >
+      <Check size={13} strokeWidth={3} />
+    </span>
+  );
+}
+
+function Summary({ rows, total }: { rows: Array<[string, string]>; total: string }) {
+  return (
+    <div className={authPanel}>
+      <dl className="space-y-2 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-start justify-between gap-4">
+            <dt className="text-[#66736b]">{label}</dt>
+            <dd className="text-right font-medium text-[#191c1b]">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-3 flex items-end justify-between gap-4 border-t border-[#e3e9e5] pt-3">
+        <span className="text-sm text-[#66736b]">Estimado por mes</span>
+        <span className="text-xl font-semibold tracking-[-0.02em] text-[#191c1b]">{total}</span>
+      </div>
+    </div>
   );
 }

@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import type { AuthActionState } from "@/app/(auth)/actions";
 import { forgotPasswordAction } from "@/app/(auth)/actions";
 import { AuthNotice } from "@/components/auth/auth-notice";
+import { authInput, authLabel, authPrimaryButton } from "@/components/auth/auth-ui";
 import { FieldError } from "@/components/auth/field-error";
 import { SubmitButton } from "@/components/auth/submit-button";
 
@@ -17,24 +18,23 @@ export function ForgotPasswordForm() {
       <AuthNotice kind="success" message={state.success} />
       <AuthNotice kind="error" message={state.error} />
       <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="email">
-          Email
+        <label className={authLabel} htmlFor="email">
+          Correo
         </label>
         <input
           id="email"
           name="email"
           type="email"
+          inputMode="email"
           autoComplete="email"
           required
-          className="min-h-12 w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]"
+          placeholder="nombre@tunegocio.com"
+          className={authInput}
         />
         <FieldError message={state.fieldErrors?.email?.[0]} />
       </div>
-      <SubmitButton
-        pendingLabel="Enviando..."
-        className="min-h-12 w-full rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-60"
-      >
-        Enviar instrucciones
+      <SubmitButton pendingLabel="Enviando..." className={authPrimaryButton}>
+        Mandarme el enlace
       </SubmitButton>
     </form>
   );

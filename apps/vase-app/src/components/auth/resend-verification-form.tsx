@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import type { AuthActionState } from "@/app/(auth)/actions";
 import { resendVerificationAction } from "@/app/(auth)/actions";
 import { AuthNotice } from "@/components/auth/auth-notice";
+import { authPrimaryButton } from "@/components/auth/auth-ui";
 import { SubmitButton } from "@/components/auth/submit-button";
 
 const initialState: AuthActionState = {};
@@ -17,9 +18,9 @@ export function ResendVerificationForm() {
       <AuthNotice kind="error" message={state.error} />
       <SubmitButton
         pendingLabel="Reenviando..."
-        className="inline-flex min-h-11 items-center justify-center rounded-full border border-black/10 px-5 text-sm font-semibold text-[var(--foreground)] disabled:opacity-60"
+        className={authPrimaryButton}
       >
-        Reenviar verificacion
+        Mandarme el enlace de nuevo
       </SubmitButton>
     </form>
   );

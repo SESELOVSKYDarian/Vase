@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { peekAuthToken } from "@/lib/auth/tokens";
+import { AuthHeading } from "@/components/auth/auth-heading";
+import { authPrimaryButton } from "@/components/auth/auth-ui";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 
 type ResetPasswordPageProps = {
@@ -19,35 +21,28 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
     : "/signin?reset=success";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(214,201,186,0.5),_transparent_35%),linear-gradient(180deg,#F8F5F0_0%,#EFE7DC_100%)] px-6 py-10">
-      <div className="w-full max-w-md rounded-[36px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_90%,transparent)] p-8 shadow-[0_30px_100px_rgba(15,23,42,0.1)]">
-        <div className="space-y-3">
-          <p className="text-xs font-semibold tracking-[0.24em] text-[var(--muted-soft)] uppercase">
-            Seguridad
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-            {isForced ? "Cambio obligatorio de contrasena" : "Restablecer contrasena"}
-          </h1>
-          <p className="text-sm leading-7 text-[var(--muted)]">
-            {isForced
-              ? "Debes cambiar la contrasena temporal para continuar."
-              : "Usa una contrasena robusta y unica para proteger tu tenant y tu cuenta."}
-          </p>
-        </div>
+    <section className="w-full max-w-[26rem]">
+      <AuthHeading
+        title={isForced ? "Cambiá tu contraseña" : "Creá una contraseña nueva"}
+        description={
+          isForced
+            ? "Tu contraseña es temporal. Elegí una nueva para seguir."
+            : "Después de guardarla vas a poder entrar con ella."
+        }
+      />
 
-        <div className="mt-8">
-          {isValid ? (
-            <ResetPasswordForm token={token} redirectTo={postResetRedirect} />
-          ) : (
-            <div className="space-y-4 rounded-3xl border border-[#E6C1B8] bg-[#FFF4F1] p-5 text-sm leading-7 text-[#8A3C2B]">
-              <p>El enlace de recuperacion no es valido o ya vencio.</p>
-              <Link href="/forgot-password" className="font-semibold text-[var(--accent)]">
-                Solicitar un nuevo enlace
-              </Link>
-            </div>
-          )}
+      {isValid ? (
+        <ResetPasswordForm token={token} redirectTo={postResetRedirect} />
+      ) : (
+        <div className="space-y-5">
+          <div role="alert" className="rounded-xl border border-[#efcfc6] bg-[#fff6f3] px-4 py-3 text-sm leading-6 text-[#8A3C2B]">
+            Este enlace ya se usó o venció.
+          </div>
+          <Link href="/forgot-password" className={authPrimaryButton}>
+            Pedir un enlace nuevo
+          </Link>
         </div>
-      </div>
-    </div>
+      )}
+    </section>
   );
 }

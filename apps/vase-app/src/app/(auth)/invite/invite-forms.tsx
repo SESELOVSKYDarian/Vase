@@ -7,13 +7,12 @@ import {
   type InviteActionState,
 } from "@/app/(auth)/invite/actions";
 import { AuthNotice } from "@/components/auth/auth-notice";
+import { authInput, authPrimaryButton } from "@/components/auth/auth-ui";
 import { SubmitButton } from "@/components/auth/submit-button";
 
 const initialState: InviteActionState = {};
-const inputClass =
-  "min-h-12 w-full rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)] px-4 text-[var(--foreground)]";
-const buttonClass =
-  "min-h-12 w-full rounded-full bg-[var(--accent-strong)] px-5 text-sm font-semibold text-[var(--accent-contrast)] disabled:opacity-60";
+const inputClass = authInput;
+const buttonClass = authPrimaryButton;
 
 export function NewUserInviteForm({ token }: { token: string }) {
   const [state, formAction] = useActionState(acceptInviteNewUserAction, initialState);

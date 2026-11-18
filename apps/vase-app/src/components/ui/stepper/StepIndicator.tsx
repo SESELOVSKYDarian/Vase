@@ -99,7 +99,7 @@ export function StepIndicator({
 export function StepConnector({ isComplete }: { isComplete: boolean }) {
   const lineVariants: Variants = {
     incomplete: { width: 0, backgroundColor: "transparent" },
-    complete: { width: "100%", backgroundColor: "#18c37e" },
+    complete: { width: "100%", backgroundColor: "#3b633d" },
   };
 
   return (

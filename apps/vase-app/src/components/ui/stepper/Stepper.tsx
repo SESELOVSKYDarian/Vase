@@ -111,7 +111,7 @@ export default function Stepper({
             const isNotLastStep = index < totalSteps - 1;
 
             return (
-              <div key={stepNumber} className="flex flex-1 items-center gap-2">
+              <div key={stepNumber} className={`flex items-center gap-2 ${isNotLastStep ? "flex-1" : ""}`}>
                 {renderStepIndicator ? (
                   renderStepIndicator({
                     step: stepNumber,

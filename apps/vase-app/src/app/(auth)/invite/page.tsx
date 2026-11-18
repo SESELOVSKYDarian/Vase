@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { auth } from "@/auth";
+import { AuthHeading } from "@/components/auth/auth-heading";
 import { ExistingUserInviteForm, NewUserInviteForm } from "@/app/(auth)/invite/invite-forms";
 import { prisma } from "@/lib/db/prisma";
 import { TEAM_ROLE_LABEL } from "@/lib/team/team-access";
@@ -42,18 +43,14 @@ export default async function InvitePage({ searchParams }: InvitePageProps) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--background)] px-6 py-10">
-      <div className="w-full max-w-md rounded-[28px] border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-          {invitation ? `Te invitaron a ${invitation.tenant.name}` : "Invitación"}
-        </h1>
-        {invitation ? (
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Vas a entrar como {TEAM_ROLE_LABEL[invitation.role]} con el correo {invitation.email}.
-          </p>
-        ) : null}
-        <div className="mt-6">{body}</div>
-      </div>
-    </div>
+    <section className="w-full max-w-[26rem]">
+      <AuthHeading
+        title={invitation ? `Te invitaron a ${invitation.tenant.name}` : "Invitación"}
+        description={
+          invitation ? `Vas a entrar como ${TEAM_ROLE_LABEL[invitation.role]} con el correo ${invitation.email}.` : undefined
+        }
+      />
+      {body}
+    </section>
   );
 }

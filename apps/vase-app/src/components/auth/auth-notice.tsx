@@ -10,10 +10,14 @@ export function AuthNotice({ kind, message }: AuthNoticeProps) {
 
   const styles =
     kind === "error"
-      ? "border-[#E6C1B8] bg-[#FFF4F1] text-[#8A3C2B]"
+      ? "border-[#efcfc6] bg-[#fff6f3] text-[#8A3C2B]"
       : kind === "success"
-        ? "border-[#C6D9C9] bg-[#F3FAF4] text-[#305A36]"
-        : "border-[#D9D1C7] bg-[#F7F3EE] text-[var(--muted)]";
+        ? "border-[#cfe2d1] bg-[#f3faf4] text-[#2f5a35]"
+        : "border-[#e3e9e5] bg-[#f7f9f7] text-[#4f5c55]";
 
-  return <div className={`rounded-2xl border px-4 py-3 text-sm leading-7 ${styles}`}>{message}</div>;
+  return (
+    <div role={kind === "error" ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm leading-6 ${styles}`}>
+      {message}
+    </div>
+  );
 }
