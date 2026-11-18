@@ -46,24 +46,28 @@ export async function fetchVaseBusinessProfile(globalTenantId, { fetchImpl = fet
   const cached = profileCache.get(globalTenantId);
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.value;
 
-  let value = null;
-  try {
-    const url = new URL('/api/internal/business/business-profile', vaseAppBaseUrl());
-    url.searchParams.set('globalTenantId', globalTenantId);
-    const response = await fetchImpl(url, {
-      headers: { authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (response.ok) {
-      const payload = await response.json();
-      value = payload?.profile && typeof payload.profile === 'object' ? payload.profile : null;
+  // Primero la dirección interna; si no contesta, la pública de app (mismo token interno).
+  const bases = [...new Set([vaseAppBaseUrl(), String(process.env.VASE_APP_URL || 'https://app.vase.ar').replace(/\/+$/, '')])];
+  for (const base of bases) {
+    try {
+      const url = new URL('/api/internal/business/business-profile', base);
+      url.searchParams.set('globalTenantId', globalTenantId);
+      const response = await fetchImpl(url, {
+        headers: { authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (response.ok || response.status === 404) {
+        const payload = response.ok ? await response.json() : null;
+        const value = payload?.profile && typeof payload.profile === 'object' ? payload.profile : null;
+        profileCache.set(globalTenantId, { at: Date.now(), value });
+        return value;
+      }
+    } catch {
+      // Probamos la siguiente dirección.
     }
-  } catch {
-    // Si app.vase.ar no responde, la tienda sigue con sus propios datos.
-    return cached?.value ?? null;
   }
-  profileCache.set(globalTenantId, { at: Date.now(), value });
-  return value;
+  // Si app.vase.ar no responde, la tienda sigue con sus propios datos.
+  return cached?.value ?? null;
 }
 
 /** Nunca falla: si no hay conexión con Mi negocio devuelve null y la tienda usa lo suyo. */
