@@ -19,7 +19,12 @@ export const SETTINGS_PAGES = [
 ];
 
 // Con más de un producto de Vase, estas secciones se manejan desde app.vase.ar (Compartido) y acá no se muestran.
+// Pedidos y Clientes muestran un aviso; Catálogo sigue abriendo desde el botón "Editar" de app, pero sin estar en el menú.
 export const SHARED_IN_VASE = ['pedidos', 'clientes'];
+export const HIDDEN_WHEN_SHARED = ['pedidos', 'clientes', 'catalogo'];
+
+// Siempre en app.vase.ar (Imágenes), tenga uno o varios productos.
+export const ALWAYS_IN_VASE = ['imagenes'];
 
 export const MENU = [
     {
@@ -34,7 +39,6 @@ export const MENU = [
         group: 'Tu tienda',
         items: [
             { id: 'catalogo', label: 'Catálogo', icon: 'box' },
-            { id: 'imagenes', label: 'Imágenes', icon: 'image' },
             { id: 'envios', label: 'Envíos', icon: 'truck' },
             { id: 'diseno', label: 'Diseño de la tienda', icon: 'layout' },
         ],

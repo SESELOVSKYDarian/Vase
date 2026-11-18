@@ -56,7 +56,7 @@ function useHydrated() {
   return useSyncExternalStore(noSubscription, () => true, () => false);
 }
 
-export function PanelFrame({ account, productCount = 0, children }: { account: PanelFrameAccount | null; productCount?: number; children: ReactNode }) {
+export function PanelFrame({ account, productCount = 0, hasBusiness = false, children }: { account: PanelFrameAccount | null; productCount?: number; hasBusiness?: boolean; children: ReactNode }) {
   const pathname = usePathname() ?? "/app";
   const [meta, setMeta] = useState<PageMeta | null>(null);
   // Después del primer dibujo, manda lo que diga la página: si ninguna avisó, no hay marco.
@@ -84,7 +84,7 @@ export function PanelFrame({ account, productCount = 0, children }: { account: P
 
   return (
     <FrameContext.Provider value={api}>
-      <PanelChrome {...shown} bare={!framed} productCount={productCount}>
+      <PanelChrome {...shown} bare={!framed} productCount={productCount} hasBusiness={hasBusiness}>
         {children}
       </PanelChrome>
     </FrameContext.Provider>

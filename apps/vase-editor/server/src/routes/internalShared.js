@@ -5,6 +5,8 @@ import { pool } from '../db.js';
 import { resolveBusinessCatalogTenant } from '../services/businessCatalogSnapshot.js';
 import { changeOrderStatus } from './orders/order-status.js';
 import { changeTenantUser } from './tenant/user-access.js';
+import { collectStoreImages } from '../services/storeImages.js';
+import { queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
 
 const LIMIT = 200;
 
@@ -192,6 +194,46 @@ export function registerSharedRoutes(router) {
             };
           }),
         });
+      });
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  // Imágenes: todas las fotos que usa la tienda (productos, páginas, logo y colores). Solo direcciones.
+  router.get('/internal/tenant/:tenantId/shared/images', async (req, res, next) => {
+    try {
+      return await withTenant(req, res, async (tenantId) => {
+        const [settings, sections, categories, products] = await Promise.all([
+          queryTenantSettingsWithSeo(tenantId),
+          pool.query(
+            [
+              'select pg.slug as page, s.props',
+              'from page_sections s join pages pg on pg.id = s.page_id',
+              "where pg.tenant_id = $1 and s.state in ('published', 'draft') and s.enabled = true",
+            ].join(' '),
+            [tenantId]
+          ),
+          pool.query('select name, data from categories where tenant_id = $1', [tenantId]),
+          pool.query(
+            [
+              // Solo cuántas fotos tiene (pueden venir incrustadas y pesar mucho) y la foto suelta si la hay.
+              "select p.id, p.name, case when jsonb_typeof(p.data->'images') = 'array' then jsonb_array_length(p.data->'images') else 0 end as image_count,",
+              "jsonb_build_object('image_url', p.data->>'image_url', 'imageUrl', p.data->>'imageUrl', 'image', left(p.data->>'image', 2048)) as data",
+              "from product_cache p where p.tenant_id = $1 and p.status = 'active' and p.deleted_at is null",
+              'order by p.name asc',
+            ].join(' '),
+            [tenantId]
+          ),
+        ]);
+        const stored = settings.rows[0] || {};
+        const images = collectStoreImages({
+          settings: { branding: stored.branding, theme: stored.theme, seo: stored.seo, commerce: stored.commerce },
+          sections: sections.rows,
+          categories: categories.rows,
+          products: products.rows,
+        });
+        return res.json({ total: images.length, items: images });
       });
     } catch (err) {
       return next(err);

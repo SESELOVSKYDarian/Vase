@@ -12,7 +12,7 @@ import { CloudButton, SaveStatusProvider } from "@/components/layout/save-status
 import { DashboardSupportWidget } from "@/components/support/dashboard-support-widget";
 import { SupportChatProvider } from "@/components/support/support-chat-context";
 import { PANEL_HELP, resolvePanelSection } from "@/lib/navigation/panel-sections";
-import { ClientShellProps, NAV_COMPARTIDO, NAV_CUENTA, NAV_PRINCIPAL, NotificationsDrawer, PanelTheme, PanelThemeContext, ROLE_WEIGHT } from "./NotificationsDrawer";
+import { ClientShellProps, NAV_COMPARTIDO, NAV_CUENTA, NAV_IMAGENES, NAV_PRINCIPAL, NotificationsDrawer, PanelTheme, PanelThemeContext, ROLE_WEIGHT } from "./NotificationsDrawer";
 import { RegisteredPanelPage, usePanelFrame } from "./panel-frame";
 
 export function SectionHelpDrawer({ pathname, onClose }: { pathname: string; onClose: () => void }) {
@@ -59,8 +59,9 @@ export function PanelChrome({
   viewerRole = "OWNER",
   bare = false,
   productCount = 0,
+  hasBusiness = false,
   children,
-}: ClientShellProps & { bare?: boolean; productCount?: number; children: ReactNode }) {
+}: ClientShellProps & { bare?: boolean; productCount?: number; hasBusiness?: boolean; children: ReactNode }) {
   const pathname = usePathname() ?? "/app";
   const section = resolvePanelSection(pathname);
   const [theme, setTheme] = useState<PanelTheme>(() => {
@@ -95,9 +96,18 @@ export function PanelChrome({
     icon: <Icon size={18} aria-hidden="true" />,
   });
   const groups: PanelNavGroup[] = [
-    { label: "Principal", items: NAV_PRINCIPAL.filter(({ id }) => id === "inicio" || viewerRole === "OWNER").map(toItem) },
+    {
+      label: "Principal",
+      items: [
+        ...NAV_PRINCIPAL.filter(({ id }) => id === "inicio" || viewerRole === "OWNER"),
+        // Imágenes vive siempre acá, aunque la cuenta tenga solo Business. Con varios productos va en Compartido.
+        ...(hasBusiness && productCount <= 1 && viewerRole !== "MEMBER" ? [NAV_IMAGENES] : []),
+      ].map(toItem),
+    },
     // Catálogo, Clientes y Pedidos son de todos tus productos: con uno solo, se ven adentro de ese producto.
-    ...(productCount > 1 && viewerRole !== "MEMBER" ? [{ label: "Compartido", items: NAV_COMPARTIDO.map(toItem) }] : []),
+    ...(productCount > 1 && viewerRole !== "MEMBER"
+      ? [{ label: "Compartido", items: NAV_COMPARTIDO.filter(({ id }) => id !== "imagenes" || hasBusiness).map(toItem) }]
+      : []),
     { label: "Cuenta", items: NAV_CUENTA.filter((item) => ROLE_WEIGHT[viewerRole] >= ROLE_WEIGHT[item.minRole]).map(toItem) },
   ];
 

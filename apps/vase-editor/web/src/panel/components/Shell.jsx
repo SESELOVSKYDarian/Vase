@@ -19,36 +19,32 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
     }, [section, accountSettings]);
 
     // El menú es el mismo de app y Labs (packages/ui/src/panel/sidebar.tsx).
-    const groups = [
-        ...MENU.map((group) => ({
-            label: group.group,
-            // hidden: secciones que esta cuenta maneja desde app.vase.ar (Pedidos y Clientes compartidos).
-            items: group.items.filter((item) => !hidden.includes(item.id)).map((item) => ({
+    // Ajustes va dentro de "Tu tienda"; la ayuda está en el "?" de arriba y en el menú de tu usuario.
+    const ajustes = {
+        id: 'ajustes',
+        label: 'Ajustes',
+        icon: <Icon name="sliders" />,
+        open: ajOpen,
+        onClick: () => {
+            if (section === 'ajustes' && !sub) setAjOpen((open) => !open);
+            else { setAjOpen(true); go('ajustes'); }
+        },
+        sub: SETTINGS_PAGES.map((page) => ({ id: page.id, label: page.label, onClick: () => go('ajustes', page.id) })),
+    };
+    const groups = MENU.map((group) => ({
+        label: group.group,
+        // hidden: secciones que esta cuenta maneja desde app.vase.ar.
+        items: [
+            ...group.items.filter((item) => !hidden.includes(item.id)).map((item) => ({
                 id: item.id,
                 label: item.label,
                 icon: <Icon name={item.icon} />,
                 badge: item.badge && badges[item.badge] ? badges[item.badge] : undefined,
                 onClick: () => go(item.id),
             })),
-        })),
-        {
-            label: 'Cuenta',
-            items: [
-                {
-                    id: 'ajustes',
-                    label: 'Ajustes',
-                    icon: <Icon name="sliders" />,
-                    open: ajOpen,
-                    onClick: () => {
-                        if (section === 'ajustes' && !sub) setAjOpen((open) => !open);
-                        else { setAjOpen(true); go('ajustes'); }
-                    },
-                    sub: SETTINGS_PAGES.map((page) => ({ id: page.id, label: page.label, onClick: () => go('ajustes', page.id) })),
-                },
-                { id: 'ayuda', label: 'Ayuda y soporte', icon: <Icon name="help" />, onClick: account.onHelp },
-            ],
-        },
-    ];
+            ...(group.group === 'Tu tienda' ? [ajustes] : []),
+        ],
+    })).filter((group) => group.items.length > 0);
 
     return (
         <PanelSidebar
@@ -239,13 +235,19 @@ export function GeneralHelp({ open, onClose, onPlay, theme }) {
 
 // Sección que todavía se está armando.
 /** Pedidos o Clientes cuando la cuenta tiene varios productos: se manejan en app.vase.ar, para todos juntos. */
+const IN_VASE = {
+    clientes: { label: 'Clientes', icon: 'user', note: 'Como tenés más de un producto, los clientes se manejan en un solo lugar para todos.' },
+    pedidos: { label: 'Pedidos', icon: 'bag', note: 'Como tenés más de un producto, los pedidos se manejan en un solo lugar para todos.' },
+    imagenes: { label: 'Imágenes', icon: 'image', note: 'Las fotos de tu tienda ahora se ven y se suben desde tu cuenta de Vase.' },
+};
+
 export function SharedInVase({ section, vaseUrl }) {
-    const label = section === 'clientes' ? 'Clientes' : 'Pedidos';
+    const { label, icon, note } = IN_VASE[section] || IN_VASE.pedidos;
     return (
         <div className="vp-soon">
-            <span className="ic"><Icon name={section === 'clientes' ? 'user' : 'bag'} size={26} /></span>
+            <span className="ic"><Icon name={icon} size={26} /></span>
             <h2>{label} está en Vase</h2>
-            <p className="vp-note" style={{ fontSize: 13 }}>Como tenés más de un producto, {label.toLowerCase()} se manejan en un solo lugar para todos.</p>
+            <p className="vp-note" style={{ fontSize: 13 }}>{note}</p>
             <a className="vp-btn acc" style={{ marginTop: 14 }} href={`${vaseUrl}/app/${section}`} target="_top">Abrir {label}</a>
         </div>
     );

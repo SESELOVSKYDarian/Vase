@@ -53,7 +53,9 @@ test('junta las fotos de la tienda sin las incrustadas y dice dónde se usan', (
 test('todas las secciones ya están en el panel nuevo', async () => {
     assert.deepEqual(Object.entries(SECTIONS).filter(([, meta]) => meta.phase).map(([id]) => id), []);
     const app = await read('../src/panel/PanelApp.jsx');
-    assert.match(app, /section === 'imagenes'\) \{\s*content = <Imagenes/);
+    // Imágenes vive en app.vase.ar: acá queda solo el aviso para quien llegue por un enlace viejo.
+    assert.match(app, /ALWAYS_IN_VASE\.includes\(section\)\) \{\s*content = <SharedInVase/);
+    assert.doesNotMatch(app, /<Imagenes/);
     const shell = await read('../src/panel/components/Shell.jsx');
     assert.doesNotMatch(shell, /en la fase/);
 });

@@ -3,7 +3,7 @@
 // Parte de client-shell.tsx: PanelTheme, PanelThemeContext, usePanelTheme, ClientShellProps, NAV_PRINCIPAL, NAV_CUENTA y más.
 import { useRouter } from "next/navigation";
 import { createContext, type PropsWithChildren, useContext, useState, useTransition } from "react";
-import { Check, ClipboardCheck, CreditCard, Home, LayoutGrid, Package, ShoppingBag, Store, UserRound, Users, X } from "lucide-react";
+import { Check, ClipboardCheck, CreditCard, Home, Images, LayoutGrid, Package, ShoppingBag, Store, UserRound, Users, X } from "lucide-react";
 import { dismissNotificationsAction, markAllNotificationsAsReadAction } from "@/app/(platform)/app/notifications-actions";
 import { NavLink } from "@/components/layout/nav-link";
 import { NOTIFICATION_FILTERS, matchesNotificationFilter, notificationDestinationLabel, type NotificationFilterId } from "@/lib/navigation/panel-sections";
@@ -35,9 +35,13 @@ export const NAV_PRINCIPAL = [
   { id: "negocio", href: "/app/negocio", label: "Mi negocio", icon: Store },
 ] as const;
 
+// Las fotos de la tienda. Siempre en app (antes estaban en Business).
+export const NAV_IMAGENES = { id: "imagenes", href: "/app/imagenes", label: "Imágenes", icon: Images } as const;
+
 // Lo que comparten tus productos. Solo aparece si la cuenta tiene más de un producto.
 export const NAV_COMPARTIDO = [
   { id: "catalogo", href: "/app/catalogo", label: "Catálogo", icon: Package },
+  NAV_IMAGENES,
   { id: "clientes", href: "/app/clientes", label: "Clientes", icon: UserRound },
   { id: "pedidos", href: "/app/pedidos", label: "Pedidos", icon: ShoppingBag },
 ] as const;

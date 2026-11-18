@@ -5,6 +5,7 @@ export type PanelSectionId =
   | "dominios"
   | "negocio"
   | "catalogo"
+  | "imagenes"
   | "clientes"
   | "pedidos"
   | "pagos"
@@ -21,6 +22,7 @@ export function resolvePanelSection(pathname: string): PanelSectionId {
   if (/^\/app\/owner\/pages\/[^/]+\/domains$/.test(pathname)) return "dominios";
   if (pathname.startsWith("/app/negocio")) return "negocio";
   if (pathname.startsWith("/app/catalogo")) return "catalogo";
+  if (pathname.startsWith("/app/imagenes")) return "imagenes";
   if (pathname.startsWith("/app/clientes")) return "clientes";
   if (pathname.startsWith("/app/pedidos")) return "pedidos";
   if (pathname.startsWith("/app/billing")) return "pagos";
@@ -121,13 +123,22 @@ export const PANEL_HELP: Record<PanelSectionId, PanelHelp> = {
       "Para cambiar un producto, tocá Editar en Business.",
     ],
   },
+  imagenes: {
+    title: "Cómo usar Imágenes",
+    intro: "Todas las fotos de tu tienda en un solo lugar.",
+    steps: [
+      "Filtrá por productos, páginas o logo y colores, o buscá por nombre.",
+      "Tocá Copiar link para usar una foto donde quieras.",
+      "Con Subir imágenes agregás fotos nuevas y te queda el link listo.",
+    ],
+  },
   clientes: {
     title: "Cómo usar Clientes",
     intro: "Las personas que te compraron o se registraron en tu tienda.",
     steps: [
       "Buscá por nombre, correo o teléfono.",
       "Ves cuántos pedidos hizo cada uno y cuándo fue el último.",
-      "Para aprobar mayoristas o cambiar listas de precios, entrá a Business.",
+      "Desde la fila aprobás a un cliente o lo pasás a mayorista o minorista.",
     ],
   },
   pedidos: {
@@ -135,8 +146,8 @@ export const PANEL_HELP: Record<PanelSectionId, PanelHelp> = {
     intro: "Todos los pedidos que te llegaron, en un solo lugar.",
     steps: [
       "Arriba ves cuántos están abiertos.",
-      "Cada pedido muestra quién lo hizo, cuánto suma y en qué estado está.",
-      "Para cambiar el estado de un pedido, entrá a Business.",
+      "Tocá un pedido para ver el detalle, escribirle por WhatsApp y cambiar su estado.",
+      "Si querés, al cambiar el estado le avisamos al cliente por correo.",
     ],
   },
   ajustes: {

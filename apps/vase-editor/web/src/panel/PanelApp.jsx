@@ -9,10 +9,9 @@ import { navigate } from '../utils/navigation';
 import { isExternalAuthEnabled, submitCentralLogout } from '../utils/vaseAuth';
 import { isPiquimTenantIdentity, resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
 import { ComingSoon, GeneralHelp, HelpVideo, SectionHelp, SharedInVase, Sidebar, Topbar, MobileNav } from './components/Shell';
-import { SHARED_IN_VASE } from './sections';
+import { ALWAYS_IN_VASE, HIDDEN_WHEN_SHARED, SHARED_IN_VASE } from './sections';
 import './screens/screens.css';
 import Resumen from './screens/Resumen';
-import Imagenes from './screens/Imagenes';
 import Pedidos from './screens/Pedidos';
 import Clientes from './screens/Clientes';
 import AjustesPrecios from './screens/AjustesPrecios';
@@ -155,6 +154,7 @@ export default function PanelApp() {
     const settings = editor.settings || {};
     // Con más de un producto de Vase, Pedidos y Clientes se manejan desde app.vase.ar (Compartido).
     const sharedInVase = Boolean(settings.vase_profile?.shared_products);
+    const hiddenSections = sharedInVase ? [...HIDDEN_WHEN_SHARED, ...ALWAYS_IN_VASE] : ALWAYS_IN_VASE;
     const storeName = resolveTenantBrandName({ tenant, settings });
     const store = { name: storeName, initial: storeName.trim().charAt(0).toUpperCase() || 'V', logo: resolveBrandLogo({ tenant, settings }) };
 
@@ -230,7 +230,7 @@ export default function PanelApp() {
     }
 
     let content;
-    if (sharedInVase && SHARED_IN_VASE.includes(section)) {
+    if ((sharedInVase && SHARED_IN_VASE.includes(section)) || ALWAYS_IN_VASE.includes(section)) {
         content = <SharedInVase section={section} vaseUrl={vaseUrl} />;
     } else if (section === 'resumen') {
         content = (
@@ -243,8 +243,6 @@ export default function PanelApp() {
                 go={go}
             />
         );
-    } else if (section === 'imagenes') {
-        content = <Imagenes editor={editor} toast={addToast} />;
     } else if (section === 'ajustes' && !sub) {
         content = (
             <div className="vp-alist">
@@ -300,7 +298,7 @@ export default function PanelApp() {
                 onTheme={setTheme}
                 badges={badges}
                 store={store}
-                hidden={sharedInVase ? SHARED_IN_VASE : []}
+                hidden={hiddenSections}
                 account={{
                     email: user?.email,
                     // Igual que en app.vase.ar: el nombre de la persona y, si no tiene, el de la tienda.
@@ -341,7 +339,7 @@ export default function PanelApp() {
                     </div>
                 )}
             </main>
-            {isPhone ? <MobileNav section={section} go={go} badges={badges} onMore={() => setNavOpen(true)} hidden={sharedInVase ? SHARED_IN_VASE : []} /> : null}
+            {isPhone ? <MobileNav section={section} go={go} badges={badges} onMore={() => setNavOpen(true)} hidden={hiddenSections} /> : null}
             <Notifications open={notesOpen} onClose={() => setNotesOpen(false)} theme={theme} notifications={notifications} go={go} />
             <SectionHelp
                 open={help === 'section'}

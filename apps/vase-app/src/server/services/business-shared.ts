@@ -1,3 +1,5 @@
+import { BUSINESS_EDITOR_ORIGIN } from "@/lib/business/links";
+
 // Catálogo, Clientes y Pedidos compartidos. Los datos viven en Business; app los pide con el token interno.
 // Si Business no contesta o la cuenta no tiene tienda, se devuelve null y la pantalla lo explica.
 
@@ -58,7 +60,7 @@ export type SharedOrders = {
 
 const TIMEOUT_MS = 6_000;
 
-async function fetchShared<T>(tenantId: string, resource: "catalog" | "customers" | "orders", search?: string): Promise<T | null> {
+async function fetchShared<T>(tenantId: string, resource: "catalog" | "customers" | "orders" | "images", search?: string): Promise<T | null> {
   const base = process.env.BUSINESS_EDITOR_URL?.trim();
   const token = process.env.SERVICE_TO_SERVICE_TOKEN?.trim();
   if (!base || !token) return null;
@@ -98,6 +100,24 @@ export function getSharedCustomers(tenantId: string, search?: string) {
 
 export function getSharedOrders(tenantId: string) {
   return fetchShared<SharedOrders>(tenantId, "orders");
+}
+
+export type SharedImageGroup = "productos" | "paginas" | "marca";
+
+export type SharedImages = {
+  total: number;
+  items: Array<{ src: string; groups: SharedImageGroup[]; where: string[]; productId: string | null }>;
+};
+
+/** Todas las fotos de la tienda. Las direcciones que empiezan con "/" son de Business y se completan con su dominio. */
+export async function getSharedImages(tenantId: string): Promise<SharedImages | null> {
+  const data = await fetchShared<SharedImages>(tenantId, "images");
+  if (!data) return null;
+  const origin = BUSINESS_EDITOR_ORIGIN.replace(/\/+$/, "");
+  return {
+    total: data.total,
+    items: data.items.map((item) => ({ ...item, src: item.src.startsWith("/") && !item.src.startsWith("//") ? `${origin}${item.src}` : item.src })),
+  };
 }
 
 export type SharedWriteResult = { ok: true } | { ok: false; error: string };

@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { CatalogSource } from "@/components/panel/catalog-source";
 import { ExternalConnection } from "@/components/panel/external-connection";
 import { formatArs } from "@/components/panel/products";
+import { BUSINESS_EDITOR_ORIGIN } from "@/lib/business/links";
 import { prisma } from "@/lib/db/prisma";
 import { formatShortDate, loadSharedContext } from "@/lib/business/shared-context";
 import { getBusinessConnection } from "@/server/services/business-connection";
@@ -105,9 +106,10 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Pro
                 </Link>
               ))}
             </nav>
-            <Link href={"/app/business" as Route} className="vpa-btn acc">
-              Editar en Business
-            </Link>
+            {/* Con varios productos, Catálogo no está en el menú de Business: se abre directo desde acá. */}
+            <a href={`${BUSINESS_EDITOR_ORIGIN}/admin/catalogo`} className="vpa-btn acc">
+              Editar productos
+            </a>
           </div>
 
           <section className="vpa-card" style={{ padding: "12px 20px" }}>
