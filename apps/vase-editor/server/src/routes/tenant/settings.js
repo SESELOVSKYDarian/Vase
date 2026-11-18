@@ -18,7 +18,7 @@ tenantRouter.get('/settings', async (req, res, next) => {
     const stored = normalizeTenantSettingsPayload(result.rows[0] || { branding: {}, theme: {}, commerce: {} });
     const profile = await vaseProfileForTenant(tenantId);
     const settings = profile
-      ? { ...applyVaseBusinessProfile(stored, profile), vase_profile: { connected: true, edit_url: vaseProfileEditUrl() } }
+      ? { ...applyVaseBusinessProfile(stored, profile), vase_profile: { connected: true, edit_url: vaseProfileEditUrl(), shared_products: profile.sharedProducts === true } }
       : stored;
     return res.json({ tenant_id: tenantId, settings });
   } catch (err) {

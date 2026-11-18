@@ -43,9 +43,15 @@ export type SharedOrders = {
     status: string;
     whatsapp: boolean;
     currency: string;
+    subtotal: number | null;
+    shipping: number | null;
     total: number;
     customerName: string | null;
+    customerEmail: string | null;
+    customerPhone: string | null;
+    address: string | null;
     units: number;
+    lines: Array<{ sku: string | null; name: string; qty: number; unitPrice: number | null; total: number | null }>;
     createdAt: string;
   }>;
 };
@@ -92,4 +98,48 @@ export function getSharedCustomers(tenantId: string, search?: string) {
 
 export function getSharedOrders(tenantId: string) {
   return fetchShared<SharedOrders>(tenantId, "orders");
+}
+
+export type SharedWriteResult = { ok: true } | { ok: false; error: string };
+
+async function postShared(tenantId: string, path: string, body: unknown): Promise<SharedWriteResult> {
+  const base = process.env.BUSINESS_EDITOR_URL?.trim();
+  const token = process.env.SERVICE_TO_SERVICE_TOKEN?.trim();
+  if (!base || !token) return { ok: false, error: "NOT_CONFIGURED" };
+  let url: URL;
+  try {
+    const origin = new URL(base);
+    if (origin.protocol !== "http:" && origin.protocol !== "https:") return { ok: false, error: "NOT_CONFIGURED" };
+    url = new URL(`/api/v1/integrations/internal/tenant/${encodeURIComponent(tenantId)}/shared/${path}`, origin.origin);
+  } catch {
+    return { ok: false, error: "NOT_CONFIGURED" };
+  }
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000),
+      cache: "no-store",
+    });
+    if (response.ok) return { ok: true };
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: typeof payload.error === "string" ? payload.error : `HTTP_${response.status}` };
+  } catch {
+    return { ok: false, error: "UNREACHABLE" };
+  }
+}
+
+/** Cambia el estado de un pedido. Business devuelve o reserva stock y, si se pide, avisa al cliente. */
+export function changeSharedOrderStatus(tenantId: string, orderId: string, input: { status: string; notifyCustomer: boolean; reason?: string }) {
+  return postShared(tenantId, `orders/${encodeURIComponent(orderId)}/status`, {
+    status: input.status,
+    notify_customer: input.notifyCustomer,
+    notification_reason: input.reason ?? "",
+  });
+}
+
+/** Aprueba un cliente o lo pasa a mayorista/minorista. */
+export function changeSharedCustomer(tenantId: string, userId: string, input: { status?: "active"; role?: "retail" | "wholesale" }) {
+  return postShared(tenantId, `customers/${encodeURIComponent(userId)}`, input);
 }

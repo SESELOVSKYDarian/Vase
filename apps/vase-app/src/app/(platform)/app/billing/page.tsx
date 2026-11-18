@@ -3,6 +3,7 @@ import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { PayNow, type PayCard } from "@/components/panel/pay-now";
+import { ProductIcon } from "@/components/panel/product-icon";
 import { appConfig } from "@/config/app";
 import { PANEL_PRODUCTS, formatArs, panelProductPriceLabel } from "@/components/panel/products";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
@@ -159,9 +160,7 @@ export default async function BillingPage({
               const product = PANEL_PRODUCTS[module.key];
               return (
                 <div className="vpa-psr" key={module.key}>
-                  <span className="vpa-mono" style={{ width: 40, height: 40, fontSize: 16, background: product.artBg, color: product.artFg }} aria-hidden="true">
-                    {product.mark}
-                  </span>
+                  <ProductIcon product={module.key} size={40} />
                   <div className="vpa-g1">
                     <b>{product.name}</b>
                     <span>{planOf(module.id) ? `Plan ${planOf(module.id)}` : "Activo"}</span>
@@ -185,9 +184,7 @@ export default async function BillingPage({
                 return (
                   <article className="vpa-cplan" key={module.key}>
                     <div className="vpa-cph">
-                      <span className="vpa-mono" style={{ width: 52, height: 52, fontSize: 22, background: product.artBg, color: product.artFg }} aria-hidden="true">
-                        {product.mark}
-                      </span>
+                      <ProductIcon product={module.key} size={52} />
                       <div className="vpa-g1">
                         <b>{product.name}</b>
                         <span className="t">{plan ? `Plan ${plan}` : "Activo"}</span>

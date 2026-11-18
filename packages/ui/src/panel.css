@@ -583,6 +583,41 @@
 .vpa-opp .vpa-g1 span { font-size: 12.5px; color: var(--mut); font-weight: 600; }
 .vpa-opp .vpa-btn { margin-left: auto; flex: none; }
 @media (max-width: 560px) { .vpa-opp { flex-wrap: wrap; } .vpa-opp .vpa-btn { margin-left: 56px; } }
+/* Mi negocio: cada parte es una tarjeta a la vista (sin desplegables) */
+.vpa-bizlist:has(> .vpa-nsec) { gap: 16px; }
+.vpa-bizlist + .vpa-nsec { margin-top: 16px; }
+.vpa-nsec { display: flex; flex-direction: column; gap: 16px; padding: 20px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); min-width: 0; }
+.vpa-nsec > header { display: flex; align-items: center; gap: 12px; }
+.vpa-nsec > header .ic { width: 40px; height: 40px; border-radius: 12px; background: var(--accsoft); color: var(--acc-tx); display: flex; align-items: center; justify-content: center; flex: none; }
+.vpa-nsec > header .vpa-g1 b { font-size: 15px; font-weight: 800; }
+.vpa-nsec > header .vpa-g1 span { font-size: 12.5px; color: var(--mut); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vpa-nsec > header .act { margin-left: auto; flex: none; }
+.vpa-nlogo-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.vpa-nlogo-wrap small { color: var(--red); font-size: 11px; font-weight: 700; }
+.vpa-nlogo.edit { position: relative; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 34px; font-weight: 800; color: var(--acc-tx); }
+.vpa-nlogo.edit .pen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(17, 20, 24, .45); color: #fff; opacity: 0; transition: opacity .15s ease; }
+.vpa-nlogo.edit:hover .pen, .vpa-nlogo.edit:focus-visible .pen, .vpa-nlogo.edit:disabled .pen { opacity: 1; }
+.vpa-nlogo.edit:focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
+.vpa-nlogo .spin { animation: vpa-spin 1s linear infinite; }
+@keyframes vpa-spin { to { transform: rotate(360deg); } }
+@media (hover: none) { .vpa-nlogo.edit .pen { opacity: 1; background: none; align-items: flex-end; justify-content: flex-end; padding: 6px; color: var(--acc-tx); } }
+
+/* Pedidos y Clientes que se manejan desde app */
+.vpa-click tbody tr { cursor: pointer; }
+.vpa-click tbody tr:hover td { background: var(--hover); }
+.vpa-click tbody tr:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
+.vpa-ordbox { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: var(--soft); }
+.vpa-ordline { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+.vpa-ordline .q { font-weight: 800; color: var(--mut); min-width: 28px; }
+.vpa-ordline .vpa-g1 { flex: 1; min-width: 0; }
+.vpa-ordline .vpa-g1 span { font-size: 12px; color: var(--mut); font-weight: 600; }
+.vpa-ordline.sum { padding-top: 8px; border-top: 1px solid var(--line); color: var(--mut); font-weight: 700; }
+.vpa-ordline.total { color: var(--tx); font-size: 15px; }
+.vpa-ordacts { display: flex; flex-wrap: wrap; gap: 8px; }
+.vpa-check { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.vpa-check input { width: 16px; height: 16px; accent-color: var(--acc); }
+.vpa-rowacts { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.vpa-rowacts small { font-size: 11.5px; font-weight: 700; white-space: normal; max-width: 220px; }
 /* ===== Pantallas grandes: más aire y contenido más ancho, sin estirar las líneas de texto de más ===== */
 @media (min-width: 1600px) {
   .vpa-top { padding-left: 40px; padding-right: 40px; }

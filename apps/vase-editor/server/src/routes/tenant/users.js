@@ -3,6 +3,7 @@ import { tenantRouter } from './router.js';
 import { pool } from '../../db.js';
 import { ensurePricingSchema } from '../../services/userPricing.js';
 import { getTenantId, isUuid } from './helpers-common.js';
+import { changeTenantUser } from './user-access.js';
 
 tenantRouter.get('/users', async (req, res, next) => {
   const tenantId = getTenantId(req, res);
@@ -48,80 +49,11 @@ tenantRouter.get('/users', async (req, res, next) => {
 tenantRouter.patch('/users/:id', async (req, res, next) => {
   const tenantId = getTenantId(req, res);
   if (!tenantId) return;
-
-  const userId = req.params.id;
-  if (!isUuid(userId)) {
-    return res.status(400).json({ error: 'invalid_user_id' });
-  }
-
-  const role = req.body?.role != null ? String(req.body.role).trim().toLowerCase() : null;
-  const status = req.body?.status != null ? String(req.body.status).trim().toLowerCase() : null;
-  const validRoles = new Set(['retail', 'wholesale', 'tenant_admin']);
-  const validStatuses = new Set(['active', 'pending', 'inactive']);
-
-  if (role && !validRoles.has(role)) {
-    return res.status(400).json({ error: 'invalid_role' });
-  }
-  if (status && !validStatuses.has(status)) {
-    return res.status(400).json({ error: 'invalid_status' });
-  }
-  if (!role && !status) {
-    return res.status(400).json({ error: 'role_or_status_required' });
-  }
-
-  const client = await pool.connect();
   try {
-    await ensurePricingSchema();
-    await client.query('BEGIN');
-    const currentRes = await client.query(
-      'select role, status from user_tenants where tenant_id = $1 and user_id = $2',
-      [tenantId, userId]
-    );
-    if (!currentRes.rowCount) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'user_not_found' });
-    }
-
-    const current = currentRes.rows[0];
-    const nextRole = role || current.role;
-    let nextStatus = status || current.status || 'active';
-    if (nextRole !== 'wholesale' && nextStatus === 'pending') {
-      nextStatus = 'active';
-    }
-
-    await client.query(
-      'update user_tenants set role = $3, status = $4 where tenant_id = $1 and user_id = $2',
-      [tenantId, userId, nextRole, nextStatus]
-    );
-
-    if (nextRole !== 'master_admin') {
-      await client.query(
-        "update users set role = $2 where id = $1 and role <> 'master_admin'",
-        [userId, nextRole]
-      );
-    }
-
-    const userRes = await client.query(
-      [
-        'select u.id, u.email, u.role as global_role, u.status as user_status,',
-        'ut.role as role, ut.status as status, u.created_at,',
-        'upl.price_list_id, pl.name as price_list_name, pl.type as price_list_type',
-        'from user_tenants ut',
-        'join users u on u.id = ut.user_id',
-        'left join user_price_list upl on upl.tenant_id = ut.tenant_id and upl.user_id = ut.user_id',
-        'left join price_lists pl on pl.id = upl.price_list_id',
-        'where ut.tenant_id = $1 and ut.user_id = $2',
-      ].join(' '),
-      [tenantId, userId]
-    );
-
-    await client.query('COMMIT');
-    return res.json({ ok: true, user: userRes.rows[0] || null });
+    const result = await changeTenantUser({ tenantId, userId: req.params.id, body: req.body });
+    return res.status(result.status).json(result.body);
   } catch (err) {
-    await client.query('ROLLBACK');
     return next(err);
-  } finally {
-    client.release();
   }
 });
 

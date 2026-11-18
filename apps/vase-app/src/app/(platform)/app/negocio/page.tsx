@@ -1,15 +1,14 @@
-import { Check } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { PANEL_PRODUCTS } from "@/components/panel/products";
+import { HeroLogo } from "@/components/panel/business-profile/LogoPicker";
 import { NegocioBody, loadSettingsContext } from "../settings/settings-content";
 
 /**
- * Mi negocio: lo que es de tu negocio y usan todos tus productos (logo, contacto, sucursales y datos
- * fiscales). Antes era una pestaña de Ajustes; ahora tiene su lugar en el menú.
+ * Mi negocio: lo que es de tu negocio (logo, contacto, sucursales y datos fiscales). Arriba, la cabecera
+ * con el logo, que se cambia ahí mismo, y lo que falta completar. Abajo, cada parte a la vista.
  */
 export default async function NegocioPage() {
   const ctx = await loadSettingsContext("negocio");
-  const { membership, session, dashboard, businessInfo, branches, negocioBilling } = ctx;
+  const { membership, session, dashboard, businessInfo, branches, negocioBilling, isOwner } = ctx;
 
   const checks = [
     { label: "Logo", done: Boolean(businessInfo?.logoUrl) },
@@ -22,8 +21,10 @@ export default async function NegocioPage() {
   ];
   const done = checks.filter((item) => item.done).length;
   const missing = checks.filter((item) => !item.done).map((item) => item.label.toLowerCase());
-  const activeProducts = dashboard.modules.filter((module) => module.isActive);
   const name = membership.tenant.name;
+  const contact = [businessInfo?.whatsapp || businessInfo?.phone, businessInfo?.email, branches.find((branch) => branch.isMain)?.address ?? branches[0]?.address]
+    .map((value) => value?.trim())
+    .filter(Boolean) as string[];
 
   return (
     <AppShell
@@ -37,26 +38,17 @@ export default async function NegocioPage() {
     >
       <div className="vpa-stack" style={{ gap: 20 }}>
         <section className="vpa-nhero" aria-label="Tu negocio">
-          <span className="vpa-nlogo" aria-hidden="true">
-            {businessInfo?.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- logo subido por el cliente, de cualquier origen
-              <img src={businessInfo.logoUrl} alt="" />
-            ) : (
-              name.slice(0, 1).toUpperCase()
-            )}
-          </span>
+          <HeroLogo name={name} logoUrl={businessInfo?.logoUrl ?? null} readOnly={!isOwner} />
           <div className="vpa-ninfo">
             <h2>{name}</h2>
             <p>{businessInfo?.tagline?.trim() || membership.tenant.industry || "Contá en una frase qué hace tu negocio."}</p>
-            <div className="vpa-nchips" aria-label="Productos que usan estos datos">
-              {activeProducts.length === 0 ? <span className="off">Todavía no tenés productos activos</span> : null}
-              {activeProducts.map((module) => (
-                <span key={module.key}>
-                  <Check size={13} aria-hidden="true" />
-                  {PANEL_PRODUCTS[module.key].name}
-                </span>
-              ))}
-            </div>
+            {contact.length > 0 ? (
+              <div className="vpa-nchips">
+                {contact.map((value) => (
+                  <span key={value}>{value}</span>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="vpa-nmeter">
             <b>{done === checks.length ? "Tu negocio está completo" : `Completaste ${done} de ${checks.length}`}</b>
@@ -65,13 +57,13 @@ export default async function NegocioPage() {
             </span>
             <small>
               {done === checks.length
-                ? "Tus productos muestran todo lo que tus clientes necesitan para contactarte."
+                ? "Tus clientes tienen todo lo que necesitan para contactarte."
                 : `Te falta: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? " y más" : ""}.`}
             </small>
           </div>
         </section>
 
-        <NegocioBody ctx={ctx} />
+        <NegocioBody ctx={ctx} hideLogo />
       </div>
     </AppShell>
   );

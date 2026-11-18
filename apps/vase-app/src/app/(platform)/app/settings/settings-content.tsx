@@ -186,11 +186,11 @@ export function SettingsBody({ ctx, tabHref, embed = false, hideTabs = false }: 
 }
 
 /** Mi negocio: datos, contacto, sucursales y datos fiscales. Lo usan la sección de app y la pestaña embebida. */
-export function NegocioBody({ ctx }: { ctx: SettingsContext }) {
+export function NegocioBody({ ctx, hideLogo = false }: { ctx: SettingsContext; hideLogo?: boolean }) {
   const { membership, isOwner, businessInfo, branches, negocioBilling } = ctx;
   return (
         <BusinessProfile
-          canEdit={isOwner}
+          canEdit={isOwner} hideLogo={hideLogo}
           logoUrl={businessInfo?.logoUrl ?? null}
           socialLinks={
             Array.isArray(businessInfo?.socialLinks)

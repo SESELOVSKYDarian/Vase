@@ -18,6 +18,9 @@ export const SETTINGS_PAGES = [
     { id: 'correo', label: 'Correo', subtitle: 'Desde dónde salen los avisos' },
 ];
 
+// Con más de un producto de Vase, estas secciones se manejan desde app.vase.ar (Compartido) y acá no se muestran.
+export const SHARED_IN_VASE = ['pedidos', 'clientes'];
+
 export const MENU = [
     {
         group: 'Principal',

@@ -8,7 +8,8 @@ import useNotificationsManager from '../hooks/admin/useNotificationsManager';
 import { navigate } from '../utils/navigation';
 import { isExternalAuthEnabled, submitCentralLogout } from '../utils/vaseAuth';
 import { isPiquimTenantIdentity, resolveBrandLogo, resolveTenantBrandName } from '../utils/tenantBranding';
-import { ComingSoon, GeneralHelp, HelpVideo, SectionHelp, Sidebar, Topbar, MobileNav } from './components/Shell';
+import { ComingSoon, GeneralHelp, HelpVideo, SectionHelp, SharedInVase, Sidebar, Topbar, MobileNav } from './components/Shell';
+import { SHARED_IN_VASE } from './sections';
 import './screens/screens.css';
 import Resumen from './screens/Resumen';
 import Imagenes from './screens/Imagenes';
@@ -152,6 +153,8 @@ export default function PanelApp() {
     const toggleMini = () => setMini((value) => { writeStorage(MINI_KEY, value ? '0' : '1'); return !value; });
 
     const settings = editor.settings || {};
+    // Con más de un producto de Vase, Pedidos y Clientes se manejan desde app.vase.ar (Compartido).
+    const sharedInVase = Boolean(settings.vase_profile?.shared_products);
     const storeName = resolveTenantBrandName({ tenant, settings });
     const store = { name: storeName, initial: storeName.trim().charAt(0).toUpperCase() || 'V', logo: resolveBrandLogo({ tenant, settings }) };
 
@@ -198,6 +201,8 @@ export default function PanelApp() {
                 storeHost={window.location.host}
             />
         );
+    } else if (sharedInVase && SHARED_IN_VASE.includes(section)) {
+        fullScreen = null; // se muestra con la barra de arriba, más abajo
     } else if (section === 'pedidos') {
         fullScreen = <Pedidos user={user} theme={theme} toast={addToast} onChanged={notifications.refresh} />;
     } else if (section === 'clientes') {
@@ -225,7 +230,9 @@ export default function PanelApp() {
     }
 
     let content;
-    if (section === 'resumen') {
+    if (sharedInVase && SHARED_IN_VASE.includes(section)) {
+        content = <SharedInVase section={section} vaseUrl={vaseUrl} />;
+    } else if (section === 'resumen') {
         content = (
             <Resumen
                 products={editor.products || []}
@@ -293,6 +300,7 @@ export default function PanelApp() {
                 onTheme={setTheme}
                 badges={badges}
                 store={store}
+                hidden={sharedInVase ? SHARED_IN_VASE : []}
                 account={{
                     email: user?.email,
                     // Igual que en app.vase.ar: el nombre de la persona y, si no tiene, el de la tienda.
@@ -333,7 +341,7 @@ export default function PanelApp() {
                     </div>
                 )}
             </main>
-            {isPhone ? <MobileNav section={section} go={go} badges={badges} onMore={() => setNavOpen(true)} /> : null}
+            {isPhone ? <MobileNav section={section} go={go} badges={badges} onMore={() => setNavOpen(true)} hidden={sharedInVase ? SHARED_IN_VASE : []} /> : null}
             <Notifications open={notesOpen} onClose={() => setNotesOpen(false)} theme={theme} notifications={notifications} go={go} />
             <SectionHelp
                 open={help === 'section'}

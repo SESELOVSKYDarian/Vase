@@ -2,6 +2,7 @@ import { assertServiceToken } from "@vase/internal-api";
 import { NextResponse } from "next/server";
 import { labsSessionContextSchema } from "@vase/contracts";
 import { prisma } from "@/lib/db/prisma";
+import { hasSharedProducts } from "@/lib/business/product-count";
 import {
   findAuthorizedLabsMembership,
   resolveLabsSessionWorkspaceEntitlement,
@@ -63,6 +64,7 @@ export async function GET(request: Request) {
       tenantSlug: membership.tenant.slug,
       tenantName: membership.tenant.name,
       role: membership.role,
+      sharedProducts: await hasSharedProducts(membership.tenant.id),
       entitlement: {
         plan: paidPlan,
         status: commercialStatus,

@@ -4,7 +4,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveBusinessLogoAction } from "@/app/(platform)/app/settings/business-actions";
-import { ChevronDown } from "lucide-react";
+import { ImagePlus, Loader2, Pencil } from "lucide-react";
 import { useSaveStatus } from "@/components/layout/save-status";
 import { MAX_IMAGE_INPUT_BYTES, toSquareWebp, uploadPublicImage } from "@/components/panel/upload-image";
 
@@ -36,26 +36,6 @@ export type ProfileBranch = {
   hours: string;
   isMain: boolean;
 };
-
-export const USE_COLORS: Record<string, [string, string]> = {
-  Business: ["#0d3b2a", "#7ff0bd"],
-  Labs: ["#241a5c", "#b9a7ff"],
-  Management: ["#f6dfae", "#7c2d12"],
-  Rest: ["#7a2e1d", "#ffe6d9"],
-  "Tus facturas": ["#eceef0", "#111418"],
-};
-
-export function Uses({ list }: { list: readonly string[] }) {
-  return (
-    <div className="vpa-uses" aria-label="Dónde se usa">
-      {list.map((name) => (
-        <span key={name} className="vpa-usec" style={{ background: USE_COLORS[name][0], color: USE_COLORS[name][1] }}>
-          {name}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 export function Field({
   label,
@@ -110,41 +90,43 @@ export function Select({
   );
 }
 
-/** Sección que arranca cerrada: muestra un resumen y se abre al tocarla. Sus campos se envían igual. */
+/** Una parte de Mi negocio: tarjeta con ícono, título y resumen, siempre a la vista. Sus campos se envían igual. */
 export function Section({
   title,
   summary,
-  uses,
+  icon,
   children,
   wide = false,
   action,
 }: {
   title: string;
   summary: string;
-  uses: readonly string[];
+  icon?: React.ReactNode;
   children: React.ReactNode;
   wide?: boolean;
   action?: React.ReactNode;
 }) {
   return (
-    <details className={wide ? "vpa-acc2 vpa-span2" : "vpa-acc2"}>
-      <summary>
+    <section className={wide ? "vpa-nsec vpa-span2" : "vpa-nsec"}>
+      <header>
+        {icon ? (
+          <span className="ic" aria-hidden="true">
+            {icon}
+          </span>
+        ) : null}
         <span className="vpa-g1">
           <b>{title}</b>
           <span>{summary}</span>
         </span>
-        <Uses list={uses} />
-        <ChevronDown size={18} className="vpa-chev2" aria-hidden="true" />
-      </summary>
-      <div className="vpa-acc2-body">
-        {action ? <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>{action}</div> : null}
-        {children}
-      </div>
-    </details>
+        {action ? <span className="act">{action}</span> : null}
+      </header>
+      {children}
+    </section>
   );
 }
 
-export function LogoPicker({ name, logoUrl, readOnly }: { name: string; logoUrl: string | null; readOnly: boolean }) {
+/** Subir el logo de Mi negocio: lo usan el recuadro de Identidad y la cabecera de Mi negocio. */
+function useLogoUpload() {
   const router = useRouter();
   const { report } = useSaveStatus();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -174,15 +156,15 @@ export function LogoPicker({ name, logoUrl, readOnly }: { name: string; logoUrl:
     });
   };
 
+  const input = <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => pick(event.target.files?.[0])} />;
+  return { open: () => inputRef.current?.click(), input, error, isPending };
+}
+
+export function LogoPicker({ name, logoUrl, readOnly }: { name: string; logoUrl: string | null; readOnly: boolean }) {
+  const { open, input, error, isPending } = useLogoUpload();
   return (
     <div className="vpa-logoup-wrap">
-      <button
-        type="button"
-        className="vpa-logoup"
-        disabled={readOnly || isPending}
-        aria-label={logoUrl ? "Cambiar logo" : "Subir logo"}
-        onClick={() => inputRef.current?.click()}
-      >
+      <button type="button" className="vpa-logoup" disabled={readOnly || isPending} aria-label={logoUrl ? "Cambiar logo" : "Subir logo"} onClick={open}>
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl} alt="" />
@@ -192,7 +174,34 @@ export function LogoPicker({ name, logoUrl, readOnly }: { name: string; logoUrl:
         {readOnly ? null : <span>{isPending ? "Subiendo..." : logoUrl ? "Cambiar logo" : "Subir logo"}</span>}
       </button>
       {error ? <small role="alert">{error}</small> : null}
-      <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => pick(event.target.files?.[0])} />
+      {input}
     </div>
+  );
+}
+
+/** El logo grande de la cabecera de Mi negocio: al pasar el mouse aparece el lápiz para cambiarlo. */
+export function HeroLogo({ name, logoUrl, readOnly }: { name: string; logoUrl: string | null; readOnly: boolean }) {
+  const { open, input, error, isPending } = useLogoUpload();
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  if (readOnly) {
+    return (
+      <span className="vpa-nlogo">
+        {/* eslint-disable-next-line @next/next/no-img-element -- logo subido por el cliente */}
+        {logoUrl ? <img src={logoUrl} alt="" /> : initial}
+      </span>
+    );
+  }
+  return (
+    <span className="vpa-nlogo-wrap">
+      <button type="button" className="vpa-nlogo edit" onClick={open} disabled={isPending} aria-label={logoUrl ? "Cambiar logo" : "Subir logo"}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- logo subido por el cliente */}
+        {logoUrl ? <img src={logoUrl} alt="" /> : initial}
+        <span className="pen" aria-hidden="true">
+          {isPending ? <Loader2 size={18} className="spin" /> : logoUrl ? <Pencil size={18} /> : <ImagePlus size={18} />}
+        </span>
+      </button>
+      {error ? <small role="alert">{error}</small> : null}
+      {input}
+    </span>
   );
 }

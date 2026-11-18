@@ -14,11 +14,14 @@ export function LabsShell({
   tenantName,
   plan,
   needCount,
+  sharedOrders = false,
   children,
 }: {
   tenantName: string;
   plan: string;
   needCount: number;
+  /** Con más de un producto, los Pedidos se manejan en app.vase.ar (Compartido): acá no se muestran. */
+  sharedOrders?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname() ?? "/owner";
@@ -26,7 +29,7 @@ export function LabsShell({
   const { title, subtitle } = labsSectionTitles[section];
   const groups: PanelNavGroup[] = labsNavigationGroups.map((group) => ({
     label: group.label,
-    items: group.items.map(({ id, href, label, icon: Icon }) => ({
+    items: group.items.filter(({ id }) => !(sharedOrders && id === "pedidos")).map(({ id, href, label, icon: Icon }) => ({
       id,
       href,
       label,

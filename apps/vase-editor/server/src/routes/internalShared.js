@@ -3,6 +3,8 @@
 import { timingSafeEqual } from 'node:crypto';
 import { pool } from '../db.js';
 import { resolveBusinessCatalogTenant } from '../services/businessCatalogSnapshot.js';
+import { changeOrderStatus } from './orders/order-status.js';
+import { changeTenantUser } from './tenant/user-access.js';
 
 const LIMIT = 200;
 
@@ -143,8 +145,7 @@ export function registerSharedRoutes(router) {
           ),
           pool.query(
             [
-              'select o.id, o.status, o.checkout_mode, o.currency, o.total, o.customer, o.created_at,',
-              '(select coalesce(sum(i.qty), 0)::int from order_items i where i.order_id = o.id) as units',
+              'select o.id, o.status, o.checkout_mode, o.currency, o.subtotal, o.shipping, o.total, o.customer, o.created_at',
               'from orders o where o.tenant_id = $1',
               'order by o.created_at desc',
               `limit ${LIMIT}`,
@@ -152,24 +153,80 @@ export function registerSharedRoutes(router) {
             [tenantId]
           ),
         ]);
+        const ids = rows.rows.map((row) => row.id);
+        const items = ids.length
+          ? await pool.query('select order_id, sku, name, qty, unit_price, total from order_items where order_id = ANY($1::uuid[]) order by name asc', [ids])
+          : { rows: [] };
+        const byOrder = items.rows.reduce((acc, item) => {
+          (acc[item.order_id] ||= []).push({
+            sku: item.sku || null,
+            name: item.name || 'Producto',
+            qty: Number(item.qty || 0),
+            unitPrice: item.unit_price == null ? null : Number(item.unit_price),
+            total: item.total == null ? null : Number(item.total),
+          });
+          return acc;
+        }, {});
         return res.json({
           total: Number(count.rows[0]?.total || 0),
           open: Number(count.rows[0]?.open || 0),
           items: rows.rows.map((row) => {
             const customer = row.customer && typeof row.customer === 'object' ? row.customer : {};
-            const name = [customer.name || customer.fullName || customer.first_name, customer.last_name].filter(Boolean).join(' ').trim();
+            const name = [customer.full_name || customer.fullName || customer.name || customer.first_name, customer.last_name].filter(Boolean).join(' ').trim();
+            const lines = byOrder[row.id] || [];
             return {
               id: String(row.id),
               status: row.status || 'submitted',
               whatsapp: String(row.checkout_mode || '').toLowerCase().includes('whatsapp'),
               currency: row.currency || 'ARS',
+              subtotal: row.subtotal == null ? null : Number(row.subtotal),
+              shipping: row.shipping == null ? null : Number(row.shipping),
               total: row.total == null ? 0 : Number(row.total),
               customerName: name || customer.email || null,
-              units: Number(row.units || 0),
+              customerEmail: customer.email || null,
+              customerPhone: customer.phone || customer.whatsapp || null,
+              address: [customer.address, customer.city, customer.province].filter(Boolean).join(', ') || null,
+              units: lines.reduce((sum, line) => sum + line.qty, 0),
+              lines,
               createdAt: row.created_at,
             };
           }),
         });
+      });
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  // Cambiar el estado de un pedido desde app: misma lógica que el panel de Business (stock, pago y aviso).
+  router.post('/internal/tenant/:tenantId/shared/orders/:orderId/status', async (req, res, next) => {
+    try {
+      return await withTenant(req, res, async (tenantId) => {
+        const name = await pool.query('select name from tenants where id = $1', [tenantId]);
+        const result = await changeOrderStatus({
+          tenant: { id: tenantId, name: name.rows[0]?.name || '' },
+          orderId: String(req.params.orderId || ''),
+          body: req.body || {},
+          actor: 'vase_app',
+        });
+        return res.status(result.status).json(result.body);
+      });
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  // Aprobar un cliente o pasarlo a mayorista/minorista desde app. No da acceso de administrador.
+  router.post('/internal/tenant/:tenantId/shared/customers/:userId', async (req, res, next) => {
+    try {
+      return await withTenant(req, res, async (tenantId) => {
+        const result = await changeTenantUser({
+          tenantId,
+          userId: String(req.params.userId || ''),
+          body: req.body || {},
+          allowAdmin: false,
+        });
+        return res.status(result.status).json(result.body);
       });
     } catch (err) {
       return next(err);

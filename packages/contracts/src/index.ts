@@ -188,6 +188,8 @@ export const labsSessionContextSchema = z.object({
   tenantSlug: z.string().min(1),
   tenantName: z.string().min(1),
   role: z.enum(["OWNER", "MANAGER", "MEMBER"]),
+  // Con más de un producto, Clientes y Pedidos se manejan desde app (Compartido) y Labs no los muestra.
+  sharedProducts: z.boolean().optional(),
   entitlement: z.object({
     plan: labsPlanSchema,
     status: z.enum(["ACTIVE", "TRIAL", "PAUSED", "SUSPENDED", "EXPIRED", "CANCELLED"]),

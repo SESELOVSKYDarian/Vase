@@ -3,7 +3,8 @@
 // Parte de business-profile.tsx: BusinessProfile.
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { deleteBranchAction, updateBusinessProfileAction } from "@/app/(platform)/app/settings/business-actions";
-import { CURRENCIES, PROFILE_USES, TIMEZONES, sectionSummary } from "@/lib/business/business-profile";
+import { CURRENCIES, TIMEZONES, sectionSummary } from "@/lib/business/business-profile";
+import { BadgeCheck, MapPin, MessageCircle, ReceiptText } from "lucide-react";
 import { useAutosave, useSaveStatus } from "@/components/layout/save-status";
 import { SocialLinksEditor } from "@/components/panel/social-links-editor";
 import { type SocialLink } from "@/lib/business/social-links";
@@ -16,12 +17,15 @@ export function BusinessProfile({
   socialLinks,
   branches,
   canEdit,
+  hideLogo = false,
 }: {
   values: ProfileValues;
   logoUrl: string | null;
   socialLinks: SocialLink[];
   branches: ProfileBranch[];
   canEdit: boolean;
+  /** La sección Mi negocio de app ya muestra el logo (editable) en la cabecera. */
+  hideLogo?: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [links, setLinks] = useState<SocialLink[]>(socialLinks);
@@ -64,11 +68,11 @@ export function BusinessProfile({
         <Section
           wide
           title="Identidad"
+          icon={<BadgeCheck size={18} />}
           summary={sectionSummary([values.name, values.industry])}
-          uses={PROFILE_USES.identity}
         >
           <div className="vpa-idrow">
-            <LogoPicker name={values.name} logoUrl={logoUrl} readOnly={readOnly} />
+            {hideLogo ? null : <LogoPicker name={values.name} logoUrl={logoUrl} readOnly={readOnly} />}
             <div className="vpa-form3">
               <Field label="Nombre del negocio" name="name" value={values.name} readOnly={readOnly} />
               <Field label="Rubro" name="industry" value={values.industry} readOnly={readOnly} />
@@ -81,8 +85,8 @@ export function BusinessProfile({
 
         <Section
           title="Contacto y redes"
+          icon={<MessageCircle size={18} />}
           summary={sectionSummary([values.phone || values.whatsapp, values.email, links.length ? `${links.length} red${links.length === 1 ? "" : "es"}` : null])}
-          uses={PROFILE_USES.contact}
         >
           <div className="vpa-form">
             <Field label="Teléfono" name="phone" value={values.phone} readOnly={readOnly} />
@@ -103,8 +107,8 @@ export function BusinessProfile({
 
         <Section
           title="Datos fiscales"
+          icon={<ReceiptText size={18} />}
           summary={sectionSummary([values.legalName, values.taxId ? `CUIT ${values.taxId}` : null])}
-          uses={PROFILE_USES.fiscal}
         >
           <div className="vpa-form">
             <Field label="Razón social" name="legalName" value={values.legalName} readOnly={readOnly} />
@@ -122,8 +126,8 @@ export function BusinessProfile({
       <Section
         wide
         title="Sucursales"
+        icon={<MapPin size={18} />}
         summary={branches.length === 0 ? "Sin cargar" : branches.length === 1 ? "1 sucursal" : `${branches.length} sucursales`}
-        uses={PROFILE_USES.branches}
         action={
           canEdit ? (
             <button type="button" className="vpa-btn line sm" onClick={() => setEditing("new")}>

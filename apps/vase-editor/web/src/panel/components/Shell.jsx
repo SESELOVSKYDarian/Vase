@@ -9,7 +9,7 @@ import { Modal } from './Overlays';
 import { HELP, HELP_VIDEOS, MENU, SETTINGS_PAGES } from '../sections';
 
 
-export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, store, account, phone = false, mobileOpen = false, onCloseMobile }) {
+export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, store, account, phone = false, mobileOpen = false, onCloseMobile, hidden = [] }) {
     // Los ajustes de la cuenta (perfil, Mi negocio) se abren desde el usuario: no son parte del menú de la tienda.
     const accountSettings = section === 'ajustes' && ['cuenta', 'negocio', 'gestion'].includes(sub);
     const [ajOpen, setAjOpen] = useState(section === 'ajustes' && !accountSettings);
@@ -22,7 +22,8 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
     const groups = [
         ...MENU.map((group) => ({
             label: group.group,
-            items: group.items.map((item) => ({
+            // hidden: secciones que esta cuenta maneja desde app.vase.ar (Pedidos y Clientes compartidos).
+            items: group.items.filter((item) => !hidden.includes(item.id)).map((item) => ({
                 id: item.id,
                 label: item.label,
                 icon: <Icon name={item.icon} />,
@@ -85,11 +86,12 @@ const MOBILE_TABS = [
     { id: 'diseno', label: 'Diseño', icon: 'layout' },
 ];
 
-export function MobileNav({ section, go, badges, onMore }) {
-    const inTabs = MOBILE_TABS.some((tab) => tab.id === section);
+export function MobileNav({ section, go, badges, onMore, hidden = [] }) {
+    const tabs = MOBILE_TABS.filter((tab) => !hidden.includes(tab.id));
+    const inTabs = tabs.some((tab) => tab.id === section);
     return (
         <nav className="vp-mnav" aria-label="Secciones">
-            {MOBILE_TABS.map((tab) => (
+            {tabs.map((tab) => (
                 <button key={tab.id} type="button" className={section === tab.id ? 'on' : ''} aria-current={section === tab.id ? 'page' : undefined} onClick={() => go(tab.id)}>
                     <span className="ic"><Icon name={tab.icon} size={18} /></span>
                     {tab.label}
@@ -236,6 +238,19 @@ export function GeneralHelp({ open, onClose, onPlay, theme }) {
 }
 
 // Sección que todavía se está armando.
+/** Pedidos o Clientes cuando la cuenta tiene varios productos: se manejan en app.vase.ar, para todos juntos. */
+export function SharedInVase({ section, vaseUrl }) {
+    const label = section === 'clientes' ? 'Clientes' : 'Pedidos';
+    return (
+        <div className="vp-soon">
+            <span className="ic"><Icon name={section === 'clientes' ? 'user' : 'bag'} size={26} /></span>
+            <h2>{label} está en Vase</h2>
+            <p className="vp-note" style={{ fontSize: 13 }}>Como tenés más de un producto, {label.toLowerCase()} se manejan en un solo lugar para todos.</p>
+            <a className="vp-btn acc" style={{ marginTop: 14 }} href={`${vaseUrl}/app/${section}`} target="_top">Abrir {label}</a>
+        </div>
+    );
+}
+
 export function ComingSoon({ title, hint }) {
     return (
         <div className="vp-soon">

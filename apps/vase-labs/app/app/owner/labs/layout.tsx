@@ -41,7 +41,12 @@ export default async function LabsOwnerLayout({ children }: { children: ReactNod
     .catch(() => 0);
 
   return (
-    <LabsShell tenantName={resolved.context.tenantName} plan={resolved.context.entitlement.plan} needCount={needCount}>
+    <LabsShell
+      tenantName={resolved.context.tenantName}
+      plan={resolved.context.entitlement.plan}
+      needCount={needCount}
+      sharedOrders={resolved.context.sharedProducts === true}
+    >
       {children}
     </LabsShell>
   );

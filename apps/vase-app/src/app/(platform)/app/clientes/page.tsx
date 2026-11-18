@@ -1,7 +1,6 @@
-import Link from "next/link";
-import type { Route } from "next";
 import { Search } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { SharedCustomerActions } from "@/components/panel/shared-customer-actions";
 import { formatShortDate, loadSharedContext } from "@/lib/business/shared-context";
 import { getSharedCustomers } from "@/server/services/business-shared";
 
@@ -28,9 +27,9 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
       viewerRole={membership.role}
     >
       {!hasBusiness ? (
-        <div className="vpa-empty">Tus clientes aparecen acá cuando tengas una tienda en Vase Business.</div>
+        <div className="vpa-empty">Tus clientes aparecen acá cuando tengas una tienda en Vase.</div>
       ) : customers === null ? (
-        <div className="vpa-empty">No pudimos traer tus clientes de Vase Business. Probá de nuevo en un rato.</div>
+        <div className="vpa-empty">No pudimos traer tus clientes. Probá de nuevo en un rato.</div>
       ) : (
         <div className="vpa-stack" style={{ gap: 16 }}>
           <div className="vpa-kpis">
@@ -52,7 +51,7 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
               <span className="vpa-kt">
                 <small>Esperan tu aprobación</small>
                 <b>{pending.toLocaleString("es-AR")}</b>
-                <em>{pending > 0 ? "se aprueban en Business" : "ninguno"}</em>
+                <em>{pending > 0 ? "aprobalos desde la lista" : "ninguno"}</em>
               </span>
             </div>
           </div>
@@ -62,9 +61,6 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
               <Search size={16} aria-hidden="true" />
               <input className="vpa-inp" type="search" name="q" defaultValue={search} placeholder="Buscar por nombre, correo o teléfono" aria-label="Buscar clientes" />
             </form>
-            <Link href={"/app/business" as Route} className="vpa-btn line">
-              Gestionar en Business
-            </Link>
           </div>
 
           <section className="vpa-card" style={{ padding: "12px 20px" }}>
@@ -83,6 +79,7 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
                       <th className="r">Pedidos</th>
                       <th>Último pedido</th>
                       <th>Tipo</th>
+                      <th aria-label="Acciones" />
                     </tr>
                   </thead>
                   <tbody>
@@ -111,6 +108,9 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
                               {item.wholesale ? "Mayorista" : "Minorista"}
                             </span>
                           )}
+                        </td>
+                        <td className="r">
+                          <SharedCustomerActions userId={item.id} pending={item.pending} wholesale={item.wholesale} />
                         </td>
                       </tr>
                     ))}

@@ -12,6 +12,8 @@ async function getOrdersData() {
   const requestHeaders = await headers();
   try {
     const resolved = await resolveLabsRequestContext(requestHeaders.get("cookie"));
+    // Con más de un producto, los pedidos se manejan en app.vase.ar › Pedidos.
+    if (resolved.context.sharedProducts === true) return { shared: true as const, orders: [], catalogProducts: [] };
     const [orders, catalogProducts] = await Promise.all([
       labsPrisma.businessOrderProjection.findMany({
         where: { globalTenantId: resolved.context.globalTenantId },
@@ -26,6 +28,7 @@ async function getOrdersData() {
     ]);
     return { orders, catalogProducts };
   } catch (error) {
+    if (error instanceof Error && error.message === "NEXT_REDIRECT") throw error;
     if (error instanceof Error && error.message.startsWith("LABS_SESSION")) {
       redirect("https://app.vase.ar/signin?redirectTo=%2Fapp%2Fowner%2Flabs%2Forders");
     }
@@ -35,6 +38,7 @@ async function getOrdersData() {
 
 export default async function LabsOrdersPage() {
   const data = await getOrdersData();
+  if ("shared" in data) redirect("https://app.vase.ar/app/pedidos");
   const displayOrders = data.orders.map((order) => {
     if (Number(order.totalAmount) > 0 || !Array.isArray(order.items)) return order;
     try {

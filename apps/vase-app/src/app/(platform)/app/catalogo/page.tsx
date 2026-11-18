@@ -4,9 +4,9 @@ import { RefreshCw, Search } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CatalogSource } from "@/components/panel/catalog-source";
 import { ExternalConnection } from "@/components/panel/external-connection";
-import { PANEL_PRODUCTS, formatArs } from "@/components/panel/products";
+import { formatArs } from "@/components/panel/products";
 import { prisma } from "@/lib/db/prisma";
-import { PRODUCT_COLORS, formatShortDate, loadSharedContext } from "@/lib/business/shared-context";
+import { formatShortDate, loadSharedContext } from "@/lib/business/shared-context";
 import { getBusinessConnection } from "@/server/services/business-connection";
 import { getSharedCatalog } from "@/server/services/business-shared";
 
@@ -25,7 +25,7 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Pro
   const query = await searchParams;
   const search = one(query.q).trim().slice(0, 80);
   const filter: FilterId = FILTERS.find((item) => item.id === one(query.f))?.id ?? "todos";
-  const { membership, session, dashboard, active, hasBusiness, hasManagement } = await loadSharedContext();
+  const { membership, session, dashboard, hasBusiness, hasManagement } = await loadSharedContext();
   const isOwner = membership.role === "OWNER";
 
   const [catalog, sourceRow] = await Promise.all([
@@ -59,7 +59,7 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Pro
   return (
     <AppShell
       title="Catálogo"
-      subtitle={empty ? "Tus productos, los mismos en todos tus productos de Vase" : `${counts.todos.toLocaleString("es-AR")} productos · compartido por tus productos de Vase`}
+      subtitle={empty ? "Tus productos, en un solo lugar" : `${counts.todos.toLocaleString("es-AR")} productos`}
       tenantLabel={membership.tenant.name}
       modules={dashboard.modules}
       notifications={dashboard.notifications}
@@ -89,15 +89,6 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Pro
                   "Los editás en Business y se actualizan en todos lados"
                 )}
               </span>
-            </span>
-            <span className="vpa-srcuse" aria-label="Productos que usan este catálogo">
-              {active
-                .filter((module) => module.key in PRODUCT_COLORS)
-                .map((module) => (
-                  <b key={module.key} style={{ background: PRODUCT_COLORS[module.key] }}>
-                    {PANEL_PRODUCTS[module.key].name.replace("Vase ", "")}
-                  </b>
-                ))}
             </span>
           </div>
 

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { MAX_BRANCHES } from "@/lib/business/business-profile";
+import { hasSharedProducts } from "@/lib/business/product-count";
 import { MAX_SOCIAL_LINKS, normalizeSocialUrl, socialColumns, type SocialLink } from "@/lib/business/social-links";
 
 const REQUEST_TIMEOUT_MS = 4_000;
@@ -21,11 +22,12 @@ function serviceToken() {
 
 /** Lo que los productos leen de Mi negocio. */
 export async function getBusinessProfilePayload(tenantId: string) {
-  const [tenant, info, branches, billing] = await Promise.all([
+  const [tenant, info, branches, billing, sharedProducts] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, name: true, industry: true } }),
     prisma.tenantBusinessInfo.findUnique({ where: { tenantId } }),
     prisma.tenantBranch.findMany({ where: { tenantId }, orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }] }),
     prisma.tenantBillingProfile.findUnique({ where: { tenantId } }),
+    hasSharedProducts(tenantId),
   ]);
   if (!tenant) return null;
 
@@ -36,6 +38,8 @@ export async function getBusinessProfilePayload(tenantId: string) {
   return {
     name: confirmed ? tenant.name : null,
     industry: tenant.industry,
+    // Con más de un producto, Clientes y Pedidos se manejan desde app: Business no los muestra.
+    sharedProducts,
     tagline: info?.tagline ?? null,
     logoUrl: info?.logoUrl ?? null,
     phone: info?.phone ?? null,
