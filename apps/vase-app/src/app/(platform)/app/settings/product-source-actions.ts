@@ -22,7 +22,7 @@ const inputSchema = z.object({
 });
 
 /**
- * Mi negocio › Cómo se conectan tus productos: guarda de dónde sale una cosa (solo el Dueño).
+ * Catálogo › "Conectar mi sistema": guarda de dónde sale una cosa (solo el Dueño).
  * Productos y precios también actualiza la fuente que ya usaba Business (tu sistema o Management).
  */
 export async function setDataSourceAction(input: z.input<typeof inputSchema>): Promise<DataSourceResult> {
@@ -62,8 +62,7 @@ export async function setDataSourceAction(input: z.input<typeof inputSchema>): P
       }
     }
 
-    revalidatePath("/app/settings");
-    revalidatePath("/app/embed/settings");
+    revalidatePath("/app/catalogo");
     return { ok: true, message: "Guardado." };
   } catch {
     return { ok: false, message: "No pudimos guardarlo. Probá de nuevo." };
@@ -92,8 +91,7 @@ export async function setExternalSystemAction(name: string): Promise<DataSourceR
       where: { tenantId: membership.tenantId, source: "EXTERNAL" },
       data: { externalSystem: parsed.data },
     });
-    revalidatePath("/app/settings");
-    revalidatePath("/app/embed/settings");
+    revalidatePath("/app/catalogo");
     return { ok: true, message: "Guardado." };
   } catch {
     return { ok: false, message: "No pudimos guardarlo. Probá de nuevo." };

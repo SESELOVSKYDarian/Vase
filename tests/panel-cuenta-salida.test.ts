@@ -21,10 +21,13 @@ describe("cuenta, salida y sistema de gestión entre app y Business", () => {
     expect(read("apps/vase-app/src/app/(platform)/app/layout.tsx")).toContain("TenantLogoProvider");
   });
 
-  it("de dónde sale cada cosa se elige en Mi negocio, una por una", () => {
+  it("de dónde salen los productos se elige en Catálogo, y Ajustes ya no lo muestra", () => {
     const content = read("apps/vase-app/src/app/(platform)/app/settings/settings-content.tsx");
-    expect(content).toContain("<ConnectionsHub");
-    expect(content).toContain("<ExternalConnection");
+    expect(content).not.toContain("ConnectionsHub");
+    const catalog = read("apps/vase-app/src/app/(platform)/app/catalogo/page.tsx");
+    expect(catalog).toContain("<CatalogSource");
+    expect(catalog).toContain("<ExternalConnection");
+    expect(read("apps/vase-app/src/components/panel/catalog-source.tsx")).toContain("¿De dónde sacás tus productos?");
     const action = read("apps/vase-app/src/app/(platform)/app/settings/product-source-actions.ts");
     expect(action).toContain("requireTenantRole(tenantRoles.OWNER)");
     expect(action).toContain("prisma.tenantDataSource.upsert");

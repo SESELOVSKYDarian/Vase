@@ -20,6 +20,7 @@ import { invalidateVaseBusinessProfile, seedFromBusinessSettings } from '../serv
 import { queryTenantSettingsWithSeo } from '../services/tenantSettings.js';
 import { timingSafeEqual } from 'node:crypto';
 import { readConnectionStatus, rotateConnectionToken } from '../services/connectionStatus.js';
+import { registerSharedRoutes } from './internalShared.js';
 
 function serviceTokenMatches(req) {
   const expected = Buffer.from(String(process.env.SERVICE_TO_SERVICE_TOKEN || '').trim());
@@ -111,6 +112,9 @@ integrationsRouter.post('/internal/tenant/:tenantId/business-profile/invalidate'
   return res.json({ ok: true });
 });
 
+// Catálogo, Clientes y Pedidos compartidos para app.vase.ar (solo lectura, token entre servicios).
+registerSharedRoutes(integrationsRouter);
+
 integrationsRouter.use(async (req, res, next) => {
   try {
     await ensureProductSyncSchema();
@@ -122,7 +126,7 @@ integrationsRouter.use(async (req, res, next) => {
 
 integrationsRouter.get('/schema/product', getProductSyncSchemaController);
 
-// Mi negocio (app.vase.ar) › Cómo se conectan tus productos: la conexión con el sistema de gestión.
+// Catálogo (app.vase.ar) › "Conectar mi sistema": la conexión con el sistema de gestión.
 integrationsRouter.get('/internal/tenant/:tenantId/connection-status', async (req, res, next) => {
   if (!serviceTokenMatches(req)) return res.status(403).json({ error: 'forbidden' });
   try {

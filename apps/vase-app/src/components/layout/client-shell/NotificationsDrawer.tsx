@@ -3,7 +3,7 @@
 // Parte de client-shell.tsx: PanelTheme, PanelThemeContext, usePanelTheme, ClientShellProps, NAV_PRINCIPAL, NAV_CUENTA y más.
 import { useRouter } from "next/navigation";
 import { createContext, type PropsWithChildren, useContext, useState, useTransition } from "react";
-import { Check, ClipboardCheck, CreditCard, Home, LayoutGrid, Users, X } from "lucide-react";
+import { Check, ClipboardCheck, CreditCard, Home, LayoutGrid, Package, ShoppingBag, Store, UserRound, Users, X } from "lucide-react";
 import { dismissNotificationsAction, markAllNotificationsAsReadAction } from "@/app/(platform)/app/notifications-actions";
 import { NavLink } from "@/components/layout/nav-link";
 import { NOTIFICATION_FILTERS, matchesNotificationFilter, notificationDestinationLabel, type NotificationFilterId } from "@/lib/navigation/panel-sections";
@@ -32,6 +32,14 @@ export type ClientShellProps = PropsWithChildren<{
 export const NAV_PRINCIPAL = [
   { id: "inicio", href: "/app", label: "Inicio", icon: Home },
   { id: "productos", href: "/app/products", label: "Mis productos", icon: LayoutGrid },
+  { id: "negocio", href: "/app/negocio", label: "Mi negocio", icon: Store },
+] as const;
+
+// Lo que comparten tus productos. Solo aparece si la cuenta tiene más de un producto.
+export const NAV_COMPARTIDO = [
+  { id: "catalogo", href: "/app/catalogo", label: "Catálogo", icon: Package },
+  { id: "clientes", href: "/app/clientes", label: "Clientes", icon: UserRound },
+  { id: "pedidos", href: "/app/pedidos", label: "Pedidos", icon: ShoppingBag },
 ] as const;
 
 export const NAV_CUENTA = [

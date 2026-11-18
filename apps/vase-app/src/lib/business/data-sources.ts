@@ -1,4 +1,4 @@
-// Mi negocio › Cómo se conectan tus productos: qué cosas se comparten, de dónde puede salir cada una
+// De dónde sale cada cosa que comparten tus productos (Catálogo › "¿De dónde sacás tus productos?"): de dónde puede salir cada una
 // y qué productos la usan. Lo usan la pantalla y la acción que guarda.
 
 export type DataResourceId = "CATALOG" | "STOCK" | "ORDERS" | "CUSTOMERS";

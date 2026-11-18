@@ -3,15 +3,10 @@ import type { Route } from "next";
 import { forbidden } from "next/navigation";
 import { CreditCard, Sparkles, Store, UserRound } from "lucide-react";
 import { PanelSettingsTabs, type SettingsTabItem } from "@vase/ui/panel";
-import { LabsSettingsFrame } from "@/components/panel/labs-settings-frame";
 import { BillingCards } from "@/components/panel/billing-cards";
 import { AvatarUploader } from "@/components/panel/avatar-uploader";
 import { ThemePicker } from "@/components/panel/theme-picker";
 import { BusinessProfile } from "@/components/panel/business-profile";
-import { ConnectionsHub } from "@/components/panel/connections-hub";
-import { ExternalConnection } from "@/components/panel/external-connection";
-import { DATA_RESOURCES, defaultSource, type DataResourceId, type DataSourceId, type ProductKey } from "@/lib/business/data-sources";
-import { getBusinessConnection } from "@/server/services/business-connection";
 import { importBusinessProfileSeed } from "@/server/services/business-profile";
 import { DEFAULT_CURRENCY, DEFAULT_TIMEZONE } from "@/lib/business/business-profile";
 import { legacySocialLinks, type SocialLink } from "@/lib/business/social-links";
@@ -84,31 +79,6 @@ export async function loadSettingsContext(rawTab: string | string[] | undefined,
           prisma.tenantBillingProfile.findUnique({ where: { tenantId: membership.tenantId } }),
         ])
       : [null, [], null];
-  // Cómo se conectan tus productos: qué productos tiene, de dónde sale cada cosa y, si algo sale de su
-  // sistema de gestión, cómo está esa conexión (la trae Business).
-  const activeProducts: Record<ProductKey, boolean> = {
-    business: dashboard.modules.some((module) => module.key === "business" && module.isActive),
-    labs: dashboard.modules.some((module) => module.key === "labs" && module.isActive),
-    management: dashboard.modules.some((module) => module.key === "management" && module.isActive),
-    rest: dashboard.modules.some((module) => module.key === "rest" && module.isActive),
-  };
-  const usesProducts = activeProducts.business || activeProducts.management || activeProducts.rest;
-  const [managementContract, sourceRows] =
-    tab === "negocio" && usesProducts
-      ? await Promise.all([
-          prisma.tenantManagementContract.findUnique({ where: { tenantId: membership.tenantId }, select: { integrationProvider: true } }),
-          prisma.tenantDataSource.findMany({ where: { tenantId: membership.tenantId } }),
-        ])
-      : [null, []];
-  const sources = Object.fromEntries(
-    DATA_RESOURCES.map((resource) => [
-      resource.id,
-      sourceRows.find((row) => row.resource === resource.id)?.source ?? defaultSource(resource.id, activeProducts, managementContract?.integrationProvider ?? null),
-    ]),
-  ) as Record<DataResourceId, DataSourceId>;
-  const externalSystem = sourceRows.find((row) => row.source === "EXTERNAL" && row.externalSystem)?.externalSystem ?? null;
-  const usesExternal = Object.values(sources).includes("EXTERNAL");
-  const connection = tab === "negocio" && usesProducts && usesExternal && activeProducts.business ? await getBusinessConnection(membership.tenantId) : null;
   const paymentsEnabled = isMercadoPagoConfigured();
   const billingProfile =
     tab === "facturacion" ? await prisma.tenantBillingProfile.findUnique({ where: { tenantId: membership.tenantId } }) : null;
@@ -120,7 +90,7 @@ export async function loadSettingsContext(rawTab: string | string[] | undefined,
         }))
       : [];
 
-  return { membership, session, dashboard, isOwner, labsActive, profile, tabs, tab, businessInfo, branches, negocioBilling, usesProducts, activeProducts, sources, externalSystem, connection, paymentsEnabled, cards };
+  return { membership, session, dashboard, isOwner, labsActive, profile, tabs, tab, businessInfo, branches, negocioBilling, paymentsEnabled, cards };
 }
 
 export type SettingsContext = Awaited<ReturnType<typeof loadSettingsContext>>;
@@ -132,14 +102,15 @@ const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.vase.ar").rep
  * productos (embed): ahí los links que salen de Ajustes abren la ventana entera.
  */
 export function SettingsBody({ ctx, tabHref, embed = false, hideTabs = false }: { ctx: SettingsContext; tabHref: (tab: TabId) => string; embed?: boolean; hideTabs?: boolean }) {
-  const { membership, session, isOwner, labsActive, profile, tabs, tab, businessInfo, branches, negocioBilling, usesProducts, activeProducts, sources, externalSystem, connection, paymentsEnabled, cards } = ctx;
+  const { membership, session, isOwner, profile, tabs, tab, paymentsEnabled, cards } = ctx;
   return (
     <>
       {/* Si el producto que lo muestra ya tiene sus propias pestañas (Labs), acá no se repiten. */}
       <div hidden={hideTabs}>
         <PanelSettingsTabs
-          // Adentro de otro producto no se muestra la pestaña Labs: sería Labs adentro de Labs.
-          items={tabs.filter((item) => !embed || item.id !== "labs").map((item) => ({ id: item.id, label: item.label, href: tabHref(item.id), ...TAB_DETAILS[item.id] }))}
+          // En app, Ajustes es solo Mi perfil y Facturación: Mi negocio tiene su sección en el menú y lo de
+          // Labs vive en Labs › Configuraciones. Adentro de otro producto sigue la pestaña Mi negocio.
+          items={tabs.filter((item) => item.id !== "labs" && (embed || item.id !== "negocio")).map((item) => ({ id: item.id, label: item.label, href: tabHref(item.id), ...TAB_DETAILS[item.id] }))}
           active={tab}
           renderLink={({ href, className, children, ariaCurrent }) => (
             <Link href={href as Route} className={className} aria-current={ariaCurrent}>
@@ -148,8 +119,6 @@ export function SettingsBody({ ctx, tabHref, embed = false, hideTabs = false }: 
           )}
         />
       </div>
-
-      {tab === "labs" && !embed ? <LabsSettingsFrame /> : null}
 
       {tab === "perfil" ? (
         <>
@@ -187,7 +156,39 @@ export function SettingsBody({ ctx, tabHref, embed = false, hideTabs = false }: 
         </>
       ) : null}
 
-      {tab === "negocio" ? (
+      {tab === "negocio" ? <NegocioBody ctx={ctx} /> : null}
+
+      {tab === "facturacion" ? (
+        <>
+          {paymentsEnabled ? (
+            <BillingCards cards={cards} publicKey={mercadoPagoPublicKey()} />
+          ) : (
+            <section className="vpa-card">
+              <h3>Medios de pago</h3>
+              <p>Todavía no está habilitado guardar tarjetas.</p>
+            </section>
+          )}
+          <section className="vpa-card">
+            <div className="vpa-sech" style={{ marginBottom: 0 }}>
+              <div>
+                <h3>Datos de facturación</h3>
+                <p>Razón social, CUIT y domicilio fiscal están en Mi negocio. Las facturas llegan a {membership.tenant.billingEmail ?? "tu correo"}.</p>
+              </div>
+              <Link href={(embed ? tabHref("negocio") : "/app/negocio") as Route} className="vpa-btn line sm">
+                Ir a Mi negocio
+              </Link>
+            </div>
+          </section>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+/** Mi negocio: datos, contacto, sucursales y datos fiscales. Lo usan la sección de app y la pestaña embebida. */
+export function NegocioBody({ ctx }: { ctx: SettingsContext }) {
+  const { membership, isOwner, businessInfo, branches, negocioBilling } = ctx;
+  return (
         <BusinessProfile
           canEdit={isOwner}
           logoUrl={businessInfo?.logoUrl ?? null}
@@ -229,41 +230,5 @@ export function SettingsBody({ ctx, tabHref, embed = false, hideTabs = false }: 
             isMain: branch.isMain,
           }))}
         />
-      ) : null}
-
-      {tab === "negocio" && usesProducts ? (
-        <ConnectionsHub
-          active={activeProducts}
-          initial={sources}
-          externalSystem={externalSystem}
-          canEdit={isOwner}
-          connection={<ExternalConnection connection={connection} canEdit={isOwner} systemName={externalSystem ?? "tu sistema"} />}
-        />
-      ) : null}
-
-      {tab === "facturacion" ? (
-        <>
-          {paymentsEnabled ? (
-            <BillingCards cards={cards} publicKey={mercadoPagoPublicKey()} />
-          ) : (
-            <section className="vpa-card">
-              <h3>Medios de pago</h3>
-              <p>Todavía no está habilitado guardar tarjetas.</p>
-            </section>
-          )}
-          <section className="vpa-card">
-            <div className="vpa-sech" style={{ marginBottom: 0 }}>
-              <div>
-                <h3>Datos de facturación</h3>
-                <p>Razón social, CUIT y domicilio fiscal están en Mi negocio. Las facturas llegan a {membership.tenant.billingEmail ?? "tu correo"}.</p>
-              </div>
-              <Link href={tabHref("negocio") as Route} className="vpa-btn line sm">
-                Ir a Mi negocio
-              </Link>
-            </div>
-          </section>
-        </>
-      ) : null}
-    </>
   );
 }

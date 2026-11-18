@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { CircleHelp, ClipboardCheck, CreditCard, Settings2 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { NavLink } from "@/components/layout/nav-link";
+import { Opportunities, OpportunitiesSkeleton } from "@/components/panel/opportunities";
 import { ProductArt } from "@/components/panel/product-art";
 import { PANEL_PRODUCTS, formatArs, panelProductHref } from "@/components/panel/products";
 import { PanelCard } from "@/components/ui/panel-card";
@@ -148,6 +150,11 @@ export default async function AppIndexPage() {
               )}
             </section>
 
+            {/* Llega aparte: si Business tarda, el resto de Inicio ya se ve. */}
+            <Suspense fallback={<OpportunitiesSkeleton />}>
+              <Opportunities tenantId={membership.tenantId} hasBusiness={activeModules.some((module) => module.key === "business")} />
+            </Suspense>
+
             <section aria-label="Tu cuenta">
               <div className="vpa-hmh">
                 <h2>Tu cuenta</h2>
@@ -191,7 +198,7 @@ export default async function AppIndexPage() {
                   </span>
                   <span>
                     <b>Ajustes</b>
-                    <span className="t">Tu perfil y tu negocio</span>
+                    <span className="t">Tu perfil y facturación</span>
                   </span>
                 </Link>
               </div>

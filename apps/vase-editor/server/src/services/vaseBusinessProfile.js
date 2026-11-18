@@ -21,7 +21,7 @@ export function vaseAppBaseUrl() {
 
 export function vaseProfileEditUrl() {
   const base = String(process.env.VASE_APP_URL || 'https://app.vase.ar').replace(/\/+$/, '');
-  return `${base}/app/settings?tab=negocio`;
+  return `${base}/app/negocio`;
 }
 
 export function invalidateVaseBusinessProfile(globalTenantId) {

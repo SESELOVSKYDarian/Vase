@@ -21,7 +21,7 @@ const CACHE_MS = 60_000;
 const TIMEOUT_MS = 3_000;
 const cache = new Map<string, { at: number; profile: VaseBusinessProfile | null }>();
 
-export const MI_NEGOCIO_URL = "https://app.vase.ar/app/settings?tab=negocio";
+export const MI_NEGOCIO_URL = "https://app.vase.ar/app/negocio";
 
 function appOrigin(value?: string) {
   const configured = value?.trim();

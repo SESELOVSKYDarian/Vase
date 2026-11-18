@@ -3,6 +3,10 @@ export type PanelSectionId =
   | "productos"
   | "business"
   | "dominios"
+  | "negocio"
+  | "catalogo"
+  | "clientes"
+  | "pedidos"
   | "pagos"
   | "trabajos"
   | "equipo"
@@ -15,6 +19,10 @@ export function resolvePanelSection(pathname: string): PanelSectionId {
   if (pathname.startsWith("/app/products")) return "productos";
   if (pathname === "/app/business") return "business";
   if (/^\/app\/owner\/pages\/[^/]+\/domains$/.test(pathname)) return "dominios";
+  if (pathname.startsWith("/app/negocio")) return "negocio";
+  if (pathname.startsWith("/app/catalogo")) return "catalogo";
+  if (pathname.startsWith("/app/clientes")) return "clientes";
+  if (pathname.startsWith("/app/pedidos")) return "pedidos";
   if (pathname.startsWith("/app/billing")) return "pagos";
   if (pathname.startsWith("/app/owner/customizations")) return "trabajos";
   if (pathname.startsWith("/app/team")) return "equipo";
@@ -95,13 +103,49 @@ export const PANEL_HELP: Record<PanelSectionId, PanelHelp> = {
       "En Productos tildá a cuáles puede entrar.",
     ],
   },
+  negocio: {
+    title: "Cómo usar Mi negocio",
+    intro: "Lo cargás una vez y lo usan todos tus productos.",
+    steps: [
+      "Subí tu logo y completá cómo te contactan: teléfono, WhatsApp y redes.",
+      "Sumá tus sucursales con dirección y horario.",
+      "Abajo van los datos fiscales que salen en tus facturas.",
+    ],
+  },
+  catalogo: {
+    title: "Cómo usar Catálogo",
+    intro: "Tus productos, los mismos en todos tus productos de Vase.",
+    steps: [
+      "Buscá por nombre, código o marca.",
+      "Los filtros te muestran lo que está sin stock o sin foto.",
+      "Para cambiar un producto, tocá Editar en Business.",
+    ],
+  },
+  clientes: {
+    title: "Cómo usar Clientes",
+    intro: "Las personas que te compraron o se registraron en tu tienda.",
+    steps: [
+      "Buscá por nombre, correo o teléfono.",
+      "Ves cuántos pedidos hizo cada uno y cuándo fue el último.",
+      "Para aprobar mayoristas o cambiar listas de precios, entrá a Business.",
+    ],
+  },
+  pedidos: {
+    title: "Cómo usar Pedidos",
+    intro: "Todos los pedidos que te llegaron, en un solo lugar.",
+    steps: [
+      "Arriba ves cuántos están abiertos.",
+      "Cada pedido muestra quién lo hizo, cuánto suma y en qué estado está.",
+      "Para cambiar el estado de un pedido, entrá a Business.",
+    ],
+  },
   ajustes: {
     title: "Cómo usar Ajustes",
-    intro: "Acá cambiás tus datos y los de tu negocio.",
+    intro: "Acá cambiás tus datos y cómo pagás.",
     steps: [
       "En Mi perfil cambiás tu nombre y elegís modo claro u oscuro.",
-      "En Mi negocio cargás logo, contacto, sucursales y datos fiscales: los usan todos tus productos.",
-      "En Facturación guardás tus tarjetas y los datos de tus facturas.",
+      "En Facturación guardás tus tarjetas.",
+      "Los datos de tu negocio están en Mi negocio, en el menú.",
     ],
   },
   ayuda: {
