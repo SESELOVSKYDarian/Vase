@@ -24,7 +24,16 @@ export const appConfig = {
   description:
     "Plataforma SaaS multi-tenant para operaciones, experiencia y crecimiento de negocios modernos.",
   company: "Vase Labs",
-  supportEmail: "security@vase.ar",
+  supportEmail: "soporte@vase.ar",
+  // Casillas de Vase (alias de Google Workspace). Cada tema va a la suya.
+  emails: {
+    hola: "hola@vase.ar",
+    ventas: "ventas@vase.ar",
+    soporte: "soporte@vase.ar",
+    facturacion: "facturacion@vase.ar",
+    seguridad: "seguridad@vase.ar",
+    privacidad: "privacidad@vase.ar",
+  },
   locales: ["es", "en"] as const,
   defaultLocale: "es" as const,
   security: {

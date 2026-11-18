@@ -191,6 +191,9 @@ export async function SiteFooter() {
                   <Link href="/contact" className="transition hover:text-[#3B633D]">
                     {labels.contact}
                   </Link>
+                  <a href="mailto:hola@vase.ar" className="transition hover:text-[#3B633D]">
+                    hola@vase.ar
+                  </a>
                   <Link
                     href="/signin"
                     prefetch={false}

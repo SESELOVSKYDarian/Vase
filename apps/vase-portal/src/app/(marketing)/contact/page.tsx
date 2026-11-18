@@ -12,6 +12,30 @@ export const metadata: Metadata = {
 const whatsappUrl =
   "https://wa.me/5492234496403?text=Hola%2C%20quiero%20consultar%20sobre%20Vase.";
 
+// Cada tema tiene su casilla: así la consulta le llega directo a quien la resuelve.
+const mailboxes = [
+  {
+    email: "hola@vase.ar",
+    title: "Consultas generales",
+    description: "Si no sabés por dónde empezar o querés conocer Vase.",
+  },
+  {
+    email: "ventas@vase.ar",
+    title: "Planes y presupuestos",
+    description: "Para contratar un plan, pedir un presupuesto o armar algo a medida.",
+  },
+  {
+    email: "soporte@vase.ar",
+    title: "Ya soy cliente",
+    description: "Algo no funciona, tenés una duda del panel o necesitás ayuda.",
+  },
+  {
+    email: "facturacion@vase.ar",
+    title: "Pagos y facturas",
+    description: "Un cobro que no salió, una factura que falta o un pago para revisar.",
+  },
+] as const;
+
 export default function ContactPage() {
   return (
     <div className="mx-auto w-full max-w-[92rem] pb-16 pt-14 sm:pt-20 lg:pb-24 lg:pt-24">
@@ -102,6 +126,45 @@ export default function ContactPage() {
           </div>
         </ScrollReveal>
       </section>
+
+      <ScrollReveal className="mt-8 rounded-[2.25rem] bg-white p-6 shadow-[0_20px_60px_rgba(47,48,48,0.07)] ring-1 ring-black/[0.04] sm:p-9 lg:rounded-[2.75rem] lg:p-12">
+        <p className="text-[0.68rem] font-bold uppercase tracking-[0.24em] text-[#739374]">
+          Emails de Vase
+        </p>
+        <h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[#000202]">
+          Escribile directo a quien lo resuelve
+        </h2>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {mailboxes.map((mailbox) => (
+            <a
+              key={mailbox.email}
+              href={`mailto:${mailbox.email}`}
+              className="group flex flex-col rounded-[1.6rem] bg-[#f5f8f5] p-6 ring-1 ring-black/[0.04] transition hover:-translate-y-0.5 hover:bg-[#edf4ee]"
+            >
+              <span className="grid size-10 place-items-center rounded-xl bg-white text-[#3B633D]">
+                <Mail className="size-4" strokeWidth={1.8} />
+              </span>
+              <span className="mt-5 text-base font-semibold text-[#000202]">{mailbox.title}</span>
+              <span className="mt-2 text-sm leading-6 text-[#4f5b55]">{mailbox.description}</span>
+              <span className="mt-auto inline-flex items-center gap-1 pt-5 text-sm font-semibold text-[#3B633D]">
+                {mailbox.email}
+                <ArrowUpRight className="size-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </span>
+            </a>
+          ))}
+        </div>
+        <p className="mt-6 text-sm leading-6 text-[#4f5b55]">
+          ¿Encontraste un problema de seguridad? Escribí a{" "}
+          <a href="mailto:seguridad@vase.ar" className="font-semibold text-[#3B633D] underline-offset-4 hover:underline">
+            seguridad@vase.ar
+          </a>
+          . Para temas de datos personales:{" "}
+          <a href="mailto:privacidad@vase.ar" className="font-semibold text-[#3B633D] underline-offset-4 hover:underline">
+            privacidad@vase.ar
+          </a>
+          .
+        </p>
+      </ScrollReveal>
     </div>
   );
 }

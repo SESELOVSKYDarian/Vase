@@ -1,5 +1,6 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
+import { appConfig } from "@/config/app";
 import { NewTicketButton } from "@/components/panel/new-ticket";
 import { OpenSupportChatButton } from "@/components/support/open-support-chat-button";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
@@ -100,6 +101,18 @@ export default async function HelpPage() {
               </div>
             </section>
           ) : null}
+          <section className="vpa-card" aria-label="Escribir por email">
+            <h3>Por email</h3>
+            <p>Cada tema llega directo a quien lo resuelve.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+              <a className="vpa-guide" href={`mailto:${appConfig.emails.soporte}`}>
+                Algo no funciona · {appConfig.emails.soporte}
+              </a>
+              <a className="vpa-guide" href={`mailto:${appConfig.emails.facturacion}`}>
+                Pagos y facturas · {appConfig.emails.facturacion}
+              </a>
+            </div>
+          </section>
         </div>
       </div>
     </AppShell>

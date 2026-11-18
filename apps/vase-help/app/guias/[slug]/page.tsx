@@ -46,7 +46,7 @@ export default async function Page({ params }: Props) {
       {guide.status === "borrador" ? (
         <div className="soon">
           <b>Esta guía está en preparación.</b>
-          Pronto vas a tener acá el paso a paso y un video corto. Si lo necesitás ya, escribinos y te ayudamos.
+          Pronto vas a tener acá el paso a paso y un video corto. Si lo necesitás ya, escribinos a <a href="mailto:soporte@vase.ar">soporte@vase.ar</a> y te ayudamos.
         </div>
       ) : (
         <>

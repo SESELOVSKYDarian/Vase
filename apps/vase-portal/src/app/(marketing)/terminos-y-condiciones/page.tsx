@@ -246,7 +246,7 @@ export default function TermsPage() {
                     términos. No dude en contactarnos para una asistencia personalizada.
                   </p>
                   <Link
-                    href="mailto:legal@vase.ar"
+                    href="mailto:privacidad@vase.ar"
                     className="inline-flex items-center gap-2 rounded-full bg-[var(--m3-primary)] px-8 py-3 font-bold text-white transition-opacity hover:opacity-90"
                   >
                     Contactar Soporte Legal
