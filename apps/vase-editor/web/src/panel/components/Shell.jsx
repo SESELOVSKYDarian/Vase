@@ -218,7 +218,7 @@ export function HelpVideo({ title, onClose, onBack, theme }) {
                 <div className="vp-soon" style={{ padding: '28px 12px' }}>
                     <span className="ic"><Icon name="tool" size={26} /></span>
                     <h2>Estamos preparando esta guía</h2>
-                    <p className="vp-note" style={{ fontSize: 13 }}>Pronto vas a tener acá un video corto que te muestra cómo hacerlo. Mientras tanto, escribinos y te ayudamos.</p>
+                    <p className="vp-note" style={{ fontSize: 13 }}>Pronto vas a tener acá un video corto que te muestra cómo hacerlo. Mientras tanto, escribinos a <a href="mailto:soporte@vase.ar">soporte@vase.ar</a> y te ayudamos.</p>
                 </div>
             )}
         </Modal>

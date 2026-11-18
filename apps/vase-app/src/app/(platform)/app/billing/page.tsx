@@ -3,6 +3,7 @@ import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { PayNow, type PayCard } from "@/components/panel/pay-now";
+import { appConfig } from "@/config/app";
 import { PANEL_PRODUCTS, formatArs, panelProductPriceLabel } from "@/components/panel/products";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
@@ -269,6 +270,13 @@ export default async function BillingPage({
               </div>
             </div>
           )}
+          <p className="vpa-mut" style={{ marginTop: 12 }}>
+            ¿Un cobro que no corresponde, un pago que no se acreditó o te falta una factura? Escribinos a{" "}
+            <a href={`mailto:${appConfig.emails.facturacion}`}>
+              <b>{appConfig.emails.facturacion}</b>
+            </a>
+            .
+          </p>
         </section>
       </div>
     </AppShell>

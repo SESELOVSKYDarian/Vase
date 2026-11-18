@@ -45,7 +45,7 @@ const sections: readonly LegalSection[] = [
   {
     title: "5. Reporte responsable",
     body: [
-      "Si detectas una vulnerabilidad, exposición de datos, comportamiento anómalo o una posible debilidad de seguridad, debes reportarla por un canal responsable y sin explotar el hallazgo más allá de lo necesario para demostrarlo.",
+      "Si detectas una vulnerabilidad, exposición de datos, comportamiento anómalo o una posible debilidad de seguridad, escribinos a seguridad@vase.ar con la mayor cantidad de detalle posible y sin explotar el hallazgo más allá de lo necesario para demostrarlo.",
       "Vase puede priorizar, investigar y mitigar reportes según severidad, impacto, evidencia y contexto operativo.",
     ],
   },

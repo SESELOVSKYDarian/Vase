@@ -7,7 +7,7 @@ const RESEND_API_URL = "https://api.resend.com/emails";
 function getContactMailConfig() {
   return {
     apiKey: process.env.RESEND_API_KEY ?? "",
-    toEmail: process.env.CONTACT_TO_EMAIL ?? appConfig.supportEmail,
+    toEmail: process.env.CONTACT_TO_EMAIL ?? appConfig.emails.hola,
     fromEmail: process.env.CONTACT_FROM_EMAIL ?? "Vase Contact <contacto@vase.ar>",
   };
 }

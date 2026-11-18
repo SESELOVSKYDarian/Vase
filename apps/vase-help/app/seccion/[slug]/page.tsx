@@ -28,7 +28,7 @@ export default async function Page({ params }: Props) {
         <p>{section.description}</p>
       </header>
       {guides.length ? <GuideList guides={guides} /> : (
-        <div className="soon"><b>Estamos armando esta sección.</b>Mientras tanto, escribinos y te ayudamos.</div>
+        <div className="soon"><b>Estamos armando esta sección.</b>Mientras tanto, escribinos a <a href="mailto:soporte@vase.ar">soporte@vase.ar</a> y te ayudamos.</div>
       )}
     </main>
   );

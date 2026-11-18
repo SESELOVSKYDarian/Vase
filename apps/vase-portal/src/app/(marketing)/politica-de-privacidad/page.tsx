@@ -48,7 +48,7 @@ const sections: readonly LegalSection[] = [
     title: "6. Derechos y solicitudes",
     body: [
       "Los titulares pueden solicitar actualización, corrección o revisión de ciertos datos de cuenta y contacto, según el rol, la relación contractual y la normativa aplicable. Algunas solicitudes pueden depender de verificaciones previas, legitimación o restricciones técnicas y legales.",
-      "Las consultas relacionadas con privacidad pueden canalizarse por los medios de contacto publicados por Vase.",
+      "Las consultas y solicitudes relacionadas con privacidad y datos personales se reciben en privacidad@vase.ar.",
     ],
   },
   {
