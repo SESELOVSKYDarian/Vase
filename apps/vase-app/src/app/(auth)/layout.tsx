@@ -34,7 +34,7 @@ export default function AuthLayout({ children }: PropsWithChildren) {
 
   return (
     <div className="relative min-h-[100svh] bg-[#f4f6f4] text-[#191c1b] [--background:#f4f6f4] [--foreground:#191c1b] [--muted:#5b6660] [--muted-soft:#66736b] [--accent:#3B633D] [--accent-strong:#3B633D] [--accent-contrast:#ffffff] [--border-subtle:#e3e9e5] [--surface-strong:#ffffff] lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-      <aside className="relative hidden overflow-hidden bg-[#1d3322] text-white lg:sticky lg:top-0 lg:flex lg:h-[100svh] lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+      <aside className="relative hidden overflow-hidden bg-[#1d3322] text-white lg:sticky lg:top-0 lg:flex lg:h-[100svh] lg:flex-col lg:justify-between lg:gap-8 lg:p-12 xl:p-16">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_10%,rgba(126,184,128,0.28),transparent_45%),radial-gradient(circle_at_0%_100%,rgba(59,99,61,0.9),transparent_55%)]"
@@ -52,16 +52,16 @@ export default function AuthLayout({ children }: PropsWithChildren) {
         </a>
 
         <div className="relative max-w-md">
-          <h2 className="font-[family-name:var(--font-newsreader)] text-[2.75rem] font-medium leading-[1.05] tracking-[-0.035em] xl:text-[3.25rem]">
+          <h2 className="font-[family-name:var(--font-newsreader)] text-[2.75rem] font-medium leading-[1.05] tracking-[-0.035em] xl:text-[3.25rem] [@media(max-height:820px)]:text-[2.25rem]">
             Todo tu negocio, <span className="italic text-[#b9dcb6]">en un solo lugar.</span>
           </h2>
           <p className="mt-5 text-base leading-7 text-white/70">
             Vendé online, respondé a tus clientes y mantené tu catálogo al día desde una sola cuenta.
           </p>
 
-          <ul className="mt-10 space-y-3">
+          <ul className="mt-10 space-y-3 [@media(max-height:820px)]:mt-7 [@media(max-height:820px)]:space-y-2 [@media(max-height:680px)]:hidden">
             {PRODUCTS.map(({ icon: Icon, name, text }) => (
-              <li key={name} className="flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm">
+              <li key={name} className="flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm [@media(max-height:820px)]:p-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 text-[#b9dcb6]">
                   <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
                 </span>
