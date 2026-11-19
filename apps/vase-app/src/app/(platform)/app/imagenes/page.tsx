@@ -1,30 +1,23 @@
-import { AppShell } from "@/components/layout/app-shell";
-import { ImagesBoard } from "@/components/panel/images-board";
-import { loadSharedContext } from "@/lib/business/shared-context";
-import { getSharedImages } from "@/server/services/business-shared";
+import type { Route } from "next";
+import { forbidden, redirect } from "next/navigation";
+import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
+import { prisma } from "@/lib/db/prisma";
 
-/** Imágenes: todas las fotos de tu tienda (productos, páginas, logo y colores) y subida de fotos nuevas. */
+/**
+ * Imágenes vive en "Tu plan y espacio" de cada web. Este enlace (lo usa el aviso de Business) lleva a la
+ * pestaña Imágenes de tu web; si no tenés ninguna, a Tus webs.
+ */
 export default async function ImagenesPage() {
-  const { membership, session, dashboard, hasBusiness } = await loadSharedContext();
-  const images = hasBusiness ? await getSharedImages(membership.tenantId) : null;
-
-  return (
-    <AppShell
-      title="Imágenes"
-      subtitle="Todas las fotos de tu tienda en un solo lugar"
-      tenantLabel={membership.tenant.name}
-      modules={dashboard.modules}
-      notifications={dashboard.notifications}
-      currentUserName={session.user.name ?? membership.tenant.name}
-      viewerRole={membership.role}
-    >
-      {!hasBusiness ? (
-        <div className="vpa-empty">Las fotos aparecen acá cuando tengas una tienda en Vase.</div>
-      ) : images === null ? (
-        <div className="vpa-empty">No pudimos traer tus imágenes. Probá de nuevo en un rato.</div>
-      ) : (
-        <ImagesBoard images={images.items} />
-      )}
-    </AppShell>
-  );
+  let membership;
+  try {
+    ({ membership } = await requireTenantRole(tenantRoles.OWNER));
+  } catch {
+    forbidden();
+  }
+  const page = await prisma.storefrontPage.findFirst({
+    where: { tenantId: membership.tenantId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  redirect((page ? `/app/owner/pages/${page.id}/plan?tab=imagenes` : "/app/business") as Route);
 }

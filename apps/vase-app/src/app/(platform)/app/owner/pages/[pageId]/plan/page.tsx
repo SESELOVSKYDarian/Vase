@@ -5,12 +5,13 @@ import { forbidden, notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { BackupPanel, type BackupView } from "@/components/panel/web-plan/BackupPanel";
 import { requireTenantRole, tenantRoles } from "@/lib/auth/guards";
-import { BUSINESS_LAUNCH_PATH } from "@/lib/business/links";
 import { getPlanLabel } from "@/lib/business/plans";
 import { STORAGE_ALERT_PERCENT, formatBytes, formatCount, percentOf } from "@/lib/business/storage";
 import { getStorefrontBuilderData } from "@/server/queries/builder";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
-import { getBusinessImages, getBusinessStorage, storeImageThumb } from "@/server/services/business-storage";
+import { getBusinessStorage } from "@/server/services/business-storage";
+import { getSharedImages } from "@/server/services/business-shared";
+import { ImagesBoard } from "@/components/panel/images-board";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -78,7 +79,7 @@ export default async function WebPlanPage({
     getStorefrontBuilderData(membership.tenantId, pageId),
     getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
     getBusinessStorage(membership.tenantId),
-    tab === "imagenes" ? getBusinessImages(membership.tenantId) : Promise.resolve([]),
+    tab === "imagenes" ? getSharedImages(membership.tenantId) : Promise.resolve(null),
   ]);
   if (!builder) notFound();
 
@@ -205,41 +206,17 @@ export default async function WebPlanPage({
         ) : null}
 
         {tab === "imagenes" ? (
-          <section className="vpa-tp-box" aria-label="Imágenes de la web">
-            <div className="vpa-sech" style={{ margin: 0 }}>
-              <div className="vpa-g1">
-                <h3>Imágenes de tus productos</h3>
-                <p>
-                  {formatCount(usage.imageCount)} de {formatCount(limits.maxImages)} · {formatBytes(usage.breakdown.images)}. Primero las que más pesan.
-                </p>
-              </div>
-              <a className="vpa-btn acc sm" href={BUSINESS_LAUNCH_PATH}>
-                Subir o cambiar imágenes
-              </a>
-            </div>
-            {images.length === 0 ? (
-              <div className="vpa-empty">Todavía no hay imágenes de productos para mostrar.</div>
-            ) : (
-              <div className="vpa-tp-grid">
-                {images.map((image) => (
-                  <figure className="vpa-tp-img" key={`${image.productId}-${image.index}`}>
-                    {/* La miniatura la sirve Business, fuera de las imágenes que optimiza Next. */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={storeImageThumb(image)} alt="" loading="lazy" decoding="async" />
-                    <figcaption>
-                      <b title={image.productName}>{image.productName}</b>
-                      <span>{image.bytes > 0 ? formatBytes(image.bytes) : "Guardada afuera de la web"}</span>
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
-            )}
+          <>
             <p className="vpa-tp-note">
-              Se muestran hasta 240. Para subir, cambiar o borrar imágenes entrá a tu web y abrí Imágenes o el producto.
+              {formatCount(usage.imageCount)} de {formatCount(limits.maxImages)} imágenes · {formatBytes(usage.breakdown.images)} usados.
             </p>
-          </section>
+            {images === null ? (
+              <div className="vpa-empty">No pudimos traer tus imágenes. Probá de nuevo en un rato.</div>
+            ) : (
+              <ImagesBoard images={images.items} />
+            )}
+          </>
         ) : null}
-
         {tab === "copia" ? (
           <BackupPanel pageId={pageId} backup={backupView} nextLabel={nextLabel} canRestore={storage.restoreEnabled} />
         ) : null}
