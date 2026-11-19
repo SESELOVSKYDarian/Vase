@@ -9,6 +9,7 @@ import {
   nextPaymentState,
   parsePaymentReference,
 } from "@/lib/billing/mercadopago-rules";
+import { activateAfterPayment } from "@/server/services/billing-activation";
 import { rebuildPaymentAllocations } from "@/server/services/payment-allocations";
 
 const API_ORIGIN = "https://api.mercadopago.com";
@@ -257,6 +258,8 @@ export async function settleMercadoPagoPayment(mercadoPagoPaymentId: string) {
 
     if (!tenantId) return { settled: false as const };
     await rebuildPaymentAllocations(clientPaymentId);
+    // Si con esto la factura quedó pagada, la cuenta se pone al día sola (plan activo, Business desbloqueado).
+    await activateAfterPayment(clientPaymentId, "mercadopago");
     return { settled: true as const, tenantId };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

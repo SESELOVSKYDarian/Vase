@@ -7,6 +7,7 @@ import { ProductIcon } from "@/components/panel/product-icon";
 import { appConfig } from "@/config/app";
 import { PANEL_PRODUCTS, formatArs, panelProductPriceLabel } from "@/components/panel/products";
 import { tenantRoles, requireTenantRole } from "@/lib/auth/guards";
+import { getTransferDetails } from "@/lib/billing/transfer";
 import { prisma } from "@/lib/db/prisma";
 import { getUnifiedTenantDashboard } from "@/server/queries/dashboard";
 import {
@@ -33,9 +34,10 @@ function dueLabel(value: Date | null) {
   return days === 1 ? "Falta 1 día" : `Faltan ${days} días`;
 }
 
-function paymentState(payment: { paidAt: Date | null; status: string; dueAt: Date | null }) {
+function paymentState(payment: { paidAt: Date | null; status: string; dueAt: Date | null }, inReview = false) {
   if (payment.paidAt) return { label: "Pagada", cls: "g" };
   if (payment.status === "CANCELED") return { label: "Cancelada", cls: "" };
+  if (inReview) return { label: "En revisión", cls: "y" };
   if (payment.status === "PAST_DUE" || (payment.dueAt && payment.dueAt.getTime() < Date.now())) {
     return { label: "Vencida", cls: "r" };
   }
@@ -63,7 +65,7 @@ export default async function BillingPage({
   }
 
   const paymentsEnabled = isMercadoPagoConfigured();
-  const [dashboard, subscription, invoices, activeSubmodules, billingProfile] = await Promise.all([
+  const [dashboard, subscription, invoices, activeSubmodules, billingProfile, receipts] = await Promise.all([
     getUnifiedTenantDashboard(membership.tenantId, session.user.id, session.user.platformRole),
     prisma.tenantSubscription.findUnique({ where: { tenantId: membership.tenantId } }),
     prisma.clientPayment.findMany({
@@ -80,7 +82,15 @@ export default async function BillingPage({
       where: { tenantId: membership.tenantId },
       select: { mercadoPagoCustomerId: true, defaultCardId: true },
     }),
+    // El último comprobante de transferencia de cada factura (sin el archivo).
+    prisma.transferReceipt.findMany({
+      where: { tenantId: membership.tenantId },
+      orderBy: { createdAt: "desc" },
+      take: 40,
+      select: { clientPaymentId: true, status: true, createdAt: true, rejectReason: true },
+    }),
   ]);
+  const lastReceipt = (paymentId: string) => receipts.find((receipt) => receipt.clientPaymentId === paymentId) ?? null;
 
   if (!dashboard) forbidden();
 
@@ -92,7 +102,8 @@ export default async function BillingPage({
   const nextAmount = next ? Number(next.totalAmount) - Number(next.paidAmount) : 0;
   const savedCards = paymentsEnabled ? await listSavedCards(billingProfile?.mercadoPagoCustomerId) : [];
   const payCards: PayCard[] = savedCards.map((card) => ({ ...card, isDefault: card.id === billingProfile?.defaultCardId }));
-  const transferAlias = process.env.VASE_TRANSFER_ALIAS?.trim() || null;
+  const transfer = getTransferDetails();
+  const nextReceipt = next ? lastReceipt(next.id) : null;
   const planOf = (moduleId: string) =>
     activeSubmodules.find((row) => row.submodule.moduleId === moduleId)?.submodule.name ?? null;
 
@@ -124,15 +135,26 @@ export default async function BillingPage({
                     {dueLabel(next.dueAt)}
                   </span>
                 </div>
+                {nextReceipt?.status === "PENDING" ? (
+                  <div className="vpa-notice" role="status" style={{ marginTop: 14 }}>
+                    Recibimos tu comprobante del {formatDate(nextReceipt.createdAt)}. Lo estamos revisando y te avisamos por correo cuando se acredite.
+                  </div>
+                ) : nextReceipt?.status === "REJECTED" ? (
+                  <div className="vpa-notice warn" role="alert" style={{ marginTop: 14 }}>
+                    No pudimos confirmar tu transferencia{nextReceipt.rejectReason ? `: ${nextReceipt.rejectReason}` : "."} Podés subir otro comprobante.
+                  </div>
+                ) : null}
                 <div className="vpa-acts">
-                  {paymentsEnabled ? (
+                  {paymentsEnabled || transfer ? (
                     <PayNow
                       paymentId={next.id}
                       amountLabel={formatArs(nextAmount)}
                       concept={next.concept}
                       cards={payCards}
                       publicKey={mercadoPagoPublicKey()}
-                      transferAlias={transferAlias}
+                      mpEnabled={paymentsEnabled}
+                      transfer={transfer}
+                      amountValue={nextAmount}
                     />
                   ) : (
                     <Link href={"/app/help" as Route} className="vpa-btn acc lg">
@@ -245,7 +267,7 @@ export default async function BillingPage({
                   </thead>
                   <tbody>
                     {invoices.map((invoice) => {
-                      const state = paymentState(invoice);
+                      const state = paymentState(invoice, lastReceipt(invoice.id)?.status === "PENDING");
                       return (
                         <tr key={invoice.id}>
                           <td className="vpa-mut">{formatDate(invoice.createdAt)}</td>

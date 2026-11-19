@@ -583,6 +583,7 @@ model Tenant {
   branches          TenantBranch[]
   dataSources       TenantDataSource[]
   businessStorage   BusinessStorageUsage?
+  transferReceipts  TransferReceipt[]
   storefrontPages   StorefrontPage[]
   customPageRequests CustomPageRequest[]
   customProjectMilestones CustomProjectMilestone[]
@@ -2801,6 +2802,7 @@ model ClientPayment {
   submodule          ModuleSubmodule?  @relation(fields: [submoduleId], references: [id], onDelete: SetNull)
   partialItems       PaymentPartialItem[]
   mercadoPagoRecords MercadoPagoPaymentRecord[]
+  transferReceipts   TransferReceipt[]
   allocations        PaymentAllocation[]
 
   @@index([tenantId, status, dueAt])
@@ -3288,4 +3290,36 @@ model NotificationV2 {
   createdAt DateTime @default(now())
 
   @@index([userId, read, createdAt])
+}
+
+// Comprobante de transferencia que sube el cliente para pagar una factura de Vase. El archivo se guarda acá
+// (privado): solo lo ven el dueño de la cuenta y Admin con permiso de facturación.
+model TransferReceipt {
+  id               String                @id @default(cuid())
+  tenantId         String
+  clientPaymentId  String
+  uploadedByUserId String?
+  fileName         String
+  contentType      String
+  sizeBytes        Int
+  data             Bytes                 @db.MediumBlob
+  note             String?               @db.Text
+  status           TransferReceiptStatus @default(PENDING)
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  rejectReason     String?               @db.Text
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientPayment    ClientPayment         @relation(fields: [clientPaymentId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([clientPaymentId, status])
+  @@index([tenantId, createdAt])
+}
+
+enum TransferReceiptStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

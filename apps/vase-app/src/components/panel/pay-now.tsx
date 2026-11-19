@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { X } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { Check, Copy, FileUp, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   payWithSavedCardAction,
   startMercadoPagoCheckoutAction,
 } from "@/app/(platform)/app/billing/actions";
 import { useSecureFields } from "@/components/panel/use-mercadopago";
+import { RECEIPT_ACCEPT, type TransferDetails } from "@/lib/billing/transfer";
 
 export type PayCard = { id: string; brand: string; last4: string; expiration: string; isDefault: boolean };
 
@@ -19,18 +20,25 @@ export function PayNow({
   concept,
   cards,
   publicKey,
-  transferAlias,
+  mpEnabled,
+  transfer,
+  amountValue,
 }: {
   paymentId: string;
   amountLabel: string;
   concept: string;
   cards: PayCard[];
   publicKey: string;
-  transferAlias: string | null;
+  /** Mercado Pago configurado (link y tarjetas guardadas). */
+  mpEnabled: boolean;
+  /** Datos para transferir; null si no se ofrece transferencia. */
+  transfer: TransferDetails | null;
+  /** Lo que se debe, para copiarlo tal cual en el home banking. */
+  amountValue: number;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const preferred = cards.find((card) => card.isDefault)?.id ?? cards[0]?.id ?? "mp";
+  const preferred = cards.find((card) => card.isDefault)?.id ?? cards[0]?.id ?? (mpEnabled ? "mp" : "transfer");
   const [method, setMethod] = useState(preferred);
   const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -40,6 +48,45 @@ export function PayNow({
     [{ type: "securityCode", elementId: CVV_ELEMENT, placeholder: "CVV" }],
     open && Boolean(selectedCard),
   );
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copy = async (key: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(key);
+      window.setTimeout(() => setCopied((current) => (current === key ? null : current)), 1500);
+    } catch {
+      // sin portapapeles: el dato igual está a la vista
+    }
+  };
+
+  const sendReceipt = () => {
+    const file = fileRef.current?.files?.[0];
+    if (!file) {
+      setNotice({ ok: false, message: "Elegí el comprobante (foto o PDF)." });
+      return;
+    }
+    setNotice(null);
+    startTransition(async () => {
+      const form = new FormData();
+      form.append("paymentId", paymentId);
+      form.append("file", file);
+      try {
+        const response = await fetch("/api/billing/receipts", { method: "POST", body: form });
+        const result = (await response.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+        if (result.ok) {
+          setNotice({ ok: true, message: "Recibimos tu comprobante. Lo revisamos y te avisamos por correo cuando se acredite." });
+          router.refresh();
+        } else {
+          setNotice({ ok: false, message: result.message ?? "No pudimos subir el comprobante. Probá de nuevo." });
+        }
+      } catch {
+        setNotice({ ok: false, message: "No pudimos subir el comprobante. Probá de nuevo." });
+      }
+    });
+  };
 
   const submit = () => {
     setNotice(null);
@@ -102,6 +149,7 @@ export function PayNow({
                   </span>
                 </button>
               ))}
+              {mpEnabled ? (
               <button
                 type="button"
                 role="radio"
@@ -112,10 +160,11 @@ export function PayNow({
                 <span className="vpa-rad" aria-hidden="true" />
                 <span className="vpa-g1">
                   <b>Mercado Pago</b>
-                  <span>Con tu saldo o cualquier tarjeta</span>
+                  <span>Te lleva a Mercado Pago y se acredita al instante</span>
                 </span>
               </button>
-              {transferAlias ? (
+              ) : null}
+              {transfer ? (
                 <button
                   type="button"
                   role="radio"
@@ -126,7 +175,7 @@ export function PayNow({
                   <span className="vpa-rad" aria-hidden="true" />
                   <span className="vpa-g1">
                     <b>Transferencia</b>
-                    <span>Alias {transferAlias}</span>
+                    <span>Transferís y subís el comprobante</span>
                   </span>
                 </button>
               ) : null}
@@ -138,16 +187,59 @@ export function PayNow({
                 {failed ? <small style={{ color: "var(--red)" }}>No pudimos cargar el formulario seguro.</small> : null}
               </div>
             ) : null}
+            {method === "transfer" && transfer ? (
+              <div className="vpa-xfer">
+                <div className="vpa-xfer-data">
+                  {(
+                    [
+                      ["alias", "Alias", transfer.alias],
+                      ["cbu", "CBU / CVU", transfer.cbu],
+                      ["monto", "Monto", String(amountValue)],
+                      ["titular", "Titular", transfer.holder],
+                      ["banco", "Banco", transfer.bank],
+                      ["cuit", "CUIT", transfer.taxId],
+                    ] as const
+                  )
+                    .filter(([, , value]) => Boolean(value))
+                    .map(([key, label, value]) => (
+                      <div key={key} className="vpa-xfer-row">
+                        <span>{label}</span>
+                        <b>{key === "monto" ? amountLabel : value}</b>
+                        {key === "alias" || key === "cbu" || key === "monto" ? (
+                          <button type="button" className="vpa-btn line sm" onClick={() => void copy(key, value as string)}>
+                            {copied === key ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+                            {copied === key ? "Copiado" : "Copiar"}
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                </div>
+                <label className="vpa-xfer-file">
+                  <FileUp size={18} aria-hidden="true" />
+                  <span className="vpa-g1">
+                    <b>{fileName ?? "Subí el comprobante"}</b>
+                    <span>{fileName ? "Tocá para cambiarlo" : "Foto o PDF, hasta 5 MB"}</span>
+                  </span>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept={RECEIPT_ACCEPT}
+                    className="vpa-sr"
+                    onChange={(event) => setFileName(event.target.files?.[0]?.name ?? null)}
+                  />
+                </label>
+              </div>
+            ) : null}
             {notice ? <p role="status" style={{ color: notice.ok ? "var(--acc-tx)" : "var(--red)" }}>{notice.message}</p> : null}
             <div className="row">
               <button type="button" className="vpa-btn soft" onClick={() => setOpen(false)}>
                 {notice?.ok ? "Cerrar" : "Cancelar"}
               </button>
-              {method === "transfer" ? (
-                <a className="vpa-btn acc" href="/app/help">
-                  Avisar que transferí
-                </a>
-              ) : notice?.ok ? null : (
+              {notice?.ok ? null : method === "transfer" ? (
+                <button type="button" className="vpa-btn acc" disabled={isPending} onClick={sendReceipt}>
+                  {isPending ? "Subiendo..." : "Enviar comprobante"}
+                </button>
+              ) : (
                 <button type="button" className="vpa-btn acc" disabled={isPending || (Boolean(selectedCard) && !ready)} onClick={submit}>
                   {isPending ? "Procesando..." : buttonLabel}
                 </button>

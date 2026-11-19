@@ -3,6 +3,9 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PanelCard } from "@/components/ui/panel-card";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { getAdminFinanceDashboard } from "@/server/queries/admin-finance";
+import { TransferReceiptsReview, type PendingReceipt } from "@/components/admin/transfer-receipts-review";
+import { amountDue } from "@/lib/billing/mercadopago-rules";
+import { prisma } from "@/lib/db/prisma";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-AR", {
@@ -19,7 +22,34 @@ export default async function AdminFinancePage() {
     forbidden();
   }
 
-  const dashboard = await getAdminFinanceDashboard();
+  const [dashboard, pendingRows] = await Promise.all([
+    getAdminFinanceDashboard(),
+    // Comprobantes de transferencia que subieron los clientes y esperan revisión (sin el archivo).
+    prisma.transferReceipt.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      take: 50,
+      select: {
+        id: true,
+        fileName: true,
+        contentType: true,
+        note: true,
+        createdAt: true,
+        tenant: { select: { name: true } },
+        clientPayment: { select: { concept: true, totalAmount: true, paidAmount: true } },
+      },
+    }),
+  ]);
+  const pendingReceipts: PendingReceipt[] = pendingRows.map((row) => ({
+    id: row.id,
+    tenantName: row.tenant.name,
+    concept: row.clientPayment.concept,
+    due: amountDue(Number(row.clientPayment.totalAmount), Number(row.clientPayment.paidAmount)),
+    fileName: row.fileName,
+    isPdf: row.contentType === "application/pdf",
+    note: row.note,
+    createdAt: row.createdAt.toISOString(),
+  }));
 
   return (
     <AppShell
@@ -27,6 +57,13 @@ export default async function AdminFinancePage() {
       subtitle="Control financiero integral: ingresos, gastos, fondo empresa, socios e inversión."
       tenantLabel="Admin Master"
     >
+      <PanelCard
+        title={pendingReceipts.length ? `Comprobantes por revisar (${pendingReceipts.length})` : "Comprobantes por revisar"}
+        description="Transferencias que pagaron los clientes. Al aprobar, la factura queda pagada y la cuenta se activa sola."
+      >
+        <TransferReceiptsReview receipts={pendingReceipts} />
+      </PanelCard>
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <PanelCard title="Ingresos cobrados" description="Pagos efectivamente cobrados.">
           <p className="text-3xl font-semibold">{formatMoney(dashboard.kpis.collected)}</p>
