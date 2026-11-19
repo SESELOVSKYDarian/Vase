@@ -26,7 +26,8 @@ describe("cuenta, salida y sistema de gestión entre app y Business", () => {
     expect(content).not.toContain("ConnectionsHub");
     const catalog = read("apps/vase-app/src/app/(platform)/app/catalogo/page.tsx");
     expect(catalog).toContain("<CatalogSource");
-    expect(catalog).toContain("<ExternalConnection");
+    // Con Business, Catálogo es la misma pantalla de Business mostrada adentro (y ahí se conecta el sistema).
+    expect(catalog).toContain("section=catalogo&embed=1");
     expect(read("apps/vase-app/src/components/panel/catalog-source.tsx")).toContain("¿De dónde sacás tus productos?");
     const action = read("apps/vase-app/src/app/(platform)/app/settings/product-source-actions.ts");
     expect(action).toContain("requireTenantRole(tenantRoles.OWNER)");
