@@ -30,7 +30,13 @@ export async function GET(request: Request) {
       }
     }
 
-    const launchUrl = await createBusinessLaunchUrl({ session, membership });
+    // section y embed=1: Catálogo compartido muestra esa pantalla de Business adentro de app.
+    const launchUrl = await createBusinessLaunchUrl({
+      session,
+      membership,
+      section: requestUrl.searchParams.get("section"),
+      embed: requestUrl.searchParams.get("embed") === "1",
+    });
     return NextResponse.redirect(launchUrl);
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {

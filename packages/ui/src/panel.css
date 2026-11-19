@@ -555,6 +555,9 @@
 .vpa-tbl .low { color: var(--red); }
 .vpa-note { font-size: 12.5px; color: var(--mut); font-weight: 600; line-height: 1.5; }
 .vpa-note.ok { color: var(--ok); }
+
+/* Pantalla de otro producto mostrada adentro (Catálogo de Business en app). */
+.vpa-embedframe { display: block; width: 100%; height: calc(100dvh - 150px); min-height: 560px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
 .vpa-note.err { color: var(--red); }
 
 /* Imágenes: subida y grilla de fotos */

@@ -28,8 +28,8 @@ const cspDirectives = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' https://fonts.gstatic.com",
   `connect-src ${connectSrc.join(" ")}`,
-  // labs.vase.ar: la pestaña Labs de Ajustes muestra los ajustes de Labs adentro de app.
-  `frame-src 'self' https://labs.vase.ar ${mercadoPagoHosts.join(" ")}`,
+  // labs.vase.ar: Marketing y ajustes de Labs. business.vase.ar: Catálogo compartido (la misma pantalla de Business).
+  `frame-src 'self' https://labs.vase.ar https://business.vase.ar ${mercadoPagoHosts.join(" ")}`,
   "media-src 'self'",
   "object-src 'none'",
   "frame-ancestors 'self'",

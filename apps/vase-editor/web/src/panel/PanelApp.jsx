@@ -146,8 +146,18 @@ export default function PanelApp() {
         };
     }, []);
 
+    // embed=1: app.vase.ar muestra esta pantalla adentro (Catálogo compartido). Sin menú ni barra de arriba;
+    // si desde acá se va a otra sección, se abre Business entero en otra pestaña.
+    const [embed] = useState(() => new URLSearchParams(window.location.search).get('embed') === '1');
     const { section, sub } = parsePanelPath(path);
-    const go = useCallback((nextSection, nextSub = null) => { setNavOpen(false); navigate(panelPath(nextSection, nextSub)); }, []);
+    const go = useCallback((nextSection, nextSub = null) => {
+        setNavOpen(false);
+        if (embed && nextSection !== section) {
+            window.open(panelPath(nextSection, nextSub), '_blank', 'noopener');
+            return;
+        }
+        navigate(panelPath(nextSection, nextSub));
+    }, [embed, section]);
     const setTheme = (value) => { setThemeState(value); writeStorage(THEME_KEY, value); };
     const toggleMini = () => setMini((value) => { writeStorage(MINI_KEY, value ? '0' : '1'); return !value; });
 
@@ -281,6 +291,22 @@ export default function PanelApp() {
         content = <ComingSoon title={settingsPage.label} hint={settingsPage.hint} />;
     } else {
         content = <ComingSoon title={meta.title} hint={meta.hint} />;
+    }
+
+    if (embed) {
+        return (
+            <div className="vp vp-embed" data-theme={theme}>
+                <main className="vp-main">
+                    {fullScreen || (
+                        <div className="vp-page">
+                            <div className="vp-body">
+                                {editor.loading ? <div className="vp-empty"><Icon name="grid" /> Preparando tus datos…</div> : content}
+                            </div>
+                        </div>
+                    )}
+                </main>
+            </div>
+        );
     }
 
     return (

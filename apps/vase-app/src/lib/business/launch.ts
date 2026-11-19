@@ -51,9 +51,15 @@ function getBusinessEditorUrl() {
 export async function createBusinessLaunchUrl({
   session,
   membership,
+  section,
+  embed = false,
 }: {
   session: LaunchSession;
   membership: LaunchMembership;
+  /** Sección del panel de Business a la que entrar (por ejemplo catalogo). */
+  section?: string | null;
+  /** Solo la pantalla, sin menú: para mostrarla adentro de app. */
+  embed?: boolean;
 }) {
   if (!session?.user?.id || !session.user.email) {
     throw new Error("UNAUTHENTICATED");
@@ -91,6 +97,8 @@ export async function createBusinessLaunchUrl({
     .sign(secret);
 
   const editorUrl = new URL(getBusinessEditorUrl());
+  if (section && /^[a-z-]{2,30}$/.test(section)) editorUrl.pathname = `/admin/${section}`;
+  if (embed) editorUrl.searchParams.set("embed", "1");
   editorUrl.searchParams.set("vase_token", token);
   return editorUrl.toString();
 }
