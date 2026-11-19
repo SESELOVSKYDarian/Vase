@@ -6,6 +6,7 @@ import { requireVerifiedUser } from "@/lib/auth/guards";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { prisma } from "@/lib/db/prisma";
 import { rebuildPaymentAllocations } from "@/server/services/payment-allocations";
+import { syncAutoDebitAmount } from "@/server/services/mercadopago-autodebit";
 import { getRequestContext } from "@/lib/security/request";
 import { sanitizeNullableText, sanitizeText } from "@/lib/security/sanitize";
 import { createClientPaymentSchema, createUserClientPaymentSchema, deleteClientPaymentSchema, updateClientPaymentSchema } from "@/lib/validators/admin";
@@ -119,6 +120,8 @@ export async function createClientPaymentAction(formData: FormData): Promise<voi
     },
   });
   await rebuildPaymentAllocations(created.id);
+  // Si la cuenta tiene débito automático, el próximo cobro se ajusta a lo que debe ahora.
+  await syncAutoDebitAmount(created.tenantId);
 
   await createAuditLog({
     action: "platform.client_payment_created",
@@ -195,6 +198,7 @@ export async function updateClientPaymentAction(formData: FormData): Promise<voi
     },
   });
   await rebuildPaymentAllocations(updated.id);
+  await syncAutoDebitAmount(updated.tenantId);
 
   await createAuditLog({
     action: "platform.client_payment_updated",

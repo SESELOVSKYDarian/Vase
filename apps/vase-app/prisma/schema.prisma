@@ -584,6 +584,7 @@ model Tenant {
   dataSources       TenantDataSource[]
   businessStorage   BusinessStorageUsage?
   transferReceipts  TransferReceipt[]
+  autoDebit         BillingAutoDebit?
   storefrontPages   StorefrontPage[]
   customPageRequests CustomPageRequest[]
   customProjectMilestones CustomProjectMilestone[]
@@ -3292,8 +3293,7 @@ model NotificationV2 {
   @@index([userId, read, createdAt])
 }
 
-// Comprobante de transferencia que sube el cliente para pagar una factura de Vase. El archivo se guarda acá
-// (privado): solo lo ven el dueño de la cuenta y Admin con permiso de facturación.
+// Sin uso: quedó de la primera versión de pagos (transferencia con comprobante). La tabla ya existe en la base.
 model TransferReceipt {
   id               String                @id @default(cuid())
   tenantId         String
@@ -3322,4 +3322,20 @@ enum TransferReceiptStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// Débito automático de las facturas de Vase con Mercado Pago (suscripción "preapproval" con monto que se ajusta
+// a la factura del mes). Una por cuenta.
+model BillingAutoDebit {
+  id          String   @id @default(cuid())
+  tenantId    String   @unique
+  provider    String   @default("mercadopago")
+  externalId  String   @unique
+  status      String   @default("pending")
+  amount      Decimal  @db.Decimal(14, 2)
+  payerEmail  String?
+  createdByUserId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }

@@ -17,6 +17,7 @@ import {
   listSavedCards,
   settleMercadoPagoPayment,
 } from "@/server/services/mercadopago";
+import { changeAutoDebitStatus, startAutoDebit } from "@/server/services/mercadopago-autodebit";
 
 export type BillingActionResult = { ok: boolean; message?: string; url?: string };
 
@@ -227,4 +228,49 @@ export async function updateBillingProfileAction(formData: FormData) {
     create: { tenantId: membership.tenantId, ...data },
   });
   refresh();
+}
+
+const EMAIL_PATTERN = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
+
+/** Activa el débito automático: devuelve el enlace de Mercado Pago para autorizar la tarjeta una sola vez. */
+export async function startAutoDebitAction(payerEmail: string): Promise<BillingActionResult> {
+  if (!isMercadoPagoConfigured()) return NOT_AVAILABLE;
+  const email = String(payerEmail ?? "").trim().toLowerCase();
+  if (!EMAIL_PATTERN.test(email)) return { ok: false, message: "Escribí el correo de tu cuenta de Mercado Pago." };
+  try {
+    const { session, membership } = await requireBillingOwner();
+    await enforceRateLimit({ scope: "billing:autodebit", key: membership.tenantId, limit: 10, windowSeconds: 60 * 60 });
+    const result = await startAutoDebit({
+      tenantId: membership.tenantId,
+      tenantName: membership.tenant.name,
+      payerEmail: email,
+      userId: session.user.id,
+    });
+    return result.ok ? { ok: true, url: result.url } : { ok: false, message: result.message };
+  } catch {
+    return GENERIC_ERROR;
+  }
+}
+
+/** Pausar, reactivar o cancelar el débito automático. */
+export async function changeAutoDebitAction(status: "paused" | "authorized" | "cancelled"): Promise<BillingActionResult> {
+  if (!["paused", "authorized", "cancelled"].includes(status)) return GENERIC_ERROR;
+  try {
+    const { session, membership } = await requireBillingOwner();
+    const changed = await changeAutoDebitStatus(membership.tenantId, status);
+    if (!changed) return GENERIC_ERROR;
+    await createAuditLog({
+      action: "billing.autodebit_changed",
+      targetType: "billing_auto_debit",
+      targetId: membership.tenantId,
+      tenantId: membership.tenantId,
+      actorUserId: session.user.id,
+      metadata: { status },
+    });
+    refresh();
+    const message = status === "paused" ? "Débito pausado." : status === "cancelled" ? "Débito cancelado." : "Débito reactivado.";
+    return { ok: true, message };
+  } catch {
+    return GENERIC_ERROR;
+  }
 }

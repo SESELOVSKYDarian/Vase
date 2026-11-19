@@ -37,7 +37,7 @@ function notificationUrl() {
 
 type MercadoPagoResult<T> = { ok: true; data: T } | { ok: false; status: number };
 
-async function mpRequest<T>(
+export async function mpRequest<T>(
   path: string,
   init: { method?: string; body?: unknown; idempotencyKey?: string } = {},
 ): Promise<MercadoPagoResult<T>> {
@@ -213,8 +213,15 @@ export async function settleMercadoPagoPayment(mercadoPagoPaymentId: string) {
   const payment = result.data;
   const clientPaymentId = parsePaymentReference(payment.external_reference);
   if (!clientPaymentId || !isSettleablePayment(payment)) return { settled: false as const };
-  const received = payment.transaction_amount as number;
+  return creditClientPayment({ clientPaymentId, mercadoPagoPaymentId, received: payment.transaction_amount as number });
+}
 
+/**
+ * Suma a una factura lo que cobró Mercado Pago (link, tarjeta o débito automático). La fila única por pago de
+ * Mercado Pago evita acreditar dos veces. Si la factura queda pagada, la cuenta se pone al día sola.
+ */
+export async function creditClientPayment(input: { clientPaymentId: string; mercadoPagoPaymentId: string; received: number }) {
+  const { clientPaymentId, mercadoPagoPaymentId, received } = input;
   try {
     const tenantId = await prisma.$transaction(async (tx) => {
       const current = await tx.clientPayment.findUnique({

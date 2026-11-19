@@ -3,6 +3,7 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { getRequestContext } from "@/lib/security/request";
 import { isMercadoPagoPaymentId } from "@/lib/billing/mercadopago-rules";
 import { isMercadoPagoConfigured, settleMercadoPagoPayment } from "@/server/services/mercadopago";
+import { refreshAutoDebit, settleAutoDebitCharge } from "@/server/services/mercadopago-autodebit";
 
 export const runtime = "nodejs";
 
@@ -20,16 +21,20 @@ export async function POST(request: Request) {
 
   const url = new URL(request.url);
   const payload = (await request.json().catch(() => null)) as { type?: unknown; data?: { id?: unknown } } | null;
-  const type = payload?.type ?? url.searchParams.get("type");
-  const paymentId = String(payload?.data?.id ?? url.searchParams.get("data.id") ?? "");
-
-  if (type !== "payment" || !isMercadoPagoPaymentId(paymentId)) {
-    return NextResponse.json({ received: true });
-  }
+  const type = String(payload?.type ?? url.searchParams.get("type") ?? url.searchParams.get("topic") ?? "");
+  const resourceId = String(payload?.data?.id ?? url.searchParams.get("data.id") ?? url.searchParams.get("id") ?? "");
 
   try {
-    // El estado real se consulta a Mercado Pago; un aviso falso no puede acreditar nada.
-    await settleMercadoPagoPayment(paymentId);
+    // El estado real siempre se consulta a Mercado Pago; un aviso falso no puede acreditar nada.
+    if (type === "payment" && isMercadoPagoPaymentId(resourceId)) {
+      await settleMercadoPagoPayment(resourceId);
+    } else if ((type === "subscription_preapproval" || type === "preapproval") && /^[A-Za-z0-9-]{6,64}$/.test(resourceId)) {
+      // Débito automático: el cliente lo autorizó, lo pausó o lo canceló.
+      await refreshAutoDebit(resourceId);
+    } else if ((type === "subscription_authorized_payment" || type === "authorized_payment") && /^\d{1,30}$/.test(resourceId)) {
+      // Débito automático: un cobro del mes.
+      await settleAutoDebitCharge(resourceId);
+    }
     return NextResponse.json({ received: true });
   } catch {
     // Un error hace que Mercado Pago reintente más tarde.
