@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PanelCard } from "@/components/ui/panel-card";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { getAdminFinanceDashboard } from "@/server/queries/admin-finance";
+import { TestChargeForm } from "@/components/admin/test-charge-form";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-AR", {
@@ -27,6 +28,10 @@ export default async function AdminFinancePage() {
       subtitle="Control financiero integral: ingresos, gastos, fondo empresa, socios e inversión."
       tenantLabel="Admin Master"
     >
+      <PanelCard title="Cobro de prueba" description="Le crea a una cuenta una factura chica para probar Mercado Pago con plata real.">
+        <TestChargeForm />
+      </PanelCard>
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <PanelCard title="Ingresos cobrados" description="Pagos efectivamente cobrados.">
           <p className="text-3xl font-semibold">{formatMoney(dashboard.kpis.collected)}</p>
