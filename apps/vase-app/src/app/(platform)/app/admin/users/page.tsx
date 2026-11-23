@@ -15,9 +15,9 @@ export default async function AdminUsersPage() {
 
   return (
     <AppShell
-      title="Usuarios"
-      subtitle="Panel unificado de usuarios, acceso por módulo y cobros del cliente."
-      tenantLabel="Admin Master"
+      title="Accesos y cobros"
+      subtitle="Quién entra a cada cuenta, qué productos usa y cuánto paga"
+      tenantLabel="Admin"
     >
       <AdminMasterUsersWorkspace {...workspaceData} />
     </AppShell>

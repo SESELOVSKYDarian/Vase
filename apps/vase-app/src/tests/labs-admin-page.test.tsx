@@ -24,11 +24,11 @@ describe("Labs Super Admin workspace", () => {
       overrideUpdatedAt: new Date().toISOString(),
       syncStatus: "SYNCED",
     }]} />);
-    expect(html).toContain("Planes y límites efectivos");
+    expect(html).toContain("Cuentas con Labs");
     expect(html).toContain("Restaurante Uno");
-    expect(html).toContain("Editar Labs");
-    expect(html).toContain("Cuenta eliminada");
-    expect(html).toContain("Quitar entitlement");
+    expect(html).toContain("Cambiar cupos");
+    expect(html).toContain("cuenta borrada");
+    expect(html).toContain("Sacar Labs");
     expect(html).toContain("Ampliación comercial");
   });
 });

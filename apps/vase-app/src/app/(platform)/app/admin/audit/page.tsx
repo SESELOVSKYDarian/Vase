@@ -1,6 +1,6 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { PanelCard } from "@/components/ui/panel-card";
+import { Download, Search } from "lucide-react";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { prisma } from "@/lib/db/prisma";
 
@@ -21,11 +21,13 @@ const authSecurityActions = [
 function toFriendlyAction(action: string) {
   switch (action) {
     case "auth.signin_failed":
-      return "Fallo de inicio de sesion";
+      return "Intento de ingreso fallido";
     case "auth.signin_succeeded":
-      return "Inicio de sesion correcto";
+      return "Entró a su cuenta";
     case "auth.account_temporarily_locked":
-      return "Cuenta bloqueada temporalmente";
+      return "Cuenta frenada por intentos fallidos";
+    case "admin.account_email_changed":
+      return "Cambió el correo del admin";
     default:
       return action;
   }
@@ -83,48 +85,77 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
     take: 150,
   });
 
-  return (
-    <AppShell
-      title="Auditoria central"
-      subtitle="Trazabilidad de acciones administrativas, seguridad, billing y operaciones."
-      tenantLabel="Master Admin"
-    >
-      <PanelCard title="Filtros" description="Busca por accion, actor o entidad.">
-        <form action="/audit" className="grid gap-3 md:grid-cols-5">
-          <input name="q" defaultValue={q ?? ""} placeholder="Buscar..." className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-          <input name="action" defaultValue={action ?? ""} placeholder="Accion exacta" className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-          <input name="targetType" defaultValue={targetType ?? ""} placeholder="Tipo de destino" className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-          <select name="eventGroup" defaultValue={eventGroup ?? ""} className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2">
-            <option value="">Todos los grupos</option>
-            <option value="auth_security">Seguridad de acceso</option>
-          </select>
-          <button className="rounded-xl bg-[var(--accent-strong)] px-4 py-2 text-sm font-semibold text-[var(--accent-contrast)]">Filtrar</button>
-        </form>
-        <div className="mt-3">
-          <a
-            href={`/api/admin/audit/export?${exportParams.toString()}`}
-            className="inline-flex rounded-xl border border-[var(--border-subtle)] px-3 py-2 text-xs font-semibold text-[var(--foreground)]"
-          >
-            Exportar CSV
-          </a>
-        </div>
-      </PanelCard>
+  const views = [
+    { id: "", label: "Todo" },
+    { id: "auth_security", label: "Ingresos y seguridad" },
+  ];
+  const viewHref = (id: string) => {
+    const next = new URLSearchParams();
+    if (q) next.set("q", q);
+    if (id) next.set("eventGroup", id);
+    const text = next.toString();
+    return text ? `/audit?${text}` : "/audit";
+  };
+  const when = (value: Date) => new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" }).format(value);
 
-      <PanelCard title={`Eventos (${logs.length})`} description="Registro inmutable para control operativo.">
-        <div className="grid gap-3">
-          {logs.map((log) => (
-            <article key={log.id} className="rounded-2xl border border-[var(--border-subtle)] p-4">
-              <p className="text-sm font-semibold text-[var(--foreground)]">{toFriendlyAction(log.action)}</p>
-              <p className="text-xs text-[var(--muted)]">
-                {log.targetType} | {log.targetId ?? "sin target"} | {new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" }).format(log.createdAt)}
-              </p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Actor: {log.actorUser?.email ?? "sistema"} | Tenant: {log.tenant?.accountName ?? "global"} | IP: {log.ipAddress ?? "sin IP"}
-              </p>
-            </article>
+  return (
+    <AppShell title="Registro de cambios" subtitle="Quién hizo qué y cuándo" tenantLabel="Admin">
+      <div className="vpa-filt">
+        <form className="vpa-search" action="/audit" role="search">
+          <Search size={16} aria-hidden="true" />
+          <input className="vpa-inp" type="search" name="q" defaultValue={q ?? ""} placeholder="Buscar por acción, correo o dato" aria-label="Buscar en el registro" />
+          {eventGroup ? <input type="hidden" name="eventGroup" value={eventGroup} /> : null}
+        </form>
+        <nav className="vpa-seg" aria-label="Filtrar registro">
+          {views.map((item) => (
+            <a key={item.id || "all"} href={viewHref(item.id)} className={(eventGroup ?? "") === item.id ? "on" : undefined} aria-current={(eventGroup ?? "") === item.id ? "page" : undefined}>
+              {item.label}
+            </a>
           ))}
-        </div>
-      </PanelCard>
+        </nav>
+        <a href={`/api/admin/audit/export?${exportParams.toString()}`} className="vpa-btn line sm">
+          <Download size={14} aria-hidden="true" />
+          Bajar CSV
+        </a>
+      </div>
+
+      <section className="vpa-card" style={{ padding: "12px 20px" }}>
+        {logs.length === 0 ? (
+          <div className="vpa-empty" style={{ margin: "8px 0" }}>No hay movimientos con este filtro.</div>
+        ) : (
+          <div className="vpa-tw">
+            <table className="vpa-tbl">
+              <thead>
+                <tr>
+                  <th>Qué pasó</th>
+                  <th>Quién</th>
+                  <th>Cuenta</th>
+                  <th>Cuándo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => (
+                  <tr key={log.id}>
+                    <td className="wrap">
+                      <b>{toFriendlyAction(log.action)}</b>
+                      <span className="sub">
+                        {log.targetType}
+                        {log.targetId ? ` · ${log.targetId}` : ""}
+                      </span>
+                    </td>
+                    <td className="wrap">
+                      {log.actorUser?.name ?? "Sistema"}
+                      <span className="sub">{log.actorUser?.email ?? (log.ipAddress ? `IP ${log.ipAddress}` : "")}</span>
+                    </td>
+                    <td className="vpa-mut">{log.tenant?.accountName ?? "—"}</td>
+                    <td className="vpa-mut">{when(log.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </AppShell>
   );
 }

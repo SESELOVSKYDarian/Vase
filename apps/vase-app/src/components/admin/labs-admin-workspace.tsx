@@ -4,6 +4,7 @@ import type { LabsAdminTenantControl, LabsChannel, LabsChannelLimits } from "@va
 import { useState } from "react";
 
 const channels: LabsChannel[] = ["WHATSAPP", "INSTAGRAM", "FACEBOOK"];
+const CHANNEL_LABEL: Record<LabsChannel, string> = { WHATSAPP: "WhatsApp", INSTAGRAM: "Instagram", FACEBOOK: "Facebook" } as Record<LabsChannel, string>;
 
 export function LabsAdminWorkspace({ initialControls }: { initialControls: LabsAdminTenantControl[] }) {
   const [controls, setControls] = useState(initialControls);
@@ -13,7 +14,7 @@ export function LabsAdminWorkspace({ initialControls }: { initialControls: LabsA
   const active = controls.filter((item) => item.labsActive).length;
 
   async function removeEntitlement(control: LabsAdminTenantControl) {
-    if (!window.confirm(`¿Quitar el entitlement de Vase Labs a ${control.companyName}?`)) return;
+    if (!window.confirm(`¿Sacarle Labs a ${control.companyName}?`)) return;
     setRemovingId(control.globalTenantId);
     setRemoveError("");
     try {
@@ -32,32 +33,52 @@ export function LabsAdminWorkspace({ initialControls }: { initialControls: LabsA
     }
   }
 
-  return <div className="space-y-8">
-    <section className="rounded-[2rem] border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-7">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--accent-strong)]">Super Admin · Vase Labs</p>
-      <h2 className="mt-3 max-w-3xl text-4xl font-semibold">Permisos precisos sin alterar el plan pagado.</h2>
-      <p className="mt-3 max-w-3xl text-[var(--muted)]">Administrá cupos por canal, revisá excepciones y verificá que cada cambio se sincronice con Labs.</p>
+  return <div className="vpa-stack">
+    <section className="vpa-kpis" aria-label="Resumen">
+      <div className="vpa-kpi"><span className="vpa-kt"><small>Cuentas con Labs</small><b>{active}</b></span></div>
+      <div className="vpa-kpi"><span className="vpa-kt"><small>Con límites a mano</small><b>{controls.filter((item) => item.manualOverride).length}</b><em>Distintos a su plan</em></span></div>
+      <div className="vpa-kpi"><span className="vpa-kt"><small>Sin sincronizar</small><b>{controls.filter((item) => item.syncStatus && item.syncStatus !== "SYNCED").length}</b></span></div>
     </section>
-    <section className="grid gap-4 md:grid-cols-3">
-      {[
-        ["Empresas con Labs", active],
-        ["Overrides activos", controls.filter((item) => item.manualOverride).length],
-        ["Sincronizaciones pendientes", controls.filter((item) => item.syncStatus !== "SYNCED").length],
-      ].map(([label, value]) => <article className="rounded-[1.5rem] border border-[var(--border-subtle)] bg-[var(--background)] p-5" key={String(label)}><span className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--muted)]">{label}</span><strong className="mt-3 block text-4xl">{value}</strong></article>)}
-    </section>
-    <section className="rounded-[1.5rem] border border-[var(--border-subtle)] bg-[var(--background)] p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent-strong)]">Entitlements</p>
-      <h2 className="mt-2 text-3xl font-semibold">Planes y límites efectivos</h2>
-      <div className="mt-5 space-y-3">
-        {controls.map((control) => <article className="grid gap-4 rounded-xl border border-[var(--border-subtle)] p-4 lg:grid-cols-[1.4fr_1.2fr_1fr_auto] lg:items-center" key={control.globalTenantId}>
-          <div><span className="text-xs text-[var(--muted)]">{control.globalTenantId}</span><strong className="mt-1 block">{control.companyName}</strong>{control.ownerDeleted ? <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Cuenta eliminada</span> : null}<p className="text-sm text-[var(--muted)]">{control.plan} · {control.serviceStatus}</p></div>
-          <div className="flex flex-wrap gap-2">{channels.map((channel) => <span className={`rounded-full px-3 py-1 text-xs font-semibold ${(control.channelLimits?.[channel] ?? 0) > 0 ? "bg-emerald-100 text-emerald-800" : "bg-[var(--surface-strong)] text-[var(--muted)]"}`} key={channel}>{channel} · {control.channelLimits?.[channel] ?? 0}</span>)}</div>
-          <div><span className="text-xs uppercase text-[var(--muted)]">Origen</span><strong className="block text-sm">{control.manualOverride ? control.overrideReason : "Límites incluidos por plan"}</strong><em className="mt-1 block text-xs not-italic">Sync · {control.syncStatus ?? "SYNCED"}</em></div>
-          <div className="flex flex-wrap justify-end gap-2"><button type="button" className="rounded-full border border-[var(--border-subtle)] px-4 py-2 text-sm font-semibold" onClick={() => setEditing(control)}>Editar Labs</button><button type="button" aria-label={`Quitar entitlement de ${control.companyName}`} className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700" onClick={() => void removeEntitlement(control)} disabled={removingId === control.globalTenantId}>{removingId === control.globalTenantId ? "Quitando..." : "Quitar entitlement"}</button></div>
-        </article>)}
-        {!controls.length ? <p className="rounded-xl bg-[var(--surface-strong)] p-4 text-sm text-[var(--muted)]">No hay tenants de Labs disponibles.</p> : null}
-      </div>
-      {removeError ? <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800" role="alert">{removeError}</p> : null}
+
+    <section className="vpa-card" style={{ padding: "12px 20px" }}>
+      {!controls.length ? <div className="vpa-empty" style={{ margin: "8px 0" }}>Ninguna cuenta tiene Labs todavía.</div> : (
+        <div className="vpa-tw">
+          <table className="vpa-tbl">
+            <thead>
+              <tr>
+                <th>Cuenta</th>
+                <th>Canales (cupos)</th>
+                <th>Límites</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {controls.map((control) => <tr key={control.globalTenantId}>
+                <td className="wrap">
+                  <b>{control.companyName}</b>
+                  <span className="sub">Plan {control.plan} · {control.serviceStatus}{control.ownerDeleted ? " · cuenta borrada" : ""}</span>
+                </td>
+                <td>
+                  <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
+                    {channels.map((channel) => <span key={channel} className={`vpa-tag ${(control.channelLimits?.[channel] ?? 0) > 0 ? "g" : ""}`}><i />{CHANNEL_LABEL[channel]} {control.channelLimits?.[channel] ?? 0}</span>)}
+                  </span>
+                </td>
+                <td className="wrap vpa-mut">
+                  {control.manualOverride ? (control.overrideReason ?? "A mano") : "Los del plan"}
+                  {control.syncStatus && control.syncStatus !== "SYNCED" ? <span className="sub">Falta sincronizar</span> : null}
+                </td>
+                <td className="r">
+                  <span style={{ display: "inline-flex", gap: 6 }}>
+                    <button type="button" className="vpa-btn line sm" onClick={() => setEditing(control)}>Cambiar cupos</button>
+                    <button type="button" aria-label={`Sacarle Labs a ${control.companyName}`} className="vpa-btn line sm danger" onClick={() => void removeEntitlement(control)} disabled={removingId === control.globalTenantId}>{removingId === control.globalTenantId ? "Sacando..." : "Sacar Labs"}</button>
+                  </span>
+                </td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {removeError ? <p className="vpa-saveerr" role="alert" style={{ marginTop: 12 }}>{removeError}</p> : null}
     </section>
     {editing ? <OverrideDrawer
       control={editing}
@@ -118,13 +139,13 @@ function OverrideDrawer({
     }
   }
 
-  return <div className="fixed inset-0 z-[70] flex justify-end bg-black/35" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-    <aside className="h-full w-full max-w-xl overflow-y-auto bg-[var(--background)] p-7 shadow-2xl">
-      <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent-strong)]">Override de Labs</p><h2 className="mt-2 text-3xl font-semibold">{control.companyName}</h2><p className="mt-2 text-sm text-[var(--muted)]">El plan pagado sigue siendo <strong>{control.plan}</strong>.</p></div><button className="text-2xl" aria-label="Cerrar" onClick={onClose}>×</button></div>
-      <div className="mt-8 space-y-3">{channels.map((channel) => <label className="grid grid-cols-[1fr_5rem_7rem] items-center gap-3 rounded-xl bg-[var(--surface-strong)] p-3" key={channel}><strong className="text-sm">{channel}</strong><span className="text-center text-sm">Plan {control.planChannelLimits?.[channel] ?? 0}</span><input className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3" type="number" min="0" max="20" value={limits[channel]} onChange={(event) => setLimits({ ...limits, [channel]: Math.max(0, Number(event.target.value) || 0) })} /></label>)}</div>
-      <label className="mt-6 grid gap-2 text-sm font-semibold">Motivo obligatorio<textarea className="rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] p-3 font-normal" value={reason} onChange={(event) => setReason(event.target.value)} rows={4} placeholder="Ej. ampliación comercial aprobada por…" /></label>
+  return <div className="fixed inset-0 z-[70] flex justify-end" style={{ background: "var(--scrim)" }} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <aside className="h-full w-full max-w-xl overflow-y-auto p-7" style={{ background: "var(--card)" }}>
+      <div className="flex items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">{control.companyName}</h2><p className="mt-2 text-sm text-[var(--muted)]">El plan pagado sigue siendo <strong>{control.plan}</strong>.</p></div><button className="text-2xl" aria-label="Cerrar" onClick={onClose}>×</button></div>
+      <div className="mt-8 space-y-3">{channels.map((channel) => <label className="grid grid-cols-[1fr_5rem_7rem] items-center gap-3 rounded-xl bg-[var(--surface-strong)] p-3" key={channel}><strong className="text-sm">{CHANNEL_LABEL[channel]}</strong><span className="text-center text-sm">Plan {control.planChannelLimits?.[channel] ?? 0}</span><input className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--background)] px-3" type="number" min="0" max="20" value={limits[channel]} onChange={(event) => setLimits({ ...limits, [channel]: Math.max(0, Number(event.target.value) || 0) })} /></label>)}</div>
+      <label className="mt-6 grid gap-2 text-sm font-semibold">Por qué lo cambiás<textarea className="rounded-xl border border-[var(--border-subtle)] bg-[var(--background)] p-3 font-normal" value={reason} onChange={(event) => setReason(event.target.value)} rows={4} placeholder="Ej.: le dimos un número más de WhatsApp" /></label>
       {error ? <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800" role="alert">{error}</p> : null}
-      <div className="mt-6 flex flex-wrap justify-end gap-3"><button className="min-h-11 rounded-xl border border-[var(--border-subtle)] px-5 text-sm font-semibold" onClick={() => void save(null)} disabled={saving}>Restaurar plan</button><button className="min-h-11 rounded-xl bg-[var(--accent-strong)] px-5 text-sm font-semibold text-white disabled:opacity-50" onClick={() => void save(limits)} disabled={saving || reason.trim().length < 8}>{saving ? "Guardando…" : "Guardar override"}</button></div>
+      <div className="mt-6 flex flex-wrap justify-end gap-3"><button className="min-h-11 rounded-xl border border-[var(--border-subtle)] px-5 text-sm font-semibold" onClick={() => void save(null)} disabled={saving}>Volver a los del plan</button><button className="min-h-11 rounded-xl bg-[var(--accent-strong)] px-5 text-sm font-semibold text-white disabled:opacity-50" onClick={() => void save(limits)} disabled={saving || reason.trim().length < 8}>{saving ? "Guardando…" : "Guardar"}</button></div>
     </aside>
   </div>;
 }

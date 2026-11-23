@@ -5,5 +5,5 @@ import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
 
 export default async function AdminManagementPage() {
   try { await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN); } catch { forbidden(); }
-  return <AppShell title="Vase Management" subtitle="Precios, asignaciones, usuarios y sincronización en una sola vista." tenantLabel="Admin Master"><ManagementControlCenter /></AppShell>;
+  return <AppShell title="Management" subtitle="Precio, en qué cuentas está prendido y quién lo usa" tenantLabel="Admin"><ManagementControlCenter /></AppShell>;
 }

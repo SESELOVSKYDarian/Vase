@@ -19,8 +19,8 @@ export default async function LabsAdminPage() {
     labsAdminTenantControlSchema.parse(control));
 
   return <AppShell
-    title="Vase Labs"
-    subtitle="Entitlements, límites por canal y sincronización operativa."
+    title="Labs"
+    subtitle="Qué cuentas tienen Labs y cuántos canales pueden conectar"
     currentUserName={session.user.name ?? session.user.email ?? "Admin Vase"}
   >
     <LabsAdminWorkspace initialControls={controls} />

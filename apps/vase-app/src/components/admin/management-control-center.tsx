@@ -1,28 +1,223 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Building2, DatabaseZap, RefreshCw, Users } from "lucide-react";
 
 type Pricing = { id: string; version: number; currency: string; setupPrice: number; monthlyPrice: number; status: "DRAFT" | "PUBLISHED" | "ARCHIVED" };
-type Tenant = { id: string; name: string; managementContract: null | { integrationProvider: "EXTERNAL_API" | "VASE_MANAGEMENT"; provisioningStatus: string }; tenantModules: Array<{ isActive: boolean }>; memberships: Array<{ user: { id: string; name: string; email: string }; role: "OWNER" | "MANAGER" | "MEMBER" }>; managementIdentityLinks: Array<{ userId: string; isActive: boolean }> };
+type Tenant = {
+  id: string;
+  name: string;
+  managementContract: null | { integrationProvider: "EXTERNAL_API" | "VASE_MANAGEMENT"; provisioningStatus: string };
+  tenantModules: Array<{ isActive: boolean }>;
+  memberships: Array<{ user: { id: string; name: string; email: string }; role: "OWNER" | "MANAGER" | "MEMBER" }>;
+  managementIdentityLinks: Array<{ userId: string; isActive: boolean }>;
+};
 type Payload = { pricing: Pricing[]; tenants: Tenant[] };
 
+const ars = (value: number | undefined, fallback: number) => `$ ${(value ?? fallback).toLocaleString("es-AR")}`;
+
+/** Admin › Productos › Management: precio, en qué cuentas está prendido y quién lo usa. */
 export function ManagementControlCenter() {
   const [data, setData] = useState<Payload>({ pricing: [], tenants: [] });
+  const [loaded, setLoaded] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const tenant = useMemo(() => data.tenants.find((item) => item.id === selectedTenant) ?? data.tenants[0], [data.tenants, selectedTenant]);
-  async function load() { const response = await fetch("/api/admin/management"); if (response.ok) setData(await response.json()); }
-  useEffect(() => { void Promise.resolve().then(load); }, []);
-  async function command(body: Record<string, unknown>) { setBusy(true); setMessage(""); const response = await fetch("/api/admin/management", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); const payload = await response.json(); if (response.ok) { setData(payload); setMessage("Cambio guardado y auditado."); } else setMessage(payload.error ?? "No pudimos guardar el cambio."); setBusy(false); }
+
+  async function load() {
+    const response = await fetch("/api/admin/management");
+    if (response.ok) setData(await response.json());
+    setLoaded(true);
+  }
+  useEffect(() => {
+    void Promise.resolve().then(load);
+  }, []);
+
+  async function command(body: Record<string, unknown>) {
+    setBusy(true);
+    setMessage(null);
+    const response = await fetch("/api/admin/management", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setData(payload);
+      setMessage({ ok: true, text: "Listo, guardado." });
+    } else setMessage({ ok: false, text: payload.error ?? "No pudimos guardar el cambio." });
+    setBusy(false);
+  }
+
   const published = data.pricing.find((item) => item.status === "PUBLISHED");
   const draft = data.pricing.find((item) => item.status === "DRAFT");
-  return <div className="space-y-5">
-    <section className="grid gap-4 lg:grid-cols-[1.05fr_.95fr]">
-      <div className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-6"><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-[var(--muted)]">Tarifa publicada</p><h2 className="mt-2 text-2xl font-semibold">Vase Management</h2></div><BadgeCheck className="text-emerald-600" /></div><div className="mt-7 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-[var(--surface)] p-4"><span className="text-xs text-[var(--muted)]">Alta</span><strong className="mt-1 block text-xl">ARS {published?.setupPrice.toLocaleString("es-AR") ?? "350.000"}</strong></div><div className="rounded-2xl bg-[var(--surface)] p-4"><span className="text-xs text-[var(--muted)]">Mensual</span><strong className="mt-1 block text-xl">ARS {published?.monthlyPrice.toLocaleString("es-AR") ?? "95.000"}</strong></div></div></div>
-      <form className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-6" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); void command({ operation: "SAVE_DRAFT", setupPrice: Number(form.get("setup")), monthlyPrice: Number(form.get("monthly")), currency: "ARS" }); }}><p className="text-xs font-semibold uppercase tracking-[.18em] text-[var(--muted)]">Nueva versión</p><div className="mt-4 grid grid-cols-2 gap-3"><label className="text-sm">Alta<input name="setup" type="number" required className="mt-2 w-full rounded-xl border p-3" defaultValue={published?.setupPrice ?? 350000} /></label><label className="text-sm">Mensual<input name="monthly" type="number" required className="mt-2 w-full rounded-xl border p-3" defaultValue={published?.monthlyPrice ?? 95000} /></label></div><button disabled={busy} className="mt-4 rounded-full bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white">Guardar borrador</button>{draft ? <button type="button" disabled={busy} onClick={() => command({ operation: "PUBLISH", pricingId: draft.id })} className="ml-2 rounded-full border px-5 py-2.5 text-sm font-semibold">Publicar borrador</button> : null}</form>
-    </section>
-    <section className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-[var(--muted)]">Asignación y operación</p><h2 className="mt-1 text-xl font-semibold">Cuentas con Management</h2></div><select className="min-w-64 rounded-xl border bg-transparent p-3" value={tenant?.id ?? ""} onChange={(event) => setSelectedTenant(event.target.value)}>{data.tenants.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></div>{tenant ? <div className="mt-5 grid gap-4 lg:grid-cols-3"><article className="rounded-2xl border p-4"><Building2 className="size-5 text-emerald-700" /><strong className="mt-3 block">Contratación</strong><p className="mt-1 text-sm text-[var(--muted)]">{tenant.tenantModules[0]?.isActive ? "Activa" : "No contratada"} · {tenant.managementContract?.provisioningStatus ?? "Sin provisión"}</p><button disabled={busy || !published} onClick={() => command({ operation: "ASSIGN_TENANT", tenantId: tenant.id, active: !tenant.tenantModules[0]?.isActive })} className="mt-4 text-sm font-semibold text-emerald-700">{tenant.tenantModules[0]?.isActive ? "Suspender" : "Activar con tarifa vigente"}</button></article><article className="rounded-2xl border p-4"><DatabaseZap className="size-5 text-emerald-700" /><strong className="mt-3 block">Fuente de catálogo</strong><p className="mt-1 text-sm text-[var(--muted)]">{tenant.managementContract?.integrationProvider === "VASE_MANAGEMENT" ? "Vase Management" : "Sistema externo"}</p><button disabled={busy || !tenant.managementContract} onClick={() => command({ operation: "SET_PROVIDER", tenantId: tenant.id, provider: tenant.managementContract?.integrationProvider === "VASE_MANAGEMENT" ? "EXTERNAL_API" : "VASE_MANAGEMENT" })} className="mt-4 text-sm font-semibold text-emerald-700">Cambiar proveedor</button></article><article className="rounded-2xl border p-4"><Users className="size-5 text-emerald-700" /><strong className="mt-3 block">Usuarios habilitados</strong><div className="mt-2 space-y-2">{tenant.memberships.map(({ user, role }) => { const link = tenant.managementIdentityLinks.find((item) => item.userId === user.id); return <button key={user.id} disabled={busy || !tenant.tenantModules[0]?.isActive} onClick={() => command({ operation: "ASSIGN_USER", tenantId: tenant.id, userId: user.id, active: !link?.isActive, role })} className="flex w-full items-center justify-between rounded-xl bg-[var(--surface)] px-3 py-2 text-left text-xs"><span>{user.name}<small className="block text-[var(--muted)]">{user.email}</small></span><b>{link?.isActive ? "Activo" : "Habilitar"}</b></button> })}</div></article></div> : <div className="grid min-h-40 place-items-center text-[var(--muted)]"><RefreshCw className="animate-spin" /></div>}{message ? <p className="mt-4 text-sm text-[var(--muted)]">{message}</p> : null}</section>
-  </div>;
+  const active = tenant?.tenantModules[0]?.isActive ?? false;
+
+  return (
+    <div className="vpa-stack">
+      <section className="vpa-g2">
+        <div className="vpa-card stack">
+          <div className="vpa-sech">
+            <div className="vpa-g1">
+              <h3>Precio vigente</h3>
+              <p>Lo que paga una cuenta nueva.</p>
+            </div>
+          </div>
+          <div className="vpa-facts">
+            <div>
+              <div className="vpa-lab">Alta</div>
+              <b>{ars(published?.setupPrice, 350000)}</b>
+            </div>
+            <div>
+              <div className="vpa-lab">Por mes</div>
+              <b>{ars(published?.monthlyPrice, 95000)}</b>
+            </div>
+          </div>
+        </div>
+
+        <form
+          className="vpa-card stack"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            void command({ operation: "SAVE_DRAFT", setupPrice: Number(form.get("setup")), monthlyPrice: Number(form.get("monthly")), currency: "ARS" });
+          }}
+        >
+          <div className="vpa-sech">
+            <div className="vpa-g1">
+              <h3>Cambiar el precio</h3>
+              <p>Se guarda como borrador; vale cuando lo publicás.</p>
+            </div>
+          </div>
+          <div className="vpa-two">
+            <label className="vpa-fld">
+              <span>Alta</span>
+              <input className="vpa-inp" name="setup" type="number" required defaultValue={published?.setupPrice ?? 350000} />
+            </label>
+            <label className="vpa-fld">
+              <span>Por mes</span>
+              <input className="vpa-inp" name="monthly" type="number" required defaultValue={published?.monthlyPrice ?? 95000} />
+            </label>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button disabled={busy} className="vpa-btn line">
+              Guardar borrador
+            </button>
+            {draft ? (
+              <button type="button" disabled={busy} onClick={() => command({ operation: "PUBLISH", pricingId: draft.id })} className="vpa-btn acc">
+                Publicar {ars(draft.monthlyPrice, 0)} por mes
+              </button>
+            ) : null}
+          </div>
+        </form>
+      </section>
+
+      <section className="vpa-card stack">
+        <div className="vpa-sech">
+          <div className="vpa-g1">
+            <h3>Cuentas</h3>
+            <p>Elegí una para prenderle Management y decidir quién lo usa.</p>
+          </div>
+          <select className="vpa-inp" style={{ width: "auto", minWidth: 240 }} value={tenant?.id ?? ""} onChange={(event) => setSelectedTenant(event.target.value)} aria-label="Cuenta">
+            {data.tenants.map((item) => (
+              <option value={item.id} key={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {!loaded ? (
+          <div className="vpa-empty">Cargando…</div>
+        ) : !tenant ? (
+          <div className="vpa-empty">No hay cuentas.</div>
+        ) : (
+          <>
+            <div className="vpa-tw">
+              <table className="vpa-tbl">
+                <tbody>
+                  <tr>
+                    <td>
+                      <b>Management</b>
+                      <span className="sub">{tenant.managementContract?.provisioningStatus ? `Estado: ${tenant.managementContract.provisioningStatus}` : "Todavía no se preparó"}</span>
+                    </td>
+                    <td>
+                      <span className={`vpa-tag ${active ? "g" : ""}`}>
+                        <i />
+                        {active ? "Prendido" : "Apagado"}
+                      </span>
+                    </td>
+                    <td className="r">
+                      <button disabled={busy || !published} onClick={() => command({ operation: "ASSIGN_TENANT", tenantId: tenant.id, active: !active })} className={`vpa-btn sm ${active ? "line danger" : "acc"}`}>
+                        {active ? "Apagar" : "Prender con el precio vigente"}
+                      </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <b>De dónde salen los productos</b>
+                      <span className="sub">{tenant.managementContract?.integrationProvider === "VASE_MANAGEMENT" ? "De Vase Management" : "De su sistema externo"}</span>
+                    </td>
+                    <td />
+                    <td className="r">
+                      <button
+                        disabled={busy || !tenant.managementContract}
+                        onClick={() =>
+                          command({
+                            operation: "SET_PROVIDER",
+                            tenantId: tenant.id,
+                            provider: tenant.managementContract?.integrationProvider === "VASE_MANAGEMENT" ? "EXTERNAL_API" : "VASE_MANAGEMENT",
+                          })
+                        }
+                        className="vpa-btn line sm"
+                      >
+                        Cambiar
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div>
+              <div className="vpa-lab">Quién lo usa</div>
+              <div className="vpa-tw">
+                <table className="vpa-tbl">
+                  <tbody>
+                    {tenant.memberships.map(({ user, role }) => {
+                      const link = tenant.managementIdentityLinks.find((item) => item.userId === user.id);
+                      return (
+                        <tr key={user.id}>
+                          <td className="wrap">
+                            <b>{user.name}</b>
+                            <span className="sub">{user.email}</span>
+                          </td>
+                          <td>
+                            <span className={`vpa-tag ${link?.isActive ? "g" : ""}`}>
+                              <i />
+                              {link?.isActive ? "Puede usarlo" : "Sin acceso"}
+                            </span>
+                          </td>
+                          <td className="r">
+                            <button
+                              disabled={busy || !active}
+                              onClick={() => command({ operation: "ASSIGN_USER", tenantId: tenant.id, userId: user.id, active: !link?.isActive, role })}
+                              className="vpa-btn line sm"
+                            >
+                              {link?.isActive ? "Sacar acceso" : "Dar acceso"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+        {message ? (
+          <p role="status" className={message.ok ? "vpa-notice" : "vpa-saveerr"} style={{ margin: 0 }}>
+            {message.text}
+          </p>
+        ) : null}
+      </section>
+    </div>
+  );
 }

@@ -31,8 +31,8 @@ export default async function RestAdminPage() {
     : { health: "unavailable", tenants: [], edges: [] };
 
   return <AppShell
-    title="Vase Rest"
-    subtitle="Planes, contratos, acceso global y operación Edge desde el Super Admin."
+    title="Rest"
+    subtitle="Planes, cuentas con Rest y cómo están funcionando"
     currentUserName={session.user.name ?? session.user.email ?? "Admin Vase"}
   >
     <RestAdminWorkspace

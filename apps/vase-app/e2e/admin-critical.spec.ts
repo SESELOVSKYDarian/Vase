@@ -64,10 +64,10 @@ test.describe("admin critical flows", () => {
     await signInAsAdmin(page);
     await page.goto("/app/admin/tickets");
 
-    const manageButton = page.getByRole("button", { name: /Gestionar/i }).first();
+    const manageButton = page.getByRole("button", { name: /^Abrir$/i }).first();
     if (await manageButton.isVisible()) {
       await manageButton.click();
-      await expect(page.getByText(/Ticket:/i).first()).toBeVisible();
+      await expect(page.getByRole("dialog")).toBeVisible();
       await page.keyboard.press("Escape");
     } else {
       await expect(page.getByText(/No hay tickets/i)).toBeVisible();
