@@ -1,8 +1,8 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { Download, RefreshCw } from "lucide-react";
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { AutoDebit } from "@/components/panel/auto-debit";
 import { PayNow, type PayCard } from "@/components/panel/pay-now";
 import { ProductIcon } from "@/components/panel/product-icon";
 import { appConfig } from "@/config/app";
@@ -16,7 +16,7 @@ import {
   mercadoPagoPublicKey,
   settleMercadoPagoPayment,
 } from "@/server/services/mercadopago";
-import { normalizeAutoDebitStatus, refreshAutoDebit } from "@/server/services/mercadopago-autodebit";
+import { refreshAutoDebit } from "@/server/services/mercadopago-autodebit";
 
 function formatDate(value: Date | null | undefined) {
   if (!value) return "Sin fecha";
@@ -115,7 +115,7 @@ export default async function BillingPage({
     >
       <div className="vpa-stack">
         {returned.debito ? (
-          <div className="vpa-notice" role="status">Listo. Cuando Mercado Pago confirme la autorización, tus facturas se pagan solas cada mes.</div>
+          <div className="vpa-notice" role="status">Listo. Cuando Mercado Pago confirme la autorización, tus pagos se hacen solos cada mes.</div>
         ) : null}
         {returned.payment_id ? (
           <div className="vpa-notice" role="status">
@@ -135,6 +135,12 @@ export default async function BillingPage({
                     {dueLabel(next.dueAt)}
                   </span>
                 </div>
+                {autoDebit?.status === "authorized" ? (
+                  <p className="vpa-autoline">
+                    <RefreshCw size={14} aria-hidden="true" /> Se paga solo con Mercado Pago ·{" "}
+                    <Link href={"/app/settings?tab=facturacion" as Route}>Configurar</Link>
+                  </p>
+                ) : null}
                 <div className="vpa-acts">
                   {paymentsEnabled ? (
                     <PayNow
@@ -143,6 +149,8 @@ export default async function BillingPage({
                       concept={next.concept}
                       cards={payCards}
                       publicKey={mercadoPagoPublicKey()}
+                      autoPayActive={autoDebit?.status === "authorized"}
+                      defaultEmail={membership.tenant.billingEmail ?? session.user.email ?? ""}
                     />
                   ) : (
                     <Link href={"/app/help" as Route} className="vpa-btn acc lg">
@@ -180,14 +188,6 @@ export default async function BillingPage({
             })}
           </div>
         </section>
-
-        {paymentsEnabled ? (
-          <AutoDebit
-            status={autoDebit ? normalizeAutoDebitStatus(autoDebit.status) : "none"}
-            amountLabel={next ? formatArs(nextAmount) : null}
-            defaultEmail={membership.tenant.billingEmail ?? session.user.email ?? ""}
-          />
-        ) : null}
 
         {activeModules.length > 0 ? (
           <section aria-label="Lo que tenés contratado">
@@ -242,13 +242,13 @@ export default async function BillingPage({
           </section>
         ) : null}
 
-        <section aria-label="Comprobantes">
+        <section aria-label="Tus pagos">
           <div className="vpa-secth">
-            <h2>Comprobantes</h2>
-            <p>Todo lo que te facturamos.</p>
+            <h2>Tus pagos</h2>
+            <p>Todo lo que te cobramos. De cada pago podés bajar el comprobante.</p>
           </div>
           {invoices.length === 0 ? (
-            <div className="vpa-empty">Todavía no hay comprobantes.</div>
+            <div className="vpa-empty">Todavía no hay pagos.</div>
           ) : (
             <div className="vpa-card" style={{ padding: "12px 20px" }}>
               <div className="vpa-tw">
@@ -259,6 +259,9 @@ export default async function BillingPage({
                       <th>Concepto</th>
                       <th>Importe</th>
                       <th>Estado</th>
+                      <th className="r">
+                        <span className="vpa-sr-only">Comprobante</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -277,6 +280,14 @@ export default async function BillingPage({
                               {state.label}
                             </span>
                           </td>
+                          <td className="r">
+                            {Number(invoice.paidAmount) > 0 ? (
+                              <a className="vpa-btn line sm" href={`/api/billing/receipts/${invoice.id}`} download>
+                                <Download size={14} aria-hidden="true" />
+                                Comprobante
+                              </a>
+                            ) : null}
+                          </td>
                         </tr>
                       );
                     })}
@@ -285,10 +296,10 @@ export default async function BillingPage({
               </div>
             </div>
           )}
-          <p className="vpa-mut" style={{ marginTop: 12 }}>
-            ¿Un cobro que no corresponde, un pago que no se acreditó o te falta una factura? Escribinos a{" "}
-            <a href={`mailto:${appConfig.emails.facturacion}`}>
-              <b>{appConfig.emails.facturacion}</b>
+          <p className="vpa-mut" style={{ marginTop: 12, fontSize: 12 }}>
+            El comprobante acredita tu pago; no es una factura. ¿Un cobro que no corresponde, un pago que no se acreditó o necesitás factura? Escribinos a{" "}
+            <a href={`mailto:${appConfig.emails.facturacion}?subject=${encodeURIComponent(`Pedido de factura · ${membership.tenant.name}`)}`}>
+              {appConfig.emails.facturacion}
             </a>
             .
           </p>

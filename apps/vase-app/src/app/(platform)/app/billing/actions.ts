@@ -268,7 +268,7 @@ export async function changeAutoDebitAction(status: "paused" | "authorized" | "c
       metadata: { status },
     });
     refresh();
-    const message = status === "paused" ? "Débito pausado." : status === "cancelled" ? "Débito cancelado." : "Débito reactivado.";
+    const message = status === "paused" ? "Pago automático en pausa." : status === "cancelled" ? "Pago automático apagado." : "Pago automático encendido de nuevo.";
     return { ok: true, message };
   } catch {
     return GENERIC_ERROR;

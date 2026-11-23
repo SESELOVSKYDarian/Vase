@@ -677,3 +677,29 @@
 .vpa-qrpay .vpa-g1 { display: flex; flex-direction: column; gap: 4px; max-width: 360px; }
 .vpa-qrpay .vpa-g1 b { font-size: 15px; font-weight: 800; }
 .vpa-qrpay .vpa-g1 span { font-size: 13px; color: var(--mut); font-weight: 600; line-height: 1.5; }
+
+/* Pagar: modal por encima de todo (también de la barra de abajo del celular). En el celular sube desde abajo. */
+.vpa.vpa-portal { position: fixed; inset: 0; z-index: 1000; display: block; height: auto; overflow: visible; background: transparent; }
+.vpa-paysheet { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; padding: 24px; animation: vpa-fade .15s ease; }
+.vpa-paybox { width: 520px; max-width: 100%; max-height: calc(100dvh - 48px); overflow-y: auto; background: var(--card); border-radius: 22px; box-shadow: var(--sh-lg); padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+.vpa-payhead { display: flex; align-items: flex-start; gap: 12px; }
+.vpa-payhead .vpa-g1 { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.vpa-payhead .vpa-g1 b { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+.vpa-payhead .vpa-g1 > span:last-child { color: var(--mut); font-weight: 600; font-size: 13px; }
+.vpa-payhead .vpa-lab { margin: 0; }
+.vpa-payic { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: var(--soft); color: var(--tx); flex: none; }
+.vpa-payopt.on .vpa-payic { background: var(--card); color: var(--acc-tx); }
+.vpa-payopt .vpa-g1 { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.vpa-payopt .vpa-g1 span { font-size: 12.5px; color: var(--mut); font-weight: 600; }
+.vpa-payacts { display: flex; flex-direction: column; gap: 8px; }
+.vpa-payacts .vpa-btn { width: 100%; justify-content: center; min-height: 46px; }
+@keyframes vpa-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vpa-sheet-up { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+@media (max-width: 640px) {
+  .vpa-paysheet { align-items: flex-end; padding: 0; }
+  .vpa-paybox { width: 100%; max-height: 92dvh; border-radius: 22px 22px 0 0; padding: 20px 18px calc(18px + env(safe-area-inset-bottom)); animation: vpa-sheet-up .2s ease; }
+}
+@media (prefers-reduced-motion: reduce) { .vpa-paysheet, .vpa-paybox { animation: none; } }
+.vpa-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.vpa-autoline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; font-weight: 700; color: var(--acc-tx); }
+.vpa-autoline a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }

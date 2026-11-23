@@ -8,11 +8,11 @@ import { changeAutoDebitAction, startAutoDebitAction } from "@/app/(platform)/ap
 type State = "none" | "pending" | "authorized" | "paused" | "cancelled";
 
 const COPY: Record<State, { tag: string; cls: string; text: string }> = {
-  none: { tag: "Apagado", cls: "", text: "Autorizás tu tarjeta una vez en Mercado Pago y cada mes se paga sola. Lo podés pausar cuando quieras." },
-  pending: { tag: "Falta autorizar", cls: "y", text: "Terminá de autorizar tu tarjeta en Mercado Pago para que empiece a cobrarse solo." },
-  authorized: { tag: "Activo", cls: "g", text: "Cada mes se cobra solo lo de tu factura pendiente, con la tarjeta que autorizaste en Mercado Pago." },
-  paused: { tag: "En pausa", cls: "y", text: "No se cobra nada mientras esté en pausa. Tus facturas las podés pagar con Pagar ahora." },
-  cancelled: { tag: "Cancelado", cls: "", text: "Ya no se cobra solo. Lo podés volver a activar cuando quieras." },
+  none: { tag: "Apagado", cls: "", text: "Autorizás tu tarjeta una vez en Mercado Pago y cada mes se paga sola, sin que tengas que entrar." },
+  pending: { tag: "Falta autorizar", cls: "y", text: "Terminá de autorizar tu tarjeta en Mercado Pago para que empiece a pagarse solo." },
+  authorized: { tag: "Encendido", cls: "g", text: "Cada mes se paga solo lo de tu factura, con la tarjeta que autorizaste en Mercado Pago." },
+  paused: { tag: "En pausa", cls: "y", text: "Mientras esté en pausa no se paga solo. Tus facturas las pagás desde Plan y pagos." },
+  cancelled: { tag: "Apagado", cls: "", text: "Ya no se paga solo. Lo podés volver a encender cuando quieras." },
 };
 
 export function AutoDebit({ status, amountLabel, defaultEmail }: { status: State; amountLabel: string | null; defaultEmail: string }) {
@@ -44,13 +44,13 @@ export function AutoDebit({ status, amountLabel, defaultEmail }: { status: State
   const canStart = status === "none" || status === "cancelled" || status === "pending";
 
   return (
-    <section className="vpa-card vpa-autodebit" aria-label="Débito automático">
+    <section className="vpa-card vpa-autodebit" aria-label="Pago automático">
       <div className="vpa-adh">
         <span className="vpa-adi" aria-hidden="true">
           <RefreshCw size={20} />
         </span>
         <div className="vpa-g1">
-          <b>Débito automático</b>
+          <b>Pago automático</b>
           <span>{copy.text}</span>
         </div>
         <span className={`vpa-tag ${copy.cls}`}>
@@ -59,7 +59,7 @@ export function AutoDebit({ status, amountLabel, defaultEmail }: { status: State
         </span>
       </div>
 
-      {status === "authorized" && amountLabel ? <p className="vpa-note">Próximo débito: {amountLabel}.</p> : null}
+      {status === "authorized" && amountLabel ? <p className="vpa-note">Próximo pago: {amountLabel}.</p> : null}
 
       {asking && canStart ? (
         <div className="vpa-adform">
@@ -80,7 +80,7 @@ export function AutoDebit({ status, amountLabel, defaultEmail }: { status: State
         <div className="row">
           {canStart ? (
             <button type="button" className="vpa-btn acc" onClick={() => setAsking(true)}>
-              {status === "pending" ? "Terminar de autorizar" : "Activar débito automático"}
+              {status === "pending" ? "Terminar de autorizar" : "Encender pago automático"}
             </button>
           ) : null}
           {status === "authorized" ? (
@@ -95,7 +95,7 @@ export function AutoDebit({ status, amountLabel, defaultEmail }: { status: State
           ) : null}
           {status === "authorized" || status === "paused" ? (
             <button type="button" className="vpa-btn line" onClick={() => change("cancelled")} disabled={pending}>
-              Cancelar débito
+              Apagar pago automático
             </button>
           ) : null}
         </div>

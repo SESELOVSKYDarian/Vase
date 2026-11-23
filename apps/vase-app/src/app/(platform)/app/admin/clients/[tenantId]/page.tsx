@@ -144,7 +144,7 @@ export default async function AdminClientPage({
                     {tenant.status === "SUSPENDED" ? "Suspendida" : state.label}
                   </span>
                 </b>
-                <em>{autoDebit?.status === "authorized" ? "con débito automático" : "paga cuando le llega la factura"}</em>
+                <em>{autoDebit?.status === "authorized" ? "con pago automático" : "paga cuando le llega la factura"}</em>
               </span>
             </div>
             <div className="vpa-kpi">
@@ -261,7 +261,7 @@ export default async function AdminClientPage({
           <div className="vpa-sech" style={{ marginTop: 8 }}>
             <div>
               <h3>Facturas</h3>
-              <p>{autoDebit?.status === "authorized" ? "Tiene débito automático con Mercado Pago." : "Paga desde Plan y pagos con Mercado Pago."}</p>
+              <p>{autoDebit?.status === "authorized" ? "Tiene el pago automático encendido con Mercado Pago." : "Paga desde Plan y pagos con Mercado Pago."}</p>
             </div>
             <Link href={"/users" as Route} className="vpa-btn line sm">
               Cargar un cobro

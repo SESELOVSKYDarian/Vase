@@ -4,6 +4,8 @@ import { forbidden } from "next/navigation";
 import { CreditCard, Sparkles, Store, UserRound } from "lucide-react";
 import { PanelSettingsTabs, type SettingsTabItem } from "@vase/ui/panel";
 import { BillingCards } from "@/components/panel/billing-cards";
+import { AutoDebit } from "@/components/panel/auto-debit";
+import { normalizeAutoDebitStatus } from "@/server/services/mercadopago-autodebit";
 import { AvatarUploader } from "@/components/panel/avatar-uploader";
 import { ThemePicker } from "@/components/panel/theme-picker";
 import { BusinessProfile } from "@/components/panel/business-profile";
@@ -90,7 +92,12 @@ export async function loadSettingsContext(rawTab: string | string[] | undefined,
         }))
       : [];
 
-  return { membership, session, dashboard, isOwner, labsActive, profile, tabs, tab, businessInfo, branches, negocioBilling, paymentsEnabled, cards };
+  const autoDebit =
+    tab === "facturacion" && paymentsEnabled
+      ? await prisma.billingAutoDebit.findUnique({ where: { tenantId: membership.tenantId }, select: { status: true } })
+      : null;
+
+  return { membership, session, dashboard, isOwner, labsActive, profile, tabs, tab, businessInfo, branches, negocioBilling, paymentsEnabled, cards, autoDebit };
 }
 
 export type SettingsContext = Awaited<ReturnType<typeof loadSettingsContext>>;
@@ -102,7 +109,7 @@ const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.vase.ar").rep
  * productos (embed): ahí los links que salen de Ajustes abren la ventana entera.
  */
 export function SettingsBody({ ctx, tabHref, embed = false, hideTabs = false }: { ctx: SettingsContext; tabHref: (tab: TabId) => string; embed?: boolean; hideTabs?: boolean }) {
-  const { membership, session, isOwner, profile, tabs, tab, paymentsEnabled, cards } = ctx;
+  const { membership, session, isOwner, profile, tabs, tab, paymentsEnabled, cards, autoDebit } = ctx;
   return (
     <>
       {/* Si el producto que lo muestra ya tiene sus propias pestañas (Labs), acá no se repiten. */}
@@ -160,6 +167,13 @@ export function SettingsBody({ ctx, tabHref, embed = false, hideTabs = false }: 
 
       {tab === "facturacion" ? (
         <>
+          {paymentsEnabled ? (
+            <AutoDebit
+              status={autoDebit ? normalizeAutoDebitStatus(autoDebit.status) : "none"}
+              amountLabel={null}
+              defaultEmail={membership.tenant.billingEmail ?? session.user.email ?? ""}
+            />
+          ) : null}
           {paymentsEnabled ? (
             <BillingCards cards={cards} publicKey={mercadoPagoPublicKey()} />
           ) : (

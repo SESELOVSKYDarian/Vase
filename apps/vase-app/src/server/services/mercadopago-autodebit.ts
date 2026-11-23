@@ -49,7 +49,7 @@ export async function nextAutoDebitAmount(tenantId: string) {
  * amount: lo que se debe hoy; si no debe nada, el último monto facturado.
  */
 export async function startAutoDebit(input: { tenantId: string; tenantName: string; payerEmail: string; userId: string }) {
-  if (!isMercadoPagoConfigured()) return { ok: false as const, message: "El débito automático no está disponible por ahora." };
+  if (!isMercadoPagoConfigured()) return { ok: false as const, message: "El pago automático no está disponible por ahora." };
 
   const next = await nextAutoDebitAmount(input.tenantId);
   const last = next
@@ -70,7 +70,7 @@ export async function startAutoDebit(input: { tenantId: string; tenantName: stri
     },
   });
   if (!result.ok || !result.data.id || !result.data.init_point) {
-    return { ok: false as const, message: "Mercado Pago no pudo preparar el débito. Revisá el correo de tu cuenta de Mercado Pago." };
+    return { ok: false as const, message: "Mercado Pago no pudo preparar el pago automático. Revisá que el correo sea el de la cuenta de Mercado Pago que va a pagar." };
   }
 
   // Si había uno anterior sin usar, se reemplaza.
@@ -174,7 +174,7 @@ export async function settleAutoDebitCharge(authorizedPaymentId: string) {
     });
     await sendNoticeEmail({
       email: appConfig.emails.facturacion,
-      subject: "Débito automático sin factura pendiente",
+      subject: "Pago automático sin factura pendiente",
       message: `Mercado Pago cobró $${payment.data.transaction_amount} (pago ${paymentId}) a una cuenta que no tenía facturas pendientes. Revisalo en Admin.`,
     }).catch(() => null);
     return { settled: false as const };
