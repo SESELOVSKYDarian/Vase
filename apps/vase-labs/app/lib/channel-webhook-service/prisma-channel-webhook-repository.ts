@@ -12,6 +12,7 @@ import { PrismaOfficialChannelSenderRepository } from "../official-channel-sende
 import { applyDocumentCorrection } from "../knowledge-document-version";
 import { AssistantRow, ChannelRow, ChannelWebhookContext, ChannelWebhookRepository, ConversationRow, EntitlementRow, PersistChannelInboundMessageInput, PersistChannelInboundMessageResult, ProviderChannelRow, enumValue, messageContent, metadataJson, normalizeRecord } from "./channel-webhook-repository";
 import { buildMessageMetadata, buildRuntimeEntitlement, mergeConversationMetadata } from "./detect-human-handoff-intent";
+import { notifyVaseSupportHandoffInBackground } from "../vase-support-bridge";
 
 export class PrismaChannelWebhookRepository implements ChannelWebhookRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -634,6 +635,7 @@ export class PrismaChannelWebhookRepository implements ChannelWebhookRepository 
         AND assistantId = ${input.context.assistantId}
     `;
 
+    notifyVaseSupportHandoffInBackground(this.prisma as never, { conversationId: input.conversationId, reason: input.reason });
     if (activeHandoffs[0]) return;
 
     await this.prisma.$executeRaw`

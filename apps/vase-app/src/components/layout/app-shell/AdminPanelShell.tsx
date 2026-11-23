@@ -5,7 +5,7 @@
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Bell, FolderKanban, Home, LayoutGrid, LifeBuoy, SlidersHorizontal, Users, Wallet } from "lucide-react";
+import { Bell, Columns3, FolderKanban, Home, LayoutGrid, LifeBuoy, SlidersHorizontal, Users, Wallet } from "lucide-react";
 import { PanelAccountMenu, PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { signOutAction } from "@/app/(auth)/actions";
 import { NavLink } from "@/components/layout/nav-link";
@@ -14,6 +14,8 @@ import { ADMIN_SECTIONS, resolveAdminSection, type AdminSection } from "@/lib/na
 import { toInternalAdminPath, toPublicAdminPath } from "@/lib/security/admin-host-routing";
 import type { AppShellProps } from "./infer-active-section";
 import "@/components/admin/admin-legacy-bridge.css";
+
+const workspaceUrl = process.env.NODE_ENV === "production" ? "https://workspace.vase.ar/" : "/app/workspace";
 
 const ICONS: Record<AdminSection["id"], typeof Home> = {
   inicio: Home,
@@ -97,10 +99,16 @@ export function AdminPanelShell({ title, subtitle, notifications = [], currentUs
           />
         )}
         actions={
+          <>
+          <a className="vpa-btn line sm" href={workspaceUrl} title="Tablero de tickets y trabajos">
+            <Columns3 size={14} aria-hidden="true" />
+            Workspace
+          </a>
           <button type="button" className="vpa-ib" aria-label="Notificaciones" onClick={() => setDrawer("notas")}>
             <Bell size={18} aria-hidden="true" />
             {unread > 0 ? <span className="n">{unread}</span> : null}
           </button>
+          </>
         }
         overlays={
           <>

@@ -74,6 +74,8 @@ export function createOfficialChannelSender(input: {
       /** PDF que va después del texto (WhatsApp y Messenger). Instagram no recibe archivos: el link va en el texto. */
       document?: { url: string; filename: string };
       messageTag?: "HUMAN_AGENT";
+      /** Solo WhatsApp: plantilla aprobada por Meta (para escribir pasadas las 24 h o empezar una charla). */
+      template?: { name: string; language: string; bodyParams?: string[] };
     }) {
       const context = await input.repository.findDeliveryContext({
         globalTenantId: params.globalTenantId,
@@ -165,7 +167,20 @@ export function createOfficialChannelSender(input: {
           : {}),
       };
       const textProviderMessageId = await sendGraphPayload(
-        params.channelType === "WHATSAPP"
+        params.channelType === "WHATSAPP" && params.template
+          ? {
+              messaging_product: "whatsapp",
+              to: params.recipientId,
+              type: "template",
+              template: {
+                name: params.template.name,
+                language: { code: params.template.language },
+                ...(params.template.bodyParams?.length
+                  ? { components: [{ type: "body", parameters: params.template.bodyParams.map((text) => ({ type: "text", text })) }] }
+                  : {}),
+              },
+            }
+          : params.channelType === "WHATSAPP"
           ? {
               messaging_product: "whatsapp",
               to: params.recipientId,

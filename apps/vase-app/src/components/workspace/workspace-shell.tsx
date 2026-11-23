@@ -4,12 +4,12 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { Columns3, List, UserRound } from "lucide-react";
+import { Columns3, List, MessageCircle, UserRound } from "lucide-react";
 import { PanelAccountMenu, PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { signOutAction } from "@/app/(auth)/actions";
 import "./workspace.css";
 
-export type WorkspaceNavId = "tablero" | "lista" | "mios";
+export type WorkspaceNavId = "tablero" | "lista" | "mios" | "contactos";
 
 export function WorkspaceShell({
   base,
@@ -47,6 +47,10 @@ export function WorkspaceShell({
         { id: "lista", href: href("/lista"), label: "Lista", icon: <List size={18} aria-hidden="true" /> },
         { id: "mios", href: href("/?ver=mios"), label: "Lo mío", icon: <UserRound size={18} aria-hidden="true" /> },
       ],
+    },
+    {
+      label: "Clientes",
+      items: [{ id: "contactos", href: href("/contactos"), label: "WhatsApp", icon: <MessageCircle size={18} aria-hidden="true" /> }],
     },
   ];
 

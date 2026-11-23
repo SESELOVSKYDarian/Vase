@@ -17,6 +17,7 @@ import {
 } from "@/lib/workspace/board";
 import { createAuditLog } from "@/server/services/audit-log";
 import { addSupportTicketNote, assignSupportTicket, sendSupportReply, updateSupportTicketLifecycle } from "@/server/services/support";
+import { deliverWhatsappReply, normalizePhone, openTicketForContact, sendWhatsappTemplate } from "@/server/services/support/whatsapp-bridge";
 
 export type WorkspaceActionResult = { ok: boolean; message?: string };
 
@@ -129,7 +130,24 @@ export async function commentWorkspaceItemAction(key: string, rawBody: string, t
   if (parsed.kind === "ticket") {
     if (toCustomer && user.role === "DEVELOPER") return { ok: false, message: "Las respuestas al cliente las manda soporte." };
     await addSupportTicketNote(parsed.id, user.id, body, toCustomer ? "CUSTOMER" : "INTERNAL");
-    if (toCustomer) await sendSupportReply({ ticketId: parsed.id, actorUserId: user.id, body });
+    if (toCustomer) {
+      await sendSupportReply({ ticketId: parsed.id, actorUserId: user.id, body });
+      const ticket = await prisma.supportTicket.findUnique({ where: { id: parsed.id }, select: { labsConversationId: true, customerContact: true } });
+      if (ticket?.labsConversationId) {
+        const whatsapp = await deliverWhatsappReply(ticket, body);
+        done();
+        if (!whatsapp.sent) {
+          return {
+            ok: true,
+            message:
+              whatsapp.reason === "TEMPLATE_NOT_CONFIGURED"
+                ? "Quedó guardada, pero no salió por WhatsApp: pasaron más de 24 h y falta configurar la plantilla de aviso."
+                : `Quedó guardada, pero no salió por WhatsApp (${whatsapp.reason}).`,
+          };
+        }
+        return { ok: true, message: whatsapp.via === "template" ? "Enviada por WhatsApp como aviso (pasaron más de 24 h)." : "Enviada por WhatsApp." };
+      }
+    }
   } else {
     await prisma.devTaskComment.create({ data: { taskId: parsed.id, authorUserId: user.id, body } });
   }
@@ -157,4 +175,64 @@ export async function createWorkspaceTaskAction(input: { title: string; descript
   await createAuditLog({ action: "workspace.task_created", targetType: "dev_task", targetId: task.id, actorUserId: user.id, metadata: { title } });
   done();
   return { ok: true, key: `D-${task.id}` };
+}
+
+/** Contactos de WhatsApp: agregar, vincular con una cuenta, abrir ticket y escribirles. Solo admin y soporte. */
+async function requireSupportTeam() {
+  const user = await requireTeam().catch(() => null);
+  return user && user.role !== "DEVELOPER" ? user : null;
+}
+
+export async function saveSupportContactAction(input: { phone: string; name: string; tenantId: string }): Promise<WorkspaceActionResult> {
+  const user = await requireSupportTeam();
+  if (!user) return { ok: false, message: "Solo admin y soporte manejan contactos." };
+  const phone = normalizePhone(input.phone);
+  if (phone.length < 10) return { ok: false, message: "Poné el número con característica, por ejemplo 54 9 223 555 1234." };
+  const tenantId = input.tenantId ? ((await prisma.tenant.findUnique({ where: { id: input.tenantId }, select: { id: true } }))?.id ?? null) : null;
+  const name = sanitizeText(String(input.name ?? "")).trim().slice(0, 120) || null;
+  await prisma.supportContact.upsert({
+    where: { phone },
+    create: { phone, name, tenantId },
+    update: { ...(name ? { name } : {}), tenantId },
+  });
+  await createAuditLog({ action: "workspace.contact_saved", targetType: "support_contact", targetId: phone, actorUserId: user.id, metadata: { tenantId } });
+  done();
+  return { ok: true, message: "Contacto guardado." };
+}
+
+export async function linkSupportContactAction(contactId: string, tenantId: string): Promise<WorkspaceActionResult> {
+  const user = await requireSupportTeam();
+  if (!user) return { ok: false, message: "Solo admin y soporte manejan contactos." };
+  const tenant = tenantId ? await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true } }) : null;
+  await prisma.supportContact.update({ where: { id: contactId }, data: { tenantId: tenant?.id ?? null } });
+  done();
+  return { ok: true };
+}
+
+export async function openContactTicketAction(contactId: string): Promise<WorkspaceActionResult & { key?: string }> {
+  const user = await requireSupportTeam();
+  if (!user) return { ok: false, message: "Solo admin y soporte manejan contactos." };
+  try {
+    const ticketId = await openTicketForContact(contactId, "Abierto a mano desde Contactos");
+    done();
+    return { ok: true, key: `T-${ticketId}` };
+  } catch {
+    return { ok: false, message: "Primero vinculá el número con una cuenta." };
+  }
+}
+
+export async function startWhatsappChatAction(contactId: string): Promise<WorkspaceActionResult> {
+  const user = await requireSupportTeam();
+  if (!user) return { ok: false, message: "Solo admin y soporte manejan contactos." };
+  const contact = await prisma.supportContact.findUnique({ where: { id: contactId }, select: { phone: true, name: true } });
+  if (!contact) return { ok: false, message: "No encontramos ese contacto." };
+  const result = await sendWhatsappTemplate(contact.phone, "start", [contact.name?.split(" ")[0] || "¡hola"]);
+  if (!result.ok) {
+    return {
+      ok: false,
+      message: result.error === "TEMPLATE_NOT_CONFIGURED" ? "Falta configurar la plantilla para empezar charlas (WHATSAPP_START_TEMPLATE)." : `No salió: ${result.error}`,
+    };
+  }
+  await createAuditLog({ action: "workspace.whatsapp_started", targetType: "support_contact", targetId: contactId, actorUserId: user.id });
+  return { ok: true, message: "Mensaje enviado. Cuando conteste, la charla aparece en Labs y, si pide ayuda, en el tablero." };
 }

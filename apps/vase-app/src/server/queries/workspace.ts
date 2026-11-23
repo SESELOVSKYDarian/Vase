@@ -158,6 +158,7 @@ export async function getWorkspaceItem(kind: WorkspaceKind, id: string) {
         customerName: true,
         customerContact: true,
         resolutionSummary: true,
+        labsConversationId: true,
         createdAt: true,
         updatedAt: true,
         tenant: { select: { accountName: true } },
@@ -203,6 +204,7 @@ export async function getWorkspaceItem(kind: WorkspaceKind, id: string) {
         ["Origen", ticket.source === "AI_ESCALATION" ? "Lo pasó la IA" : "Cargado a mano"],
       ] as Array<[string, string]>,
       dueAt: null as string | null,
+      whatsapp: Boolean(ticket.labsConversationId),
       createdAt: ticket.createdAt.toISOString(),
       updatedAt: ticket.updatedAt.toISOString(),
       thread,
@@ -249,6 +251,7 @@ export async function getWorkspaceItem(kind: WorkspaceKind, id: string) {
       ["Lo cargó", task.createdByUser.name],
     ] as Array<[string, string]>,
     dueAt: task.dueAt?.toISOString() ?? null,
+    whatsapp: false,
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
     thread: task.comments.map((comment) => ({
@@ -262,3 +265,33 @@ export async function getWorkspaceItem(kind: WorkspaceKind, id: string) {
 }
 
 export type WorkspaceItemDetail = NonNullable<Awaited<ReturnType<typeof getWorkspaceItem>>>;
+
+/** Números de WhatsApp que escribieron (o se cargaron a mano), con la cuenta a la que están vinculados. */
+export async function listSupportContacts() {
+  const [contacts, tenants] = await Promise.all([
+    prisma.supportContact.findMany({ orderBy: [{ lastRequestAt: "desc" }, { createdAt: "desc" }], take: 300 }),
+    prisma.tenant.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" }, take: 1000 }),
+  ]);
+  const tenantName = new Map(tenants.map((tenant) => [tenant.id, tenant.name]));
+  const openTickets = contacts.length
+    ? await prisma.supportTicket.groupBy({
+        by: ["labsConversationId"],
+        where: { labsConversationId: { in: contacts.map((contact) => contact.labsConversationId).filter((id): id is string => Boolean(id)) }, status: { notIn: ["RESOLVED", "CLOSED"] } },
+        _count: { _all: true },
+      })
+    : [];
+  const open = new Map(openTickets.map((row) => [row.labsConversationId, row._count._all]));
+  return {
+    tenants,
+    contacts: contacts.map((contact) => ({
+      id: contact.id,
+      phone: contact.phone,
+      name: contact.name,
+      tenantId: contact.tenantId,
+      tenantName: contact.tenantId ? (tenantName.get(contact.tenantId) ?? "Cuenta borrada") : null,
+      lastRequestAt: contact.lastRequestAt?.toISOString() ?? null,
+      openTickets: contact.labsConversationId ? (open.get(contact.labsConversationId) ?? 0) : 0,
+      hasConversation: Boolean(contact.labsConversationId),
+    })),
+  };
+}

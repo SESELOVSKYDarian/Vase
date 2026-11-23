@@ -16,7 +16,7 @@ type InboxReplyConversation = {
   lastInboundAt?: Date | string | null;
 };
 
-type InboxReplyHandlerDependencies = {
+export type InboxReplyHandlerDependencies = {
   resolveContext(cookieHeader: string | null): Promise<{
     context: { tenantSlug: string; globalTenantId: string };
   }>;
@@ -311,8 +311,8 @@ export function createInboxReplyHandler(dependencies: InboxReplyHandlerDependenc
   };
 }
 
-export const POST = createInboxReplyHandler({
-  resolveContext: resolveLabsRequestContext,
+/** Cómo se busca, manda y guarda una respuesta. Lo usa también la ruta interna de soporte de Vase. */
+export const inboxReplyDeliveryDependencies: Omit<InboxReplyHandlerDependencies, "resolveContext"> = {
   async findConversation(input) {
     const conversation = await (labsPrisma as any).conversation.findFirst({
       where: {
@@ -358,4 +358,9 @@ export const POST = createInboxReplyHandler({
   markReplyDelivery(input) {
     return markHumanInboxReplyDelivery(labsPrisma as any, input);
   },
+};
+
+export const POST = createInboxReplyHandler({
+  resolveContext: resolveLabsRequestContext,
+  ...inboxReplyDeliveryDependencies,
 });

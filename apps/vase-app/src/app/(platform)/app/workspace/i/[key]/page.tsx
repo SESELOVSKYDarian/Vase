@@ -48,6 +48,7 @@ export default async function WorkspaceItemPage({ params }: { params: Promise<{ 
           <section className="vpa-card stack">
             <div className="wsp-meta">
               <span className={`wsp-kind ${item.kind}`}>{isTicket ? "Ticket" : "Trabajo"}</span>
+              {item.whatsapp ? <span className="vpa-tag g"><i />WhatsApp</span> : null}
               <span className="wsp-code">{item.code}</span>
               <span>· creado el {when(item.createdAt)}</span>
             </div>
@@ -87,7 +88,7 @@ export default async function WorkspaceItemPage({ params }: { params: Promise<{ 
                 ),
               )}
             </div>
-            <WorkspaceComposer itemKey={item.key} isTicket={isTicket} canReplyCustomer={ctx.role !== "DEVELOPER"} />
+            <WorkspaceComposer itemKey={item.key} isTicket={isTicket} canReplyCustomer={ctx.role !== "DEVELOPER"} whatsapp={item.whatsapp} />
           </section>
         </div>
 

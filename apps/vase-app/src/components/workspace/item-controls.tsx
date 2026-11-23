@@ -20,18 +20,21 @@ function useAction() {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const run = (call: () => Promise<WorkspaceActionResult>, after?: () => void) => {
     setError(null);
+    setNotice(null);
     start(async () => {
       const result = await call().catch(() => ({ ok: false, message: "No pudimos guardar." }));
       if (!result.ok) setError(result.message ?? "No pudimos guardar.");
       else {
+        if (result.message) setNotice(result.message);
         after?.();
         router.refresh();
       }
     });
   };
-  return { pending, error, run };
+  return { pending, error, notice, run };
 }
 
 /** Panel derecho del detalle: estado, prioridad y responsable. Cada cambio se guarda solo. */
@@ -99,8 +102,18 @@ export function WorkspaceProps({
 }
 
 /** Caja para comentar. En tickets se elige si lo ve el cliente o es una nota del equipo. */
-export function WorkspaceComposer({ itemKey, isTicket, canReplyCustomer }: { itemKey: string; isTicket: boolean; canReplyCustomer: boolean }) {
-  const { pending, error, run } = useAction();
+export function WorkspaceComposer({
+  itemKey,
+  isTicket,
+  canReplyCustomer,
+  whatsapp = false,
+}: {
+  itemKey: string;
+  isTicket: boolean;
+  canReplyCustomer: boolean;
+  whatsapp?: boolean;
+}) {
+  const { pending, error, notice, run } = useAction();
   const [body, setBody] = useState("");
   const [toCustomer, setToCustomer] = useState(false);
   return (
@@ -125,15 +138,20 @@ export function WorkspaceComposer({ itemKey, isTicket, canReplyCustomer }: { ite
               Nota interna
             </button>
             <button type="button" className={toCustomer ? "on" : undefined} aria-pressed={toCustomer} onClick={() => setToCustomer(true)}>
-              Responder al cliente
+              {whatsapp ? "Responder por WhatsApp" : "Responder al cliente"}
             </button>
           </nav>
         ) : null}
         <span style={{ flex: 1 }} />
         <button type="submit" className="vpa-btn acc" disabled={pending || body.trim().length < 2}>
-          {pending ? "Enviando…" : toCustomer ? "Enviar al cliente" : "Comentar"}
+          {pending ? "Enviando…" : toCustomer ? (whatsapp ? "Enviar por WhatsApp" : "Enviar al cliente") : "Comentar"}
         </button>
       </div>
+      {notice ? (
+        <p className="vpa-notice" role="status" style={{ margin: 0 }}>
+          {notice}
+        </p>
+      ) : null}
       {error ? (
         <p className="vpa-saveerr" role="alert" style={{ margin: 0 }}>
           {error}

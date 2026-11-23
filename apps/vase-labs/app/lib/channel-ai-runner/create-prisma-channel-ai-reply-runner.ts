@@ -16,6 +16,7 @@ import { confirmConversationOrderDraft, prepareConversationOrderDraft, prismaCon
 import { upsertBusinessOrderProjection } from "../order-projection";
 import { enrichLocalOrderSnapshot } from "../local-order-snapshot";
 import { createConversationQuote } from "../conversation-quote-service";
+import { notifyVaseSupportHandoffInBackground } from "../vase-support-bridge";
 import { createChannelAiReplyRunner, markPrismaAssistantReplyDelivery, persistPrismaAssistantReply } from "./channel-ai-reply-runner-deps";
 
 export function createPrismaChannelAiReplyRunner(input: {
@@ -158,6 +159,7 @@ export function createPrismaChannelAiReplyRunner(input: {
           data: { status: "ESCALATED", escalatedToHuman: true },
         });
       });
+      notifyVaseSupportHandoffInBackground(prisma as never, { conversationId, reason });
     },
     orders: {
       ...orders,
