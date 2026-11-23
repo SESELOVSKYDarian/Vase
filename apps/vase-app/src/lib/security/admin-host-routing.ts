@@ -111,7 +111,7 @@ export function isAdminUrl(value: string, input: AdminHostInput = {}) {
   }
 }
 
-function resolvePrimaryHost(input: AdminHostInput) {
+export function resolvePrimaryHost(input: AdminHostInput = {}) {
   return normalizeHost(
     input.primaryHost ?? process.env.VASE_PRIMARY_HOST ??
       ((input.nodeEnv ?? process.env.NODE_ENV) === "production" ? "app.vase.ar" : "localhost:3002"),

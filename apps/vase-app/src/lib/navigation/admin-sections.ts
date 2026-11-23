@@ -25,7 +25,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Soporte",
     group: "Trabajo",
     tabs: [
-      { href: "/app/admin/tickets", label: "Tickets" },
+      { href: "/app/admin/tickets", label: "Tickets ↗" },
       { href: "/app/admin/support", label: "Conocimiento de la IA" },
       { href: "/app/admin/faqs", label: "Respuestas guardadas" },
       { href: "/app/admin/wiki", label: "Ayuda y wiki" },
@@ -46,7 +46,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Productos",
     group: "Negocio",
     tabs: [
-      { href: "/app/admin/modules", label: "Business" },
+      { href: "/app/admin/modules", label: "Catálogo y precios" },
       { href: "/app/admin/labs", label: "Labs" },
       { href: "/app/admin/management", label: "Management" },
       { href: "/app/admin/rest", label: "Rest" },

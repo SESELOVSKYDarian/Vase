@@ -15,6 +15,7 @@ import {
   isAdminHost,
   resolveAdminAccessDecision,
 } from "@/lib/security/admin-host-routing";
+import { resolveWorkspaceAccessDecision } from "@/lib/security/workspace-host-routing";
 import {
   buildDefaultPlatformRedirectUrl,
   buildLabsHostRedirectUrl,
@@ -89,6 +90,27 @@ export default auth((request: NextRequest) => {
     const response = NextResponse.rewrite(adminHostDecision.url);
     const locale = resolveLocale(request.headers);
     response.headers.set("x-vase-locale", locale);
+    response.headers.set("x-vase-pathname", pathname);
+    response.headers.set("x-vase-email-verified", "true");
+    response.headers.set("x-vase-canonical-origin", new URL(publicRequestUrl).origin);
+    response.headers.set("Cache-Control", "private, no-store, max-age=0");
+    return response;
+  }
+
+  const workspaceDecision = resolveWorkspaceAccessDecision({
+    hostname,
+    url: publicRequestUrl,
+    isSignedIn,
+    isEmailVerified,
+    platformRole: authRequest.auth?.user?.platformRole,
+  });
+  if (workspaceDecision.type === "redirect") return NextResponse.redirect(workspaceDecision.url);
+  if (workspaceDecision.type === "reject") {
+    return NextResponse.json({ error: workspaceDecision.status === 403 ? "forbidden" : "not_found" }, { status: workspaceDecision.status });
+  }
+  if (workspaceDecision.type === "rewrite") {
+    const response = NextResponse.rewrite(workspaceDecision.url);
+    response.headers.set("x-vase-locale", resolveLocale(request.headers));
     response.headers.set("x-vase-pathname", pathname);
     response.headers.set("x-vase-email-verified", "true");
     response.headers.set("x-vase-canonical-origin", new URL(publicRequestUrl).origin);

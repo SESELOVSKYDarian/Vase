@@ -1,4 +1,6 @@
-import { forbidden } from "next/navigation";
+import type { Route } from "next";
+import { forbidden, redirect } from "next/navigation";
+import { resolveWorkspaceUrl } from "@/lib/security/workspace-host-routing";
 import { AdminSupportTicketsWorkspace } from "@/components/admin/admin-support-tickets-workspace";
 import { AppShell } from "@/components/layout/app-shell";
 import { Search } from "lucide-react";
@@ -21,6 +23,8 @@ export default async function AdminTicketsPage({ searchParams }: AdminTicketsPag
   }
 
   const params = await searchParams;
+  // Los tickets se trabajan en workspace.vase.ar. ?vista=admin deja ver la pantalla vieja por si hace falta.
+  if (getStringParam(params.vista) !== "admin") redirect(resolveWorkspaceUrl("/?ver=tickets") as Route);
   const status = getStringParam(params.status);
   const priority = getStringParam(params.priority);
   const source = getStringParam(params.source);

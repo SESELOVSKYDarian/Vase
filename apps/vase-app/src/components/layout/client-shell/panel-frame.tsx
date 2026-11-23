@@ -42,7 +42,7 @@ const FALLBACK_TITLES: Record<string, string> = {
 // el editor y las que solo redirigen. Sirve para decidir bien el primer dibujo, antes de que la página avise.
 function looksLikeClientPanel(pathname: string) {
   if (!pathname.startsWith("/app")) return false;
-  if (/^\/app\/(admin|embed|channels|management|labs)(\/|$)/.test(pathname)) return false;
+  if (/^\/app\/(admin|workspace|embed|channels|management|labs)(\/|$)/.test(pathname)) return false;
   if (pathname === "/app/owner" || pathname.endsWith("/editor")) return false;
   return true;
 }

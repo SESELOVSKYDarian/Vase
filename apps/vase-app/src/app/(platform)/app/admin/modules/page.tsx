@@ -15,8 +15,8 @@ export default async function AdminModulesPage() {
 
   return (
     <AppShell
-      title="Business"
-      subtitle="Los módulos de la tienda y en qué cuentas están prendidos"
+      title="Catálogo y precios"
+      subtitle="Todos los productos y planes, con su precio y en qué cuentas están prendidos"
       tenantLabel="Admin"
     >
       <AdminModulesConsole modules={modules} />

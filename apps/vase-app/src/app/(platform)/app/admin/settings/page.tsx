@@ -3,9 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { prisma } from "@/lib/db/prisma";
 import {
-  updateBusinessPlanSettingsAction,
   updateFinancialSettingsAction,
-  updateLabsPlanSettingsAction,
   updatePartnerConfigAction,
   upsertTokenPlanSettingAction,
 } from "@/app/(platform)/app/admin/actions";
@@ -27,11 +25,9 @@ export default async function AdminSettingsPage() {
     forbidden();
   }
 
-  const [partnerConfig, financialSettings, businessPlan, labsPlan, tokenPlans] = await Promise.all([
+  const [partnerConfig, financialSettings, tokenPlans] = await Promise.all([
     prisma.partnerConfig.findFirst({ where: { tenantId: null }, orderBy: { updatedAt: "desc" } }),
     prisma.financialSettings.findFirst({ where: { tenantId: null }, orderBy: { updatedAt: "desc" } }),
-    prisma.businessPlanSetting.findFirst({ where: { tenantId: null }, orderBy: { updatedAt: "desc" } }),
-    prisma.labsPlanSetting.findFirst({ where: { tenantId: null }, orderBy: { updatedAt: "desc" } }),
     prisma.tokenPlanSetting.findMany({ where: { tenantId: null }, orderBy: { key: "asc" } }),
   ]);
 
@@ -48,45 +44,8 @@ export default async function AdminSettingsPage() {
   };
 
   return (
-    <AppShell title="Reglas de cobro" subtitle="Precios de los planes, cómo se reparte lo que entra y otras reglas" tenantLabel="Admin">
+    <AppShell title="Reglas de cobro" subtitle="Hosting, reparto de lo que entra y paquetes de tokens. Los precios de cada producto están en Productos." tenantLabel="Admin">
       <section className="vpa-g2" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}>
-        <form action={updateBusinessPlanSettingsAction} className="vpa-card stack">
-          <div className="vpa-sech">
-            <div className="vpa-g1">
-              <h3>Precios de Business</h3>
-              <p>Plan base y plan a medida.</p>
-            </div>
-          </div>
-          <div className="vpa-form">
-            {money("basePlanPrice", "Plan base", toNumber(businessPlan?.basePlanPrice ?? 1070000))}
-            {money("customPlanPrice", "Plan a medida", toNumber(businessPlan?.customPlanPrice ?? 1800000))}
-            {money("includedHostingYearValue", "Hosting incluido (valor)", toNumber(businessPlan?.includedHostingYearValue ?? 280000))}
-            {money("customHostingYearPrice", "Hosting por año (a medida)", toNumber(businessPlan?.customHostingYearPrice ?? 280000))}
-            {money("customInitialPercent", "% que se paga al empezar", toNumber(businessPlan?.customInitialPercent ?? 50))}
-            {money("customFinalPercent", "% que se paga al entregar", toNumber(businessPlan?.customFinalPercent ?? 50))}
-          </div>
-          <div>
-            <button className="vpa-btn acc">Guardar</button>
-          </div>
-        </form>
-
-        <form action={updateLabsPlanSettingsAction} className="vpa-card stack">
-          <div className="vpa-sech">
-            <div className="vpa-g1">
-              <h3>Precios de Labs</h3>
-              <p>Lo que se cobra por mes en cada plan.</p>
-            </div>
-          </div>
-          <div className="vpa-form">
-            {money("starterPrice", "Starter", toNumber(labsPlan?.starterPrice ?? 120000))}
-            {money("growthPrice", "Growth", toNumber(labsPlan?.growthPrice ?? 170000))}
-            {money("proPrice", "Pro", toNumber(labsPlan?.proPrice ?? 220000))}
-          </div>
-          <div>
-            <button className="vpa-btn acc">Guardar</button>
-          </div>
-        </form>
-
         <form action={updateFinancialSettingsAction} className="vpa-card stack">
           <div className="vpa-sech">
             <div className="vpa-g1">
