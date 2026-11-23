@@ -60,7 +60,7 @@ export async function startMercadoPagoCheckoutAction(paymentId: string): Promise
     const payment = await findPayable(paymentId, membership.tenantId);
     if (!payment) return { ok: false, message: "Ese pago ya no está pendiente." };
 
-    const url = await createCheckoutUrl(payment, session.user.email ?? null);
+    const url = await createCheckoutUrl(payment);
     if (!url) return GENERIC_ERROR;
     await createAuditLog({
       action: "billing.checkout_started",

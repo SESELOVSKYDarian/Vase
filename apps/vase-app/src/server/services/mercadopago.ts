@@ -156,7 +156,11 @@ export type PayableClientPayment = {
   paidAmount: Prisma.Decimal;
 };
 
-export async function createCheckoutUrl(payment: PayableClientPayment, payerEmail: string | null) {
+/**
+ * Link de pago de Checkout Pro. No se manda el correo del pagador: quien paga entra con la cuenta de Mercado Pago
+ * que quiera (aunque no sea el correo de Vase); si se manda uno distinto, Mercado Pago corta el pago.
+ */
+export async function createCheckoutUrl(payment: PayableClientPayment) {
   const due = amountDue(Number(payment.totalAmount), Number(payment.paidAmount));
   const backUrl = new URL("/app/billing", appOrigin()).toString();
   const result = await mpRequest<{ init_point?: string }>("/checkout/preferences", {
@@ -167,7 +171,6 @@ export async function createCheckoutUrl(payment: PayableClientPayment, payerEmai
       notification_url: notificationUrl(),
       back_urls: { success: backUrl, pending: backUrl, failure: backUrl },
       auto_return: "approved",
-      ...(payerEmail ? { payer: { email: payerEmail } } : {}),
     },
   });
   return result.ok ? (result.data.init_point ?? null) : null;
