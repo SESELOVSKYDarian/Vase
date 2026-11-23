@@ -213,7 +213,7 @@ export async function openContactTicketAction(contactId: string): Promise<Worksp
   const user = await requireSupportTeam();
   if (!user) return { ok: false, message: "Solo admin y soporte manejan contactos." };
   try {
-    const ticketId = await openTicketForContact(contactId, "Abierto a mano desde Contactos");
+    const { ticketId } = await openTicketForContact(contactId, "Abierto a mano desde Contactos");
     done();
     return { ok: true, key: `T-${ticketId}` };
   } catch {

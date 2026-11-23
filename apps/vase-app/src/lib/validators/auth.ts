@@ -28,12 +28,12 @@ export const registerSchema = z.object({
   email: z.email().trim().toLowerCase(),
   password: z
     .string()
-    .min(12, "La contrasena debe tener al menos 12 caracteres.")
+    .min(12, "Tiene que tener 12 caracteres o más.")
     .max(72)
-    .regex(/[A-Z]/, "Incluye al menos una letra mayuscula.")
-    .regex(/[a-z]/, "Incluye al menos una letra minuscula.")
-    .regex(/[0-9]/, "Incluye al menos un numero.")
-    .regex(/[^A-Za-z0-9]/, "Incluye al menos un simbolo."),
+    .regex(/[A-Z]/, "Falta una mayúscula.")
+    .regex(/[a-z]/, "Falta una minúscula.")
+    .regex(/[0-9]/, "Falta un número.")
+    .regex(/[^A-Za-z0-9]/, "Falta un símbolo."),
   industry: z.string().trim().min(2).max(80),
   businessGoal: z.string().trim().min(12).max(400),
   selectedModules: z.array(onboardingModuleSchema).default([]),
@@ -56,15 +56,15 @@ export const resetPasswordSchema = z
     token: z.string().min(20),
     password: z
       .string()
-      .min(12, "La contrasena debe tener al menos 12 caracteres.")
+      .min(12, "Tiene que tener 12 caracteres o más.")
       .max(72)
-      .regex(/[A-Z]/, "Incluye al menos una letra mayuscula.")
-      .regex(/[a-z]/, "Incluye al menos una letra minuscula.")
-      .regex(/[0-9]/, "Incluye al menos un numero.")
-      .regex(/[^A-Za-z0-9]/, "Incluye al menos un simbolo."),
-    confirmPassword: z.string().min(12).max(72),
+      .regex(/[A-Z]/, "Falta una mayúscula.")
+      .regex(/[a-z]/, "Falta una minúscula.")
+      .regex(/[0-9]/, "Falta un número.")
+      .regex(/[^A-Za-z0-9]/, "Falta un símbolo."),
+    confirmPassword: z.string().min(1, "Repetí la contraseña.").max(72),
   })
   .refine((value) => value.password === value.confirmPassword, {
-    message: "Las contrasenas no coinciden.",
+    message: "Las contraseñas no coinciden.",
     path: ["confirmPassword"],
   });

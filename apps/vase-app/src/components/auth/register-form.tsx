@@ -9,6 +9,7 @@ import { registerAction } from "@/app/(auth)/actions";
 import { AuthNotice } from "@/components/auth/auth-notice";
 import { authChoice, authHint, authInput, authLabel, authLink, authPanel, authSecondaryButton, authTextarea } from "@/components/auth/auth-ui";
 import { FieldError } from "@/components/auth/field-error";
+import { PasswordRules } from "@/components/auth/password-field";
 import Stepper, { Step } from "@/components/ui/stepper";
 import {
   getLabsPlanDefinition,
@@ -192,6 +193,7 @@ export function RegisterForm() {
   const [selectedModules, setSelectedModules] = useState<OnboardingModuleId[]>(["business_core"]);
   const [selectedLabsPlan, setSelectedLabsPlan] = useState<LabsPlanId | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordValue, setPasswordValue] = useState("");
   const [hasCustomizedModules, setHasCustomizedModules] = useState(false);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isTranscribingAudio, setIsTranscribingAudio] = useState(false);
@@ -812,6 +814,7 @@ export function RegisterForm() {
                     required
                     minLength={12}
                     aria-describedby="password-hint"
+                    onChange={(event) => setPasswordValue(event.target.value)}
                     className={`${authInput} pr-12`}
                   />
                   <button
@@ -824,9 +827,7 @@ export function RegisterForm() {
                     {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                   </button>
                 </div>
-                <p id="password-hint" className={authHint}>
-                  Mínimo 12 caracteres, con mayúscula, minúscula, número y símbolo.
-                </p>
+                <PasswordRules value={passwordValue} id="password-hint" />
                 <FieldError message={getFieldError(state, "password")} />
               </div>
             </div>

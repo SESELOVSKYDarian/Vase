@@ -54,7 +54,44 @@ export async function handleWhatsappSupportRequest(input: WhatsappSupportRequest
   }
 
   if (!contact.tenantId) return { linked: false as const, contactId: contact.id };
-  return { linked: true as const, contactId: contact.id, ticketId: await openTicketForContact(contact.id, input.reason ?? null, recent) };
+  const opened = await openTicketForContact(contact.id, input.reason ?? null, recent);
+  if (opened.created) await acknowledgeWhatsappTicket(opened.ticketId, input.conversationId).catch(() => undefined);
+  return { linked: true as const, contactId: contact.id, ticketId: opened.ticketId };
+}
+
+function maskEmail(email: string) {
+  const [user, domain] = email.split("@");
+  if (!user || !domain) return email;
+  return `${user.slice(0, 2)}${"•".repeat(Math.max(2, Math.min(6, user.length - 2)))}@${domain}`;
+}
+
+/**
+ * Apenas se abre el ticket (el cliente acaba de escribir: estamos dentro de las 24 h, es gratis),
+ * le avisamos que lo vamos a analizar y que, si no le respondemos por acá en 24 h, le llega al correo.
+ */
+export async function acknowledgeWhatsappTicket(ticketId: string, labsConversationId: string) {
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    select: {
+      id: true,
+      createdByUser: { select: { email: true } },
+      tenant: { select: { billingEmail: true, primaryOwner: { select: { email: true } } } },
+    },
+  });
+  if (!ticket) return;
+  const email = ticket.createdByUser?.email ?? ticket.tenant.primaryOwner?.email ?? ticket.tenant.billingEmail;
+  const code = `SOP-${ticket.id.slice(-5).toUpperCase()}`;
+  const text = [
+    `¡Gracias por escribirnos! Ya cargamos tu pedido (${code}) y lo vamos a estar analizando.`,
+    email
+      ? `Si no te respondemos por acá en las próximas 24 horas, te mandamos la respuesta a tu correo (${maskEmail(email)}).`
+      : "Si no te respondemos por acá en las próximas 24 horas, te mandamos la respuesta a tu correo.",
+  ].join("\n\n");
+  const result = await sendWhatsappReply(labsConversationId, text);
+  await createSupportTicketEvent(ticket.id, "AGENT_REPLIED", result.ok ? "Aviso automático enviado por WhatsApp." : "No se pudo mandar el aviso automático por WhatsApp.", undefined, {
+    whatsapp: result.ok ? "sent" : "failed",
+    automatic: true,
+  });
 }
 
 /** Abre un ticket para el contacto (o suma el pedido al que ya está abierto con la misma conversación). */
@@ -72,7 +109,7 @@ export async function openTicketForContact(contactId: string, reason: string | n
   if (open) {
     await prisma.supportTicket.update({ where: { id: open.id }, data: { lastCustomerMessageAt: new Date(), waitingSince: new Date() } });
     await createSupportTicketEvent(open.id, "CUSTOMER_UPDATED", summary || "El cliente volvió a escribir por WhatsApp.");
-    return open.id;
+    return { ticketId: open.id, created: false };
   }
 
   const firstLine = (recent.at(-1) ?? reason ?? "Pedido por WhatsApp").replace(/\s+/g, " ").slice(0, 120);
@@ -93,7 +130,7 @@ export async function openTicketForContact(contactId: string, reason: string | n
     select: { id: true },
   });
   await createSupportTicketEvent(ticket.id, "CREATED", "Ticket creado desde WhatsApp.", undefined, { phone: contact.phone });
-  return ticket.id;
+  return { ticketId: ticket.id, created: true };
 }
 
 /** Manda un texto al cliente por WhatsApp en la conversación de Labs del ticket. */

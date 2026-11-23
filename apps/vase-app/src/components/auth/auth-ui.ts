@@ -4,10 +4,10 @@
 export const authLabel = "block text-sm font-medium text-[#2b322e]";
 
 export const authInput =
-  "min-h-12 w-full rounded-xl border border-[#d9e1db] bg-white px-4 text-[15px] text-[#191c1b] shadow-[0_1px_2px_rgba(25,28,27,0.04)] outline-none transition placeholder:text-[#9aa7a0] hover:border-[#c3cec6] focus:border-[#3B633D] focus:ring-4 focus:ring-[#3B633D]/12";
+  "min-h-12 w-full rounded-xl border border-[#d9e1db] bg-white px-4 text-[15px] text-[#191c1b] shadow-[0_1px_2px_rgba(25,28,27,0.04)] outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out placeholder:text-[#9aa7a0] hover:border-[#c3cec6] focus:border-[#3B633D] focus:shadow-[0_0_0_4px_rgba(59,99,61,0.12),0_1px_2px_rgba(25,28,27,0.04)] aria-[invalid=true]:border-[#e0a48d] aria-[invalid=true]:focus:shadow-[0_0_0_4px_rgba(180,83,47,0.12)]";
 
 export const authTextarea =
-  "min-h-36 w-full rounded-xl border border-[#d9e1db] bg-white px-4 py-3 text-[15px] leading-7 text-[#191c1b] shadow-[0_1px_2px_rgba(25,28,27,0.04)] outline-none transition placeholder:text-[#9aa7a0] hover:border-[#c3cec6] focus:border-[#3B633D] focus:ring-4 focus:ring-[#3B633D]/12";
+  "min-h-36 w-full rounded-xl border border-[#d9e1db] bg-white px-4 py-3 text-[15px] leading-7 text-[#191c1b] shadow-[0_1px_2px_rgba(25,28,27,0.04)] outline-none transition-[border-color,box-shadow] duration-200 ease-out placeholder:text-[#9aa7a0] hover:border-[#c3cec6] focus:border-[#3B633D] focus:shadow-[0_0_0_4px_rgba(59,99,61,0.12)]";
 
 export const authPrimaryButton =
   "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#3B633D] px-5 text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(25,28,27,0.08),0_10px_24px_-10px_rgba(59,99,61,0.6)] transition hover:bg-[#335636] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#3B633D]/25 disabled:cursor-not-allowed disabled:opacity-60";
