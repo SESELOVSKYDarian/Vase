@@ -222,8 +222,14 @@ export async function registerTenantOwner(
 
   await sendAuthEmail({
     email: result.user.email,
-    subject: "Verifica tu email en Vase",
+    subject: "Confirmá tu correo para empezar con Vase",
     actionUrl: verifyUrl,
+    title: "Confirmá tu correo",
+    greeting: result.user.name ? `Hola, ${result.user.name.split(" ")[0]}` : "Hola",
+    paragraphs: ["Gracias por crear tu cuenta en Vase. Confirmá que este correo es tuyo y ya podés entrar a tu panel."],
+    buttonLabel: "Confirmar mi correo",
+    note: "El enlace se puede usar una sola vez. Si no creaste una cuenta en Vase, ignorá este correo.",
+    reason: "Recibiste este correo porque se creó una cuenta de Vase con esta dirección.",
   });
 
   await createAuditLog({

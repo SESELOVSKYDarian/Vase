@@ -53,6 +53,11 @@ export async function createTeamInvitation(input: {
     email: input.email,
     subject: `Te invitaron al equipo de ${input.tenantName} en Vase`,
     actionUrl: invitationUrl(token),
+    title: `Te sumaron a ${input.tenantName}`,
+    paragraphs: [`Te invitaron a trabajar con el equipo de ${input.tenantName} en Vase. Aceptá la invitación para entrar.`],
+    buttonLabel: "Aceptar invitación",
+    note: "La invitación dura 7 días. Si no esperabas este correo, podés ignorarlo.",
+    reason: `Recibiste este correo porque alguien de ${input.tenantName} te invitó a su cuenta de Vase.`,
   });
 
   return invitation;

@@ -95,15 +95,18 @@ export async function sendLoginSecurityEmail(params: {
   try {
     await sendNoticeEmail({
       email: params.email,
-      subject: "Nuevo inicio de sesion en tu cuenta Vase",
-      message: [
-        params.name ? `Hola ${params.name},` : "Hola,",
-        "Detectamos un inicio de sesion correcto en tu cuenta Vase.",
-        `Fecha y hora: ${new Date().toLocaleString("es-AR")}`,
-        `Origen: ${locationHint}`,
-        `Dispositivo/navegador: ${deviceHint}`,
-        "Si no fuiste vos, cambia tu contrasena y contacta soporte.",
-      ].join("\n"),
+      subject: "Nuevo inicio de sesión en tu cuenta de Vase",
+      title: "Entraste a tu cuenta",
+      greeting: params.name ? `Hola, ${params.name.split(" ")[0]}` : "Hola",
+      message: "Alguien entró a tu cuenta de Vase. Si fuiste vos, no tenés que hacer nada.",
+      details: [
+        ["Cuándo", new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", dateStyle: "long", timeStyle: "short" })],
+        ["Desde", locationHint],
+        ["Dispositivo", describeDevice(deviceHint)],
+      ],
+      button: { label: "No fui yo: cambiar contraseña", url: securityUrl("/forgot-password") },
+      note: "Si no reconocés este ingreso, cambiá tu contraseña ahora y escribinos.",
+      reason: "Te avisamos cada vez que alguien entra a tu cuenta, para cuidarla.",
     });
   } catch (error) {
     console.warn("[auth] login security email failed", {
@@ -122,14 +125,28 @@ export async function sendTooManyAttemptsEmail(params: {
 }) {
   await sendNoticeEmail({
     email: params.email,
-    subject: "Bloqueo temporal por intentos de login",
-    message: [
-      params.name ? `Hola ${params.name},` : "Hola,",
-      "Registramos demasiados intentos fallidos de inicio de sesion hoy.",
-      "Tu cuenta fue bloqueada temporalmente por 24 horas para protegerla.",
-      `IP detectada: ${params.requestContext.ipAddress}`,
-      `Dispositivo/navegador: ${params.requestContext.userAgent ?? "No disponible"}`,
-      "Si fuiste vos, vuelve a intentarlo mas tarde. Si no, cambia tu contrasena cuanto antes.",
-    ].join("\n"),
+    subject: "Frenamos los intentos de entrar a tu cuenta de Vase",
+    title: "Pausamos el ingreso a tu cuenta",
+    greeting: params.name ? `Hola, ${params.name.split(" ")[0]}` : "Hola",
+    message: "Hubo demasiados intentos fallidos de entrar a tu cuenta hoy. Para protegerla, el ingreso queda pausado por 24 horas.",
+    details: [
+      ["Desde", `IP ${params.requestContext.ipAddress}`],
+      ["Dispositivo", describeDevice(params.requestContext.userAgent ?? "No disponible")],
+    ],
+    button: { label: "Cambiar contraseña", url: securityUrl("/forgot-password") },
+    note: "Si fuiste vos, probá de nuevo más tarde. Si no, cambiá tu contraseña cuanto antes.",
+    reason: "Te avisamos porque detectamos intentos de entrar a tu cuenta.",
   });
+}
+
+
+const appOrigin = () => (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.vase.ar").replace(/\/+$/, "");
+const securityUrl = (path: string) => `${appOrigin()}${path}`;
+
+/** "Mozilla/5.0 (Windows NT 10.0...) Chrome/131..." -> "Chrome en Windows". */
+function describeDevice(userAgent: string) {
+  const browser = /Edg\//.test(userAgent) ? "Edge" : /OPR\//.test(userAgent) ? "Opera" : /Firefox\//.test(userAgent) ? "Firefox" : /Chrome\//.test(userAgent) ? "Chrome" : /Safari\//.test(userAgent) ? "Safari" : null;
+  const system = /iPhone|iPad/.test(userAgent) ? "iPhone" : /Android/.test(userAgent) ? "Android" : /Windows/.test(userAgent) ? "Windows" : /Mac OS X/.test(userAgent) ? "Mac" : /Linux/.test(userAgent) ? "Linux" : null;
+  if (browser && system) return `${browser} en ${system}`;
+  return browser ?? system ?? userAgent.slice(0, 80);
 }

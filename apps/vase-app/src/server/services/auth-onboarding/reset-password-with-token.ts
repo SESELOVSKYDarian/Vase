@@ -25,8 +25,13 @@ export async function resendVerificationEmail(userId: string, requestContext: Re
 
   await sendAuthEmail({
     email: user.email,
-    subject: "Nuevo enlace de verificacion de Vase",
+    subject: "Tu nuevo enlace para confirmar el correo",
     actionUrl: buildAbsoluteUrl(`/verify-email?token=${token.token}`, requestContext),
+    title: "Confirmá tu correo",
+    paragraphs: ["Pediste un enlace nuevo para confirmar tu correo. Tocá el botón y listo."],
+    buttonLabel: "Confirmar mi correo",
+    note: "Los enlaces anteriores ya no sirven. Este se puede usar una sola vez.",
+    reason: "Recibiste este correo porque se pidió confirmar esta dirección en Vase.",
   });
 
   return { alreadyVerified: false as const };
@@ -68,8 +73,13 @@ export async function requestPasswordReset(email: string, requestContext: Reques
 
   await sendAuthEmail({
     email,
-    subject: "Recupera tu acceso a Vase",
+    subject: "Cambiá tu contraseña de Vase",
     actionUrl: buildAbsoluteUrl(`/reset-password?token=${token.token}`, requestContext),
+    title: "Creá una contraseña nueva",
+    paragraphs: ["Recibimos un pedido para cambiar la contraseña de tu cuenta. Tocá el botón para elegir una nueva."],
+    buttonLabel: "Cambiar contraseña",
+    note: "El enlace vence pronto y se puede usar una sola vez. Si no lo pediste vos, ignorá este correo: tu contraseña sigue igual.",
+    reason: "Recibiste este correo porque se pidió cambiar la contraseña de esta cuenta de Vase.",
   });
 
   await createAuditLog({
