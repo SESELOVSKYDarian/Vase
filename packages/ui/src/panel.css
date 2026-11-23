@@ -665,3 +665,8 @@
   .vpa-body { padding: 32px 56px; }
   .vpa-wrap { max-width: 1520px; }
 }
+
+/* Admin: pestañas arriba del contenido y etiqueta de la marca */
+.vpa-admin-tabs { align-self: flex-start; max-width: 100%; overflow-x: auto; margin-bottom: 20px; }
+.vpa-admin-body { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+:where(.vpa, .vp) .vase-pill.admin { --brand-pill-bg: #1f2937; --brand-pill-tx: #f3f4f6; }

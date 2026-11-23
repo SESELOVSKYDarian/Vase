@@ -1,176 +1,229 @@
 import type { Route } from "next";
 import { forbidden } from "next/navigation";
 import Link from "next/link";
+import { CalendarDays, FileText, LifeBuoy, Wallet } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminAccessHealthChart, AdminFinanceTrendChart } from "@/components/admin/admin-dashboard-charts";
-import { AdminMetricCard, AdminPageHeader, AdminSection, AdminStatusPill, adminStatusIcons } from "@/components/admin/admin-ui";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
+import { prisma } from "@/lib/db/prisma";
 import { getMasterV2Dashboard } from "@/server/queries/v2-dashboards";
-import { CalendarDays, CircleDollarSign, LifeBuoy, ShieldAlert, UserCog } from "lucide-react";
 
-function money(value: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+const money = (value: number) =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(value);
 
-function fmtDate(value: Date) {
-  return new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short" }).format(value);
-}
+const time = (value: Date) =>
+  new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }).format(value);
 
+const PRODUCT_NAMES: Record<string, string> = { BUSINESS: "Business", LABS: "Labs", MANAGEMENT: "Management", REST: "Rest" };
+
+const STATUS: Record<string, { label: string; cls: string }> = {
+  ACTIVE: { label: "Al día", cls: "g" },
+  TRIAL: { label: "En prueba", cls: "y" },
+  PAST_DUE: { label: "Vencido", cls: "r" },
+  CANCELED: { label: "Cancelado", cls: "" },
+};
+
+/** Inicio del Admin: cómo está Vase hoy y lo que necesita tu ok, con atajos a cada sección. */
 export default async function AdminPage() {
+  let session;
   try {
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
+    session = await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
   } catch {
     forbidden();
   }
 
-  const dashboard = await getMasterV2Dashboard();
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
+
+  const [dashboard, unpaid, activeTenants, newTenants, quotesWaiting, nextMeeting, recentTenants] = await Promise.all([
+    getMasterV2Dashboard(),
+    prisma.clientPayment.findMany({
+      where: { paidAt: null, status: { not: "CANCELED" } },
+      select: { tenantId: true, totalAmount: true, paidAmount: true, dueAt: true },
+    }),
+    prisma.tenant.count({ where: { status: "ACTIVE" } }),
+    prisma.tenant.count({ where: { createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) } } }),
+    prisma.customQuote.count({ where: { status: "PENDING_CLIENT" } }),
+    prisma.customProjectMeetingBooking.findFirst({
+      where: { scheduledStart: { gte: now, lt: todayEnd }, status: "SCHEDULED" },
+      orderBy: { scheduledStart: "asc" },
+      select: { scheduledStart: true, tenant: { select: { name: true } } },
+    }),
+    prisma.tenant.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: {
+        id: true,
+        name: true,
+        industry: true,
+        subscription: { select: { billingStatus: true } },
+        tenantModules: { where: { isActive: true }, select: { module: { select: { product: true } } } },
+      },
+    }),
+  ]);
+
+  const owed = unpaid.reduce((sum, row) => sum + Math.max(0, Number(row.totalAmount) - Number(row.paidAmount)), 0);
+  const owingTenants = new Set(unpaid.map((row) => row.tenantId)).size;
+  const overdue = unpaid.filter((row) => row.dueAt && row.dueAt < now);
+  const overdueAmount = overdue.reduce((sum, row) => sum + Math.max(0, Number(row.totalAmount) - Number(row.paidAmount)), 0);
+  const oldestOverdueDays = overdue.length
+    ? Math.max(...overdue.map((row) => Math.floor((now.getTime() - (row.dueAt as Date).getTime()) / 86_400_000)))
+    : 0;
+
+  const todo = [
+    dashboard.support.criticos > 0
+      ? {
+          key: "tickets",
+          icon: <LifeBuoy size={18} />,
+          tone: "r",
+          title: `${dashboard.support.criticos} ${dashboard.support.criticos === 1 ? "ticket urgente" : "tickets urgentes"} sin resolver`,
+          text: `${dashboard.support.abiertos} abiertos en total`,
+          href: "/tickets",
+          cta: "Ver",
+        }
+      : null,
+    overdue.length > 0
+      ? {
+          key: "cobros",
+          icon: <Wallet size={18} />,
+          tone: "y",
+          title: `${overdue.length} ${overdue.length === 1 ? "cobro vencido" : "cobros vencidos"}`,
+          text: `${money(overdueAmount)} en total · el más viejo hace ${oldestOverdueDays} ${oldestOverdueDays === 1 ? "día" : "días"}`,
+          href: "/finance",
+          cta: "Cobrar",
+        }
+      : null,
+    quotesWaiting > 0
+      ? {
+          key: "presupuestos",
+          icon: <FileText size={18} />,
+          tone: "b",
+          title: `${quotesWaiting} ${quotesWaiting === 1 ? "presupuesto esperando" : "presupuestos esperando"} respuesta`,
+          text: "Los mandaste y el cliente todavía no contestó",
+          href: "/customizations",
+          cta: "Abrir",
+        }
+      : null,
+    nextMeeting
+      ? {
+          key: "reunion",
+          icon: <CalendarDays size={18} />,
+          tone: "g",
+          title: `Reunión ${time(nextMeeting.scheduledStart)} con ${nextMeeting.tenant.name}`,
+          text: dashboard.meetings.hoy > 1 ? `${dashboard.meetings.hoy} reuniones hoy` : "Hoy",
+          href: "/meetings",
+          cta: "Ver",
+        }
+      : null,
+  ].filter(Boolean) as Array<{ key: string; icon: React.ReactNode; tone: string; title: string; text: string; href: string; cta: string }>;
+
+  const firstName = session.user.name?.trim().split(/\s+/)[0];
 
   return (
-    <AppShell
-      title="Panel Super Admin"
-      subtitle="Centro de control operativo de Vase."
-      tenantLabel="Admin Master"
-      currentUserName="Admin Vase"
-    >
-      <AdminPageHeader
-        eyebrow="Super Admin"
-        title="Control operativo sin ruido"
-        description="Mira finanzas, soporte, entregas y accesos bloqueados en una sola vista. Las alertas importantes quedan arriba para accionar rapido."
-        actions={
-          <>
-            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-strong)]" href={"/users" as Route}>
-              <UserCog className="h-4 w-4" />
-              Gestionar usuarios
-            </Link>
-            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)] transition hover:opacity-90" href={"/tickets" as Route}>
-              <LifeBuoy className="h-4 w-4" />
-              Ver soporte
-            </Link>
-          </>
-        }
-      />
+    <AppShell title={firstName ? `Hola, ${firstName}` : "Inicio"} subtitle="Así está Vase hoy" tenantLabel="Admin" currentUserName={session.user.name ?? "Admin Vase"}>
+      <div className="vpa-kpis">
+        <div className="vpa-kpi">
+          <span className="vpa-kt">
+            <small>Ingreso del mes</small>
+            <b>{money(dashboard.finances.ingresosMes)}</b>
+            <em>gastos {money(dashboard.finances.gastosMes)}</em>
+          </span>
+        </div>
+        <div className="vpa-kpi">
+          <span className="vpa-kt">
+            <small>Clientes activos</small>
+            <b>{activeTenants.toLocaleString("es-AR")}</b>
+            <em>{newTenants > 0 ? `+${newTenants} este mes` : "ninguno nuevo este mes"}</em>
+          </span>
+        </div>
+        <div className="vpa-kpi">
+          <span className="vpa-kt">
+            <small>Cobros pendientes</small>
+            <b>{money(owed)}</b>
+            <em>{owingTenants === 1 ? "1 cliente" : `${owingTenants} clientes`}</em>
+          </span>
+        </div>
+        <div className="vpa-kpi">
+          <span className="vpa-kt">
+            <small>Tickets abiertos</small>
+            <b>{dashboard.support.abiertos.toLocaleString("es-AR")}</b>
+            <em>{dashboard.support.criticos > 0 ? `${dashboard.support.criticos} urgentes` : "ninguno urgente"}</em>
+          </span>
+        </div>
+      </div>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <AdminMetricCard label="Ganancia neta" value={money(dashboard.finances.gananciaNetaMes)} helper="Ingresos menos gastos del mes." icon={<CircleDollarSign className="h-5 w-5" />} tone={dashboard.finances.gananciaNetaMes >= 0 ? "success" : "danger"} />
-        <AdminMetricCard label="Soporte abierto" value={dashboard.support.abiertos} helper={`${dashboard.support.criticos} criticos, ${dashboard.support.vencidos} vencidos.`} icon={<LifeBuoy className="h-5 w-5" />} tone={dashboard.support.criticos || dashboard.support.vencidos ? "danger" : "accent"} />
-        <AdminMetricCard label="Usuarios bloqueados" value={dashboard.health.disabledUsers} helper={`${dashboard.health.tenantSuspended} tenants y ${dashboard.health.membershipSuspended} membresias suspendidas.`} icon={<ShieldAlert className="h-5 w-5" />} tone={dashboard.health.disabledUsers ? "warning" : "success"} />
-        <AdminMetricCard label="Reuniones hoy" value={dashboard.meetings.hoy} helper={`${dashboard.meetings.estaSemana} reuniones programadas esta semana.`} icon={<CalendarDays className="h-5 w-5" />} tone="accent" />
+      <section className="vpa-card">
+        <div className="vpa-sech">
+          <div>
+            <h3>Para hacer hoy</h3>
+            <p>Lo que necesita tu ok.</p>
+          </div>
+        </div>
+        {todo.length === 0 ? (
+          <div className="vpa-empty">Todo en orden. No hay nada esperándote.</div>
+        ) : (
+          <div className="vpa-opps">
+            {todo.map((item) => (
+              <div className="vpa-opp" key={item.key}>
+                <span className={`ic ${item.tone}`} aria-hidden="true">
+                  {item.icon}
+                </span>
+                <span className="vpa-g1">
+                  <b>{item.title}</b>
+                  <span>{item.text}</span>
+                </span>
+                <Link href={item.href as Route} className="vpa-btn line sm">
+                  {item.cta}
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <AdminSection title="Tendencia financiera" description="Ingresos y gastos de los ultimos seis meses.">
-          <AdminFinanceTrendChart data={dashboard.charts.financeTrend} />
-        </AdminSection>
-        <AdminSection title="Salud de accesos" description="Usuarios y organizaciones que requieren seguimiento.">
-          <AdminAccessHealthChart data={dashboard.charts.accessHealth} />
-        </AdminSection>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-3">
-        <AdminSection title="Finanzas" description="Estado del mes y pendientes." className="xl:col-span-1">
-          <div className="grid gap-3 text-sm">
-            <div className="flex items-center justify-between rounded-2xl bg-[var(--surface-strong)] px-4 py-3">
-              <span className="text-[var(--muted)]">Ingresos del mes</span>
-              <strong className="text-[var(--foreground)]">{money(dashboard.finances.ingresosMes)}</strong>
-            </div>
-            <div className="flex items-center justify-between rounded-2xl bg-[var(--surface-strong)] px-4 py-3">
-              <span className="text-[var(--muted)]">Gastos del mes</span>
-              <strong className="text-[var(--foreground)]">{money(dashboard.finances.gastosMes)}</strong>
-            </div>
-            <div className="flex items-center justify-between rounded-2xl bg-[var(--surface-strong)] px-4 py-3">
-              <span className="text-[var(--muted)]">Pagos vencidos</span>
-              <AdminStatusPill tone={dashboard.clients.conPagosVencidos ? "warning" : "success"}>
-                {dashboard.clients.conPagosVencidos}
-              </AdminStatusPill>
-            </div>
+      <section className="vpa-card" style={{ padding: "12px 20px" }}>
+        <div className="vpa-sech" style={{ marginTop: 8 }}>
+          <div>
+            <h3>Últimos clientes</h3>
           </div>
-        </AdminSection>
-
-        <AdminSection title="Operaciones" description="Proyectos, entregas y agenda." className="xl:col-span-1">
-          <div className="grid gap-3 text-sm">
-            <div className="flex items-center justify-between rounded-2xl bg-[var(--surface-strong)] px-4 py-3">
-              <span className="text-[var(--muted)]">Proyectos activos</span>
-              <strong className="text-[var(--foreground)]">{dashboard.projects.activos}</strong>
-            </div>
-            <div className="flex items-center justify-between rounded-2xl bg-[var(--surface-strong)] px-4 py-3">
-              <span className="text-[var(--muted)]">Entregas 7 dias</span>
-              <strong className="text-[var(--foreground)]">{dashboard.projects.proximasEntregas}</strong>
-            </div>
-            <div className="flex items-center justify-between rounded-2xl bg-[var(--surface-strong)] px-4 py-3">
-              <span className="text-[var(--muted)]">Proyectos pausados</span>
-              <AdminStatusPill tone={dashboard.projects.pausados ? "warning" : "success"}>{dashboard.projects.pausados}</AdminStatusPill>
-            </div>
-          </div>
-        </AdminSection>
-
-        <AdminSection
-          title="Accesos bloqueados"
-          description="Ultimas cuentas deshabilitadas desde super admin."
-          actions={
-            <Link className="text-sm font-semibold text-[var(--accent-strong)] hover:underline" href={"/users" as Route}>
-              Resolver
-            </Link>
-          }
-        >
-          <div className="grid gap-2">
-            {dashboard.health.recentDisabledUsers.length ? (
-              dashboard.health.recentDisabledUsers.map((user) => (
-                <article key={user.id} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-3 py-3 text-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-[var(--foreground)]">{user.name}</p>
-                      <p className="truncate text-xs text-[var(--muted)]">{user.email}</p>
-                    </div>
-                    <AdminStatusPill tone="danger" icon={adminStatusIcons.danger}>Bloqueado</AdminStatusPill>
-                  </div>
-                  <p className="mt-2 text-xs text-[var(--muted)]">
-                    {user.disabledAt ? fmtDate(user.disabledAt) : "Sin fecha"} · {user.disabledReason ?? "Sin motivo cargado"}
-                  </p>
-                </article>
-              ))
-            ) : (
-              <p className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] px-4 py-6 text-center text-sm text-[var(--muted)]">
-                No hay usuarios deshabilitados.
-              </p>
-            )}
-          </div>
-        </AdminSection>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-2">
-        <AdminSection title="Ultimos deployments" description="Publicaciones recientes de proyectos personalizados.">
-          <div className="grid gap-2">
-            {dashboard.deployments.ultimos.length ? (
-              dashboard.deployments.ultimos.map((event) => (
-                <article key={event.id} className="rounded-xl border border-[var(--border-subtle)] px-3 py-2 text-sm">
-                  <p className="font-semibold text-[var(--foreground)]">{event.targetId ?? "deployment"}</p>
-                  <p className="text-xs text-[var(--muted)]">{fmtDate(event.createdAt)} · {event.actorUser?.name ?? "sistema"}</p>
-                </article>
-              ))
-            ) : (
-              <p className="text-sm text-[var(--muted)]">Sin deployments recientes.</p>
-            )}
-          </div>
-        </AdminSection>
-
-        <AdminSection title="Rollbacks recientes" description="Reversiones de deployment registradas.">
-          <div className="grid gap-2">
-            {dashboard.deployments.rollbacksRecientes.length ? (
-              dashboard.deployments.rollbacksRecientes.map((event) => (
-                <article key={event.id} className="rounded-xl border border-[var(--border-subtle)] px-3 py-2 text-sm">
-                  <p className="font-semibold text-[var(--foreground)]">{event.targetId ?? "rollback"}</p>
-                  <p className="text-xs text-[var(--muted)]">{fmtDate(event.createdAt)} · {event.actorUser?.name ?? "sistema"}</p>
-                </article>
-              ))
-            ) : (
-              <p className="text-sm text-[var(--muted)]">Sin rollbacks recientes.</p>
-            )}
-          </div>
-        </AdminSection>
+          <Link href={"/users" as Route} className="vpa-btn line sm">
+            Ver todos
+          </Link>
+        </div>
+        <div className="vpa-tw">
+          <table className="vpa-tbl">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Productos</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentTenants.map((tenant) => {
+                const products = [...new Set(tenant.tenantModules.map((row) => PRODUCT_NAMES[row.module.product] ?? row.module.product))];
+                const state = STATUS[tenant.subscription?.billingStatus ?? "TRIAL"] ?? STATUS.TRIAL;
+                return (
+                  <tr key={tenant.id}>
+                    <td className="wrap">
+                      <b>{tenant.name}</b>
+                      {tenant.industry ? <span className="sub">{tenant.industry}</span> : null}
+                    </td>
+                    <td className="vpa-mut">{products.length ? products.join(" · ") : "—"}</td>
+                    <td>
+                      <span className={`vpa-tag ${state.cls}`}>
+                        <i />
+                        {state.label}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
     </AppShell>
   );

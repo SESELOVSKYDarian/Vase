@@ -8,7 +8,7 @@ import { type PlatformModuleAccess } from "@/config/modules";
 import { type ShellNotification } from "@/server/services/labs-notifications";
 import { ClientShell } from "@/components/layout/client-shell";
 import { toInternalAdminPath } from "@/lib/security/admin-host-routing";
-import { AdminShell } from "./AdminShell";
+import { AdminPanelShell } from "./AdminPanelShell";
 
 export interface Shortcut {
   id: string;
@@ -113,7 +113,7 @@ export function AppShell(props: AppShellProps) {
   const isAdminShell = pathname.startsWith("/app/admin") || toInternalAdminPath(pathname) !== null;
 
   if (isAdminShell) {
-    return <AdminShell {...props} />;
+    return <AdminPanelShell {...props} />;
   }
 
   return (
