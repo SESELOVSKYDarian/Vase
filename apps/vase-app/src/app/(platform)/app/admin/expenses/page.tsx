@@ -1,9 +1,9 @@
 import { forbidden } from "next/navigation";
-import { Plus } from "lucide-react";
+import { ExpenseCreateButton } from "@/components/admin/expense-create";
 import { AppShell } from "@/components/layout/app-shell";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { prisma } from "@/lib/db/prisma";
-import { createExpenseAction, updateExpenseAction, deleteExpenseAction } from "@/app/(platform)/app/admin/actions";
+import { updateExpenseAction, deleteExpenseAction } from "@/app/(platform)/app/admin/actions";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(value);
@@ -83,77 +83,12 @@ export default async function AdminExpensesPage() {
         <div className="vpa-kpi"><span className="vpa-kt"><small>Total cargado</small><b>{formatMoney(expenses.reduce((acc, expense) => acc + toNumber(expense.amount), 0))}</b></span></div>
       </section>
 
-      <details className="vpa-card" style={{ padding: 0 }}>
-        <summary style={{ padding: "16px 20px", cursor: "pointer", listStyle: "none" }}>
-          <span className="vpa-btn acc sm" style={{ pointerEvents: "none" }}>
-            <Plus size={14} aria-hidden="true" />
-            Nuevo gasto
-          </span>
-        </summary>
-        <form action={createExpenseAction} className="vpa-form" style={{ padding: "0 20px 20px" }}>
-          <label className="vpa-fld">
-            <span>Qué es</span>
-            <input className="vpa-inp" name="name" required placeholder="Ej.: servidor de Easypanel" />
-          </label>
-          <label className="vpa-fld">
-            <span>Categoría</span>
-            <input className="vpa-inp" name="category" required placeholder="Ej.: Infraestructura" />
-          </label>
-          <label className="vpa-fld">
-            <span>Monto</span>
-            <input className="vpa-inp" name="amount" required type="number" min="1" step="0.01" />
-          </label>
-          <label className="vpa-fld">
-            <span>Vence</span>
-            <input className="vpa-inp" name="dueAt" type="date" />
-          </label>
-          <label className="vpa-fld">
-            <span>Cada cuánto</span>
-            <FrequencySelect />
-          </label>
-          <label className="vpa-fld">
-            <span>Estado</span>
-            <StatusSelect />
-          </label>
-          <label className="vpa-fld">
-            <span>Cuenta</span>
-            <select className="vpa-inp" name="tenantId" required defaultValue="">
-              <option value="">Elegí una</option>
-              {tenants.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenant.accountName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="vpa-fld">
-            <span>Cliente (opcional)</span>
-            <select className="vpa-inp" name="clientAccountId" defaultValue="">
-              <option value="">Ninguno</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name} · {client.tenant.accountName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="vpa-fld">
-            <span>Quién lo paga</span>
-            <input className="vpa-inp" name="responsible" />
-          </label>
-          <label className="vpa-fld">
-            <span>Desde</span>
-            <input className="vpa-inp" name="startsAt" type="date" />
-          </label>
-          <label className="vpa-fld vpa-span2">
-            <span>Notas</span>
-            <textarea className="vpa-inp" name="notes" rows={2} style={{ height: "auto", padding: "10px 12px" }} />
-          </label>
-          <div className="vpa-span2">
-            <button className="vpa-btn acc">Guardar gasto</button>
-          </div>
-        </form>
-      </details>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <ExpenseCreateButton
+          tenants={tenants}
+          clients={clients.map((client) => ({ id: client.id, name: client.name, tenant: client.tenant.accountName }))}
+        />
+      </div>
 
       <section className="vpa-card" style={{ padding: "12px 20px" }}>
         {expenses.length === 0 ? (

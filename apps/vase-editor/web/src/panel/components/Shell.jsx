@@ -29,7 +29,7 @@ export function Sidebar({ section, sub, go, mini, onToggleMini, theme, badges, s
             if (section === 'ajustes' && !sub) setAjOpen((open) => !open);
             else { setAjOpen(true); go('ajustes'); }
         },
-        sub: SETTINGS_PAGES.map((page) => ({ id: page.id, label: page.label, onClick: () => go('ajustes', page.id) })),
+        sub: SETTINGS_PAGES.filter((page) => !hidden.includes(page.id)).map((page) => ({ id: page.id, label: page.label, onClick: () => go('ajustes', page.id) })),
     };
     const groups = MENU.map((group) => ({
         label: group.group,

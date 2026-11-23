@@ -1,28 +1,6 @@
-import { labsAdminTenantControlSchema } from "@vase/contracts";
-import { forbidden } from "next/navigation";
-import { LabsAdminWorkspace } from "@/components/admin/labs-admin-workspace";
-import { AppShell } from "@/components/layout/app-shell";
-import { requireVerifiedPlatformRole } from "@/lib/auth/guards";
-import { listLabsAdminTenants } from "@/server/services/labs-admin";
+import { redirectAdmin } from "@/lib/navigation/admin-redirect";
 
-export const dynamic = "force-dynamic";
-
-export default async function LabsAdminPage() {
-  let session;
-  try {
-    session = await requireVerifiedPlatformRole("SUPER_ADMIN");
-  } catch {
-    forbidden();
-  }
-
-  const controls = (await listLabsAdminTenants()).map((control) =>
-    labsAdminTenantControlSchema.parse(control));
-
-  return <AppShell
-    title="Labs"
-    subtitle="Qué cuentas tienen Labs y cuántos canales pueden conectar"
-    currentUserName={session.user.name ?? session.user.email ?? "Admin Vase"}
-  >
-    <LabsAdminWorkspace initialControls={controls} />
-  </AppShell>;
+/** Labs ahora está en Productos. */
+export default async function Page() {
+  await redirectAdmin("/app/admin/modules/labs");
 }

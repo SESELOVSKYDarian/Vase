@@ -3,7 +3,8 @@ import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { Download } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { TestChargeForm } from "@/components/admin/test-charge-form";
+import { ChargeButton } from "@/components/admin/client-ficha";
+import { Search } from "lucide-react";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { adminDate, adminMoney, invoiceState } from "@/lib/admin/labels";
 import { amountDue } from "@/lib/billing/mercadopago-rules";
@@ -19,36 +20,40 @@ type ViewId = (typeof VIEWS)[number]["id"];
 const MONTH = new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric", timeZone: "America/Argentina/Buenos_Aires" });
 
 /** Finanzas: cuánto entró este mes, cuánto falta cobrar, los gastos y lo que queda. Abajo, el fondo de la empresa. */
-export default async function AdminFinancePage({ searchParams }: { searchParams: Promise<{ v?: string | string[] }> }) {
+export default async function AdminFinancePage({ searchParams }: { searchParams: Promise<{ v?: string | string[]; q?: string | string[] }> }) {
   try {
     await requireAdminPermission(adminPermissions.BILLING);
   } catch {
     forbidden();
   }
 
-  const requested = (await searchParams).v;
+  const query = await searchParams;
+  const requested = query.v;
+  const search = (Array.isArray(query.q) ? query.q[0] : query.q)?.trim().slice(0, 80) ?? "";
+  const textFilter = search ? { OR: [{ concept: { contains: search } }, { tenant: { name: { contains: search } } }] } : {};
   const view: ViewId = VIEWS.find((item) => item.id === requested)?.id ?? "pendientes";
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [dashboard, collectedMonth, expensesMonth, unpaid, paid] = await Promise.all([
+  const [dashboard, collectedMonth, expensesMonth, unpaid, paid, tenants] = await Promise.all([
     getAdminFinanceDashboard(),
     prisma.clientPayment.aggregate({ where: { paidAt: { gte: monthStart } }, _sum: { paidAmount: true } }),
     prisma.expense.aggregate({ where: { startsAt: { gte: monthStart, lt: now } }, _sum: { amount: true } }),
     prisma.clientPayment.findMany({
-      where: { paidAt: null, status: { not: "CANCELED" } },
+      where: { paidAt: null, status: { not: "CANCELED" }, ...textFilter },
       orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
       take: 100,
       select: { id: true, concept: true, totalAmount: true, paidAmount: true, dueAt: true, paidAt: true, status: true, tenant: { select: { id: true, name: true } } },
     }),
     view === "cobrados"
       ? prisma.clientPayment.findMany({
-          where: { paidAt: { not: null } },
+          where: { paidAt: { not: null }, ...textFilter },
           orderBy: { paidAt: "desc" },
           take: 50,
           select: { id: true, concept: true, totalAmount: true, paidAmount: true, dueAt: true, paidAt: true, status: true, method: true, tenant: { select: { id: true, name: true } } },
         })
       : Promise.resolve([]),
+    prisma.tenant.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" }, take: 1000 }),
   ]);
 
   const collected = Number(collectedMonth._sum.paidAmount ?? 0);
@@ -102,11 +107,16 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
             <h3>Cobros</h3>
             <p>{view === "cobrados" ? "Los últimos 50 pagos que entraron." : "Facturas que todavía no se pagaron, las más viejas primero."}</p>
           </div>
+          <form className="vpa-search" action="/finance" role="search" style={{ minWidth: 220 }}>
+            <Search size={16} aria-hidden="true" />
+            <input className="vpa-inp" type="search" name="q" defaultValue={search} placeholder="Buscar cliente o concepto" aria-label="Buscar cobros" />
+            {view === "cobrados" ? <input type="hidden" name="v" value="cobrados" /> : null}
+          </form>
           <nav className="vpa-seg" aria-label="Ver cobros">
             {VIEWS.map((item) => (
               <Link
                 key={item.id}
-                href={(item.id === "pendientes" ? "/finance" : `/finance?v=${item.id}`) as Route}
+                href={`/finance?${new URLSearchParams({ ...(item.id === "cobrados" ? { v: "cobrados" } : {}), ...(search ? { q: search } : {}) }).toString()}` as Route}
                 className={view === item.id ? "on" : undefined}
                 aria-current={view === item.id ? "page" : undefined}
               >
@@ -114,10 +124,11 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
               </Link>
             ))}
           </nav>
+          <ChargeButton tenants={tenants} label="Nuevo cobro" />
         </div>
         {rows.length === 0 ? (
           <div className="vpa-empty" style={{ margin: "8px 0" }}>
-            {view === "cobrados" ? "Todavía no entró ningún pago." : "No hay nada por cobrar."}
+            {search ? `No hay cobros con “${search}”.` : view === "cobrados" ? "Todavía no entró ningún pago." : "No hay nada por cobrar."}
           </div>
         ) : (
           <div className="vpa-tw">
@@ -164,71 +175,16 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
         )}
       </section>
 
-      <section className="vpa-card">
-        <div className="vpa-sech">
-          <div>
-            <h3>Fondo de la empresa</h3>
-            <p>Desde el principio, según cómo se reparte cada cobro.</p>
-          </div>
-          <Link href={"/settings" as Route} className="vpa-btn line sm">
-            Reglas de reparto
-          </Link>
-        </div>
-        <div className="vpa-facts2">
-          <div>
-            <small>Fondo real</small>
-            <b className={dashboard.kpis.realCompanyFund < 0 ? "low" : undefined}>{adminMoney(dashboard.kpis.realCompanyFund)}</b>
-          </div>
-          <div>
-            <small>Para socios</small>
-            <b>{adminMoney(dashboard.kpis.partnerDistributable)}</b>
-          </div>
-          <div>
-            <small>Hosting cobrado</small>
-            <b>{adminMoney(dashboard.compositions.hostingCollected)}</b>
-          </div>
-          <div>
-            <small>Mantenimiento cobrado</small>
-            <b>{adminMoney(dashboard.compositions.maintenanceCollected)}</b>
-          </div>
-        </div>
-        {dashboard.kpis.investmentTotal > 0 ? (
-          <div style={{ marginTop: 16 }}>
-            <div className="vpa-hrow" style={{ marginBottom: 8 }}>
-              <span className="vpa-g1">
-                <b>Recupero de la inversión</b>
-                <span>
-                  {adminMoney(dashboard.kpis.investmentRecovered)} de {adminMoney(dashboard.kpis.investmentTotal)}
-                </span>
-              </span>
-              <b>{dashboard.kpis.investmentRecoveryPct.toFixed(0)}%</b>
-            </div>
-            <span className="vpa-nprog" aria-hidden="true">
-              <i style={{ width: `${dashboard.kpis.investmentRecoveryPct}%` }} />
-            </span>
-          </div>
-        ) : null}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
-          <a href="/api/admin/reports/export?type=financial" className="vpa-btn line sm">
-            <Download size={14} aria-hidden="true" />
-            Reporte financiero (CSV)
-          </a>
-          <a href="/api/admin/reports/export?type=operational" className="vpa-btn line sm">
-            <Download size={14} aria-hidden="true" />
-            Reporte operativo (CSV)
-          </a>
-        </div>
-      </section>
-
-      <section className="vpa-card">
-        <div className="vpa-sech">
-          <div>
-            <h3>Cobro de prueba</h3>
-            <p>Le crea a una cuenta una factura chica para probar Mercado Pago con plata real.</p>
-          </div>
-        </div>
-        <TestChargeForm />
-      </section>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <a href="/api/admin/reports/export?type=financial" className="vpa-btn line sm">
+          <Download size={14} aria-hidden="true" />
+          Reporte financiero (CSV)
+        </a>
+        <a href="/api/admin/reports/export?type=operational" className="vpa-btn line sm">
+          <Download size={14} aria-hidden="true" />
+          Reporte operativo (CSV)
+        </a>
+      </div>
     </AppShell>
   );
 }

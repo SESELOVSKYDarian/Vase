@@ -164,7 +164,10 @@ export default function PanelApp() {
     const settings = editor.settings || {};
     // Con más de un producto de Vase, Pedidos y Clientes se manejan desde app.vase.ar (Compartido).
     const sharedInVase = Boolean(settings.vase_profile?.shared_products);
-    const hiddenSections = sharedInVase ? [...HIDDEN_WHEN_SHARED, ...ALWAYS_IN_VASE] : ALWAYS_IN_VASE;
+    // Lo que Vase le apagó a esta cuenta (Admin › Clientes › Productos y plan).
+    const disabledFeatures = Array.isArray(settings.vase_profile?.disabled_features) ? settings.vase_profile.disabled_features : [];
+    const hiddenSections = [...(sharedInVase ? [...HIDDEN_WHEN_SHARED, ...ALWAYS_IN_VASE] : ALWAYS_IN_VASE), ...disabledFeatures];
+    const settingsPages = SETTINGS_PAGES.filter((page) => !disabledFeatures.includes(page.id));
     const storeName = resolveTenantBrandName({ tenant, settings });
     const store = { name: storeName, initial: storeName.trim().charAt(0).toUpperCase() || 'V', logo: resolveBrandLogo({ tenant, settings }) };
 
@@ -199,8 +202,12 @@ export default function PanelApp() {
     const vaseBell = <VaseNotificationsBell vaseUrl={vaseUrl} tenantSlug={tenant?.external_tenant_slug || tenant?.externalTenantSlug || ''} theme={theme} />;
 
     // Pantallas que arman su propio diseño (pestañas a todo el ancho y barra lateral derecha).
+    // Sección o ajuste que Vase le apagó a esta cuenta: no se abre aunque entren por la dirección.
+    const blocked = disabledFeatures.includes(section) || (section === 'ajustes' && Boolean(sub) && disabledFeatures.includes(sub));
     let fullScreen = null;
-    if (section === 'catalogo' && !editor.loading) {
+    if (blocked) {
+        fullScreen = null;
+    } else if (section === 'catalogo' && !editor.loading) {
         fullScreen = (
             <Catalogo
                 editor={editor}
@@ -240,7 +247,14 @@ export default function PanelApp() {
     }
 
     let content;
-    if ((sharedInVase && SHARED_IN_VASE.includes(section)) || ALWAYS_IN_VASE.includes(section)) {
+    if (blocked) {
+        content = (
+            <div className="vp-alist" style={{ padding: 24, textAlign: 'center' }}>
+                <b style={{ display: 'block', fontSize: 15 }}>Tu plan no incluye esta parte</b>
+                <span style={{ display: 'block', marginTop: 6, color: 'var(--mut)' }}>Si la necesitás, escribinos a soporte@vase.ar y la sumamos.</span>
+            </div>
+        );
+    } else if ((sharedInVase && SHARED_IN_VASE.includes(section)) || ALWAYS_IN_VASE.includes(section)) {
         content = <SharedInVase section={section} vaseUrl={vaseUrl} />;
     } else if (section === 'resumen') {
         content = (
@@ -257,7 +271,7 @@ export default function PanelApp() {
         content = (
             <div className="vp-alist">
                 <div className="vp-agrp">Tu tienda</div>
-                {SETTINGS_PAGES.map((page) => (
+                {settingsPages.map((page) => (
                     <button key={page.id} type="button" className="vp-arow" onClick={() => go('ajustes', page.id)}>
                         <span className="g"><b>{page.label}</b><span>{page.subtitle}</span></span>
                         <span className="vp-chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>

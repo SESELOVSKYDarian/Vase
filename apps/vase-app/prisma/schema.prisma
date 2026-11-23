@@ -3355,3 +3355,16 @@ model SupportContact {
 
   @@index([tenantId])
 }
+
+/// Notas internas del equipo sobre un cliente (Admin › Clientes › ficha › Notas). Pueden marcarse como hechas.
+model TenantAdminNote {
+  id           String   @id @default(cuid())
+  tenantId     String
+  body         String   @db.Text
+  done         Boolean  @default(false)
+  authorUserId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, done, createdAt])
+}

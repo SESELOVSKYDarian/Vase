@@ -188,7 +188,7 @@ export default async function AdminPage() {
           <div>
             <h3>Últimos clientes</h3>
           </div>
-          <Link href={"/users" as Route} className="vpa-btn line sm">
+          <Link href={"/clients" as Route} className="vpa-btn line sm">
             Ver todos
           </Link>
         </div>

@@ -3,61 +3,33 @@
 
 export type AdminTab = { href: string; label: string };
 export type AdminSection = {
-  id: "inicio" | "clientes" | "soporte" | "proyectos" | "productos" | "finanzas" | "ajustes";
+  id: "inicio" | "clientes" | "proyectos" | "productos" | "finanzas" | "ajustes";
   label: string;
   group: "Principal" | "Trabajo" | "Negocio" | "Sistema";
   tabs: AdminTab[];
 };
 
+// Los tickets se trabajan en workspace.vase.ar (botón arriba). Lo que era Soporte (IA, respuestas, wiki) está en Ajustes.
 export const ADMIN_SECTIONS: AdminSection[] = [
   { id: "inicio", label: "Inicio", group: "Principal", tabs: [{ href: "/app/admin", label: "Resumen del día" }] },
-  {
-    id: "clientes",
-    label: "Clientes",
-    group: "Principal",
-    tabs: [
-      { href: "/app/admin/clients", label: "Clientes" },
-      { href: "/app/admin/users", label: "Accesos y cobros" },
-    ],
-  },
-  {
-    id: "soporte",
-    label: "Soporte",
-    group: "Trabajo",
-    tabs: [
-      { href: "/app/admin/tickets", label: "Tickets ↗" },
-      { href: "/app/admin/support", label: "Conocimiento de la IA" },
-      { href: "/app/admin/faqs", label: "Respuestas guardadas" },
-      { href: "/app/admin/wiki", label: "Ayuda y wiki" },
-    ],
-  },
+  { id: "clientes", label: "Clientes", group: "Principal", tabs: [{ href: "/app/admin/clients", label: "Clientes" }] },
   {
     id: "proyectos",
     label: "Proyectos",
     group: "Trabajo",
     tabs: [
-      { href: "/app/admin/customizations", label: "Presupuestos" },
+      { href: "/app/admin/customizations", label: "Pedidos" },
       { href: "/app/admin/development", label: "Trabajos" },
       { href: "/app/admin/meetings", label: "Agenda" },
     ],
   },
-  {
-    id: "productos",
-    label: "Productos",
-    group: "Negocio",
-    tabs: [
-      { href: "/app/admin/modules", label: "Catálogo y precios" },
-      { href: "/app/admin/labs", label: "Labs" },
-      { href: "/app/admin/management", label: "Management" },
-      { href: "/app/admin/rest", label: "Rest" },
-    ],
-  },
+  { id: "productos", label: "Productos", group: "Negocio", tabs: [{ href: "/app/admin/modules", label: "Productos" }] },
   {
     id: "finanzas",
     label: "Finanzas",
     group: "Negocio",
     tabs: [
-      { href: "/app/admin/finance", label: "Resumen y cobros" },
+      { href: "/app/admin/finance", label: "Cobros" },
       { href: "/app/admin/expenses", label: "Gastos" },
     ],
   },
@@ -66,9 +38,11 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Ajustes",
     group: "Sistema",
     tabs: [
-      { href: "/app/admin/settings", label: "Reglas de cobro" },
-      { href: "/app/admin/audit", label: "Registro de cambios" },
       { href: "/app/admin/settings/account", label: "Tu cuenta" },
+      { href: "/app/admin/support", label: "Conocimiento de la IA" },
+      { href: "/app/admin/faqs", label: "Respuestas guardadas" },
+      { href: "/app/admin/wiki", label: "Ayuda y wiki" },
+      { href: "/app/admin/audit", label: "Registro de cambios" },
     ],
   },
 ];

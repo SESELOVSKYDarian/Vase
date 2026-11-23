@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { getDisabledFeatureKeys } from "@/server/services/product-features";
 import { MAX_BRANCHES } from "@/lib/business/business-profile";
 import { hasSharedProducts } from "@/lib/business/product-count";
 import { MAX_SOCIAL_LINKS, normalizeSocialUrl, socialColumns, type SocialLink } from "@/lib/business/social-links";
@@ -22,12 +23,13 @@ function serviceToken() {
 
 /** Lo que los productos leen de Mi negocio. */
 export async function getBusinessProfilePayload(tenantId: string) {
-  const [tenant, info, branches, billing, sharedProducts] = await Promise.all([
+  const [tenant, info, branches, billing, sharedProducts, disabledFeatures] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, name: true, industry: true } }),
     prisma.tenantBusinessInfo.findUnique({ where: { tenantId } }),
     prisma.tenantBranch.findMany({ where: { tenantId }, orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }] }),
     prisma.tenantBillingProfile.findUnique({ where: { tenantId } }),
     hasSharedProducts(tenantId),
+    getDisabledFeatureKeys(tenantId).then((byModule) => byModule.vase_business ?? []).catch(() => [] as string[]),
   ]);
   if (!tenant) return null;
 
@@ -40,6 +42,8 @@ export async function getBusinessProfilePayload(tenantId: string) {
     industry: tenant.industry,
     // Con más de un producto, Clientes y Pedidos se manejan desde app: Business no los muestra.
     sharedProducts,
+    // Lo que Vase le apagó a esta cuenta desde el Admin (Productos y plan): Business lo esconde.
+    disabledFeatures,
     tagline: info?.tagline ?? null,
     logoUrl: info?.logoUrl ?? null,
     phone: info?.phone ?? null,

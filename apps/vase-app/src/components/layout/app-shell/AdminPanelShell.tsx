@@ -5,7 +5,7 @@
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Bell, Columns3, FolderKanban, MessageCircle, Home, LayoutGrid, LifeBuoy, SlidersHorizontal, Users, Wallet } from "lucide-react";
+import { Bell, Columns3, FolderKanban, MessageCircle, Home, LayoutGrid, SlidersHorizontal, Users, Wallet } from "lucide-react";
 import { PanelAccountMenu, PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { signOutAction } from "@/app/(auth)/actions";
 import { NavLink } from "@/components/layout/nav-link";
@@ -14,6 +14,7 @@ import { ADMIN_SECTIONS, resolveAdminSection, type AdminSection } from "@/lib/na
 import { toInternalAdminPath, toPublicAdminPath } from "@/lib/security/admin-host-routing";
 import type { AppShellProps } from "./infer-active-section";
 import "@/components/admin/admin-legacy-bridge.css";
+import "@/components/admin/admin-ui.css";
 
 const labsUrl = (process.env.NEXT_PUBLIC_LABS_URL ?? "https://labs.vase.ar").replace(/\/+$/, "") + "/";
 const workspaceUrl = process.env.NODE_ENV === "production" ? "https://workspace.vase.ar/" : "/app/workspace";
@@ -21,7 +22,6 @@ const workspaceUrl = process.env.NODE_ENV === "production" ? "https://workspace.
 const ICONS: Record<AdminSection["id"], typeof Home> = {
   inicio: Home,
   clientes: Users,
-  soporte: LifeBuoy,
   proyectos: FolderKanban,
   productos: LayoutGrid,
   finanzas: Wallet,
@@ -88,7 +88,7 @@ export function AdminPanelShell({ title, subtitle, notifications = [], currentUs
           <PanelAccountMenu
             close={close}
             heading={name}
-            settings={{ href: href("/app/admin/settings") }}
+            settings={{ href: href("/app/admin/settings/account") }}
             help={{ href: href("/app/admin/wiki") }}
             backToVase={{ href: "https://app.vase.ar/app" }}
             signOut={{ onClick: () => setConfirmSignOut(true) }}
