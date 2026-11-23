@@ -143,7 +143,6 @@ export default async function BillingPage({
                       concept={next.concept}
                       cards={payCards}
                       publicKey={mercadoPagoPublicKey()}
-                      transferAlias={null}
                     />
                   ) : (
                     <Link href={"/app/help" as Route} className="vpa-btn acc lg">

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { QrCode, X } from "lucide-react";
+import QRCode from "qrcode";
 import { useRouter } from "next/navigation";
 import {
   payWithSavedCardAction,
@@ -19,14 +20,12 @@ export function PayNow({
   concept,
   cards,
   publicKey,
-  transferAlias,
 }: {
   paymentId: string;
   amountLabel: string;
   concept: string;
   cards: PayCard[];
   publicKey: string;
-  transferAlias: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -40,6 +39,28 @@ export function PayNow({
     [{ type: "securityCode", elementId: CVV_ELEMENT, placeholder: "CVV" }],
     open && Boolean(selectedCard),
   );
+  // QR con el mismo link de pago de Mercado Pago: se escanea con la cámara o con la app de Mercado Pago.
+  const [qr, setQr] = useState<{ image: string; url: string } | null>(null);
+
+  // Mientras se muestra el QR, la pantalla se actualiza sola: cuando el pago se acredita, la factura desaparece.
+  useEffect(() => {
+    if (!qr) return;
+    const timer = window.setInterval(() => router.refresh(), 5000);
+    return () => window.clearInterval(timer);
+  }, [qr, router]);
+
+  const showQr = () => {
+    setNotice(null);
+    startTransition(async () => {
+      const result = await startMercadoPagoCheckoutAction(paymentId);
+      if (!result.ok || !result.url) {
+        setNotice({ ok: false, message: result.message ?? "No pudimos preparar el QR." });
+        return;
+      }
+      const image = await QRCode.toDataURL(result.url, { margin: 1, width: 280, errorCorrectionLevel: "M" });
+      setQr({ image, url: result.url });
+    });
+  };
 
   const submit = () => {
     setNotice(null);
@@ -70,7 +91,7 @@ export function PayNow({
 
   return (
     <>
-      <button type="button" className="vpa-btn acc lg" onClick={() => setOpen(true)}>
+      <button type="button" className="vpa-btn acc lg" onClick={() => { setQr(null); setOpen(true); }}>
         Pagar ahora
       </button>
       {open ? (
@@ -85,6 +106,25 @@ export function PayNow({
                 <X size={18} />
               </button>
             </div>
+            {qr ? (
+              <div className="vpa-qrpay">
+                {/* eslint-disable-next-line @next/next/no-img-element -- QR generado acá mismo */}
+                <img src={qr.image} alt="Código QR para pagar con Mercado Pago" width={240} height={240} />
+                <div className="vpa-g1">
+                  <b>Escanealo con el celular</b>
+                  <span>Con la cámara o con la app de Mercado Pago. Pagás ahí y esta pantalla se actualiza sola cuando se acredita.</span>
+                </div>
+                <div className="row">
+                  <button type="button" className="vpa-btn soft" onClick={() => setQr(null)}>
+                    Volver
+                  </button>
+                  <a className="vpa-btn line" href={qr.url}>
+                    Pagar en esta computadora
+                  </a>
+                </div>
+              </div>
+            ) : (
+            <>
             <div className="vpa-payopts" role="radiogroup" aria-label="Cómo querés pagar">
               {cards.map((card) => (
                 <button
@@ -115,21 +155,6 @@ export function PayNow({
                   <span>Con tu saldo o cualquier tarjeta</span>
                 </span>
               </button>
-              {transferAlias ? (
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={method === "transfer"}
-                  className={method === "transfer" ? "vpa-payopt on" : "vpa-payopt"}
-                  onClick={() => setMethod("transfer")}
-                >
-                  <span className="vpa-rad" aria-hidden="true" />
-                  <span className="vpa-g1">
-                    <b>Transferencia</b>
-                    <span>Alias {transferAlias}</span>
-                  </span>
-                </button>
-              ) : null}
             </div>
             {selectedCard ? (
               <div className="vpa-fld">
@@ -143,16 +168,22 @@ export function PayNow({
               <button type="button" className="vpa-btn soft" onClick={() => setOpen(false)}>
                 {notice?.ok ? "Cerrar" : "Cancelar"}
               </button>
-              {method === "transfer" ? (
-                <a className="vpa-btn acc" href="/app/help">
-                  Avisar que transferí
-                </a>
-              ) : notice?.ok ? null : (
-                <button type="button" className="vpa-btn acc" disabled={isPending || (Boolean(selectedCard) && !ready)} onClick={submit}>
-                  {isPending ? "Procesando..." : buttonLabel}
-                </button>
+              {notice?.ok ? null : (
+                <>
+                  {method === "mp" ? (
+                    <button type="button" className="vpa-btn line" disabled={isPending} onClick={showQr}>
+                      <QrCode size={16} aria-hidden="true" />
+                      Pagar con el celular
+                    </button>
+                  ) : null}
+                  <button type="button" className="vpa-btn acc" disabled={isPending || (Boolean(selectedCard) && !ready)} onClick={submit}>
+                    {isPending ? "Procesando..." : buttonLabel}
+                  </button>
+                </>
               )}
             </div>
+            </>
+            )}
           </div>
         </div>
       ) : null}

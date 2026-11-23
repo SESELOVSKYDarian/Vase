@@ -670,3 +670,10 @@
 .vpa-admin-tabs { align-self: flex-start; max-width: 100%; overflow-x: auto; margin-bottom: 20px; }
 .vpa-admin-body { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 :where(.vpa, .vp) .vase-pill.admin { --brand-pill-bg: #1f2937; --brand-pill-tx: #f3f4f6; }
+
+/* Pagar con el celular: QR del link de Mercado Pago */
+.vpa-qrpay { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.vpa-qrpay img { width: 240px; height: 240px; padding: 12px; border-radius: 16px; background: #fff; border: 1px solid var(--line); image-rendering: pixelated; }
+.vpa-qrpay .vpa-g1 { display: flex; flex-direction: column; gap: 4px; max-width: 360px; }
+.vpa-qrpay .vpa-g1 b { font-size: 15px; font-weight: 800; }
+.vpa-qrpay .vpa-g1 span { font-size: 13px; color: var(--mut); font-weight: 600; line-height: 1.5; }
