@@ -1,7 +1,7 @@
 import { forbidden } from "next/navigation";
 import { AdminSupportTicketsWorkspace } from "@/components/admin/admin-support-tickets-workspace";
 import { AppShell } from "@/components/layout/app-shell";
-import { PanelCard } from "@/components/ui/panel-card";
+import { Search } from "lucide-react";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { prisma } from "@/lib/db/prisma";
 
@@ -27,7 +27,9 @@ export default async function AdminTicketsPage({ searchParams }: AdminTicketsPag
   const assignedToUserId = getStringParam(params.assignedToUserId);
   const dueFilter = getStringParam(params.dueFilter);
   const q = getStringParam(params.q)?.trim();
-  const hasFilters = Boolean(q || status || priority || source || assignedToUserId || dueFilter);
+  const view = getStringParam(params.view);
+  const hasFilters = Boolean(q || view || status || priority || source || assignedToUserId || dueFilter);
+  const OPEN = ["QUEUED", "ASSIGNED", "WAITING_CUSTOMER", "WAITING_INTERNAL"] as const;
 
   const [tickets, agents, templates] = await Promise.all([
     prisma.supportTicket.findMany({
@@ -47,6 +49,10 @@ export default async function AdminTicketsPage({ searchParams }: AdminTicketsPag
               status: { in: ["QUEUED", "ASSIGNED", "WAITING_CUSTOMER", "WAITING_INTERNAL"] },
             }
           : {}),
+        ...(view === "open" ? { status: { in: [...OPEN] } } : {}),
+        ...(view === "unassigned" ? { assignedToUserId: null, status: { in: [...OPEN] } } : {}),
+        ...(view === "urgent" ? { priority: { in: ["HIGH", "URGENT"] as Array<"HIGH" | "URGENT"> }, status: { in: [...OPEN] } } : {}),
+        ...(view === "resolved" ? { status: { in: ["RESOLVED", "CLOSED"] as Array<"RESOLVED" | "CLOSED"> } } : {}),
         ...(q
           ? {
               OR: [{ subject: { contains: q } }, { customerName: { contains: q } }, { customerContact: { contains: q } }],
@@ -122,69 +128,43 @@ export default async function AdminTicketsPage({ searchParams }: AdminTicketsPag
     }),
   ]);
 
+  const views = [
+    { id: "", label: "Todos" },
+    { id: "open", label: "Abiertos" },
+    { id: "unassigned", label: "Sin asignar" },
+    { id: "urgent", label: "Urgentes" },
+    { id: "resolved", label: "Resueltos" },
+  ];
+  const activeView = view ?? "";
+  const viewHref = (id: string) => {
+    const next = new URLSearchParams();
+    if (q) next.set("q", q);
+    if (id) next.set("view", id);
+    const text = next.toString();
+    return text ? `/tickets?${text}` : "/tickets";
+  };
+
   return (
-    <AppShell
-      title="Tickets de Soporte"
-      subtitle="Vista operativa admin para seguimiento, reasignacion y resolucion de tickets."
-      tenantLabel="Admin Master"
-    >
-      <PanelCard title="Filtros" description="Filtra por estado, prioridad, origen, agente, vencimiento o texto libre.">
-        <form action="/tickets" className="grid gap-3 md:grid-cols-7">
-          <input name="q" defaultValue={q ?? ""} placeholder="Buscar ticket..." className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm" />
-          <select name="status" defaultValue={status ?? ""} className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm">
-            <option value="">Todos los estados</option>
-            <option value="QUEUED">Nuevo/Cola</option>
-            <option value="ASSIGNED">Asignado</option>
-            <option value="WAITING_CUSTOMER">Esperando cliente</option>
-            <option value="WAITING_INTERNAL">Esperando interno</option>
-            <option value="RESOLVED">Resuelto</option>
-            <option value="CLOSED">Cerrado</option>
-          </select>
-          <select name="priority" defaultValue={priority ?? ""} className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm">
-            <option value="">Todas prioridades</option>
-            <option value="LOW">Baja</option>
-            <option value="NORMAL">Normal</option>
-            <option value="HIGH">Alta</option>
-            <option value="URGENT">Urgente</option>
-          </select>
-          <select name="source" defaultValue={source ?? ""} className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm">
-            <option value="">Todos los origenes</option>
-            <option value="AI_ESCALATION">Cola/IA</option>
-            <option value="MANUAL">Manual</option>
-          </select>
-          <select name="assignedToUserId" defaultValue={assignedToUserId ?? ""} className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm">
-            <option value="">Todos los agentes</option>
-            <option value="unassigned">Sin asignar</option>
-            {agents.map((agent) => (
-              <option key={agent.id} value={agent.id}>
-                {agent.name}
-              </option>
-            ))}
-          </select>
-          <select name="dueFilter" defaultValue={dueFilter ?? ""} className="min-h-10 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 text-sm">
-            <option value="">Sin filtro de demora</option>
-            <option value="overdue">En espera activa</option>
-          </select>
-          <button className="min-h-10 rounded-xl bg-[var(--accent-strong)] px-3 text-sm font-semibold text-[var(--accent-contrast)]">Aplicar</button>
+    <AppShell title="Tickets" subtitle="Lo que te piden los clientes y en qué estado está" tenantLabel="Admin">
+      <div className="vpa-filt">
+        <form className="vpa-search" action="/tickets" role="search">
+          <Search size={16} aria-hidden="true" />
+          <input className="vpa-inp" type="search" name="q" defaultValue={q ?? ""} placeholder="Buscar por asunto o cliente" aria-label="Buscar tickets" />
+          {activeView ? <input type="hidden" name="view" value={activeView} /> : null}
         </form>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {q ? <span className="rounded-full bg-[var(--surface-strong)] px-3 py-1 text-xs">Texto: {q}</span> : null}
-          {status ? <span className="rounded-full bg-[var(--surface-strong)] px-3 py-1 text-xs">Estado: {status}</span> : null}
-          {priority ? <span className="rounded-full bg-[var(--surface-strong)] px-3 py-1 text-xs">Prioridad: {priority}</span> : null}
-          {source ? <span className="rounded-full bg-[var(--surface-strong)] px-3 py-1 text-xs">Origen: {source}</span> : null}
-          {assignedToUserId ? (
-            <span className="rounded-full bg-[var(--surface-strong)] px-3 py-1 text-xs">
-              Agente: {assignedToUserId === "unassigned" ? "Sin asignar" : (agents.find((agent) => agent.id === assignedToUserId)?.name ?? "Seleccionado")}
-            </span>
-          ) : null}
-          {dueFilter ? <span className="rounded-full bg-[var(--surface-strong)] px-3 py-1 text-xs">Demora: {dueFilter}</span> : null}
-          {hasFilters ? (
-            <a href="/tickets" className="rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold text-[var(--foreground)]">
-              Limpiar filtros
+        <nav className="vpa-seg" aria-label="Filtrar tickets">
+          {views.map((item) => (
+            <a key={item.id || "all"} href={viewHref(item.id)} className={activeView === item.id ? "on" : undefined} aria-current={activeView === item.id ? "page" : undefined}>
+              {item.label}
             </a>
-          ) : null}
-        </div>
-      </PanelCard>
+          ))}
+        </nav>
+        {hasFilters ? (
+          <a href="/tickets" className="vpa-btn line sm">
+            Limpiar
+          </a>
+        ) : null}
+      </div>
 
       <AdminSupportTicketsWorkspace tickets={tickets} agents={agents} templates={templates} />
     </AppShell>

@@ -32,21 +32,13 @@ export default async function AdminFaqPage({ searchParams }: AdminFaqPageProps) 
   ]);
 
   return (
-    <AppShell
-      title="FAQs de plataforma"
-      subtitle="Gestiona preguntas frecuentes globales para soporte y base de conocimiento."
-      tenantLabel="Master Admin"
-    >
-      <section className="grid gap-6 md:grid-cols-2">
-        <PanelCard title="FAQs globales" description="Total de entradas cargadas.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">{total}</p>
-        </PanelCard>
-        <PanelCard title="FAQs activas" description="Entradas visibles para asistencia.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">{active}</p>
-        </PanelCard>
+    <AppShell title="Respuestas guardadas" subtitle="Preguntas frecuentes que valen para todos los clientes" tenantLabel="Admin">
+      <section className="vpa-kpis" aria-label="Resumen">
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Cargadas</small><b>{total}</b></span></div>
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Activas</small><b>{active}</b><em>Se muestran y las usa la IA</em></span></div>
       </section>
 
-      <PanelCard title="Editor avanzado FAQ" description="Crea, edita y elimina FAQs globales en una sola vista.">
+      <PanelCard title="Preguntas y respuestas" description="Agregá, editá o apagá una respuesta.">
         <AdminFaqEditor items={items.filter((item) => item.tenantId === null)} />
       </PanelCard>
     </AppShell>

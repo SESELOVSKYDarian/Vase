@@ -1,0 +1,78 @@
+/*
+ * Admin nuevo: las pantallas y formularios que todavía usan las piezas viejas (colores --surface, --border-subtle,
+ * tarjetas surface-card, campos con Tailwind) toman acá los colores, bordes y campos del panel nuevo (.vpa).
+ * Solo vale adentro del contenido del Admin; el resto de la app no cambia.
+ */
+.vpa-admin-body {
+  --background: var(--page);
+  --background-elevated: var(--soft);
+  --foreground: var(--tx);
+  --foreground-soft: var(--tx);
+  --surface: var(--card);
+  --surface-strong: var(--soft);
+  --muted: var(--mut);
+  --muted-soft: var(--mut);
+  --border-subtle: var(--line);
+  --border-strong: var(--line2);
+  --accent: var(--acc);
+  --accent-strong: var(--acc);
+  --accent-soft: var(--accsoft);
+  --accent-contrast: var(--acc-on);
+  --success: var(--ok);
+  --success-soft: var(--accsoft);
+  --warning: var(--warn);
+  --warning-soft: var(--warnsoft);
+  --danger: var(--red);
+  --danger-soft: var(--redsoft);
+  --shadow-sm: none;
+  --shadow-md: var(--sh-sm, none);
+  --glass-highlight: transparent;
+}
+
+/* Tarjetas viejas: planas, borde fino, como .vpa-card. */
+.vpa-admin-body :is(.surface-card, .surface-elevated) {
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  border-radius: 18px;
+}
+.vpa-admin-body :is(.surface-card, .surface-elevated)::before { display: none; }
+
+/* Títulos y bajadas de las tarjetas viejas, en la escala del panel nuevo. */
+.vpa-admin-body .vase-kicker { font-size: 11.5px; font-weight: 700; color: var(--mut); letter-spacing: 0; text-transform: none; }
+.vpa-admin-body .vase-copy { font-size: 12.5px; font-weight: 600; color: var(--mut); line-height: 1.5; }
+.vpa-admin-body h2.text-xl, .vpa-admin-body h2.text-lg { font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+
+/* Campos: mismos que .vpa-inp. */
+.vpa-admin-body :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="color"]), select, textarea):not(.vpa-inp) {
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--tx);
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+}
+.vpa-admin-body :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select):not(.vpa-inp) { min-height: 40px; }
+.vpa-admin-body :is(input, select, textarea):not(.vpa-inp):focus { outline: 2px solid var(--acc); outline-offset: -1px; }
+.vpa-admin-body :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--acc); }
+
+/* Botones viejos: radio y peso del panel nuevo. */
+.vpa-admin-body button:not([class*="vpa-"]):not(.n),
+.vpa-admin-body a[class*="rounded-xl"][class*="px-"],
+.vpa-admin-body a[class*="rounded-full"][class*="border"] {
+  border-radius: 11px;
+  font-weight: 800;
+  font-size: 12.5px;
+}
+
+/* Tablas viejas: cabecera gris y filas como .vpa-tbl. */
+.vpa-admin-body table:not(.vpa-tbl) thead th { font-size: 12px; font-weight: 600; color: var(--mut); background: var(--soft); }
+.vpa-admin-body table:not(.vpa-tbl) tbody td { font-weight: 600; }
+
+/* Ventanas (CrudModal): tarjeta del panel nuevo. */
+.vpa-admin-body [role="dialog"][aria-modal="true"] {
+  border-radius: 20px;
+  border-color: var(--line);
+  background: var(--card);
+}

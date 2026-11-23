@@ -13,6 +13,7 @@ import { NotificationsDrawer, PanelThemeContext, type PanelTheme } from "@/compo
 import { ADMIN_SECTIONS, resolveAdminSection, type AdminSection } from "@/lib/navigation/admin-sections";
 import { toInternalAdminPath, toPublicAdminPath } from "@/lib/security/admin-host-routing";
 import type { AppShellProps } from "./infer-active-section";
+import "@/components/admin/admin-legacy-bridge.css";
 
 const ICONS: Record<AdminSection["id"], typeof Home> = {
   inicio: Home,

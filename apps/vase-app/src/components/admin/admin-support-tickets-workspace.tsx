@@ -6,7 +6,6 @@ import { SupportTicketAttachmentForm } from "@/components/support/support-ticket
 import { SupportTicketAssigneesForm } from "@/components/support/support-ticket-assignees-form";
 import { SupportTicketCustomerTimeline } from "@/components/support/support-ticket-customer-timeline";
 import { SupportTicketInternalHistory } from "@/components/support/support-ticket-internal-history";
-import { SupportTicketMetricsStrip } from "@/components/support/support-ticket-metrics-strip";
 import { SupportTicketNoteForm } from "@/components/support/support-ticket-note-form";
 import { SupportTicketResponseForm } from "@/components/support/support-ticket-response-form";
 import { SupportTicketSubtasksWorklogPanel } from "@/components/support/support-ticket-subtasks-worklog-panel";
@@ -70,6 +69,23 @@ function labelStatus(value: string) {
   );
 }
 
+const OPEN = ["QUEUED", "ASSIGNED", "WAITING_CUSTOMER", "WAITING_INTERNAL"];
+const STATUS_TONE: Record<string, string> = {
+  QUEUED: "b",
+  ASSIGNED: "p",
+  WAITING_CUSTOMER: "y",
+  WAITING_INTERNAL: "y",
+  RESOLVED: "g",
+  CLOSED: "",
+  RETURNED_TO_AI: "b",
+};
+const PRIORITY: Record<string, { label: string; tone: string }> = {
+  LOW: { label: "Baja", tone: "" },
+  NORMAL: { label: "Normal", tone: "b" },
+  HIGH: { label: "Alta", tone: "y" },
+  URGENT: { label: "Urgente", tone: "r" },
+};
+
 function labelAssignees(ticket: TicketItem) {
   const names = ticket.assignees.map((assignee) => assignee.user.name);
   if (names.length === 0) return ticket.assignedToUser?.name ?? "Sin asignar";
@@ -88,65 +104,70 @@ export function AdminSupportTicketsWorkspace({ tickets, agents, templates }: { t
   }, [toast]);
 
   const selectedTicket = useMemo(() => tickets.find((ticket) => ticket.id === selectedTicketId) ?? null, [selectedTicketId, tickets]);
-  const inProgressCount = tickets.filter((ticket) => ["QUEUED", "ASSIGNED", "WAITING_CUSTOMER", "WAITING_INTERNAL"].includes(ticket.status)).length;
+  const inProgressCount = tickets.filter((ticket) => OPEN.includes(ticket.status)).length;
 
   return (
-    <div className="space-y-6">
-      <section className="grid gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm">Total: {tickets.length}</div>
-        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm">Activos: {inProgressCount}</div>
-        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm">Sin asignar: {tickets.filter((ticket) => !ticket.assignedToUserId).length}</div>
-        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm">Urgentes: {tickets.filter((ticket) => ticket.priority === "URGENT").length}</div>
+    <div className="vpa-stack">
+      <section className="vpa-kpis" aria-label="Resumen de tickets">
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Abiertos</small><b>{inProgressCount}</b></span></div>
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Sin asignar</small><b>{tickets.filter((ticket) => !ticket.assignedToUserId && OPEN.includes(ticket.status)).length}</b></span></div>
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Urgentes</small><b>{tickets.filter((ticket) => ticket.priority === "URGENT" && OPEN.includes(ticket.status)).length}</b></span></div>
+        <div className="vpa-kpi"><span className="vpa-kt"><small>En la lista</small><b>{tickets.length}</b></span></div>
       </section>
 
-      <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4">
-        <p className="mb-3 text-sm font-semibold text-[var(--foreground)]">Tickets ({tickets.length})</p>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-[var(--muted)]">
-                <th className="px-2 py-2">Ticket</th>
-                <th className="px-2 py-2">Cliente</th>
-                <th className="px-2 py-2">Estado</th>
-                <th className="px-2 py-2">Prioridad</th>
-                <th className="px-2 py-2">Asignado</th>
-                <th className="px-2 py-2">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickets.map((ticket) => (
-                <tr key={ticket.id} className="border-t border-[var(--border-subtle)]">
-                  <td className="px-2 py-2">
-                    <p className="font-medium text-[var(--foreground)]">{ticket.subject}</p>
-                    <p className="text-xs text-[var(--muted)]">{ticket.source}</p>
-                  </td>
-                  <td className="px-2 py-2">{ticket.tenant.accountName}</td>
-                  <td className="px-2 py-2">{labelStatus(ticket.status)}</td>
-                  <td className="px-2 py-2">
-                    <div className="grid gap-1">
-                      <span>{ticket.priority}</span>
-                      <SupportTicketMetricsStrip subtasks={ticket.subtasks} worklogs={ticket.worklogs} notesCount={ticket.notes.length} layout="inline" />
-                    </div>
-                  </td>
-                  <td className="px-2 py-2">{labelAssignees(ticket)}</td>
-                  <td className="px-2 py-2">
-                    <button type="button" onClick={() => setSelectedTicketId(ticket.id)} className="inline-flex min-h-11 min-w-11 items-center gap-2 rounded-xl border border-[var(--border-subtle)] px-3 text-xs font-semibold transition-colors hover:bg-[var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-strong)]">
-                      <Eye className="h-4 w-4" />
-                      Gestionar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {tickets.length === 0 ? (
+      <section className="vpa-card" style={{ padding: "12px 20px" }}>
+        {tickets.length === 0 ? (
+          <div className="vpa-empty" style={{ margin: "8px 0" }}>No hay tickets con este filtro.</div>
+        ) : (
+          <div className="vpa-tw">
+            <table className="vpa-tbl">
+              <thead>
                 <tr>
-                  <td colSpan={6} className="px-2 py-8 text-center text-sm text-[var(--muted)]">
-                    No hay tickets con los filtros actuales.
-                  </td>
+                  <th>Ticket</th>
+                  <th>Estado</th>
+                  <th>Prioridad</th>
+                  <th>Responsable</th>
+                  <th>Actualizado</th>
+                  <th />
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {tickets.map((ticket) => (
+                  <tr key={ticket.id}>
+                    <td className="wrap">
+                      <button type="button" className="vpa-lnk" style={{ fontSize: 13.5, color: "var(--tx)", textAlign: "left" }} onClick={() => setSelectedTicketId(ticket.id)}>
+                        {ticket.subject}
+                      </button>
+                      <span className="sub">
+                        {ticket.tenant.accountName} · {ticket.source === "AI_ESCALATION" ? "Lo pasó la IA" : "Cargado a mano"}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`vpa-tag ${STATUS_TONE[ticket.status] ?? ""}`}>
+                        <i />
+                        {labelStatus(ticket.status)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`vpa-tag ${PRIORITY[ticket.priority]?.tone ?? ""}`}>
+                        <i />
+                        {PRIORITY[ticket.priority]?.label ?? ticket.priority}
+                      </span>
+                    </td>
+                    <td className="vpa-mut">{labelAssignees(ticket)}</td>
+                    <td className="vpa-mut">{new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short" }).format(new Date(ticket.updatedAt))}</td>
+                    <td className="r">
+                      <button type="button" onClick={() => setSelectedTicketId(ticket.id)} className="vpa-btn line sm">
+                        <Eye size={14} aria-hidden="true" />
+                        Abrir
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <CrudModal
@@ -155,31 +176,28 @@ export function AdminSupportTicketsWorkspace({ tickets, agents, templates }: { t
           setSelectedTicketId(null);
           setActiveTab("operacion");
         }}
-        title={selectedTicket ? `Ticket: ${selectedTicket.subject}` : "Gestionar ticket"}
-        description="Operaciones de soporte en un solo lugar."
+        title={selectedTicket ? selectedTicket.subject : "Ticket"}
+        description={selectedTicket ? `${selectedTicket.tenant.accountName} · ${labelStatus(selectedTicket.status)}` : undefined}
         widthClassName="max-w-6xl"
       >
         {selectedTicket ? (
           <div className="grid gap-4">
-            <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-3">
-              <p className="text-xs text-[var(--muted)]">Vista del ticket</p>
-              <div className="inline-flex rounded-xl border border-[var(--border-subtle)] p-1">
-                <button type="button" onClick={() => setActiveTab("operacion")} className={`min-h-11 min-w-11 rounded-lg px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-strong)] ${activeTab === "operacion" ? "bg-[var(--accent-strong)] text-[var(--accent-contrast)]" : "text-[var(--foreground)]"}`}>
-                  Operación
+            <nav className="vpa-seg" aria-label="Partes del ticket">
+              {([
+                ["operacion", "Responder"],
+                ["historial", "Historial"],
+                ["cliente", "Lo que ve el cliente"],
+              ] as const).map(([id, label]) => (
+                <button key={id} type="button" className={activeTab === id ? "on" : undefined} aria-pressed={activeTab === id} onClick={() => setActiveTab(id)}>
+                  {label}
                 </button>
-                <button type="button" onClick={() => setActiveTab("historial")} className={`min-h-11 min-w-11 rounded-lg px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-strong)] ${activeTab === "historial" ? "bg-[var(--accent-strong)] text-[var(--accent-contrast)]" : "text-[var(--foreground)]"}`}>
-                  Historial
-                </button>
-                <button type="button" onClick={() => setActiveTab("cliente")} className={`min-h-11 min-w-11 rounded-lg px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-strong)] ${activeTab === "cliente" ? "bg-[var(--accent-strong)] text-[var(--accent-contrast)]" : "text-[var(--foreground)]"}`}>
-                  Vista cliente
-                </button>
-              </div>
-            </section>
+              ))}
+            </nav>
 
             <SupportTicketSummaryCard
               customerLabel={selectedTicket.tenant.accountName}
               statusLabel={labelStatus(selectedTicket.status)}
-              priorityLabel={selectedTicket.priority}
+              priorityLabel={PRIORITY[selectedTicket.priority]?.label ?? selectedTicket.priority}
               assigneeLabel={labelAssignees(selectedTicket)}
               subtasks={selectedTicket.subtasks}
               worklogs={selectedTicket.worklogs}
@@ -247,14 +265,11 @@ export function AdminSupportTicketsWorkspace({ tickets, agents, templates }: { t
               </section>
             ) : null}
 
-            <section className="grid gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4">
-              <p className="text-xs font-semibold text-[var(--foreground)]">Timeline visible cliente</p>
-              {activeTab === "cliente" ? (
+            {activeTab === "cliente" ? (
+              <section className="vpa-card stack">
                 <SupportTicketCustomerTimeline notes={selectedTicket.notes} events={selectedTicket.events} />
-              ) : (
-                <p className="text-xs text-[var(--muted)]">Abre la pestaña "Vista cliente" para revisar el timeline.</p>
-              )}
-            </section>
+              </section>
+            ) : null}
 
             {activeTab === "operacion" ? (
               <section className="grid gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4">

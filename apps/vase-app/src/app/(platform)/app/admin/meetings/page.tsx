@@ -1,6 +1,7 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { AdminMeetingsWorkspace } from "@/components/admin/admin-meetings-workspace";
+import { AdminMeetingSlotManager } from "@/components/admin/admin-meeting-slot-manager";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { prisma } from "@/lib/db/prisma";
 
@@ -44,9 +45,9 @@ export default async function AdminMeetingsPage() {
     meetingDecisionV2: { findMany: (args: { where: { meetingId: { in: string[] } }; orderBy: { createdAt: "desc" } }) => Promise<MeetingDecisionV2Row[]> };
   };
 
-  const [tenants, agents, meetingsRaw] = await Promise.all([
+  const [tenants, agents, meetingsRaw, upcomingSlots] = await Promise.all([
     prisma.tenant.findMany({
-      select: { id: true, accountName: true },
+      select: { id: true, accountName: true, name: true },
       orderBy: { accountName: "asc" },
       take: 300,
     }),
@@ -59,6 +60,12 @@ export default async function AdminMeetingsPage() {
     prismaMeetings.meetingV2.findMany({
       orderBy: { scheduledAt: "desc" },
       take: 400,
+    }),
+    prisma.meetingAvailabilitySlot.findMany({
+      where: { isActive: true },
+      include: { tenant: { select: { id: true, accountName: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
     }),
   ]);
 
@@ -107,8 +114,16 @@ export default async function AdminMeetingsPage() {
   }));
 
   return (
-    <AppShell title="Reuniones" subtitle="Agenda operativa con decisiones y tareas por reunión." tenantLabel="Admin Master">
+    <AppShell title="Agenda" subtitle="Reuniones con clientes, lo que se decidió y lo que quedó por hacer" tenantLabel="Admin">
       <AdminMeetingsWorkspace tenants={tenants} agents={agents} meetings={meetings} />
+      <details className="vpa-card" style={{ padding: 0 }}>
+        <summary style={{ padding: "16px 20px", cursor: "pointer", listStyle: "none" }}>
+          <b>Horarios para que los clientes reserven</b>
+        </summary>
+        <div style={{ padding: "0 20px 20px" }}>
+          <AdminMeetingSlotManager tenants={tenants} upcomingSlots={upcomingSlots} />
+        </div>
+      </details>
     </AppShell>
   );
 }

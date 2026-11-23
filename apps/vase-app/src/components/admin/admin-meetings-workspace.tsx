@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { CalendarDays, CheckSquare, Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, CheckSquare, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import {
   addMeetingDecisionV2WithStateAction,
   addMeetingTaskV2WithStateAction,
@@ -79,6 +79,8 @@ export function AdminMeetingsWorkspace({
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  const [startOfToday] = useState(() => new Date(new Date().toDateString()).getTime());
+
   const filteredMeetings = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return meetings;
@@ -86,57 +88,85 @@ export function AdminMeetingsWorkspace({
   }, [meetings, query]);
 
   return (
-    <div className="space-y-6">
-      <section className="grid gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm">Total reuniones: {meetings.length}</div>
-        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm">Con tareas: {meetings.filter((meeting) => meeting.tasks.length > 0).length}</div>
-        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm">Con decisiones: {meetings.filter((meeting) => meeting.decisions.length > 0).length}</div>
-        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4 text-sm">Pendientes: {meetings.reduce((acc, meeting) => acc + meeting.tasks.filter((task) => !task.completed).length, 0)}</div>
+    <div className="vpa-stack">
+      <section className="vpa-kpis" aria-label="Resumen">
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Próximas</small><b>{meetings.filter((meeting) => meeting.scheduledAt && new Date(meeting.scheduledAt).getTime() >= startOfToday).length}</b></span></div>
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Tareas pendientes</small><b>{meetings.reduce((acc, meeting) => acc + meeting.tasks.filter((task) => !task.completed).length, 0)}</b></span></div>
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Reuniones</small><b>{meetings.length}</b></span></div>
       </section>
 
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4">
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reunión..." className="min-h-11 w-full max-w-md rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm" />
-        <button type="button" onClick={() => setOpenCreate(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent-strong)] px-4 text-sm font-semibold text-[var(--accent-contrast)]">
-          <Plus className="h-4 w-4" />
+      <div className="vpa-filt">
+        <div className="vpa-search" role="search">
+          <Search size={16} aria-hidden="true" />
+          <input className="vpa-inp" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre o cliente" aria-label="Buscar reuniones" />
+        </div>
+        <button type="button" onClick={() => setOpenCreate(true)} className="vpa-btn acc">
+          <Plus size={15} aria-hidden="true" />
           Nueva reunión
         </button>
-      </section>
+      </div>
 
-      <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-strong)] p-4">
-        <p className="mb-3 text-sm font-semibold text-[var(--foreground)]">Reuniones</p>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-[var(--muted)]">
-                <th className="px-2 py-2">Reunión</th><th className="px-2 py-2">Cliente</th><th className="px-2 py-2">Fecha</th><th className="px-2 py-2">Estado</th><th className="px-2 py-2">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMeetings.map((meeting) => (
-                <tr key={meeting.id} className="border-t border-[var(--border-subtle)]">
-                  <td className="px-2 py-2"><p className="font-medium text-[var(--foreground)]">{meeting.title}</p><p className="text-xs text-[var(--muted)]">{meeting.category}</p></td>
-                  <td className="px-2 py-2">{meeting.tenantLabel}</td>
-                  <td className="px-2 py-2">{meeting.scheduledAt ? new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short" }).format(new Date(meeting.scheduledAt)) : "Sin fecha"}</td>
-                  <td className="px-2 py-2">{meeting.tasks.filter((task) => !task.completed).length > 0 ? "Con pendientes" : "Al día"}</td>
-                  <td className="px-2 py-2">
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => setDetail(meeting)} className="rounded-lg border border-[var(--border-subtle)] px-2 py-1"><CalendarDays className="h-4 w-4" /></button>
-                      <button type="button" onClick={() => setEditing(meeting)} className="rounded-lg border border-[var(--border-subtle)] px-2 py-1"><Pencil className="h-4 w-4" /></button>
-                      <button type="button" onClick={() => setDeleting(meeting)} className="rounded-lg border border-[var(--border-subtle)] px-2 py-1"><Trash2 className="h-4 w-4" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredMeetings.length === 0 ? (
+      <section className="vpa-card" style={{ padding: "12px 20px" }}>
+        {filteredMeetings.length === 0 ? (
+          <div className="vpa-empty" style={{ margin: "8px 0" }}>No hay reuniones para mostrar.</div>
+        ) : (
+          <div className="vpa-tw">
+            <table className="vpa-tbl">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="px-2 py-8 text-center text-sm text-[var(--muted)]">
-                    No hay reuniones para mostrar con los filtros actuales.
-                  </td>
+                  <th>Reunión</th>
+                  <th>Cuándo</th>
+                  <th>Pendientes</th>
+                  <th />
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredMeetings.map((meeting) => {
+                  const pending = meeting.tasks.filter((task) => !task.completed).length;
+                  return (
+                    <tr key={meeting.id}>
+                      <td className="wrap">
+                        <button type="button" className="vpa-lnk" style={{ fontSize: 13.5, color: "var(--tx)", textAlign: "left" }} onClick={() => setDetail(meeting)}>
+                          {meeting.title}
+                        </button>
+                        <span className="sub">
+                          {meeting.tenantLabel} · {meeting.category}
+                        </span>
+                      </td>
+                      <td className="vpa-mut">
+                        {meeting.scheduledAt ? new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(meeting.scheduledAt)) : "Sin fecha"}
+                      </td>
+                      <td>
+                        <span className={`vpa-tag ${pending > 0 ? "y" : "g"}`}>
+                          <i />
+                          {pending > 0 ? `${pending} ${pending === 1 ? "tarea" : "tareas"}` : "Al día"}
+                        </span>
+                      </td>
+                      <td className="r">
+                        <span style={{ display: "inline-flex", gap: 6 }}>
+                          {meeting.meetUrl ? (
+                            <a href={meeting.meetUrl} target="_blank" rel="noreferrer" className="vpa-btn line sm">
+                              Entrar
+                            </a>
+                          ) : null}
+                          <button type="button" onClick={() => setDetail(meeting)} className="vpa-btn line sm" aria-label={`Ver ${meeting.title}`}>
+                            <CalendarDays size={14} aria-hidden="true" />
+                          </button>
+                          <button type="button" onClick={() => setEditing(meeting)} className="vpa-btn line sm" aria-label={`Editar ${meeting.title}`}>
+                            <Pencil size={14} aria-hidden="true" />
+                          </button>
+                          <button type="button" onClick={() => setDeleting(meeting)} className="vpa-btn line sm danger" aria-label={`Borrar ${meeting.title}`}>
+                            <Trash2 size={14} aria-hidden="true" />
+                          </button>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <CrudModal open={openCreate} onClose={() => setOpenCreate(false)} title="Nueva reunión">
@@ -157,7 +187,7 @@ export function AdminMeetingsWorkspace({
         ) : null}
       </CrudModal>
 
-      <CrudModal open={Boolean(detail)} onClose={() => setDetail(null)} title={detail ? `Reunión: ${detail.title}` : "Detalle reunión"} widthClassName="max-w-4xl">
+      <CrudModal open={Boolean(detail)} onClose={() => setDetail(null)} title={detail ? detail.title : "Reunión"} widthClassName="max-w-4xl">
         {detail ? (
           <div className="space-y-4">
             <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 text-sm">

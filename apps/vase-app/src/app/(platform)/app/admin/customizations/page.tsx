@@ -1,13 +1,10 @@
 import { forbidden } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { AdminMeetingSlotManager } from "@/components/admin/admin-meeting-slot-manager";
 import { AdminClientChangeForm } from "@/components/admin/admin-client-change-form";
 import { AdminCustomizationQuoteForm } from "@/components/admin/admin-customization-quote-form";
 import { CustomizationPipelineControls } from "@/components/admin/customization-pipeline-controls";
 import { AdminCustomizationReviewForm } from "@/components/business/admin-customization-review-form";
 import { CustomProjectControlsForm } from "@/components/admin/custom-project-controls-form";
-import { StatusBadge } from "@/components/business/status-badge";
-import { PanelCard } from "@/components/ui/panel-card";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
 import {
   formatMoneyFromCents,
@@ -28,6 +25,8 @@ function formatDate(value: Date | null | undefined) {
   }).format(value);
 }
 
+const QUOTE_TONE: Record<string, string> = { success: "g", warning: "y", danger: "r", premium: "p", info: "b", neutral: "" };
+
 export default async function AdminCustomizationsPage() {
   try {
     await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
@@ -37,148 +36,97 @@ export default async function AdminCustomizationsPage() {
 
   const workspace = await getAdminCustomizationQuoteWorkspace();
 
+  const { metrics } = workspace;
+
   return (
-    <AppShell
-      title="Pipeline de presupuestos"
-      subtitle="Convierte pedidos de personalización en presupuestos versionados, auditables y listos para aceptación del cliente."
-      tenantLabel="Operación interna Vase"
-    >
-      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <PanelCard title="Pedidos" description="Solicitudes visibles para el equipo.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
-            {workspace.metrics.totalRequests}
-          </p>
-        </PanelCard>
-        <PanelCard title="Sin presupuesto" description="Pedidos aún sin armado comercial.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
-            {workspace.metrics.withoutQuote}
-          </p>
-        </PanelCard>
-        <PanelCard title="Pendiente cliente" description="Presupuestos ya enviados.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
-            {workspace.metrics.pendingClient}
-          </p>
-        </PanelCard>
-        <PanelCard title="Aceptados" description="Listos para pasar a delivery.">
-          <p className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
-            {workspace.metrics.accepted}
-          </p>
-        </PanelCard>
+    <AppShell title="Presupuestos" subtitle="Pedidos de trabajos a medida y lo que se les cotizó" tenantLabel="Admin">
+      <section className="vpa-kpis" aria-label="Resumen">
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Pedidos</small><b>{metrics.totalRequests}</b></span></div>
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Sin presupuesto</small><b>{metrics.withoutQuote}</b><em>Hay que cotizarlos</em></span></div>
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Esperando al cliente</small><b>{metrics.pendingClient}</b></span></div>
+        <div className="vpa-kpi"><span className="vpa-kt"><small>Aceptados</small><b>{metrics.accepted}</b><em>Listos para hacer</em></span></div>
       </section>
 
       <CustomizationPipelineControls requests={workspace.requests} />
 
-      <AdminClientChangeForm tenants={workspace.tenants} />
+      <section aria-label="Pedidos">
+        <div className="vpa-secth">
+          <h2>Pedidos</h2>
+          <p>Tocá uno para revisarlo, cotizarlo o cambiar su estado.</p>
+        </div>
+        {workspace.requests.length === 0 ? <div className="vpa-empty">No hay pedidos.</div> : null}
+        <div className="vpa-stack">
+          {workspace.requests.map((request) => (
+            <details key={request.id} className="vpa-card" style={{ padding: 0 }}>
+              <summary style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "16px 20px", cursor: "pointer", listStyle: "none" }}>
+                <div className="vpa-g1">
+                  <b>{request.pageScope}</b>
+                  <span>{request.tenant.accountName}</span>
+                </div>
+                {request.quote ? <b>{formatMoneyFromCents(request.quote.totalAmountCents, request.quote.currency)}</b> : null}
+                <span className={`vpa-tag ${request.quote ? (QUOTE_TONE[getQuoteStatusTone(request.quote.status)] ?? "") : "y"}`}>
+                  <i />
+                  {request.quote ? getQuoteStatusLabel(request.quote.status) : "Sin presupuesto"}
+                </span>
+              </summary>
 
-      <AdminMeetingSlotManager
-        tenants={workspace.tenants}
-        upcomingSlots={workspace.upcomingSlots}
-      />
-
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <PanelCard
-          eyebrow="Workflow"
-          title="Revisión, estimación y decisión"
-          description="Cada pedido conserva alcance, presupuesto, extras, tiempos estimados y el historial completo de cambios."
-        >
-          <div className="grid gap-5">
-            {workspace.requests.map((request) => (
-              <article
-                key={request.id}
-                className="grid gap-5 rounded-[28px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-strong)_92%,transparent)]/75 p-5"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-soft)]">
-                      {request.tenant.accountName}
-                    </p>
-                    <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
-                      {request.pageScope}
-                    </h2>
-                    <p className="max-w-3xl text-sm leading-7 text-[var(--muted)]">
-                      {request.businessDescription ?? request.businessObjective}
-                    </p>
+              <div className="vpa-stack" style={{ padding: "0 20px 20px" }}>
+                <p className="vpa-mut" style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
+                  {request.businessDescription ?? request.businessObjective}
+                </p>
+                <div className="vpa-facts">
+                  <div>
+                    <div className="vpa-lab">Diseño</div>
+                    <b>{request.brandStyle ?? "Sin detalle"}</b>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <StatusBadge tone="premium" label={request.status} />
-                    {request.quote ? (
-                      <StatusBadge
-                        tone={getQuoteStatusTone(request.quote.status)}
-                        label={getQuoteStatusLabel(request.quote.status)}
-                      />
-                    ) : (
-                      <StatusBadge tone="warning" label="Sin presupuesto" />
-                    )}
+                  <div>
+                    <div className="vpa-lab">Funciones</div>
+                    <b>{request.desiredFeatures ?? "Sin detalle"}</b>
+                  </div>
+                  <div>
+                    <div className="vpa-lab">Integraciones</div>
+                    <b>{request.requiredIntegrations ?? "Ninguna"}</b>
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                    <p className="font-semibold text-[var(--foreground)]">Diseno</p>
-                    <p>{request.brandStyle ?? "Sin detalle"}</p>
-                  </div>
-                  <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                    <p className="font-semibold text-[var(--foreground)]">Funciones</p>
-                    <p>{request.desiredFeatures ?? "Sin detalle"}</p>
-                  </div>
-                  <div className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4 text-sm leading-7 text-[var(--muted)]">
-                    <p className="font-semibold text-[var(--foreground)]">Integraciones</p>
-                    <p>{request.requiredIntegrations ?? "Sin integraciones adicionales"}</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+                <div className="vpa-g2">
+                  <AdminCustomizationQuoteForm requestId={request.id} quote={request.quote} />
                   <AdminCustomizationReviewForm
                     requestId={request.id}
                     currentStatus={request.status}
                     quotedPriceLabel={request.quotedPriceLabel}
                     reviewNotes={request.reviewNotes}
                   />
-                  <AdminCustomizationQuoteForm requestId={request.id} quote={request.quote} />
                 </div>
                 <CustomProjectControlsForm requestId={request.id} tenantId={request.tenant.id} pageScope={request.pageScope} />
 
                 {request.quote ? (
-                  <div className="grid gap-4 rounded-[24px] border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-[var(--foreground)]">
-                          {request.quote.quoteNumber} · {getQuoteTemplateLabel(request.quote.templateKey)}
-                        </p>
-                        <p className="text-sm leading-6 text-[var(--muted)]">
-                          {formatMoneyFromCents(
-                            request.quote.totalAmountCents,
-                            request.quote.currency,
-                          )}{" "}
-                          · entrega estimada en {request.quote.estimatedDeliveryDays} días
-                        </p>
-                      </div>
-                      <p className="text-sm text-[var(--muted)]">
-                        Válido hasta {formatDate(request.quote.validUntil)}
-                      </p>
+                  <div className="vpa-card" style={{ padding: "12px 20px" }}>
+                    <div className="vpa-cardh" style={{ justifyContent: "space-between" }}>
+                      <h3>
+                        {request.quote.quoteNumber} · {getQuoteTemplateLabel(request.quote.templateKey)}
+                      </h3>
+                      <span className="vpa-mut" style={{ fontSize: 12 }}>
+                        Entrega en {request.quote.estimatedDeliveryDays} días · vale hasta {formatDate(request.quote.validUntil)}
+                      </span>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full border-separate border-spacing-y-3 text-left text-sm">
+                    <div className="vpa-tw">
+                      <table className="vpa-tbl">
                         <thead>
-                          <tr className="text-[var(--muted-soft)]">
-                            <th className="px-4">Concepto</th>
-                            <th className="px-4">Detalle</th>
-                            <th className="px-4">Monto</th>
+                          <tr>
+                            <th>Concepto</th>
+                            <th>Detalle</th>
+                            <th className="r">Monto</th>
                           </tr>
                         </thead>
                         <tbody>
                           {request.quote.lineItems.map((line) => (
-                            <tr key={line.id} className="bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] text-[var(--foreground)]">
-                              <td className="rounded-l-3xl px-4 py-4 font-semibold">{line.label}</td>
-                              <td className="px-4 py-4 text-[var(--muted)]">
-                                {line.description ?? "Sin detalle adicional"}
+                            <tr key={line.id}>
+                              <td>
+                                <b>{line.label}</b>
                               </td>
-                              <td className="rounded-r-3xl px-4 py-4">
-                                {formatMoneyFromCents(
-                                  line.totalAmountCents,
-                                  request.quote!.currency,
-                                )}
-                              </td>
+                              <td className="vpa-mut wrap">{line.description ?? "—"}</td>
+                              <td className="r">{formatMoneyFromCents(line.totalAmountCents, request.quote!.currency)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -186,33 +134,47 @@ export default async function AdminCustomizationsPage() {
                     </div>
                   </div>
                 ) : null}
-              </article>
-            ))}
-          </div>
-        </PanelCard>
-
-        <PanelCard
-          eyebrow="Trazabilidad"
-          title="Historial de cambios"
-          description="Cada ajuste comercial o decisión del cliente queda versionado para auditoría y seguimiento."
-        >
-          <div className="grid gap-3">
-            {workspace.recentRevisions.map((revision) => (
-              <div key={revision.id} className="rounded-3xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="font-semibold text-[var(--foreground)]">{revision.revisionType}</p>
-                  <p className="text-sm text-[var(--muted)]">{formatDate(revision.createdAt)}</p>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{revision.summary}</p>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                  {revision.quote.customPageRequest.tenant.accountName} ·{" "}
-                  {revision.changedByUser?.email ?? "Sistema"}
-                </p>
               </div>
-            ))}
-          </div>
-        </PanelCard>
+            </details>
+          ))}
+        </div>
       </section>
+
+      <details className="vpa-card" style={{ padding: 0 }}>
+        <summary style={{ padding: "16px 20px", cursor: "pointer", listStyle: "none" }}>
+          <b>Cargar un cambio pedido por un cliente</b>
+        </summary>
+        <div style={{ padding: "0 20px 20px" }}>
+          <AdminClientChangeForm tenants={workspace.tenants} />
+        </div>
+      </details>
+
+      {workspace.recentRevisions.length > 0 ? (
+        <details className="vpa-card" style={{ padding: 0 }}>
+          <summary style={{ padding: "16px 20px", cursor: "pointer", listStyle: "none" }}>
+            <b>Últimos cambios en presupuestos</b>
+          </summary>
+          <div style={{ padding: "0 20px 16px" }}>
+            <div className="vpa-tw">
+              <table className="vpa-tbl">
+                <tbody>
+                  {workspace.recentRevisions.map((revision) => (
+                    <tr key={revision.id}>
+                      <td className="wrap">
+                        <b>{revision.summary}</b>
+                        <span className="sub">
+                          {revision.quote.customPageRequest.tenant.accountName} · {revision.changedByUser?.email ?? "Sistema"}
+                        </span>
+                      </td>
+                      <td className="r vpa-mut">{formatDate(revision.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+      ) : null}
     </AppShell>
   );
 }

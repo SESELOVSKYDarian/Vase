@@ -6,12 +6,24 @@ import {
   addWikiStepAction,
   updateWikiDocumentMetaAction,
 } from "@/app/(platform)/app/admin/actions";
-import { PanelCard } from "@/components/ui/panel-card";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
 
+const STATUS: Record<string, { label: string; tone: string }> = {
+  DRAFT: { label: "Borrador", tone: "y" },
+  PUBLISHED: { label: "Publicado", tone: "g" },
+  ARCHIVED: { label: "Archivado", tone: "" },
+};
+
+const AREA = { height: "auto", padding: "10px 12px" } as const;
+
+function when(value: Date) {
+  return new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" }).format(value);
+}
+
+/** Ayuda y wiki: cada guía es una fila que se abre para editarla. */
 export default async function AdminWikiPage() {
   try {
     await requireAdminPermission(adminPermissions.WIKI);
@@ -31,14 +43,7 @@ export default async function AdminWikiPage() {
       },
       revisions: {
         orderBy: { createdAt: "desc" },
-        include: {
-          changedByUser: {
-            select: {
-              name: true,
-              email: true,
-            },
-          },
-        },
+        include: { changedByUser: { select: { name: true, email: true } } },
         take: 6,
       },
     },
@@ -63,103 +68,127 @@ export default async function AdminWikiPage() {
   }
 
   return (
-    <AppShell
-      title="Wiki y documentación"
-      subtitle="Edita documentación pública: metadatos, secciones, pasos y discusiones."
-      tenantLabel="Master Admin"
-    >
-      <section className="grid gap-6">
+    <AppShell title="Ayuda y wiki" subtitle="Las guías que leen los clientes" tenantLabel="Admin">
+      {docs.length === 0 ? <div className="vpa-empty">Todavía no hay guías.</div> : null}
+      <div className="vpa-stack">
         {docs.map((doc) => (
-          <PanelCard
-            key={doc.id}
-            title={doc.title}
-            description={`Slug: ${doc.slug} · Estado: ${doc.status}`}
-          >
-            <form action={handleUpdateWikiDocumentMeta} className="grid gap-3 rounded-2xl border border-[var(--border-subtle)] p-4">
-              <input type="hidden" name="documentId" value={doc.id} />
-              <input name="title" defaultValue={doc.title} className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-              <input name="slug" defaultValue={doc.slug} className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-              <textarea name="summary" defaultValue={doc.summary ?? ""} className="min-h-16 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-              <select name="status" defaultValue={doc.status} className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2">
-                <option value="DRAFT">Borrador</option>
-                <option value="PUBLISHED">Publicado</option>
-                <option value="ARCHIVED">Archivado</option>
-              </select>
-              <button className="w-fit rounded-xl bg-[var(--accent-strong)] px-4 py-2 text-sm font-semibold text-[var(--accent-contrast)]">Guardar metadatos</button>
-            </form>
+          <details key={doc.id} className="vpa-card" style={{ padding: 0 }}>
+            <summary style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", cursor: "pointer", listStyle: "none" }}>
+              <div className="vpa-g1">
+                <b>{doc.title}</b>
+                <span>
+                  /{doc.slug} · {doc.sections.length} {doc.sections.length === 1 ? "parte" : "partes"} · cambiada el {when(doc.updatedAt)}
+                </span>
+              </div>
+              <span className={`vpa-tag ${STATUS[doc.status]?.tone ?? ""}`}>
+                <i />
+                {STATUS[doc.status]?.label ?? doc.status}
+              </span>
+            </summary>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <form action={handleAddWikiSection} className="grid gap-2 rounded-2xl border border-[var(--border-subtle)] p-4">
+            <div className="vpa-stack" style={{ padding: "0 20px 20px" }}>
+              <form action={handleUpdateWikiDocumentMeta} className="vpa-form">
                 <input type="hidden" name="documentId" value={doc.id} />
-                <p className="text-sm font-semibold">Nueva sección</p>
-                <input name="title" placeholder="Título de sección" className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-                <textarea name="body" placeholder="Contenido de sección" className="min-h-20 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-                <button className="w-fit rounded-xl border border-[var(--border-subtle)] px-4 py-2 text-sm font-semibold">Agregar sección</button>
+                <label className="vpa-fld">
+                  <span>Título</span>
+                  <input className="vpa-inp" name="title" defaultValue={doc.title} />
+                </label>
+                <label className="vpa-fld">
+                  <span>Dirección</span>
+                  <input className="vpa-inp" name="slug" defaultValue={doc.slug} />
+                </label>
+                <label className="vpa-fld vpa-span2">
+                  <span>Resumen</span>
+                  <textarea className="vpa-inp" name="summary" defaultValue={doc.summary ?? ""} rows={2} style={AREA} />
+                </label>
+                <label className="vpa-fld">
+                  <span>Estado</span>
+                  <select className="vpa-inp" name="status" defaultValue={doc.status}>
+                    <option value="DRAFT">Borrador</option>
+                    <option value="PUBLISHED">Publicado</option>
+                    <option value="ARCHIVED">Archivado</option>
+                  </select>
+                </label>
+                <div style={{ display: "flex", alignItems: "flex-end" }}>
+                  <button className="vpa-btn acc">Guardar</button>
+                </div>
               </form>
 
-              <div className="rounded-2xl border border-[var(--border-subtle)] p-4">
-                <p className="text-sm text-[var(--muted)]">
-                  Las discusiones se agregan por sección para mantener cada tutorial ordenado por tema.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3">
               {doc.sections.map((section) => (
-                <div key={section.id} className="rounded-2xl border border-[var(--border-subtle)] p-4">
-                  <p className="font-semibold">{section.title}</p>
-                  <p className="mt-1 text-sm text-[var(--muted)]">{section.body}</p>
-                  <form action={handleAddWikiStep} className="mt-3 grid gap-2">
-                    <input type="hidden" name="sectionId" value={section.id} />
-                    <input name="title" placeholder="Título del paso" className="rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-                    <textarea name="content" placeholder="Detalle del paso" className="min-h-16 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-                    <button className="w-fit rounded-xl border border-[var(--border-subtle)] px-4 py-2 text-sm font-semibold">Agregar paso</button>
-                  </form>
-                  <form action={handleAddWikiDiscussion} className="mt-3 grid gap-2">
-                    <input type="hidden" name="sectionId" value={section.id} />
-                    <textarea name="content" placeholder="Agregar discusión o aclaración de esta sección" className="min-h-16 rounded-xl border border-[var(--border-subtle)] bg-transparent px-3 py-2" />
-                    <button className="w-fit rounded-xl border border-[var(--border-subtle)] px-4 py-2 text-sm font-semibold">Agregar discusión</button>
-                  </form>
+                <div key={section.id} className="vpa-card stack" style={{ background: "var(--soft)", border: 0 }}>
+                  <div>
+                    <b>{section.title}</b>
+                    {section.body ? (
+                      <p className="vpa-mut" style={{ marginTop: 4, fontSize: 12.5 }}>
+                        {section.body}
+                      </p>
+                    ) : null}
+                  </div>
                   {section.steps.length > 0 ? (
-                    <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-[var(--muted)]">
+                    <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4, fontSize: 12.5 }}>
                       {section.steps.map((step) => (
                         <li key={step.id}>
-                          <span className="font-medium text-[var(--foreground)]">{step.title}:</span> {step.content}
+                          <b>{step.title}:</b> <span className="vpa-mut">{step.content}</span>
                         </li>
                       ))}
                     </ol>
                   ) : null}
                   {section.discussions.length > 0 ? (
-                    <div className="mt-3 grid gap-2">
+                    <div style={{ display: "grid", gap: 6 }}>
                       {section.discussions.map((discussion) => (
-                        <p key={discussion.id} className="rounded-xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] px-3 py-2 text-xs text-[var(--muted)]">
-                          <span className="font-semibold text-[var(--foreground)]">{discussion.authorName}:</span> {discussion.content}
+                        <p key={discussion.id} className="vpa-mut" style={{ margin: 0, fontSize: 12 }}>
+                          <b style={{ color: "var(--tx)" }}>{discussion.authorName}:</b> {discussion.content}
                         </p>
                       ))}
                     </div>
                   ) : null}
+                  <div className="vpa-two">
+                    <form action={handleAddWikiStep} className="vpa-fld" style={{ gap: 8 }}>
+                      <input type="hidden" name="sectionId" value={section.id} />
+                      <input className="vpa-inp" name="title" placeholder="Paso nuevo" />
+                      <textarea className="vpa-inp" name="content" placeholder="Qué hay que hacer" rows={2} style={AREA} />
+                      <button className="vpa-btn line sm" style={{ alignSelf: "flex-start" }}>
+                        Agregar paso
+                      </button>
+                    </form>
+                    <form action={handleAddWikiDiscussion} className="vpa-fld" style={{ gap: 8 }}>
+                      <input type="hidden" name="sectionId" value={section.id} />
+                      <textarea className="vpa-inp" name="content" placeholder="Una aclaración para esta parte" rows={4} style={AREA} />
+                      <button className="vpa-btn line sm" style={{ alignSelf: "flex-start" }}>
+                        Agregar aclaración
+                      </button>
+                    </form>
+                  </div>
                 </div>
               ))}
+
+              <form action={handleAddWikiSection} className="vpa-fld" style={{ gap: 8 }}>
+                <input type="hidden" name="documentId" value={doc.id} />
+                <span>Parte nueva</span>
+                <input className="vpa-inp" name="title" placeholder="Título" />
+                <textarea className="vpa-inp" name="body" placeholder="Contenido" rows={3} style={AREA} />
+                <button className="vpa-btn line sm" style={{ alignSelf: "flex-start" }}>
+                  Agregar parte
+                </button>
+              </form>
+
+              {doc.revisions.length > 0 ? (
+                <div>
+                  <div className="vpa-lab">Últimos cambios</div>
+                  <ul className="vpa-mut" style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4, fontSize: 12 }}>
+                    {doc.revisions.map((revision) => (
+                      <li key={revision.id}>
+                        <b style={{ color: "var(--tx)" }}>{revision.summary}</b> ·{" "}
+                        {revision.changedByUser?.name ?? revision.changedByUser?.email ?? "Sistema"} · {when(revision.createdAt)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
-            <div className="mt-5 rounded-2xl border border-[var(--border-subtle)] p-4">
-              <p className="text-sm font-semibold text-[var(--foreground)]">Historial de revisiones</p>
-              <div className="mt-3 grid gap-2">
-                {doc.revisions.length === 0 ? (
-                  <p className="text-xs text-[var(--muted)]">Sin revisiones todavía.</p>
-                ) : (
-                  doc.revisions.map((revision) => (
-                    <div key={revision.id} className="rounded-xl bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] px-3 py-2 text-xs text-[var(--muted)]">
-                      <span className="font-semibold text-[var(--foreground)]">{revision.summary}</span>{" "}
-                      · {revision.changedByUser?.name ?? revision.changedByUser?.email ?? "Sistema"} ·{" "}
-                      {new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short" }).format(revision.createdAt)}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </PanelCard>
+          </details>
         ))}
-      </section>
+      </div>
     </AppShell>
   );
 }
