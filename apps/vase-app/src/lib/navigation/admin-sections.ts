@@ -15,7 +15,10 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     id: "clientes",
     label: "Clientes",
     group: "Principal",
-    tabs: [{ href: "/app/admin/users", label: "Cuentas y cobros" }],
+    tabs: [
+      { href: "/app/admin/clients", label: "Clientes" },
+      { href: "/app/admin/users", label: "Accesos y cobros" },
+    ],
   },
   {
     id: "soporte",
