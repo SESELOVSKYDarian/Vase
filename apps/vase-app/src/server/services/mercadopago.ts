@@ -23,6 +23,11 @@ export function mercadoPagoPublicKey() {
   return String(process.env.MERCADOPAGO_PUBLIC_KEY ?? "").trim();
 }
 
+/** Clave secreta de Webhooks (panel de la app → Webhooks). Sin ella no se valida la firma de los avisos. */
+export function mercadoPagoWebhookSecret() {
+  return String(process.env.MERCADOPAGO_WEBHOOK_SECRET ?? "").trim();
+}
+
 export function isMercadoPagoConfigured() {
   return Boolean(accessToken() && mercadoPagoPublicKey());
 }
