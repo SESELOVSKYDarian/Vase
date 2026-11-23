@@ -5,7 +5,7 @@
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Bell, Columns3, FolderKanban, Home, LayoutGrid, LifeBuoy, SlidersHorizontal, Users, Wallet } from "lucide-react";
+import { Bell, Columns3, FolderKanban, MessageCircle, Home, LayoutGrid, LifeBuoy, SlidersHorizontal, Users, Wallet } from "lucide-react";
 import { PanelAccountMenu, PanelBrandLogo, PanelShell, type PanelNavGroup } from "@vase/ui/panel";
 import { signOutAction } from "@/app/(auth)/actions";
 import { NavLink } from "@/components/layout/nav-link";
@@ -15,6 +15,7 @@ import { toInternalAdminPath, toPublicAdminPath } from "@/lib/security/admin-hos
 import type { AppShellProps } from "./infer-active-section";
 import "@/components/admin/admin-legacy-bridge.css";
 
+const labsUrl = (process.env.NEXT_PUBLIC_LABS_URL ?? "https://labs.vase.ar").replace(/\/+$/, "") + "/";
 const workspaceUrl = process.env.NODE_ENV === "production" ? "https://workspace.vase.ar/" : "/app/workspace";
 
 const ICONS: Record<AdminSection["id"], typeof Home> = {
@@ -100,6 +101,10 @@ export function AdminPanelShell({ title, subtitle, notifications = [], currentUs
         )}
         actions={
           <>
+          <a className="vpa-btn line sm" href={labsUrl} title="Labs de Vase: el WhatsApp de Vase y sus chats">
+            <MessageCircle size={14} aria-hidden="true" />
+            WhatsApp de Vase
+          </a>
           <a className="vpa-btn line sm" href={workspaceUrl} title="Tablero de tickets y trabajos">
             <Columns3 size={14} aria-hidden="true" />
             Workspace

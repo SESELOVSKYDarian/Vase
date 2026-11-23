@@ -66,3 +66,24 @@ export async function notifyVaseSupportHandoff(
 export function notifyVaseSupportHandoffInBackground(prisma: BridgePrisma, input: { conversationId: string; reason?: string | null }) {
   void notifyVaseSupportHandoff(prisma, input).catch(() => undefined);
 }
+
+/**
+ * Cada mensaje que entra por el WhatsApp de Vase abre 24 h gratis para responder.
+ * Se avisa a app.vase.ar para que mande las respuestas que quedaron en espera.
+ */
+export function notifyVaseSupportInboundInBackground(
+  input: { globalTenantId: string; channelType: string; conversationId: string },
+  env: NodeJS.ProcessEnv = process.env,
+  fetcher: typeof fetch = fetch,
+) {
+  const tenantId = vaseSupportTenantId(env);
+  const appUrl = env.APP_INTERNAL_URL?.trim();
+  const token = env.SERVICE_TO_SERVICE_TOKEN?.trim();
+  if (!tenantId || !appUrl || !token || input.globalTenantId !== tenantId || input.channelType !== "WHATSAPP") return;
+  void fetcher(new URL("/api/internal/support/whatsapp/inbound", appUrl), {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ conversationId: input.conversationId }),
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => undefined);
+}

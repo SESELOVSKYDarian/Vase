@@ -140,15 +140,90 @@ export async function sendWhatsappTemplate(phone: string, kind: "reply" | "start
   return { ok: false, error: payload.providerMessage ?? payload.error ?? `LABS_${response.status}` };
 }
 
-/** Responde por WhatsApp; si pasaron las 24 h, manda la plantilla de aviso con el texto. */
-export async function deliverWhatsappReply(ticket: { labsConversationId: string | null; customerContact: string | null }, text: string) {
+/** Número de WhatsApp de Vase para el link "escribinos" (wa.me). */
+export function vaseWhatsappNumber() {
+  return normalizePhone(process.env.VASE_WHATSAPP_NUMBER ?? "5492234496403");
+}
+
+/**
+ * Responde por WhatsApp. Si pasaron 24 h desde el último mensaje del cliente:
+ * - con plantilla configurada, la manda (se paga);
+ * - sin plantilla (gratis): la respuesta queda en espera y sale sola apenas el cliente vuelva a escribir,
+ *   y mientras tanto le llega por correo con un botón para abrir el chat.
+ */
+export async function deliverWhatsappReply(
+  ticket: { id: string; labsConversationId: string | null; customerContact: string | null },
+  text: string,
+) {
   if (!ticket.labsConversationId) return { sent: false as const, reason: "NO_WHATSAPP" };
   const direct = await sendWhatsappReply(ticket.labsConversationId, text);
   if (direct.ok) return { sent: true as const, via: "text" as const };
-  if (isWindowClosedError(direct.error) && ticket.customerContact) {
+  if (!isWindowClosedError(direct.error)) return { sent: false as const, reason: direct.error ?? "SEND_FAILED" };
+
+  if (process.env.WHATSAPP_REPLY_TEMPLATE?.trim() && ticket.customerContact) {
     const template = await sendWhatsappTemplate(ticket.customerContact, "reply", [text.slice(0, 900)]);
     if (template.ok) return { sent: true as const, via: "template" as const };
-    return { sent: false as const, reason: template.error ?? "TEMPLATE_FAILED" };
   }
-  return { sent: false as const, reason: direct.error ?? "SEND_FAILED" };
+
+  await createSupportTicketEvent(ticket.id, "AGENT_REPLIED", "Respuesta en espera: sale por WhatsApp cuando el cliente vuelva a escribir.", undefined, {
+    whatsapp: "pending",
+    text,
+  });
+  const emailed = await emailReplyToCustomer(ticket.id, text).catch(() => false);
+  return { sent: false as const, reason: "QUEUED", emailed };
+}
+
+/** Correo al cliente con la respuesta y un botón que abre el chat de WhatsApp con Vase (así se reabren las 24 h). */
+async function emailReplyToCustomer(ticketId: string, text: string) {
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    select: {
+      subject: true,
+      createdByUser: { select: { email: true, name: true } },
+      tenant: { select: { billingEmail: true, name: true, primaryOwner: { select: { email: true, name: true } } } },
+    },
+  });
+  const to = ticket?.createdByUser?.email ?? ticket?.tenant.primaryOwner?.email ?? ticket?.tenant.billingEmail;
+  if (!ticket || !to) return false;
+  const name = (ticket.createdByUser?.name ?? ticket.tenant.primaryOwner?.name ?? "").split(" ")[0];
+  const { sendNoticeEmail } = await import("@/server/services/auth-email");
+  await sendNoticeEmail({
+    email: to,
+    subject: `Respuesta de Vase: ${ticket.subject.replace(/^WhatsApp:\s*/, "")}`.slice(0, 150),
+    title: "Te respondimos",
+    greeting: name ? `Hola, ${name}` : undefined,
+    message: text,
+    button: {
+      label: "Seguir por WhatsApp",
+      url: `https://wa.me/${vaseWhatsappNumber()}?text=${encodeURIComponent("Hola, vi la respuesta de Vase")}`,
+    },
+    note: "Si nos escribís por WhatsApp, seguimos la charla por ahí.",
+    reason: `Te llegó porque pediste ayuda a Vase para ${ticket.tenant.name}.`,
+  });
+  return true;
+}
+
+/** El cliente volvió a escribir: se mandan por WhatsApp las respuestas que estaban en espera, en orden. */
+export async function flushPendingWhatsappReplies(labsConversationId: string) {
+  const events = await prisma.supportTicketEvent.findMany({
+    where: {
+      eventType: "AGENT_REPLIED",
+      ticket: { labsConversationId },
+      metadata: { path: "$.whatsapp", equals: "pending" },
+    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, metadata: true },
+    take: 20,
+  });
+  let sent = 0;
+  for (const event of events) {
+    const meta = (event.metadata ?? {}) as { text?: unknown };
+    const text = typeof meta.text === "string" ? meta.text : "";
+    if (!text) continue;
+    const result = await sendWhatsappReply(labsConversationId, text);
+    if (!result.ok) break;
+    await prisma.supportTicketEvent.update({ where: { id: event.id }, data: { metadata: { whatsapp: "sent", text, sentAt: new Date().toISOString() } } });
+    sent += 1;
+  }
+  return { pending: events.length, sent };
 }

@@ -64,6 +64,10 @@ export function WorkspaceContacts({ contacts, tenants, base }: { contacts: Conta
           Cuando un número vinculado pide hablar con una persona por el WhatsApp de Vase, se abre un ticket en el tablero. Los que no están vinculados
           quedan acá para que los asignes.
         </p>
+        <a className="vpa-btn line" href="https://labs.vase.ar/" target="_blank" rel="noreferrer">
+          <MessageCircle size={15} aria-hidden="true" />
+          Ver los chats en Labs
+        </a>
         <button type="button" className="vpa-btn acc" onClick={() => setAdding((value) => !value)}>
           <Plus size={15} aria-hidden="true" />
           Agregar contacto

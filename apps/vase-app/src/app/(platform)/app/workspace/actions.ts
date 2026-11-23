@@ -132,7 +132,7 @@ export async function commentWorkspaceItemAction(key: string, rawBody: string, t
     await addSupportTicketNote(parsed.id, user.id, body, toCustomer ? "CUSTOMER" : "INTERNAL");
     if (toCustomer) {
       await sendSupportReply({ ticketId: parsed.id, actorUserId: user.id, body });
-      const ticket = await prisma.supportTicket.findUnique({ where: { id: parsed.id }, select: { labsConversationId: true, customerContact: true } });
+      const ticket = await prisma.supportTicket.findUnique({ where: { id: parsed.id }, select: { id: true, labsConversationId: true, customerContact: true } });
       if (ticket?.labsConversationId) {
         const whatsapp = await deliverWhatsappReply(ticket, body);
         done();
@@ -140,8 +140,8 @@ export async function commentWorkspaceItemAction(key: string, rawBody: string, t
           return {
             ok: true,
             message:
-              whatsapp.reason === "TEMPLATE_NOT_CONFIGURED"
-                ? "Quedó guardada, pero no salió por WhatsApp: pasaron más de 24 h y falta configurar la plantilla de aviso."
+              whatsapp.reason === "QUEUED"
+                ? `Pasaron más de 24 h desde su último mensaje: WhatsApp no deja escribirle gratis. La respuesta sale sola apenas te escriba${"emailed" in whatsapp && whatsapp.emailed ? ", y ya le llegó por correo con un botón para abrir el chat" : ""}.`
                 : `Quedó guardada, pero no salió por WhatsApp (${whatsapp.reason}).`,
           };
         }

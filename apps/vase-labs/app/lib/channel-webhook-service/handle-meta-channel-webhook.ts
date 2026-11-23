@@ -4,6 +4,7 @@ import { type LabsChannel } from "@vase/contracts";
 import { verifyMetaSignature } from "../meta-signature";
 import { ChannelWebhookPostResult, ChannelWebhookRepository, ParseChannelWebhookMessage, PersistChannelInboundMessageResult, ResolveInboundCustomerName, RunChannelAiReply, canProcessChannelWebhook, readMetaChannelProviderConfig, resolveAiBlockedReason } from "./channel-webhook-repository";
 import { detectHumanHandoffIntent } from "./detect-human-handoff-intent";
+import { notifyVaseSupportInboundInBackground } from "../vase-support-bridge";
 
 export async function handleMetaChannelWebhook(input: {
   channelType: LabsChannel;
@@ -142,6 +143,7 @@ export async function handleMetaChannelWebhook(input: {
       conversationId: persisted.conversationId,
       messageId: persisted.messageId,
     });
+    notifyVaseSupportInboundInBackground({ globalTenantId: context.globalTenantId, channelType: input.channelType, conversationId: persisted.conversationId });
     if (humanHandoffRequested) {
       await input.repository.requestHumanHandoff?.({
         context,
