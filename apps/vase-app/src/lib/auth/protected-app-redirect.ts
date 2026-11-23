@@ -1,3 +1,5 @@
+import { resolveAdminHomeUrl } from "@/lib/security/admin-host-routing";
+
 type ProtectedAppRedirectInput = {
   pathname: string;
   search: string;
@@ -62,7 +64,7 @@ export function getAppIndexRedirectPath({
   platformRole,
   tenantRole,
 }: AppIndexRedirectInput) {
-  if (platformRole === "SUPER_ADMIN") return "/api/admin/launch";
+  if (platformRole === "SUPER_ADMIN") return resolveAdminHomeUrl();
   if (platformRole === "SUPPORT") return "/app/support";
   if (platformRole === "DEVELOPER") return "/app/developer";
   if (tenantRole === "MANAGER") return "/app/manager";

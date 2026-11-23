@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveAdminHomeUrl } from "@/lib/security/admin-host-routing";
 import {
   getAppIndexRedirectPath,
   getAuthPageRedirectPath,
@@ -72,7 +73,7 @@ describe("protected app redirects", () => {
 
   it("routes authenticated platform and tenant roles from the app index", () => {
     expect(getAppIndexRedirectPath({ platformRole: "SUPER_ADMIN", tenantRole: null })).toBe(
-      "/api/admin/launch",
+      resolveAdminHomeUrl(),
     );
     expect(getAppIndexRedirectPath({ platformRole: "SUPPORT", tenantRole: null })).toBe(
       "/app/support",

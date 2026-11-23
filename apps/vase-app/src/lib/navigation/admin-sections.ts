@@ -68,6 +68,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     tabs: [
       { href: "/app/admin/settings", label: "Reglas de cobro" },
       { href: "/app/admin/audit", label: "Registro de cambios" },
+      { href: "/app/admin/settings/account", label: "Tu cuenta" },
     ],
   },
 ];

@@ -14,6 +14,7 @@ import { createAuditLog } from "@/server/services/audit-log";
 import { forgotPasswordSchema, signInSchema } from "@/lib/validators/auth";
 import { createForcedPasswordResetToken, findUserByEmail, requestPasswordReset, resendVerificationEmail, sendLoginSecurityEmail, sendTooManyAttemptsEmail, validateSignInCredentials } from "@/server/services/auth-onboarding";
 import { AuthActionState, databaseUnavailableState, validationErrorState } from "./parse-json-array";
+import { isAdminUrl, resolveAdminHomeUrl } from "@/lib/security/admin-host-routing";
 
 export async function signInAction(
   _: AuthActionState,
@@ -142,8 +143,12 @@ export async function signInAction(
     );
   }
 
+  // El admin entra directo a admin.vase.ar (sin pasar por /api/admin/launch, que en una acción del
+  // servidor terminaba en una navegación interna que no seguía la redirección a otro dominio).
   const effectiveRedirectTo =
-    result.user.platformRole === "SUPER_ADMIN" ? "/api/admin/launch" : redirectTo;
+    result.user.platformRole === "SUPER_ADMIN"
+      ? isAdminUrl(redirectTo) ? redirectTo : resolveAdminHomeUrl()
+      : redirectTo;
 
   await createAuditLog({
     action: "auth.signin_succeeded",

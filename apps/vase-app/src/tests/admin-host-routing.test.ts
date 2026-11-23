@@ -3,6 +3,8 @@ import {
   buildPublicRequestUrl,
   buildAdminCanonicalUrl,
   isAdminHost,
+  isAdminUrl,
+  resolveAdminHomeUrl,
   resolveAdminAccessDecision,
   resolveAdminNavigationPath,
   normalizeAdminPathForActiveState,
@@ -212,5 +214,19 @@ describe("admin host routing", () => {
     expect(normalizeAdminPathForActiveState("/app/admin/users", "app.vase.ar", {
       nodeEnv: "production",
     })).toBe("/app/admin/users");
+  });
+
+  it("sirve Clientes en el host del Admin", () => {
+    expect(toInternalAdminPath("/clients")).toBe("/app/admin/clients");
+    expect(toInternalAdminPath("/clients/abc")).toBe("/app/admin/clients/abc");
+    expect(toPublicAdminPath("/app/admin/clients/abc")).toBe("/clients/abc");
+  });
+
+  it("manda al admin directo a admin.vase.ar", () => {
+    expect(resolveAdminHomeUrl({ nodeEnv: "production", publicUrl: "" , adminHost: "admin.vase.ar" })).toBe("https://admin.vase.ar/");
+    expect(resolveAdminHomeUrl({ publicUrl: "https://admin.vase.ar" })).toBe("https://admin.vase.ar/");
+    expect(isAdminUrl("https://admin.vase.ar/clients", { nodeEnv: "production", adminHost: "admin.vase.ar" })).toBe(true);
+    expect(isAdminUrl("https://app.vase.ar/app", { nodeEnv: "production", adminHost: "admin.vase.ar" })).toBe(false);
+    expect(isAdminUrl("/app", { nodeEnv: "production" })).toBe(false);
   });
 });

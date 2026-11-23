@@ -37,6 +37,7 @@ const AUTH_PATHS = new Set([
   "/verify-email",
 ]);
 const ADMIN_SECTIONS = new Set([
+  "clients",
   "users",
   "modules",
   "management",
@@ -83,6 +84,31 @@ export function resolveAdminHost(input: AdminHostInput = {}) {
 
 export function isAdminHost(hostname: string, input: AdminHostInput = {}) {
   return normalizeHost(hostname, input.nodeEnv) === resolveAdminHost(input);
+}
+
+/** Dirección pública del Admin (https://admin.vase.ar/). Al iniciar sesión, un SUPER_ADMIN va directo ahí. */
+export function resolveAdminHomeUrl(input: AdminHostInput & { publicUrl?: string } = {}) {
+  const configured = (input.publicUrl ?? process.env.VASE_ADMIN_PUBLIC_URL ?? "").trim();
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (url.protocol === "https:" || url.protocol === "http:") return url.toString();
+    } catch {
+      // Valor inválido: se usa el host del Admin.
+    }
+  }
+  const production = (input.nodeEnv ?? process.env.NODE_ENV) === "production";
+  return `${production ? "https" : "http"}://${resolveAdminHost(input)}/`;
+}
+
+/** true si la dirección ya apunta al Admin (para respetar un enlace profundo como /clients/123). */
+export function isAdminUrl(value: string, input: AdminHostInput = {}) {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "https:" || url.protocol === "http:") && isAdminHost(url.host, input);
+  } catch {
+    return false;
+  }
 }
 
 function resolvePrimaryHost(input: AdminHostInput) {
