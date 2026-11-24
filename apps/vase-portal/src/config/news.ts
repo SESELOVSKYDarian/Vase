@@ -42,6 +42,8 @@ export type NewsArticle = {
   date: string;
   readingMinutes: number;
   tags: readonly NewsTag[];
+  /** Categoría principal (la etiqueta de las tarjetas). */
+  category: NewsTag;
   /** Captura de la portada (mejor en modo oscuro: va detrás del título). */
   cover: NewsFigure;
   changesTitle: string;
@@ -65,6 +67,7 @@ export const NEWS_ARTICLES: readonly NewsArticle[] = [
     date: "2026-11-24",
     readingMinutes: 4,
     tags: ["Vase", "Business", "Labs"],
+    category: "Vase",
     cover: shot("business-resumen-oscuro", "Resumen del panel de Business en modo oscuro"),
     changesTitle: "Cuatro cambios que vas a notar apenas entres",
     changes: [
@@ -126,6 +129,110 @@ export const NEWS_ARTICLES: readonly NewsArticle[] = [
       ],
     },
     cta: { title: "Ya está en tu cuenta. No tenés que hacer nada.", label: "Entrar a Vase", href: "https://app.vase.ar/app" },
+  },
+  {
+    slug: "mi-negocio",
+    title: "Mi negocio: cargás tu marca una vez y se usa en todo",
+    excerpt: "Nombre, logos, contacto y redes en un solo lugar. Business y Labs los toman de ahí, así no cargás lo mismo dos veces.",
+    lede: "Mi negocio es el lugar donde vive la información de tu marca. La cargás una vez y la usan tu tienda, tu asistente y el resto de Vase.",
+    date: "2026-11-24",
+    readingMinutes: 2,
+    tags: ["App"],
+    category: "App",
+    cover: shot("mi-negocio", "Pantalla Mi negocio"),
+    changesTitle: "Qué encontrás en Mi negocio",
+    changes: [
+      {
+        title: "Todo tu negocio en un lugar",
+        where: "App",
+        short: "Identidad, contacto y redes, ordenados por secciones.",
+        paragraphs: [
+          "Entrá a Mi negocio desde el menú de la izquierda. Arriba ves cuánto completaste y qué te falta; abajo, cada sección se abre y se cierra para que no tengas todo a la vista de golpe.",
+          "Lo que escribís se guarda solo en la nube, sin botón de guardar.",
+        ],
+        figure: shot("mi-negocio", "Mi negocio con las secciones de identidad y contacto", "Mi negocio: arriba lo que te falta, abajo cada sección."),
+        wide: true,
+      },
+      {
+        title: "Te avisa qué conviene completar",
+        where: "App",
+        short: "El inicio te muestra lo que falta para vender mejor.",
+        paragraphs: [
+          "Si falta el logo, el WhatsApp o las sucursales, el inicio de Vase te lo marca en Oportunidades, junto con los productos sin stock y los clientes que esperan tu aprobación.",
+        ],
+        figure: shot("app-inicio", "Inicio de Vase con la lista de oportunidades", "Oportunidades: lo que conviene resolver hoy."),
+      },
+    ],
+    cta: { title: "Completá tu negocio en dos minutos.", label: "Abrir Mi negocio", href: "https://app.vase.ar/app/negocio" },
+  },
+  {
+    slug: "business-historial-del-diseno",
+    title: "Business: el historial te deja volver atrás el diseño de tu tienda",
+    excerpt: "Cada versión publicada queda guardada con lo que cambió y quién lo hizo. Si algo no te gusta, volvés a la anterior.",
+    lede: "Editar la tienda ya no da miedo: cada vez que publicás queda una versión con el detalle de los cambios, y podés volver a cualquiera.",
+    date: "2026-11-24",
+    readingMinutes: 2,
+    tags: ["Business"],
+    category: "Business",
+    cover: shot("business-diseno-oscuro", "Editor de diseño de Business en modo oscuro"),
+    changesTitle: "Diseñar y volver atrás",
+    changes: [
+      {
+        title: "Diseño de la tienda por bloques",
+        where: "Business",
+        short: "Bloques a la izquierda, tu tienda al medio.",
+        paragraphs: [
+          "En Diseño de la tienda armás cada página con bloques: portada con fotos, marcas, productos destacados y más. Los arrastrás para ordenarlos y tocás cualquiera para cambiar textos, fotos y botones.",
+        ],
+        figure: shot("business-diseno", "Editor de diseño de la tienda", "Tocá cualquier parte de la tienda para editarla."),
+        wide: true,
+      },
+      {
+        title: "Historial de cambios",
+        where: "Business",
+        short: "Qué cambió en cada versión y quién lo hizo.",
+        paragraphs: [
+          "Con el botón del reloj, arriba a la derecha, abrís el historial. Cada versión dice qué bloques se agregaron, se quitaron o se movieron, y qué ajustes cambiaron. Podés filtrar entre publicadas y sin publicar.",
+        ],
+        figure: shot("business-historial", "Historial de cambios del diseño", "El historial, con el detalle de cada versión."),
+      },
+    ],
+    cta: { title: "Probá el editor nuevo de tu tienda.", label: "Abrir Business", href: "https://app.vase.ar/app/business" },
+  },
+  {
+    slug: "labs-proba-tu-asistente",
+    title: "Labs: probá tu asistente antes de que hable con tus clientes",
+    excerpt: "Elegí cómo habla y qué sabe, y probalo en un chat de prueba sin que nadie lo vea.",
+    lede: "En Asistente definís el tono y las reglas de tu asistente de WhatsApp e Instagram, y lo probás ahí mismo antes de que conteste de verdad.",
+    date: "2026-11-24",
+    readingMinutes: 2,
+    tags: ["Labs"],
+    category: "Labs",
+    cover: shot("labs-inicio-oscuro", "Inicio de Labs en modo oscuro"),
+    changesTitle: "Tu asistente, a tu manera",
+    changes: [
+      {
+        title: "Cómo habla",
+        where: "Labs",
+        short: "Cercano, formal, breve o detallado.",
+        paragraphs: [
+          "Elegí el tono con un toque y escribí las reglas con tus palabras. Los datos de contacto y sucursales los toma de Mi negocio.",
+          "A la derecha tenés un chat de prueba: escribí como si fueras un cliente y mirá qué contestaría. No se manda a nadie.",
+        ],
+        figure: shot("labs-asistente", "Pantalla Asistente de Labs", "Asistente: el tono a la izquierda, el chat de prueba a la derecha."),
+        wide: true,
+      },
+      {
+        title: "Cómo viene tu asistente",
+        where: "Labs",
+        short: "Conversaciones, canales y uso del mes de un vistazo.",
+        paragraphs: [
+          "El inicio de Labs muestra cuántas conversaciones atendió la IA, cuántas pasaron a una persona, quiénes quieren comprar y cómo viene cada canal.",
+        ],
+        figure: shot("labs-inicio-oscuro", "Inicio de Labs con las conversaciones de la semana", "El inicio de Labs, en modo oscuro."),
+      },
+    ],
+    cta: { title: "Ajustá tu asistente hoy.", label: "Abrir Labs", href: "https://labs.vase.ar/owner/knowledge" },
   },
 ];
 

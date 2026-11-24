@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowDown, ArrowRight, ArrowUpRight } from "lucide-react";
 import { NEWS_ARTICLES, changeAnchor, formatNewsDate, getNewsArticle, newsUrl, type NewsFigure } from "@/config/news";
 import { NewsFooter } from "../../news-footer";
-import { NewsNav } from "../../news-nav";
+import { ScrollReveal } from "@/components/marketing/scroll-reveal";
 
 export function generateStaticParams() {
   return NEWS_ARTICLES.map((article) => ({ slug: article.slug }));
@@ -51,11 +51,10 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ sl
       <div className="vn-hero-pad">
         <section className="vn-hero side">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="bg" src={article.cover.src} alt="" width={article.cover.width} height={article.cover.height} />
-          <NewsNav />
+          <img className="bg vn-zoom" src={article.cover.src} alt="" width={article.cover.width} height={article.cover.height} />
           <div className="vn-hero-body">
-            <h1>{article.title}</h1>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 20, minWidth: 260 }}>
+            <h1 className="vn-in">{article.title}</h1>
+            <div className="vn-in" style={{ ["--d" as string]: "180ms", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 20, minWidth: 260 }}>
               <a href={article.cta.href} className="vn-btn">
                 Probarlo ahora
                 <ArrowRight className="size-4" aria-hidden="true" />
@@ -84,7 +83,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ sl
           <div className="b" style={{ maxWidth: 680 }}>
             <p className="vn-big">{article.lede}</p>
             <div style={{ marginTop: 48, display: "flex", alignItems: "center", gap: 24 }}>
-              <span style={{ flex: 1, borderTop: "1px solid #111418" }} />
+              <span style={{ flex: 1, borderTop: "1px solid var(--tx)" }} />
               <a href="#cambios" className="vn-btn line">
                 Ver los cambios
                 <ArrowDown className="size-3.5" aria-hidden="true" />
@@ -106,7 +105,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ sl
             </a>
           </div>
 
-          <div className="vn-cards" style={{ marginTop: 40 }}>
+          <ScrollReveal variant="card" className="vn-cards vn-cards-gap" amount={0.1}>
             {article.changes.map((change, index) => (
               <a key={change.title} href={`#${changeAnchor(index)}`} className={`vn-card${change.wide ? " wide" : ""}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -127,11 +126,12 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ sl
                 </span>
               </a>
             ))}
-          </div>
+          </ScrollReveal>
 
           <div style={{ marginTop: 120, display: "flex", flexDirection: "column", gap: 96 }}>
             {article.changes.map((change, index) => (
-              <section key={change.title} id={changeAnchor(index)} className={`vn-detail${index % 2 ? " rev" : ""}`}>
+              <ScrollReveal key={change.title} variant="section" amount={0.15}>
+              <section id={changeAnchor(index)} className={`vn-detail${index % 2 ? " rev" : ""}`}>
                 <div className="t">
                   <div className="vn-label">
                     ({pad(index)}) · {change.where}
@@ -146,11 +146,13 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ sl
                   {change.figure.caption ? <figcaption>{change.figure.caption}</figcaption> : null}
                 </figure>
               </section>
+              </ScrollReveal>
             ))}
           </div>
         </section>
 
         {article.highlight ? (
+          <ScrollReveal variant="section" amount={0.15}>
           <section style={{ paddingTop: 120 }}>
             <figure style={{ margin: 0 }}>
               <Shot figure={article.highlight} />
@@ -160,6 +162,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ sl
               </figcaption>
             </figure>
           </section>
+          </ScrollReveal>
         ) : null}
 
         {article.closing ? (
@@ -183,7 +186,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ sl
           </section>
         ) : null}
 
-        <section style={{ paddingTop: 144 }}>
+        <ScrollReveal variant="section" className="vn-endbox">
           <div className="vn-end">
             <h2>{article.cta.title}</h2>
             <a href={article.cta.href} className="vn-btn">
@@ -191,7 +194,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ sl
               <ArrowRight className="size-4" aria-hidden="true" />
             </a>
           </div>
-        </section>
+        </ScrollReveal>
       </div>
 
       <NewsFooter />

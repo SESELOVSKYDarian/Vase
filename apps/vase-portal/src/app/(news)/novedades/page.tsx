@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { ArrowDown, ArrowUpRight } from "lucide-react";
-import { NEWS_ARTICLES, changeAnchor, formatNewsDate, newsUrl } from "@/config/news";
+import { ArrowDown } from "lucide-react";
+import { ScrollReveal } from "@/components/marketing/scroll-reveal";
+import { NEWS_ARTICLES, formatNewsDate, newsUrl, type NewsArticle } from "@/config/news";
 import { NewsFooter } from "../news-footer";
-import { NewsNav } from "../news-nav";
+import { NewsRail } from "../news-rail";
 
 export const metadata: Metadata = {
   title: "Novedades",
@@ -11,28 +12,46 @@ export const metadata: Metadata = {
   openGraph: { title: "Novedades de Vase", url: newsUrl() },
 };
 
+function Meta({ article }: { article: NewsArticle }) {
+  return (
+    <span className="vn-meta">
+      <time dateTime={article.date}>{formatNewsDate(article.date, "short")}</time>
+      <i aria-hidden="true" />
+      {article.readingMinutes} min de lectura
+    </span>
+  );
+}
+
+function Chip({ children }: { children: string }) {
+  return (
+    <span className="vn-cat">
+      <i aria-hidden="true" />
+      {children}
+    </span>
+  );
+}
+
 export default function NewsIndexPage() {
-  const latest = NEWS_ARTICLES[0];
-  if (!latest) return null;
-  const heroImage = latest.changes.find((change) => change.cardImage)?.cardImage ?? latest.cover.src;
+  const [featured, ...others] = NEWS_ARTICLES;
+  if (!featured) return null;
+  const heroImage = featured.changes.find((change) => change.cardImage)?.cardImage ?? featured.cover.src;
 
   return (
-    <div className="vn dark">
+    <>
       <div className="vn-hero-pad">
         <section className="vn-hero framed">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="bg" src={heroImage} alt="" width={2000} height={1250} />
-          <NewsNav />
+          <img className="bg vn-zoom" src={heroImage} alt="" width={2000} height={1250} />
           <div className="vn-hero-body">
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+              <div className="vn-in" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
                 <span className="vn-chip">Novedades</span>
-                <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.75)" }}>Última nota: {formatNewsDate(latest.date)}</span>
+                <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.75)" }}>Última nota: {formatNewsDate(featured.date)}</span>
               </div>
-              <h1>
+              <h1 className="vn-in" style={{ ["--d" as string]: "120ms" }}>
                 Lo nuevo de Vase, <strong>contado claro.</strong>
               </h1>
-              <div style={{ marginTop: 24, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 24 }}>
+              <div className="vn-in" style={{ ["--d" as string]: "240ms", marginTop: 24, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 24 }}>
                 <p className="vn-hero-text">Qué cambió en app, Business, Labs y el resto de los productos, con capturas reales y cómo aprovecharlo.</p>
                 <a href="#notas" className="vn-btn">
                   Ver las notas
@@ -40,84 +59,64 @@ export default function NewsIndexPage() {
                 </a>
               </div>
             </div>
-            <a href={newsUrl(latest.slug)} className="vn-latest">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={latest.cover.src} alt="" width={96} height={62} />
-              <span style={{ margin: 0, color: "inherit" }}>
-                <b>{latest.title}</b>
-                <span>Leer la nota →</span>
-              </span>
-            </a>
           </div>
         </section>
       </div>
 
-      <div className="vn-wrap">
-        <section className="vn-split" style={{ paddingTop: 112 }}>
-          <div className="a">
-            <div>
-              <div className="vn-label">(01)</div>
-              <h2 className="vn-h">Por qué existe esto</h2>
+      <div className="vn-wrap" id="notas" style={{ scrollMarginTop: 96 }}>
+        <section className="vn-news">
+          <ScrollReveal variant="card" className="vn-news-main">
+            <a href={newsUrl(featured.slug)} className="vn-feature">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={featured.cover.src} alt="" width={featured.cover.width} height={featured.cover.height} />
+              <span className="vn-feature-body">
+                <Chip>{featured.category}</Chip>
+                <b>{featured.title}</b>
+                <Meta article={featured} />
+              </span>
+            </a>
+          </ScrollReveal>
+
+          <ScrollReveal variant="text" delay={0.12} className="vn-news-side">
+            <h2>Últimas notas</h2>
+            <div className="vn-latest-list">
+              {others.slice(0, 4).map((article) => (
+                <a key={article.slug} href={newsUrl(article.slug)} className="vn-li">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={article.cover.src} alt="" width={160} height={160} loading="lazy" />
+                  <span>
+                    <b>{article.title}</b>
+                    <Meta article={article} />
+                  </span>
+                </a>
+              ))}
             </div>
-            <p className="vn-small">Cada cambio importante en Vase llega acá primero y te lo avisamos dentro de tu panel con una ventanita.</p>
-          </div>
-          <div className="b">
-            <p className="vn-big">Notas cortas, con capturas de cómo funciona hoy y sin jerga. Leés lo que cambió en tu producto y vas directo a probarlo.</p>
-          </div>
+          </ScrollReveal>
         </section>
 
-        <section id="notas" style={{ paddingTop: 128, scrollMarginTop: 24 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
-            <div>
-              <div className="vn-label">(02)</div>
-              <h2 className="vn-h">{latest.changesTitle}</h2>
-            </div>
-            <a href={newsUrl(latest.slug)} className="vn-btn line">
-              Leer la nota completa
-            </a>
-          </div>
-          <div className="vn-rail" style={{ marginTop: 32 }}>
-            {latest.changes.map((change, index) => (
-              <a key={change.title} href={`${newsUrl(latest.slug)}#${changeAnchor(index)}`} className="vn-card">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={change.cardImage ?? change.figure.src} alt="" width={2000} height={1250} loading="lazy" />
-                <span className="vn-card-bottom" style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }}>
-                  <span>
-                    <b>{change.title}</b>
-                    <span style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-                      <span className="vn-tag">{change.where}</span>
-                      <span className="vn-tag">{String(index + 1).padStart(2, "0")}</span>
-                    </span>
-                    <small>{change.short}</small>
-                  </span>
-                  <span className="vn-ghost">Ver cómo funciona</span>
+        <hr className="vn-hr" />
+
+        <ScrollReveal variant="section">
+          <NewsRail title="Por producto">
+            {NEWS_ARTICLES.map((article) => (
+              <a key={article.slug} href={newsUrl(article.slug)} className="vn-post">
+                <span className="vn-post-img">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={article.cover.src} alt="" width={article.cover.width} height={article.cover.height} loading="lazy" />
+                </span>
+                <span className="vn-post-body">
+                  <Chip>{article.category}</Chip>
+                  <b>{article.title}</b>
+                  <small>{article.excerpt}</small>
+                  <Meta article={article} />
                 </span>
               </a>
             ))}
-          </div>
-        </section>
-
-        <section style={{ paddingTop: 128 }}>
-          <div className="vn-label">(03)</div>
-          <h2 className="vn-h">Todas las notas</h2>
-          <div style={{ marginTop: 28 }}>
-            {NEWS_ARTICLES.map((article) => (
-              <a key={article.slug} href={newsUrl(article.slug)} className="vn-row">
-                <time dateTime={article.date}>{formatNewsDate(article.date, "short")}</time>
-                <b>{article.title}</b>
-                <span>{article.tags.join(" · ")}</span>
-                <i aria-hidden="true">
-                  <ArrowUpRight className="size-4" />
-                </i>
-              </a>
-            ))}
-          </div>
-        </section>
+          </NewsRail>
+        </ScrollReveal>
       </div>
 
-      <div style={{ paddingTop: 48 }}>
-        <NewsFooter />
-      </div>
-    </div>
+      <NewsFooter />
+    </>
   );
 }
