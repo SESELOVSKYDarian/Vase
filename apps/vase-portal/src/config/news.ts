@@ -1,28 +1,59 @@
 // Novedades de Vase (news.vase.ar). Cada nota es un objeto: agregar una nueva = sumarla arriba de la lista.
+// Las imágenes son capturas reales del sistema (public/novedades/<slug>/), con el nombre del cliente tapado.
 
 export const NEWS_ORIGIN = new URL(process.env.NEXT_PUBLIC_NEWS_ORIGIN?.trim() || "https://news.vase.ar").origin;
 export const NEWS_HOST = new URL(NEWS_ORIGIN).host;
 
 export type NewsTag = "Vase" | "App" | "Business" | "Labs" | "Rest" | "Management";
 
-export type NewsSection = {
+/** Captura real de una pantalla. */
+export type NewsFigure = {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  caption?: string;
+};
+
+/** Un cambio de la nota: tarjeta arriba y detalle con captura abajo. */
+export type NewsChange = {
   title: string;
+  /** Dónde se ve: "App · Business · Labs". */
+  where: string;
+  /** Una línea para la tarjeta. */
+  short: string;
+  /** El detalle, en uno o más párrafos. */
   paragraphs: readonly string[];
-  items?: readonly string[];
+  figure: NewsFigure;
+  /** Imagen de la tarjeta, si no es la misma que la del detalle. */
+  cardImage?: string;
+  /** Tarjeta ancha (7 de 12 columnas) o angosta (5). */
+  wide?: boolean;
 };
 
 export type NewsArticle = {
   slug: string;
   title: string;
+  /** Resumen corto (tarjetas, buscadores, la ventanita de Vase). */
   excerpt: string;
+  /** Frase grande de la intro. */
+  lede: string;
   /** AAAA-MM-DD */
   date: string;
   readingMinutes: number;
   tags: readonly NewsTag[];
-  cover: { src: string; alt: string };
-  sections: readonly NewsSection[];
-  cta?: { label: string; href: string };
+  /** Captura de la portada (mejor en modo oscuro: va detrás del título). */
+  cover: NewsFigure;
+  changesTitle: string;
+  changes: readonly NewsChange[];
+  /** Captura grande a todo el ancho, después de los cambios. */
+  highlight?: NewsFigure & { tag: string };
+  closing?: { title: string; columns: readonly { title: string; text: string }[] };
+  cta: { title: string; label: string; href: string };
 };
+
+const IMG = "/novedades/vase-se-renovo";
+const shot = (name: string, alt: string, caption?: string): NewsFigure => ({ src: `${IMG}/${name}.webp`, alt, width: 2000, height: 1250, caption });
 
 export const NEWS_ARTICLES: readonly NewsArticle[] = [
   {
@@ -30,64 +61,71 @@ export const NEWS_ARTICLES: readonly NewsArticle[] = [
     title: "Vase se renovó: más simple, más claro y todo conectado",
     excerpt:
       "Rediseñamos app, Business y Labs para que se vean y se usen igual. Mi negocio pasa a ser el centro de todo y cada panel quedó más ordenado.",
+    lede: "Rediseñamos app, Business y Labs para que se vean y se usen igual. Mi negocio pasa a ser el centro de todo y cada panel quedó más ordenado.",
     date: "2026-11-24",
     readingMinutes: 4,
     tags: ["Vase", "Business", "Labs"],
-    cover: { src: "/novedades/vase-renovado.webp", alt: "El panel nuevo de Vase con el título Vase, renovado" },
-    sections: [
+    cover: shot("business-resumen-oscuro", "Resumen del panel de Business en modo oscuro"),
+    changesTitle: "Cuatro cambios que vas a notar apenas entres",
+    changes: [
       {
         title: "Un mismo Vase en todos lados",
+        where: "App · Business · Labs",
+        short: "Mismo menú, mismos botones y el mismo menú de tu cuenta.",
         paragraphs: [
-          "Hasta ahora cada producto tenía su propio estilo. Eso se terminó: app, Business y Labs comparten el mismo menú, los mismos botones, las mismas tarjetas y el mismo menú de tu cuenta. Si sabés usar uno, sabés usar todos.",
-          "También lo hicimos más liviano a la vista: menos ruido, más aire y lo importante primero.",
+          "Cada producto tenía su propio estilo. Ahora comparten el menú lateral, los botones, las tarjetas y el menú de tu cuenta. Si sabés usar uno, sabés usar todos.",
+          "En el celular el menú pasa a una barra abajo, el modo claro y oscuro se ve igual en todos los paneles y hay una sola campanita con los avisos de todos los productos.",
         ],
-        items: [
-          "Menú lateral único para app, Business y Labs, con transición suave al pasar de un producto a otro.",
-          "En el celular el menú pasa a ser una barra abajo, como una app.",
-          "Modo claro y oscuro iguales en todos los paneles.",
-          "Una sola campanita de notificaciones, con los avisos de todos los productos juntos.",
-        ],
+        figure: shot("app-inicio", "Inicio de Vase con el menú lateral nuevo", "El inicio de Vase: tus productos y lo que conviene mirar hoy."),
+        wide: true,
       },
       {
-        title: "Mi negocio: cargás una vez, se usa en todo",
+        title: "Mi negocio",
+        where: "App",
+        short: "Cargás tu marca una vez y se usa en todo.",
         paragraphs: [
-          "Mi negocio ahora es el lugar donde vive la información de tu marca: nombre, logos, contacto y redes. Lo cargás una sola vez y Business y Labs lo toman de ahí.",
-          "Está ordenado en secciones desplegables, se guarda solo en la nube mientras escribís y te muestra en qué productos se usa cada dato.",
+          "Nombre, logos, contacto y redes viven en un solo lugar. Business y Labs los toman de ahí, así que no tenés que cargar lo mismo dos veces.",
+          "Está ordenado en secciones, se guarda solo mientras escribís y te muestra cuánto te falta completar.",
         ],
+        figure: shot("mi-negocio", "Pantalla Mi negocio con los datos del negocio", "Mi negocio: identidad, contacto y redes en un mismo lugar."),
       },
       {
-        title: "Business: el panel de tu tienda, de nuevo",
+        title: "Business, de nuevo",
+        where: "Business",
+        short: "Diseño de la tienda, ofertas, precios e historial.",
         paragraphs: [
-          "Rehicimos el panel de Business de punta a punta para que manejar la tienda sea más rápido.",
+          "Rehicimos el panel de la tienda de punta a punta. El diseño se arma por bloques con la vista previa al lado, y desde Ajustes manejás precios, pagos, envíos, SEO y dominio.",
+          "También suma ofertas por monto o precio fijo, listas de precios, cambios de precio en bloque y aprobación de clientes nuevos, con llaves separadas para minoristas y mayoristas.",
         ],
-        items: [
-          "Catálogo, pedidos y clientes con el diseño nuevo, también cómodos desde el celular.",
-          "Ofertas por monto o precio fijo, listas de precios editables y cambios de precio en bloque.",
-          "Envíos y sucursales, pagos, SEO y dominio en un mismo lugar.",
-          "Historial del diseño: ves qué cambió en cada versión, quién lo hizo y podés volver atrás.",
-          "Aprobación de clientes nuevos, con llaves separadas para minoristas y mayoristas.",
-          "\"Tu plan\" te muestra el espacio usado y los topes de cada web.",
-        ],
+        figure: shot("business-diseno", "Editor de diseño de la tienda en Business", "Diseño de la tienda: bloques a la izquierda, tu tienda al medio."),
+        cardImage: `${IMG}/business-diseno-oscuro.webp`,
       },
       {
-        title: "Labs: tu asistente, más claro y más útil",
-        paragraphs: ["Labs ahora usa el mismo panel que el resto de Vase y se reorganizó en cuatro secciones: Inicio, Conversaciones, Asistente y Pedidos."],
-        items: [
-          "Conversaciones con filtro por canal, pestañas por estado y la ficha del cliente al costado.",
-          "El asistente busca productos por parecido y le pasa la charla a una persona cuando no encuentra lo que piden.",
-          "Presupuestos en PDF desde el chat y respuestas sugeridas con tu forma de escribir.",
-          "Los ajustes de Labs se editan desde Ajustes, junto con los canales.",
-        ],
-      },
-      {
-        title: "Y lo que viene",
+        title: "Labs, más claro y más útil",
+        where: "Labs",
+        short: "Conversaciones, asistente y presupuestos en PDF.",
         paragraphs: [
-          "Las novedades van a salir acá, en news.vase.ar, y te las vamos a avisar dentro de Vase con una ventanita como la que te trajo hasta esta nota.",
-          "Si algo no te cierra o se te ocurre una mejora, escribinos a soporte@vase.ar. Leemos todo.",
+          "Labs usa el mismo panel que el resto de Vase y se ordenó en Inicio, Conversaciones, Marketing, Asistente y Configuraciones.",
+          "Desde Asistente elegís cómo habla y lo probás ahí mismo. Las conversaciones se filtran por canal y estado, con la ficha del cliente al costado, y el asistente arma presupuestos en PDF desde el chat.",
         ],
+        figure: shot("labs-asistente", "Pantalla Asistente de Labs con la prueba del chat", "Asistente: elegís el tono y lo probás antes de que conteste a tus clientes."),
+        cardImage: `${IMG}/labs-inicio-oscuro.webp`,
+        wide: true,
       },
     ],
-    cta: { label: "Entrar a Vase", href: "https://app.vase.ar/app" },
+    highlight: {
+      ...shot("business-historial", "Historial de cambios del diseño en Business"),
+      caption: "El historial muestra qué cambió en cada versión, quién lo hizo y te deja volver atrás.",
+      tag: "Business",
+    },
+    closing: {
+      title: "Las novedades salen acá, primero",
+      columns: [
+        { title: "Te avisamos dentro de Vase", text: "Cada cambio importante llega con una ventanita en tu panel y un link a la nota que lo explica." },
+        { title: "Contanos qué te falta", text: "Si algo no te cierra o se te ocurre una mejora, escribinos a soporte@vase.ar. Leemos todo." },
+      ],
+    },
+    cta: { title: "Ya está en tu cuenta. No tenés que hacer nada.", label: "Entrar a Vase", href: "https://app.vase.ar/app" },
   },
 ];
 
@@ -95,10 +133,15 @@ export function getNewsArticle(slug: string) {
   return NEWS_ARTICLES.find((article) => article.slug === slug) ?? null;
 }
 
-export function formatNewsDate(date: string) {
-  return new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+export function formatNewsDate(date: string, month: "long" | "short" = "long") {
+  return new Intl.DateTimeFormat("es-AR", { day: "numeric", month, year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
 }
 
 export function newsUrl(slug?: string) {
   return slug ? `${NEWS_ORIGIN}/${slug}` : NEWS_ORIGIN;
+}
+
+/** Ancla de cada cambio dentro de la nota. */
+export function changeAnchor(index: number) {
+  return `cambio-${index + 1}`;
 }
