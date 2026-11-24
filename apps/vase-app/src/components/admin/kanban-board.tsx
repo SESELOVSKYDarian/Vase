@@ -1,9 +1,11 @@
 "use client";
 
+import type { Route } from "next";
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { AdminModal } from "@/components/admin/client-ficha";
 
-export type KanbanCard = { id: string; title: string; sub?: string; meta?: string; tone?: string; detail: ReactNode; detailTitle?: string; detailSubtitle?: string };
+export type KanbanCard = { id: string; title: string; sub?: string; meta?: string; tone?: string; href?: string; detail?: ReactNode; detailTitle?: string; detailSubtitle?: string };
 export type KanbanColumn = { id: string; label: string; cards: KanbanCard[] };
 
 /** Tablero de columnas; cada tarjeta abre su detalle en una ventana. */
@@ -20,18 +22,29 @@ export function KanbanBoard({ columns, emptyLabel = "Nada acá" }: { columns: Ka
               <span className="n">{column.cards.length}</span>
             </h4>
             {column.cards.length === 0 ? <div className="vpa-empty" style={{ padding: "18px 10px", fontSize: 12 }}>{emptyLabel}</div> : null}
-            {column.cards.map((card) => (
-              <button key={card.id} type="button" className="adm-kcard" onClick={() => setOpenId(card.id)}>
-                <b>{card.title}</b>
-                {card.sub ? <span>{card.sub}</span> : null}
-                {card.meta ? (
-                  <span className={`vpa-tag ${card.tone ?? ""}`} style={{ alignSelf: "flex-start" }}>
-                    <i />
-                    {card.meta}
-                  </span>
-                ) : null}
-              </button>
-            ))}
+            {column.cards.map((card) => {
+              const body = (
+                <>
+                  <b>{card.title}</b>
+                  {card.sub ? <span>{card.sub}</span> : null}
+                  {card.meta ? (
+                    <span className={`vpa-tag ${card.tone ?? ""}`} style={{ alignSelf: "flex-start" }}>
+                      <i />
+                      {card.meta}
+                    </span>
+                  ) : null}
+                </>
+              );
+              return card.href ? (
+                <Link key={card.id} href={card.href as Route} className="adm-kcard">
+                  {body}
+                </Link>
+              ) : (
+                <button key={card.id} type="button" className="adm-kcard" onClick={() => setOpenId(card.id)}>
+                  {body}
+                </button>
+              );
+            })}
           </section>
         ))}
       </div>
