@@ -16,6 +16,7 @@ import {
 } from "@/app/(platform)/app/admin/actions";
 import { AdminModal } from "@/components/admin/client-ficha";
 import { getQuoteTemplateLabel, quoteTemplateKeys } from "@/lib/business/custom-quotes";
+import { REQUEST_STATUS } from "@/lib/admin/customization-status";
 
 type ActionState = { error?: string; success?: string };
 
@@ -63,13 +64,6 @@ function Field({ label, hint, children, wide }: { label: string; hint?: string; 
 
 /* ---------------- Estado del pedido ---------------- */
 
-export const REQUEST_STATUS: Record<string, { label: string; hint: string; tone: string }> = {
-  SUBMITTED: { label: "Recibido", hint: "Todavía nadie lo miró", tone: "y" },
-  REVIEWING: { label: "En revisión", hint: "Lo estamos mirando", tone: "b" },
-  QUOTED: { label: "Cotizado", hint: "Ya tiene precio", tone: "p" },
-  IN_PROGRESS: { label: "En marcha", hint: "Lo estamos haciendo", tone: "b" },
-  DELIVERED: { label: "Entregado", hint: "Terminado", tone: "g" },
-};
 
 export function RequestStatusForm({ requestId, status, priceLabel, notes }: { requestId: string; status: string; priceLabel: string | null; notes: string | null }) {
   const [state, action, pending] = useActionState(reviewCustomizationRequestAction, {});

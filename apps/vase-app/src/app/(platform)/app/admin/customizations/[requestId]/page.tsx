@@ -7,9 +7,9 @@ import {
   ProgressForm,
   PublishPanel,
   QuoteEditor,
-  REQUEST_STATUS,
   RequestStatusForm,
 } from "@/components/admin/customization-detail";
+import { REQUEST_STATUS } from "@/lib/admin/customization-status";
 import { platformRoles, requireVerifiedPlatformRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 import { getQuoteStatusLabel } from "@/lib/business/custom-quotes";
