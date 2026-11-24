@@ -571,7 +571,8 @@ function elapsed(ms: number) {
 
 export function PublishPanel({ requestId, tenantId, pageScope, published }: { requestId: string; tenantId: string; pageScope: string; published: { name: string; slug: string } | null }) {
   const router = useRouter();
-  const [source, setSource] = useState<"template" | "zip" | "github">("template");
+  const [source, setSource] = useState<"template" | "zip" | "github">(published ? "zip" : "template");
+  const [replacing, setReplacing] = useState(!published);
   const [state, setState] = useState<AdminGovernanceActionState>({});
   const [pending, setPending] = useState(false);
   const [startedAt, setStartedAt] = useState(0);
@@ -611,7 +612,10 @@ export function PublishPanel({ requestId, tenantId, pageScope, published }: { re
     xhr.onload = () => {
       const response = xhr.response && typeof xhr.response === "object" ? (xhr.response as AdminGovernanceActionState) : { error: "No pudimos leer la respuesta del servidor." };
       setState(response);
-      if (xhr.status >= 200 && xhr.status < 300 && response.success) startTransition(() => router.refresh());
+      if (xhr.status >= 200 && xhr.status < 300 && response.success) {
+        if (published) setReplacing(false);
+        startTransition(() => router.refresh());
+      }
     };
     xhr.onerror = () => setState({ error: "Se cortó la subida. Revisá la conexión y probá de nuevo." });
     xhr.onloadend = () => setPending(false);
@@ -620,15 +624,16 @@ export function PublishPanel({ requestId, tenantId, pageScope, published }: { re
 
   return (
     <div className="adm-split">
+      {replacing ? (
       <form onSubmit={submit} encType="multipart/form-data" className="vpa-card adm-panel">
         <header>
-          <h3>Publicar el sitio</h3>
-          <p>Crea la página en el editor y la deja online en vase.ar.</p>
+          <h3>{published ? "Subir una versión nueva" : "Publicar el sitio"}</h3>
+          <p>{published ? "Reemplaza lo que está online. Si sale mal, podés volver a la anterior." : "Crea la página en el editor y la deja online en vase.ar."}</p>
         </header>
         <input type="hidden" name="requestId" value={requestId} />
         <input type="hidden" name="tenantId" value={tenantId} />
         <Field label="Nombre de la página">
-          <input className="vpa-inp" name="pageName" required defaultValue={pageScope || "Sitio personalizado"} />
+          <input className="vpa-inp" name="pageName" required defaultValue={published?.name ?? (pageScope || "Sitio personalizado")} />
         </Field>
         <div className="vpa-fld">
           <span>De dónde sale el sitio</span>
@@ -637,7 +642,7 @@ export function PublishPanel({ requestId, tenantId, pageScope, published }: { re
             value={source}
             onChange={(id) => setSource(id as typeof source)}
             options={[
-              { id: "template", label: "Plantilla Vase", hint: "Arranca vacío" },
+              ...(published ? [] : [{ id: "template", label: "Plantilla Vase", hint: "Empieza desde cero" }]),
               { id: "zip", label: "Archivo .zip", hint: "Con index.html" },
               { id: "github", label: "GitHub", hint: "Repo público" },
             ]}
@@ -671,18 +676,41 @@ export function PublishPanel({ requestId, tenantId, pageScope, published }: { re
               {state.publicUrl}
             </a>
           ) : null}
+          {published ? (
+            <button type="button" className="vpa-btn soft" onClick={() => setReplacing(false)} disabled={pending}>
+              Cancelar
+            </button>
+          ) : null}
           <button type="submit" className="vpa-btn acc" disabled={pending}>
             <Upload size={14} aria-hidden="true" />
-            {pending ? "Publicando…" : "Publicar"}
+            {pending ? "Publicando…" : published ? "Subir y reemplazar" : "Publicar"}
           </button>
         </footer>
       </form>
+      ) : null}
+      {published ? (
       <section className="vpa-card adm-panel">
-        <header>
-          <h3>Lo que está online</h3>
-          <p>{published ? `${published.name} · /${published.slug}` : "Todavía no se publicó nada."}</p>
+        <header className="row">
+          <div>
+            <h3>Sitio conectado</h3>
+            <p>Este pedido ya tiene su página. No hace falta publicar de nuevo.</p>
+          </div>
+          <span className="vpa-tag g">
+            <i />
+            Online
+          </span>
         </header>
-        {published ? (
+        <div className="adm-fact">
+          <small>Página</small>
+          <b>{published.name}</b>
+          <em>/{published.slug}</em>
+        </div>
+        {!replacing ? (
+          <button type="button" className="vpa-btn line" style={{ alignSelf: "flex-start" }} onClick={() => setReplacing(true)}>
+            <Upload size={14} aria-hidden="true" /> Subir una versión nueva
+          </button>
+        ) : null}
+        {(
           <form
             action={rollback}
             onSubmit={(event) => {
@@ -702,8 +730,9 @@ export function PublishPanel({ requestId, tenantId, pageScope, published }: { re
               </button>
             </footer>
           </form>
-        ) : null}
+        )}
       </section>
+      ) : null}
     </div>
   );
 }
