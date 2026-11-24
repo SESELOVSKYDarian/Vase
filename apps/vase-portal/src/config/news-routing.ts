@@ -8,8 +8,17 @@ const onNews = [{ type: "host" as const, value: NEWS_HOST }];
 export function getNewsRewrites() {
   return [
     { source: "/", has: onNews, destination: "/novedades" },
+    // news.vase.ar tiene su propio mapa del sitio y robots.txt.
+    { source: "/sitemap.xml", has: onNews, destination: "/novedades/sitemap.xml" },
+    { source: "/robots.txt", has: onNews, destination: "/novedades/robots.txt" },
     ...NEWS_ARTICLES.map((article) => ({ source: `/${article.slug}`, has: onNews, destination: `/novedades/${article.slug}` })),
   ];
+}
+
+/** www.vase.ar → vase.ar (una sola dirección para Google). */
+export function getWwwRedirects(publicSite: string) {
+  const host = new URL(publicSite).host;
+  return [{ source: "/:path*", has: [{ type: "host" as const, value: `www.${host}` }], destination: `${publicSite}/:path*`, permanent: true }];
 }
 
 export function getNewsRedirects(publicSite: string) {

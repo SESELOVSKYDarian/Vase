@@ -9,6 +9,9 @@ import LogoLoop from "@/components/ui/logo-loop";
 import { UnifiedFeatures } from "@/components/marketing/unified-features";
 import { HeroEmphasisFontCycle } from "@/components/marketing/hero-emphasis-font-cycle";
 import { SiNextdotjs, SiReact, SiTailwindcss, SiTypescript } from "react-icons/si";
+import { pageMetadata } from "@/config/seo";
+
+export const metadata = pageMetadata("/");
 
 const techLogos = [
   { node: <SiReact />, title: "React", href: "https://react.dev" },

@@ -2,6 +2,9 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
 import { labsPlans, labsTokenPlans, pricingPlans } from "@/config/public-site";
+import { pageMetadata } from "@/config/seo";
+
+export const metadata = pageMetadata("/precios");
 
 const faqItems = [
   {

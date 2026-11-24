@@ -1,6 +1,9 @@
 import { type Route } from "next";
 import Link from "next/link";
 import { CheckCircle2, ArrowRight, LockKeyhole } from "lucide-react";
+import { pageMetadata } from "@/config/seo";
+
+export const metadata = pageMetadata("/terminos-y-condiciones");
 
 // The primary legal sections updated to 2026
 const sections = [

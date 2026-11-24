@@ -12,6 +12,7 @@ export const PUBLIC_ROUTES = [
   "/seguridad",
   "/terminos-y-condiciones",
   "/vase-business",
+  "/vase-management",
   "/vaselabs",
 ] as const;
 

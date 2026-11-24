@@ -3,6 +3,9 @@ import { ArrowRight, Sparkles, Bolt, Globe2, Brain } from "lucide-react";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { AboutSectionNav } from "@/components/marketing/about-section-nav";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
+import { pageMetadata } from "@/config/seo";
+
+export const metadata = pageMetadata("/que-es-vase");
 
 const content = {
   en: {

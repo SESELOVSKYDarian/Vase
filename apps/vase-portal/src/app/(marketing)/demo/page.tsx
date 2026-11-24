@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { SectionHeading } from "@/components/marketing/section-heading";
 import { PanelCard } from "@/components/ui/panel-card";
+import { pageMetadata } from "@/config/seo";
+
+export const metadata = pageMetadata("/demo");
 
 export default function DemoPage() {
   return (

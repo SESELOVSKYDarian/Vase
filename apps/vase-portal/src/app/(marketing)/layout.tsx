@@ -2,6 +2,8 @@ import type { PropsWithChildren } from "react";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { CustomCursor } from "@/components/ui/custom-cursor";
+import { JsonLd } from "@/components/seo/json-ld";
+import { organizationJsonLd } from "@/config/seo";
 
 export default function MarketingLayout({ children }: PropsWithChildren) {
   return (
@@ -11,6 +13,7 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(115,147,116,0.14),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(59,99,61,0.08),transparent_24%),linear-gradient(180deg,#eff3f4_0%,#eff3f4_100%)]"
       />
+      <JsonLd data={organizationJsonLd()} />
       <SiteHeader />
       <main
         id="main-content"

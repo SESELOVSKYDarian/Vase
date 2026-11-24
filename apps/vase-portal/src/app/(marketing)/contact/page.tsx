@@ -1,13 +1,10 @@
+import { pageMetadata } from "@/config/seo";
 import type { Metadata } from "next";
 import { ArrowUpRight, Clock3, Mail, MessageCircleMore } from "lucide-react";
 import { ContactForm } from "@/components/marketing/contact-form";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
 
-export const metadata: Metadata = {
-  title: "Contacto",
-  description:
-    "Contactá a Vase para conversar sobre ecommerce, inteligencia artificial, automatización e integraciones para tu negocio.",
-};
+export const metadata: Metadata = pageMetadata("/contact");
 
 const whatsappUrl =
   "https://wa.me/5492234496403?text=Hola%2C%20quiero%20consultar%20sobre%20Vase.";

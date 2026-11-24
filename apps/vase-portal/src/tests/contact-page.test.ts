@@ -17,7 +17,7 @@ describe("Portal contact page", () => {
     const form = fs.readFileSync(formPath, "utf8");
     const footerForm = fs.readFileSync(footerFormPath, "utf8");
 
-    expect(page).toContain('title: "Contacto"');
+    expect(page).toContain('pageMetadata("/contact")');
     expect(page).toContain("<ContactForm");
     expect(page).toContain("https://wa.me/5492234496403");
     expect(form).toContain("useActionState");

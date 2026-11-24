@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { portalAppClient } from "@/lib/app-client";
+import { pageMetadata } from "@/config/seo";
+
+export const metadata = pageMetadata("/developers/docs");
 
 export const dynamic = "force-dynamic";
 

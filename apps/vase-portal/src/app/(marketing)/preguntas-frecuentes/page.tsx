@@ -2,10 +2,15 @@ import { CtaBand } from "@/components/marketing/cta-band";
 import { SectionHeading } from "@/components/marketing/section-heading";
 import { PanelCard } from "@/components/ui/panel-card";
 import { faqItems } from "@/config/public-site";
+import { JsonLd } from "@/components/seo/json-ld";
+import { faqJsonLd, pageMetadata } from "@/config/seo";
+
+export const metadata = pageMetadata("/preguntas-frecuentes");
 
 export default function FaqPage() {
   return (
     <>
+      <JsonLd data={faqJsonLd()} />
       <SectionHeading
         eyebrow="FAQ"
         title="Preguntas frecuentes"

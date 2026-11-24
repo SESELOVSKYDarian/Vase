@@ -21,6 +21,9 @@ import {
   webhookEventCatalog,
 } from "@/config/integrations";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
+import { pageMetadata } from "@/config/seo";
+
+export const metadata = pageMetadata("/developers/api");
 
 const authExample = `curl -X GET "https://api.vase.ar/api/v1/integrations/acme-retail/products" \\
   -H "x-vase-api-key: vsk_live_a13f92b0_********************************"`;

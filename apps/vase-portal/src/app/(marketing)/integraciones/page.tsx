@@ -11,6 +11,9 @@ import {
   Workflow,
 } from "lucide-react";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
+import { pageMetadata } from "@/config/seo";
+
+export const metadata = pageMetadata("/integraciones");
 
 const metaFeatures = [
   "Acceso directo a WhatsApp Business API",

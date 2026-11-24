@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { LegalPage, type LegalSection } from "@/components/marketing/legal-page";
+import { pageMetadata } from "@/config/seo";
+
+export const metadata = pageMetadata("/politica-de-privacidad");
 
 const sections: readonly LegalSection[] = [
   {

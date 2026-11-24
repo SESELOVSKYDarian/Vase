@@ -36,10 +36,12 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: appConfig.name,
+    locale: "es_AR",
     title: "Vase",
-    description:
-      "Plataforma SaaS multi-tenant para ecommerce, IA, soporte e integraciones de negocio.",
+    description: "Tienda online, asistente con IA para WhatsApp e Instagram y gestión para pymes, en una sola plataforma.",
+    images: [{ url: "/og/vase.jpg", width: 1200, height: 630, alt: "Vase" }],
   },
+  twitter: { card: "summary_large_image", images: ["/og/vase.jpg"] },
   icons: { icon: "/vasecolorlogo.png" },
 };
 

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArrowDown, ArrowRight, ArrowUpRight } from "lucide-react";
-import { NEWS_ARTICLES, changeAnchor, formatNewsDate, getNewsArticle, newsUrl, type NewsFigure } from "@/config/news";
+import { JsonLd } from "@/components/seo/json-ld";
+import { NEWS_ARTICLES, NEWS_ORIGIN, changeAnchor, formatNewsDate, getNewsArticle, newsUrl, type NewsArticle, type NewsFigure } from "@/config/news";
+import { portalOrigins } from "@/config/origins";
 import { NewsFooter } from "../../news-footer";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
 
@@ -25,8 +27,27 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description: article.excerpt,
       url: newsUrl(article.slug),
       publishedTime: article.date,
-      images: [{ url: article.cover.src, width: article.cover.width, height: article.cover.height, alt: article.cover.alt }],
+      images: [{ url: `${NEWS_ORIGIN}${article.cover.src}`, width: article.cover.width, height: article.cover.height, alt: article.cover.alt }],
     },
+    twitter: { card: "summary_large_image", images: [`${NEWS_ORIGIN}${article.cover.src}`] },
+  };
+}
+
+function articleJsonLd(article: NewsArticle) {
+  const site = portalOrigins.publicSite;
+  return {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: article.title,
+    description: article.excerpt,
+    datePublished: `${article.date}T12:00:00-03:00`,
+    dateModified: `${article.date}T12:00:00-03:00`,
+    inLanguage: "es-AR",
+    mainEntityOfPage: newsUrl(article.slug),
+    image: [`${NEWS_ORIGIN}${article.cover.src}`, ...article.changes.map((change) => `${NEWS_ORIGIN}${change.figure.src}`)],
+    keywords: article.tags.join(", "),
+    author: { "@type": "Organization", name: "Vase", url: site },
+    publisher: { "@type": "Organization", name: "Vase", url: site, logo: { "@type": "ImageObject", url: `${site}/vasecolorlogo.png` } },
   };
 }
 
@@ -48,6 +69,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ sl
 
   return (
     <article>
+      <JsonLd data={articleJsonLd(article)} />
       <div className="vn-hero-pad">
         <section className="vn-hero side">
           {/* eslint-disable-next-line @next/next/no-img-element */}

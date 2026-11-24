@@ -17,6 +17,7 @@ describe("Portal public routes", () => {
       "/seguridad",
       "/terminos-y-condiciones",
       "/vase-business",
+      "/vase-management",
       "/vaselabs",
     ]);
   });
