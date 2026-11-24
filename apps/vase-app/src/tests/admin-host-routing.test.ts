@@ -90,7 +90,7 @@ describe("admin host routing", () => {
   });
 
   it("allows only required assets and admin browser APIs", () => {
-    for (const path of ["/_next/static/app.js", "/favicon.ico", "/api/auth/session", "/api/admin/rest/plans", "/api/health/ready"]) {
+    for (const path of ["/_next/static/app.js", "/favicon.ico", "/api/auth/session", "/api/admin/rest/plans", "/api/health/ready", "/api/announcements/cmwuvqlct0007kn3u39mcouw1/image"]) {
       expect(resolveAdminHostRequest({
         hostname: "admin.vase.ar",
         url: `https://admin.vase.ar${path}`,

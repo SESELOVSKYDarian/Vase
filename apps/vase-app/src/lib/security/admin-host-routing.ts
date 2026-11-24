@@ -178,7 +178,9 @@ function isAllowedAdminApi(pathname: string) {
   return pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/admin/") ||
     pathname === "/api/health/live" ||
-    pathname === "/api/health/ready";
+    pathname === "/api/health/ready" ||
+    // Imagen de un anuncio (pública, solo lectura): la usan la lista y la vista previa de Admin › Anuncios.
+    /^\/api\/announcements\/[a-z0-9]{20,40}\/image$/i.test(pathname);
 }
 
 export function resolveAdminHostRequest({
