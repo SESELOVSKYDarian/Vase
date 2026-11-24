@@ -39,6 +39,31 @@ describe("recordatorio mensual de Teflón", () => {
     expect(mailMock.sendNoticeEmail).toHaveBeenCalledTimes(2);
     expect(mailMock.sendNoticeEmail).toHaveBeenCalledWith(expect.objectContaining({ email: "duenio@cliente.com", replyTo: "facturacion@vase.ar" }));
     expect(mailMock.sendNoticeEmail.mock.calls[0][0].message).toContain("$90.000");
+    expect(mailMock.sendNoticeEmail.mock.calls[0][0].message).toContain("alias dariansese");
+  });
+
+  it("con el link de Mercado Pago cargado, el botón lleva a pagar", async () => {
+    prismaMock.auditLog.findFirst.mockResolvedValue(null);
+    process.env.TEFLON_LABS_PAY_URL = "https://mpago.la/abc123";
+    try {
+      await runMonthlyReminders(new Date("2026-12-26T13:00:00Z"));
+    } finally {
+      delete process.env.TEFLON_LABS_PAY_URL;
+    }
+    const mail = mailMock.sendNoticeEmail.mock.calls[0][0];
+    expect(mail.button).toEqual({ label: "Pagar con Mercado Pago", url: "https://mpago.la/abc123" });
+    expect(prismaMock.announcement.create).toHaveBeenCalledWith({ data: expect.objectContaining({ ctaUrl: "https://mpago.la/abc123" }) });
+  });
+
+  it("ignora un link que no es de Mercado Pago", async () => {
+    prismaMock.auditLog.findFirst.mockResolvedValue(null);
+    process.env.TEFLON_LABS_PAY_URL = "https://otro-sitio.com/pagar";
+    try {
+      await runMonthlyReminders(new Date("2026-12-26T13:00:00Z"));
+    } finally {
+      delete process.env.TEFLON_LABS_PAY_URL;
+    }
+    expect(mailMock.sendNoticeEmail.mock.calls[0][0].button.url).toBe("https://app.vase.ar/app/billing");
   });
 
   it("no lo repite si ya salió ese mes", async () => {

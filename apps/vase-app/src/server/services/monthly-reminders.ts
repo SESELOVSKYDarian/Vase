@@ -14,7 +14,12 @@ type MonthlyReminder = {
   /** Día del mes (hora de Argentina) desde el que sale. */
   day: number;
   title: string;
-  body: (monthLabel: string) => string;
+  amount: string;
+  /** Alias para pagar por transferencia. */
+  transferAlias: string;
+  /** Variable de entorno con el link directo de Mercado Pago (sirve también para pagar con QR). */
+  payUrlEnv: string;
+  body: (monthLabel: string, hasPayLink: boolean) => string;
 };
 
 export const MONTHLY_REMINDERS: readonly MonthlyReminder[] = [
@@ -23,8 +28,17 @@ export const MONTHLY_REMINDERS: readonly MonthlyReminder[] = [
     tenantSlug: "sanitarios-el-teflon",
     day: 26,
     title: "Pago del mes: IA de Vase Labs",
-    body: (month) =>
-      `Te recordamos que vence el pago de $90.000 del servicio de IA de Vase Labs correspondiente a ${month}.\nSi ya lo pagaste, no tenés que hacer nada.`,
+    amount: "$90.000",
+    transferAlias: "dariansese",
+    payUrlEnv: "TEFLON_LABS_PAY_URL",
+    body: (month, hasPayLink) =>
+      [
+        `Te recordamos que vence el pago de $90.000 del servicio de IA de Vase Labs correspondiente a ${month}.`,
+        hasPayLink
+          ? "Podés pagarlo con el link directo de Mercado Pago (también sirve para pagar con QR) o por transferencia al alias dariansese."
+          : "Podés pagarlo con el link directo o el QR de Mercado Pago, o por transferencia al alias dariansese.",
+        "Si ya lo pagaste, no tenés que hacer nada.",
+      ].join("\n"),
   },
 ];
 
@@ -35,6 +49,18 @@ function argentinaToday(now: Date) {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
   const get = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
   return { year: get("year"), month: get("month"), day: get("day") };
+}
+
+/** Solo links https de Mercado Pago. */
+function safePayUrl(value: string | undefined) {
+  if (!value?.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    const isMercadoPago = /(^|\.)(mercadopago\.com(\.ar)?|mpago\.(la|li))$/i.test(url.hostname);
+    return url.protocol === "https:" && isMercadoPago ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 function monthLabel(year: number, month: number) {
@@ -52,7 +78,11 @@ async function sendReminder(reminder: MonthlyReminder, period: string, label: st
     select: { user: { select: { id: true, email: true } } },
   });
   const userIds = members.map((member) => member.user.id);
-  const message = reminder.body(label);
+  const payUrl = safePayUrl(process.env[reminder.payUrlEnv]);
+  const message = reminder.body(label, Boolean(payUrl));
+  const action = payUrl
+    ? { label: "Pagar con Mercado Pago", url: payUrl }
+    : { label: "Ver plan y pagos", url: "https://app.vase.ar/app/billing" };
   const endsAt = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
 
   // Se registra primero: si algo falla después, no se repite el mes.
@@ -68,7 +98,7 @@ async function sendReminder(reminder: MonthlyReminder, period: string, label: st
     data: {
       title: reminder.title,
       message,
-      href: "/app/billing",
+      href: payUrl ?? "/app/billing",
       tone: "warning",
       category: "billing",
       target: "TENANT",
@@ -83,8 +113,8 @@ async function sendReminder(reminder: MonthlyReminder, period: string, label: st
       data: {
         title: reminder.title,
         body: `${message}\nSi tenés dudas, escribinos a ${BILLING_EMAIL}.`,
-        ctaLabel: "Ver plan y pagos",
-        ctaUrl: "/app/billing",
+        ctaLabel: action.label,
+        ctaUrl: payUrl ?? "/app/billing",
         icon: "bell",
         accent: "ink",
         surfaces: ["app", "labs", "business"],
@@ -107,7 +137,12 @@ async function sendReminder(reminder: MonthlyReminder, period: string, label: st
         subject: reminder.title,
         title: reminder.title,
         message,
-        button: { label: "Ver plan y pagos", url: "https://app.vase.ar/app/billing" },
+        details: [
+          ["Monto", reminder.amount],
+          ["Mercado Pago", payUrl ? "Link directo o QR: botón de abajo" : "Link directo o QR"],
+          ["Transferencia", `Alias ${reminder.transferAlias}`],
+        ],
+        button: action,
         note: `Este mail sale de una casilla que no recibe respuestas. Si tenés dudas sobre el pago, escribinos a ${BILLING_EMAIL}.`,
         reason: "Te llega porque sos parte de una cuenta de Vase con este servicio contratado.",
         replyTo: BILLING_EMAIL,
