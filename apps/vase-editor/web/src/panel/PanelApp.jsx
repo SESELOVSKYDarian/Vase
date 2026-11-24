@@ -26,6 +26,7 @@ import Notifications from './components/Notifications';
 import AjustesDominio from './screens/AjustesDominio';
 import VaseSettingsFrame from './components/VaseSettingsFrame';
 import VaseNotificationsBell from './components/VaseNotificationsBell';
+import VaseAnnouncements from './components/VaseAnnouncements';
 import { ACCOUNT_PAGES, SECTIONS, SETTINGS_PAGES, panelPath, parsePanelPath } from './sections';
 import { useEditorAutosave } from './useEditorAutosave';
 // Último: los ajustes para celular le ganan a los estilos de cada pantalla.
@@ -199,7 +200,12 @@ export default function PanelApp() {
     const status = { dirty: autosave.unpublished, cloud: autosave.cloud, history: autosave.history, toast: addToast, theme, text: autosave.unpublished ? 'Cambios sin publicar' : 'Todo publicado' };
     const vaseUrl = String(import.meta.env.VITE_VASE_APP_URL || 'https://app.vase.ar').replace(/\/+$/, '');
     // Las notificaciones son las de tu cuenta de Vase: las mismas en app, Business, Labs y el resto.
-    const vaseBell = <VaseNotificationsBell vaseUrl={vaseUrl} tenantSlug={tenant?.external_tenant_slug || tenant?.externalTenantSlug || ''} theme={theme} />;
+    const vaseBell = (
+        <>
+            <VaseNotificationsBell vaseUrl={vaseUrl} tenantSlug={tenant?.external_tenant_slug || tenant?.externalTenantSlug || ''} theme={theme} />
+            <VaseAnnouncements vaseUrl={vaseUrl} theme={theme} />
+        </>
+    );
 
     // Pantallas que arman su propio diseño (pestañas a todo el ancho y barra lateral derecha).
     // Sección o ajuste que Vase le apagó a esta cuenta: no se abre aunque entren por la dirección.

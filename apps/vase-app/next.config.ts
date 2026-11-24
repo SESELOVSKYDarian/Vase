@@ -12,8 +12,8 @@ if (isDevelopment) {
 }
 
 // Productos de Vase que pueden mostrar páginas de app adentro suyo (Ajustes compartidos: /app/embed/...).
-const embedAncestors = ["'self'", "https://business.vase.ar", "https://labs.vase.ar"];
-for (const value of [process.env.BUSINESS_PUBLIC_URL, process.env.LABS_PUBLIC_URL]) {
+const embedAncestors = ["'self'", "https://business.vase.ar", "https://labs.vase.ar", "https://management.vase.ar", "https://rest.vase.ar"];
+for (const value of [process.env.BUSINESS_PUBLIC_URL, process.env.LABS_PUBLIC_URL, process.env.MANAGEMENT_PUBLIC_URL, process.env.REST_PUBLIC_URL]) {
   try {
     if (value) embedAncestors.push(new URL(value).origin);
   } catch {

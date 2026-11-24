@@ -12,7 +12,15 @@ export type AdminSection = {
 // Los tickets se trabajan en workspace.vase.ar (botón arriba). Lo que era Soporte (IA, respuestas, wiki) está en Ajustes.
 export const ADMIN_SECTIONS: AdminSection[] = [
   { id: "inicio", label: "Inicio", group: "Principal", tabs: [{ href: "/app/admin", label: "Resumen del día" }] },
-  { id: "clientes", label: "Clientes", group: "Principal", tabs: [{ href: "/app/admin/clients", label: "Clientes" }] },
+  {
+    id: "clientes",
+    label: "Clientes",
+    group: "Principal",
+    tabs: [
+      { href: "/app/admin/clients", label: "Clientes" },
+      { href: "/app/admin/announcements", label: "Anuncios" },
+    ],
+  },
   {
     id: "proyectos",
     label: "Proyectos",

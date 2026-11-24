@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { restStaffRoleSchema, type RestStaffRole } from "@vase/contracts";
 import { RestShell } from "./rest-shell";
+import { VaseAnnouncements } from "./vase-announcements";
 
 type Identity = {
   role: RestStaffRole;
@@ -95,6 +96,7 @@ export function ProductShellBoundary({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      <VaseAnnouncements surface="rest" />
     </RestShell>
   );
 }

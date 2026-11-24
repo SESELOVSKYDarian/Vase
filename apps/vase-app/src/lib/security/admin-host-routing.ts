@@ -38,6 +38,7 @@ const AUTH_PATHS = new Set([
 ]);
 const ADMIN_SECTIONS = new Set([
   "clients",
+  "announcements",
   "users",
   "modules",
   "management",

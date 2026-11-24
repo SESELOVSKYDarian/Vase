@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { NotificationsBell } from './NotificationsBell'
+import { VaseAnnouncements } from './VaseAnnouncements'
 import { AnimatePresence, m } from 'motion/react'
 
 interface HeaderProps {
@@ -56,6 +57,7 @@ export function Header({ user }: HeaderProps) {
       <div className="flex items-center gap-1.5 ml-auto">
         {/* Notificaciones */}
         <NotificationsBell />
+        <VaseAnnouncements surface="management" />
 
         {/* Toggle tema */}
         <button

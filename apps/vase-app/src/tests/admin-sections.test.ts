@@ -8,7 +8,7 @@ describe("Admin nuevo: 6 secciones", () => {
 
   it("las pantallas que quedan son pestañas de una sección", () => {
     const tabs = ADMIN_SECTIONS.flatMap((section) => section.tabs.map((tab) => tab.href));
-    for (const page of ["clients", "support", "faqs", "wiki", "customizations", "development", "meetings", "modules", "finance", "expenses", "settings/account", "audit"]) {
+    for (const page of ["clients", "announcements", "support", "faqs", "wiki", "customizations", "development", "meetings", "modules", "finance", "expenses", "settings/account", "audit"]) {
       expect(tabs).toContain(`/app/admin/${page}`);
     }
     for (const gone of ["users", "labs", "management", "rest", "settings", "tickets"]) {

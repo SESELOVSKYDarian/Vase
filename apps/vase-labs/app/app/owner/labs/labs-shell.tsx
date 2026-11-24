@@ -7,6 +7,7 @@ import { PanelAccountMenu, PanelBrandLogo, PanelShell, type PanelNavGroup } from
 import { labsNavigationGroups, labsSectionTitles, resolveLabsSection } from "./labs-owner-nav";
 import "./labs-panel.css";
 import { VaseNotificationsBell } from "./vase-notifications-bell";
+import { VaseAnnouncements } from "./vase-announcements";
 import { LABS_OPEN_HELP_EVENT, LabsHelpButton } from "./labs-help";
 
 /** Marco de Vase Labs: el mismo menú, barra y piezas que el panel de Vase. */
@@ -83,6 +84,7 @@ export function LabsShell({
       }
     >
       <div className="lx">{children}</div>
+      <VaseAnnouncements surface="labs" />
     </PanelShell>
   );
 }

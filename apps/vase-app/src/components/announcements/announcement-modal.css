@@ -1,0 +1,169 @@
+/* Ventana de anuncios de Vase. Estilos propios para verse igual en app y embebida en otros productos. */
+.vann {
+  --vann-card: #ffffff;
+  --vann-tx: #101828;
+  --vann-mut: #5b6474;
+  --vann-line: #e7eaee;
+  --vann-soft: #f3f5f7;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: inherit;
+  animation: vann-fade 0.22s ease-out;
+}
+:root[data-theme="dark"] .vann,
+.dark .vann {
+  --vann-card: #161b22;
+  --vann-tx: #f2f4f7;
+  --vann-mut: #a3acb9;
+  --vann-line: #2a313b;
+  --vann-soft: #1f252e;
+  background: rgba(0, 0, 0, 0.6);
+}
+.vann.is-preview {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  padding: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: none;
+}
+.vann-box {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--vann-card);
+  color: var(--vann-tx);
+  box-shadow: 0 2px 6px rgba(16, 24, 40, 0.08), 0 30px 80px rgba(16, 24, 40, 0.28);
+  animation: vann-rise 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  touch-action: pan-y;
+}
+.vann.is-preview .vann-box { animation: none; box-shadow: 0 2px 6px rgba(16, 24, 40, 0.06), 0 18px 40px rgba(16, 24, 40, 0.14); }
+.vann-x {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+  transition: background 0.15s, transform 0.15s;
+}
+.vann-x:hover { background: rgba(0, 0, 0, 0.45); transform: scale(1.05); }
+.vann-x:focus-visible, .vann-btn:focus-visible, .vann-dots button:focus-visible { outline: 3px solid rgba(22, 163, 111, 0.45); outline-offset: 2px; }
+.vann-slide { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; animation: vann-slide 0.28s ease-out; }
+.vann-hero {
+  position: relative;
+  height: 180px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.vann-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.28), transparent 45%), radial-gradient(circle at 85% 90%, rgba(255, 255, 255, 0.16), transparent 40%);
+  pointer-events: none;
+}
+.vann-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vann-ico {
+  position: relative;
+  z-index: 1;
+  width: 76px;
+  height: 76px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(6px);
+  animation: vann-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+.vann-count {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+}
+.vann-body { padding: 22px 24px 6px; }
+.vann-body h2 { margin: 0 0 8px; font-size: 20px; line-height: 1.25; font-weight: 800; letter-spacing: -0.015em; }
+.vann-body p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.6; color: var(--vann-mut); white-space: pre-wrap; }
+.vann-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px 20px; }
+.vann-dots { display: flex; align-items: center; gap: 6px; }
+.vann-dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  background: var(--vann-line);
+  transition: width 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s;
+}
+.vann-dots button.on { width: 22px; background: var(--vann-tx); }
+.vann-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.vann-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.12s, filter 0.15s, background 0.15s;
+}
+.vann-btn:active { transform: scale(0.97); }
+.vann-btn.primary { color: #fff; box-shadow: 0 6px 16px rgba(16, 24, 40, 0.18); }
+.vann-btn.primary:hover { filter: brightness(1.08); }
+.vann-btn.ghost { color: var(--vann-tx); background: var(--vann-soft); }
+.vann-btn.ghost:hover { filter: brightness(0.97); }
+.vann-btn.icon { width: 40px; padding: 0; }
+@keyframes vann-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vann-rise { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes vann-slide { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@keyframes vann-pop { from { opacity: 0; transform: scale(0.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@media (max-width: 520px) {
+  .vann:not(.is-preview) { align-items: flex-end; padding: 0; }
+  .vann:not(.is-preview) .vann-box { width: 100%; border-radius: 24px 24px 0 0; }
+  .vann-hero { height: 150px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vann, .vann-box, .vann-slide, .vann-ico { animation: none; }
+}

@@ -3368,3 +3368,40 @@ model TenantAdminNote {
 
   @@index([tenantId, done, createdAt])
 }
+
+/// Anuncios que el equipo publica desde Admin: salen como ventana en los productos elegidos,
+/// en las notificaciones y, si se pide, por mail desde novedades@vase.ar.
+model Announcement {
+  id              String    @id @default(cuid())
+  title           String    @db.VarChar(160)
+  body            String    @db.Text
+  ctaLabel        String?   @db.VarChar(60)
+  ctaUrl          String?   @db.VarChar(500)
+  icon            String?   @db.VarChar(40)
+  accent          String?   @db.VarChar(20)
+  imageData       String?   @db.MediumText
+  surfaces        Json
+  startsAt        DateTime?
+  endsAt          DateTime?
+  isActive        Boolean   @default(true)
+  sendEmail       Boolean   @default(false)
+  emailSentAt     DateTime?
+  emailCount      Int       @default(0)
+  notificationId  String?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([isActive, startsAt, endsAt])
+}
+
+/// Quién ya cerró cada anuncio, para no volver a mostrárselo.
+model AnnouncementDismissal {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  dismissedAt    DateTime @default(now())
+
+  @@unique([announcementId, userId])
+  @@index([userId])
+}

@@ -164,3 +164,42 @@ a.adm-prod:hover { box-shadow: 0 8px 22px rgba(16, 24, 40, .07); }
 .adm-inline .vpa-inp { flex: 1; min-width: 0; }
 .adm-link { font-size: 12px; font-weight: 700; color: var(--acc-tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px) { .adm-meet { grid-template-columns: minmax(0, 1fr) auto; } }
+
+/* Anuncios: composer con vista previa y tarjetas de la lista. */
+.adm-modal-box:has(.ann-compose) { width: min(980px, 100%); }
+.ann-compose { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+@media (max-width: 900px) { .ann-compose { grid-template-columns: minmax(0, 1fr); } .ann-preview { order: -1; } }
+.ann-form { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ann-preview { position: sticky; top: 0; display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px; background: var(--soft); }
+.ann-preview > small { font-size: 11.5px; font-weight: 700; color: var(--mut); }
+.ann-preview .vann-box { width: 100%; }
+.ann-preview .vann-hero { height: 150px; }
+.ann-icons { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+@media (max-width: 520px) { .ann-icons { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.ann-icons button { aspect-ratio: 1; border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); color: var(--tx); display: grid; place-items: center; cursor: pointer; transition: border-color .15s, background .15s, transform .12s; }
+.ann-icons button:hover { border-color: var(--line2); }
+.ann-icons button:active { transform: scale(.94); }
+.ann-icons button.on { border-color: var(--acc); background: var(--accsoft); color: var(--acc-tx); }
+.ann-drop { margin-top: 8px; display: flex; align-items: center; gap: 12px; }
+.ann-drop img { width: 140px; height: 80px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); }
+.ann-drop-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 20px; border-radius: 14px; border: 1.5px dashed var(--line2); background: var(--card); color: var(--tx); font: inherit; cursor: pointer; transition: border-color .15s, background .15s; }
+.ann-drop-btn:hover { border-color: var(--acc); background: var(--accsoft); }
+.ann-drop-btn b { font-size: 13px; }
+.ann-drop-btn span { font-size: 11.5px; color: var(--mut); font-weight: 600; }
+.ann-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.ann-swatches button { width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; box-shadow: 0 0 0 2px var(--card), 0 0 0 3px transparent; transition: box-shadow .15s, transform .12s; }
+.ann-swatches button:hover { transform: scale(1.06); }
+.ann-swatches button.on { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--acc); }
+
+.ann-list { display: flex; flex-direction: column; gap: 12px; }
+.ann-card { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); }
+.ann-thumb { width: 96px; height: 72px; border-radius: 14px; overflow: hidden; display: grid; place-items: center; color: #fff; }
+.ann-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ann-info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ann-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ann-top b { font-size: 14.5px; font-weight: 800; }
+.ann-info > p { margin: 0; font-size: 13px; color: var(--mut); font-weight: 600; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ann-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11.5px; color: var(--mut); font-weight: 700; }
+.ann-chip { padding: 2px 8px; border-radius: 999px; background: var(--soft); color: var(--tx); }
+.ann-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 760px) { .ann-card { grid-template-columns: 72px minmax(0, 1fr); } .ann-thumb { width: 72px; height: 56px; } .ann-actions { grid-column: 1 / -1; justify-content: flex-start; } }
