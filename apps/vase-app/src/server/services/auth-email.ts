@@ -25,6 +25,8 @@ type NoticeEmailPayload = {
   button?: { label: string; url: string };
   note?: string;
   reason?: string;
+  /** A dónde van las respuestas (por defecto, soporte). */
+  replyTo?: string;
 };
 
 let cachedTransporter: Transporter | null = null;
@@ -61,7 +63,7 @@ function getTransporter() {
   return cachedTransporter;
 }
 
-async function deliver(to: string, subject: string, content: EmailContent, logTag: string) {
+async function deliver(to: string, subject: string, content: EmailContent, logTag: string, replyTo?: string) {
   const transporter = getTransporter();
   const config = getSmtpConfig();
   if (!transporter) {
@@ -69,7 +71,7 @@ async function deliver(to: string, subject: string, content: EmailContent, logTa
     return;
   }
   const { html, text } = renderEmail(content);
-  await transporter.sendMail({ from: config.from, replyTo: config.replyTo, to, subject, text, html });
+  await transporter.sendMail({ from: config.from, replyTo: replyTo ?? config.replyTo, to, subject, text, html });
   console.info(`[${logTag}:sent] to=${to} subject="${subject}" via=${config.host}:${config.port}`);
 }
 
@@ -107,5 +109,6 @@ export async function sendNoticeEmail(payload: NoticeEmailPayload) {
       reason: payload.reason,
     },
     "notice-email",
+    payload.replyTo,
   );
 }

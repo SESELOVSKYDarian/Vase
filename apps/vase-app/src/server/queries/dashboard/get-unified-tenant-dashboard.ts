@@ -420,7 +420,9 @@ export async function getUnifiedTenantDashboard(
   const labsDaysLeft = subscription?.currentPeriodEndsAt
     ? getDaysUntil(subscription.currentPeriodEndsAt)
     : null;
-  const businessTrialDaysLeft = subscription?.trialEndsAt ? getDaysUntil(subscription.trialEndsAt) : null;
+  // Solo cuentas que siguen en prueba: a las que ya pagan no se les avisa del vencimiento del trial.
+  const businessTrialDaysLeft =
+    subscription?.billingStatus === "TRIAL" && subscription.trialEndsAt ? getDaysUntil(subscription.trialEndsAt) : null;
   const businessProjectLimit = subscription?.businessProjectLimit ?? 1;
   const labsProjectLimit = 1;
   const businessRemaining = Math.max(0, businessProjectLimit - activePages);

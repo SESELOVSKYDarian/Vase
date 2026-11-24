@@ -24,12 +24,19 @@ export async function runTrialLifecycle() {
     const daysLeft = daysBetween(now, sub.trialEndsAt);
 
     if (daysLeft <= 7 && daysLeft > 0) {
-      await prisma.platformUpdate.create({
+      // Aviso solo para esa cuenta (antes salía como novedad para todas las cuentas).
+      await prisma.adminNotification.updateMany({
+        where: { tenantId: sub.tenantId, category: "trial", isActive: true },
+        data: { isActive: false },
+      });
+      await prisma.adminNotification.create({
         data: {
-          title: "Tu trial Business esta por vencer",
-          description: `Faltan ${daysLeft} dia(s) para el vencimiento del trial.`,
-          category: "billing",
+          title: "Tu prueba de Business está por vencer",
+          message: `Faltan ${daysLeft} día(s) para que termine la prueba.`,
+          category: "trial",
           tone: daysLeft <= 2 ? "danger" : "warning",
+          target: "TENANT",
+          tenantId: sub.tenantId,
           isActive: true,
         },
       });
