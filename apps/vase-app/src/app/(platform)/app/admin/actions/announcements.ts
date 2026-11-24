@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db/prisma";
 import { ANNOUNCEMENT_ACCENTS, ANNOUNCEMENT_ICONS, isAnnouncementSurface, safeAnnouncementUrl } from "@/lib/announcements";
 import { sanitizeText } from "@/lib/security/sanitize";
 import { createAuditLog } from "@/server/services/audit-log";
-import { sendAnnouncementEmails } from "@/server/services/announcements";
+import { sendAnnouncementEmails, sendAnnouncementTestEmail } from "@/server/services/announcements";
 
 export type AnnouncementActionResult = { ok: boolean; message?: string };
 
@@ -22,12 +22,16 @@ export type AnnouncementInput = {
   /** data:image/webp;base64,... ya achicada en el navegador. */
   imageData?: string | null;
   surfaces: string[];
+  /** Vacío = para todas las personas. */
+  userIds?: string[];
   startsAt?: string | null;
   endsAt?: string | null;
   sendEmail: boolean;
 };
 
 const MAX_IMAGE_CHARS = 1_400_000;
+const MAX_TARGETS = 500;
+const ID_RE = /^[a-z0-9]{20,40}$/i;
 
 async function requireNotifications() {
   try {
@@ -71,6 +75,12 @@ export async function createAnnouncementAction(input: AnnouncementInput): Promis
   const startsAt = day(input.startsAt);
   const endsAt = day(input.endsAt, true);
   if (startsAt && endsAt && endsAt < startsAt) return { ok: false, message: "La fecha de fin es anterior a la de inicio." };
+  const wanted = [...new Set((input.userIds ?? []).filter((id) => typeof id === "string" && ID_RE.test(id)))];
+  if (wanted.length > MAX_TARGETS) return { ok: false, message: `Podés elegir hasta ${MAX_TARGETS} personas.` };
+  const targets = wanted.length
+    ? (await prisma.user.findMany({ where: { id: { in: wanted } }, select: { id: true } })).map((user) => user.id)
+    : null;
+  if (wanted.length && !targets?.length) return { ok: false, message: "No encontramos a las personas elegidas." };
 
   const notification = await prisma.adminNotification.create({
     data: {
@@ -79,7 +89,8 @@ export async function createAnnouncementAction(input: AnnouncementInput): Promis
       href: ctaUrl,
       tone: "info",
       category: "announcement",
-      target: "ALL",
+      target: targets ? "USERS" : "ALL",
+      ...(targets ? { targetUserIds: targets } : {}),
       startsAt,
       endsAt,
       createdByUserId: session.user.id,
@@ -96,6 +107,7 @@ export async function createAnnouncementAction(input: AnnouncementInput): Promis
       accent,
       imageData,
       surfaces,
+      ...(targets ? { targetUserIds: targets } : {}),
       startsAt,
       endsAt,
       sendEmail: Boolean(input.sendEmail),
@@ -110,7 +122,7 @@ export async function createAnnouncementAction(input: AnnouncementInput): Promis
     targetType: "announcement",
     targetId: created.id,
     actorUserId: session.user.id,
-    metadata: { surfaces, sendEmail: Boolean(input.sendEmail), hasImage: Boolean(imageData) },
+    metadata: { surfaces, audience: targets ? targets.length : "all", sendEmail: Boolean(input.sendEmail), hasImage: Boolean(imageData) },
   });
 
   // El mail sale después de responder, para no dejar la pantalla esperando.
@@ -174,4 +186,49 @@ export async function deleteAnnouncementAction(id: string): Promise<Announcement
   await createAuditLog({ action: "platform.announcement_deleted", targetType: "announcement", targetId: id, actorUserId: session.user.id, metadata: { title: row.title } });
   refresh();
   return { ok: true, message: "Anuncio borrado." };
+}
+
+/** Manda el anuncio solo a la casilla de quien lo pide, para ver cómo llega. */
+export async function sendAnnouncementTestAction(id: string): Promise<AnnouncementActionResult> {
+  const session = await requireNotifications();
+  if (!session) return { ok: false, message: "No tenés permiso para esto." };
+  const me = await prisma.user.findUnique({ where: { id: session.user.id }, select: { email: true } });
+  if (!me?.email) return { ok: false, message: "Tu cuenta no tiene mail." };
+  try {
+    const sent = await sendAnnouncementTestEmail(id, me.email);
+    if (!sent) return { ok: false, message: "No pudimos mandarlo: falta configurar el correo." };
+  } catch (error) {
+    console.error("[announcements:test-error]", error);
+    return { ok: false, message: "El correo no salió. Revisá la configuración de mail." };
+  }
+  await createAuditLog({ action: "platform.announcement_test_email", targetType: "announcement", targetId: id, actorUserId: session.user.id });
+  return { ok: true, message: `Prueba enviada a ${me.email}.` };
+}
+
+export type AnnouncementUserOption = { id: string; name: string; email: string; detail: string | null };
+
+/** Buscador de personas para elegir a quién mostrarle un anuncio. */
+export async function searchAnnouncementUsersAction(query: string): Promise<AnnouncementUserOption[]> {
+  const session = await requireNotifications();
+  if (!session) return [];
+  const q = String(query ?? "").trim().slice(0, 80);
+  if (q.length < 2) return [];
+  const users = await prisma.user.findMany({
+    where: {
+      OR: [
+        { email: { contains: q } },
+        { name: { contains: q } },
+        { memberships: { some: { tenant: { name: { contains: q } } } } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 8,
+    select: { id: true, name: true, email: true, memberships: { take: 1, select: { tenant: { select: { name: true } } } } },
+  });
+  return users.map((user) => ({
+    id: user.id,
+    name: user.name.trim() || user.email,
+    email: user.email,
+    detail: user.memberships[0]?.tenant.name ?? null,
+  }));
 }

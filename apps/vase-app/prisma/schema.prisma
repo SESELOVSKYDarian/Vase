@@ -3381,6 +3381,8 @@ model Announcement {
   accent          String?   @db.VarChar(20)
   imageData       String?   @db.MediumText
   surfaces        Json
+  /// Null = todas las personas; si no, solo estos usuarios.
+  targetUserIds   Json?
   startsAt        DateTime?
   endsAt          DateTime?
   isActive        Boolean   @default(true)

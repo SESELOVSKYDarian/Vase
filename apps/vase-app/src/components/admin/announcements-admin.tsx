@@ -2,12 +2,15 @@
 
 import { useRef, useState, useTransition, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Eye, ImagePlus, Mail, Pause, Play, Plus, Trash2 } from "lucide-react";
+import { Check, Eye, ImagePlus, Mail, MailCheck, Pause, Play, Plus, Search, Trash2, X } from "lucide-react";
 import {
   createAnnouncementAction,
   deleteAnnouncementAction,
+  searchAnnouncementUsersAction,
   sendAnnouncementEmailNowAction,
+  sendAnnouncementTestAction,
   setAnnouncementActiveAction,
+  type AnnouncementUserOption,
 } from "@/app/(platform)/app/admin/actions/announcements";
 import { AdminModal } from "@/components/admin/client-ficha";
 import { AnnouncementIcon, AnnouncementModal } from "@/components/announcements/announcement-modal";
@@ -34,6 +37,76 @@ async function shrinkImage(file: File): Promise<string> {
   }
 }
 
+/** Elegir personas puntuales: buscador por nombre, mail o negocio, y las elegidas como chips. */
+function PeoplePicker({ value, onChange }: { value: AnnouncementUserOption[]; onChange: (next: AnnouncementUserOption[]) => void }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<AnnouncementUserOption[]>([]);
+  const [searching, startSearch] = useTransition();
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chosen = new Set(value.map((user) => user.id));
+
+  const onQuery = (next: string) => {
+    setQuery(next);
+    if (timer.current) clearTimeout(timer.current);
+    if (next.trim().length < 2) return setResults([]);
+    timer.current = setTimeout(() => {
+      startSearch(async () => setResults(await searchAnnouncementUsersAction(next)));
+    }, 250);
+  };
+
+  return (
+    <div className="ann-people">
+      {value.length ? (
+        <div className="ann-picked">
+          {value.map((user) => (
+            <span key={user.id} className="ann-pill">
+              {user.name}
+              <button type="button" aria-label={`Quitar a ${user.name}`} onClick={() => onChange(value.filter((item) => item.id !== user.id))}>
+                <X size={12} aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <label className="ann-search">
+        <Search size={15} aria-hidden="true" />
+        <input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Buscá por nombre, mail o negocio" aria-label="Buscar personas" />
+      </label>
+      {query.trim().length >= 2 ? (
+        <ul className="ann-results" role="listbox" aria-label="Personas encontradas">
+          {results.length ? (
+            results.map((user) => {
+              const on = chosen.has(user.id);
+              return (
+                <li key={user.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={on}
+                    className={on ? "on" : undefined}
+                    onClick={() => onChange(on ? value.filter((item) => item.id !== user.id) : [...value, user])}
+                  >
+                    <span className="vpa-g1">
+                      <b>{user.name}</b>
+                      <span>
+                        {user.email}
+                        {user.detail ? ` · ${user.detail}` : ""}
+                      </span>
+                    </span>
+                    {on ? <Check size={15} aria-hidden="true" /> : null}
+                  </button>
+                </li>
+              );
+            })
+          ) : (
+            <li className="ann-none">{searching ? "Buscando…" : "No encontramos a nadie con eso."}</li>
+          )}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 export function NewAnnouncementButton() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -52,8 +125,12 @@ export function NewAnnouncementButton() {
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [sendEmail, setSendEmail] = useState(false);
+  const [audience, setAudience] = useState<"all" | "people">("all");
+  const [people, setPeople] = useState<AnnouncementUserOption[]>([]);
 
   const reset = () => {
+    setAudience("all");
+    setPeople([]);
     setTitle("");
     setBody("");
     setMode("icon");
@@ -95,7 +172,9 @@ export function NewAnnouncementButton() {
 
   const submit = () =>
     start(async () => {
+      if (audience === "people" && !people.length) return setError("Elegí al menos una persona, o marcá Todos.");
       const result = await createAnnouncementAction({
+        userIds: audience === "people" ? people.map((user) => user.id) : [],
         title,
         body,
         ctaLabel,
@@ -245,6 +324,21 @@ export function NewAnnouncementButton() {
                 </div>
               </div>
 
+              <div className="vpa-fld">
+                <span>Para quién</span>
+                <div className="adm-choice" role="radiogroup" aria-label="Para quién">
+                  <button type="button" role="radio" aria-checked={audience === "all"} className={audience === "all" ? "on" : undefined} onClick={() => setAudience("all")}>
+                    <b>Todos</b>
+                    <span>Todas las personas con cuenta</span>
+                  </button>
+                  <button type="button" role="radio" aria-checked={audience === "people"} className={audience === "people" ? "on" : undefined} onClick={() => setAudience("people")}>
+                    <b>Personas puntuales</b>
+                    <span>{people.length ? `${people.length} elegida${people.length === 1 ? "" : "s"}` : "Elegís a quién"}</span>
+                  </button>
+                </div>
+                {audience === "people" ? <PeoplePicker value={people} onChange={setPeople} /> : null}
+              </div>
+
               <div className="vpa-form">
                 <label className="vpa-fld">
                   <span>Desde (opcional)</span>
@@ -260,7 +354,10 @@ export function NewAnnouncementButton() {
                 <span className={`vpa-tog${sendEmail ? " on" : ""}`} aria-hidden="true" />
                 <span className="vpa-g1">
                   <b>Mandar también por mail</b>
-                  <span>Sale desde novedades@vase.ar a todas las personas con cuenta activa.</span>
+                  <span>
+                    Sale desde novedades@vase.ar {audience === "people" ? "solo a las personas elegidas" : "a todas las personas con cuenta activa"}. Antes podés mandarte una prueba
+                    desde la lista.
+                  </span>
                 </span>
               </button>
             </div>
@@ -278,6 +375,8 @@ export function NewAnnouncementButton() {
 
 export type AdminAnnouncementRow = AnnouncementView & {
   surfaces: string[];
+  /** Null = todos; si no, cuántas personas puntuales. */
+  audience: number | null;
   state: { label: string; tone: string };
   dates: string;
   dismissed: number;
@@ -324,6 +423,7 @@ export function AnnouncementCard({ row }: { row: AdminAnnouncementRow }) {
               {ANNOUNCEMENT_SURFACES.find((surface) => surface.id === id)?.label ?? id}
             </span>
           ))}
+          <span className="ann-chip">{row.audience ? `${row.audience} persona${row.audience === 1 ? "" : "s"}` : "Todos"}</span>
           <span>{row.dates}</span>
           <span>· {row.dismissed} lo cerraron</span>
           {row.email === "sent" ? <span>· mail a {row.emailCount}</span> : null}
@@ -339,13 +439,17 @@ export function AnnouncementCard({ row }: { row: AdminAnnouncementRow }) {
           {row.isActive ? <Pause size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
           {row.isActive ? "Pausar" : "Activar"}
         </button>
+        <button type="button" className="vpa-btn line sm" disabled={pending} onClick={() => run(() => sendAnnouncementTestAction(row.id))} title="Te llega solo a vos">
+          <MailCheck size={14} aria-hidden="true" /> Probar mail
+        </button>
         {row.email !== "sent" ? (
           <button
             type="button"
             className="vpa-btn line sm"
             disabled={pending}
             onClick={() => {
-              if (window.confirm("¿Mandar este anuncio por mail a todas las personas con cuenta activa?")) run(() => sendAnnouncementEmailNowAction(row.id));
+              const who = row.audience ? `a las ${row.audience} personas elegidas` : "a todas las personas con cuenta activa";
+              if (window.confirm(`¿Mandar este anuncio por mail ${who}?`)) run(() => sendAnnouncementEmailNowAction(row.id));
             }}
           >
             <Mail size={14} aria-hidden="true" /> Enviar mail

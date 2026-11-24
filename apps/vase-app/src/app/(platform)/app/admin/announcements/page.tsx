@@ -35,6 +35,7 @@ export default async function AdminAnnouncementsPage() {
         icon: true,
         accent: true,
         surfaces: true,
+        targetUserIds: true,
         startsAt: true,
         endsAt: true,
         isActive: true,
@@ -61,6 +62,7 @@ export default async function AdminAnnouncementsPage() {
     icon: row.icon,
     accent: row.accent,
     imageUrl: images.has(row.id) ? `/api/announcements/${row.id}/image?v=${row.updatedAt.getTime()}` : null,
+    audience: Array.isArray(row.targetUserIds) && row.targetUserIds.length ? row.targetUserIds.length : null,
     surfaces: Array.isArray(row.surfaces) ? row.surfaces.filter((item): item is string => typeof item === "string") : [],
     state: stateOf(row, now),
     dates:

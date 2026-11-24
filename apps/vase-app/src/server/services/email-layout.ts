@@ -5,6 +5,8 @@ export type EmailContent = {
   /** Texto corto que se ve al lado del asunto en la bandeja de entrada. */
   preheader?: string;
   title: string;
+  /** Imagen grande arriba del título (URL https pública). */
+  image?: { url: string; alt?: string };
   /** Saludo, por ejemplo "Hola, Darian". */
   greeting?: string;
   paragraphs: string[];
@@ -85,6 +87,7 @@ export function renderEmail(content: EmailContent) {
         </a>
       </td></tr>
       <tr><td style="background:#ffffff;border:1px solid ${BRAND.line};border-radius:16px;padding:36px 32px;">
+        ${content.image && /^https:\/\//i.test(content.image.url) ? `<img src="${escapeHtml(content.image.url)}" width="494" alt="${escapeHtml(content.image.alt ?? "")}" style="display:block;width:100%;max-width:494px;height:auto;border:0;border-radius:12px;margin:0 0 24px;">` : ""}
         <h1 style="margin:0 0 20px;font-size:24px;line-height:32px;font-weight:800;color:${BRAND.ink};letter-spacing:-0.3px;">${escapeHtml(content.title)}</h1>
         ${content.greeting ? p(content.greeting) : ""}
         ${content.paragraphs.map(p).join("")}
