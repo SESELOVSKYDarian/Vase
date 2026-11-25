@@ -93,8 +93,8 @@ Cada app se despliega como servicio EasyPanel independiente.
 
 Ver:
 
-- `docs/v3/easypanel.md`
-- `docs/v3/worktree-deploy.md`
+- `docs/deploy/easypanel.md`
+- `docs/deploy/deploy-por-app.md`
 
 ## CI
 

@@ -39,7 +39,7 @@ describe("Vase Rest production deploy", () => {
 
   it("documents the EasyPanel service, domain, port, and database", () => {
     const sharedEnv = source(".env.easypanel.example");
-    const guide = source("docs/v3/easypanel.md");
+    const guide = source("docs/deploy/easypanel.md");
 
     expect(sharedEnv).toContain("NEXT_PUBLIC_APP_URL=https://rest.vase.ar");
     expect(sharedEnv).toContain("postgres-rest");

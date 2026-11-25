@@ -56,8 +56,8 @@ describe("Vase Editor deployment", () => {
       "apps/vase-editor/README.md",
       "apps/vase-editor/server/.env.example",
       "apps/vase-editor/web/.env.example",
-      "docs/deployment/business-editor-bridge.md",
-      "docs/v3/easypanel.md",
+      "docs/deploy/business-editor-bridge.md",
+      "docs/deploy/easypanel.md",
     ].map((relativePath) => fs.readFileSync(path.join(rootDir, relativePath), "utf8"));
 
     expect(deploymentFiles.join("\n")).toContain("business.vase.ar");

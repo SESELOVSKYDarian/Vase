@@ -388,8 +388,8 @@ Reglas visuales:
 - `README.md`: resumen operativo del repo.
 - `docs/company/brand-and-design.md`: identidad, colores, tono y UI.
 - `docs/company/product-and-company.md`: que es la empresa y que hace cada producto.
-- `docs/v3/easypanel.md`: deploy por servicio en EasyPanel.
-- `docs/v3/worktree-deploy.md`: deploy con worktree/sparse checkout.
+- `docs/deploy/easypanel.md`: deploy por servicio en EasyPanel.
+- `docs/deploy/deploy-por-app.md`: deploy con worktree/sparse checkout.
 - `docs/production/TECHNICAL_ARCHITECTURE.md`: arquitectura tecnica V3.
 - `docs/production/OPERATIONS_RUNBOOK.md`: operacion y mantenimiento.
 - `SECURITY.md`: politica y reglas de seguridad.

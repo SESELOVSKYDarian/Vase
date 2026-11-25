@@ -203,7 +203,7 @@ Usar `apps/vase-editor/.env.example` como lista completa. Las variables
 incorpora durante el build.
 
 El bridge de autenticacion entre App y Business esta documentado en
-`docs/deployment/business-editor-bridge.md`.
+`docs/deploy/business-editor-bridge.md`.
 
 ### Management
 

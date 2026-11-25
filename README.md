@@ -10,8 +10,8 @@ Este repo esta organizado como monorepo V3: cada producto vive como app independ
 - `docs/company/product-and-company.md`: que es Vase, que hace la empresa y que hace cada producto.
 - `docs/company/brand-and-design.md`: marca, tono, colores, UI y reglas visuales.
 - `docs/company/ai-working-context.md`: reglas para que una IA trabaje correctamente en este repo.
-- `docs/v3/easypanel.md`: despliegue por servicio en EasyPanel.
-- `docs/v3/worktree-deploy.md`: worktree/sparse checkout para trabajar o desplegar una app puntual.
+- `docs/deploy/easypanel.md`: despliegue por servicio en EasyPanel.
+- `docs/deploy/deploy-por-app.md`: worktree/sparse checkout para trabajar o desplegar una app puntual.
 
 ## Apps
 
