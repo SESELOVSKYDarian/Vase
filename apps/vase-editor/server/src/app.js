@@ -350,6 +350,8 @@ if (hasWebBuild) {
     res.set('Cache-Control', 'no-cache');
 
     if (isAdminSpaRoute) {
+      // El panel no tiene que aparecer en Google (las tiendas sí: llevan su propio meta robots).
+      res.set('X-Robots-Tag', 'noindex, nofollow');
       return res.sendFile(webIndexPath);
     }
 
@@ -357,7 +359,10 @@ if (hasWebBuild) {
       const tenant = await resolvePublicTenant(req);
       if (!tenant) {
         // Hosts sin tenant (ej. business.vase.ar) siguen recibiendo la SPA en "/".
-        if (req.path === '/') return res.sendFile(webIndexPath);
+        if (req.path === '/') {
+          res.set('X-Robots-Tag', 'noindex, nofollow');
+          return res.sendFile(webIndexPath);
+        }
         return res.status(404).json({ error: 'tenant_not_found' });
       }
       req.tenant = tenant;
