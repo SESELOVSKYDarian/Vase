@@ -6,6 +6,7 @@ import { getMarketingChromeCopy } from "@/config/public-site";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { FooterContactModal } from "./footer-contact-modal";
 
+/** Pie de página de vase.ar. */
 export async function SiteFooter() {
   const locale = await getRequestLocale();
   const copy = getMarketingChromeCopy(locale);

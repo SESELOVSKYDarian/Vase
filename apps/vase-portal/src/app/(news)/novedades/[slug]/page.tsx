@@ -7,12 +7,14 @@ import { portalOrigins } from "@/config/origins";
 import { NewsFooter } from "../../news-footer";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
 
+/** Notas que se generan de antemano (una página por nota). */
 export function generateStaticParams() {
   return NEWS_ARTICLES.map((article) => ({ slug: article.slug }));
 }
 
 export const dynamicParams = false;
 
+/** Título, descripción e imagen para compartir de cada nota. */
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const article = getNewsArticle(slug);
@@ -33,6 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
+/** Datos de la nota en el formato que entiende Google (NewsArticle). */
 function articleJsonLd(article: NewsArticle) {
   const site = portalOrigins.publicSite;
   return {
@@ -51,6 +54,7 @@ function articleJsonLd(article: NewsArticle) {
   };
 }
 
+/** Captura de pantalla con marco. */
 function Shot({ figure }: { figure: NewsFigure }) {
   return (
     <div className="vn-frame">
@@ -60,8 +64,10 @@ function Shot({ figure }: { figure: NewsFigure }) {
   );
 }
 
+/** Número de orden con dos cifras (01, 02…). */
 const pad = (index: number) => String(index + 1).padStart(2, "0");
 
+/** Página de una nota. Si no existe, muestra la página de no encontrado. */
 export default async function NewsArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const article = getNewsArticle(slug);

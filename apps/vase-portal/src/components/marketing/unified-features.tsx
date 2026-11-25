@@ -14,6 +14,7 @@ interface UnifiedFeaturesProps {
 
 gsap.registerPlugin(ScrollTrigger);
 
+/** Sección del inicio que muestra las funciones de Business o Labs según la pestaña elegida. */
 export function UnifiedFeatures({ locale, t }: UnifiedFeaturesProps) {
   const [activeTab, setActiveTab] = useState<"business" | "labs">("business");
   const sectionRef = useRef<HTMLElement>(null);

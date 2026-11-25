@@ -81,6 +81,7 @@ type SeoRoute = keyof typeof PAGE_SEO;
 
 const DEFAULT_OG_IMAGE = "/og/vase.jpg";
 
+/** Dirección completa de una página de vase.ar. */
 function siteUrl(path: string) {
   return `${portalOrigins.publicSite}${path === "/" ? "" : path}`;
 }

@@ -6,6 +6,7 @@ import VaseBusinessPage from "./page/VaseBusinessPage";
 
 export const metadata = pageMetadata("/vase-business");
 
+/** Página de Vase Business, con los datos del producto para Google. */
 export default function Page() {
   return (
     <>

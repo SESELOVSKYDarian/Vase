@@ -6,6 +6,7 @@ import { PUBLIC_ROUTES } from "@/config/redirects";
 // Las notas tienen su propio mapa en news.vase.ar/sitemap.xml.
 const MAIN_ROUTES = new Set(["/", "/vase-business", "/vaselabs", "/vase-management", "/precios"]);
 
+/** Mapa del sitio de vase.ar para Google, con la prioridad de cada página. */
 export default function sitemap(): MetadataRoute.Sitemap {
   return PUBLIC_ROUTES.map((route) => ({
     url: `${portalOrigins.publicSite}${route === "/" ? "" : route}`,

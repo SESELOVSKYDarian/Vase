@@ -119,6 +119,7 @@ const portraitImages = [
   "/daran.png",
 ] as const;
 
+/** Página "Qué es Vase": historia y equipo. */
 export default async function WhatIsVasePage() {
   const locale = await getRequestLocale();
   const t = content[locale];

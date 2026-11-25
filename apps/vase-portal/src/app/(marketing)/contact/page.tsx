@@ -33,6 +33,7 @@ const mailboxes = [
   },
 ] as const;
 
+/** Página de contacto de vase.ar con el formulario. */
 export default function ContactPage() {
   return (
     <div className="mx-auto w-full max-w-[92rem] pb-16 pt-14 sm:pt-20 lg:pb-24 lg:pt-24">

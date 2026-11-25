@@ -15,17 +15,20 @@ export type RestPromotionCandidate = {
   active: boolean;
 };
 
+/** Pasa un importe en texto ("1234.50") a centavos, para hacer cuentas sin errores de redondeo. */
 function moneyToCents(value: string) {
   const match = /^(0|[1-9]\d{0,15})\.(\d{2})$/.exec(value);
   if (!match) throw new Error("REST_MONEY_INVALID");
   return BigInt(match[1]) * BigInt(100) + BigInt(match[2]);
 }
 
+/** Pasa centavos a importe en texto ("1234.50"). Nunca devuelve negativo. */
 function centsToMoney(value: bigint) {
   const safe = value < BigInt(0) ? BigInt(0) : value;
   return `${safe / BigInt(100)}.${String(safe % BigInt(100)).padStart(2, "0")}`;
 }
 
+/** Día de la semana (0 = domingo) en la zona horaria del local. */
 function localWeekday(date: Date, timezone: string) {
   const value = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
@@ -34,6 +37,7 @@ function localWeekday(date: Date, timezone: string) {
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(value);
 }
 
+/** Entre las promociones vigentes para ese local, día y forma de pago, aplica la que más descuento da. */
 export function applyBestRestPromotion(input: {
   now: Date;
   timezone: string;
@@ -89,10 +93,12 @@ export function applyBestRestPromotion(input: {
   };
 }
 
+/** División entera redondeada al más cercano (para centavos). */
 function divideRounded(numerator: bigint, denominator: bigint) {
   return (numerator + denominator / BigInt(2)) / denominator;
 }
 
+/** Precio final de un ítem del pedido: precio unitario + agregados, por cantidad, con el impuesto incluido o sumado. */
 export function priceRestOrderItem(input: {
   unitPrice: string;
   modifierTotal: string;

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { portalOrigins } from "../../../../config/origins";
 import { checkPortalAppReadiness } from "../../../../lib/readiness";
 
+/** Chequeo completo: el sitio puede hablar con la app. Si no, responde con error. */
 export async function GET() {
   const readiness = await checkPortalAppReadiness({
     baseUrl: portalOrigins.appInternal,

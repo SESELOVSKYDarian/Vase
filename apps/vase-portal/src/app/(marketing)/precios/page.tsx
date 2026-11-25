@@ -29,6 +29,7 @@ const faqItems = [
   },
 ] as const;
 
+/** Trae los precios vigentes de Management desde la app (se guardan 5 minutos). Si falla, usa los de respaldo. */
 async function getManagementPricing() {
   try {
     const response = await fetch(new URL("/api/public/management/pricing", process.env.VASE_APP_PUBLIC_URL ?? "http://localhost:3001"), { next: { revalidate: 300 } });
@@ -37,6 +38,7 @@ async function getManagementPricing() {
   return { currency: "ARS", setupPrice: 350000, monthlyPrice: 95000 };
 }
 
+/** Página de precios de Business, Labs y Management. */
 export default async function PricingPage() {
   const managementPricing = await getManagementPricing();
   return (

@@ -4,6 +4,7 @@ import { ArrowRight, ChartSpline, Layers3 } from "lucide-react";
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
 import { businessSignals, features, getFeatureImageClass, impactItems, pillars } from "./pillars";
 
+/** Contenido de la página de Vase Business. */
 export default function VaseBusinessPage() {
   return (
     <div className="pb-16">

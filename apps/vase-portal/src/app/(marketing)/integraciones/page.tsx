@@ -71,6 +71,7 @@ const bentoCards: ReadonlyArray<{
   },
 ];
 
+/** Página de integraciones (WhatsApp, Instagram, Mercado Pago, sistemas de gestión). */
 export default function IntegrationsPage() {
   return (
     <div className="overflow-x-hidden pb-16">

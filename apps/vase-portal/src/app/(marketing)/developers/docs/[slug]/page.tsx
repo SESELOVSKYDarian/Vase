@@ -7,6 +7,7 @@ type Props = {
   params: Promise<{ slug: string }>;
 };
 
+/** Una guía pública. Si no existe, muestra la página de no encontrado. */
 export default async function PublicDocDetailPage({ params }: Props) {
   const { slug } = await params;
   const doc = await portalAppClient.getDoc(slug);

@@ -13,6 +13,7 @@ export type ContactActionState = {
   fieldErrors?: Record<string, string[]>;
 };
 
+/** Recibe el formulario de contacto: valida los datos y se la pasa a la app. Avisa si hubo demasiados intentos seguidos. */
 export async function submitContactInquiry(
   _: ContactActionState,
   formData: FormData,

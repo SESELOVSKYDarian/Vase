@@ -5,6 +5,7 @@ import { PUBLIC_ROUTES } from "./redirects";
 
 const onNews = [{ type: "host" as const, value: NEWS_HOST }];
 
+/** En news.vase.ar, sirve las páginas de /novedades directo desde la raíz (y su mapa del sitio y robots). */
 export function getNewsRewrites() {
   return [
     { source: "/", has: onNews, destination: "/novedades" },
@@ -21,6 +22,7 @@ export function getWwwRedirects(publicSite: string) {
   return [{ source: "/:path*", has: [{ type: "host" as const, value: `www.${host}` }], destination: `${publicSite}/:path*`, permanent: true }];
 }
 
+/** En news.vase.ar, manda las direcciones viejas a la nueva y las páginas del sitio principal a vase.ar. */
 export function getNewsRedirects(publicSite: string) {
   return [
     { source: "/novedades", has: onNews, destination: "/", permanent: false },

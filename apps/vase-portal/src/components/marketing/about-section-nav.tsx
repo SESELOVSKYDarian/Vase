@@ -12,6 +12,7 @@ type AboutSectionNavProps = {
   items: AboutSectionNavItem[];
 };
 
+/** Índice de secciones que marca en cuál estás mientras bajás. */
 export function AboutSectionNav({ items }: AboutSectionNavProps) {
   const [activeId, setActiveId] = useState(items[0]?.id ?? "");
 

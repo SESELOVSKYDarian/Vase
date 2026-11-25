@@ -38,12 +38,14 @@ type PanelShellProps = {
   children: ReactNode;
 };
 
+/** Link común, para cuando la app no pasa el suyo (por ejemplo el Link de Next). */
 const defaultLink = ({ href, className, title, onClick, children }: PanelLinkProps) => (
   <a href={href} className={className} title={title} onClick={onClick}>
     {children}
   </a>
 );
 
+/** Marco completo del panel: menú lateral, título de la página y contenido. */
 export function PanelShell({
   brand,
   groups,

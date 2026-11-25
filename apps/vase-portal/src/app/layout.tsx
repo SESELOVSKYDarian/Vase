@@ -45,6 +45,7 @@ export const metadata: Metadata = {
   icons: { icon: "/vasecolorlogo.png" },
 };
 
+/** Marco base de todas las páginas: idioma, tipografías y datos generales. */
 export default async function RootLayout({
   children,
 }: Readonly<{

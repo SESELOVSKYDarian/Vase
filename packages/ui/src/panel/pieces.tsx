@@ -85,6 +85,7 @@ export function PanelSection({
   );
 }
 
+/** Contenedor de una lista de secciones del panel. */
 export function PanelSections({ children }: { children: ReactNode }) {
   return <div className="vpa-acclist">{children}</div>;
 }
@@ -163,6 +164,7 @@ export function PanelAlert({ icon, title, children, action }: { icon?: ReactNode
   );
 }
 
+/** Cartel de "no hay nada todavía", con un botón opcional abajo. */
 export function PanelEmpty({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="vpa-empty">

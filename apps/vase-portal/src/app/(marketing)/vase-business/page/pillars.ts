@@ -78,6 +78,7 @@ export const businessSignals = [
   { label: "Escalabilidad", value: "Base editable + capa custom" },
 ] as const;
 
+/** Estilo de cada imagen de la página de Business según qué imagen es (fondo, recorte, margen). */
 export function getFeatureImageClass(image: string) {
   if (image === "/listo.png") {
     return "bg-black object-contain p-8";

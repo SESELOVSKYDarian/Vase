@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, useSpring, useMotionValue } from "framer-motion";
 
+/** Cursor propio de vase.ar que sigue al mouse y se agranda sobre links y botones. */
 export function CustomCursor() {
   const [isHovering, setIsHovering] = useState(false);
   const cursorX = useMotionValue(-100);

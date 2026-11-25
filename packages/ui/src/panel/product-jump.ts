@@ -12,6 +12,7 @@ const GIVE_UP_MS = 6000;
 // Direcciones de este mismo sitio que en realidad llevan a otro producto.
 const JUMP_PATHS = ["/app/business/launch", "/api/management/sso/start"];
 
+/** ¿Este link lleva a otro producto de Vase (otro dominio)? Así se muestra la transición al saltar. */
 function isProductJump(link: HTMLAnchorElement) {
   if ((link.target && link.target !== "_self") || link.hasAttribute("download")) return false;
   let url: URL;
@@ -25,6 +26,7 @@ function isProductJump(link: HTMLAnchorElement) {
   return JUMP_PATHS.includes(url.pathname);
 }
 
+/** Saca la marca de "saliendo" de la página (fin de la transición). */
 const stopLeaving = () => document.documentElement.removeAttribute("data-vase-leaving");
 
 /** Se usa una sola vez por panel (lo llama el menú lateral). */

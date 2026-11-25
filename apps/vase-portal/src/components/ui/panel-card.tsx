@@ -9,6 +9,7 @@ type PanelCardProps = PropsWithChildren<{
   className?: string;
 }>;
 
+/** Tarjeta con título, antetítulo, descripción y botones. */
 export function PanelCard({
   title,
   eyebrow,

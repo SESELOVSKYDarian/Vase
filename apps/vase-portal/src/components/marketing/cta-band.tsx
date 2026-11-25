@@ -7,6 +7,7 @@ type CtaBandProps = {
   description: string;
 };
 
+/** Banda de llamado a la acción al final de una página. */
 export function CtaBand({ title, description }: CtaBandProps) {
   return (
     <ScrollReveal variant="section" className="vase-glass-panel rounded-[36px] px-6 py-8 text-[var(--foreground)] sm:px-8">

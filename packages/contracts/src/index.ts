@@ -452,10 +452,12 @@ export interface CreateTokenUsageInput {
   profile?: string;
 }
 
+/** Límites que incluye un plan de Labs (canales, mensajes, tokens…). */
 export function getLabsPlanLimits(plan: LabsPlan): LabsPlanLimits {
   return labsPlanLimitsSchema.parse(LABS_PLAN_LIMITS[plan]);
 }
 
+/** Lo que una cuenta puede usar de Labs: los límites de su plan pagado, con los ajustes a mano que haya hecho el admin. */
 export function getEffectiveLabsEntitlement(input: {
   paidPlan: LabsPlan;
   override?: LabsEntitlementOverride | null;
@@ -474,10 +476,12 @@ export function getEffectiveLabsEntitlement(input: {
   });
 }
 
+/** Cuántos tokens trae un paquete de tokens. */
 export function getTokenPackTokens(pack: TokenPack): number {
   return TOKEN_PACK_TOKENS[pack];
 }
 
+/** Arma el permiso de uso de Labs de una cuenta a partir de su plan, ya validado. */
 export function createLabsEntitlement(input: CreateLabsEntitlementInput): LabsEntitlement {
   const limits = getLabsPlanLimits(input.plan);
 
@@ -492,6 +496,7 @@ export function createLabsEntitlement(input: CreateLabsEntitlementInput): LabsEn
   });
 }
 
+/** ¿La cuenta puede usar este canal (WhatsApp, Instagram…)? Solo si su Labs está activo o en prueba y el canal está incluido. */
 export function canUseLabsChannel(entitlement: LabsEntitlement, channel: LabsChannel): boolean {
   if (entitlement.status !== "ACTIVE" && entitlement.status !== "TRIAL") {
     return false;
@@ -500,18 +505,22 @@ export function canUseLabsChannel(entitlement: LabsEntitlement, channel: LabsCha
   return entitlement.enabledChannels.includes(channel);
 }
 
+/** Tokens que le quedan este mes: los del plan más los paquetes comprados, menos lo usado. Nunca da negativo. */
 export function getLabsTokenBalance(entitlement: LabsEntitlement): number {
   return Math.max(0, entitlement.monthlyTokenLimit + entitlement.tokenPackBalance - entitlement.monthlyTokenUsed);
 }
 
+/** Calcula más o menos cuántos mensajes alcanzan con esa cantidad de tokens. */
 export function estimateMessagesFromTokens(tokens: number): number {
   return Math.floor(tokens / LABS_AVERAGE_TOKENS_PER_MESSAGE);
 }
 
+/** Calcula más o menos cuántos mensajes alcanzan con un paquete de tokens. */
 export function estimateMessagesFromTokenPack(pack: TokenPack): number {
   return estimateMessagesFromTokens(getTokenPackTokens(pack));
 }
 
+/** Registro de consumo de tokens de una respuesta: suma entrada + salida y le pone fecha si no la trae. */
 export function createTokenUsage(input: CreateTokenUsageInput): TokenUsage {
   return tokenUsageSchema.parse({
     ...input,
@@ -520,6 +529,7 @@ export function createTokenUsage(input: CreateTokenUsageInput): TokenUsage {
   });
 }
 
+/** ¿Se puede procesar un mensaje que entró por este canal? Depende de que el canal esté habilitado. */
 export function canUseInboundChannelMessage(entitlement: LabsEntitlement, message: InboundChannelMessage): boolean {
   return canUseLabsChannel(entitlement, message.channelType);
 }

@@ -10,6 +10,7 @@ export const sharedAuthCookieName = "__Secure-authjs.session-token";
 export const localAuthCookieName = "authjs.session-token";
 export const managementTenantCookieName = "vase-management-tenant";
 
+/** Limpia el nombre corto de una cuenta para Management (sin espacios, en minúscula). Si queda vacío, devuelve undefined. */
 export function normalizeManagementTenantSlug(
   value: string | null | undefined,
 ): string | undefined {
@@ -26,6 +27,7 @@ export function normalizeManagementTenantSlug(
   return normalized;
 }
 
+/** Busca el valor de una cookie por nombre dentro del encabezado Cookie. Si no está, devuelve null. */
 export function getCookieValue(cookieHeader: string | null, name: string): string | null {
   if (!cookieHeader) {
     return null;

@@ -130,6 +130,7 @@ export const marketingChromeCopy = {
   },
 } satisfies Record<AppLocale, unknown>;
 
+/** Textos del menú y el pie en el idioma pedido. */
 export function getMarketingChromeCopy(locale: AppLocale) {
   return marketingChromeCopy[locale];
 }

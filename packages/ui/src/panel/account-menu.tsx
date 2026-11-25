@@ -22,6 +22,7 @@ export type PanelAccountMenuProps = {
   renderLink?: LinkRenderer;
 };
 
+/** Menú de la cuenta del panel: ajustes, ayuda, volver a Vase y cerrar sesión. Cada opción cierra el menú antes de actuar. */
 export function PanelAccountMenu({ heading, settings, help, backToVase, signOut, close, renderLink }: PanelAccountMenuProps) {
   const option = (label: ReactNode, action: AccountMenuAction, className = "vase-am") => {
     const onClick = () => {

@@ -11,10 +11,12 @@ const initialState: ContactActionState = {};
 const fieldClass =
   "h-13 w-full rounded-[1.15rem] border border-black/[0.07] bg-[#f7f9f7] px-4 text-[0.95rem] text-[#000202] outline-none transition placeholder:text-[#6b746f]/45 focus:border-[#3B633D]/35 focus:bg-white focus:ring-4 focus:ring-[#3B633D]/[0.08]";
 
+/** Mensaje de error debajo de un campo. */
 function FieldError({ message }: { message?: string }) {
   return message ? <p className="text-xs leading-5 text-[#9a493d]">{message}</p> : null;
 }
 
+/** Formulario de contacto: manda la consulta y muestra el resultado o los errores. */
 export function ContactForm() {
   const [state, formAction, pending] = useActionState(
     submitContactInquiry,

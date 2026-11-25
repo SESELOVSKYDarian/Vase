@@ -20,6 +20,7 @@ interface FeatureTabsProps {
   plansLabel?: string;
 }
 
+/** Lista de funciones con pestañas: al elegir una, muestra su detalle e imagen. */
 export function FeatureTabs({ features, title, badge, body, plansLabel }: FeatureTabsProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeFeature = features[activeIndex];

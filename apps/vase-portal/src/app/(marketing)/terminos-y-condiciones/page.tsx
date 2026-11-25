@@ -137,6 +137,7 @@ const sections = [
   },
 ];
 
+/** Términos y condiciones. */
 export default function TermsPage() {
   return (
     <div

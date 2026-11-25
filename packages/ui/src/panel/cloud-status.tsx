@@ -10,6 +10,7 @@ export const CLOUD_LABELS: Record<CloudState, string> = {
   offline: "Sin conexión",
 };
 
+/** Ícono de nube que muestra si los cambios se están guardando, se guardaron o fallaron. */
 function CloudIcon({ state }: { state: CloudState }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

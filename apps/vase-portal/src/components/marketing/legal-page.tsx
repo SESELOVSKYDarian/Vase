@@ -16,6 +16,7 @@ type LegalPageProps = {
   footer?: ReactNode;
 };
 
+/** Plantilla de las páginas legales: título, fecha de actualización y secciones. */
 export function LegalPage({
   eyebrow,
   title,

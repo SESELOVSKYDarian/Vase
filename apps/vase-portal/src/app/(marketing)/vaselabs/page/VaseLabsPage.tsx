@@ -4,6 +4,7 @@ import { ArrowRight, Bot, CheckCircle2, LayoutDashboard, MessagesSquare, Sparkle
 import { ScrollReveal } from "@/components/marketing/scroll-reveal";
 import { channelCards, leadRows, outcomes, platformFeatures } from "./platform-features";
 
+/** Contenido de la página de Vase Labs. */
 export default function VaseLabsPage() {
   return (
     <div className="overflow-x-hidden pb-16">

@@ -23,6 +23,7 @@ type FooterContactModalProps = {
   emailPlaceholder?: string;
 };
 
+/** Botón del pie que abre una ventana de contacto rápido. */
 export function FooterContactModal({
   buttonLabel,
   title,

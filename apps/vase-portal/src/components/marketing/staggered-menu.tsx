@@ -36,6 +36,7 @@ interface StaggeredMenuProps {
   registerHref?: Route;
 }
 
+/** Ícono de hamburguesa que se convierte en cruz al abrir. */
 function MenuGlyph({ open }: { open: boolean }) {
   return (
     <span className="relative flex w-5 flex-col gap-[4.5px]">
@@ -58,6 +59,7 @@ function MenuGlyph({ open }: { open: boolean }) {
   );
 }
 
+/** Menú del celular a pantalla completa, con las opciones apareciendo de a una. */
 export function StaggeredMenu({
   items = [],
   socialItems = [],

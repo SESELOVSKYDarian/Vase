@@ -24,6 +24,7 @@ type HeroEmphasisFontCycleProps = {
   text: string;
 };
 
+/** Palabra destacada del inicio que va cambiando de tipografía. */
 export function HeroEmphasisFontCycle({ text }: HeroEmphasisFontCycleProps) {
   const [fontIndex, setFontIndex] = useState(0);
 

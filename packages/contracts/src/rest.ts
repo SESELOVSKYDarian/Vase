@@ -123,6 +123,7 @@ export const REST_PLAN_LIMITS = {
   },
 } as const satisfies Record<CapacityPlan, RestPlanLimits>;
 
+/** Límites de un plan de Rest. El plan Enterprise usa los límites que se acordaron para esa cuenta. */
 export function getRestPlanLimits(
   plan: RestPlan,
   enterpriseLimits?: RestPlanLimits,

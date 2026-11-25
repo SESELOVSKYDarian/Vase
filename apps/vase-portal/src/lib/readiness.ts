@@ -1,3 +1,4 @@
+/** Prueba si la app responde. Devuelve ok o el motivo del problema. */
 export async function checkPortalAppReadiness(input: {
   baseUrl: string;
   fetcher?: typeof fetch;

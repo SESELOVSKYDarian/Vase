@@ -7,6 +7,7 @@ import { faqJsonLd, pageMetadata } from "@/config/seo";
 
 export const metadata = pageMetadata("/preguntas-frecuentes");
 
+/** Preguntas frecuentes, con los datos que entiende Google. */
 export default function FaqPage() {
   return (
     <>

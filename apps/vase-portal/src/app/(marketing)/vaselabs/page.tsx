@@ -6,6 +6,7 @@ import VaseLabsPage from "./page/VaseLabsPage";
 
 export const metadata = pageMetadata("/vaselabs");
 
+/** Página de Vase Labs, con los datos del producto para Google. */
 export default function Page() {
   return (
     <>

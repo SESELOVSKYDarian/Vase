@@ -15,6 +15,7 @@ const capabilities = [
   [UsersRound, "Equipos y permisos", "Accesos por empresa y usuario desde la misma identidad segura de Vase."],
 ] as const;
 
+/** Página de Vase Management, con los datos del producto para Google. */
 export default function VaseManagementPage() {
   return <div className="pb-24 text-[#17231b]">
     <JsonLd data={softwareJsonLd("/vase-management", "Vase Management", "BusinessApplication")} />

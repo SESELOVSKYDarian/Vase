@@ -9,8 +9,10 @@ export type SelectOption = { value: string | number; label: string; depth?: numb
 type Place = { left: number; width: number; up: boolean; top?: number; bottom?: number; maxHeight: number };
 
 const SEARCH_FROM = 10;
+/** Texto para comparar en el buscador: sin tildes y en minúscula. */
 const normalize = (text: unknown) => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
+/** Flechita hacia abajo del desplegable. */
 function Chevron() {
   return (
     <svg className="ch" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -19,6 +21,7 @@ function Chevron() {
   );
 }
 
+/** Lupa del buscador del desplegable. */
 function Search() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -35,6 +38,7 @@ function panelRoot(trigger: HTMLElement | null) {
   return { className: root?.classList.contains("vp") ? "vp" : "vpa", theme };
 }
 
+/** Desplegable del panel con buscador. Se maneja con teclado y muestra la opción elegida. */
 export function Select({
   value,
   onChange,

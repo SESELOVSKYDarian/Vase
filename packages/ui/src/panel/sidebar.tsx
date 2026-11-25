@@ -39,18 +39,21 @@ export type PanelSidebarProps = {
   ariaLabel?: string;
 };
 
+/** Link común, para cuando la app no pasa el suyo (por ejemplo el Link de Next). */
 const defaultLink = ({ href, className, title, onClick, children }: SidebarLinkProps) => (
   <a href={href} className={className} title={title} onClick={onClick}>
     {children}
   </a>
 );
 
+/** Dibuja un ícono de línea a partir de su trazo. */
 const svg = (d: string, size = 14) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d={d} />
   </svg>
 );
 
+/** Menú lateral del panel: grupos de secciones, la sección activa y la cuenta abajo. */
 export function PanelSidebar({
   brand,
   groups,

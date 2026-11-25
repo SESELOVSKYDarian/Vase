@@ -15,6 +15,7 @@ const variantMap: Record<
   hero: { y: 48, scale: 0.96, duration: 0.9 },
 };
 
+/** Hace aparecer el contenido con una animación suave cuando entra en pantalla. */
 export function ScrollReveal({
   children,
   delay = 0,

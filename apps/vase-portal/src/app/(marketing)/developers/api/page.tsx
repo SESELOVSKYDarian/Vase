@@ -89,10 +89,12 @@ const sideNav: ReadonlyArray<{
   { id: "changelog", label: "Cambios", icon: History },
 ];
 
+/** Muestra un objeto como JSON prolijo (con sangría) para los ejemplos. */
 function pretty(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
+/** Documentación de la API para desarrolladores, con índice a la izquierda. */
 export default function ApiDocsPage() {
   return (
     <div className="mx-auto flex w-full max-w-[96rem] gap-10">

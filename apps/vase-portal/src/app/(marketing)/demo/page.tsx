@@ -5,6 +5,7 @@ import { pageMetadata } from "@/config/seo";
 
 export const metadata = pageMetadata("/demo");
 
+/** Página para pedir una demo de Vase. */
 export default function DemoPage() {
   return (
     <>

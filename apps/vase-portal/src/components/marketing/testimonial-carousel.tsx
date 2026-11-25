@@ -4,6 +4,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+/** Carrusel de testimonios con flechas y puntos. */
 export function TestimonialCarousel({ items }: { items: string[][] }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "center", skipSnaps: false });
   const [selectedIndex, setSelectedIndex] = useState(0);

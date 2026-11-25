@@ -6,6 +6,7 @@ export const metadata = pageMetadata("/developers/docs");
 
 export const dynamic = "force-dynamic";
 
+/** Lista de guías públicas. Si la app no responde, muestra la lista vacía. */
 export default async function PublicDocsPage() {
   const docs = await portalAppClient.listDocs().catch(() => []);
 

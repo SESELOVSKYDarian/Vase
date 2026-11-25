@@ -14,12 +14,14 @@ export type SettingsTabItem = {
 
 type LinkRenderer = (props: { href: string; className: string; children: ReactNode; ariaCurrent?: "page" }) => ReactNode;
 
+/** Link común, para cuando la app no pasa el suyo (por ejemplo el Link de Next). */
 const defaultLink: LinkRenderer = ({ href, className, children, ariaCurrent }) => (
   <a href={href} className={className} aria-current={ariaCurrent}>
     {children}
   </a>
 );
 
+/** Pestañas de la pantalla de ajustes; marca la que está abierta. */
 export function PanelSettingsTabs({
   items,
   active,

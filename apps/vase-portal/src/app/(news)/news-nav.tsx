@@ -7,11 +7,13 @@ type Props = { newsOrigin: string; site: string; app: string };
 
 const THEME_KEY = "vase-news-theme";
 
+/** Lee si Novedades está en modo claro u oscuro. */
 function readTheme() {
   if (typeof document === "undefined") return "light";
   return document.documentElement.dataset.vnTheme === "dark" ? "dark" : "light";
 }
 
+/** Avisa cada vez que cambia el modo claro/oscuro. Devuelve la función para dejar de escuchar. */
 function subscribeTheme(callback: () => void) {
   const observer = new MutationObserver(callback);
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-vn-theme"] });

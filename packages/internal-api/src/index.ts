@@ -1,20 +1,24 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { managementSsoClaimsSchema, type ManagementSsoClaims, type ServiceHealth, type VaseServiceKey } from "@vase/contracts";
 
+/** Pasa texto a base64 apto para URLs. */
 function encodeBase64Url(value: string) {
   return Buffer.from(value, "utf8").toString("base64url");
 }
 
+/** Firma el contenido del pase de ingreso con la clave secreta (para que nadie lo pueda falsificar). */
 function signSsoPayload(payload: string, secret: string) {
   return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
+/** Arma el pase firmado con el que una persona entra a Management desde Vase sin volver a loguearse. */
 export function createManagementSsoTicket(claims: ManagementSsoClaims, secret: string) {
   if (secret.length < 16) throw new Error("SSO_SECRET_NOT_CONFIGURED");
   const payload = encodeBase64Url(JSON.stringify(managementSsoClaimsSchema.parse(claims)));
   return `${payload}.${signSsoPayload(payload, secret)}`;
 }
 
+/** Revisa que el pase de ingreso a Management sea auténtico y no esté vencido. Si algo no cierra, corta con error. */
 export function verifyManagementSsoTicket(ticket: string, secret: string, nowSeconds = Math.floor(Date.now() / 1000)) {
   if (secret.length < 16) throw new Error("SSO_SECRET_NOT_CONFIGURED");
   const [payload, signature, extra] = ticket.split(".");
@@ -32,6 +36,7 @@ export function verifyManagementSsoTicket(ticket: string, secret: string, nowSec
   }
 }
 
+/** Saca, de la clave general entre servicios, una clave propia para un uso puntual (así una no sirve para todo). */
 export function deriveScopedServiceToken(secret: string, scope: string) {
   const normalizedSecret = secret.trim();
   const normalizedScope = scope.trim();
@@ -44,6 +49,7 @@ export function deriveScopedServiceToken(secret: string, scope: string) {
     .digest("base64url");
 }
 
+/** Deja pasar el pedido solo si trae alguna de las claves de servicio esperadas. Si no, corta con error. */
 export function assertAnyServiceToken(
   authorization: string | null,
   expectedTokens: Array<string | undefined>,
@@ -68,10 +74,12 @@ export function assertAnyServiceToken(
   }
 }
 
+/** Deja pasar el pedido solo si trae la clave de servicio esperada. */
 export function assertServiceToken(authorization: string | null, expectedToken: string | undefined) {
   assertAnyServiceToken(authorization, [expectedToken]);
 }
 
+/** Datos de "estoy funcionando" de un servicio (nombre, dominio, hora). */
 export function createInternalAdminHealthPayload(input: {
   service: VaseServiceKey;
   domain: string;
@@ -85,6 +93,7 @@ export function createInternalAdminHealthPayload(input: {
   };
 }
 
+/** Respuesta de salud de un servicio, con el resultado de cada chequeo. */
 export function createHealthResponse(input: {
   service: VaseServiceKey;
   domain: string;
@@ -96,6 +105,7 @@ export function createHealthResponse(input: {
   };
 }
 
+/** Respuesta de salud para el panel interno: solo responde si el pedido trae la clave de servicio. */
 export function createInternalAdminHealthResponse(input: {
   authorization: string | null;
   expectedToken: string | undefined;

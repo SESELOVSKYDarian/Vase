@@ -68,6 +68,7 @@ const sections: readonly LegalSection[] = [
   },
 ] as const;
 
+/** Política de privacidad. */
 export default function PrivacyPage() {
   return (
     <LegalPage

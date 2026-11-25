@@ -24,6 +24,7 @@ interface SiteHeaderClientProps {
   };
 }
 
+/** Menú de arriba de vase.ar: cambia al bajar y abre el menú en el celular. */
 export function SiteHeaderClient({ copy }: SiteHeaderClientProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);

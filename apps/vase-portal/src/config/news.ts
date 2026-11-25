@@ -55,6 +55,7 @@ export type NewsArticle = {
 };
 
 const IMG = "/novedades/vase-se-renovo";
+/** Arma una captura de pantalla de una nota a partir del nombre del archivo. */
 const shot = (name: string, alt: string, caption?: string): NewsFigure => ({ src: `${IMG}/${name}.webp`, alt, width: 2000, height: 1250, caption });
 
 export const NEWS_ARTICLES: readonly NewsArticle[] = [
@@ -236,14 +237,17 @@ export const NEWS_ARTICLES: readonly NewsArticle[] = [
   },
 ];
 
+/** Busca una nota por su dirección. Si no existe, devuelve null. */
 export function getNewsArticle(slug: string) {
   return NEWS_ARTICLES.find((article) => article.slug === slug) ?? null;
 }
 
+/** Fecha de una nota en castellano ("25 de noviembre de 2026"). */
 export function formatNewsDate(date: string, month: "long" | "short" = "long") {
   return new Intl.DateTimeFormat("es-AR", { day: "numeric", month, year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
 }
 
+/** Dirección completa de una nota (o de Novedades si no se pasa ninguna). */
 export function newsUrl(slug?: string) {
   return slug ? `${NEWS_ORIGIN}/${slug}` : NEWS_ORIGIN;
 }

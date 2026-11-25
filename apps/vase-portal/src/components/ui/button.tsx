@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 type ButtonTone = "primary" | "secondary" | "ghost" | "quiet";
 type ButtonSize = "sm" | "md";
 
+/** Clases de estilo de un botón según su tono y tamaño. */
 export function buttonStyles({
   tone = "primary",
   size = "md",
@@ -34,6 +35,7 @@ type ButtonProps = PropsWithChildren<
   }
 >;
 
+/** Botón con los estilos de Vase. */
 export function Button({ tone, size, className, children, ...props }: ButtonProps) {
   return (
     <button className={buttonStyles({ tone, size, className })} {...props}>

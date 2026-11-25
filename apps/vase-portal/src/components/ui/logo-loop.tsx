@@ -45,9 +45,11 @@ const ANIMATION_CONFIG = {
   COPY_HEADROOM: 2
 } as const;
 
+/** Pasa un número a píxeles para CSS (si ya es texto, lo deja igual). */
 const toCssLength = (value?: number | string): string | undefined =>
   typeof value === 'number' ? `${value}px` : (value ?? undefined);
 
+/** Vuelve a medir cuando cambia el tamaño de alguno de estos elementos. */
 const useResizeObserver = (
   callback: () => void,
   elements: Array<React.RefObject<Element | null>>,
@@ -76,6 +78,7 @@ const useResizeObserver = (
   }, dependencies);
 };
 
+/** Avisa cuando terminaron de cargar todas las imágenes de la tira. */
 const useImageLoader = (
   seqRef: React.RefObject<HTMLUListElement | null>,
   onLoad: () => void,
@@ -116,6 +119,7 @@ const useImageLoader = (
   }, dependencies);
 };
 
+/** Mueve la tira de logos sin parar; se frena suave al pasar el mouse. */
 const useAnimationLoop = (
   trackRef: React.RefObject<HTMLDivElement | null>,
   targetVelocity: number,

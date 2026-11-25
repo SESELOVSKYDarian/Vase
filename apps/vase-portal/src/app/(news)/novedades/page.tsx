@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   openGraph: { title: "Novedades de Vase", url: newsUrl() },
 };
 
+/** Fecha y minutos de lectura de una nota. */
 function Meta({ article }: { article: NewsArticle }) {
   return (
     <span className="vn-meta">
@@ -22,6 +23,7 @@ function Meta({ article }: { article: NewsArticle }) {
   );
 }
 
+/** Etiqueta de categoría de una nota. */
 function Chip({ children }: { children: string }) {
   return (
     <span className="vn-cat">
@@ -31,6 +33,7 @@ function Chip({ children }: { children: string }) {
   );
 }
 
+/** Inicio de Novedades: nota destacada, últimas notas y notas por producto. */
 export default function NewsIndexPage() {
   const [featured, ...others] = NEWS_ARTICLES;
   if (!featured) return null;

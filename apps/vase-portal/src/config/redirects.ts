@@ -16,6 +16,7 @@ export const PUBLIC_ROUTES = [
   "/vaselabs",
 ] as const;
 
+/** Direcciones viejas del sitio que se mandan a la app o a su página nueva. */
 export function getPortalRedirects(appOrigin: string) {
   return [
     {

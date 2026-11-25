@@ -8,6 +8,7 @@ type SectionHeadingProps = {
   actions?: ReactNode;
 };
 
+/** Encabezado de sección: antetítulo, título, descripción y botones. */
 export function SectionHeading({
   eyebrow,
   title,

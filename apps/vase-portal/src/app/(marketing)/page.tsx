@@ -115,6 +115,7 @@ const copy = {
   },
 } satisfies Record<AppLocale, unknown>;
 
+/** Texto con la tipografía con serifa (en cursiva si se pide), para destacar palabras. */
 function Serif({ children, italic = false }: { children: React.ReactNode; italic?: boolean }) {
   return (
     <span className={`font-[family-name:var(--font-newsreader)] ${italic ? "italic font-normal" : "font-medium"}`}>
@@ -123,6 +124,7 @@ function Serif({ children, italic = false }: { children: React.ReactNode; italic
   );
 }
 
+/** Inicio de vase.ar. */
 export default async function HomePage() {
   const locale = await getRequestLocale();
   const t = copy[locale];

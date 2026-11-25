@@ -40,6 +40,7 @@ export class PortalAppRequestError extends Error {
   }
 }
 
+/** Cliente para hablar con la app (guías públicas y consultas de contacto), con la clave de servicio. */
 export function createPortalAppClient(input: {
   baseUrl: string;
   token: string;
