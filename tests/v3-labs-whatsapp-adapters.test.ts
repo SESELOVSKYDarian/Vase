@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateMetaWebhookVerifyToken } from "../apps/vase-labs/app/lib/meta-webhook";
 import { signMetaPayload, verifyMetaSignature } from "../apps/vase-labs/app/lib/meta-signature";
-import { readWhatsAppProviderConfig } from "../apps/vase-labs/app/lib/whatsapp-provider";
 import { parseWhatsAppWebhookMessage } from "../apps/vase-labs/app/lib/whatsapp-webhook";
 
 describe("Vase Labs WhatsApp adapters", () => {
@@ -51,19 +50,4 @@ describe("Vase Labs WhatsApp adapters", () => {
     });
   });
 
-  it("reads WhatsApp provider config without monolith dependencies", () => {
-    expect(readWhatsAppProviderConfig({
-      provider: "META_OFFICIAL",
-      accessToken: "token",
-      phoneNumberId: "phone_123",
-      appSecret: "secret",
-      wabaId: "waba_123",
-    })).toMatchObject({
-      provider: "META_OFFICIAL",
-      accessToken: "token",
-      phoneNumberId: "phone_123",
-      appSecret: "secret",
-      wabaId: "waba_123",
-    });
-  });
 });

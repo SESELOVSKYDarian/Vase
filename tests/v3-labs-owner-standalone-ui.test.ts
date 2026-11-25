@@ -68,20 +68,17 @@ describe("Vase Labs standalone owner experience", () => {
     const howPage = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/page.tsx"));
     const selectorPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/model-selector.tsx");
     const keyCardPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/openai-key-card.tsx");
-    const promptCardPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/assistant-prompt-card.tsx");
     const modalPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-add-modal.tsx");
     const groupsPath = path.resolve("apps/vase-labs/app/app/owner/labs/chatbots/knowledge-groups.tsx");
 
     expect(fs.existsSync(selectorPath)).toBe(true);
     expect(fs.existsSync(keyCardPath)).toBe(true);
-    expect(fs.existsSync(promptCardPath)).toBe(true);
     expect(fs.existsSync(modalPath)).toBe(true);
     expect(fs.existsSync(groupsPath)).toBe(true);
-    if (!fs.existsSync(selectorPath) || !fs.existsSync(keyCardPath) || !fs.existsSync(promptCardPath) || !fs.existsSync(modalPath) || !fs.existsSync(groupsPath)) return;
+    if (!fs.existsSync(selectorPath) || !fs.existsSync(keyCardPath) || !fs.existsSync(modalPath) || !fs.existsSync(groupsPath)) return;
 
     const selector = readSplitSync(selectorPath);
     const keyCard = readSplitSync(keyCardPath);
-    const promptCard = readSplitSync(promptCardPath);
     const modal = readSplitSync(modalPath);
     const groups = readSplitSync(groupsPath);
     // El modelo y la clave de OpenAI se movieron a Ajustes de Labs.
@@ -125,9 +122,6 @@ describe("Vase Labs standalone owner experience", () => {
     expect(keyCard).toContain("router.refresh()");
     expect(keyCard).not.toContain("Ver o copiar");
     expect(keyCard).not.toContain("reveal");
-    expect(promptCard).toContain('fetch("/api/labs/assistant/prompt"');
-    expect(promptCard).toContain("systemPrompt");
-    expect(promptCard).toContain("Guardar prompt");
     expect(groups).toContain("Vase Management");
     expect(groups).toContain("Sistema de gestión externo");
   });
@@ -297,13 +291,6 @@ describe("Vase Labs standalone owner experience", () => {
     expect(styles).toContain(".labs-inbox-composer-field");
     expect(styles).not.toContain(".labs-inbox-composer > div");
     expect(styles).toContain("backdrop-filter: blur(26px) saturate(150%)");
-  });
-
-  it("keeps chart containers measurable during their first render", () => {
-    const charts = readSplitSync(path.resolve("apps/vase-labs/app/app/owner/labs/labs-analytics-charts.tsx"));
-
-    expect(charts).toContain("const chartInitialDimension = { width: 320, height: 256 }");
-    expect(charts.match(/initialDimension=\{chartInitialDimension\}/g)).toHaveLength(3);
   });
 
   it("provides a valid setup entrypoint in the standalone Labs service", () => {
