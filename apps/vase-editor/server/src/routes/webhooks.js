@@ -1,4 +1,5 @@
 import express from 'express';
+import { timingSafeEqual } from 'node:crypto';
 import { pool } from '../db.js';
 import { ensureTenantSettingsSeoColumn } from '../services/tenantSettings.js';
 
@@ -19,9 +20,15 @@ webhooksRouter.post('/payments', async (req, res, next) => {
 
 webhooksRouter.post('/vase-provision', async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    const expectedSecret = process.env.VASE_WEBHOOK_SECRET || 'vase_provision_secret_2026';
-    if (!authHeader || authHeader !== `Bearer ${expectedSecret}`) {
+    // Solo Vase puede avisar que un proyecto quedó listo: exige la clave cargada en el servidor
+    // y la compara sin dar pistas (tarda siempre lo mismo).
+    const expectedSecret = process.env.VASE_WEBHOOK_SECRET?.trim();
+    if (!expectedSecret) {
+      return res.status(503).json({ error: 'webhook_not_configured' });
+    }
+    const provided = Buffer.from(String(req.headers.authorization || ''));
+    const expected = Buffer.from(`Bearer ${expectedSecret}`);
+    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
       return res.status(401).json({ error: 'unauthorized' });
     }
 

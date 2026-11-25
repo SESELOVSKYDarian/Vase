@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { verifyPassword } from "@/lib/auth/password";
 import { getFallbackRolesFromPlatformRole } from "@/lib/auth/roles";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { authConfig } from "./auth.config";
 
 const credentialsSchema = z.object({
@@ -25,10 +26,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
         sessionPreference: { label: "SessionPreference", type: "text" },
       },
-      async authorize(rawCredentials) {
+      // Revisa email y contraseña. Esta puerta también se puede tocar directo
+      // (/api/auth/callback/credentials) sin pasar por el formulario, así que repite acá
+      // los mismos controles: límite de intentos y cuenta habilitada, verificada y sin
+      // cambio de contraseña pendiente.
+      async authorize(rawCredentials, request) {
         const parsed = credentialsSchema.safeParse(rawCredentials);
 
         if (!parsed.success) {
+          return null;
+        }
+
+        try {
+          const forwardedFor = request?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim();
+          await enforceRateLimit({
+            scope: "auth:credentials-callback",
+            key: `${forwardedFor ?? "unknown"}:${parsed.data.email}`,
+            limit: 15,
+            windowSeconds: 60 * 10,
+          });
+        } catch {
           return null;
         }
 
@@ -48,6 +65,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        if (user.isDisabled || !user.emailVerified || user.forcePasswordChange) {
+          return null;
+        }
+
         return {
           id: user.id,
           email: user.email,
@@ -63,6 +84,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     ...authConfig.callbacks,
+    // Cada vez que se lee la sesión, se refrescan los datos del usuario desde la base.
+    // Si lo borraron o lo desactivaron, la sesión se corta en ese momento (devolver null la borra).
     async jwt({ token, user, trigger }) {
       // Run the original base logic first
       const baseToken = await authConfig.callbacks.jwt({ token, user, trigger, account: null, profile: undefined });
@@ -74,11 +97,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             where: { id: baseToken.sub as string },
             select: {
               emailVerified: true,
+              isDisabled: true,
               platformRole: true,
               // user_roles table might not exist yet in older environments.
               locale: true,
             },
           });
+
+          if (!databaseUser || databaseUser.isDisabled) {
+            return null;
+          }
 
           if (databaseUser) {
             baseToken.emailVerified = Boolean(databaseUser.emailVerified);

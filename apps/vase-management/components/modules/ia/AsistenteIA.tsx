@@ -22,8 +22,14 @@ const SUGGESTED_QUESTIONS = [
   '¿Cuáles son mis productos más vendidos?',
 ]
 
+// Pasa el texto del asistente a HTML simple (negritas, cursivas, listas).
+// Primero escapa todo lo que escribió el usuario o la IA, así nadie puede meter código en la página.
+function escapeHtml(text: string) {
+  return text.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char)
+}
+
 function formatMarkdown(text: string) {
-  return text
+  return escapeHtml(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/^- (.*)/gm, '<li>$1</li>')

@@ -303,8 +303,11 @@ export async function provisionCustomProjectAction(
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.vase.ar';
         const preview_url = `${appUrl}/api/custom-sites/${encodeURIComponent(request.id)}/`;
         const teflonApiUrl = process.env.TEFLON_API_URL || 'https://api.vase.ar';
-        const webhookSecret = process.env.VASE_WEBHOOK_SECRET || 'vase_provision_secret_2026';
-        
+        // La clave tiene que estar cargada en el servidor: antes había una escrita en el código
+        // y cualquiera que la viera podía hacerse pasar por Vase.
+        const webhookSecret = process.env.VASE_WEBHOOK_SECRET?.trim();
+        if (!webhookSecret) throw new Error("VASE_WEBHOOK_SECRET_NOT_CONFIGURED");
+
         await fetch(`${teflonApiUrl}/webhooks/vase-provision`, {
           method: 'POST',
           headers: {

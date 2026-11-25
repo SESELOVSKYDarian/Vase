@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { navigate } from "../../utils/navigation";
 import { useStorefrontThemeColors } from "../../context/ThemeContext";
 import { normalizeHeroStyles } from "../../data/heroSliderTemplates";
+import { escapeHtml } from "../../utils/escapeHtml";
 
 export default function HeroModernistSlider({ slides = [], styles: rawStyles = {}, editor = null }) {
     const [activeIndex, setActiveIndex] = useState(0);
@@ -94,7 +95,7 @@ export default function HeroModernistSlider({ slides = [], styles: rawStyles = {
                                 <h1
                                     className="text-4xl md:text-5xl lg:text-6xl leading-[1.1] font-extrabold tracking-tighter mb-6 font-['Manrope']"
                                     style={{ color: titleColor }}
-                                    dangerouslySetInnerHTML={{ __html: title.replace(/\n/g, '<br/>') }}
+                                    dangerouslySetInnerHTML={{ __html: escapeHtml(title).replace(/\n/g, '<br/>') }}
                                 />
                             )}
 

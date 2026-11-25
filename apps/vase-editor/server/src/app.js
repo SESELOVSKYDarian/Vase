@@ -81,7 +81,9 @@ app.use(cors({
     });
     callback(null, allowed);
   },
-  credentials: true,
+  // El login viaja en el encabezado Authorization (no hay cookies): si se acepta cualquier origen,
+  // no se habilitan credenciales.
+  credentials: corsOrigin !== true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Id', 'X-Storefront-Host', 'X-Requested-With', 'Accept', 'Origin']
 }));
 app.use(compression());
@@ -89,7 +91,8 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 const ADMIN_ROLES = ['tenant_admin', 'master_admin'];
-const disableAuth = process.env.DISABLE_AUTH === 'true';
+// DISABLE_AUTH sirve solo para probar en la compu; en producción nunca apaga el login.
+const disableAuth = process.env.NODE_ENV !== 'production' && process.env.DISABLE_AUTH === 'true';
 const platformAdminApiBase = '/api/platform/admin';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

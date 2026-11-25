@@ -17,7 +17,8 @@ export async function findAuthorizedLabsMembership(
     where: {
       userId: input.userId,
       status: "ACTIVE",
-      user: buildCompatibleUserModuleAccessWhere("vase_labs"),
+      // Un usuario desactivado no entra, aunque todavía tenga la sesión abierta en otra app.
+      user: { ...buildCompatibleUserModuleAccessWhere("vase_labs"), isDisabled: false },
       tenant: {
         ...(input.requestedTenantSlug ? { slug: input.requestedTenantSlug } : {}),
         status: { in: ["ACTIVE", "TRIAL"] },

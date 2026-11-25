@@ -6,7 +6,8 @@ import { ensureTenantSettingsSeoColumn, queryTenantSettingsWithSeo } from '../se
 
 export const adminRouter = express.Router();
 
-const disableAuth = process.env.DISABLE_AUTH === 'true';
+// DISABLE_AUTH sirve solo para probar en la compu; en producción nunca apaga el login.
+const disableAuth = process.env.NODE_ENV !== 'production' && process.env.DISABLE_AUTH === 'true';
 if (!disableAuth) {
   adminRouter.use(requireRole('master_admin'));
 }

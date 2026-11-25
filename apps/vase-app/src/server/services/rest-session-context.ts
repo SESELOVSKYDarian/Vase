@@ -85,7 +85,8 @@ export function findAuthorizedRestMembership(
     where: {
       userId: input.globalUserId,
       status: "ACTIVE",
-      user: buildCompatibleUserModuleAccessWhere("vase_rest"),
+      // Un usuario desactivado no entra, aunque todavía tenga la sesión abierta en otra app.
+      user: { ...buildCompatibleUserModuleAccessWhere("vase_rest"), isDisabled: false },
       tenant: {
         ...(input.requestedTenantSlug ? { slug: input.requestedTenantSlug } : {}),
         status: { in: ["ACTIVE", "TRIAL"] },
