@@ -54,16 +54,3 @@ export const DATA_RESOURCES: Array<{
 ];
 
 export const EXTERNAL_SYSTEMS = ["Tango Gestión", "Bejerman", "Contabilium", "Otro sistema"] as const;
-
-/** De dónde sale cada cosa si todavía no se eligió: lo que ya venía funcionando. */
-export function defaultSource(
-  resource: DataResourceId,
-  active: Record<ProductKey, boolean>,
-  managementProvider: "EXTERNAL_API" | "VASE_MANAGEMENT" | null,
-): DataSourceId {
-  if (resource === "CATALOG" || resource === "STOCK") {
-    if (managementProvider === "VASE_MANAGEMENT") return "MANAGEMENT";
-    return active.business ? "BUSINESS" : active.management ? "MANAGEMENT" : "BUSINESS";
-  }
-  return active.business ? "BUSINESS" : active.management ? "MANAGEMENT" : "BUSINESS";
-}

@@ -1,32 +1,27 @@
 // El código está repartido por tema en la carpeta actions/. Este archivo solo lo junta.
 export { type AdminReviewActionState, type AdminGovernanceActionState } from "./actions/shared";
 export { reviewCustomizationRequestAction } from "./actions/customization-review";
-export { createSupportUserAction, updateSupportReplyTemplateAdminAction } from "./actions/support-users";
-export { updateTenantGovernanceAction, toggleFeatureFlagAction } from "./actions/tenants";
-export { createAdminModuleAction, updateAdminModuleAction, deleteAdminModuleAction, updateAdminModulePricingAction } from "./actions/modules";
-export { updateUserGovernanceAction, updateUserTenantAccessAction } from "./actions/user-governance";
+
+export { createAdminModuleAction, updateAdminModuleAction, deleteAdminModuleAction } from "./actions/modules";
+
 export { upsertCustomizationQuoteAction, sendCustomizationQuoteAction } from "./actions/customization-quotes";
-export { moveCustomizationPipelineStageAction } from "./actions/customization-pipeline";
-export { createPlatformUpdateAction, deletePlatformUpdateAction, deletePlatformUpdateFormAction } from "./actions/platform-updates";
-export { createModuleSubmoduleAction, updateModuleSubmoduleAction, deleteModuleSubmoduleAction, updateModuleSubmodulePricingAction } from "./actions/submodules";
+
+export { deletePlatformUpdateAction } from "./actions/platform-updates";
+export { createModuleSubmoduleAction, updateModuleSubmoduleAction, deleteModuleSubmoduleAction } from "./actions/submodules";
 export { createModuleFeatureAction, updateModuleFeatureAction, deleteModuleFeatureAction } from "./actions/module-features";
-export { uploadModuleArtifactAction, publishModuleArtifactAction } from "./actions/module-artifacts";
-export { setTenantModuleActivationAction, setTenantSubmoduleActivationAction } from "./actions/tenant-modules";
-export { createDeveloperUserAction, upsertUserRolesAction, createProjectWithProcessesAction } from "./actions/user-roles";
-export { updateUserTenantAccessSnapshotAction } from "./actions/user-access";
-export { createManualUserByAdminAction } from "./actions/user-create";
-export { updateInternalAvailabilityByAdminAction, updateUserStatusAction, type AdminPasswordResetActionState, resetUserPasswordByAdminAction } from "./actions/user-status";
-export { updateTenantBillingSnapshotAction, createAdminNotificationAction } from "./actions/billing-notifications";
+
+export { type AdminPasswordResetActionState } from "./actions/user-status";
+
 export { createWikiDocumentAction, upsertFaqItemByAdminAction, deleteFaqItemByAdminAction, updateWikiDocumentMetaAction, addWikiSectionAction, addWikiStepAction, addWikiDiscussionAction } from "./actions/wiki";
-export { updateAdminAccessPolicyAction } from "./actions/access-policy";
+
 export { createDevTaskAction, updateDevTaskAction } from "./actions/dev-tasks";
 export { addDevTaskCommentAction, addDevTaskAttachmentAction } from "./actions/dev-task-notes";
 export { enableCustomProjectMeetingAction, createMeetingAvailabilitySlotAction, updateMeetingAvailabilitySlotAction, deleteMeetingAvailabilitySlotAction, setCustomProjectMeetingLinkAction, updateCustomProjectMilestoneAction } from "./actions/meetings";
 export { provisionCustomProjectAction } from "./actions/custom-project-provision";
 export { rollbackCustomProjectDeploymentAction } from "./actions/custom-project-rollback";
-export { createClientAccountAction, createClientAccountWithStateAction, updateClientAccountAction, updateClientAccountWithStateAction, deleteClientAccountAction, deleteClientAccountWithStateAction } from "./actions/clients";
-export { upsertMasterUserWithStateAction, deleteMasterUserWithStateAction } from "./actions/master-users";
-export { createUserClientPaymentWithStateAction, createClientPaymentAction, createClientPaymentWithStateAction, updateClientPaymentAction, updateClientPaymentWithStateAction, deleteClientPaymentAction, deleteClientPaymentWithStateAction } from "./actions/payments";
-export { addPaymentPartialItemAction, addPaymentPartialItemWithStateAction, attachPaymentInvoiceAction, attachPaymentInvoiceWithStateAction } from "./actions/payment-items";
+export { createClientAccountAction, updateClientAccountAction, deleteClientAccountAction } from "./actions/clients";
+export { upsertMasterUserWithStateAction } from "./actions/master-users";
+export { createClientPaymentAction, updateClientPaymentAction, deleteClientPaymentAction } from "./actions/payments";
+export { addPaymentPartialItemAction, attachPaymentInvoiceAction } from "./actions/payment-items";
 export { createExpenseAction, updateExpenseAction, deleteExpenseAction } from "./actions/expenses";
-export { updatePartnerConfigAction, updateFinancialSettingsAction, updateBusinessPlanSettingsAction, updateLabsPlanSettingsAction, upsertTokenPlanSettingAction } from "./actions/finance-settings";
+export { updateFinancialSettingsAction, upsertTokenPlanSettingAction } from "./actions/finance-settings";

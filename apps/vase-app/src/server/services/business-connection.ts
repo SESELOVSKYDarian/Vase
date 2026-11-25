@@ -46,11 +46,6 @@ async function call(tenantId: string, suffix: string, method: "GET" | "POST"): P
   }
 }
 
-/** null si Business no contesta o la cuenta no tiene Business conectado. */
-export function getBusinessConnection(tenantId: string) {
-  return call(tenantId, "", "GET");
-}
-
 export function rotateBusinessConnectionToken(tenantId: string) {
   return call(tenantId, "/rotate-token", "POST");
 }

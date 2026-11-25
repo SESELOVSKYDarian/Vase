@@ -2,12 +2,11 @@
 
 // Submódulos y sus precios.
 import { revalidatePath } from "next/cache";
-import { platformRoles, requireVerifiedPlatformRole, requireVerifiedUser } from "@/lib/auth/guards";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { prisma } from "@/lib/db/prisma";
 import { getRequestContext } from "@/lib/security/request";
 import { sanitizeText } from "@/lib/security/sanitize";
-import { createModuleSubmoduleSchema, deleteModuleSubmoduleSchema, updateModuleSubmodulePricingSchema, updateModuleSubmoduleSchema } from "@/lib/validators/admin";
+import { createModuleSubmoduleSchema, deleteModuleSubmoduleSchema, updateModuleSubmoduleSchema } from "@/lib/validators/admin";
 import { createAuditLog } from "@/server/services/audit-log";
 import { normalizePricingType } from "@/server/services/modules";
 import { AdminGovernanceActionState } from "./shared";
@@ -147,59 +146,5 @@ export async function deleteModuleSubmoduleAction(
     return { success: "Submodulo eliminado definitivamente." };
   } catch {
     return { error: "No pudimos eliminar el submodulo." };
-  }
-}
-
-
-export async function updateModuleSubmodulePricingAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
-
-    const parsed = updateModuleSubmodulePricingSchema.safeParse({
-      submoduleId: formData.get("submoduleId"),
-      price: formData.get("price"),
-      currency: sanitizeText(String(formData.get("currency") ?? "")),
-      type: formData.get("type"),
-      isActive: formData.get("isActive") === "on",
-    });
-    if (!parsed.success) {
-      return { error: "Revisa precio, moneda y tipo del submodulo." };
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.moduleSubmodulePricing.updateMany({
-        where: { submoduleId: parsed.data.submoduleId, isActive: true },
-        data: { isActive: false },
-      });
-      await tx.moduleSubmodulePricing.create({
-        data: {
-          submoduleId: parsed.data.submoduleId,
-          price: parsed.data.price,
-          currency: parsed.data.currency,
-          type: normalizePricingType(parsed.data.type),
-          isActive: parsed.data.isActive,
-        },
-      });
-    });
-
-    await createAuditLog({
-      action: "platform.module_submodule_pricing_updated",
-      targetType: "module_submodule_pricing",
-      targetId: parsed.data.submoduleId,
-      actorUserId: adminSession.user.id,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      metadata: { price: parsed.data.price, currency: parsed.data.currency, type: parsed.data.type },
-    });
-
-    revalidatePath("/app/admin/modules");
-    return { success: "Pricing del submodulo actualizado." };
-  } catch {
-    return { error: "No pudimos actualizar el pricing del submodulo." };
   }
 }

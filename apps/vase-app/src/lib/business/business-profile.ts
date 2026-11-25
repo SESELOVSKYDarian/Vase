@@ -72,14 +72,6 @@ export const branchSchema = z.object({
 
 export const MAX_BRANCHES = 50;
 
-/** Dónde se usa cada bloque, para mostrarlo en la pantalla. */
-export const PROFILE_USES = {
-  identity: ["Business", "Labs", "Management", "Rest"],
-  contact: ["Business", "Labs", "Management"],
-  branches: ["Business", "Labs", "Management", "Rest"],
-  fiscal: ["Management", "Rest", "Tus facturas"],
-} as const;
-
 /** Una línea que resume la sección cuando está cerrada. */
 export function sectionSummary(parts: Array<string | null | undefined>, empty = "Sin cargar") {
   const filled = parts.map((part) => part?.trim()).filter(Boolean);

@@ -128,25 +128,6 @@ export async function persistOutboundMessage(input: {
   });
 }
 
-export async function persistHumanMessage(input: {
-  conversationId: string;
-  metadata: unknown;
-  humanMessage: string;
-}) {
-  const current = readConversationMetadata(input.metadata);
-  const transcript = [...current.transcript, { role: "assistant" as const, content: `[HUMANO] ${input.humanMessage}` }].slice(-20);
-
-  return updateConversationState({
-    conversationId: input.conversationId,
-    metadata: {
-      ...current,
-      transcript,
-    },
-    incrementMessageCount: true,
-    outbound: true,
-  });
-}
-
 export async function persistHumanMessageAndPause(input: {
   conversationId: string;
   metadata: unknown;
@@ -167,24 +148,5 @@ export async function persistHumanMessageAndPause(input: {
     },
     incrementMessageCount: true,
     outbound: true,
-  });
-}
-
-export async function setConversationAiPaused(input: {
-  conversationId: string;
-  metadata: unknown;
-  paused: boolean;
-}) {
-  const current = readConversationMetadata(input.metadata);
-
-  return updateConversationState({
-    conversationId: input.conversationId,
-    metadata: {
-      ...current,
-      context: {
-        ...current.context,
-        aiPaused: input.paused,
-      },
-    },
   });
 }

@@ -48,17 +48,3 @@ export async function extractPdfTextFromBuffer(buffer: Buffer) {
     await parser.destroy();
   }
 }
-
-export async function extractPdfKnowledgeSnippetFromFile(file: File, fileName: string) {
-  if (file.type !== "application/pdf") {
-    return null;
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const text = await extractPdfTextFromBuffer(buffer);
-
-  return buildPdfKnowledgeSnippet({
-    fileName,
-    text,
-  });
-}

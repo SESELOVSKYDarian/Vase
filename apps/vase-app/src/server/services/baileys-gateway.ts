@@ -132,20 +132,6 @@ export async function ensureBaileysRuntime(channelId: string) {
   return runtimePromise;
 }
 
-export async function refreshBaileysQr(channelId: string) {
-  const runtime = await ensureBaileysRuntime(channelId);
-  return runtime.qrImageDataUrl;
-}
-
-export async function getBaileysState(channelId: string) {
-  const runtime = await ensureBaileysRuntime(channelId);
-  return {
-    connectionState: runtime.connectionState,
-    qrImageDataUrl: runtime.qrImageDataUrl,
-    failureReason: runtime.failureReason,
-  };
-}
-
 export async function sendBaileysTextMessage(channelId: string, to: string, text: string) {
   const runtime = await ensureBaileysRuntime(channelId);
   const jid = /@/.test(to) ? to : `${to.replace(/\D/g, "")}@s.whatsapp.net`;

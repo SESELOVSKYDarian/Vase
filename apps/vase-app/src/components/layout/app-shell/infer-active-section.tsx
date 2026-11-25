@@ -95,19 +95,6 @@ export function NotificationToneIcon({ tone }: { tone: "info" | "warning" | "dan
   return <Info className="size-4 text-[var(--info)]" />;
 }
 
-export function notificationSourceClass(sourceLabel?: string) {
-  switch (sourceLabel) {
-    case "Vase Labs":
-      return "border-[color-mix(in_srgb,var(--success)_28%,var(--border-subtle))] bg-[var(--success-soft)] text-[var(--success)]";
-    case "Vase Business":
-      return "border-[color-mix(in_srgb,var(--info)_28%,var(--border-subtle))] bg-[var(--info-soft)] text-[var(--info)]";
-    case "Billing":
-      return "border-[color-mix(in_srgb,var(--warning)_28%,var(--border-subtle))] bg-[var(--warning-soft)] text-[var(--warning)]";
-    default:
-      return "border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--foreground)]";
-  }
-}
-
 export function AppShell(props: AppShellProps) {
   const pathname = usePathname() ?? "/app";
   const isAdminShell = pathname.startsWith("/app/admin") || toInternalAdminPath(pathname) !== null;

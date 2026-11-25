@@ -77,13 +77,6 @@ export type PlatformModuleAccess = {
   billing: PlatformModuleDefinition["billing"];
 };
 
-export const MODULE_ICON_MAP: Record<PlatformModuleKey, LucideIcon> = {
-  business: Building2,
-  labs: FlaskConical,
-  management: Landmark,
-  rest: UtensilsCrossed,
-};
-
 export const platformModules: readonly PlatformModuleDefinition[] = [
   {
     id: "vase_business",

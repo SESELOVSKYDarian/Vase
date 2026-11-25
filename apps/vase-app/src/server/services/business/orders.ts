@@ -2,20 +2,14 @@ import {
   CheckoutMethod,
   OrderChannel,
   OrderStatus,
-  PaymentStatus,
 } from "@prisma/client";
 import {
-  createOrderPayment,
   createOrderWithItems,
-  getLatestPaymentForOrder,
-  getOrderById,
-  updateOrderStatus,
 } from "@/server/queries/business/orders";
 import { type CheckoutItemInput, normalizeOrderChannel, normalizePaymentMethod, validateCheckoutItems } from "@/server/services/business/checkout";
 import {
   createOrderNumber,
   roundMoney,
-  toInputJsonObject,
 } from "@/server/services/business/shared";
 
 export function formatOrderAmount(value: number, currency = "ARS") {
@@ -172,56 +166,5 @@ export async function createOrderFromCheckout(input: {
     checkout,
     checkoutMethodLabel: formatCheckoutModeLabel(checkoutMethod),
     orderChannelLabel: formatOrderChannelLabel(orderChannel),
-  };
-}
-
-export async function registerOrderPayment(input: {
-  tenantId: string;
-  orderId: string;
-  provider: string;
-  amount: number;
-  currency: string;
-  reference?: string | null;
-  externalId?: string | null;
-  metadata?: Record<string, unknown>;
-}) {
-  return createOrderPayment({
-    tenantId: input.tenantId,
-    orderId: input.orderId,
-    provider: input.provider,
-    amount: input.amount,
-    currency: input.currency,
-    status: PaymentStatus.PENDING,
-    reference: input.reference || null,
-    externalId: input.externalId || null,
-    metadata: input.metadata ? toInputJsonObject(input.metadata) : undefined,
-  });
-}
-
-export async function syncOrderPaymentStatus(tenantId: string, orderId: string) {
-  const [order, latestPayment] = await Promise.all([
-    getOrderById(tenantId, orderId),
-    getLatestPaymentForOrder(orderId),
-  ]);
-
-  if (!order || !latestPayment) {
-    return null;
-  }
-
-  const nextStatus =
-    latestPayment.status === PaymentStatus.PAID
-      ? OrderStatus.CONFIRMED
-      : latestPayment.status === PaymentStatus.FAILED || latestPayment.status === PaymentStatus.CANCELED
-        ? OrderStatus.CANCELED
-        : order.status;
-
-  if (nextStatus !== order.status) {
-    await updateOrderStatus(tenantId, orderId, nextStatus);
-  }
-
-  return {
-    orderId,
-    orderStatus: nextStatus,
-    paymentStatus: latestPayment.status,
   };
 }

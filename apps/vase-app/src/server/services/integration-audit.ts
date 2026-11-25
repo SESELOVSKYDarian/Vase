@@ -30,27 +30,3 @@ export async function createIntegrationUsageLog(payload: IntegrationUsagePayload
     },
   });
 }
-
-type IntegrationAuditPayload = {
-  tenantId: string;
-  actorUserId?: string;
-  action: string;
-  targetType: string;
-  targetId?: string;
-  metadata?: Record<string, unknown>;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-};
-
-export async function createIntegrationAudit(payload: IntegrationAuditPayload) {
-  await createAuditLog({
-    tenantId: payload.tenantId,
-    actorUserId: payload.actorUserId,
-    action: payload.action,
-    targetType: payload.targetType,
-    targetId: payload.targetId,
-    metadata: payload.metadata,
-    ipAddress: payload.ipAddress,
-    userAgent: payload.userAgent,
-  });
-}

@@ -1,7 +1,6 @@
 import type { AiWorkspacePlan } from "@prisma/client";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-5-nano";
-export const OPENAI_SYSTEM_PROMPT_MAX_LENGTH = 4000;
 
 export const OPENAI_MODEL_OPTIONS = [
   {
@@ -103,13 +102,6 @@ export function resolveOpenAiModelForPlan(model: string | undefined, plan: AiWor
   return canUseOpenAiModelForPlan(requestedModel, plan)
     ? requestedModel
     : DEFAULT_OPENAI_MODEL;
-}
-
-export function getOpenAiModelOptionsForPlan(plan: AiWorkspacePlan) {
-  return OPENAI_MODEL_OPTIONS.map((option) => ({
-    ...option,
-    isAvailable: canUseOpenAiModelForPlan(option.value, plan),
-  }));
 }
 
 export function readOpenAiBusinessConfig(

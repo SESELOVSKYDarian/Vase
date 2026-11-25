@@ -1,7 +1,5 @@
 export type TeamRole = "MANAGER" | "MEMBER";
 
-export const MAX_TEAM_MEMBER_LIMIT = 200;
-
 /** Lugares ocupados: personas del equipo (sin contar al Dueño) e invitaciones pendientes. */
 export function teamSeatsUsed(input: { teamMembers: number; pendingInvitations: number }) {
   return input.teamMembers + input.pendingInvitations;

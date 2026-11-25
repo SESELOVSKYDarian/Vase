@@ -1,4 +1,4 @@
-import { ModulePricingType, ModuleProduct, type Prisma } from "@prisma/client";
+import { ModulePricingType, ModuleProduct } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { platformModules } from "@/config/modules";
 
@@ -137,9 +137,5 @@ export function normalizePricingType(value: string): ModulePricingType {
 export function serializePricingType(value: ModulePricingType): "monthly" | "one_time" | "yearly" {
   if (value === ModulePricingType.YEARLY) return "yearly";
   return value === ModulePricingType.ONE_TIME ? "one_time" : "monthly";
-}
-
-export function toJsonObject(value: Record<string, unknown>) {
-  return value as Prisma.InputJsonValue;
 }
 

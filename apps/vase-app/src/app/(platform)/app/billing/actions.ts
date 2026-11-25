@@ -208,28 +208,6 @@ export async function removeCardAction(cardId: string): Promise<BillingActionRes
   }
 }
 
-const MAX_FIELD_LENGTH = 191;
-
-function field(formData: FormData, name: string) {
-  return sanitizeText(String(formData.get(name) ?? "")).trim().slice(0, MAX_FIELD_LENGTH) || null;
-}
-
-export async function updateBillingProfileAction(formData: FormData) {
-  const { membership } = await requireBillingOwner();
-  const data = {
-    legalName: field(formData, "legalName"),
-    taxId: field(formData, "taxId"),
-    taxCondition: field(formData, "taxCondition"),
-    fiscalAddress: field(formData, "fiscalAddress"),
-  };
-  await prisma.tenantBillingProfile.upsert({
-    where: { tenantId: membership.tenantId },
-    update: data,
-    create: { tenantId: membership.tenantId, ...data },
-  });
-  refresh();
-}
-
 const EMAIL_PATTERN = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
 
 /** Activa el débito automático: devuelve el enlace de Mercado Pago para autorizar la tarjeta una sola vez. */

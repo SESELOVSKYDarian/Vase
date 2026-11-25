@@ -18,14 +18,6 @@ export async function loadSharedContext() {
   return { membership, session, dashboard, active, hasBusiness: has("business"), hasLabs: has("labs"), hasManagement: has("management") };
 }
 
-// Colores de cada producto en las etiquetas de "dónde se usa".
-export const PRODUCT_COLORS: Record<string, string> = {
-  business: "#079455",
-  labs: "#7a5af8",
-  management: "#f79009",
-  rest: "#e04f16",
-};
-
 export function formatShortDate(value: string | Date | null) {
   if (!value) return null;
   const date = new Date(value);

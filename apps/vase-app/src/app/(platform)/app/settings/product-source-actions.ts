@@ -68,32 +68,3 @@ export async function setDataSourceAction(input: z.input<typeof inputSchema>): P
     return { ok: false, message: "No pudimos guardarlo. Probá de nuevo." };
   }
 }
-
-/** Clave nueva para el sistema de gestión (solo el Dueño). La anterior deja de andar al instante. */
-export async function rotateConnectionTokenAction(): Promise<DataSourceResult & { token?: string | null }> {
-  try {
-    const { membership } = await requireTenantRole(tenantRoles.OWNER);
-    const connection = await rotateBusinessConnectionToken(membership.tenantId);
-    if (!connection) return { ok: false, message: "No pudimos cambiar la clave. Probá de nuevo en un rato." };
-    return { ok: true, message: "Clave nueva lista. Pasásela a quien programa tu sistema.", token: connection.token };
-  } catch {
-    return { ok: false, message: "No pudimos cambiar la clave. Probá de nuevo." };
-  }
-}
-
-/** Cuál es tu sistema de gestión (se guarda en todas las partes que salen de él). */
-export async function setExternalSystemAction(name: string): Promise<DataSourceResult> {
-  try {
-    const { membership } = await requireTenantRole(tenantRoles.OWNER);
-    const parsed = z.enum(EXTERNAL_SYSTEMS).safeParse(name);
-    if (!parsed.success) return { ok: false, message: "Elegí un sistema de la lista." };
-    await prisma.tenantDataSource.updateMany({
-      where: { tenantId: membership.tenantId, source: "EXTERNAL" },
-      data: { externalSystem: parsed.data },
-    });
-    revalidatePath("/app/catalogo");
-    return { ok: true, message: "Guardado." };
-  } catch {
-    return { ok: false, message: "No pudimos guardarlo. Probá de nuevo." };
-  }
-}

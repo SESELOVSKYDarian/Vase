@@ -10,7 +10,7 @@ import { getRequestContext } from "@/lib/security/request";
 import { sanitizeNullableText } from "@/lib/security/sanitize";
 import { addPaymentPartialItemSchema, attachPaymentInvoiceSchema } from "@/lib/validators/admin";
 import { createAuditLog } from "@/server/services/audit-log";
-import { AdminGovernanceActionState, toNullableDate } from "./shared";
+import { toNullableDate } from "./shared";
 
 export async function addPaymentPartialItemAction(formData: FormData): Promise<void> {
   await requireAdminPermission(adminPermissions.BILLING);
@@ -81,18 +81,6 @@ export async function addPaymentPartialItemAction(formData: FormData): Promise<v
   revalidatePath("/app/admin/finance");
 }
 
-export async function addPaymentPartialItemWithStateAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    await addPaymentPartialItemAction(formData);
-    return { success: "Pago parcial registrado correctamente." };
-  } catch {
-    return { error: "No pudimos registrar el pago parcial." };
-  }
-}
-
 export async function attachPaymentInvoiceAction(formData: FormData): Promise<void> {
   await requireAdminPermission(adminPermissions.BILLING);
   const session = await requireVerifiedUser();
@@ -133,16 +121,4 @@ export async function attachPaymentInvoiceAction(formData: FormData): Promise<vo
 
   revalidatePath("/app/admin/clients");
   revalidatePath("/app/admin/finance");
-}
-
-export async function attachPaymentInvoiceWithStateAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    await attachPaymentInvoiceAction(formData);
-    return { success: "Factura vinculada al pago." };
-  } catch {
-    return { error: "No pudimos vincular la factura." };
-  }
 }

@@ -20,11 +20,6 @@ export async function isTenantTrialLocked(tenantId: string) {
   }
 }
 
-/** Corta con TRIAL_EXPIRED si la cuenta tiene la prueba vencida. */
-export async function assertTenantNotTrialLocked(tenantId: string) {
-  if (await isTenantTrialLocked(tenantId)) throw new Error(TRIAL_EXPIRED);
-}
-
 /**
  * Filtro para las consultas de "¿esta persona puede entrar a este producto?":
  * deja afuera a las cuentas con la prueba vencida y sin pagar (las de prueba interna pasan siempre).

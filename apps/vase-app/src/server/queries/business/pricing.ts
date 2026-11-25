@@ -1,13 +1,6 @@
 import { PriceListType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
-export async function getTenantPriceLists(tenantId: string) {
-  return prisma.priceList.findMany({
-    where: { tenantId },
-    orderBy: [{ createdAt: "asc" }],
-  });
-}
-
 export async function getAssignedPriceListForUser(tenantId: string, userId: string) {
   return prisma.userPriceList.findUnique({
     where: {

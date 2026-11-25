@@ -10,35 +10,6 @@ function normalize(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
 }
 
-export async function updateTenantBusinessDataAction(formData: FormData) {
-  const { membership } = await requireTenantRole(tenantRoles.OWNER);
-
-  const name = normalize(formData.get("name"));
-  const accountName = normalize(formData.get("accountName"));
-  const industry = normalize(formData.get("industry"));
-  const billingEmail = normalize(formData.get("billingEmail"));
-  const locale = normalize(formData.get("locale")) || "es";
-
-  if (!name || !accountName || !industry) {
-    return;
-  }
-
-  await prisma.tenant.update({
-    where: { id: membership.tenantId },
-    data: {
-      name,
-      accountName,
-      industry,
-      billingEmail: billingEmail || null,
-      locale,
-    },
-  });
-
-  revalidatePath("/app/settings");
-  revalidatePath("/app");
-  revalidatePath("/app/billing");
-}
-
 const MAX_PROFILE_NAME_LENGTH = 120;
 
 export async function updateProfileNameAction(formData: FormData) {

@@ -59,19 +59,6 @@ export async function createClientAccountAction(formData: FormData): Promise<voi
 }
 
 
-export async function createClientAccountWithStateAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    await createClientAccountAction(formData);
-    return { success: "Cliente creado correctamente." };
-  } catch {
-    return { error: "No pudimos crear el cliente." };
-  }
-}
-
-
 export async function updateClientAccountAction(formData: FormData): Promise<void> {
   await requireAdminPermission(adminPermissions.BILLING);
   const session = await requireVerifiedUser();
@@ -117,18 +104,6 @@ export async function updateClientAccountAction(formData: FormData): Promise<voi
   revalidatePath("/app/admin/finance");
 }
 
-export async function updateClientAccountWithStateAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    await updateClientAccountAction(formData);
-    return { success: "Cliente actualizado." };
-  } catch {
-    return { error: "No pudimos actualizar el cliente." };
-  }
-}
-
 export async function deleteClientAccountAction(formData: FormData): Promise<void> {
   await requireAdminPermission(adminPermissions.BILLING);
   const session = await requireVerifiedUser();
@@ -154,16 +129,4 @@ export async function deleteClientAccountAction(formData: FormData): Promise<voi
 
   revalidatePath("/app/admin/clients");
   revalidatePath("/app/admin/finance");
-}
-
-export async function deleteClientAccountWithStateAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    await deleteClientAccountAction(formData);
-    return { success: "Cliente eliminado." };
-  } catch {
-    return { error: "No pudimos eliminar el cliente." };
-  }
 }

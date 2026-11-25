@@ -1,7 +1,6 @@
 import {
   AiChannelType,
   AiConversationIntentLabel,
-  AiConversationStatus,
   Prisma,
   SupportAssignmentMode,
   SupportTicketSource,
@@ -113,20 +112,6 @@ export async function updateConversationInsights(input: {
       nextAction: input.nextAction ?? undefined,
       classifiedAt: input.classifiedAt ?? undefined,
       escalatedToHuman: input.escalatedToHuman ?? undefined,
-    },
-  });
-}
-
-export async function closeConversation(conversationId: string, summary?: string | null) {
-  const now = new Date();
-
-  return prisma.aiConversation.update({
-    where: { id: conversationId },
-    data: {
-      status: AiConversationStatus.CLOSED,
-      closedAt: now,
-      lastMessageAt: now,
-      summary: clampConversationSummary(summary),
     },
   });
 }

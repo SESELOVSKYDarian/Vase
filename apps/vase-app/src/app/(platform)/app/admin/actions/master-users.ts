@@ -8,8 +8,8 @@ import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/db/prisma";
 import { getRequestContext } from "@/lib/security/request";
 import { sanitizeText } from "@/lib/security/sanitize";
-import { deleteMasterUserSchema, upsertMasterUserSchema } from "@/lib/validators/admin";
-import { createAuditLog, emitAuditLogEvent, persistAuditLog } from "@/server/services/audit-log";
+import { upsertMasterUserSchema } from "@/lib/validators/admin";
+import { emitAuditLogEvent, persistAuditLog } from "@/server/services/audit-log";
 import { ensureModuleCatalogSynced } from "@/server/services/modules";
 import { buildAdminCreatedUserVerification, getRoleMappingFromUiRole, shouldForceAdminCreatedUserPasswordReset } from "@/lib/admin/user-access";
 import { buildClientProductAccessAuditChange, parseStoredClientProductAccess } from "@/lib/admin/client-product-access";
@@ -391,44 +391,5 @@ export async function upsertMasterUserWithStateAction(
       return { error: "Los accesos comerciales se gestionan desde el Owner de la cuenta." };
     }
     return { error: "No pudimos guardar el usuario." };
-  }
-}
-
-export async function deleteMasterUserWithStateAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    const requestContext = await getRequestContext();
-    const adminSession = await requireAdminPermission(adminPermissions.USERS);
-    const parsed = deleteMasterUserSchema.safeParse({
-      userId: formData.get("userId"),
-    });
-    if (!parsed.success) return { error: "Usuario invalido para eliminar." };
-    if (parsed.data.userId === adminSession.user.id) return { error: "No puedes eliminar tu propia cuenta." };
-
-    await prisma.$transaction(async (tx) => {
-      await tx.userModuleAccess.deleteMany({ where: { userId: parsed.data.userId } });
-      await tx.userRole.deleteMany({ where: { userId: parsed.data.userId } });
-      await tx.adminAccessPolicy.deleteMany({ where: { userId: parsed.data.userId } });
-      await tx.internalUserProfile.deleteMany({ where: { userId: parsed.data.userId } });
-      await tx.membership.deleteMany({ where: { userId: parsed.data.userId } });
-      await tx.session.deleteMany({ where: { userId: parsed.data.userId } });
-      await tx.user.delete({ where: { id: parsed.data.userId } });
-    });
-
-    await createAuditLog({
-      action: "platform.master_user_deleted",
-      targetType: "user",
-      targetId: parsed.data.userId,
-      actorUserId: adminSession.user.id,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-    });
-
-    revalidatePath("/app/admin/users");
-    return { success: "Usuario eliminado definitivamente." };
-  } catch {
-    return { error: "No pudimos eliminar el usuario." };
   }
 }

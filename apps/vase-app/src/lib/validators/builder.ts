@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  builderBlockTypes,
   builderButtonStyles,
   builderSectionSpacing,
   builderSurfaceStyles,
@@ -134,38 +133,9 @@ export const builderDocumentSchema = z.object({
   blocks: z.array(builderBlockSchema).min(1).max(16),
 });
 
-export const saveBuilderDraftSchema = z.object({
-  pageId: z.string().trim().cuid(),
-  document: builderDocumentSchema,
-  changeSummary: z.string().trim().max(120).optional(),
-});
-
-export const publishBuilderSchema = z.object({
-  pageId: z.string().trim().cuid(),
-});
-
-export const createBuilderVersionSchema = z.object({
-  pageId: z.string().trim().cuid(),
-  changeSummary: z.string().trim().min(3).max(120),
-});
-
-export const createFullCustomizationRequestSchema = z.object({
-  pageId: z.string().trim().cuid(),
-  businessDescription: z.string().trim().min(20).max(500),
-  desiredColors: z.string().trim().min(3).max(200),
-  brandStyle: z.string().trim().min(5).max(200),
-  desiredFeatures: z.string().trim().min(10).max(400),
-  visualReferences: z.string().trim().max(400).optional(),
-  observations: z.string().trim().max(500).optional(),
-});
-
 export const reviewCustomizationRequestSchema = z.object({
   requestId: z.string().trim().cuid(),
   status: z.enum(["REVIEWING", "QUOTED", "IN_PROGRESS", "DELIVERED"]),
   quotedPriceLabel: z.string().trim().max(80).optional(),
   reviewNotes: z.string().trim().max(400).optional(),
 });
-
-export function isKnownBlockType(value: string): value is (typeof builderBlockTypes)[number] {
-  return builderBlockTypes.includes(value as (typeof builderBlockTypes)[number]);
-}

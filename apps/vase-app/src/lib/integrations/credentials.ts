@@ -2,7 +2,6 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { IntegrationScope } from "@/config/integrations";
 
 const API_KEY_PREFIX = "vsk_live";
-const WEBHOOK_SECRET_PREFIX = "vwhsec";
 
 export function hashSecret(secret: string) {
   return createHash("sha256").update(secret).digest("hex");
@@ -84,13 +83,4 @@ export function buildCompatibilityConsumerSecret(input: {
   return createHash("sha256")
     .update(`${salt}:${normalizedTenantId}:${normalizedTokenValue}`)
     .digest("hex");
-}
-
-export function generateWebhookSecret() {
-  const secret = `${WEBHOOK_SECRET_PREFIX}_${randomBytes(24).toString("hex")}`;
-
-  return {
-    displaySecret: secret,
-    secretHash: hashSecret(secret),
-  };
 }

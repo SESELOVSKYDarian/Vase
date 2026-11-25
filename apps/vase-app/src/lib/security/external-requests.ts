@@ -76,26 +76,3 @@ export function sanitizeAllowedPathList(rawValue?: string | null) {
       return item;
     });
 }
-
-export async function secureServerFetch(input: string, init?: RequestInit) {
-  const allowHttp = process.env.NODE_ENV !== "production";
-  const url = assertSafeExternalUrl(input, { allowHttp });
-  const timeoutMs = appConfig.security.webhookTimeoutMs;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await fetch(url, {
-      ...init,
-      redirect: "error",
-      cache: "no-store",
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json, text/plain;q=0.9, */*;q=0.5",
-        ...(init?.headers ?? {}),
-      },
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-}

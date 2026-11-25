@@ -2,14 +2,13 @@
 
 // Módulos de la plataforma: crear, editar, borrar y poner precio.
 import { revalidatePath } from "next/cache";
-import { platformRoles, requireVerifiedPlatformRole, requireVerifiedUser } from "@/lib/auth/guards";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { prisma } from "@/lib/db/prisma";
 import { getRequestContext } from "@/lib/security/request";
 import { sanitizeText } from "@/lib/security/sanitize";
-import { createAdminModuleSchema, deleteAdminModuleSchema, updateAdminModulePricingSchema, updateAdminModuleSchema } from "@/lib/validators/admin";
+import { createAdminModuleSchema, deleteAdminModuleSchema, updateAdminModuleSchema } from "@/lib/validators/admin";
 import { createAuditLog } from "@/server/services/audit-log";
-import { ensureModuleCatalogSynced, normalizePricingType } from "@/server/services/modules";
+import { ensureModuleCatalogSynced } from "@/server/services/modules";
 import { AdminGovernanceActionState } from "./shared";
 
 export async function createAdminModuleAction(
@@ -159,71 +158,5 @@ export async function deleteAdminModuleAction(
     return { success: "Modulo eliminado definitivamente." };
   } catch {
     return { error: "No pudimos eliminar el modulo." };
-  }
-}
-
-export async function updateAdminModulePricingAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    const requestContext = await getRequestContext();
-    const adminSession = await requireVerifiedUser();
-    await requireVerifiedPlatformRole(platformRoles.SUPER_ADMIN);
-
-    const parsed = updateAdminModulePricingSchema.safeParse({
-      moduleId: formData.get("moduleId"),
-      price: formData.get("price"),
-      currency: sanitizeText(String(formData.get("currency") ?? "")),
-      type: formData.get("type"),
-      isActive: formData.get("isActive") === "on",
-    });
-
-    if (!parsed.success) {
-      return { error: "Revisa precio, moneda, tipo y estado del pricing." };
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.modulePricing.updateMany({
-        where: {
-          moduleId: parsed.data.moduleId,
-          isActive: true,
-        },
-        data: {
-          isActive: false,
-        },
-      });
-
-      await tx.modulePricing.create({
-        data: {
-          moduleId: parsed.data.moduleId,
-          price: parsed.data.price,
-          currency: parsed.data.currency,
-          type: normalizePricingType(parsed.data.type),
-          isActive: parsed.data.isActive,
-        },
-      });
-    });
-
-    await createAuditLog({
-      action: "platform.module_pricing_updated",
-      targetType: "module_pricing",
-      targetId: parsed.data.moduleId,
-      actorUserId: adminSession.user.id,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      metadata: {
-        price: parsed.data.price,
-        currency: parsed.data.currency,
-        type: parsed.data.type,
-        isActive: parsed.data.isActive,
-      },
-    });
-
-    revalidatePath("/app/admin/modules");
-    revalidatePath("/app");
-    return { success: "Pricing actualizado." };
-  } catch {
-    return { error: "No pudimos actualizar el pricing del modulo." };
   }
 }

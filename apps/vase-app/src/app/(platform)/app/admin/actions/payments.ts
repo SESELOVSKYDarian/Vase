@@ -9,76 +9,10 @@ import { rebuildPaymentAllocations } from "@/server/services/payment-allocations
 import { syncAutoDebitAmount } from "@/server/services/mercadopago-autodebit";
 import { getRequestContext } from "@/lib/security/request";
 import { sanitizeNullableText, sanitizeText } from "@/lib/security/sanitize";
-import { createClientPaymentSchema, createUserClientPaymentSchema, deleteClientPaymentSchema, updateClientPaymentSchema } from "@/lib/validators/admin";
+import { createClientPaymentSchema, deleteClientPaymentSchema, updateClientPaymentSchema } from "@/lib/validators/admin";
 import { createAuditLog } from "@/server/services/audit-log";
 import { createAutoAdminNotification } from "@/server/services/admin-notifications-auto";
-import { AdminGovernanceActionState, toNullableDate } from "./shared";
-
-export async function createUserClientPaymentWithStateAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    await requireAdminPermission(adminPermissions.BILLING);
-    const parsed = createUserClientPaymentSchema.safeParse({
-      userId: formData.get("userId"),
-      clientAccountId: String(formData.get("clientAccountId") ?? "").trim(),
-      category: formData.get("category"),
-      concept: sanitizeText(String(formData.get("concept") ?? "")),
-      moduleId: String(formData.get("moduleId") ?? "").trim(),
-      submoduleId: String(formData.get("submoduleId") ?? "").trim(),
-      totalAmount: formData.get("totalAmount"),
-      paidAmount: formData.get("paidAmount"),
-      paidAt: String(formData.get("paidAt") ?? "").trim() || undefined,
-      method: sanitizeNullableText(String(formData.get("method") ?? "")) ?? undefined,
-      notes: sanitizeNullableText(String(formData.get("notes") ?? "")) ?? undefined,
-      status: formData.get("status"),
-    });
-    if (!parsed.success) return { error: "Revisa los datos del pago." };
-
-    const user = await prisma.user.findUnique({
-      where: { id: parsed.data.userId },
-      select: { id: true, email: true },
-    });
-    if (!user) return { error: "No encontramos el usuario seleccionado." };
-
-    const linkedAccounts = await prisma.clientAccount.findMany({
-      where: {
-        OR: [{ managedByUserId: user.id }, { email: user.email }],
-      },
-      select: { id: true, tenantId: true, name: true },
-      orderBy: [{ updatedAt: "desc" }],
-      take: 5,
-    });
-    if (linkedAccounts.length === 0) {
-      return { error: "Este usuario cliente no tiene una cuenta cliente vinculada." };
-    }
-
-    const clientAccount =
-      linkedAccounts.find((account) => account.id === parsed.data.clientAccountId) ??
-      linkedAccounts[0];
-
-    const paymentForm = new FormData();
-    paymentForm.set("tenantId", clientAccount.tenantId);
-    paymentForm.set("clientAccountId", clientAccount.id);
-    paymentForm.set("concept", parsed.data.concept);
-    paymentForm.set("category", parsed.data.category);
-    paymentForm.set("moduleId", parsed.data.moduleId ?? "");
-    paymentForm.set("submoduleId", parsed.data.submoduleId ?? "");
-    paymentForm.set("totalAmount", String(parsed.data.totalAmount));
-    paymentForm.set("paidAmount", String(parsed.data.paidAmount));
-    paymentForm.set("paidAt", parsed.data.paidAt ?? "");
-    paymentForm.set("method", parsed.data.method ?? "");
-    paymentForm.set("notes", parsed.data.notes ?? "");
-    paymentForm.set("status", parsed.data.status);
-
-    await createClientPaymentAction(paymentForm);
-    revalidatePath("/app/admin/users");
-    return { success: `Pago registrado para ${clientAccount.name}.` };
-  } catch {
-    return { error: "No pudimos registrar el pago del cliente." };
-  }
-}
+import { toNullableDate } from "./shared";
 
 
 export async function createClientPaymentAction(formData: FormData): Promise<void> {
@@ -153,18 +87,6 @@ export async function createClientPaymentAction(formData: FormData): Promise<voi
   revalidatePath("/app/admin/finance");
 }
 
-export async function createClientPaymentWithStateAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    await createClientPaymentAction(formData);
-    return { success: "Pago registrado correctamente." };
-  } catch {
-    return { error: "No pudimos registrar el pago." };
-  }
-}
-
 
 export async function updateClientPaymentAction(formData: FormData): Promise<void> {
   await requireAdminPermission(adminPermissions.BILLING);
@@ -225,18 +147,6 @@ export async function updateClientPaymentAction(formData: FormData): Promise<voi
   revalidatePath("/app/admin/finance");
 }
 
-export async function updateClientPaymentWithStateAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    await updateClientPaymentAction(formData);
-    return { success: "Pago actualizado." };
-  } catch {
-    return { error: "No pudimos actualizar el pago." };
-  }
-}
-
 export async function deleteClientPaymentAction(formData: FormData): Promise<void> {
   await requireAdminPermission(adminPermissions.BILLING);
   const session = await requireVerifiedUser();
@@ -262,16 +172,4 @@ export async function deleteClientPaymentAction(formData: FormData): Promise<voi
 
   revalidatePath("/app/admin/clients");
   revalidatePath("/app/admin/finance");
-}
-
-export async function deleteClientPaymentWithStateAction(
-  _: AdminGovernanceActionState,
-  formData: FormData,
-): Promise<AdminGovernanceActionState> {
-  try {
-    await deleteClientPaymentAction(formData);
-    return { success: "Pago eliminado." };
-  } catch {
-    return { error: "No pudimos eliminar el pago." };
-  }
 }

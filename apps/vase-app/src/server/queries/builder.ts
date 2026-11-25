@@ -58,38 +58,3 @@ export async function getStorefrontBuilderData(tenantId: string, pageId: string)
     document,
   };
 }
-
-export async function getPlatformCustomizationReviewQueue() {
-  const [requests, pendingCount] = await Promise.all([
-    prisma.customPageRequest.findMany({
-      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-      take: 12,
-      include: {
-        tenant: {
-          select: {
-            name: true,
-            accountName: true,
-          },
-        },
-        storefrontPage: {
-          select: {
-            name: true,
-            slug: true,
-          },
-        },
-      },
-    }),
-    prisma.customPageRequest.count({
-      where: {
-        status: {
-          in: ["SUBMITTED", "REVIEWING", "QUOTED"],
-        },
-      },
-    }),
-  ]);
-
-  return {
-    pendingCount,
-    requests,
-  };
-}

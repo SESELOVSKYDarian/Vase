@@ -1,4 +1,3 @@
-export * from "@/server/services/ai/client";
 export * from "@/server/services/ai/models";
 export * from "@/server/services/ai/tenant-ai-config";
 export * from "@/server/services/ai/knowledge";

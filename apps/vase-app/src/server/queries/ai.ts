@@ -1,4 +1,4 @@
-import { AiChannelStatus, AiKnowledgeItemStatus, AiKnowledgeItemType } from "@prisma/client";
+import { AiChannelStatus, AiKnowledgeItemStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 export async function getTenantAiWorkspaceConfig(tenantId: string) {
@@ -25,22 +25,6 @@ export async function listReadyKnowledgeItems(tenantId: string, workspaceId: str
       status: AiKnowledgeItemStatus.READY,
     },
     orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-  });
-}
-
-export async function listKnowledgeItemsByType(
-  tenantId: string,
-  workspaceId: string,
-  type: AiKnowledgeItemType,
-) {
-  return prisma.aiKnowledgeItem.findMany({
-    where: {
-      tenantId,
-      workspaceId,
-      type,
-      status: AiKnowledgeItemStatus.READY,
-    },
-    orderBy: [{ updatedAt: "desc" }],
   });
 }
 

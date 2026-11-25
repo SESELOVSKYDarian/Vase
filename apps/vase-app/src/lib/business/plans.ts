@@ -1,5 +1,4 @@
 import type {
-  BillingStatus,
   BusinessPlan,
   StorefrontPage,
   TenantSubscription,
@@ -58,21 +57,6 @@ export function getPlanLimits(plan: PlanSnapshot) {
 export function getPlanLabel(plan: BusinessPlan) {
   return plan === "PREMIUM" ? "Premium" : "Start";
 }
-
-export function getBillingLabel(status: BillingStatus) {
-  switch (status) {
-    case "ACTIVE":
-      return "Activo";
-    case "PAST_DUE":
-      return "Pendiente de pago";
-    case "CANCELED":
-      return "Cancelado";
-    default:
-      return "Trial";
-  }
-}
-
-export const MAX_BUSINESS_WEB_LIMIT = 100;
 
 /** Cuántas webs puede tener el cliente: lo define el superadmin para cada cuenta. */
 export function resolveBusinessWebLimit(plan: Pick<PlanSnapshot, "businessProjectLimit">) {

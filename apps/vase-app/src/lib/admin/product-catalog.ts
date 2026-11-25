@@ -78,7 +78,3 @@ export const ADMIN_PRODUCTS: AdminProduct[] = [
 export function getAdminProduct(id: string) {
   return ADMIN_PRODUCTS.find((product) => product.id === id) ?? null;
 }
-
-export function productForModule(moduleId: string) {
-  return ADMIN_PRODUCTS.find((product) => product.moduleId === moduleId) ?? null;
-}

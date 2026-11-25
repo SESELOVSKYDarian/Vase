@@ -4,8 +4,6 @@ import {
   type LabsEntitlementPlan,
 } from "@/lib/admin/client-product-access";
 
-export const DEFAULT_LABS_PLAN: AiWorkspacePlan = "START";
-
 function toLabsPlanLimits(plan: LabsEntitlementPlan) {
   const entitlement = getLabsEntitlement(plan);
   return {
@@ -31,8 +29,4 @@ export function getLabsPlanLimits(plan: AiWorkspacePlan | LabsEntitlementPlan) {
   if (plan === "START") return toLabsPlanLimits("STARTER");
   if (plan === "PREMIUM") return toLabsPlanLimits("GROWTH");
   return toLabsPlanLimits(plan);
-}
-
-export function getLabsPlanLabel(plan: AiWorkspacePlan) {
-  return plan === "PREMIUM" ? "Labs Premium" : "Labs Start";
 }
