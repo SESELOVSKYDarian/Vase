@@ -1,4 +1,5 @@
 // Parte de rest-admin.ts: RestContractTransaction, applyRestContractWithTx, restAdminCommandSchema, mapPricing, repository, entitlementService.
+import { trialEndsAtFrom } from "@/server/services/trial/trial-rules";
 import { restPlanLimitsSchema, restPlanSchema } from "@vase/contracts";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
@@ -47,7 +48,7 @@ export async function applyRestContractWithTx(
   const trialEndsAt = input.status === "TRIAL"
     ? currentModule?.trialEndsAt && currentModule.trialEndsAt > now
       ? currentModule.trialEndsAt
-      : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+      : trialEndsAtFrom(now)
     : null;
   const materialContractTransition =
     !currentContract ||

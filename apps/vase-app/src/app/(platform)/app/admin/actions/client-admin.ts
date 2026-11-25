@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { ADMIN_PRODUCTS } from "@/lib/admin/product-catalog";
 import { sanitizeText } from "@/lib/security/sanitize";
 import { createAuditLog } from "@/server/services/audit-log";
+import { activateAfterPayment } from "@/server/services/billing-activation";
 import { syncAutoDebitAmount } from "@/server/services/mercadopago-autodebit";
 import { setTenantFeatures } from "@/server/services/product-features";
 
@@ -133,6 +134,9 @@ export async function createClientChargeAction(input: {
     select: { id: true },
   });
   await syncAutoDebitAmount(tenant.id);
+  // Cobro cargado como pagado: la cuenta se pone al día igual que si hubiera pagado online
+  // (sale de la prueba y se destraban los productos).
+  if (input.paid) await activateAfterPayment(created.id, "transfer");
   await createAuditLog({
     action: "platform.client_payment_created",
     targetType: "client_payment",

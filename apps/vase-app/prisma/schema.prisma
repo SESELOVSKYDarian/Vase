@@ -1348,6 +1348,8 @@ model TenantSubscription {
   businessProjectLimit Int           @default(1)
   teamMemberLimit      Int           @default(3)
   labsAssistantLimit   Int           @default(1)
+  /// Cuenta de prueba interna del equipo: usa todos los productos y la prueba nunca vence.
+  isTestAccount        Boolean       @default(false)
   trialStartedAt       DateTime?
   trialEndsAt          DateTime?
   graceEndsAt          DateTime?

@@ -10,6 +10,7 @@ import {
   type ManagementAccessRecord,
 } from "@/server/services/management-session-context";
 import { buildCompatibleUserModuleAccessWhere } from "@/server/services/user-module-access-policy";
+import { notTrialLockedTenantWhere } from "@/server/services/trial/trial-access";
 
 const service = createManagementSessionContextService({
   async findAccess(globalUserId, requestedTenantSlug) {
@@ -25,6 +26,8 @@ const service = createManagementSessionContextService({
         tenant: {
           ...(requestedTenantSlug ? { slug: requestedTenantSlug } : {}),
           status: { in: ["ACTIVE", "TRIAL"] },
+          // Prueba vencida y sin pagar: no entra hasta que pague.
+          ...notTrialLockedTenantWhere(),
           tenantModules: {
             some: {
               moduleId: "vase_management",

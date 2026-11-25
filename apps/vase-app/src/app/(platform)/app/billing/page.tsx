@@ -17,6 +17,7 @@ import {
   settleMercadoPagoPayment,
 } from "@/server/services/mercadopago";
 import { refreshAutoDebit } from "@/server/services/mercadopago-autodebit";
+import { isTenantTrialLocked } from "@/server/services/trial/trial-access";
 
 function formatDate(value: Date | null | undefined) {
   if (!value) return "Sin fecha";
@@ -47,7 +48,7 @@ function paymentState(payment: { paidAt: Date | null; status: string; dueAt: Dat
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ payment_id?: string; status?: string; debito?: string; preapproval_id?: string }>;
+  searchParams: Promise<{ payment_id?: string; status?: string; debito?: string; preapproval_id?: string; prueba?: string }>;
 }) {
   let membership;
   let session;
@@ -101,6 +102,9 @@ export default async function BillingPage({
   const savedCards = paymentsEnabled ? await listSavedCards(billingProfile?.mercadoPagoCustomerId) : [];
   const payCards: PayCard[] = savedCards.map((card) => ({ ...card, isDefault: card.id === billingProfile?.defaultCardId }));
 
+  // Prueba vencida y sin pagar: arriba de todo se explica por qué no puede usar los productos.
+  const trialLocked = await isTenantTrialLocked(membership.tenantId);
+
   const planOf = (moduleId: string) =>
     activeSubmodules.find((row) => row.submodule.moduleId === moduleId)?.submodule.name ?? null;
 
@@ -114,6 +118,12 @@ export default async function BillingPage({
       currentUserName={session.user.name ?? membership.tenant.name}
     >
       <div className="vpa-stack">
+        {trialLocked ? (
+          <div className="vpa-notice" role="alert">
+            Tu prueba gratis terminó y tus productos quedaron en pausa (no se borró nada). Pagá tu plan acá y se habilitan
+            al instante. Si no ves qué pagar, escribinos a facturacion@vase.ar.
+          </div>
+        ) : null}
         {returned.debito ? (
           <div className="vpa-notice" role="status">Listo. Cuando Mercado Pago confirme la autorización, tus pagos se hacen solos cada mes.</div>
         ) : null}

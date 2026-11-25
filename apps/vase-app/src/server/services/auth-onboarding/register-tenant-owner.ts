@@ -7,6 +7,7 @@ import { buildAbsoluteUrl } from "@/lib/security/request";
 import { createAuditLog } from "@/server/services/audit-log";
 import { sendAuthEmail } from "@/server/services/auth-email";
 import { ensureModuleCatalogSynced } from "@/server/services/modules";
+import { trialEndsAtFrom } from "@/server/services/trial/trial-rules";
 import { RegisterPayload, RequestContext, findUserByEmail } from "./validate-sign-in-credentials";
 
 export async function registerTenantOwner(
@@ -59,9 +60,9 @@ export async function registerTenantOwner(
         temporaryPagesEnabled: true,
         businessProjectLimit: payload.createPremiumTrialUser ? 3 : 1,
         labsAssistantLimit: payload.createPremiumTrialUser ? 2 : 1,
+        // Prueba gratis de 7 días: el día 8 los productos quedan en pausa hasta que pague.
         trialStartedAt: new Date(),
-        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-        graceEndsAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+        trialEndsAt: trialEndsAtFrom(new Date()),
         currentPeriodEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });

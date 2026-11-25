@@ -4,6 +4,7 @@ import { forbidden, notFound } from "next/navigation";
 import { Download, ExternalLink } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ChargeButton, ClientNotes, ClientProductCard, type ProductCardData } from "@/components/admin/client-ficha";
+import { ClientAccessControls } from "@/components/admin/client-access-controls";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { amountDue } from "@/lib/billing/mercadopago-rules";
 import { prisma } from "@/lib/db/prisma";
@@ -11,6 +12,7 @@ import { ADMIN_PRODUCTS } from "@/lib/admin/product-catalog";
 import { ADMIN_BILLING_STATUS, ADMIN_TICKET_STATUS, adminDate, adminMoney, invoiceState } from "@/lib/admin/labels";
 import { resolveWorkspaceUrl } from "@/lib/security/workspace-host-routing";
 import { getDisabledFeatureKeys } from "@/server/services/product-features";
+import { isTrialLocked } from "@/server/services/trial/trial-rules";
 
 const TABS = [
   { id: "resumen", label: "Resumen" },
@@ -57,7 +59,7 @@ export default async function AdminClientPage({
       status: true,
       billingEmail: true,
       createdAt: true,
-      subscription: { select: { billingStatus: true, currentPeriodEndsAt: true } },
+      subscription: { select: { billingStatus: true, currentPeriodEndsAt: true, trialEndsAt: true, isTestAccount: true } },
       memberships: {
         where: { status: "ACTIVE" },
         select: { role: true, user: { select: { name: true, email: true, lastLoginAt: true } } },
@@ -113,7 +115,14 @@ export default async function AdminClientPage({
   const openTickets = tickets.filter((ticket) => (OPEN_TICKETS as readonly string[]).includes(ticket.status)).length;
   const pendingNotes = notes.filter((note) => !note.done).length;
   const billing = tenant.subscription?.billingStatus ?? "TRIAL";
-  const state = tenant.status === "SUSPENDED" ? { label: "Suspendida", cls: "r" } : overdue ? ADMIN_BILLING_STATUS.PAST_DUE : (ADMIN_BILLING_STATUS[billing] ?? ADMIN_BILLING_STATUS.TRIAL);
+  // Etiqueta del estado: suspendida, cuenta de prueba interna, prueba vencida, con deuda o el estado del plan.
+  const state = tenant.status === "SUSPENDED"
+    ? { label: "Suspendida", cls: "r" }
+    : tenant.subscription?.isTestAccount
+      ? { label: "Cuenta de prueba", cls: "" }
+      : isTrialLocked(tenant.subscription)
+        ? { label: "Prueba vencida", cls: "r" }
+        : overdue ? ADMIN_BILLING_STATUS.PAST_DUE : (ADMIN_BILLING_STATUS[billing] ?? ADMIN_BILLING_STATUS.TRIAL);
   const activePlans = new Set(tenantSubmodules.map((row) => row.submoduleId));
 
   const products: ProductCardData[] = ADMIN_PRODUCTS.map((product) => {
@@ -171,6 +180,11 @@ export default async function AdminClientPage({
           <i />
           {state.label}
         </span>
+        <ClientAccessControls
+          tenantId={tenant.id}
+          canActivate={billing === "TRIAL"}
+          isTestAccount={Boolean(tenant.subscription?.isTestAccount)}
+        />
         <ChargeButton tenantId={tenant.id} tenantName={tenant.name} />
       </section>
 

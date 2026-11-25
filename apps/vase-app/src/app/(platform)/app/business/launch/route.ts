@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guards";
 import { createBusinessLaunchUrl } from "@/lib/business/launch";
 import { getTenantMembership } from "@/lib/tenancy/resolve-tenant";
 import { getTenantModulesAccess } from "@/server/queries/modules";
+import { isTenantTrialLocked } from "@/server/services/trial/trial-access";
 
 function buildRedirectToSignIn(request: Request) {
   const url = new URL(request.url);
@@ -28,6 +29,11 @@ export async function GET(request: Request) {
       if (!access?.modules.some((module) => module.key === "business" && module.isActive)) {
         return NextResponse.redirect(new URL("/app?business_access=forbidden", requestUrl.origin));
       }
+    }
+
+    // Prueba vencida y sin pagar: no entra a Business, va a pagar. El equipo de Vase entra igual.
+    if (session.user.platformRole !== "SUPER_ADMIN" && (await isTenantTrialLocked(membership.tenantId))) {
+      return NextResponse.redirect(new URL("/app/billing?prueba=vencida", requestUrl.origin));
     }
 
     // section y embed=1: Catálogo compartido muestra esa pantalla de Business adentro de app.

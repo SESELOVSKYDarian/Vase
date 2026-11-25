@@ -5,6 +5,7 @@ import { requireVerifiedUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/prisma";
 import { getTenantMembership } from "@/lib/tenancy/resolve-tenant";
 import { buildManagementSsoUrl } from "@/lib/management/links";
+import { isTenantTrialLocked } from "@/server/services/trial/trial-access";
 
 export async function GET(request: Request) {
   try {
@@ -12,6 +13,8 @@ export async function GET(request: Request) {
     const tenantSlug = new URL(request.url).searchParams.get("tenant") ?? undefined;
     const membership = await getTenantMembership(session.user.id, tenantSlug);
     if (!membership || membership.tenant.status === "SUSPENDED") throw new Error("FORBIDDEN");
+    // Prueba vencida y sin pagar: no entra a Management hasta que pague.
+    if (await isTenantTrialLocked(membership.tenantId)) throw new Error("FORBIDDEN");
     const [tenantModule, userAccess, identityLink] = await Promise.all([
       prisma.tenantModule.findUnique({ where: { tenantId_moduleId: { tenantId: membership.tenantId, moduleId: "vase_management" } } }),
       prisma.userModuleAccess.findUnique({ where: { userId_moduleId: { userId: session.user.id, moduleId: "vase_management" } } }),

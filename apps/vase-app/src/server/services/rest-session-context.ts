@@ -9,6 +9,7 @@ import {
 import type { PrismaClient } from "@prisma/client";
 import { isRestContractEntitled } from "@/lib/rest/contract-entitlement";
 import { buildCompatibleUserModuleAccessWhere } from "@/server/services/user-module-access-policy";
+import { notTrialLockedTenantWhere } from "@/server/services/trial/trial-access";
 
 type RestMembershipProjection = {
   globalUserId: string;
@@ -90,6 +91,8 @@ export function findAuthorizedRestMembership(
       tenant: {
         ...(input.requestedTenantSlug ? { slug: input.requestedTenantSlug } : {}),
         status: { in: ["ACTIVE", "TRIAL"] },
+        // Prueba vencida y sin pagar: no entra hasta que pague.
+        ...notTrialLockedTenantWhere(),
         tenantModules: {
           some: {
             moduleId: "vase_rest",

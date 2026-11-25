@@ -405,7 +405,7 @@ describe("applyClientProductAccess", () => {
     });
 
     expect(state.tenantSubmodules).toEqual(expect.arrayContaining([
-      expect.objectContaining({ submoduleId: "business-template", commercialStatus: "TRIAL", trialEndsAt: new Date("2026-08-18T12:00:00.000Z") }),
+      expect.objectContaining({ submoduleId: "business-template", commercialStatus: "TRIAL", trialEndsAt: new Date("2026-08-11T12:00:00.000Z") }),
       expect.objectContaining({ submoduleId: "business-custom", commercialStatus: "ACTIVE", trialEndsAt: null }),
     ]));
     expect(state.grants).toEqual(expect.arrayContaining([
@@ -659,7 +659,7 @@ describe("applyClientProductAccess", () => {
 
     await applyClientProductAccess({ ...baseInput, tx, access: { business: { submodules: [{ id: "business-template", key: "plantilla", status: "TRIAL", features: [] }] }, labs: null, rest: null, management: { status: "TRIAL" } } });
     expect(state.tenantModules.find((row) => row.moduleId === "vase_management")?.trialEndsAt).toEqual(new Date("2026-09-01T00:00:00.000Z"));
-    expect(state.tenantSubmodules.find((row) => row.submoduleId === "business-template")?.trialEndsAt).toEqual(new Date("2026-08-18T12:00:00.000Z"));
+    expect(state.tenantSubmodules.find((row) => row.submoduleId === "business-template")?.trialEndsAt).toEqual(new Date("2026-08-11T12:00:00.000Z"));
   });
 
   it("preserves activatedAt on no-op resubmission and changes it on reactivation", async () => {

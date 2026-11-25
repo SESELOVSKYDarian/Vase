@@ -6,6 +6,7 @@ import {
   resolveStoredLabsEntitlementPlan,
 } from "@/server/services/labs-entitlement-state";
 import { buildCompatibleUserModuleAccessWhere } from "@/server/services/user-module-access-policy";
+import { notTrialLockedTenantWhere } from "@/server/services/trial/trial-access";
 
 export const resolveLabsSessionWorkspaceEntitlement = resolveLabsWorkspaceEntitlement;
 
@@ -22,6 +23,8 @@ export async function findAuthorizedLabsMembership(
       tenant: {
         ...(input.requestedTenantSlug ? { slug: input.requestedTenantSlug } : {}),
         status: { in: ["ACTIVE", "TRIAL"] },
+        // Prueba vencida y sin pagar: no entra hasta que pague.
+        ...notTrialLockedTenantWhere(),
         tenantModules: {
           some: {
             moduleId: "vase_labs",

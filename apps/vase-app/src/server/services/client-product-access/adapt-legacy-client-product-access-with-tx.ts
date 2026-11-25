@@ -1,10 +1,12 @@
 // Parte de client-product-access.ts: TRIAL_DURATION_MS, trialExpiry, normalizeSlugPart, deterministicTenantSlug, legacyClientAccessSchema, LegacyAdapterTransaction y más.
+import { TRIAL_DAYS } from "@/server/services/trial/trial-rules";
 import { Prisma, type CommercialAccessStatus } from "@prisma/client";
 import { z } from "zod";
 import { clientProductAccessSchema, type ClientProductAccess } from "@/lib/admin/client-product-access";
 import { userAccessModuleIds } from "@/lib/admin/user-access";
 
-export const TRIAL_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
+// Misma duración que la prueba gratis de una cuenta nueva (7 días).
+export const TRIAL_DURATION_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
 export function trialExpiry(status: "TRIAL" | "ACTIVE", current: Date | null | undefined, now: Date) {
   if (status === "ACTIVE") return null;
