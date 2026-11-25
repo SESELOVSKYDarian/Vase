@@ -9,6 +9,10 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
+    "local:setup": "node scripts/local/setup.mjs",
+    "local:dev": "node scripts/local/dev.mjs",
+    "local:down": "docker compose -f infra/local/docker-compose.yml down",
+    "local:reset": "docker compose -f infra/local/docker-compose.yml down -v && node scripts/local/setup.mjs --force",
     "dev:v3:portal": "npm run dev --workspace @vase/portal",
     "dev:v3:app": "npm run dev --workspace @vase/app",
     "dev:v3:admin": "npm run dev --workspace @vase/admin",

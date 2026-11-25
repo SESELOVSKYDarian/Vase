@@ -86,3 +86,6 @@ next-env.d.ts
 .npm-cache/
 *.stderr.log
 *.stdout.log
+
+# claves de desarrollo del entorno local (npm run local:setup)
+infra/local/.secrets.json
