@@ -17,7 +17,7 @@ function surfacesOf(value: unknown): string[] {
 }
 
 /** Null o vacío = para todas las personas. */
-export function announcementTargets(value: unknown): string[] | null {
+function announcementTargets(value: unknown): string[] | null {
   const ids = surfacesOf(value);
   return ids.length ? ids : null;
 }

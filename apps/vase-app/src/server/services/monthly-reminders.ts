@@ -29,7 +29,7 @@ type MonthlyReminder = {
   transferAlias: string;
 };
 
-export const MONTHLY_REMINDERS: readonly MonthlyReminder[] = [
+const MONTHLY_REMINDERS: readonly MonthlyReminder[] = [
   {
     key: "teflon-labs-ia",
     tenantSlug: "sanitarios-el-teflon",

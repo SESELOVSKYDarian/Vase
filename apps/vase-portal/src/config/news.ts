@@ -4,7 +4,7 @@
 export const NEWS_ORIGIN = new URL(process.env.NEXT_PUBLIC_NEWS_ORIGIN?.trim() || "https://news.vase.ar").origin;
 export const NEWS_HOST = new URL(NEWS_ORIGIN).host;
 
-export type NewsTag = "Vase" | "App" | "Business" | "Labs" | "Rest" | "Management";
+type NewsTag = "Vase" | "App" | "Business" | "Labs" | "Rest" | "Management";
 
 /** Captura real de una pantalla. */
 export type NewsFigure = {
@@ -16,7 +16,7 @@ export type NewsFigure = {
 };
 
 /** Un cambio de la nota: tarjeta arriba y detalle con captura abajo. */
-export type NewsChange = {
+type NewsChange = {
   title: string;
   /** Dónde se ve: "App · Business · Labs". */
   where: string;

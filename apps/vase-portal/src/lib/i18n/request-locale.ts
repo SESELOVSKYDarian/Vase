@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { appConfig, type AppLocale } from "@/config/app";
 
 /**
@@ -10,9 +9,3 @@ export async function getRequestLocale(): Promise<AppLocale> {
   return appConfig.defaultLocale;
 }
 
-/** Idioma pedido por cookie (para el día que vase.ar tenga selector de idioma). */
-export async function getCookieLocale(): Promise<AppLocale> {
-  const cookieStore = await cookies();
-  const locale = cookieStore.get("vase-locale")?.value;
-  return locale === "es" || locale === "en" ? locale : appConfig.defaultLocale;
-}

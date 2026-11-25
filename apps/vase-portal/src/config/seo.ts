@@ -77,11 +77,11 @@ export const PAGE_SEO = {
   },
 } satisfies Record<string, PageSeo>;
 
-export type SeoRoute = keyof typeof PAGE_SEO;
+type SeoRoute = keyof typeof PAGE_SEO;
 
-export const DEFAULT_OG_IMAGE = "/og/vase.jpg";
+const DEFAULT_OG_IMAGE = "/og/vase.jpg";
 
-export function siteUrl(path: string) {
+function siteUrl(path: string) {
   return `${portalOrigins.publicSite}${path === "/" ? "" : path}`;
 }
 
