@@ -13,6 +13,7 @@ import {
 import { routeInboundMessage } from "@/server/services/chatbot/message-router";
 import { getTenantChatbotConfig } from "@/server/services/chatbot/tenant-chatbot-config";
 import { getTenantAiRuntimeConfig, transcribeAudio } from "@/server/services/ai";
+import { isTenantTrialLocked } from "@/server/services/trial/trial-access";
 
 function normalizeInboundText(message: InboundChannelMessage) {
   return String(message.text || "").trim();
@@ -24,6 +25,8 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
     message.channelType,
   );
   const aiConfig = await getTenantAiRuntimeConfig(message.tenantId);
+  // Prueba vencida y sin pagar: el mensaje se guarda en la bandeja, pero la IA no contesta ni transcribe audios.
+  const trialLocked = await isTenantTrialLocked(tenantConfig.tenantId);
 
   const conversation = await getOrCreateConversation({
     tenantId: tenantConfig.tenantId,
@@ -36,7 +39,7 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
 
   let text = normalizeInboundText(message);
 
-  if (message.messageType === "audio" && message.mediaId) {
+  if (message.messageType === "audio" && message.mediaId && !trialLocked) {
     if (message.channelType === "WHATSAPP") {
       const providerConfig = readWhatsAppProviderConfig(tenantConfig.channelConfig);
       const accessToken = String(providerConfig.accessToken || "");
@@ -63,6 +66,10 @@ export async function handleInboundChannelMessage(message: InboundChannelMessage
     externalMessageId: message.externalMessageId,
   });
   const conversationMetadata = updatedConversation?.metadata ?? conversation.metadata;
+
+  if (trialLocked) {
+    return { conversationId: conversation.id, paused: true, reason: "TRIAL_EXPIRED" };
+  }
 
   if (isAiPaused(conversationMetadata)) {
     return { conversationId: conversation.id, paused: true };

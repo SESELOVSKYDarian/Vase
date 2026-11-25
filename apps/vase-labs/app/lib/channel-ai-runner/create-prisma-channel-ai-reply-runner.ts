@@ -18,6 +18,7 @@ import { enrichLocalOrderSnapshot } from "../local-order-snapshot";
 import { createConversationQuote } from "../conversation-quote-service";
 import { notifyVaseSupportHandoffInBackground } from "../vase-support-bridge";
 import { createChannelAiReplyRunner, markPrismaAssistantReplyDelivery, persistPrismaAssistantReply } from "./channel-ai-reply-runner-deps";
+import { createTenantAiAccessChecker } from "../tenant-ai-access";
 
 export function createPrismaChannelAiReplyRunner(input: {
   prisma?: PrismaClient;
@@ -107,7 +108,13 @@ export function createPrismaChannelAiReplyRunner(input: {
     },
   });
 
+  const isAiAllowed = createTenantAiAccessChecker({
+    appInternalUrl: env.APP_INTERNAL_URL,
+    serviceToken: env.SERVICE_TO_SERVICE_TOKEN,
+    fetcher: input.fetcher,
+  });
   return createChannelAiReplyRunner({
+    isAiAllowed,
     env,
     knowledge: createKnowledgeService({
       async listReadyKnowledge(assistantId) {

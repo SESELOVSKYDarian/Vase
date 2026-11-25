@@ -19,6 +19,8 @@ export type ReplyGenerator = {
 
 export type ChannelAiReplyRunnerDeps = {
   env?: NodeJS.ProcessEnv;
+  /** ¿La cuenta puede usar la IA? (no, si su prueba gratis venció y no pagó). Sin esto, siempre puede. */
+  isAiAllowed?(globalTenantId: string): Promise<boolean>;
   resolveOpenAiApiKey?(assistantId: string): Promise<string | null>;
   knowledge: { buildContext(assistantId: string): Promise<string> };
   businessProfile?: { buildContext(globalTenantId: string): Promise<string> };
@@ -183,6 +185,10 @@ export function createChannelAiReplyRunner(deps: ChannelAiReplyRunnerDeps): RunC
     const recipientId = input.message.customerContact ?? input.message.externalThreadKey;
     if (!latestUserText || !recipientId) {
       return { ok: false };
+    }
+    // Prueba vencida y sin pagar: el mensaje queda en la bandeja, pero la IA no contesta.
+    if (deps.isAiAllowed && !(await deps.isAiAllowed(input.context.globalTenantId))) {
+      return { ok: false, reason: "TRIAL_EXPIRED" };
     }
 
     const model = resolveApprovedOpenAiModel(input.context.assistantModel, deps.env);
