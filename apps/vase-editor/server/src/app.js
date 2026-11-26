@@ -296,7 +296,8 @@ if (hasWebBuild) {
   // Favicons armados con el logo, ya listos (por tienda y tamaño).
   const logoFaviconCache = new Map();
 
-  app.get('/favicon.ico', async (req, res, next) => {
+  // /favicon.png: misma respuesta. Se usa con ?v=<logo> para que el navegador no muestre un ícono viejo guardado.
+  app.get(['/favicon.ico', '/favicon.png'], async (req, res, next) => {
     try {
       const context = await loadTenantSeoContext(req);
       if (!context) return res.sendStatus(404);

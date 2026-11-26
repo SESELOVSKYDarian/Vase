@@ -9,6 +9,7 @@ import { normalizeInternalPath } from '../../utils/navigation';
 import { isPiquimTenantIdentity } from '../../utils/tenantBranding';
 import { buildGtmSnippets, normalizeSeoSettings, resolveCanonicalUrl } from '../../utils/seo';
 import StoreFloatingControls from './StoreFloatingControls';
+import { logoVersion } from '../../utils/logoTone';
 
 const getFaviconMimeType = (url) => {
     const extension = String(url || '').split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
@@ -79,7 +80,9 @@ export default function StoreLayout({ children, overlay = false }) {
 
         document.title = title;
 
-        const favicon = String(settings?.branding?.favicon_url || settings?.seo?.favicon_url || '/favicon.ico').trim();
+        // Sin favicon cargado pero con logo: el servidor lo arma con el logo (dirección que cambia con el logo).
+        const logo = String(settings?.branding?.logo_url || '').trim();
+        const favicon = String(settings?.branding?.favicon_url || settings?.seo?.favicon_url || (logo ? `/favicon.png?v=${logoVersion(logo)}` : '/favicon.ico')).trim();
         const faviconMimeType = getFaviconMimeType(favicon);
         let faviconLink = document.head.querySelector('link[rel="icon"]');
         if (!faviconLink) {

@@ -82,6 +82,16 @@ const dataUriPattern = /^data:/i;
 
 // Links del favicon para el <head>. Un favicon cargado como data URI en el panel se sirve por /favicon.ico
 // para que Google y otros buscadores puedan leerlo.
+/**
+ * Versión corta del logo (cambia si cambia el logo). Va en la dirección del favicon para que el navegador
+ * pida el ícono nuevo en vez de usar uno viejo guardado. Igual que logoVersion de la tienda (web/src/utils/logoTone.js).
+ */
+export function logoVersion(logo) {
+  let hash = 0;
+  for (const char of String(logo)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return hash.toString(36);
+}
+
 export function buildFaviconLinks({ branding = {}, seo = {}, tenant = {} }) {
   const configured = String(branding?.favicon_url || '').trim();
   if (configured) {
@@ -92,10 +102,12 @@ export function buildFaviconLinks({ branding = {}, seo = {}, tenant = {} }) {
   const fromSeo = String(seo?.favicon_url || '').trim();
   if (fromSeo) return [{ rel: 'icon', href: fromSeo }];
   // Sin favicon cargado pero con logo: /favicon.ico lo arma con el logo.
-  if (String(branding?.logo_url || '').trim()) {
+  const logo = String(branding?.logo_url || '').trim();
+  if (logo) {
+    const version = logoVersion(logo);
     return [
-      { rel: 'icon', type: 'image/png', href: '/favicon.ico' },
-      { rel: 'apple-touch-icon', href: '/favicon.ico?s=180' },
+      { rel: 'icon', type: 'image/png', href: `/favicon.png?v=${version}` },
+      { rel: 'apple-touch-icon', href: `/favicon.png?s=180&v=${version}` },
     ];
   }
   return [];

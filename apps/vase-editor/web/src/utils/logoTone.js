@@ -59,3 +59,13 @@ export function useLogoIsLight(url) {
     }, [url]);
     return isLight;
 }
+
+/**
+ * Versión corta del logo (cambia si cambia el logo). Va en la dirección del favicon para que el navegador
+ * pida el ícono nuevo. Igual que logoVersion del servidor (server/src/services/tenantSeo.js).
+ */
+export function logoVersion(logo) {
+    let hash = 0;
+    for (const char of String(logo)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+    return hash.toString(36);
+}
