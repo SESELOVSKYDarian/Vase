@@ -19,6 +19,7 @@ import { integrationsRouter } from './routes/integrations.js';
 import { uploadsRouter } from './routes/uploads.js';
 import { storefrontLogoRouter } from './routes/storefrontLogo.js';
 import { buildLogoFavicon, loadLogoBuffer } from './services/logoImage.js';
+import { applyVaseBusinessProfile, vaseProfileForTenant } from './services/vaseBusinessProfile.js';
 import { internalStorageRouter } from './routes/internalStorage.js';
 import { authenticate, optionalAuthenticate, requireRole } from './middleware/auth.js';
 import { pool } from './db.js';
@@ -235,7 +236,9 @@ if (hasWebBuild) {
     if (!tenant) return null;
     await ensureTenantSettingsSeoColumn();
     const settingsRes = await queryTenantSettingsWithSeo(tenant.id);
-    const rawSettings = settingsRes.rows[0] || {};
+    // Los datos de Mi negocio (app.vase.ar), como el logo, van encima de los de la tienda: igual que en la página.
+    const profile = await vaseProfileForTenant(tenant.id).catch(() => null);
+    const rawSettings = applyVaseBusinessProfile(settingsRes.rows[0] || {}, profile);
     const branding = rawSettings.branding || {};
     const seo = applyTenantSeoDefaults(rawSettings.seo || {}, tenant, branding);
     return { tenant, branding, seo, indexable: seo.indexable !== false };
@@ -399,7 +402,9 @@ if (hasWebBuild) {
       const html = readIndexHtml();
       await ensureTenantSettingsSeoColumn();
       const settingsRes = await queryTenantSettingsWithSeo(req.tenant.id);
-      const rawSettings = settingsRes.rows[0] || {};
+      // Mi negocio (logo, nombre) encima de los ajustes de la tienda, igual que en la página.
+      const profile = await vaseProfileForTenant(req.tenant.id).catch(() => null);
+      const rawSettings = applyVaseBusinessProfile(settingsRes.rows[0] || {}, profile);
       const branding = rawSettings.branding || {};
       const rawSeo = applyTenantSeoDefaults(rawSettings.seo || {}, req.tenant, branding);
       const seo = normalizeSeoSettings(rawSeo);
