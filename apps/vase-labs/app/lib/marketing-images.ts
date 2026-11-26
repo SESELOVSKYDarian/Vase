@@ -67,6 +67,25 @@ export function marketingImageModel(env: NodeJS.ProcessEnv = process.env) {
 }
 
 /** Pide la imagen a OpenAI. Devuelve la imagen lista para mostrar y lo que gastó. */
+/** Error de OpenAI al crear la imagen, con el código HTTP y el motivo que devolvió. */
+export class MarketingImageError extends Error {
+  constructor(readonly status: number, readonly code: string | null, readonly detail: string | null) {
+    super(`OPENAI_IMAGE_${status}`);
+  }
+}
+
+/** Traduce el error de OpenAI a un código que la pantalla sabe explicar. */
+export function marketingErrorCode(error: unknown) {
+  if (error instanceof MarketingImageError) {
+    if (error.status === 401) return "OPENAI_KEY_INVALID";
+    if (error.status === 403) return "OPENAI_IMAGES_NOT_ALLOWED";
+    if (error.status === 429) return "OPENAI_QUOTA";
+    if (error.status === 400 && /safety|moderation|content_policy/i.test(`${error.code} ${error.detail}`)) return "CONTENT_BLOCKED";
+  }
+  if (error instanceof Error && error.name === "TimeoutError") return "IMAGE_TIMEOUT";
+  return "MARKETING_IMAGE_FAILED";
+}
+
 export async function generateMarketingImage(input: {
   apiKey: string;
   prompt: string;
@@ -81,7 +100,11 @@ export async function generateMarketingImage(input: {
     body: JSON.stringify({ model, prompt: input.prompt, size: MARKETING_FORMATS[input.format].size, quality: "medium", n: 1 }),
     signal: AbortSignal.timeout(120_000),
   });
-  if (!response.ok) throw new Error(`OPENAI_IMAGE_${response.status}`);
+  if (!response.ok) {
+    // Guardamos el motivo que da OpenAI (sin la clave) para saber qué pasó: permisos, saldo, contenido…
+    const detail = await response.json().catch(() => null) as { error?: { message?: string; code?: string } } | null;
+    throw new MarketingImageError(response.status, detail?.error?.code ?? null, detail?.error?.message ?? null);
+  }
   const payload = (await response.json()) as {
     data?: Array<{ b64_json?: string }>;
     usage?: { input_tokens?: number; output_tokens?: number };

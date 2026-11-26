@@ -8,6 +8,8 @@ import {
   MARKETING_MAX_PROMPT,
   buildMarketingPrompt,
   generateMarketingImage,
+  marketingErrorCode,
+  MarketingImageError,
   isMarketingFormat,
 } from "../../../../lib/marketing-images";
 
@@ -99,7 +101,11 @@ export async function POST(request: Request) {
       source: `openai:${image.model}:marketing-image`,
     }).catch(() => undefined);
     return NextResponse.json({ image: image.dataUrl, format });
-  } catch {
-    return NextResponse.json({ error: "MARKETING_IMAGE_FAILED" }, { status: 502 });
+  } catch (error) {
+    // El motivo real queda en el registro del servicio; a la pantalla va un código que sabe explicar.
+    const code = marketingErrorCode(error);
+    const detail = error instanceof MarketingImageError ? `status=${error.status} code=${error.code ?? "-"} ${error.detail ?? ""}` : error instanceof Error ? error.message : String(error);
+    console.error(`[marketing-image:failed] tenant=${globalTenantId} ${code} ${detail}`.slice(0, 600));
+    return NextResponse.json({ error: code }, { status: 502 });
   }
 }

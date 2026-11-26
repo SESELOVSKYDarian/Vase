@@ -40,6 +40,16 @@ function errorText(code: string | undefined) {
       return "Hiciste muchas imágenes en la última hora. Probá de nuevo en un rato.";
     case "OPENAI_API_KEY_MISSING":
       return "La IA todavía no está configurada en tu cuenta. Escribinos a soporte@vase.ar.";
+    case "OPENAI_IMAGES_NOT_ALLOWED":
+      return "La cuenta de OpenAI todavía no tiene habilitada la creación de imágenes. Escribinos a soporte@vase.ar.";
+    case "OPENAI_KEY_INVALID":
+      return "La clave de OpenAI no es válida. Revisala en Configuraciones o escribinos a soporte@vase.ar.";
+    case "OPENAI_QUOTA":
+      return "Se agotó el saldo de OpenAI. Escribinos a soporte@vase.ar.";
+    case "CONTENT_BLOCKED":
+      return "OpenAI no permitió esa imagen. Cambiá un poco el pedido y probá de nuevo.";
+    case "IMAGE_TIMEOUT":
+      return "La imagen tardó demasiado. Probá de nuevo.";
     case "UNAUTHORIZED":
       return "Se cerró tu sesión. Volvé a entrar a Vase.";
     default:
