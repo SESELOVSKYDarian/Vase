@@ -30,12 +30,12 @@ describe("Labs › Marketing", () => {
 
   it("pide la imagen con el tamaño del formato y devuelve lo que gastó", async () => {
     const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ data: [{ b64_json: "aGVsbG8=" }], usage: { input_tokens: 120, output_tokens: 1056 } }), { status: 200 }),
+      new Response(JSON.stringify({ output: [{ type: "image_generation_call", result: "aGVsbG8=" }], usage: { input_tokens: 120, output_tokens: 0 } }), { status: 200 }),
     );
     const image = await generateMarketingImage({ apiKey: "test", prompt: "x", format: "banner", fetchImpl: fetchImpl as unknown as typeof fetch, env: {} });
     const body = JSON.parse(String((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].body));
-    expect(body.size).toBe("1536x1024");
-    expect(body.model).toBe("gpt-image-1");
+    expect(body.tools[0]).toMatchObject({ type: "image_generation", size: "1536x1024" });
+    expect(body.model).toBe("gpt-5-mini");
     expect(image.dataUrl.startsWith("data:image/png;base64,")).toBe(true);
     expect(image.outputTokens).toBe(1056);
     // Una imagen media cuesta unos centavos de dólar, no lo de un mensaje de texto.

@@ -62,11 +62,18 @@ export type GeneratedMarketingImage = {
   outputTokens: number;
 };
 
+/**
+ * Modelo de OpenAI que arma la imagen. Se usa la API de Responses con la herramienta de imágenes:
+ * así anda con la misma clave y no depende de un modelo de imágenes que OpenAI dé de baja
+ * (gpt-image-1 dejó de existir). Se puede cambiar con OPENAI_MARKETING_MODEL.
+ */
 export function marketingImageModel(env: NodeJS.ProcessEnv = process.env) {
-  return env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-1";
+  return env.OPENAI_MARKETING_MODEL?.trim() || "gpt-5-mini";
 }
 
-/** Pide la imagen a OpenAI. Devuelve la imagen lista para mostrar y lo que gastó. */
+/** Tokens que se anotan por cada imagen mediana (la herramienta de imágenes no los informa aparte). */
+const IMAGE_OUTPUT_TOKENS_ESTIMATE = 1056;
+
 /** Error de OpenAI al crear la imagen, con el código HTTP y el motivo que devolvió. */
 export class MarketingImageError extends Error {
   constructor(readonly status: number, readonly code: string | null, readonly detail: string | null) {
@@ -86,6 +93,7 @@ export function marketingErrorCode(error: unknown) {
   return "MARKETING_IMAGE_FAILED";
 }
 
+/** Pide la imagen a OpenAI. Devuelve la imagen lista para mostrar y lo que gastó. */
 export async function generateMarketingImage(input: {
   apiKey: string;
   prompt: string;
@@ -94,10 +102,16 @@ export async function generateMarketingImage(input: {
   env?: NodeJS.ProcessEnv;
 }): Promise<GeneratedMarketingImage> {
   const model = marketingImageModel(input.env);
-  const response = await (input.fetchImpl ?? fetch)("https://api.openai.com/v1/images/generations", {
+  const response = await (input.fetchImpl ?? fetch)("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { authorization: `Bearer ${input.apiKey}`, "content-type": "application/json" },
-    body: JSON.stringify({ model, prompt: input.prompt, size: MARKETING_FORMATS[input.format].size, quality: "medium", n: 1 }),
+    body: JSON.stringify({
+      model,
+      input: input.prompt,
+      tools: [{ type: "image_generation", size: MARKETING_FORMATS[input.format].size, quality: "medium" }],
+      // Siempre tiene que devolver una imagen, no una respuesta de texto.
+      tool_choice: { type: "image_generation" },
+    }),
     signal: AbortSignal.timeout(120_000),
   });
   if (!response.ok) {
@@ -106,15 +120,16 @@ export async function generateMarketingImage(input: {
     throw new MarketingImageError(response.status, detail?.error?.code ?? null, detail?.error?.message ?? null);
   }
   const payload = (await response.json()) as {
-    data?: Array<{ b64_json?: string }>;
+    output?: Array<{ type?: string; result?: string | null }>;
     usage?: { input_tokens?: number; output_tokens?: number };
   };
-  const base64 = payload.data?.[0]?.b64_json;
+  const base64 = payload.output?.find((item) => item.type === "image_generation_call" && item.result)?.result;
   if (!base64) throw new Error("OPENAI_IMAGE_EMPTY");
   return {
     dataUrl: `data:image/png;base64,${base64}`,
-    model,
+    // Para el gasto del plan se cuenta como una imagen (precio de imágenes), más el texto que leyó el modelo.
+    model: "gpt-image-1",
     inputTokens: Number(payload.usage?.input_tokens ?? 0),
-    outputTokens: Number(payload.usage?.output_tokens ?? 0),
+    outputTokens: Number(payload.usage?.output_tokens ?? 0) + IMAGE_OUTPUT_TOKENS_ESTIMATE,
   };
 }
