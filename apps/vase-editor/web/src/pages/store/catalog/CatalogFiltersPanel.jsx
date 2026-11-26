@@ -5,101 +5,114 @@ import { DEFAULT_SORT } from './filters.js';
 import { SORT_OPTIONS } from './filters.js';
 import { normalizePriceFilterValue } from './filters.js';
 import { normalizeSortValue } from './filters.js';
+import { useMemo, useState } from 'react';
+import { prettyLabel, searchKey } from '../../../utils/prettyLabel';
 
 export default function CatalogFiltersPanel({ brands, categoryTree, draftInStockOnly, draftMaxPrice, draftMinPrice, draftSort, expandedCategories, hasMoreBrands, hasMoreCategories, onApplyAdvanced, onReset, onSelectBrand, onSelectCategory, selectedBrand, selectedCategory, setDraftInStockOnly, setDraftMaxPrice, setDraftMinPrice, setDraftSort, setExpandedCategories, setShowAllBrandsModal, setShowAllCategoriesModal, visibleBrands, visibleCategories }) {
+    // Buscador de categorías: muestra las que coinciden (o que tienen una subcategoría que coincide).
+    const [categoryQuery, setCategoryQuery] = useState('');
+    const filteredCategories = useMemo(() => {
+        const query = searchKey(categoryQuery);
+        if (!query) return categoryTree;
+        return categoryTree
+            .map((category) => {
+                if (searchKey(category.name).includes(query)) return category;
+                const children = category.children.filter((child) => searchKey(child.name).includes(query));
+                return children.length ? { ...category, children } : null;
+            })
+            .filter(Boolean);
+    }, [categoryTree, categoryQuery]);
+
     return (
-        <div className="mt-6 space-y-6">
+        <div className="mt-5 space-y-5">
             <section>
-                <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-bold uppercase tracking-[0.12em]" style={CATALOG_STYLES.muted}>Categorias</h3>
+                <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-[0.14em]" style={CATALOG_STYLES.muted}>Categorías</h3>
                     {selectedCategory ? (
-                        <button
-                            type="button"
-                            onClick={() => onSelectCategory(null)}
-                            className="text-xs font-bold text-primary"
-                        >
+                        <button type="button" onClick={() => onSelectCategory(null)} className="text-xs font-bold text-primary">
                             Limpiar
                         </button>
                     ) : null}
                 </div>
-                <div className="grid grid-cols-3 gap-2 lg:flex lg:flex-col lg:gap-1">
-                    {categoryTree.length ? (
-                        <>
-                            {visibleCategories.map((category) => {
-                                const parentActive = selectedCategory === category.id || selectedCategory === category.slug;
-                                const hasChildren = category.children.length > 0;
-                                const expanded = expandedCategories[category.id] ?? false;
-                                return (
-                                    <div key={`category-${category.id}`} className="flex flex-col">
-                                        <div className="flex h-full items-center justify-between">
-                                            <button
-                                                type="button"
-                                                onClick={() => onSelectCategory(category.id)}
-                                                className={`flex min-w-0 flex-1 h-full items-center justify-center lg:justify-start rounded-xl border lg:border-none px-1 py-2 lg:p-1 text-center lg:text-left text-[11px] leading-tight lg:text-sm transition-colors ${parentActive
-                                                        ? "border-primary bg-primary/10 font-bold text-primary lg:bg-transparent"
-                                                        : "border-[#e5e1de] text-[#181411] hover:border-primary hover:text-primary dark:border-[#3d2f21] dark:text-white"
-                                                    }`}
-                                            >
-                                                <span className="line-clamp-2">{category.name}</span>
-                                            </button>
-                                            {hasChildren ? (
+                {categoryTree.length ? (
+                    <>
+                        {/* Con muchas categorías, un buscador arriba para encontrar la que querés. */}
+                        {categoryTree.length > 8 ? (
+                            <input
+                                type="search"
+                                value={categoryQuery}
+                                onChange={(event) => setCategoryQuery(event.target.value)}
+                                placeholder="Buscar categoría"
+                                className="mb-2 w-full rounded-xl border px-3 py-2 text-sm text-[#181411] outline-none transition-colors focus:border-primary dark:text-white"
+                                style={CATALOG_STYLES.card}
+                            />
+                        ) : null}
+                        <div className="max-h-[340px] overflow-y-auto pr-1 [scrollbar-width:thin]">
+                            {filteredCategories.length ? (
+                                filteredCategories.map((category) => {
+                                    const parentActive = selectedCategory === category.id || selectedCategory === category.slug;
+                                    const hasChildren = category.children.length > 0;
+                                    const expanded = categoryQuery ? true : (expandedCategories[category.id] ?? false);
+                                    return (
+                                        <div key={`category-${category.id}`}>
+                                            <div className="flex items-center">
                                                 <button
                                                     type="button"
-                                                    onClick={() =>
-                                                        setExpandedCategories((prev) => ({
-                                                            ...prev,
-                                                            [category.id]: !expanded,
-                                                        }))
-                                                    }
-                                                    className="hidden lg:block ml-2 p-1 text-[#6f5f50] transition-colors hover:text-primary dark:text-[#d6c4b4]"
-                                                    aria-label={expanded ? `Ocultar subcategorias de ${category.name}` : `Mostrar subcategorias de ${category.name}`}
+                                                    onClick={() => onSelectCategory(category.id)}
+                                                    className={`min-w-0 flex-1 truncate rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${parentActive
+                                                        ? "bg-primary/10 font-semibold text-primary"
+                                                        : "text-[#181411] hover:bg-black/[0.04] dark:text-white dark:hover:bg-white/5"
+                                                        }`}
                                                 >
-                                                    <ChevronRightIcon className={`size-4 transition-transform ${expanded ? "rotate-90" : ""}`} />
+                                                    {prettyLabel(category.name)}
                                                 </button>
+                                                {hasChildren ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setExpandedCategories((prev) => ({ ...prev, [category.id]: !expanded }))}
+                                                        className="ml-1 rounded-md p-1 text-[#6f5f50] transition-colors hover:text-primary dark:text-[#d6c4b4]"
+                                                        aria-label={expanded ? `Ocultar subcategorías de ${category.name}` : `Mostrar subcategorías de ${category.name}`}
+                                                    >
+                                                        <ChevronRightIcon className={`size-4 transition-transform ${expanded ? "rotate-90" : ""}`} />
+                                                    </button>
+                                                ) : null}
+                                            </div>
+                                            {hasChildren && expanded ? (
+                                                <div className="mb-1 ml-3 flex flex-col border-l pl-2" style={CATALOG_STYLES.border}>
+                                                    {category.children.map((child) => {
+                                                        const childActive = selectedCategory === child.id || selectedCategory === child.slug;
+                                                        return (
+                                                            <button
+                                                                key={`category-child-${child.id}`}
+                                                                type="button"
+                                                                onClick={() => onSelectCategory(child.id)}
+                                                                className={`truncate rounded-lg px-2.5 py-1 text-left text-[13px] transition-colors ${childActive
+                                                                    ? "font-semibold text-primary"
+                                                                    : "text-[#6f5f50] hover:text-[#181411] dark:text-[#d6c4b4] dark:hover:text-white"
+                                                                    }`}
+                                                            >
+                                                                {prettyLabel(child.name)}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
                                             ) : null}
                                         </div>
-                                        {hasChildren && expanded ? (
-                                            <div className="hidden lg:flex mt-1 flex-col space-y-1 border-l pl-3" style={CATALOG_STYLES.border}>
-                                                {category.children.map((child) => {
-                                                    const childActive = selectedCategory === child.id || selectedCategory === child.slug;
-                                                    return (
-                                                        <button
-                                                            key={`category-child-${child.id}`}
-                                                            type="button"
-                                                            onClick={() => onSelectCategory(child.id)}
-                                                            className={`py-1 text-left text-sm transition-colors ${childActive
-                                                                    ? "font-bold text-primary"
-                                                                    : "text-[#6f5f50] hover:text-[#181411] dark:text-[#d6c4b4] dark:hover:text-white"
-                                                                }`}
-                                                        >
-                                                            <span className="truncate">{child.name}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                );
-                            })}
-                            {hasMoreCategories ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAllCategoriesModal(true)}
-                                    className="col-span-3 mt-2 text-sm font-semibold text-primary hover:underline lg:mt-1 lg:text-left"
-                                >
-                                    Ver todas las categorías
-                                </button>
-                            ) : null}
-                        </>
-                    ) : (
-                        <p className="text-sm" style={CATALOG_STYLES.muted}>No hay categorias disponibles.</p>
-                    )}
-                </div>
+                                    );
+                                })
+                            ) : (
+                                <p className="px-2.5 py-2 text-sm" style={CATALOG_STYLES.muted}>No hay categorías con ese nombre.</p>
+                            )}
+                        </div>
+                    </>
+                ) : (
+                    <p className="text-sm" style={CATALOG_STYLES.muted}>No hay categorias disponibles.</p>
+                )}
             </section>
 
             <section>
-                <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-bold uppercase tracking-[0.12em]" style={CATALOG_STYLES.muted}>Precio</h3>
+                <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-[0.14em]" style={CATALOG_STYLES.muted}>Precio</h3>
                     {(draftMinPrice || draftMaxPrice) ? (
                         <button
                             type="button"
@@ -116,7 +129,7 @@ export default function CatalogFiltersPanel({ brands, categoryTree, draftInStock
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                     <label className="space-y-1">
-                        <span className="text-[11px] font-bold uppercase tracking-[0.12em]" style={CATALOG_STYLES.muted}>Minimo</span>
+                        <span className="text-[11px] font-bold uppercase tracking-[0.12em]" style={CATALOG_STYLES.muted}>Mínimo</span>
                         <input
                             type="number"
                             min="0"
@@ -129,7 +142,7 @@ export default function CatalogFiltersPanel({ brands, categoryTree, draftInStock
                         />
                     </label>
                     <label className="space-y-1">
-                        <span className="text-[11px] font-bold uppercase tracking-[0.12em]" style={CATALOG_STYLES.muted}>Maximo</span>
+                        <span className="text-[11px] font-bold uppercase tracking-[0.12em]" style={CATALOG_STYLES.muted}>Máximo</span>
                         <input
                             type="number"
                             min="0"
@@ -145,8 +158,8 @@ export default function CatalogFiltersPanel({ brands, categoryTree, draftInStock
             </section>
 
             <section>
-                <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-bold uppercase tracking-[0.12em]" style={CATALOG_STYLES.muted}>Disponibilidad</h3>
+                <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-[0.14em]" style={CATALOG_STYLES.muted}>Disponibilidad</h3>
                 </div>
                 <label className="flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold text-[#181411] dark:text-white" style={CATALOG_STYLES.surface}>
                     <input
@@ -160,8 +173,8 @@ export default function CatalogFiltersPanel({ brands, categoryTree, draftInStock
             </section>
 
             <section>
-                <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-bold uppercase tracking-[0.12em]" style={CATALOG_STYLES.muted}>Orden</h3>
+                <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-[0.14em]" style={CATALOG_STYLES.muted}>Orden</h3>
                 </div>
                 <select
                     value={draftSort}
@@ -209,8 +222,8 @@ export default function CatalogFiltersPanel({ brands, categoryTree, draftInStock
             </div>
 
             <section>
-                <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-bold uppercase tracking-[0.12em]" style={CATALOG_STYLES.muted}>Marcas</h3>
+                <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-[0.14em]" style={CATALOG_STYLES.muted}>Marcas</h3>
                     {selectedBrand ? (
                         <button
                             type="button"
@@ -231,13 +244,13 @@ export default function CatalogFiltersPanel({ brands, categoryTree, draftInStock
                                         key={`brand-${brand.id}`}
                                         type="button"
                                         onClick={() => onSelectBrand(brand.id)}
-                                        className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${active
+                                        className={`rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors ${active
                                                 ? "bg-primary text-white"
                                                 : "border text-[#181411] hover:border-primary hover:text-primary dark:text-white"
                                             }`}
                                         style={active ? undefined : CATALOG_STYLES.border}
                                     >
-                                        {brand.name}
+                                        {prettyLabel(brand.name)}
                                     </button>
                                 );
                             })}

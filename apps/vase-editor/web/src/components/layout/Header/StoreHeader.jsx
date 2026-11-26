@@ -12,6 +12,7 @@ import { isExternalPath } from '../../../utils/navigation';
 import { navigate } from '../../../utils/navigation';
 import { storeText } from '../../../utils/storeTexts';
 import StoreLogo from '../StoreLogo.jsx';
+import ProductsMegaMenu from './ProductsMegaMenu.jsx';
 
 export default function StoreHeader({ accountLabel, activeMobileTab, activeRoute, applyCategorySuggestion, applySuggestion, brandLinks, brandUppercase, cartCount, categoryTree, containerClassName, expandedMobileCategories, extraLinks, handleAccountClick, handleMobileNavigate, handleSearchKey, logoUrl, mobileMenuOpen, mobilePrimaryLinks, navbarTexts, normalizeRoute, productsActive, resolvedBrand, search, searchBoxRef, searchPlaceholder, searchSuggestionsOpen, setActiveMobileTab, setExpandedMobileCategories, setMobileMenuOpen, setSearch, setSearchSuggestionsOpen, showAccount, showCart, showSearch, staticLinks, suggestionItems, whatsappHref }) {
     const navProps = { activeRoute, brandLinks, categoryTree, extraLinks, navbarTexts, normalizeRoute, productsActive, staticLinks, whatsappHref };
@@ -205,68 +206,7 @@ function DesktopNavLinks({ activeRoute, brandLinks, categoryTree, extraLinks, na
         <ChevronDown className="size-3" />
       </button>
 
-      <div className="invisible absolute left-1/2 top-full z-50 mt-1 w-[min(95vw,1080px)] -translate-x-1/2 before:absolute before:inset-x-0 before:-top-10 before:h-10 before:content-[''] rounded-md border border-[#e4e9ef] bg-white p-6 opacity-0 shadow-xl transition-all duration-150 group-hover:visible group-hover:opacity-100 dark:border-[#3d2f21] dark:bg-[#1a130c]">
-        <div className="max-h-[68vh] overflow-y-auto pr-1">
-          {categoryTree.length ? (
-            <div className="grid gap-8 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
-              {categoryTree.map((parent) => (
-                <div key={`parent-${parent.id}`}>
-                  <a
-                    href={`/catalog?category=${encodeURIComponent(parent.id)}`}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      navigate(`/catalog?category=${encodeURIComponent(parent.id)}`);
-                    }}
-                    className="block text-[12px] font-black uppercase tracking-[0.08em] text-[color:var(--color-primary,#0099e5)] hover:opacity-80"
-                  >
-                    {parent.name}
-                  </a>
-                  <div className="mt-2 space-y-1.5">
-                    {parent.children.length ? (
-                      parent.children.map((child) => (
-                        <a
-                          key={`child-${child.id}`}
-                          href={`/catalog?category=${encodeURIComponent(child.id)}`}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            navigate(`/catalog?category=${encodeURIComponent(child.id)}`);
-                          }}
-                          className="block text-[15px] leading-tight text-[#4b5563] hover:text-[color:var(--color-primary,#0099e5)] dark:text-[#cdbca9]"
-                        >
-                          {child.name}
-                        </a>
-                      ))
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-[#6b7280] dark:text-[#a59280]">No hay categorias disponibles.</p>
-          )}
-
-          {brandLinks.length ? (
-            <div className="mt-6 border-t border-[#eef2f7] pt-4 dark:border-[#3d2f21]">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#6b7280] dark:text-[#a59280]">Marcas</p>
-              <div className="flex flex-wrap gap-2">
-                {brandLinks.map((item) => (
-                  <a
-                    key={`brand-${item.href}`}
-                    href={item.href}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      navigate(item.href);
-                    }}
-                    className="rounded-full border border-[#dbe2ea] px-2.5 py-1 text-[12px] text-[#1f2937] hover:border-[color:var(--color-primary,#0099e5)] hover:text-[color:var(--color-primary,#0099e5)] dark:border-[#3d2f21] dark:text-[#e7ddd3]"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <ProductsMegaMenu categoryTree={categoryTree} brandLinks={brandLinks} />
     </div>
 
     {staticLinks.map((item) => {
