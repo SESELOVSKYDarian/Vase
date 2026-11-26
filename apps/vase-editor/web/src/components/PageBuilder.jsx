@@ -6,6 +6,7 @@ import Services from './blocks/Services';
 import { BLOCK_LOADERS } from './blockLoaders';
 import { useTenant } from '../context/TenantContext';
 import { deviceClass, spacingStyle } from '../utils/sectionStyle';
+import Reveal from './Reveal';
 
 // Los bloques que usa casi toda tienda en el inicio van incluidos, así aparecen sin esperar.
 // El resto (Sobre nosotros, grillas y los de Piquim) se descarga solo si la página lo usa:
@@ -83,9 +84,12 @@ export default function PageBuilder({ sections = [], ignoreDevice = false }) {
                         className={ignoreDevice ? undefined : deviceClass(section.props)}
                         style={spacingStyle(section.props)}
                     >
-                        <Suspense fallback={<BlockSkeleton type={section.type} />}>
-                            <Component {...section.props} {...(section.type === 'PiquimCatalog3Panel' && catalogCards ? { cards: catalogCards } : {})} />
-                        </Suspense>
+                        {/* Cada sección aparece suave al entrar en pantalla (en el editor se ve directo). */}
+                        <Reveal disabled={ignoreDevice}>
+                            <Suspense fallback={<BlockSkeleton type={section.type} />}>
+                                <Component {...section.props} {...(section.type === 'PiquimCatalog3Panel' && catalogCards ? { cards: catalogCards } : {})} />
+                            </Suspense>
+                        </Reveal>
                     </section>
                 );
             })}

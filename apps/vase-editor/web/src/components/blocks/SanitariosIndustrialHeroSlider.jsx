@@ -175,13 +175,14 @@ export default function SanitariosIndustrialHeroSlider({ slides = [], styles = {
                             transition: stageTransition,
                         }}
                     >
-                        <div className="flex h-full flex-col justify-center px-8 py-10 sm:px-14 lg:px-20">
+                        {/* El texto ocupa la parte oscura de la izquierda; no llega hasta la foto. */}
+                        <div className="flex h-full max-w-full flex-col justify-center px-8 py-10 sm:px-14 md:max-w-[48%] lg:px-20">
                             {slide.label ? (
                                 <span className="mb-4 text-xs font-black uppercase tracking-[0.3em]" style={{ color: colors.labelColor }}>
                                     {slide.label}
                                 </span>
                             ) : null}
-                            <h1 className="font-black uppercase tracking-[-0.05em] leading-[0.84]" style={{ color: colors.titleColor, fontSize: 'clamp(3.2rem,10vw,10rem)' }}>
+                            <h1 className="font-black uppercase tracking-[-0.05em] leading-[0.84]" style={{ color: colors.titleColor, fontSize: 'clamp(2.6rem,6.2vw,7rem)' }}>
                                 {headingLines.map((line, lineIndex) => (
                                     <span key={`${line}-${lineIndex}`} className="block">
                                         {line}
@@ -192,7 +193,7 @@ export default function SanitariosIndustrialHeroSlider({ slides = [], styles = {
                     </div>
 
                     <div
-                        className="absolute left-[54%] top-1/2 z-30 w-[36%] min-w-[180px] -translate-x-1/2 -translate-y-1/2 transition-transform duration-700"
+                        className="absolute left-[62%] top-1/2 z-30 hidden w-[32%] min-w-[180px] -translate-x-1/2 -translate-y-1/2 transition-transform duration-700 md:block"
                         style={{
                             transform: `translate(calc(-45% + ${imageOffsetX}px), calc(-50% + ${imageOffsetY}px)) scale(${imageScale})`,
                             opacity: imageOpacity,

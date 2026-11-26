@@ -9,6 +9,7 @@ import { PIQUIM_FOOTER_DEFAULTS } from "../../data/piquimBranding";
 import { isPiquimTenantIdentity, resolveBrandLogo } from "../../utils/tenantBranding";
 
 import FooterColumns from './FooterColumns.jsx';
+import StoreLogo from './StoreLogo.jsx';
 const toArray = (value, fallback = []) => (Array.isArray(value) ? value : fallback);
 const SOCIAL_ICON_MAP = {
     instagram: Instagram,
@@ -147,10 +148,17 @@ export default function Footer() {
                 <div className="mx-auto max-w-[1280px] px-6 md:px-10">
                     <div className={`mb-8 grid grid-cols-1 gap-12 border-b border-white/10 pb-12 text-left ${showWhatsappFooter ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
                         <div>
-                            <div className="mb-6 flex items-center gap-2 text-primary">
-                                <Globe size={28} strokeWidth={2.5} className="text-primary" />
-                                <h2 className="text-2xl font-black uppercase tracking-tight text-white">{displayBrandName}</h2>
-                            </div>
+                            {/* Con logo cargado va el logo (el pie siempre es oscuro); sin logo, el nombre. */}
+                            {logoSrc ? (
+                                <div className="mb-6">
+                                    <StoreLogo src={logoSrc} alt={brandName} onDark className="h-16 w-auto max-w-[240px] md:h-20" />
+                                </div>
+                            ) : (
+                                <div className="mb-6 flex items-center gap-2 text-primary">
+                                    <Globe size={28} strokeWidth={2.5} className="text-primary" />
+                                    <h2 className="text-2xl font-black uppercase tracking-tight text-white">{displayBrandName}</h2>
+                                </div>
+                            )}
                             <p className="mb-6 leading-relaxed text-white/60">{footerDescription}</p>
 
                             {visibleSocialLinks.length ? (
