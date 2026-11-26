@@ -46,3 +46,17 @@ test('no toca una foto que ya es transparente', async () => {
     assert.equal(result.status, 'skipped');
     assert.equal(result.reason, 'already_transparent');
   });
+
+test('borra manchitas sueltas (como una marca de agua chica) y deja el producto centrado', async () => {
+  const square = await sharp({ create: { width: 80, height: 80, channels: 3, background: { r: 220, g: 40, b: 40 } } }).png().toBuffer();
+  const speck = await sharp({ create: { width: 4, height: 4, channels: 3, background: { r: 200, g: 200, b: 200 } } }).png().toBuffer();
+  const photo = await sharp({ create: { width: 200, height: 200, channels: 3, background: { r: 0, g: 0, b: 0 } } })
+    .composite([{ input: square, top: 40, left: 40 }, { input: speck, top: 180, left: 180 }])
+    .png()
+    .toBuffer();
+  const result = await removeSolidBackground(photo);
+  assert.equal(result.status, 'removed');
+  const meta = await sharp(result.buffer).metadata();
+  // Sin la manchita, el recorte es solo el cuadrado (80 px) con su aire: no llega a la esquina.
+  assert.ok(meta.width <= 104, `ancho ${meta.width}`);
+});

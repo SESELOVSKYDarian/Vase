@@ -68,7 +68,7 @@ export function detectSolidBackground(data, width, height, channels = 4) {
  * Vuelve transparente el fondo conectado al borde (relleno desde los bordes) y suaviza el contorno.
  * Modifica `data` (RGBA) en el lugar. Devuelve cuántos píxeles quedaron transparentes.
  */
-export function floodRemove(data, width, height, color, tolerance = TOLERANCE) {
+export function floodRemove(data, width, height, color, tolerance = TOLERANCE, isShadow = null) {
   const total = width * height;
   const removed = new Uint8Array(total);
   const queue = new Int32Array(total);
@@ -92,7 +92,8 @@ export function floodRemove(data, width, height, color, tolerance = TOLERANCE) {
     ];
     for (const next of neighbours) {
       if (next < 0 || removed[next]) continue;
-      if (colorDistance(data, next * 4, color) <= tolerance) {
+      // Fondo, o sombra muy clara pegada al fondo (solo en fondos blancos).
+      if (colorDistance(data, next * 4, color) <= tolerance || (isShadow && isShadow(data, next * 4))) {
         removed[next] = 1;
         queue[tail++] = next;
       }
@@ -124,6 +125,49 @@ export function floodRemove(data, width, height, color, tolerance = TOLERANCE) {
 }
 
 /**
+ * Borra manchitas sueltas que no son parte del producto (marcas de agua chicas, textos, puntos):
+ * todo grupo de píxeles visibles que sea mucho más chico que el producto principal.
+ * Modifica `data` en el lugar.
+ */
+export function removeSpecks(data, width, height, minShare = 0.02) {
+  const total = width * height;
+  const label = new Int32Array(total).fill(-1);
+  const sizes = [];
+  const queue = new Int32Array(total);
+  for (let start = 0; start < total; start += 1) {
+    if (label[start] !== -1 || data[start * 4 + 3] < 24) continue;
+    const id = sizes.length;
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = start;
+    label[start] = id;
+    while (head < tail) {
+      const position = queue[head++];
+      const x = position % width;
+      const neighbours = [x > 0 ? position - 1 : -1, x < width - 1 ? position + 1 : -1, position - width, position + width];
+      for (const next of neighbours) {
+        if (next < 0 || next >= total || label[next] !== -1 || data[next * 4 + 3] < 24) continue;
+        label[next] = id;
+        queue[tail++] = next;
+      }
+    }
+    sizes.push(tail);
+  }
+  if (sizes.length < 2) return 0;
+  const largest = sizes.reduce((max, size) => (size > max ? size : max), 0);
+  const minimum = Math.max(30, largest * minShare);
+  let cleared = 0;
+  for (let position = 0; position < total; position += 1) {
+    const id = label[position];
+    if (id >= 0 && sizes[id] < minimum) {
+      data[position * 4 + 3] = 0;
+      cleared += 1;
+    }
+  }
+  return cleared;
+}
+
+/**
  * Quita el fondo liso de una imagen. Devuelve:
  * - { status: 'removed', buffer } con la foto en WebP transparente, cuadrada y con el producto centrado;
  * - { status: 'skipped', reason } si no tiene fondo liso, ya era transparente o el fondo es casi toda la foto.
@@ -141,11 +185,22 @@ export async function removeSolidBackground(input) {
   if (!background) return { status: 'skipped', reason: 'background_not_solid' };
 
   const luminance = 0.2126 * background[0] + 0.7152 * background[1] + 0.0722 * background[2];
-  const removed = floodRemove(data, width, height, background, luminance > 200 ? LIGHT_TOLERANCE : TOLERANCE);
+  const light = luminance > 200;
+  // En fondo blanco, la sombra suave (gris muy clara y sin color) también se va.
+  const isShadow = light
+    ? (pixels, index) => {
+        const max = Math.max(pixels[index], pixels[index + 1], pixels[index + 2]);
+        const min = Math.min(pixels[index], pixels[index + 1], pixels[index + 2]);
+        const lum = 0.2126 * pixels[index] + 0.7152 * pixels[index + 1] + 0.0722 * pixels[index + 2];
+        return max - min < 14 && lum > 195;
+      }
+    : null;
+  const removed = floodRemove(data, width, height, background, light ? LIGHT_TOLERANCE : TOLERANCE, isShadow);
   const ratio = removed / (width * height);
   // Si se iría casi toda la imagen, el producto es del mismo color que el fondo: mejor no tocar.
   if (ratio > 0.97) return { status: 'skipped', reason: 'product_same_color_as_background' };
   if (ratio < 0.02) return { status: 'skipped', reason: 'no_background_found' };
+  removeSpecks(data, width, height);
 
   // Recorta al ras del producto y lo centra en un cuadrado con aire alrededor: así todas las fotos
   // del catálogo quedan del mismo tamaño y la tarjeta no le corta partes.

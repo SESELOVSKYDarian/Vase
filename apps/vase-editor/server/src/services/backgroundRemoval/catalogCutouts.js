@@ -13,7 +13,7 @@ import { removeSolidBackground } from './removeBackground.js';
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 /** Versión del recorte. Si cambia la forma de recortar, las fotos hechas con una versión vieja se rehacen. */
-export const CUTOUT_VERSION = 2;
+export const CUTOUT_VERSION = 3;
 
 let schemaReady = null;
 
