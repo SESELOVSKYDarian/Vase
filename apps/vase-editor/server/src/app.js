@@ -17,6 +17,7 @@ import { ordersRouter, adminOrdersRouter } from './routes/orders.js';
 import { webhooksRouter } from './routes/webhooks.js';
 import { integrationsRouter } from './routes/integrations.js';
 import { uploadsRouter } from './routes/uploads.js';
+import { storefrontLogoRouter } from './routes/storefrontLogo.js';
 import { internalStorageRouter } from './routes/internalStorage.js';
 import { authenticate, optionalAuthenticate, requireRole } from './middleware/auth.js';
 import { pool } from './db.js';
@@ -187,6 +188,8 @@ app.use('/api/auth', limitAuth, authRouter);
 app.get('/api/me', authenticate, getMeHandler);
 app.use('/api/me', authenticate, meRouter);
 app.use('/api/uploads', authenticate, uploadsRouter);
+// Logo de la tienda recortado y servido desde el mismo dominio (público).
+app.use('/api/storefront', storefrontLogoRouter);
 app.use('/api/settings', optionalAuthenticate, settingsRouter);
 app.use('/api/orders', optionalAuthenticate, ordersRouter);
 app.use('/public', optionalAuthenticate, publicRouter);
