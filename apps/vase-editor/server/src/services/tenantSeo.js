@@ -90,7 +90,15 @@ export function buildFaviconLinks({ branding = {}, seo = {}, tenant = {} }) {
   }
   if (isPiquimTenant(tenant, branding)) return PIQUIM_FAVICONS;
   const fromSeo = String(seo?.favicon_url || '').trim();
-  return fromSeo ? [{ rel: 'icon', href: fromSeo }] : [];
+  if (fromSeo) return [{ rel: 'icon', href: fromSeo }];
+  // Sin favicon cargado pero con logo: /favicon.ico lo arma con el logo.
+  if (String(branding?.logo_url || '').trim()) {
+    return [
+      { rel: 'icon', type: 'image/png', href: '/favicon.ico' },
+      { rel: 'apple-touch-icon', href: '/favicon.ico?s=180' },
+    ];
+  }
+  return [];
 }
 
 export function renderLinkTags(links, origin = '') {

@@ -9,6 +9,7 @@ import ProductInspector from '../ProductInspector';
 import ProductSearch from '../ProductSearch';
 import Ofertas from '../Ofertas';
 import Precios from '../Precios';
+import QuitarFondos from '../QuitarFondos';
 import { errorText, panelFetch } from '../../api';
 import { formatMoney } from '../../format';
 import { buildCategoryTree, buildFilters, categoryPath, countByCategory, descendantIds, draftToPayload, mainCategory, productThumb, searchProducts } from '../model';
@@ -182,6 +183,18 @@ export default function Catalogo({ editor, user, theme, toast, goSettings, store
                     </button>
                 ))}
                 <div className="vp-sp" />
+                {tab === 'productos' ? (
+                    <QuitarFondos
+                        user={user}
+                        theme={theme}
+                        toast={toast}
+                        onProductsChanged={async () => {
+                            // Recarga los productos para ver las fotos ya sin fondo.
+                            const fresh = await panelFetch('/tenant/products', { user }).catch(() => null);
+                            if (fresh?.items) setProducts(fresh.items);
+                        }}
+                    />
+                ) : null}
                 {sync ? <button type="button" className="vp-sync" onClick={() => goSettings('gestion')}><i />Sincronizado · {sync}</button> : null}
             </div>
             {tab === 'ofertas' ? <Ofertas user={user} products={products} categories={categories} toast={toast} theme={theme} /> : null}

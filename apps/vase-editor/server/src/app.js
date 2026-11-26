@@ -18,6 +18,7 @@ import { webhooksRouter } from './routes/webhooks.js';
 import { integrationsRouter } from './routes/integrations.js';
 import { uploadsRouter } from './routes/uploads.js';
 import { storefrontLogoRouter } from './routes/storefrontLogo.js';
+import { buildLogoFavicon, loadLogoBuffer } from './services/logoImage.js';
 import { internalStorageRouter } from './routes/internalStorage.js';
 import { authenticate, optionalAuthenticate, requireRole } from './middleware/auth.js';
 import { pool } from './db.js';
@@ -289,6 +290,9 @@ if (hasWebBuild) {
     }
   });
 
+  // Favicons armados con el logo, ya listos (por tienda y tamaño).
+  const logoFaviconCache = new Map();
+
   app.get('/favicon.ico', async (req, res, next) => {
     try {
       const context = await loadTenantSeoContext(req);
@@ -305,6 +309,25 @@ if (hasWebBuild) {
         return res.redirect(302, configured);
       }
       if (isPiquimTenant(context.tenant, context.branding)) return res.redirect(302, '/piquim/favicon.ico');
+      // Sin favicon cargado: se arma con el logo de la tienda (cuadrado, y sobre fondo oscuro si el logo es claro).
+      const logo = String(context.branding?.logo_url || '').trim();
+      if (logo) {
+        const size = req.query.s === '180' ? 180 : 64;
+        const key = `${logo.length}:${logo.slice(0, 200)}:${logo.slice(-80)}:${size}`;
+        let icon = logoFaviconCache.get(key);
+        if (!icon) {
+          const buffer = await loadLogoBuffer(logo).catch(() => null);
+          icon = buffer ? await buildLogoFavicon(buffer, size).catch(() => null) : null;
+          if (icon) {
+            if (logoFaviconCache.size >= 100) logoFaviconCache.delete(logoFaviconCache.keys().next().value);
+            logoFaviconCache.set(key, icon);
+          }
+        }
+        if (icon) {
+          res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' });
+          return res.send(icon);
+        }
+      }
       return res.sendStatus(404);
     } catch (err) {
       return next(err);

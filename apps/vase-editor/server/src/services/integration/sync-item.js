@@ -261,6 +261,9 @@ export const buildProductDataFromSync = ({ existingData, item, allowEditorialSyn
 
   if (allowEditorialSync && item.hasImages) {
     next.images = item.images || [];
+    // Fotos nuevas o cambiadas: se vuelven a revisar para quitarles el fondo (las ya recortadas se cambian
+    // por su versión sin fondo al instante, sin procesarlas de nuevo).
+    delete next.bg_removal_done;
   }
 
   if (allowEditorialSync && item.hasShortDescription) {

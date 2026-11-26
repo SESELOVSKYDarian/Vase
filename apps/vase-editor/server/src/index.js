@@ -1,4 +1,5 @@
 import { startStorageJobs } from './services/storage/scheduler.js';
+import { startBackgroundRemovalJobs } from './services/backgroundRemoval/scheduler.js';
 import dotenv from 'dotenv';
 dotenv.config();
 import http from 'http';
@@ -602,6 +603,13 @@ async function startServer() {
   const outboxTimer = setInterval(() => void processLabsCatalogOutbox().catch((error) => console.error('labs_catalog_outbox_failed', error?.message || error)), 30_000);
   outboxTimer.unref();
   startStorageJobs();
+  // Quitar fondo de las fotos del catálogo: el Teflón lo trae prendido de entrada.
+  void resolveTeflonTenantBootstrapTarget()
+    .catch(() => null)
+    .then((target) => {
+      const teflonId = String(target?.id || '').trim();
+      startBackgroundRemovalJobs(UUID_PATTERN.test(teflonId) ? [teflonId] : []);
+    });
 }
 
 startServer().catch((err) => {

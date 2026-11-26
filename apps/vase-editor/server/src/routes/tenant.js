@@ -1,12 +1,14 @@
 // Rutas del panel de la tienda (/tenant). El código de cada tema está en la carpeta tenant/.
 // Se cargan en este orden para que las rutas queden registradas igual que siempre.
-// partes: ./tenant/brands.js, ./tenant/bulk-price.js, ./tenant/categories.js, ./tenant/domains.js, ./tenant/helpers-common.js, ./tenant/helpers-domains.js, ./tenant/helpers-products.js, ./tenant/helpers-upload.js, ./tenant/integrations.js, ./tenant/offers.js, ./tenant/pages.js, ./tenant/price-lists.js, ./tenant/products-create.js, ./tenant/products-list.js, ./tenant/products-stock.js, ./tenant/products-update.js, ./tenant/router.js, ./tenant/settings.js, ./tenant/users.js
+// partes: ./tenant/brands.js, ./tenant/bulk-price.js, ./tenant/categories.js, ./tenant/domains.js, ./tenant/helpers-common.js, ./tenant/helpers-domains.js, ./tenant/helpers-products.js, ./tenant/helpers-upload.js, ./tenant/integrations.js, ./tenant/offers.js, ./tenant/pages.js, ./tenant/price-lists.js, ./tenant/products-create.js, ./tenant/products-list.js, ./tenant/products-stock.js, ./tenant/products-update.js, ./tenant/product-backgrounds.js, ./tenant/router.js, ./tenant/settings.js, ./tenant/users.js
 import './tenant/settings.js';
 import './tenant/domains.js';
 import './tenant/integrations.js';
 import './tenant/pages.js';
 import './tenant/categories.js';
 import './tenant/brands.js';
+// Antes que /products/:id, para que /products/backgrounds no se confunda con un producto.
+import './tenant/product-backgrounds.js';
 import './tenant/products-list.js';
 import './tenant/price-lists.js';
 import './tenant/bulk-price.js';
