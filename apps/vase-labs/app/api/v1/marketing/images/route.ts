@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { labsPrisma } from "../../../../lib/db";
 import { decryptChannelSecret } from "../../../../lib/channel-secrets";
-import { buildBusinessProfileContext } from "../../../../lib/business-profile";
+import { fetchBusinessProfile, formatBusinessProfileContext } from "../../../../lib/business-profile";
 import { labsEntitlementsService } from "../../../../lib/labs-entitlements-service";
 import { resolveLabsRequestContext } from "../../../../lib/request-context";
 import {
   MARKETING_MAX_PROMPT,
   buildMarketingPrompt,
   generateMarketingImage,
+  publicImageUrl,
   marketingErrorCode,
   MarketingImageError,
   isMarketingFormat,
@@ -74,22 +75,30 @@ export async function POST(request: Request) {
   const product = productId
     ? await labsPrisma.catalogProduct.findFirst({
         where: { id: productId, globalTenantId, active: true },
-        select: { name: true, price: true, description: true, aiDescription: true },
+        select: { name: true, price: true, description: true, aiDescription: true, imageUrl: true },
       })
     : null;
+
+  // Foto real del producto y logo del negocio: van como imágenes de referencia para que la pieza los respete.
+  const profile = await fetchBusinessProfile(globalTenantId).catch(() => null);
+  const productImage = publicImageUrl(product?.imageUrl);
+  const logo = publicImageUrl(profile?.logoUrl);
 
   try {
     const image = await generateMarketingImage({
       apiKey,
       format,
+      referenceImages: [productImage, logo].filter((url): url is string => Boolean(url)),
       prompt: buildMarketingPrompt({
         request: prompt,
         format,
         businessName: context.context.tenantName,
-        businessContext: await buildBusinessProfileContext(globalTenantId).catch(() => ""),
+        businessContext: formatBusinessProfileContext(profile),
         product: product
           ? { name: product.name, price: product.price == null ? null : Number(product.price), description: product.aiDescription ?? product.description }
           : null,
+        hasProductImage: Boolean(productImage),
+        hasLogo: Boolean(logo),
       }),
     });
     await labsEntitlementsService.registerTokenUsage(globalTenantId, {

@@ -13,6 +13,8 @@ export type VaseBusinessProfile = {
   socialLinks?: Array<{ network?: string; url?: string; label?: string }>;
   branches?: Array<{ id?: string; name?: string | null; address?: string | null; phone?: string | null; hours?: string | null; isMain?: boolean }>;
   fiscal?: { legalName?: string | null } | null;
+  /** Logo cargado en Mi negocio (dirección de la imagen). */
+  logoUrl?: string | null;
 };
 
 type FetchLike = typeof fetch;
