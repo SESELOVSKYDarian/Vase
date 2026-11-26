@@ -12,6 +12,8 @@ import { buildProductUploadsUsername, uploadBufferToUploadsService } from '../up
 import { removeSolidBackground } from './removeBackground.js';
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+/** Versión del recorte. Si cambia la forma de recortar, las fotos hechas con una versión vieja se rehacen. */
+export const CUTOUT_VERSION = 2;
 
 let schemaReady = null;
 
@@ -31,6 +33,7 @@ export function ensureCutoutsSchema(db = pool) {
           ')',
         ].join(' ')
       )
+      .then(() => db.query('alter table image_cutouts add column if not exists algo_version int not null default 1'))
       .catch((error) => {
         schemaReady = null;
         throw error;
@@ -88,15 +91,15 @@ async function loadImage(source) {
 
 /** Anotación guardada de una foto: { cutout_url } (null = no tenía fondo liso) o undefined si no se revisó. */
 async function findCutout(tenantId, key) {
-  const row = (await pool.query('select cutout_url from image_cutouts where tenant_id = $1 and source_key = $2', [tenantId, key])).rows[0];
+  const row = (await pool.query('select cutout_url from image_cutouts where tenant_id = $1 and source_key = $2 and algo_version = $3', [tenantId, key, CUTOUT_VERSION])).rows[0];
   return row ? { cutoutUrl: row.cutout_url } : undefined;
 }
 
 async function saveCutout(tenantId, key, originalUrl, cutoutUrl) {
   await pool.query(
-    `insert into image_cutouts (tenant_id, source_key, original_url, cutout_url) values ($1, $2, $3, $4)
-     on conflict (tenant_id, source_key) do update set cutout_url = excluded.cutout_url, original_url = excluded.original_url`,
-    [tenantId, key, originalUrl, cutoutUrl]
+    `insert into image_cutouts (tenant_id, source_key, original_url, cutout_url, algo_version) values ($1, $2, $3, $4, $5)
+     on conflict (tenant_id, source_key) do update set cutout_url = excluded.cutout_url, original_url = excluded.original_url, algo_version = excluded.algo_version`,
+    [tenantId, key, originalUrl, cutoutUrl, CUTOUT_VERSION]
   );
 }
 
@@ -252,4 +255,37 @@ export async function restoreTenantOriginals(tenantId) {
     restored += 1;
   }
   return restored;
+}
+
+/**
+ * Si la tienda tiene fotos recortadas con una versión vieja del recorte: les vuelve a poner la foto
+ * original, borra esas anotaciones y deja los productos para revisar de nuevo (se rehacen con la versión actual).
+ * Las fotos viejas que venían incrustadas (sin dirección original) quedan como estaban.
+ */
+export async function upgradeOldCutouts(tenantId) {
+  await ensureCutoutsSchema();
+  const old = (await pool.query('select cutout_url, original_url from image_cutouts where tenant_id = $1 and algo_version < $2', [tenantId, CUTOUT_VERSION])).rows;
+  if (!old.length) return 0;
+  const back = new Map(old.filter((row) => row.cutout_url && row.original_url).map((row) => [row.cutout_url, row.original_url]));
+  let touched = 0;
+  if (back.size) {
+    const rows = (await pool.query("select id, data->'images' as images from product_cache where tenant_id = $1 and jsonb_typeof(data->'images') = 'array'", [tenantId])).rows;
+    for (const product of rows) {
+      let changed = false;
+      const images = product.images.map((image) => {
+        const original = back.get(imageSource(image));
+        if (!original) return image;
+        changed = true;
+        return withSource(image, original);
+      });
+      if (!changed) continue;
+      await pool.query(
+        "update product_cache set data = jsonb_set(data, '{images}', $3::jsonb) - 'bg_removal_done', updated_at = now() where id = $1 and tenant_id = $2",
+        [product.id, tenantId, JSON.stringify(images)]
+      );
+      touched += 1;
+    }
+  }
+  await pool.query('delete from image_cutouts where tenant_id = $1 and algo_version < $2', [tenantId, CUTOUT_VERSION]);
+  return touched;
 }

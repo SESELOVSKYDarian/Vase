@@ -18,9 +18,12 @@ test('saca un fondo negro y deja solo el producto, recortado', async () => {
     assert.equal(result.status, 'removed');
     const meta = await sharp(result.buffer).metadata();
     // El cuadrado de prueba es opaco: después de recortar no queda fondo, solo el producto.
-    assert.ok(meta.width <= 84, `ancho ${meta.width}`);
+    // Cuadrada, con el producto (80 px) centrado y algo de aire alrededor.
+    assert.equal(meta.width, meta.height);
+    assert.ok(meta.width > 80 && meta.width <= 104, `ancho ${meta.width}`);
     const { data } = await sharp(result.buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    const center = (40 * meta.width + 40) * 4;
+    const middle = Math.floor(meta.width / 2);
+    const center = (middle * meta.width + middle) * 4;
     assert.equal(data[center + 3], 255);
     assert.ok(data[center] > 180);
   });

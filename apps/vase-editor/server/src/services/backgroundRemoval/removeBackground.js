@@ -10,6 +10,10 @@ import sharp from 'sharp';
 const MAX_SIDE = 1400;
 /** Qué tan distinto puede ser un píxel del fondo y seguir contando como fondo (0-441). */
 const TOLERANCE = 46;
+/** En fondos claros (blancos) se tolera un poco más, para llevarse también la sombra suave del producto. */
+const LIGHT_TOLERANCE = 62;
+/** Aire alrededor del producto en la foto final (parte del lado más largo), para que la tarjeta no lo corte. */
+const PADDING = 0.12;
 /** Parte del borde que tiene que ser del color del fondo para considerarlo "fondo liso". */
 const UNIFORM_BORDER_RATIO = 0.82;
 
@@ -64,14 +68,14 @@ export function detectSolidBackground(data, width, height, channels = 4) {
  * Vuelve transparente el fondo conectado al borde (relleno desde los bordes) y suaviza el contorno.
  * Modifica `data` (RGBA) en el lugar. Devuelve cuántos píxeles quedaron transparentes.
  */
-export function floodRemove(data, width, height, color) {
+export function floodRemove(data, width, height, color, tolerance = TOLERANCE) {
   const total = width * height;
   const removed = new Uint8Array(total);
   const queue = new Int32Array(total);
   let head = 0;
   let tail = 0;
   for (const position of borderPixels(width, height)) {
-    if (!removed[position] && colorDistance(data, position * 4, color) <= TOLERANCE) {
+    if (!removed[position] && colorDistance(data, position * 4, color) <= tolerance) {
       removed[position] = 1;
       queue[tail++] = position;
     }
@@ -88,7 +92,7 @@ export function floodRemove(data, width, height, color) {
     ];
     for (const next of neighbours) {
       if (next < 0 || removed[next]) continue;
-      if (colorDistance(data, next * 4, color) <= TOLERANCE) {
+      if (colorDistance(data, next * 4, color) <= tolerance) {
         removed[next] = 1;
         queue[tail++] = next;
       }
@@ -112,7 +116,7 @@ export function floodRemove(data, width, height, color) {
       (position < total - width && removed[position + width]);
     if (touchesBackground) {
       const distance = colorDistance(data, index, color);
-      const keep = Math.min(1, Math.max(0.35, (distance - TOLERANCE) / (TOLERANCE * 2)));
+      const keep = Math.min(1, Math.max(0.35, (distance - tolerance) / (tolerance * 2)));
       data[index + 3] = Math.round(data[index + 3] * keep);
     }
   }
@@ -121,7 +125,7 @@ export function floodRemove(data, width, height, color) {
 
 /**
  * Quita el fondo liso de una imagen. Devuelve:
- * - { status: 'removed', buffer } con la foto en WebP transparente y sin margen;
+ * - { status: 'removed', buffer } con la foto en WebP transparente, cuadrada y con el producto centrado;
  * - { status: 'skipped', reason } si no tiene fondo liso, ya era transparente o el fondo es casi toda la foto.
  */
 export async function removeSolidBackground(input) {
@@ -136,14 +140,21 @@ export async function removeSolidBackground(input) {
   if (background === 'transparent') return { status: 'skipped', reason: 'already_transparent' };
   if (!background) return { status: 'skipped', reason: 'background_not_solid' };
 
-  const removed = floodRemove(data, width, height, background);
+  const luminance = 0.2126 * background[0] + 0.7152 * background[1] + 0.0722 * background[2];
+  const removed = floodRemove(data, width, height, background, luminance > 200 ? LIGHT_TOLERANCE : TOLERANCE);
   const ratio = removed / (width * height);
   // Si se iría casi toda la imagen, el producto es del mismo color que el fondo: mejor no tocar.
   if (ratio > 0.97) return { status: 'skipped', reason: 'product_same_color_as_background' };
   if (ratio < 0.02) return { status: 'skipped', reason: 'no_background_found' };
 
-  const buffer = await sharp(data, { raw: { width, height, channels: 4 } })
-    .trim({ threshold: 1 })
+  // Recorta al ras del producto y lo centra en un cuadrado con aire alrededor: así todas las fotos
+  // del catálogo quedan del mismo tamaño y la tarjeta no le corta partes.
+  const trimmed = await sharp(data, { raw: { width, height, channels: 4 } }).trim({ threshold: 1 }).png().toBuffer({ resolveWithObject: true });
+  const side = Math.ceil(Math.max(trimmed.info.width, trimmed.info.height) * (1 + PADDING * 2));
+  const left = Math.floor((side - trimmed.info.width) / 2);
+  const top = Math.floor((side - trimmed.info.height) / 2);
+  const buffer = await sharp(trimmed.data)
+    .extend({ top, bottom: side - trimmed.info.height - top, left, right: side - trimmed.info.width - left, background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .webp({ quality: 88, alphaQuality: 90 })
     .toBuffer();
   return { status: 'removed', buffer, background: background.map(Math.round) };

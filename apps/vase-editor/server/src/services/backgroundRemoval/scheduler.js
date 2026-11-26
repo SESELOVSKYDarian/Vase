@@ -2,7 +2,7 @@
 // fotos nuevas del catálogo y les quita el fondo. Va de a poco (unos productos por vuelta) para no
 // cargar el servidor; las tiendas con mucho catálogo se completan en varias vueltas.
 import { pool } from '../../db.js';
-import { countPendingProducts, ensureCutoutsSchema, processTenantCatalog } from './catalogCutouts.js';
+import { countPendingProducts, ensureCutoutsSchema, processTenantCatalog, upgradeOldCutouts } from './catalogCutouts.js';
 
 const TICK_MS = 10 * 60 * 1000;
 const PRODUCTS_PER_TICK = 150;
@@ -36,6 +36,9 @@ async function tick(defaultTenantIds) {
   try {
     await ensureCutoutsSchema();
     for (const tenantId of await tenantsWithAutoRemove(defaultTenantIds)) {
+      // Fotos hechas con una versión vieja del recorte: vuelven a la original para rehacerse.
+      const upgraded = await upgradeOldCutouts(tenantId);
+      if (upgraded) console.info(`[bg-removal] tienda=${tenantId} ${upgraded} productos vuelven a revisarse con el recorte nuevo`);
       if ((await countPendingProducts(tenantId)) === 0) continue;
       const status = await processTenantCatalog(tenantId, { limit: PRODUCTS_PER_TICK });
       if (status.products || status.failed) {

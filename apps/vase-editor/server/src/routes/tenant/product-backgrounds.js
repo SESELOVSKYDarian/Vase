@@ -15,6 +15,7 @@ import {
   processWholeCatalogInBackground,
   resetTenantCutouts,
   restoreTenantOriginals,
+  upgradeOldCutouts,
 } from '../../services/backgroundRemoval/catalogCutouts.js';
 import { getDefaultAutoTenantIds, isAutoRemoveEnabled } from '../../services/backgroundRemoval/scheduler.js';
 
@@ -40,6 +41,7 @@ tenantRouter.post('/products/backgrounds/run', async (req, res, next) => {
   if (!tenantId) return;
   try {
     await ensureCutoutsSchema();
+    await upgradeOldCutouts(tenantId);
     if (req.body?.again === true) await resetTenantCutouts(tenantId);
     const started = processWholeCatalogInBackground(tenantId);
     return res.status(202).json({ started, pending: await countPendingProducts(tenantId) });
