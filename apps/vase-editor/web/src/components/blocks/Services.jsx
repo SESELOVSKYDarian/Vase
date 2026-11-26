@@ -7,6 +7,25 @@ const normalizeAlignment = (value = "text-center") => {
   return value || "text-center";
 };
 
+
+/** true si el color (#rgb o #rrggbb) es claro. Sirve para no dejar un fondo blanco fijo en modo oscuro. */
+function isLightColor(value) {
+  const hex = String(value || "").trim().replace(/^#/, "");
+  const full = hex.length === 3 ? hex.split("").map((char) => char + char).join("") : hex;
+  if (!/^[0-9a-f]{6}$/i.test(full)) return false;
+  const [r, g, b] = [0, 2, 4].map((index) => parseInt(full.slice(index, index + 2), 16));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 200;
+}
+
+/** true si el color es oscuro (texto oscuro que en modo oscuro no se leería). */
+function isDarkColor(value) {
+  const hex = String(value || "").trim().replace(/^#/, "");
+  const full = hex.length === 3 ? hex.split("").map((char) => char + char).join("") : hex;
+  if (!/^[0-9a-f]{6}$/i.test(full)) return false;
+  const [r, g, b] = [0, 2, 4].map((index) => parseInt(full.slice(index, index + 2), 16));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 90;
+}
+
 function ServiceCard({ icon, image, imageAlt, title, text, description, styles = {} }) {
   const {
     cardBg = "bg-white dark:bg-[#3d2e21]",
@@ -64,8 +83,9 @@ function ServiceCard({ icon, image, imageAlt, title, text, description, styles =
 
   return (
     <div
-      className={`flex flex-col items-center text-center p-8 rounded-2xl shadow-sm ${cardBackgroundColor ? "" : cardBg}`}
-      style={cardBackgroundColor ? { backgroundColor: cardBackgroundColor } : undefined}
+      // Un fondo claro elegido para la tarjeta se respeta en modo claro y se oscurece en modo oscuro.
+      className={`flex flex-col items-center text-center p-8 rounded-2xl shadow-sm transition-transform duration-300 hover:-translate-y-1 ${cardBackgroundColor ? (isLightColor(cardBackgroundColor) ? "bg-[var(--svc-card)] dark:bg-white/[0.04] dark:ring-1 dark:ring-white/10" : "") : cardBg}`}
+      style={cardBackgroundColor ? (isLightColor(cardBackgroundColor) ? { "--svc-card": cardBackgroundColor } : { backgroundColor: cardBackgroundColor }) : undefined}
     >
       <div
         className="mb-4 flex h-16 w-16 items-center justify-center rounded-full"
@@ -73,8 +93,8 @@ function ServiceCard({ icon, image, imageAlt, title, text, description, styles =
       >
         {iconNode}
       </div>
-      <h3 className={`${titleSize} font-bold mb-2`} style={{ color: cardTitleColor }}>{title}</h3>
-      <p style={{ color: cardTextColor }}>{body}</p>
+      <h3 className={`${titleSize} font-bold mb-2 ${isDarkColor(cardTitleColor) ? "dark:!text-white" : ""}`} style={{ color: cardTitleColor }}>{title}</h3>
+      <p className={isDarkColor(cardTextColor) || cardTextColor === "#8a7560" ? "dark:!text-zinc-300" : undefined} style={{ color: cardTextColor }}>{body}</p>
     </div>
   );
 }
@@ -115,16 +135,17 @@ export default function Services({
 
   return (
     <section
-      className={`px-4 py-16 md:px-10 ${sectionBackgroundColor ? "" : sectionBg}`}
-      style={sectionBackgroundColor ? { backgroundColor: sectionBackgroundColor } : undefined}
+      // Mismo criterio que las tarjetas: un fondo claro fijo pasa a oscuro en modo oscuro.
+      className={`px-4 py-16 md:px-10 ${sectionBackgroundColor ? (isLightColor(sectionBackgroundColor) ? "bg-[var(--svc-bg)] dark:bg-[#120c08]" : "") : sectionBg}`}
+      style={sectionBackgroundColor ? (isLightColor(sectionBackgroundColor) ? { "--svc-bg": sectionBackgroundColor } : { backgroundColor: sectionBackgroundColor }) : undefined}
     >
       <div className="mx-auto max-w-[1408px]">
         <div className={`mb-12 ${normalizedAlignment}`}>
-          <h2 className={`${titleSize} font-bold tracking-tight`} style={{ color: titleColor }}>
+          <h2 className={`${titleSize} font-bold tracking-tight ${isDarkColor(titleColor) ? "dark:!text-white" : ""}`} style={{ color: titleColor }}>
             {title}
           </h2>
           <p
-            className={`${subtitleSize} max-w-2xl mt-2 ${normalizedAlignment === "text-center" ? "mx-auto" : ""}`}
+            className={`${subtitleSize} max-w-2xl mt-2 ${normalizedAlignment === "text-center" ? "mx-auto" : ""} ${isDarkColor(subtitleColor) ? "dark:!text-zinc-300" : ""}`}
             style={{ color: subtitleColor }}
           >
             {subtitle}
