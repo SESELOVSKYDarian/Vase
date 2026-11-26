@@ -5,6 +5,7 @@ import { Download, ExternalLink } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ChargeButton, ClientNotes, ClientProductCard, type ProductCardData } from "@/components/admin/client-ficha";
 import { ClientAccessControls } from "@/components/admin/client-access-controls";
+import { ClientAccountControls } from "@/components/admin/client-account-controls";
 import { adminPermissions, requireAdminPermission } from "@/lib/auth/admin-permissions";
 import { amountDue } from "@/lib/billing/mercadopago-rules";
 import { prisma } from "@/lib/db/prisma";
@@ -40,8 +41,9 @@ export default async function AdminClientPage({
   params: Promise<{ tenantId: string }>;
   searchParams: Promise<{ tab?: string | string[] }>;
 }) {
+  let session;
   try {
-    await requireAdminPermission(adminPermissions.USERS);
+    session = await requireAdminPermission(adminPermissions.USERS);
   } catch {
     forbidden();
   }
@@ -55,6 +57,7 @@ export default async function AdminClientPage({
     select: {
       id: true,
       name: true,
+      accountName: true,
       industry: true,
       status: true,
       billingEmail: true,
@@ -186,6 +189,18 @@ export default async function AdminClientPage({
           isTestAccount={Boolean(tenant.subscription?.isTestAccount)}
         />
         <ChargeButton tenantId={tenant.id} tenantName={tenant.name} />
+        <ClientAccountControls
+          tenantId={tenant.id}
+          canDelete={session.user.platformRole === "SUPER_ADMIN"}
+          info={{
+            name: tenant.name,
+            accountName: tenant.accountName,
+            billingEmail: tenant.billingEmail ?? "",
+            industry: tenant.industry ?? "",
+            phone: info?.phone ?? "",
+            whatsapp: info?.whatsapp ?? "",
+          }}
+        />
       </section>
 
       <nav className="vpa-seg" aria-label="Ficha del cliente" style={{ alignSelf: "flex-start", maxWidth: "100%", overflowX: "auto" }}>
